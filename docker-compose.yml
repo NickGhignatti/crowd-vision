@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+    mongodb:
+        image: mongo:8.0.16-nanoserver-ltsc2022
+        container_name: mongodb
+        ports:
+            - "27017:27017"
+        volumes:
+            - mongo-data:/data/db
+
+    backend:
+        build: ./backend
+        container_name: express
+        ports:
+            - "3000:3000"
+        environment:
+            - MONGO_URI=mongodb://mongodb:27017/visiondb
+        depends_on:
+            - mongodb
+        volumes:
+            - ./backend:/app
+            - /app/node_modules
+
+    frontend:
+        build: ./frontend
+        container_name: vue
+        ports:
+            - "8080:8080"
+        depends_on:
+            - backend
+        volumes:
+            - ./frontend:/app
+            - /app/node_modules
+
+volumes:
+    mongo-data:
