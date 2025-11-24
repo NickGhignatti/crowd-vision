@@ -1,0 +1,31 @@
+openapi: 3.0.0
+
+info:
+    title: Crowd Vision Server API
+    description: >-
+      REST API documentation for the Crowd Vision backend.
+      Currently documents the initial server setup.
+      Note: Real-time sensor data is planned to be handled via WebSockets (Socket.io) as per the design docs.
+    version: 1.0.0
+
+servers:
+    - url: http://localhost:3000
+      description: Local development server
+
+paths:
+    /:
+        get:
+            summary: Health Check
+            description: Returns a simple greeting to verify the server is running and accessible.
+            operationId: getRoot
+            responses:
+                '200':
+                    description: Server is running
+                    content:
+                        text/plain:
+                            schema:
+                                type: string
+                                example: "Hello World"
+
+components:
+    schemas:
