@@ -1,8 +1,11 @@
 name: documentation
+
 on:
   pull_request:
     branches:
       - master
+    types:
+      - closed
 
 permissions:
   contents: write
@@ -13,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
       - name: Configure Git Credentials
         run: |
           git config user.name github-actions[bot]
