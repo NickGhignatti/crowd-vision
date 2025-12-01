@@ -1,6 +1,6 @@
 # Abstract 
 
-Crowd-Vision is a web app simplifying the management of a structure through a 
+**Crowd-Vision** is a web app simplifying the management of a structure through a 
 digital twin, by monitoring (and showing) in real time the people inside it, thanks 
 to several sensors.
 
