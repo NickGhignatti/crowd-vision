@@ -45,3 +45,10 @@ defineProps({
 
 defineEmits(['add-student', 'remove-student', 'focus-room']);
 </script>
+
+<style>
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+</style>
+

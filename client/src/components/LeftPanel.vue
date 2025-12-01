@@ -53,3 +53,10 @@ defineProps({
 
 defineEmits(['add-random', 'clear-all', 'reset-camera', 'toggle-roof']);
 </script>
+
+<style>
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+</style>
+
