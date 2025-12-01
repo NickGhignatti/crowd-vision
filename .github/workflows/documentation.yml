@@ -28,9 +28,9 @@ jobs:
       - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
       - uses: actions/cache@v4
         with:
-          key: mkdocs-dracula-${{ env.cache_id }}
+          key: mkdocs-dracula-theme-${{ env.cache_id }}
           path: ~/.cache
           restore-keys: |
-            mkdocs-dracula-
-      - run: pip install mkdocs-dracula
+            mkdocs-dracula-theme-
+      - run: pip install mkdocs-dracula-theme
       - run: mkdocs gh-deploy --force
