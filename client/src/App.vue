@@ -1,6 +1,5 @@
 <template>
   <div class="flex h-screen text-slate-200 font-sans bg-slate-950 overflow-hidden">
-
     <LeftPanel
       :total-students="totalStudents"
       :show-roof="showRoof"
@@ -24,21 +23,21 @@
       @remove-student="removeStudentFromRoom"
       @focus-room="handleFocusRoom"
     />
-
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, computed, nextTick } from 'vue';
 import LeftPanel from './components/LeftPanel.vue';
 import RightPanel from './components/RightPanel.vue';
 import SceneView from './components/SceneView.vue';
+import type { RoomData } from './scripts/utils.ts';
 
-// --- State ---
-const sceneRef = ref(null);
+
+const sceneRef = ref<any>(null);
 const showRoof = ref(true);
 
-const rooms = reactive([
+const rooms = reactive<RoomData[]>([
   {
     id: 'hallway',
     name: 'Main Corridor',
@@ -88,16 +87,16 @@ const rooms = reactive([
 
 const totalStudents = computed(() => rooms.reduce((sum, r) => sum + r.count, 0));
 
-// --- Actions ---
-
-const addStudentToRoom = (index) => {
-  rooms[index].count++;
-  sceneRef.value?.addStudent(index);
+const addStudentToRoom = (index: number) => {
+  if (index < rooms.length) {
+    rooms[index]!.count++;
+    sceneRef.value?.addStudent(index);
+  }
 };
 
-const removeStudentFromRoom = (index) => {
-  if (rooms[index].count > 0) {
-    rooms[index].count--;
+const removeStudentFromRoom = (index: number) => {
+  if (index < rooms.length - 1 && rooms[index]!.count > 0) {
+    rooms[index]!.count--;
     sceneRef.value?.removeStudent(index);
   }
 };
@@ -112,7 +111,7 @@ const clearAllStudents = () => {
   sceneRef.value?.clearAll();
 };
 
-const handleFocusRoom = (room) => {
+const handleFocusRoom = (room: RoomData) => {
   sceneRef.value?.focusRoom(room.x, room.z);
 };
 
@@ -120,7 +119,6 @@ const handleResetCamera = () => {
   sceneRef.value?.resetCamera();
 };
 
-// Handle resize when panels open/close (if you add collapse features later)
 const triggerResize = () => {
   nextTick(() => sceneRef.value?.resize());
 };
