@@ -1,0 +1,29 @@
+services:
+    mongodb:
+        image: mongo:latest
+        container_name: mongodb
+        ports:
+            - "27017:27017"
+        volumes:
+            - mongo-data:/data/db
+
+    server:
+        build: ./server
+        container_name: express
+        ports:
+            - "3000:3000"
+        environment:
+            - MONGO_URI=mongodb://mongodb:27017/visiondb
+        depends_on:
+            - mongodb
+
+    client:
+        build: ./client
+        container_name: vue
+        ports:
+            - "8080:8080"
+        depends_on:
+            - server
+
+volumes:
+    mongo-data:
