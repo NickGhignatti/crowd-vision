@@ -8,27 +8,24 @@
   </div>
 </template>
 
-<script setup>
-import {
-  ref, onMounted, onBeforeUnmount, watch
-} from 'vue';
-import { SchoolScene } from '../helper.js';
+<script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { SchoolScene, type RoomData } from '../scripts/utils.ts';
 
-// Props passed from App.vue
-const props = defineProps({
-  roomsData: Array,
-  showRoof: Boolean
-});
+// Props
+const props = defineProps<{
+  roomsData: RoomData[];
+  showRoof: boolean;
+}>();
 
-// Expose methods to parent using defineExpose
-const container = ref(null);
-let sceneInstance = null;
+const container = ref<HTMLDivElement | null>(null);
+let sceneInstance: SchoolScene | null = null;
 
 // --- Lifecycle ---
 onMounted(() => {
   if (container.value) {
+    // Pass the raw array to the scene helper
     sceneInstance = new SchoolScene(container.value, props.roomsData);
-    // Sync initial state
     sceneInstance.setRoofVisibility(props.showRoof);
   }
 });
@@ -42,11 +39,11 @@ watch(() => props.showRoof, (newVal) => {
   if (sceneInstance) sceneInstance.setRoofVisibility(newVal);
 });
 
-// --- Public Methods (callable via Template Refs) ---
-const addStudent = (roomIndex) => sceneInstance?.addStudentToRoom(roomIndex);
-const removeStudent = (roomIndex) => sceneInstance?.removeStudentFromRoom(roomIndex);
+// --- Public Methods ---
+const addStudent = (roomIndex: number) => sceneInstance?.addStudentToRoom(roomIndex);
+const removeStudent = (roomIndex: number) => sceneInstance?.removeStudentFromRoom(roomIndex);
 const clearAll = () => sceneInstance?.clearAll();
-const focusRoom = (x, z) => sceneInstance?.focusOn(x, z);
+const focusRoom = (x: number, z: number) => sceneInstance?.focusOn(x, z);
 const resetCamera = () => sceneInstance?.resetCamera();
 const resize = () => sceneInstance?.onResize();
 
@@ -65,4 +62,3 @@ defineExpose({
 @tailwind components;
 @tailwind utilities;
 </style>
-

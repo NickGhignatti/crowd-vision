@@ -18,7 +18,6 @@
           </button>
         </div>
 
-        <!-- Controls -->
         <div class="flex items-center justify-between bg-slate-900/50 rounded p-2">
           <div class="text-xs text-slate-400">Occupants</div>
           <div class="flex items-center gap-3">
@@ -38,12 +37,18 @@
   </aside>
 </template>
 
-<script setup>
-defineProps({
-  rooms: Array
-});
+<script setup lang="ts">
+import type { RoomData } from '../scripts/utils.ts';
 
-defineEmits(['add-student', 'remove-student', 'focus-room']);
+defineProps<{
+  rooms: RoomData[];
+}>();
+
+defineEmits<{
+  (e: 'add-student', index: number): void;
+  (e: 'remove-student', index: number): void;
+  (e: 'focus-room', room: RoomData): void;
+}>();
 </script>
 
 <style>
@@ -51,4 +56,3 @@ defineEmits(['add-student', 'remove-student', 'focus-room']);
 @tailwind components;
 @tailwind utilities;
 </style>
-
