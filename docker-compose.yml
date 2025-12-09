@@ -14,6 +14,7 @@ services:
             - "3000:3000"
         environment:
             - MONGO_URI=mongodb://mongodb:27017/visiondb
+            - PORT=3000
         depends_on:
             - mongodb
 
@@ -22,6 +23,8 @@ services:
         container_name: vue
         ports:
             - "8080:8080"
+        environment:
+          - PORT=8080
         depends_on:
             - server
 

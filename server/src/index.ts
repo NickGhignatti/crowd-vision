@@ -1,19 +1,16 @@
 import express from 'express'
-import swaggerUi from 'swagger-ui-express'
-import YAML from 'yamljs'
-import path from 'path'
+import cors from "cors";
+import {connectMongo} from "./server";
+import {swaggerSetup} from "./swagger";
 
-const app = express()
-const PORT = 3000
+export const app = express()
+const PORT = process.env.PORT || 3000;
 
-const swaggerDocument = YAML.load(path.join(__dirname, './openapi.yml'))
+app.use(cors());
+app.use(express.json());
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument))
+swaggerSetup()
 
-app.get('/', (req, res) => {
-    res.send('Hello World')
-})
-
-app.listen(PORT, () => {
-    console.log(`App is listening at http://localhost:${PORT}`)
-})
+connectMongo().then(() => {
+    app.listen(PORT, () => console.log(`Server running on localhost:${PORT}`));
+});
