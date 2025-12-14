@@ -3,7 +3,7 @@ services:
         image: mongo:latest
         container_name: mongodb
         ports:
-            - "${MONGO_PORT}:27017"
+            - "27017:27017"
         volumes:
             - mongo-data:/data/db
 
@@ -11,10 +11,9 @@ services:
         build: ./server
         container_name: express
         ports:
-            - "${SERVER_PORT}:3000"
+            - "3000:3000"
         environment:
             - MONGO_URI=mongodb://mongodb:${MONGO_PORT}/visiondb
-            - PORT=${SERVER_PORT}
         depends_on:
             - mongodb
         healthcheck:
