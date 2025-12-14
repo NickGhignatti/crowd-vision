@@ -32,8 +32,8 @@
           </div>
 
           <form @submit.prevent="handleLogin" class="relative z-10 space-y-5">
-            <UsernameInput/>
-            <PasswordInput/>
+            <UsernameInput v-model:username="user.username"/>
+            <PasswordInput v-model:username="user.password"/>
             <button
               type="submit"
               class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
@@ -60,6 +60,7 @@
 import { useRouter } from 'vue-router';
 import UsernameInput from '@/components/auth/inputs/UsernameInput.vue'
 import PasswordInput from '@/components/auth/inputs/PasswordInput.vue'
+import { reactive } from 'vue'
 
 defineProps<{
   isOpen: boolean;
@@ -71,6 +72,11 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+
+const user = reactive({
+  username: '',
+  password: ''
+});
 
 const handleLogin = () => {
   localStorage.setItem('isAuthenticated', 'true');

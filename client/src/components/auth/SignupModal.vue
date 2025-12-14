@@ -32,9 +32,9 @@
           </div>
 
           <form @submit.prevent="handleSignUp" class="relative z-10 space-y-4">
-            <UsernameInput/>
-            <MailInput/>
-            <PasswordInput/>
+            <UsernameInput v-model:username="user.username"/>
+            <MailInput v-model:mail="user.mail"/>
+            <PasswordInput v-model:password="user.password"/>
 
             <button
               type="submit"
@@ -63,6 +63,7 @@ import { useRouter } from 'vue-router';
 import UsernameInput from '@/components/auth/inputs/UsernameInput.vue'
 import PasswordInput from '@/components/auth/inputs/PasswordInput.vue'
 import MailInput from '@/components/auth/inputs/MailInput.vue'
+import { reactive } from 'vue'
 
 defineProps<{
   isOpen: boolean;
@@ -74,6 +75,12 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+
+const user = reactive({
+  username: '',
+  mail: '',
+  password: ''
+});
 
 const handleSignUp = () => {
   localStorage.setItem('isAuthenticated', 'true');

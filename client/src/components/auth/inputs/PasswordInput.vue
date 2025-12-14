@@ -8,7 +8,12 @@
       type="password"
       class="w-full px-4 py-2.5 bg-white rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-slate-700 placeholder:text-slate-400 font-medium shadow-sm"
       placeholder="••••••••"
+      v-model="password"
       required
     />
   </div>
 </template>
+
+<script setup lang="ts">
+const password = defineModel<string>('password');
+</script>
