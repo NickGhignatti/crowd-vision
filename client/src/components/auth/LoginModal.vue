@@ -33,7 +33,7 @@
 
           <form @submit.prevent="handleLogin" class="relative z-10 space-y-5">
             <UsernameInput v-model:username="user.username"/>
-            <PasswordInput v-model:username="user.password"/>
+            <PasswordInput v-model:password="user.password"/>
             <button
               type="submit"
               class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
@@ -57,7 +57,6 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
 import UsernameInput from '@/components/auth/inputs/UsernameInput.vue'
 import PasswordInput from '@/components/auth/inputs/PasswordInput.vue'
 import { reactive } from 'vue'
@@ -71,16 +70,26 @@ const emit = defineEmits<{
   (e: 'switch-to-signup'): void;
 }>();
 
-const router = useRouter();
-
 const user = reactive({
   username: '',
   password: ''
 });
 
-const handleLogin = () => {
-  localStorage.setItem('isAuthenticated', 'true');
-  emit('close');
-  router.push('/dashboard');
+const handleLogin = async () => {
+  const response = await fetch(`http://localhost:3000/validateUser`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      username: user.username,
+      password: user.password,
+    }),
+  });
+
+  if (response.ok) {
+    localStorage.setItem('isAuthenticated', 'true');
+    emit('close');
+  }
 };
 </script>

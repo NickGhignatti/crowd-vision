@@ -33,7 +33,7 @@
 
           <form @submit.prevent="handleSignUp" class="relative z-10 space-y-4">
             <UsernameInput v-model:username="user.username"/>
-            <MailInput v-model:mail="user.mail"/>
+            <MailInput v-model:mail="user.email"/>
             <PasswordInput v-model:password="user.password"/>
 
             <button
@@ -59,7 +59,6 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
 import UsernameInput from '@/components/auth/inputs/UsernameInput.vue'
 import PasswordInput from '@/components/auth/inputs/PasswordInput.vue'
 import MailInput from '@/components/auth/inputs/MailInput.vue'
@@ -74,17 +73,27 @@ const emit = defineEmits<{
   (e: 'switch-to-login'): void;
 }>();
 
-const router = useRouter();
-
 const user = reactive({
   username: '',
-  mail: '',
+  email: '',
   password: ''
 });
 
-const handleSignUp = () => {
-  localStorage.setItem('isAuthenticated', 'true');
-  emit('close');
-  router.push('/dashboard');
+const handleSignUp = async () => {
+  const response = await fetch(`http://localhost:3000/createUser`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      username: user.username,
+      email: user.email,
+      password: user.password,
+    }),
+  });
+
+  if (response.ok) {
+    emit('close');
+  }
 };
 </script>
