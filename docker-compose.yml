@@ -13,18 +13,22 @@ services:
         ports:
             - "3000:3000"
         environment:
-            - MONGO_URI=mongodb://mongodb:27017/visiondb
-            - PORT=3000
+            - MONGO_URI=mongodb://mongodb:${MONGO_PORT}/visiondb
         depends_on:
             - mongodb
+        healthcheck:
+          test: [ "CMD", "curl", "-f", "http://${DEV_URL}:${SERVER_PORT}/health" ]
+          interval: 60s
+          timeout: 10s
+          retries: 3
 
     client:
         build: ./client
         container_name: vue
         ports:
-            - "8080:8080"
+            - "${CLIENT_PORT}:8080"
         environment:
-          - PORT=8080
+          - PORT=${CLIENT_PORT}
         depends_on:
             - server
 

@@ -11,6 +11,10 @@ app.use(express.json());
 
 swaggerSetup()
 
+app.use("/health", (_, res) => {
+    res.status(200).send("OK");
+})
+
 connectMongo().then(() => {
     app.listen(PORT, () => console.log(`Server running on localhost:${PORT}`));
 });
