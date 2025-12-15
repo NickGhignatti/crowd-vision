@@ -3,9 +3,9 @@ openapi: 3.0.0
 info:
     title: Crowd Vision Server API
     description: >-
-      REST API documentation for the Crowd Vision backend.
-      Currently documents the initial server setup.
-      Note: Real-time sensor data is planned to be handled via WebSockets (Socket.io) as per the design docs.
+        REST API documentation for the Crowd Vision backend.
+        Documents server setup, authentication, and health checks.
+        Note: Real-time sensor data planned via WebSockets (Socket.io).
     version: 1.0.0
 
 servers:
@@ -16,7 +16,7 @@ paths:
     /:
         get:
             summary: Health Check
-            description: Returns a simple greeting to verify the server is running and accessible.
+            description: Returns a greeting to verify server is running.
             operationId: getRoot
             responses:
                 '200':
@@ -25,7 +25,112 @@ paths:
                         text/plain:
                             schema:
                                 type: string
-                                example: "Hello World"
+                            example: "Hello World"
+
+    /createUser:
+        post:
+            summary: Create New User
+            description: Registers a new user with hashed password.
+            operationId: createUser
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required: [username, email, password]
+                            properties:
+                                username:
+                                    type: string
+                                email:
+                                    type: string
+                                password:
+                                    type: string
+            responses:
+                '201':
+                    description: User created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: "User created successfully."
+                                    user:
+                                        type: object
+                                        properties:
+                                            id:
+                                                type: string
+                                            username:
+                                                type: string
+                '400':
+                    description: Bad request (validation error)
+
+    /validateUser:
+        post:
+            summary: Validate User Login
+            description: Authenticates user credentials and returns user info.
+            operationId: validateUser
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required: [username, password]
+                            properties:
+                                username:
+                                    type: string
+                                password:
+                                    type: string
+            responses:
+                '200':
+                    description: Login successful
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: "Login successful"
+                                    user:
+                                        type: object
+                                        properties:
+                                            id:
+                                                type: string
+                                            username:
+                                                type: string
+                '401':
+                    description: Invalid password
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: "Invalid password"
+                '404':
+                    description: User not found
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: "User not found"
 
 components:
     schemas:
+        User:
+            type: object
+            properties:
+                id:
+                    type: string
+                username:
+                    type: string
+                email:
+                    type: string
