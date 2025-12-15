@@ -1,12 +1,15 @@
+import * as bcrypt from 'bcryptjs';
 import type { Request, Response } from 'express';
-import {IUser, userSchema} from "./schema";
+import {IUser, userSchema} from "../db/schema";
 import {model} from "mongoose";
 
+const saltValue = 10;
 const User = model<IUser>('User', userSchema);
 
 export async function createUser(req: Request, res: Response) {
     const { username, email, password } = req.body;
-    const user = new User({ username, email, password });
+    const cryptedPassword = await bcrypt.hash(password, saltValue);
+    const user = new User({ username, email, password: cryptedPassword });
     await user.save();
     res.status(201).json({
         message: 'User created successfully.',
@@ -25,7 +28,8 @@ export async function validateUser(req: Request, res: Response) {
         return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.password !=  password) {
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid password" });
     }
 
