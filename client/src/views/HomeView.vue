@@ -83,8 +83,7 @@
         <p class="text-slate-400 text-sm">© {{ new Date().getFullYear() }} CrowdVision Systems. All rights reserved.</p>
       </div>
     </footer>
-  </div>
-</template>
+  </div></template>
 
 <script setup lang="ts">
 import NavBar from '../components/NavBar.vue';

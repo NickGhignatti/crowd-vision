@@ -15,7 +15,8 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "start": "serve -s dist -l 8080"
   },
   "dependencies": {
     "@phosphor-icons/web": "^2.1.2",
