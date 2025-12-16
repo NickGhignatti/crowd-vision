@@ -6,8 +6,10 @@ COPY . .
 RUN npm run build
 
 FROM node:lts-alpine AS production-stage
-RUN npm install -g http-server
+RUN npm install -g serve
 WORKDIR /app
+COPY package*.json ./
 COPY --from=build-stage /app/dist ./dist
 EXPOSE 8080
-CMD [ "http-server", "dist" ]
+#CMD [ "http-server", "dist" ]
+CMD [ "npm", "run", "start" ]
