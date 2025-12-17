@@ -1,3 +1,7 @@
+<script setup lang="ts">
+const password = defineModel<string>('password')
+</script>
+
 <template>
   <div>
     <div class="flex justify-between items-center mb-1.5">
@@ -13,7 +17,3 @@
     />
   </div>
 </template>
-
-<script setup lang="ts">
-const password = defineModel<string>('password');
-</script>
