@@ -1,3 +1,17 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import LoginModal from '@/components/auth/LoginModal.vue'
+import SignUpModal from '@/components/auth/SignupModal.vue'
+
+const activeModal = ref<'login' | 'signup' | null>(null)
+const isMobileMenuOpen = ref(false)
+
+const openLogin = () => (activeModal.value = 'login')
+const openSignUp = () => (activeModal.value = 'signup')
+const closeAll = () => (activeModal.value = null)
+const toggleMobileMenu = () => (isMobileMenuOpen.value = !isMobileMenuOpen.value)
+</script>
+
 <template>
   <nav class="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -114,18 +128,3 @@
     />
   </nav>
 </template>
-
-<script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import LoginModal from './auth/LoginModal.vue'
-import SignUpModal from './auth/SignupModal.vue'
-
-const activeModal = ref<'login' | 'signup' | null>(null)
-const isMobileMenuOpen = ref(false)
-
-const openLogin = () => (activeModal.value = 'login')
-const openSignUp = () => (activeModal.value = 'signup')
-const closeAll = () => (activeModal.value = null)
-const toggleMobileMenu = () => (isMobileMenuOpen.value = !isMobileMenuOpen.value)
-</script>
