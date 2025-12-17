@@ -24,10 +24,6 @@ app.post("/validateUser", (req: Request, res: Response) => {
     return validateUser(req, res);
 });
 
-app.get("/roomData", (req: Request, res: Response) => {
-    return getAllRoomsData(req, res);
-});
-
 app.post("/building", (req: Request, res: Response) => {
     return uploadBuilding(req, res);
 });
