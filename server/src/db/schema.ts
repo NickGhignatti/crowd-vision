@@ -26,6 +26,7 @@ interface Dimensions {
 
 interface Room {
     id: string;
+    capacity: number;
     temperature: number;
     no_person: number;
     position: Coordinates;
@@ -52,6 +53,7 @@ const DimensionsSchema = new Schema<Dimensions>({
 
 const RoomSchema = new Schema<Room>({
     id: { type: String, required: true },
+    capacity: { type: Number, required: true },
     position: { type: CoordinatesSchema, required: true },
     dimensions: { type: DimensionsSchema, required: true },
     color: { type: String, required: false }

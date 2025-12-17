@@ -47,22 +47,24 @@ const roomData = ref([])
 
 const fetchRooms = async () => {
   try {
-    const response = await fetch('http://localhost:3000/roomData')
+    const response = await fetch('http://localhost:3000/building/unibo-cesena')
     if (!response.ok) console.log('Failed to fetch data')
 
     const result = await response.json()
-    roomData.value = result.roomData
+    roomData.value = result.building.rooms
   } catch (err) {
     console.error(err)
   }
 }
 
 const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'free':
-      return 'text-emerald-600 font-semibold'
-    case 'busy':
-      return 'text-red-500 font-semibold'
+  if (status) {
+    switch (status.toLowerCase()) {
+      case 'free':
+        return 'text-emerald-600 font-semibold'
+      case 'busy':
+        return 'text-red-500 font-semibold'
+    }
   }
 }
 </script>
