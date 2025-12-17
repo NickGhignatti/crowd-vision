@@ -71,7 +71,7 @@ const getTempColor = (temp: number) => {
               <span class="text-slate-500 font-medium">Occupancy</span>
               <div class="flex items-center gap-1.5 text-slate-700 font-bold">
                 <i class="ph-bold ph-users text-slate-400"></i>
-                <span>{{ room.no_person }}</span>
+                <span>{{ room.no_person }} / {{ room.capacity }}</span>
               </div>
             </div>
           </div>
