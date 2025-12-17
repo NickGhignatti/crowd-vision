@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import NavBar from '@/components/NavBar.vue'
 import LeftMenu from '@/components/menus/LeftMenu.vue'
 import RightMenu from '@/components/menus/RightMenu.vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+const canvasContainerRef = ref<HTMLDivElement | null>(null)
+
 let renderer: THREE.WebGLRenderer | null = null
 let scene: THREE.Scene | null = null
 let camera: THREE.PerspectiveCamera | null = null
+let controls: OrbitControls | null = null
 let animationId: number | null = null
 let meshGroup: THREE.Group | null = null
+let resizeObserver: ResizeObserver | null = null
+
 const buildingRef = ref<BuildingPayload | null>(null)
 
 watch(
@@ -22,18 +28,21 @@ watch(
 )
 
 const requestBuildingSchema = async () => {
-  const response = await fetch('http://localhost:3000/building/unibo-cesena')
-  if (!response.ok) console.log('Failed to fetch data')
-
-  const data = await response.json()
-  buildingRef.value = data.building
+  try {
+    const response = await fetch('http://localhost:3000/building/unibo-cesena')
+    if (!response.ok) throw new Error('Failed to fetch')
+    const data = await response.json()
+    buildingRef.value = data.building
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const DEFAULT_POS = { x: 10, y: 10, z: 10 }
 
 onMounted(() => {
   initThree()
-  window.addEventListener('resize', handleResize)
+  setupResizeObserver() // Initialize the observer
   requestBuildingSchema()
   if (buildingRef.value) {
     drawBuilding()
@@ -41,10 +50,19 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
+  if (resizeObserver) resizeObserver.disconnect() // Cleanup observer
   if (animationId) cancelAnimationFrame(animationId)
   renderer?.dispose()
+  controls?.dispose()
 })
+
+const setupResizeObserver = () => {
+  if (!canvasContainerRef.value) return
+  resizeObserver = new ResizeObserver(() => {
+    handleResize()
+  })
+  resizeObserver.observe(canvasContainerRef.value)
+}
 
 const initThree = () => {
   if (!canvasRef.value) return
@@ -56,7 +74,6 @@ const initThree = () => {
   const aspect = canvasRef.value.clientWidth / canvasRef.value.clientHeight
   camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000)
   camera.position.set(DEFAULT_POS.x, DEFAULT_POS.y, DEFAULT_POS.z)
-  camera.lookAt(0, 0, 0)
 
   renderer = new THREE.WebGLRenderer({
     canvas: canvasRef.value,
@@ -66,6 +83,11 @@ const initThree = () => {
   renderer.setSize(canvasRef.value.clientWidth, canvasRef.value.clientHeight)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.shadowMap.enabled = true
+
+  controls = new OrbitControls(camera, renderer.domElement)
+  controls.enableDamping = true // Adds smooth inertia (requires controls.update in loop)
+  controls.dampingFactor = 0.05
+  controls.target.set(0, 0, 0)
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
   scene.add(ambientLight)
@@ -85,7 +107,9 @@ const initThree = () => {
 }
 
 const drawBuilding = () => {
-  if (buildingRef.value) {
+  if (buildingRef.value && meshGroup) {
+    meshGroup.clear()
+
     buildingRef.value.rooms.forEach((room) => {
       const geometryBase = new THREE.BoxGeometry(
         room.dimensions.width,
@@ -102,7 +126,6 @@ const drawBuilding = () => {
       })
 
       const element = new THREE.Mesh(geometryBase, materialBase)
-
       element.position.set(room.position.x, room.position.y, room.position.z)
       element.castShadow = true
       element.receiveShadow = true
@@ -114,41 +137,48 @@ const drawBuilding = () => {
       })
       const border = new THREE.LineSegments(edgesGeometry, edgesMaterial)
       element.add(border)
-      if (meshGroup) meshGroup.add(element)
+
+      meshGroup!.add(element)
     })
   }
 }
 
 const animate = () => {
   animationId = requestAnimationFrame(animate)
-  if (meshGroup) meshGroup.rotation.y += 0.002
+  if (controls) controls.update()
   if (renderer && scene && camera) renderer.render(scene, camera)
 }
 
 const resetView = () => {
-  if (!camera) return
+  if (!camera || !controls) return
   camera.position.set(DEFAULT_POS.x, DEFAULT_POS.y, DEFAULT_POS.z)
-  camera.lookAt(0, 0, 0)
+  controls.target.set(0, 0, 0) // Reset control target
+  controls.update()
 }
 
 const zoomIn = () => {
   if (!camera) return
-  camera.translateZ(-2)
+  const direction = new THREE.Vector3()
+  camera.getWorldDirection(direction)
+  camera.position.add(direction.multiplyScalar(2))
 }
 
 const zoomOut = () => {
   if (!camera) return
-  camera.translateZ(2)
+  const direction = new THREE.Vector3()
+  camera.getWorldDirection(direction)
+  camera.position.add(direction.multiplyScalar(-2))
 }
 
 const handleResize = () => {
-  if (!canvasRef.value || !camera || !renderer) return
-  const parent = canvasRef.value.parentElement
-  if (parent) {
-    camera.aspect = parent.clientWidth / parent.clientHeight
-    camera.updateProjectionMatrix()
-    renderer.setSize(parent.clientWidth, parent.clientHeight)
-  }
+  if (!canvasContainerRef.value || !camera || !renderer) return
+
+  const width = canvasContainerRef.value.clientWidth
+  const height = canvasContainerRef.value.clientHeight
+
+  camera.aspect = width / height
+  camera.updateProjectionMatrix()
+  renderer.setSize(width, height)
 }
 </script>
 
@@ -159,7 +189,7 @@ const handleResize = () => {
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
       <LeftMenu structure-id="UniBo campus cesena" />
 
-      <main class="flex-1 relative bg-slate-50 z-0">
+      <main ref="canvasContainerRef" class="flex-1 relative bg-slate-50 z-0 min-w-0">
         <div class="absolute inset-0">
           <canvas ref="canvasRef" class="w-full h-full block outline-none"></canvas>
         </div>
@@ -191,7 +221,7 @@ const handleResize = () => {
         </div>
       </main>
 
-      <RightMenu :building="buildingRef"/>
+      <RightMenu :building="buildingRef" />
     </div>
   </div>
 </template>

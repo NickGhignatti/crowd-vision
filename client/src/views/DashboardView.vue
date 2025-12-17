@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import DataTable, { type TableHeader } from '@/components/DataTable.vue'
+import type { RoomPayload } from '@/scripts/schema.ts'
 
 const now = ref(new Date())
 let timer: ReturnType<typeof setInterval>
@@ -41,9 +42,10 @@ const tableHeaders = ref<TableHeader[]>([
   { key: 'teacher', label: 'Teacher', cellClass: 'text-sm' },
   { key: 'temp', label: 'Temperature', cellClass: 'text-slate-900 font-medium' },
   { key: 'people', label: 'Number of People', cellClass: 'text-slate-900' },
+  { key: 'capacity', label: 'Capacity', cellClass: 'text-slate-900 font-medium' },
 ])
 
-const roomData = ref([])
+const roomData = ref<any>([])
 
 const fetchRooms = async () => {
   try {
@@ -51,19 +53,50 @@ const fetchRooms = async () => {
     if (!response.ok) console.log('Failed to fetch data')
 
     const result = await response.json()
-    roomData.value = result.building.rooms
+    result.building.rooms.forEach((room: RoomPayload) => {
+      const occupants = Math.floor(Math.random() * room.capacity)
+      roomData.value.push({
+        room: room.id,
+        status: getStatusByOccupants(occupants, room.capacity),
+        teacher: '',
+        temp: '',
+        people: occupants,
+        capacity: room.capacity,
+      })
+    })
   } catch (err) {
     console.error(err)
+  }
+}
+
+const getStatusByOccupants = (occupants: number, roomCapacity: number) => {
+  const occupantsPercentage = occupants / roomCapacity
+  if (occupantsPercentage == 0.0) {
+    return 'empty'
+  } else if (occupantsPercentage <= 0.5) {
+    return 'normal'
+  } else if (occupantsPercentage <= 0.95) {
+    return 'crowded'
+  } else if (occupantsPercentage <= 1.0) {
+    return 'full'
+  } else {
+    return 'overcrowded'
   }
 }
 
 const getStatusColor = (status: string) => {
   if (status) {
     switch (status.toLowerCase()) {
-      case 'free':
+      case 'empty':
         return 'text-emerald-600 font-semibold'
-      case 'busy':
-        return 'text-red-500 font-semibold'
+      case 'normal':
+        return 'text-blue-600'
+      case 'crowded':
+        return 'text-orange-600'
+      case 'full':
+        return 'text-red-600 font-semibold'
+      case 'overcrowded':
+        return 'text-red-600 font-semibold'
     }
   }
 }
