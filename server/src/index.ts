@@ -4,7 +4,7 @@ import {connectMongo} from "./db/server";
 import {swaggerSetup} from "./swagger";
 import {createUser, validateUser} from "./utils/auth"
 import type { Request, Response } from 'express';
-import {getAllRoomsData} from "./utils/dashboard";
+import {getAllRoomsData, getBuilding, uploadBuilding} from "./utils/dashboard";
 
 export const app = express()
 const PORT = process.env.PORT || 3000;
@@ -26,6 +26,14 @@ app.post("/validateUser", (req: Request, res: Response) => {
 
 app.get("/roomData", (req: Request, res: Response) => {
     return getAllRoomsData(req, res);
+});
+
+app.post("/building", (req: Request, res: Response) => {
+    return uploadBuilding(req, res);
+});
+
+app.get("/building/:id", (req: Request, res: Response) => {
+    return getBuilding(req, res);
 });
 
 swaggerSetup()

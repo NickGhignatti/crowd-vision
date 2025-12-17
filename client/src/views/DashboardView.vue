@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import NavBar from '../components/NavBar.vue'
-import DataTable, { type TableHeader } from '../components/DataTable.vue'
+import NavBar from '@/components/NavBar.vue'
+import DataTable, { type TableHeader } from '@/components/DataTable.vue'
 
 const now = ref(new Date())
 let timer: ReturnType<typeof setInterval>
