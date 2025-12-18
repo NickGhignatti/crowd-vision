@@ -15,22 +15,28 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: DashboardView,
+      meta: {
+        requiresAuth: true,
+      },
     },
     {
       path: '/model',
       name: 'model',
       component: ModelView,
+      meta: {
+        requiresAuth: true,
+      },
     },
   ],
 })
 
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/');
+    next('/')
   } else {
-    next();
+    next()
   }
 })
 

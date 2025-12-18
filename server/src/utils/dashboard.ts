@@ -2,33 +2,20 @@ import type {Request, Response} from "express";
 import {model} from "mongoose";
 import {buildingSchema, IBuilding} from "../db/schema";
 
-const roomData = [
-    { room: 'Main Hall', status: 'Free', teacher: 'Ghini', temp: '22°C', people: 145 },
-    { room: 'East Wing', status: 'Free', teacher: 'Viroli', temp: '21°C', people: 12 },
-    { room: 'Cafeteria', status: 'Busy', teacher: 'Ricci', temp: '24°C', people: 89 },
-    { room: 'Lobby', status: 'Busy', teacher: 'Gallinucci', temp: '20°C', people: 34 },
-];
-
-export async function getAllRoomsData(req: Request, res: Response) {
-    res.status(201).json({
-        message: 'Rooms data',
-        roomData: roomData
-    });
-}
-
 const Building = model<IBuilding>('Building', buildingSchema);
 
 export async function uploadBuilding(req: Request, res: Response) {
-    const { id, rooms } = req.body;
+    const { id, rooms, domains } = req.body;
 
     if (!await Building.findOne({ id })) {
-        const building = new Building({ id, rooms });
+        const building = new Building({ id, rooms, domains });
         await building.save();
         res.status(201).json({
             message: 'Building uploaded successfully.',
             building: {
                 id: id,
                 rooms: rooms,
+                domains: domains,
             }
         });
     } else {
@@ -40,7 +27,6 @@ export async function uploadBuilding(req: Request, res: Response) {
 
 export async function getBuilding(req: Request, res: Response) {
     const id = req.params.id;
-
     const building = await Building.findOne({ id })
 
     if (building) {
@@ -49,6 +35,7 @@ export async function getBuilding(req: Request, res: Response) {
             building: {
                 id: building.id,
                 rooms: building.rooms,
+                domains: building.domains,
             }
         });
     } else {

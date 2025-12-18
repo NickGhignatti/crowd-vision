@@ -33,6 +33,9 @@ const handleSignUp = async () => {
   })
 
   if (response.ok) {
+    localStorage.setItem('isAuthenticated', 'true')
+    const message = await response.json()
+    localStorage.setItem('username', message.user.username)
     emit('close')
   }
 }
