@@ -1,10 +1,10 @@
+import type {Request, Response} from 'express';
 import express from 'express'
 import cors from "cors";
 import {connectMongo} from "./db/server";
 import {swaggerSetup} from "./swagger";
-import {createUser, validateUser} from "./utils/auth"
-import type { Request, Response } from 'express';
-import {getAllRoomsData, getBuilding, uploadBuilding} from "./utils/dashboard";
+import {createUser, getUserDomain, validateUser} from "./utils/auth"
+import {getBuilding, uploadBuilding} from "./utils/dashboard";
 
 export const app = express()
 const PORT = process.env.PORT || 3000;
@@ -22,6 +22,10 @@ app.post("/createUser", (req: Request, res: Response) => {
 
 app.post("/validateUser", (req: Request, res: Response) => {
     return validateUser(req, res);
+});
+
+app.get("/domain/:username", (req: Request, res: Response) => {
+    return getUserDomain(req, res);
 });
 
 app.post("/building", (req: Request, res: Response) => {

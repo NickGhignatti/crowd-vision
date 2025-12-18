@@ -13,8 +13,6 @@ interface RoomDimensions {
 export interface RoomPayload {
   id: string
   capacity: number
-  temperature: number
-  no_person: number
   position: Coordinates
   dimensions: RoomDimensions
   color?: string
@@ -23,4 +21,5 @@ export interface RoomPayload {
 export interface BuildingPayload {
   id: string
   rooms: RoomPayload[]
+  domains: string[]
 }
