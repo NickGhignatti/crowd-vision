@@ -62,15 +62,15 @@ const getTempColor = (temp: number) => {
           <div class="space-y-2">
             <div class="flex justify-between items-center text-sm">
               <span class="text-slate-500 font-medium">Temperature</span>
-              <span class="font-bold" :class="getTempColor(room.temperature)">
-                {{ room.temperature }}°C
+              <span class="font-bold" :class="getTempColor(22)">
+                22°C
               </span>
             </div>
 
             <div class="flex justify-between items-center text-sm">
               <span class="text-slate-500 font-medium">Occupancy</span>
               <div class="flex items-center gap-1.5 text-slate-700 font-bold">
-                <span>{{ room.no_person }} / {{ room.capacity }}</span>
+                <span>1 / {{ room.capacity }}</span>
                 <i class="ph-bold ph-users text-slate-400"></i>
               </div>
             </div>

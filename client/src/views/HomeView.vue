@@ -28,17 +28,12 @@ import NavBar from '@/components/NavBar.vue'
         </p>
 
         <div class="mt-10 flex justify-center gap-4">
-          <router-link
-            to="/dashboard"
-            class="px-8 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-1"
-          >
-            Launch Dashboard
-          </router-link>
-          <button
+          <a
             class="px-8 py-3.5 rounded-xl bg-white text-slate-700 font-bold border border-slate-200 hover:border-slate-300 shadow-sm transition-all hover:bg-slate-50"
+            href="https://nickghignatti.github.io/crowd-vision/"
           >
             View Documentation
-          </button>
+          </a>
         </div>
       </div>
 

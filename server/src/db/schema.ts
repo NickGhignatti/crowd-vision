@@ -4,12 +4,14 @@ export interface IUser {
     username: string;
     email: string;
     password: string;
+    domain: string;
 }
 
 export const userSchema = new Schema<IUser>({
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true}
+    password: { type: String, required: true},
+    domain: { type: String, required: false },
 });
 
 interface Coordinates {
@@ -37,6 +39,7 @@ interface Room {
 export interface IBuilding {
     id: string;
     rooms: Room[];
+    domains: string[];
 }
 
 const CoordinatesSchema = new Schema<Coordinates>({
@@ -63,7 +66,8 @@ const RoomSchema = new Schema<Room>({
 
 export const buildingSchema = new Schema<IBuilding>({
     id: { type: String, required: true, unique: true },
-    rooms: { type: [RoomSchema], required: true }
+    rooms: { type: [RoomSchema], required: true },
+    domains: { type: [String], required: true },
 }, {
     timestamps: true
 });

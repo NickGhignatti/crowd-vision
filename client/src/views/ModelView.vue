@@ -29,7 +29,7 @@ watch(
 
 const requestBuildingSchema = async () => {
   try {
-    const response = await fetch('http://localhost:3000/building/unibo-cesena')
+    const response = await fetch("http://localhost:3000/building/unibo-campus-cesena")
     if (!response.ok) throw new Error('Failed to fetch')
     const data = await response.json()
     buildingRef.value = data.building
@@ -69,7 +69,6 @@ const initThree = () => {
 
   scene = new THREE.Scene()
   scene.background = new THREE.Color('#f8fafc')
-  scene.fog = new THREE.Fog('#f8fafc', 10, 50)
 
   const aspect = canvasRef.value.clientWidth / canvasRef.value.clientHeight
   camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000)
