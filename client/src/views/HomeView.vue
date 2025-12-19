@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -12,19 +15,18 @@ import NavBar from '@/components/NavBar.vue'
           class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold uppercase tracking-wide mb-6"
         >
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          Live Monitoring v2.0
+          {{ t('home.monitoring') }}
         </div>
 
         <h1 class="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
-          Smart insights for <br class="hidden md:block" />
+          {{ t('home.utils.insights') }} <br class="hidden md:block" />
           <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">
-            safer spaces.
+            {{ t('home.utils.spaces') }}
           </span>
         </h1>
 
         <p class="mt-4 max-w-2xl mx-auto text-xl text-slate-600">
-          CrowdVision provides real-time occupancy tracking and flow analysis for educational
-          institutions. Make data-driven decisions without the clutter.
+          {{ t('home.bio') }}
         </p>
 
         <div class="mt-10 flex justify-center gap-4">
@@ -32,7 +34,7 @@ import NavBar from '@/components/NavBar.vue'
             class="px-8 py-3.5 rounded-xl bg-white text-slate-700 font-bold border border-slate-200 hover:border-slate-300 shadow-sm transition-all hover:bg-slate-50"
             href="https://nickghignatti.github.io/crowd-vision/"
           >
-            View Documentation
+            {{ t('home.doc') }}
           </a>
         </div>
       </div>
@@ -52,9 +54,9 @@ import NavBar from '@/components/NavBar.vue'
     <section id="features" class="py-24 bg-white border-y border-slate-200">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
-          <h2 class="text-3xl font-bold text-slate-900">Why CrowdVision?</h2>
+          <h2 class="text-3xl font-bold text-slate-900">{{ t('home.features.why') }}</h2>
           <p class="mt-4 text-slate-500">
-            Built for administrators who need clarity, not complexity.
+            {{ t('home.features.built') }}
           </p>
         </div>
 
@@ -67,10 +69,9 @@ import NavBar from '@/components/NavBar.vue'
             >
               <i class="ph-bold ph-users-three text-2xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-slate-900 mb-3">Real-time Counting</h3>
+            <h3 class="text-xl font-bold text-slate-900 mb-3">{{ t('home.features.f1.title') }}</h3>
             <p class="text-slate-600 leading-relaxed">
-              Monitor student density across multiple rooms instantly. Visual indicators update via
-              our optimized 3D engine.
+              {{ t('home.features.f1.description') }}
             </p>
           </div>
 
@@ -82,10 +83,9 @@ import NavBar from '@/components/NavBar.vue'
             >
               <i class="ph-bold ph-chart-bar text-2xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-slate-900 mb-3">Capacity Alerts</h3>
+            <h3 class="text-xl font-bold text-slate-900 mb-3">{{ t('home.features.f2.title') }}</h3>
             <p class="text-slate-600 leading-relaxed">
-              Set thresholds for specific zones. Receive visual cues when hallways or classrooms
-              exceed safe capacity limits.
+              {{ t('home.features.f2.description') }}
             </p>
           </div>
 
@@ -97,11 +97,8 @@ import NavBar from '@/components/NavBar.vue'
             >
               <i class="ph-bold ph-shield-check text-2xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-slate-900 mb-3">Privacy First</h3>
-            <p class="text-slate-600 leading-relaxed">
-              We analyze movement data without storing biometric information. Compliant with
-              standard safety regulations.
-            </p>
+            <h3 class="text-xl font-bold text-slate-900 mb-3">{{ t('home.features.f3.title') }}</h3>
+            <p class="text-slate-600 leading-relaxed">{{ t('home.features.f3.description') }}</p>
           </div>
         </div>
       </div>

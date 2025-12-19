@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import LoginModal from '@/components/auth/LoginModal.vue'
 import SignUpModal from '@/components/auth/SignupModal.vue'
 
 const router = useRouter()
+const { t, locale } = useI18n()
+
 const activeModal = ref<'login' | 'signup' | null>(null)
 const isMobileMenuOpen = ref(false)
 const isUserDropdownOpen = ref(false)
+const isLangDropdownOpen = ref(false)
 
 const isLoggedIn = ref(false)
 const username = ref('')
@@ -41,6 +45,12 @@ const handleLockedClick = () => {
   isMobileMenuOpen.value = false
 }
 
+const switchLanguage = (lang: string) => {
+  locale.value = lang
+  localStorage.setItem('locale', lang)
+  isLangDropdownOpen.value = false
+}
+
 onMounted(() => {
   checkAuth()
 })
@@ -70,7 +80,7 @@ onMounted(() => {
               class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition-colors duration-200"
               active-class="text-emerald-600"
             >
-              Dashboard
+              {{ t('nav.dashboard') }}
             </router-link>
           </template>
           <template v-else>
@@ -79,7 +89,7 @@ onMounted(() => {
               class="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-emerald-600 transition-colors duration-200"
             >
               <i class="ph-bold ph-lock-key"></i>
-              Dashboard
+              {{ t('nav.dashboard') }}
             </button>
           </template>
 
@@ -89,7 +99,7 @@ onMounted(() => {
               class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition-colors duration-200"
               active-class="text-emerald-600"
             >
-              Digital Twin
+              {{ t('nav.digitalTwin') }}
             </router-link>
           </template>
           <template v-else>
@@ -98,24 +108,56 @@ onMounted(() => {
               class="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-emerald-600 transition-colors duration-200"
             >
               <i class="ph-bold ph-lock-key"></i>
-              Digital Twin
+              {{ t('nav.digitalTwin') }}
             </button>
           </template>
         </div>
 
         <div class="hidden md:flex items-center gap-4">
+          <div class="relative">
+            <button
+              @click="isLangDropdownOpen = !isLangDropdownOpen"
+              class="p-2 text-slate-600 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Change Language"
+            >
+              <i class="ph-bold ph-globe text-xl"></i>
+            </button>
+
+            <div
+              v-if="isLangDropdownOpen"
+              class="absolute right-0 top-full mt-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            >
+              <button
+                @click="switchLanguage('en')"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+                :class="locale === 'en' ? 'text-emerald-600 font-bold' : 'text-slate-600'"
+              >
+                English
+              </button>
+              <button
+                @click="switchLanguage('it')"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+                :class="locale === 'it' ? 'text-emerald-600 font-bold' : 'text-slate-600'"
+              >
+                Italiano
+              </button>
+            </div>
+          </div>
+
+          <div class="h-6 w-px bg-slate-200 mx-1"></div>
+
           <template v-if="!isLoggedIn">
             <button
               @click="openLogin"
               class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
             >
-              Log in
+              {{ t('nav.login') }}
             </button>
             <button
               @click="openSignUp"
               class="bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
             >
-              Get Started
+              {{ t('nav.getStarted') }}
             </button>
           </template>
 
@@ -139,7 +181,7 @@ onMounted(() => {
               >
                 <div class="px-4 py-3 border-b border-slate-50">
                   <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Signed in as
+                    {{ t('nav.signedInAs') }}
                   </p>
                   <p class="text-sm font-bold text-slate-800 truncate">{{ username }}</p>
                 </div>
@@ -149,7 +191,7 @@ onMounted(() => {
                   class="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-rose-600 transition-colors flex items-center gap-2"
                 >
                   <i class="ph-bold ph-sign-out text-lg"></i>
-                  Sign Out
+                  {{ t('nav.signOut') }}
                 </button>
               </div>
             </div>
@@ -172,7 +214,7 @@ onMounted(() => {
             class="block text-base font-semibold text-slate-600 hover:text-emerald-600"
             @click="isMobileMenuOpen = false"
           >
-            Dashboard
+            {{ t('nav.dashboard') }}
           </router-link>
         </template>
         <template v-else>
@@ -181,7 +223,7 @@ onMounted(() => {
             class="flex items-center gap-2 text-base font-semibold text-slate-500 hover:text-emerald-600 w-full text-left"
           >
             <i class="ph-bold ph-lock-key"></i>
-            Dashboard
+            {{ t('nav.dashboard') }}
           </button>
         </template>
 
@@ -191,7 +233,7 @@ onMounted(() => {
             class="block text-base font-semibold text-slate-600 hover:text-emerald-600"
             @click="isMobileMenuOpen = false"
           >
-            Digital Twin
+            {{ t('nav.digitalTwin') }}
           </router-link>
         </template>
         <template v-else>
@@ -200,9 +242,36 @@ onMounted(() => {
             class="flex items-center gap-2 text-base font-semibold text-slate-500 hover:text-emerald-600 w-full text-left"
           >
             <i class="ph-bold ph-lock-key"></i>
-            Digital Twin
+            {{ t('nav.digitalTwin') }}
           </button>
         </template>
+
+        <div class="h-px bg-slate-100 my-2"></div>
+
+        <div class="flex gap-2">
+          <button
+            @click="switchLanguage('en')"
+            class="px-3 py-1 text-sm rounded-md border"
+            :class="
+              locale === 'en'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'border-slate-200 text-slate-600'
+            "
+          >
+            English
+          </button>
+          <button
+            @click="switchLanguage('it')"
+            class="px-3 py-1 text-sm rounded-md border"
+            :class="
+              locale === 'it'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'border-slate-200 text-slate-600'
+            "
+          >
+            Italiano
+          </button>
+        </div>
 
         <div class="h-px bg-slate-100 my-2"></div>
 
@@ -212,7 +281,7 @@ onMounted(() => {
               @click="handleLockedClick"
               class="w-full text-center py-2 text-slate-600 font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2"
             >
-              Log in
+              {{ t('nav.login') }}
             </button>
             <button
               @click="
@@ -223,7 +292,7 @@ onMounted(() => {
               "
               class="w-full text-center py-2 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800"
             >
-              Get Started
+              {{ t('nav.getStarted') }}
             </button>
           </template>
 
@@ -235,7 +304,9 @@ onMounted(() => {
                 <i class="ph-bold ph-user text-xl"></i>
               </div>
               <div class="flex flex-col">
-                <span class="text-xs font-bold text-slate-400 uppercase">Signed in as</span>
+                <span class="text-xs font-bold text-slate-400 uppercase">{{
+                  t('nav.signedInAs')
+                }}</span>
                 <span class="font-bold text-slate-900">{{ username }}</span>
               </div>
             </div>
@@ -244,7 +315,7 @@ onMounted(() => {
               class="w-full text-center py-2.5 text-rose-600 font-bold border border-rose-100 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
             >
               <i class="ph-bold ph-sign-out"></i>
-              Sign Out
+              {{ t('nav.signOut') }}
             </button>
           </template>
         </div>
