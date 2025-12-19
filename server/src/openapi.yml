@@ -1,136 +1,283 @@
 openapi: 3.0.0
 
 info:
-    title: Crowd Vision Server API
-    description: >-
-        REST API documentation for the Crowd Vision backend.
-        Documents server setup, authentication, and health checks.
-        Note: Real-time sensor data planned via WebSockets (Socket.io).
-    version: 1.0.0
+  title: Crowd Vision Server API
+  description: >-
+    REST API documentation for the Crowd Vision backend.
+    Documents server setup, authentication, and health checks.
+    Note: Real-time sensor data planned via WebSockets (Socket.io).
+  version: 1.0.0
 
 servers:
-    - url: http://localhost:3000
-      description: Local development server
+  - url: http://localhost:3000
+    description: Local development server
 
 paths:
-    /:
-        get:
-            summary: Health Check
-            description: Returns a greeting to verify server is running.
-            operationId: getRoot
-            responses:
-                '200':
-                    description: Server is running
-                    content:
-                        text/plain:
-                            schema:
-                                type: string
-                            example: "Hello World"
+  /health:
+    get:
+      summary: Health Check
+      description: Returns a status to verify server is running.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is running
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "OK"
 
-    /createUser:
-        post:
-            summary: Create New User
-            description: Registers a new user with hashed password.
-            operationId: createUser
-            requestBody:
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                            required: [username, email, password]
-                            properties:
-                                username:
-                                    type: string
-                                email:
-                                    type: string
-                                password:
-                                    type: string
-            responses:
-                '201':
-                    description: User created successfully
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                properties:
-                                    message:
-                                        type: string
-                                        example: "User created successfully."
-                                    user:
-                                        type: object
-                                        properties:
-                                            id:
-                                                type: string
-                                            username:
-                                                type: string
-                '400':
-                    description: Bad request (validation error)
+  /createUser:
+    post:
+      summary: Create New User
+      description: Registers a new user with hashed password.
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ username, email, password ]
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User created successfully."
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad request (validation error)
 
-    /validateUser:
-        post:
-            summary: Validate User Login
-            description: Authenticates user credentials and returns user info.
-            operationId: validateUser
-            requestBody:
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                            required: [username, password]
-                            properties:
-                                username:
-                                    type: string
-                                password:
-                                    type: string
-            responses:
-                '200':
-                    description: Login successful
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                properties:
-                                    message:
-                                        type: string
-                                        example: "Login successful"
-                                    user:
-                                        type: object
-                                        properties:
-                                            id:
-                                                type: string
-                                            username:
-                                                type: string
-                '401':
-                    description: Invalid password
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                properties:
-                                    message:
-                                        type: string
-                                        example: "Invalid password"
-                '404':
-                    description: User not found
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                properties:
-                                    message:
-                                        type: string
-                                        example: "User not found"
+  /validateUser:
+    post:
+      summary: Validate User Login
+      description: Authenticates user credentials and returns user info.
+      operationId: validateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ username, password ]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Login successful"
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Invalid password
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid password"
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User not found"
+
+  /domain/{username}:
+    get:
+      summary: Get User Domain
+      description: Retrieves the domain associated with a specific username.
+      operationId: getUserDomain
+      parameters:
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
+          description: The username to fetch the domain for
+      responses:
+        '200':
+          description: User has a domain
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User has a domain"
+                  domain:
+                    type: string
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User not found"
+
+  /building:
+    post:
+      summary: Upload Building
+      description: Uploads a new building configuration.
+      operationId: uploadBuilding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Building'
+      responses:
+        '201':
+          description: Building uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Building uploaded successfully."
+                  building:
+                    $ref: '#/components/schemas/Building'
+        '400':
+          description: Building already present
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Building already present."
+
+  /building/{id}:
+    get:
+      summary: Get Building
+      description: Retrieves a building by its ID.
+      operationId: getBuilding
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: The ID of the building to retrieve
+      responses:
+        '201':
+          description: Building found successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Building found successfully."
+                  building:
+                    $ref: '#/components/schemas/Building'
+        '404':
+          description: Building not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Building not found."
 
 components:
-    schemas:
-        User:
-            type: object
-            properties:
-                id:
-                    type: string
-                username:
-                    type: string
-                email:
-                    type: string
+  schemas:
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+
+    Coordinates:
+      type: object
+      required: [ x, y, z ]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        z:
+          type: number
+
+    Dimensions:
+      type: object
+      required: [ width, height, depth ]
+      properties:
+        width:
+          type: number
+        height:
+          type: number
+        depth:
+          type: number
+
+    Room:
+      type: object
+      required: [ id, capacity, position, dimensions ]
+      properties:
+        id:
+          type: string
+        capacity:
+          type: number
+        position:
+          $ref: '#/components/schemas/Coordinates'
+        dimensions:
+          $ref: '#/components/schemas/Dimensions'
+        color:
+          type: string
+
+    Building:
+      type: object
+      required: [ id, rooms, domains ]
+      properties:
+        id:
+          type: string
+        rooms:
+          type: array
+          items:
+            $ref: '#/components/schemas/Room'
+        domains:
+          type: array
+          items:
+            type: string
