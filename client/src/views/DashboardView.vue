@@ -36,13 +36,17 @@ const formattedDate = computed(() => {
   }).format(now.value)
 })
 
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 const tableHeaders = ref<TableHeader[]>([
-  { key: 'room', label: 'Room', cellClass: 'font-medium text-slate-900' },
-  { key: 'status', label: 'Status', cellClass: 'text-sm' },
-  { key: 'teacher', label: 'Teacher', cellClass: 'text-sm' },
-  { key: 'temp', label: 'Temperature', cellClass: 'text-slate-900 font-medium' },
-  { key: 'people', label: 'Number of People', cellClass: 'text-slate-900' },
-  { key: 'capacity', label: 'Capacity', cellClass: 'text-slate-900 font-medium' },
+  { key: 'room', label: 'headers.room', cellClass: 'font-medium text-slate-900' },
+  { key: 'status', label: 'headers.status', cellClass: 'text-sm' },
+  { key: 'teacher', label: 'headers.teacher', cellClass: 'text-sm' },
+  { key: 'temp', label: 'headers.temp', cellClass: 'text-slate-900 font-medium' },
+  { key: 'people', label: 'headers.people', cellClass: 'text-slate-900' },
+  { key: 'capacity', label: 'headers.capacity', cellClass: 'text-slate-900 font-medium' },
 ])
 
 const roomData = ref<any>([])

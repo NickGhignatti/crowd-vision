@@ -1,4 +1,6 @@
 import { createI18n } from 'vue-i18n'
+import LeftMenu from './components/menus/LeftMenu.vue'
+import RightMenu from './components/menus/RightMenu.vue'
 
 const messages = {
   en: {
@@ -43,6 +45,26 @@ const messages = {
         },
       },
     },
+    headers: {
+      room: 'Room',
+      status: 'Status',
+      teacher: 'Teacher',
+      temp: 'Temperature',
+      people: 'People',
+      capacity: 'Capacity'
+    },
+    model: {
+      LeftMenu: {
+        data: 'Building Data',
+        structureName: 'Structure Name',
+      },
+      RightMenu: {
+        roomsList: 'Rooms List',
+        missingRooms: 'No rooms data available',
+        temperature: 'Temperature',
+        occupancy: 'Occupancy',
+      }
+    }
   },
   it: {
     nav: {
@@ -86,6 +108,26 @@ const messages = {
         },
       },
     },
+    headers: {
+      room: 'Stanza',
+      status: 'Stato',
+      teacher: 'Insegnante',
+      temp: 'Temperatura',
+      people: 'Persone',
+      capacity: 'Capienza'
+    },
+    model: {
+      LeftMenu: {
+        data: 'Dati Edificio',
+        structureName: 'Nome Struttura',
+      },
+      RightMenu: {
+        roomsList: 'Lista Stanze',
+        missingRooms: 'Nessun dato disponibile per le stanze',
+        temperature: 'Temperatura',
+        occupancy: 'Percentuale di Occupazione',
+      }
+    }
   },
 }
 

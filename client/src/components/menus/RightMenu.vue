@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   building: BuildingPayload | null
@@ -15,6 +16,8 @@ const getTempColor = (temp: number) => {
   if (temp < 18) return 'text-sky-500'
   return 'text-emerald-600'
 }
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -24,7 +27,7 @@ const getTempColor = (temp: number) => {
   >
     <div class="p-6 h-full overflow-y-auto w-80">
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-lg font-bold text-slate-800">Room List</h2>
+        <h2 class="text-lg font-bold text-slate-800">{{ t('model.RightMenu.roomsList') }}</h2>
 
         <button
           @click="toggleRight"
@@ -36,7 +39,7 @@ const getTempColor = (temp: number) => {
 
       <div class="space-y-4">
         <div v-if="!props.building || props.building.rooms.length === 0" class="text-center py-10">
-          <p class="text-slate-400 text-sm">No rooms data available.</p>
+          <p class="text-slate-400 text-sm">{{ t('model.RightMenu.missingRooms') }}</p>
         </div>
 
         <div
@@ -61,14 +64,14 @@ const getTempColor = (temp: number) => {
 
           <div class="space-y-2">
             <div class="flex justify-between items-center text-sm">
-              <span class="text-slate-500 font-medium">Temperature</span>
+              <span class="text-slate-500 font-medium">{{ t('model.RightMenu.temperature') }}</span>
               <span class="font-bold" :class="getTempColor(22)">
                 22°C
               </span>
             </div>
 
             <div class="flex justify-between items-center text-sm">
-              <span class="text-slate-500 font-medium">Occupancy</span>
+              <span class="text-slate-500 font-medium">{{ t('model.RightMenu.occupancy') }}</span>
               <div class="flex items-center gap-1.5 text-slate-700 font-bold">
                 <span>1 / {{ room.capacity }}</span>
                 <i class="ph-bold ph-users text-slate-400"></i>

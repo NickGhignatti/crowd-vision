@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export interface TableHeader {
   key: string
@@ -60,6 +61,8 @@ const toggleAutoPlay = () => {
 onUnmounted(() => {
   if (autoPlayInterval) clearInterval(autoPlayInterval)
 })
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -75,7 +78,7 @@ onUnmounted(() => {
               :key="header.key"
               class="p-5 font-semibold text-sm uppercase tracking-wide border-r border-emerald-500 last:border-r-0"
             >
-              {{ header.label }}
+                {{ t(header.label) }}
             </th>
           </tr>
         </thead>
