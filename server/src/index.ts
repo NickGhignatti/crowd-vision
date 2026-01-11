@@ -1,10 +1,10 @@
-import type {Request, Response} from 'express';
+import type { Request, Response } from 'express';
 import express from 'express'
 import cors from "cors";
-import {connectMongo} from "./db/server";
-import {swaggerSetup} from "./swagger";
-import {createUser, getUserDomain, validateUser} from "./utils/auth"
-import {getBuilding, uploadBuilding} from "./utils/dashboard";
+import { connectMongo } from "./db/server";
+import { swaggerSetup } from "./swagger";
+import { createUser, getUserDomain, validateUser } from "./utils/auth"
+import { getBuilding, uploadBuilding } from "./utils/dashboard";
 
 export const app = express()
 const PORT = process.env.PORT || 3000;

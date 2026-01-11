@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
+import { useI18n } from 'vue-i18n';
 
 const emit = defineEmits<{
   (e: 'json-uploaded'): void
@@ -47,6 +48,8 @@ const handleFileUpload = async (event: Event) => {
     console.log('file is undefined')
   }
 }
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -56,7 +59,7 @@ const handleFileUpload = async (event: Event) => {
   >
     <div class="p-6 h-full overflow-y-auto w-80">
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-lg font-bold text-slate-800">Building Data</h2>
+        <h2 class="text-lg font-bold text-slate-800">{{ t('model.LeftMenu.data') }}</h2>
 
         <div class="flex items-center gap-2">
           <button
@@ -91,7 +94,7 @@ const handleFileUpload = async (event: Event) => {
       <div class="space-y-4">
         <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
           <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider"
-            >Structure name:</span
+            >{{ t('model.LeftMenu.structureName') }}:</span
           >
           <p class="text-slate-700 font-medium mt-1">{{ structureId }}</p>
         </div>
