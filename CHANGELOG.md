@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/NickGhignatti/crowd-vision/compare/v1.0.1...v1.0.2) (2026-01-20)
+
+
+### Bug Fixes
+
+* table row len standardized with empty rows ([8e22581](https://github.com/NickGhignatti/crowd-vision/commit/8e2258148868c485f75c78c1c3269630f599475a))
+
 ## [1.0.1](https://github.com/NickGhignatti/crowd-vision/compare/v1.0.0...v1.0.1) (2025-12-19)
 
 
