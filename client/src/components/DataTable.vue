@@ -78,7 +78,7 @@ const { t } = useI18n()
               :key="header.key"
               class="p-5 font-semibold text-sm uppercase tracking-wide border-r border-emerald-500 last:border-r-0"
             >
-                {{ t(header.label) }}
+              {{ t(header.label) }}
             </th>
           </tr>
         </thead>
@@ -114,7 +114,9 @@ const { t } = useI18n()
       class="bg-slate-50 p-4 border-t border-slate-300 flex flex-col sm:flex-row justify-between items-center gap-4"
     >
       <span class="text-sm text-slate-600 font-medium">
-        Page <span class="text-emerald-700 font-bold">{{ currentPage }}</span> of {{ totalPages }}
+        {{ t('table.index.page') }}
+        <span class="text-emerald-700 font-bold">{{ currentPage }}</span> {{ t('table.index.of') }}
+        {{ totalPages }}
       </span>
 
       <div class="flex items-center gap-2">
@@ -133,7 +135,7 @@ const { t } = useI18n()
             ></span>
             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          {{ isAutoPlaying ? 'Stop Auto' : 'Auto Play' }}
+          {{ isAutoPlaying ? t('table.buttons.stop') : t('table.buttons.auto') }}
         </button>
 
         <button
@@ -141,7 +143,7 @@ const { t } = useI18n()
           :disabled="currentPage === 1"
           class="px-4 py-2 text-sm font-medium bg-white border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Previous
+          {{ t('table.buttons.previous') }}
         </button>
 
         <button
@@ -149,7 +151,7 @@ const { t } = useI18n()
           :disabled="currentPage === totalPages && !isAutoPlaying"
           class="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
         >
-          Next
+          {{ t('table.buttons.next') }}
         </button>
       </div>
     </div>
