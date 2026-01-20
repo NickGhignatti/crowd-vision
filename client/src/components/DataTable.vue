@@ -29,6 +29,12 @@ const paginatedItems = computed(() => {
   return props.items.slice(start, end)
 })
 
+const emptyRows = computed(() => {
+  const length = paginatedItems.value.length
+  if (length === 0) return 0
+  return Math.max(0, props.itemsPerPage - length)
+})
+
 const nextPage = () => {
   if (currentPage.value < totalPages.value) {
     currentPage.value++
@@ -98,6 +104,21 @@ const { t } = useI18n()
               <slot :name="header.key" :item="item" :value="item[header.key]">
                 {{ item[header.key] }}
               </slot>
+            </td>
+          </tr>
+
+          <tr
+            v-for="n in emptyRows"
+            :key="'empty-' + n"
+            class="hover:bg-slate-50 transition-colors duration-150"
+          >
+            <td
+              v-for="header in headers"
+              :key="header.key"
+              class="p-5 border-r border-slate-200 last:border-r-0"
+              :class="header.cellClass"
+            >
+              &nbsp;
             </td>
           </tr>
 
