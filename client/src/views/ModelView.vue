@@ -7,6 +7,7 @@ import LeftMenu from '@/components/menus/LeftMenu.vue'
 import RightMenu from '@/components/menus/RightMenu.vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
 
+const serverUrl = import.meta.env.VITE_SERVER_URL
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const canvasContainerRef = ref<HTMLDivElement | null>(null)
 
@@ -29,7 +30,7 @@ watch(
 
 const requestBuildingSchema = async () => {
   try {
-    const response = await fetch("http://localhost:3000/building/unibo-campus-cesena")
+    const response = await fetch(serverUrl + '/building/unibo-campus-cesena')
     if (!response.ok) throw new Error('Failed to fetch')
     const data = await response.json()
     buildingRef.value = data.building

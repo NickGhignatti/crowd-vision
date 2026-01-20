@@ -35,13 +35,15 @@ services:
           retries: 3
 
     client:
-        build: ./client
+        build:
+            context: ./client
+            args:
+                VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
         container_name: vue
         ports:
             - "${CLIENT_PORT}:8080"
         environment:
           - PORT=${CLIENT_PORT}
-          - VITE_SERVER_URL=${DEV_URL}:${SERVER_PORT}
         depends_on:
             - server
 

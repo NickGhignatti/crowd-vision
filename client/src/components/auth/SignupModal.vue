@@ -18,9 +18,9 @@ const user = reactive({
   email: '',
   password: '',
 })
-
+const serverUrl = import.meta.env.VITE_SERVER_URL
 const handleSignUp = async () => {
-  const response = await fetch(`http://localhost:3000/createUser`, {
+  const response = await fetch(serverUrl + `/createUser`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
