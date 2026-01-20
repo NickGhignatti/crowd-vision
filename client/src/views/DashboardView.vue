@@ -18,8 +18,10 @@ onUnmounted(() => {
   clearInterval(timer)
 })
 
+const { locale } = useI18n()
+
 const formattedTime = computed(() => {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale.value, {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -28,7 +30,7 @@ const formattedTime = computed(() => {
 })
 
 const formattedDate = computed(() => {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale.value, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -37,8 +39,6 @@ const formattedDate = computed(() => {
 })
 
 import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
 
 const tableHeaders = ref<TableHeader[]>([
   { key: 'room', label: 'headers.room', cellClass: 'font-medium text-slate-900' },
