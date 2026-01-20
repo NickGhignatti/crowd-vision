@@ -17,8 +17,9 @@ const user = reactive({
   password: '',
 })
 
+const serverUrl = import.meta.env.VITE_SERVER_URL
 const handleLogin = async () => {
-  const response = await fetch(`http://localhost:3000/validateUser`, {
+  const response = await fetch(serverUrl + `/validateUser`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

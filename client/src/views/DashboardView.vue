@@ -5,6 +5,7 @@ import DataTable, { type TableHeader } from '@/components/DataTable.vue'
 import type { RoomPayload } from '@/scripts/schema.ts'
 
 const now = ref(new Date())
+const serverUrl = import.meta.env.VITE_SERVER_URL
 let timer: ReturnType<typeof setInterval>
 
 onMounted(() => {
@@ -53,12 +54,12 @@ const roomData = ref<any>([])
 
 const fetchRooms = async () => {
   try {
-    const response = await fetch('http://localhost:3000/building/unibo-campus-cesena')
+    const response = await fetch(serverUrl + '/building/unibo-campus-cesena')
     if (!response.ok) console.log('Failed to fetch data')
 
     const result = await response.json()
     const userHasDomain = (
-      await fetch('http://localhost:3000/domain/' + localStorage.getItem('username')).then(
+      await fetch(serverUrl + '/domain/' + localStorage.getItem('username')).then(
         (response) => response.json(),
       )
     ).domain as string

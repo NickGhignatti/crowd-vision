@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
-import { useI18n } from 'vue-i18n';
+import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits<{
   (e: 'json-uploaded'): void
@@ -21,6 +21,7 @@ const triggerUpload = () => {
   fileInput.value?.click()
 }
 
+const serverUrl = import.meta.env.VITE_SERVER_URL
 const handleFileUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
   if (!target.files || target.files.length === 0) return
@@ -35,7 +36,7 @@ const handleFileUpload = async (event: Event) => {
 
     const payload = JSON.parse(await file.text()) as BuildingPayload
 
-    await fetch(`http://localhost:3000/building`, {
+    await fetch(serverUrl + `/building`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
