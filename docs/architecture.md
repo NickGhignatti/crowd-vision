@@ -6,46 +6,64 @@ sensors, visualizing them on a 3D web dashboard.
 
 ## 1. High-level architecture
 
-The system follows a Client-Server-Database pattern, enhanced with a dedicated IoT Simulation layer. It operates on a
-hybrid communication model using REST APIs for configuration and WebSockets for real-time telemetry.
+The system follows a Client-Server architecture, with the server composed by multiple microservices. A **Caddy** reverse proxy acts as the single entry point (Gateway), managing the internal network and routing requests to specific autonomous services.
 
-## 2. Technology Stack
+The backend is divided into three core domain services:
 
-### Backend
+- **Authentication Service**: Manages user identity and access control.
+- **Digital Twin Service**: Manages the state and configuration of building digital twins.
+- **Data Processing Service**: Ingests, filters, and organizes raw telemetry from IoT sensors.
 
-- Runtime: Node.js with TypeScript.
-- Framework: Express.js.
-- API Documentation: OpenAPI 3.0 / Swagger UI.
-- Authentication: Custom implementation using bcryptjs for hashing.
 
-### Frontend
+```mermaid
+graph TD
+    User[User Dashboard] -->|HTTPS| Proxy[Caddy Proxy Gateway]
+    Sensors[IoT Sensor Network] -->|HTTPS| Proxy
+    
+    subgraph "Internal Network (Microservices)"
+        direction TB
+        Proxy -->|/auth/*| Auth[Authentication Service]
+        Proxy -->|/digital-twin/*| Twins[Digital Twin Service]
+        Proxy -->|/sensors/*| Data[Data Processing Service]
+        
+        Auth <-->|Read/Write| AuthDB[(Auth MongoDB)]
+        Twins <-->|Read/Write| TwinsDB[(Twins MongoDB)]
+        Data <-->|Read/Write| DataDB[(Sensor Data MongoDB)]
+    end
+```
 
-- Framework: Vue 3.
-- Visualization: Three.js for 3D rendering of the building/digital twin.
-- Styling: Tailwind CSS.
-- Build Tool: Vite.
+## 2. Infrastructure & Deployment
+The application infrastructure is containerized, with services orchestrated via Docker Compose.
 
-### Database
+- **Gateway Layer**: Caddy handles SSL termination, load balancing, and routing to the internal Docker network.ù
+- **Database Layer**: We adhere to the Database-per-Service pattern. Each microservice connects to its own dedicated MongoDB instance to ensure loose coupling and independent scaling.
 
-- Engine: MongoDB (v4+ implied by mongo:latest).
-- ODM: Mongoose.
-- Management: Mongo-Express for web-based database administration.
+## 3. Core components & Technology stack
 
-## 3. Core Components
+### Client / Frontend
 
-### Server Application
+- Framework : Vue3
+- Twin visualization : Three.js
+- Styling : Tailwind CSS
+- Build tool : Vite
 
-The Express application acts as the central controller.
+### Authentication Service
+Responsible for all security-related operations.
 
-- REST Endpoints: handles user authentication and building configuration.
+- Stack: Node.js / TypeScript.
+- Responsibilities: User registration, login and validating session states.
+- Data: Stores user credentials and profile information.
 
-### Client Dashboard
+### Digital twin Service
+Handles the static and dynamic configuration of the monitored environments.
 
-An interface that allows admins and users to view status updates.
+- Stack: Node.js / TypeScript.
+- Responsibilities: CRUD operations for buildings, rooms, and sensor placement configurations.
+- Data: Stores 3D models metadata and building hierarchy.
 
-- Views: both table view and 3d digital twin, allowing a great management.
+### Data processing Service
+The high-throughput component that handles real-time streams.
 
-## 4. Infrastructure & Deployment
-
-The application is containerized using Docker Compose, orchestrating four distinct services
-
+- Stack: Node.js / TypeScript.
+- Responsibilities: Receives raw sensor data, filters noise, aggregates readings, and prepares data for the frontend visualization.
+- Data: Stores historical sensor logs and processed metrics.
