@@ -1,0 +1,6 @@
+:80 {
+    # Auth Service
+    handle_path /auth/* {
+        reverse_proxy auth-service:3000
+    }
+}

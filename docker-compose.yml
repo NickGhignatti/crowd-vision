@@ -1,51 +1,62 @@
 services:
-    mongodb:
-        image: mongo:latest
-        container_name: mongodb
-        ports:
-            - "${MONGO_PORT}:27017"
-        volumes:
-            - mongo-data:/data/db
+  # ==========================================
+  # GATEWAY
+  # ==========================================
+  gateway:
+    image: caddy:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - gateway-net
+    depends_on:
+      - auth-service
 
-    mongo-express:
-        image: mongo-express
-        restart: always
-        ports:
-            - "8081:8081"
-        environment:
-            - ME_CONFIG_MONGODB_URL=mongodb://mongodb:${MONGO_PORT}
-            - ME_CONFIG_BASICAUTH_ENABLED=false
-        depends_on:
-            - mongodb
+  # ==========================================
+  # AUTH SERVICE
+  # ==========================================
+  auth-service:
+    build: ./server/auth-service
+    networks:
+      - gateway-net
+      - auth-net
+    environment:
+      - MONGO_URI=mongodb://auth-db:27017/authdb
 
-    server:
-        build: ./server
-        container_name: express
-        ports:
-            - "${SERVER_PORT}:3000"
-        environment:
-            - MONGO_URI=mongodb://mongodb:${MONGO_PORT}/visiondb
-            - PORT=${SERVER_PORT}
-        depends_on:
-            - mongodb
-        healthcheck:
-          test: [ "CMD", "curl", "-f", "http://${DEV_URL}:${SERVER_PORT}/health" ]
-          interval: 60s
-          timeout: 10s
-          retries: 3
+  auth-db:
+    image: mongo:latest
+    networks:
+      - auth-net
+    volumes:
+      - auth-data:/data/db
 
-    client:
-        build:
-            context: ./client
-            args:
-                VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
-        container_name: vue
-        ports:
-            - "${CLIENT_PORT}:8080"
-        environment:
-          - PORT=${CLIENT_PORT}
-        depends_on:
-            - server
+  # ==========================================
+  # CLIENT
+  # ==========================================
+  client:
+    container_name: vue-client
+    build:
+        context: ./client
+        args:
+            VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
+    ports:
+        - "${CLIENT_PORT}:8080"
+    environment:
+        - PORT=${CLIENT_PORT}
+    networks:
+        - gateway-net
+    depends_on:
+        - auth-service
+        - gateway
+
+networks:
+  gateway-net:
+  auth-net:
 
 volumes:
-    mongo-data:
+  caddy_data:
+  caddy_config:
+  auth-data:
