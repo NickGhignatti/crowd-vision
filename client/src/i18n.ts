@@ -75,6 +75,17 @@ const messages = {
         occupancy: 'Occupancy',
       },
     },
+    auth: {
+      welcomeBack: 'Welcome Back!',
+      signInToContinue: 'Sign in to continue to CrowdVision',
+      signIn: 'Sign In',
+      noAccount: "Don't have an account?",
+      signUp: 'Sign Up',
+      createAccount: 'Create an Account',
+      join: 'Join CrowdVision to start monitoring!',
+      alreadyAnAccount: 'Already have an account?',
+      forgot: 'Forgot Password?'
+    },
   },
   it: {
     nav: {
@@ -131,7 +142,7 @@ const messages = {
         next: 'Successivo',
         previous: 'Precedente',
         auto: 'Riproduzione automatica',
-        stop: 'Ferma riproduzione'
+        stop: 'Ferma riproduzione',
       },
       index: {
         page: 'Pagina',
@@ -149,6 +160,17 @@ const messages = {
         temperature: 'Temperatura',
         occupancy: 'Percentuale di Occupazione',
       },
+    },
+    auth: {
+      welcomeBack: 'Bentornato!',
+      signInToContinue: 'Accedi per continuare su CrowdVision',
+      signIn: 'Accedi',
+      noAccount: "Non hai un account?",
+      signUp: 'Iscriviti',
+      createAccount: 'Crea un Account',
+      join: 'Unisciti a CrowdVision per iniziare a monitorare!',
+      alreadyAnAccount: 'Hai già un account?',
+      forgot: 'Password Dimenticata?'
     },
   },
 }

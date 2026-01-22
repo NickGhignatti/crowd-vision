@@ -58,15 +58,15 @@ const fetchRooms = async () => {
     if (!response.ok) console.log('Failed to fetch data')
 
     const result = await response.json()
-    const userHasDomain = (
+    const userDomain = (
       await fetch(serverUrl + '/domain/' + localStorage.getItem('username')).then(
         (response) => response.json(),
       )
-    ).domain as string
+    ).name as string;
 
     const buildingDomains = result.building.domains as string[]
 
-    if (buildingDomains.includes(userHasDomain)) {
+    if (buildingDomains.includes(userDomain)) {
       result.building.rooms.forEach((room: RoomPayload) => {
         const occupants = Math.floor(Math.random() * room.capacity)
         roomData.value.push({
