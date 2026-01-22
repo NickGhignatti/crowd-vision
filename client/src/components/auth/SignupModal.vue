@@ -3,6 +3,9 @@ import UsernameInput from '@/components/auth/inputs/UsernameInput.vue'
 import PasswordInput from '@/components/auth/inputs/PasswordInput.vue'
 import MailInput from '@/components/auth/inputs/MailInput.vue'
 import { reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   isOpen: boolean
@@ -20,7 +23,7 @@ const user = reactive({
 })
 const serverUrl = import.meta.env.VITE_SERVER_URL
 const handleSignUp = async () => {
-  const response = await fetch(serverUrl + `/createUser`, {
+  const response = await fetch(serverUrl + `/auth/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -35,7 +38,7 @@ const handleSignUp = async () => {
   if (response.ok) {
     localStorage.setItem('isAuthenticated', 'true')
     const message = await response.json()
-    localStorage.setItem('username', message.user.username)
+    localStorage.setItem('username', message.username)
     emit('close')
   }
 }
@@ -81,8 +84,10 @@ const handleSignUp = async () => {
             >
               <i class="ph-bold ph-user-plus text-2xl"></i>
             </div>
-            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Create Account</h2>
-            <p class="text-sm text-slate-500 mt-2">Join CrowdVision to start monitoring</p>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">
+              {{ t('auth.createAccount') }}
+            </h2>
+            <p class="text-sm text-slate-500 mt-2">{{ t('auth.join') }}</p>
           </div>
 
           <form @submit.prevent="handleSignUp" class="relative z-10 space-y-4">
@@ -94,18 +99,18 @@ const handleSignUp = async () => {
               type="submit"
               class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0 mt-2"
             >
-              Create Account
+              {{ t('auth.createAccount') }}
             </button>
           </form>
 
           <div class="relative z-10 mt-6 text-center">
             <p class="text-xs text-slate-500">
-              Already have an account?
+              {{ t('auth.alreadyAnAccount') }}
               <button
                 @click="$emit('switch-to-login')"
                 class="text-emerald-600 hover:text-emerald-500 font-bold hover:underline"
               >
-                Sign In
+                {{ t('auth.signIn') }}
               </button>
             </p>
           </div>

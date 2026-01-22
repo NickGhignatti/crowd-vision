@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n();
 const password = defineModel<string>('password')
 </script>
 
@@ -6,7 +9,7 @@ const password = defineModel<string>('password')
   <div>
     <div class="flex justify-between items-center mb-1.5">
       <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">Password</label>
-      <a href="#" class="text-xs text-emerald-600 hover:text-emerald-500 font-medium">Forgot?</a>
+      <a href="#" class="text-xs text-emerald-600 hover:text-emerald-500 font-medium">{{ t('auth.forgot') }}</a>
     </div>
     <input
       type="password"

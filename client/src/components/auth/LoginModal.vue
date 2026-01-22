@@ -2,6 +2,9 @@
 import UsernameInput from '@/components/auth/inputs/UsernameInput.vue'
 import PasswordInput from '@/components/auth/inputs/PasswordInput.vue'
 import { reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   isOpen: boolean
@@ -19,7 +22,7 @@ const user = reactive({
 
 const serverUrl = import.meta.env.VITE_SERVER_URL
 const handleLogin = async () => {
-  const response = await fetch(serverUrl + `/validateUser`, {
+  const response = await fetch(serverUrl + `/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -33,7 +36,7 @@ const handleLogin = async () => {
   if (response.ok) {
     localStorage.setItem('isAuthenticated', 'true')
     const message = await response.json()
-    localStorage.setItem('username', message.user.username)
+    localStorage.setItem('username', message.username)
     emit('close')
   }
 }
@@ -79,8 +82,8 @@ const handleLogin = async () => {
             >
               <i class="ph-bold ph-user-circle text-2xl"></i>
             </div>
-            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Welcome Back</h2>
-            <p class="text-sm text-slate-500 mt-2">Sign in to access your dashboard</p>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ t('auth.welcomeBack') }}</h2>
+            <p class="text-sm text-slate-500 mt-2">{{ t('auth.signInToContinue') }}</p>
           </div>
 
           <form @submit.prevent="handleLogin" class="relative z-10 space-y-5">
@@ -90,18 +93,18 @@ const handleLogin = async () => {
               type="submit"
               class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
-              Sign In
+              {{ t('auth.signIn') }}
             </button>
           </form>
 
           <div class="relative z-10 mt-6 text-center">
             <p class="text-xs text-slate-500">
-              Don't have an account?
+              {{ t('auth.noAccount') }}
               <button
                 @click="$emit('switch-to-signup')"
                 class="text-emerald-600 hover:text-emerald-500 font-bold hover:underline"
               >
-                Sign Up
+                {{ t('auth.signUp') }}
               </button>
             </p>
           </div>
