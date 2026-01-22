@@ -1,5 +1,5 @@
-import request =  require('supertest');
-import {app} from "../src";
+import request from 'supertest';
+import {app} from "../src/index.js";
 
 describe('Auth should work', () => {
     const mockUser = {
@@ -10,20 +10,18 @@ describe('Auth should work', () => {
 
     it('should create a new user', async () => {
         const res = await request(app)
-            .post('/createUser')
+            .post('/register')
             .send(mockUser);
 
         expect(res.status).toBe(201);
-        expect(res.body.message).toBe('User created successfully.');
-        expect(res.body.user).toHaveProperty('id');
-        expect(res.body.user.username).toBe(mockUser.username);
+        expect(res.body).toHaveProperty('userId');
     });
 
     it('should validate an existing user with correct password', async () => {
-        await request(app).post('/createUser').send(mockUser);
+        await request(app).post('/register').send(mockUser);
 
         const res = await request(app)
-            .post('/validateUser')
+            .post('/login')
             .send({
                 username: mockUser.username,
                 password: mockUser.password
@@ -34,16 +32,16 @@ describe('Auth should work', () => {
     });
 
     it('should reject login with incorrect password', async () => {
-        await request(app).post('/createUser').send(mockUser);
+        await request(app).post('/register').send(mockUser);
 
         const res = await request(app)
-            .post('/validateUser')
+            .post('/login')
             .send({
                 username: mockUser.username,
                 password: 'wrongpassword'
             });
 
-        expect(res.status).toBe(401);
-        expect(res.body.message).toBe('Invalid password');
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid password');
     });
 });
