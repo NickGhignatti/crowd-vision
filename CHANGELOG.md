@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.0.2...v1.1.0) (2026-01-22)
+
+
+### Bug Fixes
+
+* auth pipeline working dir ([820dc9e](https://github.com/NickGhignatti/crowd-vision/commit/820dc9e8fd0e6838139691613c8412167244226b))
+
+
+### Features
+
+* authentication microservice ([813c79e](https://github.com/NickGhignatti/crowd-vision/commit/813c79e3ac3a99da0bf98b4a0baa3174bb8fc4f3))
+* domains and fix missing translations ([17b15b2](https://github.com/NickGhignatti/crowd-vision/commit/17b15b2789c1cc4083748be4fcad9cd0337bb3ef))
+
 ## [1.0.2](https://github.com/NickGhignatti/crowd-vision/compare/v1.0.1...v1.0.2) (2026-01-20)
 
 
