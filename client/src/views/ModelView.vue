@@ -19,7 +19,9 @@ let animationId: number | null = null
 let meshGroup: THREE.Group | null = null
 let resizeObserver: ResizeObserver | null = null
 
-const buildingRef = ref<BuildingPayload | null>(null)
+const buildingRef = ref<BuildingPayload | null>(null);
+let allAvailableBuildings: BuildingPayload[] = [];
+let availableBuildingsNames: string[] = [];
 
 watch(
   () => buildingRef.value,
@@ -30,13 +32,24 @@ watch(
 
 const requestBuildingSchema = async () => {
   try {
-    const response = await fetch(serverUrl + '/twin/building/unibo-campus-cesena')
+    const userDomain = (
+      await fetch(serverUrl + '/auth/domain/' + localStorage.getItem('username')).then((response) =>
+        response.json(),
+      )
+    ).domain.name as string
+
+    const response = await fetch(serverUrl + '/twin/buildings/' + userDomain)
     if (!response.ok) throw new Error('Failed to fetch')
-    const data = await response.json()
-    buildingRef.value = data
+    allAvailableBuildings = await response.json() as BuildingPayload[]
+    availableBuildingsNames = allAvailableBuildings.map((b) => b.id)
+    buildingRef.value = allAvailableBuildings[0] || null
   } catch (e) {
     console.error(e)
   }
+};
+
+const changeBuildingSchema = (currentIndex: number) => {
+  buildingRef.value = allAvailableBuildings[currentIndex] || null
 }
 
 const DEFAULT_POS = { x: 10, y: 10, z: 10 }
@@ -187,7 +200,9 @@ const handleResize = () => {
     <NavBar />
 
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
-      <LeftMenu structure-id="UniBo campus cesena" />
+      <LeftMenu :structure-ids=availableBuildingsNames
+        @json-uploaded="requestBuildingSchema"
+        @change-building="changeBuildingSchema"/>
 
       <main ref="canvasContainerRef" class="flex-1 relative bg-slate-50 z-0 min-w-0">
         <div class="absolute inset-0">

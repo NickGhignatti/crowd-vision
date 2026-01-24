@@ -137,7 +137,7 @@ const { t } = useI18n()
       <span class="text-sm text-slate-600 font-medium">
         {{ t('table.index.page') }}
         <span class="text-emerald-700 font-bold">{{ currentPage }}</span> {{ t('table.index.of') }}
-        {{ totalPages }}
+        {{ Math.max(totalPages, 1) }}
       </span>
 
       <div class="flex items-center gap-2">
