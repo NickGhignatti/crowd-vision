@@ -5,10 +5,11 @@ import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits<{
   (e: 'json-uploaded'): void
+  (e: 'change-building', index: number): void
 }>()
 
 defineProps<{
-  structureId: string
+  structureIds: string[]
 }>()
 
 const isLeftOpen = ref(true)
@@ -92,12 +93,15 @@ const { t } = useI18n()
         </div>
       </div>
 
-      <div class="space-y-4">
-        <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
-          <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider"
-            >{{ t('model.LeftMenu.structureName') }}:</span
-          >
-          <p class="text-slate-700 font-medium mt-1">{{ structureId }}</p>
+      <div v-for="(item, index) in structureIds" :key="item" class="mb-3">
+        <div
+          class="p-4 rounded-xl border border-slate-100 bg-slate-50 cursor-pointer transition-all duration-200 ease-in-out hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5"
+          @click="emit('change-building', index)"
+        >
+          <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">
+            {{ t('model.LeftMenu.structureName') }}:
+          </span>
+          <p class="text-slate-700 font-medium mt-1">{{ item }}</p>
         </div>
       </div>
     </div>

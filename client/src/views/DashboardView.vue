@@ -54,35 +54,29 @@ const roomData = ref<any>([])
 
 const fetchRooms = async () => {
   try {
-    const response = await fetch(serverUrl + '/twin/building/unibo-campus-cesena')
-    if (!response.ok) console.log('Failed to fetch data')
-
-    const result = await response.json()
     const userDomain = (
-      await fetch(serverUrl + '/auth/domain/' + localStorage.getItem('username')).then(
-        (response) => response.json(),
+      await fetch(serverUrl + '/auth/domain/' + localStorage.getItem('username'))
+        .then((response) =>
+        response.json(),
       )
     ).domain.name as string;
 
-    console.log('User domain:', userDomain);
+    const response = await fetch(serverUrl + '/twin/buildings/' + userDomain);
+    if (!response.ok) console.log('Failed to fetch data');
 
-    const buildingDomains = result.domains as string[]
+    const result = await response.json()
 
-    console.log('Building domains:', buildingDomains);
-
-    if (buildingDomains.includes(userDomain)) {
-      result.rooms.forEach((room: RoomPayload) => {
-        const occupants = Math.floor(Math.random() * room.capacity)
-        roomData.value.push({
-          room: room.id,
-          status: getStatusByOccupants(occupants, room.capacity),
-          teacher: '',
-          temp: '',
-          people: occupants,
-          capacity: room.capacity,
-        })
+    result[0].rooms.forEach((room: RoomPayload) => {
+      const occupants = Math.floor(Math.random() * room.capacity)
+      roomData.value.push({
+        room: room.id,
+        status: getStatusByOccupants(occupants, room.capacity),
+        teacher: '',
+        temp: '',
+        people: occupants,
+        capacity: room.capacity,
       })
-    }
+    })
   } catch (err) {
     console.error(err)
   }
