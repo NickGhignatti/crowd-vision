@@ -14,6 +14,7 @@ services:
       - gateway-net
     depends_on:
       - auth-service
+      - twin-service
 
   # ==========================================
   # AUTH SERVICE
@@ -32,6 +33,24 @@ services:
       - auth-net
     volumes:
       - auth-data:/data/db
+
+  # ==========================================
+  # DIGITAL TWIN SERVICE
+  # ==========================================
+  twin-service:
+    build: ./server/twin-service
+    networks:
+      - gateway-net
+      - twin-net
+    environment:
+      - MONGO_URI=mongodb://twin-db:27017/twindb
+
+  twin-db:
+    image: mongo:latest
+    networks:
+      - twin-net
+    volumes:
+      - twin-data:/data/db
 
   # ==========================================
   # CLIENT
@@ -55,8 +74,10 @@ services:
 networks:
   gateway-net:
   auth-net:
+  twin-net:
 
 volumes:
   caddy_data:
   caddy_config:
   auth-data:
+  twin-data:

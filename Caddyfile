@@ -3,4 +3,13 @@
     handle_path /auth/* {
         reverse_proxy auth-service:3000
     }
+
+    # Digital Twin service
+    handle_path /twin/* {
+        reverse_proxy twin-service:3000
+    }
+
+    handle_path /db/* {
+        reverse_proxy twin-service:8081
+    }
 }

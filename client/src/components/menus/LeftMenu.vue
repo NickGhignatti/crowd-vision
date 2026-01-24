@@ -36,7 +36,7 @@ const handleFileUpload = async (event: Event) => {
 
     const payload = JSON.parse(await file.text()) as BuildingPayload
 
-    await fetch(serverUrl + `/building`, {
+    await fetch(serverUrl + `/twin/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
-import type {Request, Response} from 'express';
-import {getDomainLevel, getUserDomain, loginUser, registerUser} from "../services/authService.js";
-import type {UserParams} from "../models/user.js";
+import type { Request, Response } from 'express';
+import { getDomainLevel, getUserDomain, loginUser, registerUser } from "../services/authService.js";
+import type { UserParams } from "../models/user.js";
 
 export const register = async (req: Request, res: Response) => {
     try {
@@ -24,8 +24,8 @@ export const login = async (req: Request, res: Response) => {
 
 export const domain = async (req: Request<UserParams>, res: Response) => {
     try {
-        const { userId } = req.params;
-        const domain = await getUserDomain(userId);
+        const { username } = req.params;
+        const domain = await getUserDomain(username);
         res.status(200).json({ domain });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -34,8 +34,8 @@ export const domain = async (req: Request<UserParams>, res: Response) => {
 
 export const domainLevel = async (req: Request<UserParams>, res: Response) => {
     try {
-        const { userId } = req.params;
-        const domain = await getUserDomain(userId);
+        const { username } = req.params;
+        const domain = await getUserDomain(username);
         const domainLevel = await getDomainLevel(domain);
         res.status(200).json({ domainLevel });
     } catch (error: any) {
