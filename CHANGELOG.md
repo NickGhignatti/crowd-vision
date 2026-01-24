@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.1.0...v1.2.0) (2026-01-24)
+
+
+### Features
+
+* digital twin service basic features ([2ed14b9](https://github.com/NickGhignatti/crowd-vision/commit/2ed14b9b6ce426349a18c2aaaae6c4683d858c45))
+
 # [1.1.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.0.2...v1.1.0) (2026-01-22)
 
 
