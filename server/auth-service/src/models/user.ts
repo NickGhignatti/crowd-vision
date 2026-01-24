@@ -7,7 +7,7 @@ export interface IDomain {
 }
 
 export interface UserParams {
-    userId: string;
+    username: string;
 }
 
 const domainSchema = new Schema<IDomain>({
@@ -25,7 +25,7 @@ export interface IUser {
 const userSchema = new Schema<IUser>({
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true},
+    password: { type: String, required: true },
     domain: { type: domainSchema, required: true },
 });
 

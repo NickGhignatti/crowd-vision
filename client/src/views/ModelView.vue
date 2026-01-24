@@ -30,10 +30,10 @@ watch(
 
 const requestBuildingSchema = async () => {
   try {
-    const response = await fetch(serverUrl + '/building/unibo-campus-cesena')
+    const response = await fetch(serverUrl + '/twin/building/unibo-campus-cesena')
     if (!response.ok) throw new Error('Failed to fetch')
     const data = await response.json()
-    buildingRef.value = data.building
+    buildingRef.value = data
   } catch (e) {
     console.error(e)
   }

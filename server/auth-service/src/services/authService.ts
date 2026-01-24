@@ -1,4 +1,4 @@
-import {type IDomain, User} from '../models/user.js';
+import { type IDomain, User } from '../models/user.js';
 import bcrypt from 'bcrypt';
 
 export const registerUser = async (username: string, email: string, password: string) => {
@@ -38,8 +38,8 @@ export const loginUser = async (username: string, password: string) => {
     return user;
 }
 
-export const getUserDomain = async (userId: string) => {
-    const user = await User.findById(userId);
+export const getUserDomain = async (username: string) => {
+    const user = await User.findOne({ username });
     if (!user) {
         throw new Error('User not found');
     }
@@ -53,7 +53,7 @@ export const getUserDomain = async (userId: string) => {
 export const getDomainLevel = async (domain: IDomain) => {
     let rank = 1;
 
-    switch(domain.subdomain) {
+    switch (domain.subdomain) {
         case 'studio':
             rank += 1;
             break;
