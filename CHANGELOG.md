@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.2.0...v1.3.0) (2026-01-24)
+
+
+### Features
+
+* multiple digital twins for domain support ([a2c7270](https://github.com/NickGhignatti/crowd-vision/commit/a2c72708aef0da21d89d4ce571cd254789854c05))
+
 # [1.2.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.1.0...v1.2.0) (2026-01-24)
 
 
