@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.3.0...v1.4.0) (2026-01-25)
+
+
+### Features
+
+* script which automatize the project run ([64e6076](https://github.com/NickGhignatti/crowd-vision/commit/64e607644bcfff77e6f6ccecc4e6c33f5b0c60e2))
+
 # [1.3.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.2.0...v1.3.0) (2026-01-24)
 
 

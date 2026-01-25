@@ -14,7 +14,13 @@
         reverse_proxy simulator-service:3000
     }
 
-    handle_path /db/* {
-        reverse_proxy twin-service:8081
+    # Mongo Express - Auth DB 
+    handle /auth-db-gui/* {
+        reverse_proxy auth-db-express:8081
+    }
+
+    # Mongo Express - Twin DB
+    handle /twin-db-gui/* {
+        reverse_proxy twin-db-express:8081
     }
 }
