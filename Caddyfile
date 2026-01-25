@@ -9,6 +9,11 @@
         reverse_proxy twin-service:3000
     }
 
+    # Signal Simulator service
+    handle_path /simulator/* {
+        reverse_proxy simulator-service:3000
+    }
+
     # Notification service
     handle_path /notification/* {
         reverse_proxy notification-service:3000
