@@ -53,6 +53,15 @@ services:
       - twin-data:/data/db
 
   # ==========================================
+  # SIMULATOR SERVICE SERVICE
+  # ==========================================
+  simulator-service:
+    build: ./server/sensor-simulator
+    networks:
+      - gateway-net
+      - twin-net
+
+  # ==========================================
   # CLIENT
   # ==========================================
   client:

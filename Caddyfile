@@ -9,6 +9,11 @@
         reverse_proxy twin-service:3000
     }
 
+    # Signal Simulator service
+    handle_path /simulator/* {
+        reverse_proxy simulator-service:3000
+    }
+
     handle_path /db/* {
         reverse_proxy twin-service:8081
     }
