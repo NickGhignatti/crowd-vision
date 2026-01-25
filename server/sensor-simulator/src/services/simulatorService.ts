@@ -1,4 +1,3 @@
-import { time } from 'console';
 import { mySimulationTwins, type ITwin } from '../models/signal.js';
 
 export class Simulator {
