@@ -1,7 +1,6 @@
 import express from 'express'
 import cors from 'cors';
 import router from "./router.js";
-import {connectMongo} from "./config/db.js";
 
 const app = express();
 const PORT = 3000;
@@ -17,7 +16,5 @@ app.get('/', (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-    connectMongo().then(() => {
-        app.listen(PORT, () => console.log(`Authentication service running on localhost:${PORT}`));
-    });
+    app.listen(PORT, () => console.log(`Simulator service running on localhost:${PORT}`));
 }
