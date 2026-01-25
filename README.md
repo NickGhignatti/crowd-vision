@@ -15,48 +15,46 @@ You can run this project easily using Docker or manually by setting up the envir
 * **Node.js** (Version ^20.19.0 or >=22.12.0 recommended)
 * **npm**
 
-### Environment Configuration
+### Quick start
 
-Before running the project, ensure you have configured your environment variables. Create a `.env` file in the root directory. Based on the configuration, it should look something like this:
+We provide a `build-application.sh` script to automate the setup process.
+
+> ⚠️ **Attention**
+>
+> To delete the containers the script offer a `--down` mode which cna be triggered through `build-application.sh --down` command
+
+#### 1. Standard Run
+To run the application with the default configuration:
 
 ```bash
-# .env example
-MONGO_PORT=27017
-SERVER_PORT=3000
-CLIENT_PORT=8080
-DEV_URL=localhost
-PROD_URL=localhost
+./build-application.sh
 ```
 
-### Running the project with Docker
+#### 2. Developer Mode (with MongoDb GUI)
 
-The project includes a `docker-compose.yml` file that orchestrates the MongoDB database, Express server, Vue client, and Mongo Express interface.
-1. **Build and start the services**: 
-    ```bash
-    docker-compose up --build
-    ```
-2. **Acess the application**:
-    - Client (Vue): your configured DEV_URL + CLIENT_PORT
-    - Server (API): your configured DEV_URL + SERVER_PORT
-    - Mongo Express (DB GUI): on your DEV_URL at port 8081
+```bash
+./build-application.sh --dev
+```
 
-### Running the project manually
-If you prefer to run the services individually without Docker:
-1. Install Dependencies: This project uses npm workspaces. Install dependencies for both client and server from the root:
+Additional features:
+- Auth DB GUI: Accessible at http://localhost/auth-db-gui/
+- Twin DB GUI: Accessible at http://localhost/twin-db-gui/
+
+#### 3. Manual setup (Docker)
+
+If you prefer to run `docker-compose` manually without the script:
+
+1. Environment Configuration: Create a .env file in the root directory:
     ```bash
-    npm install
+    MONGO_PORT=27017
+    SERVER_PORT=3000
+    CLIENT_PORT=8080
+    DEV_URL=http://localhost
+    PROD_URL=http://localhost
     ```
-2. Database: Ensure you have a MongoDB instance running locally (default: mongodb://localhost:27017/visiondb).
-3. Start the Server: Open a terminal and run:
-    ```bash
-    cd server
-    npm run dev
-    ```
-4. Start the Client: Open a second terminal and run:
-    ```bash
-    cd client
-    npm run dev
-    ```
+2. Run services:
+    - Standard: `docker-compose up --build`
+    - Dev mode: `docker-compose --profile dev up --build`
 
 ## Trigger workflows
 
