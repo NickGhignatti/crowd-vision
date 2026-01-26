@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.4.0...v1.5.0) (2026-01-26)
+
+
+### Bug Fixes
+
+* CI pipeline rootDir and path not found ([75cd0de](https://github.com/NickGhignatti/crowd-vision/commit/75cd0dee5a8eb2d163593369477cb2e0a2be8e97))
+
+
+### Features
+
+* openapi documentation endpoint ([54cd9e4](https://github.com/NickGhignatti/crowd-vision/commit/54cd9e40f78d6f3f4b3654af675face1fa41d46e))
+
 # [1.4.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.3.0...v1.4.0) (2026-01-25)
 
 
