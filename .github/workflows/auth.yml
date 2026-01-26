@@ -4,11 +4,13 @@ on:
   push:
     branches: [master]
     paths:
-      - "./server/auth-service/**"
+      - "server/auth-service/**"
+      - ".github/workflows/auth.yml"
   pull_request:
     branches: [master]
     paths:
-      - "./server/auth-service/**"
+      - "server/auth-service/**"
+      - ".github/workflows/auth.yml"
 
 jobs:
   auth-service:
