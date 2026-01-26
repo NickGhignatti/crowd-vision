@@ -8,7 +8,7 @@ beforeAll(async () => {
     const uri = mongoServer.getUri();
     process.env.MONGO_URI = uri;
     await mongoose.connect(uri);
-});
+}, 30000);
 
 afterEach(async () => {
     const collections = mongoose.connection.collections;
