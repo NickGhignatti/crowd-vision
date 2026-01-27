@@ -22,7 +22,7 @@ let resizeObserver: ResizeObserver | null = null
 const buildingRef = ref<BuildingPayload | null>(null)
 const selectedRoomId = ref<string | null>(null)
 let allAvailableBuildings: BuildingPayload[] = []
-let availableBuildingsNames: string[] = []
+const availableBuildingsNames = ref<string[]>([])
 
 watch(selectedRoomId, () => {
   drawBuilding()
@@ -49,8 +49,10 @@ const requestBuildingSchema = async () => {
     const response = await fetch(serverUrl + '/twin/buildings/' + userDomain)
     if (!response.ok) throw new Error('Failed to fetch')
     allAvailableBuildings = (await response.json()) as BuildingPayload[]
-    availableBuildingsNames = allAvailableBuildings.map((b) => b.id)
-    buildingRef.value = allAvailableBuildings[0] || null
+    availableBuildingsNames.value = allAvailableBuildings.map((b) => b.id)
+    if (!buildingRef.value && allAvailableBuildings.length > 0) {
+      buildingRef.value = allAvailableBuildings[0] || null
+    }
   } catch (e) {
     console.error(e)
   }
@@ -124,11 +126,26 @@ const initThree = () => {
 
   meshGroup = new THREE.Group()
 
-  const gridHelper = new THREE.GridHelper(50, 50, '#cbd5e1', '#e2e8f0')
-  scene.add(gridHelper)
+  // const gridHelper = new THREE.GridHelper(50, 50, '#cbd5e1', '#e2e8f0')
+  // scene.add(gridHelper)
   scene.add(meshGroup)
 
   animate()
+}
+
+const materials = {
+  selected: new THREE.MeshStandardMaterial({
+    color: '#10b981',
+    transparent: true,
+    opacity: 0.6,
+    depthWrite: false,
+  }),
+  unselected: new THREE.MeshStandardMaterial({
+    color: '#e2e8f0',
+    transparent: true,
+    opacity: 0.3,
+    depthWrite: false,
+  }),
 }
 
 const drawBuilding = () => {
@@ -137,21 +154,13 @@ const drawBuilding = () => {
 
     buildingRef.value.rooms.forEach((room) => {
       const isSelected = room.id === selectedRoomId.value
-      const boxColor = isSelected ? '#10b981' : '#e2e8f0'
-      const boxOpacity = isSelected ? 0.6 : 0.3
       const geometryBase = new THREE.BoxGeometry(
         room.dimensions.width,
         room.dimensions.height,
         room.dimensions.depth,
       )
 
-      const materialBase = new THREE.MeshStandardMaterial({
-        color: boxColor,
-        transparent: true,
-        opacity: boxOpacity,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      })
+      const materialBase = materials[isSelected ? 'selected' : 'unselected']
 
       const element = new THREE.Mesh(geometryBase, materialBase)
       element.position.set(room.position.x, room.position.y, room.position.z)
@@ -217,6 +226,7 @@ const handleResize = () => {
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
       <LeftMenu
         :structure-ids="availableBuildingsNames"
+        :selected-id="buildingRef?.id || null"
         @json-uploaded="requestBuildingSchema"
         @change-building="changeBuildingSchema"
       />
