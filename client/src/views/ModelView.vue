@@ -19,14 +19,22 @@ let animationId: number | null = null
 let meshGroup: THREE.Group | null = null
 let resizeObserver: ResizeObserver | null = null
 
-const buildingRef = ref<BuildingPayload | null>(null);
-let allAvailableBuildings: BuildingPayload[] = [];
-let availableBuildingsNames: string[] = [];
+const buildingRef = ref<BuildingPayload | null>(null)
+const selectedRoomId = ref<string | null>(null)
+let allAvailableBuildings: BuildingPayload[] = []
+let availableBuildingsNames: string[] = []
+
+watch(selectedRoomId, () => {
+  drawBuilding()
+})
 
 watch(
   () => buildingRef.value,
   (newValue) => {
-    if (newValue) drawBuilding()
+    if (newValue) {
+      drawBuilding()
+      selectedRoomId.value = null
+    }
   },
 )
 
@@ -40,19 +48,23 @@ const requestBuildingSchema = async () => {
 
     const response = await fetch(serverUrl + '/twin/buildings/' + userDomain)
     if (!response.ok) throw new Error('Failed to fetch')
-    allAvailableBuildings = await response.json() as BuildingPayload[]
+    allAvailableBuildings = (await response.json()) as BuildingPayload[]
     availableBuildingsNames = allAvailableBuildings.map((b) => b.id)
     buildingRef.value = allAvailableBuildings[0] || null
   } catch (e) {
     console.error(e)
   }
-};
+}
 
 const changeBuildingSchema = (currentIndex: number) => {
   buildingRef.value = allAvailableBuildings[currentIndex] || null
 }
 
 const DEFAULT_POS = { x: 10, y: 10, z: 10 }
+
+const handleRoomToggle = (id: string) => {
+  selectedRoomId.value = selectedRoomId.value === id ? null : id
+}
 
 onMounted(() => {
   initThree()
@@ -124,6 +136,9 @@ const drawBuilding = () => {
     meshGroup.clear()
 
     buildingRef.value.rooms.forEach((room) => {
+      const isSelected = room.id === selectedRoomId.value
+      const boxColor = isSelected ? '#10b981' : '#e2e8f0'
+      const boxOpacity = isSelected ? 0.6 : 0.3
       const geometryBase = new THREE.BoxGeometry(
         room.dimensions.width,
         room.dimensions.height,
@@ -131,9 +146,9 @@ const drawBuilding = () => {
       )
 
       const materialBase = new THREE.MeshStandardMaterial({
-        color: '#e2e8f0',
+        color: boxColor,
         transparent: true,
-        opacity: 0.3,
+        opacity: boxOpacity,
         depthWrite: false,
         side: THREE.DoubleSide,
       })
@@ -145,7 +160,7 @@ const drawBuilding = () => {
 
       const edgesGeometry = new THREE.EdgesGeometry(geometryBase)
       const edgesMaterial = new THREE.LineBasicMaterial({
-        color: '#000000',
+        color: isSelected ? '#047857' : '#000000',
         linewidth: 2,
       })
       const border = new THREE.LineSegments(edgesGeometry, edgesMaterial)
@@ -200,15 +215,16 @@ const handleResize = () => {
     <NavBar />
 
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
-      <LeftMenu :structure-ids=availableBuildingsNames
+      <LeftMenu
+        :structure-ids="availableBuildingsNames"
         @json-uploaded="requestBuildingSchema"
-        @change-building="changeBuildingSchema"/>
+        @change-building="changeBuildingSchema"
+      />
 
       <main ref="canvasContainerRef" class="flex-1 relative bg-slate-50 z-0 min-w-0">
         <div class="absolute inset-0">
           <canvas ref="canvasRef" class="w-full h-full block outline-none"></canvas>
         </div>
-
         <div
           class="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 bg-white/90 backdrop-blur rounded-full px-4 py-2 shadow-xl border border-slate-200/50 z-10"
         >
@@ -236,7 +252,11 @@ const handleResize = () => {
         </div>
       </main>
 
-      <RightMenu :building="buildingRef" />
+      <RightMenu
+        :building="buildingRef"
+        :selected-room-id="selectedRoomId"
+        @toggle-select="handleRoomToggle"
+      />
     </div>
   </div>
 </template>
