@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
 import { useI18n } from 'vue-i18n'
 import Room from './items/Room.vue'
@@ -15,6 +15,31 @@ const emit = defineEmits<{
 
 const isRightOpen = ref(true)
 const toggleRight = () => (isRightOpen.value = !isRightOpen.value)
+
+const isSearchOpen = ref(false)
+const searchQuery = ref('')
+const searchInput = ref<HTMLInputElement | null>(null)
+
+const toggleSearch = () => {
+  isSearchOpen.value = !isSearchOpen.value
+  if (isSearchOpen.value) {
+    searchQuery.value = ''
+    nextTick(() => {
+      searchInput.value?.focus()
+    })
+  } else {
+    searchQuery.value = ''
+  }
+}
+
+const filteredRooms = computed(() => {
+  if (!props.building || !props.building.rooms) return []
+  if (!searchQuery.value) return props.building.rooms
+
+  const query = searchQuery.value.toLowerCase()
+  return props.building.rooms.filter((room) => room.id.toLowerCase().includes(query))
+})
+
 const { t } = useI18n()
 </script>
 
@@ -24,11 +49,51 @@ const { t } = useI18n()
     :class="isRightOpen ? 'w-80' : 'w-0 overflow-hidden border-none'"
   >
     <div class="p-6 h-full overflow-y-auto w-80">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-lg font-bold text-slate-800">{{ t('model.RightMenu.roomsList') }}</h2>
+      <div class="flex justify-between items-center mb-6 h-10">
+        <div class="flex items-center flex-1 overflow-hidden">
+          <h2
+            v-show="!isSearchOpen"
+            class="text-lg font-bold text-slate-800 whitespace-nowrap mr-3 transition-opacity duration-200"
+          >
+            {{ t('model.RightMenu.roomsList') }}
+          </h2>
+
+          <div
+            class="flex items-center transition-all duration-300 ease-in-out"
+            :class="isSearchOpen ? 'w-full bg-slate-100 rounded-md mr-2' : ''"
+          >
+            <button
+              v-if="!isSearchOpen"
+              @click="toggleSearch"
+              class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
+              title="Search Room"
+            >
+              <i class="ph-bold ph-magnifying-glass text-xl"></i>
+            </button>
+
+            <div v-else class="flex items-center w-full px-2 py-1">
+              <i class="ph-bold ph-magnifying-glass text-slate-400 text-lg mr-2"></i>
+              <input
+                ref="searchInput"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search ID..."
+                class="bg-transparent border-none outline-none text-sm w-full text-slate-700 placeholder:text-slate-400"
+                @keydown.esc="toggleSearch"
+              />
+              <button
+                @click="toggleSearch"
+                class="text-slate-400 hover:text-red-500 ml-1 flex-shrink-0"
+              >
+                <i class="ph-bold ph-x text-lg"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <button
           @click="toggleRight"
-          class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
+          class="text-slate-400 hover:text-emerald-600 transition-colors p-1 ml-1"
         >
           <i class="ph-bold ph-caret-right text-xl"></i>
         </button>
@@ -41,12 +106,16 @@ const { t } = useI18n()
 
         <div v-else class="space-y-3">
           <Room
-            v-for="room in props.building.rooms"
+            v-for="room in filteredRooms"
             :key="room.id"
             :room="room"
             :is-selected="props.selectedRoomId === room.id"
             @select="emit('toggle-select', $event)"
           />
+
+          <div v-if="filteredRooms.length === 0" class="text-center py-4">
+            <p class="text-slate-400 text-xs">No rooms found</p>
+          </div>
         </div>
       </div>
     </div>
