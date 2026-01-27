@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
 import { useI18n } from 'vue-i18n'
 
@@ -12,17 +12,32 @@ defineProps<{
   structureIds: string[]
 }>()
 
-const isLeftOpen = ref(true)
-const fileInput = ref<HTMLInputElement | null>(null)
-const isUploading = ref(false)
+onMounted(() => {
+  askForRankLevel();
+})
 
-const toggleLeft = () => (isLeftOpen.value = !isLeftOpen.value)
+let allowed = false;
 
-const triggerUpload = () => {
-  fileInput.value?.click()
+const askForRankLevel = async () => {
+  const level = (
+    await fetch(serverUrl + '/auth/domain/level/' + localStorage.getItem('username')).then(
+      (response) => response.json(),
+    )
+  ).domainLevel as number;
+  allowed = level == 1;
 }
 
-const serverUrl = import.meta.env.VITE_SERVER_URL
+const isLeftOpen = ref(true);
+const fileInput = ref<HTMLInputElement | null>(null);
+const isUploading = ref(false);
+const serverUrl = import.meta.env.VITE_SERVER_URL;
+
+const toggleLeft = () => (isLeftOpen.value = !isLeftOpen.value);
+
+const triggerUpload = () => {
+  fileInput.value?.click();
+};
+
 const handleFileUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
   if (!target.files || target.files.length === 0) return
@@ -62,27 +77,28 @@ const { t } = useI18n()
     <div class="p-6 h-full overflow-y-auto w-80">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-lg font-bold text-slate-800">{{ t('model.LeftMenu.data') }}</h2>
-
         <div class="flex items-center gap-2">
-          <button
-            @click="triggerUpload"
-            class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
-            title="Upload JSON"
-            :disabled="isUploading"
-          >
-            <i
-              class="ph-bold ph-upload-simple text-xl"
-              :class="{ 'animate-pulse text-emerald-600': isUploading }"
-            ></i>
-          </button>
+          <div v-if="allowed">
+            <button
+              @click="triggerUpload"
+              class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
+              title="Upload JSON"
+              :disabled="isUploading"
+            >
+              <i
+                class="ph-bold ph-upload-simple text-xl"
+                :class="{ 'animate-pulse text-emerald-600': isUploading }"
+              ></i>
+            </button>
 
-          <input
-            ref="fileInput"
-            type="file"
-            accept=".json"
-            class="hidden"
-            @change="handleFileUpload"
-          />
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".json"
+              class="hidden"
+              @change="handleFileUpload"
+            />
+          </div>
 
           <button
             @click="toggleLeft"
