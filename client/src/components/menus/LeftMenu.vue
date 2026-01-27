@@ -10,33 +10,41 @@ const emit = defineEmits<{
 
 defineProps<{
   structureIds: string[]
+  selectedId?: string | null
 }>()
 
 onMounted(() => {
-  askForRankLevel();
+  askForRankLevel()
 })
 
-let allowed = false;
+let allowed = false
 
 const askForRankLevel = async () => {
-  const level = (
-    await fetch(serverUrl + '/auth/domain/level/' + localStorage.getItem('username')).then(
-      (response) => response.json(),
-    )
-  ).domainLevel as number;
-  allowed = level == 1;
+  if (!import.meta.env.VITE_SERVER_URL) return
+
+  try {
+    const username = localStorage.getItem('username')
+    if (!username) return
+
+    const response = await fetch(serverUrl + '/auth/domain/level/' + username)
+    const data = await response.json()
+    const level = data.domainLevel as number
+    allowed = level == 1
+  } catch (e) {
+    console.warn('Could not fetch rank level', e)
+  }
 }
 
-const isLeftOpen = ref(true);
-const fileInput = ref<HTMLInputElement | null>(null);
-const isUploading = ref(false);
-const serverUrl = import.meta.env.VITE_SERVER_URL;
+const isLeftOpen = ref(true)
+const fileInput = ref<HTMLInputElement | null>(null)
+const isUploading = ref(false)
+const serverUrl = import.meta.env.VITE_SERVER_URL
 
-const toggleLeft = () => (isLeftOpen.value = !isLeftOpen.value);
+const toggleLeft = () => (isLeftOpen.value = !isLeftOpen.value)
 
 const triggerUpload = () => {
-  fileInput.value?.click();
-};
+  fileInput.value?.click()
+}
 
 const handleFileUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -50,19 +58,25 @@ const handleFileUpload = async (event: Event) => {
       return
     }
 
-    const payload = JSON.parse(await file.text()) as BuildingPayload
+    try {
+      isUploading.value = true
+      const payload = JSON.parse(await file.text()) as BuildingPayload
 
-    await fetch(serverUrl + `/twin/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
+      await fetch(serverUrl + `/twin/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
 
-    emit('json-uploaded')
-  } else {
-    console.log('file is undefined')
+      emit('json-uploaded')
+    } catch (e) {
+      console.error('Upload failed', e)
+      alert('Failed to upload building data')
+    } finally {
+      isUploading.value = false
+    }
   }
 }
 
@@ -111,10 +125,18 @@ const { t } = useI18n()
 
       <div v-for="(item, index) in structureIds" :key="item" class="mb-3">
         <div
-          class="p-4 rounded-xl border border-slate-100 bg-slate-50 cursor-pointer transition-all duration-200 ease-in-out hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5"
+          class="p-4 rounded-xl border cursor-pointer transition-all duration-200 ease-in-out"
+          :class="[
+            item === selectedId
+              ? 'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500'
+              : 'border-slate-100 bg-slate-50 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5',
+          ]"
           @click="emit('change-building', index)"
         >
-          <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">
+          <span
+            class="text-xs font-bold uppercase tracking-wider"
+            :class="item === selectedId ? 'text-emerald-700' : 'text-emerald-600'"
+          >
             {{ t('model.LeftMenu.structureName') }}:
           </span>
           <p class="text-slate-700 font-medium mt-1">{{ item }}</p>
