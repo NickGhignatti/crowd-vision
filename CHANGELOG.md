@@ -1,3 +1,15 @@
+# [1.7.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.6.0...v1.7.0) (2026-01-27)
+
+
+### Bug Fixes
+
+* model selection ([62c75b0](https://github.com/NickGhignatti/crowd-vision/commit/62c75b03feedf04be7d7cbeb1edab46cd02500c0))
+
+
+### Features
+
+* search room from lateral menu ([a683cc9](https://github.com/NickGhignatti/crowd-vision/commit/a683cc9cadb9d45acb1751c954519ea1c9c6efde))
+
 # [1.6.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.5.0...v1.6.0) (2026-01-27)
 
 
