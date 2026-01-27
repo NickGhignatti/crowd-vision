@@ -1,3 +1,15 @@
+# [1.6.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.5.0...v1.6.0) (2026-01-27)
+
+
+### Bug Fixes
+
+* upload button shown previous auth & rank ([f8b2976](https://github.com/NickGhignatti/crowd-vision/commit/f8b29762d89d575c41acd86d0173d0ae5248554c))
+
+
+### Features
+
+* room selection from lateral menu ([d8d0100](https://github.com/NickGhignatti/crowd-vision/commit/d8d01003689445291e3832339e9417cbf7c2bef4))
+
 # [1.5.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.4.0...v1.5.0) (2026-01-26)
 
 
