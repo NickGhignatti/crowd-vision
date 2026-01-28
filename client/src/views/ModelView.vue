@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { Vector3 } from 'three'
+import { onMounted, ref, watch, computed } from 'vue' // Added computed
 import { TresCanvas } from '@tresjs/core'
 import { OrbitControls } from '@tresjs/cientos'
+import { Vector3 } from 'three'
 import NavBar from '@/components/NavBar.vue'
 import LeftMenu from '@/components/menus/LeftMenu.vue'
 import RightMenu from '@/components/menus/RightMenu.vue'
@@ -16,8 +16,12 @@ interface TresEvent {
 
 const buildingRef = ref<BuildingPayload | null>(null)
 const selectedRoomId = ref<string | null>(null)
+// NEW: State for the selected floor (null means all floors visible)
+const selectedFloor = ref<number | null>(null)
+
 let allAvailableBuildings: BuildingPayload[] = []
 const availableBuildingsNames = ref<string[]>([])
+
 const cameraRef = ref()
 const controlsRef = ref()
 
@@ -26,9 +30,29 @@ watch(
   (newValue) => {
     if (newValue) {
       selectedRoomId.value = null
+      selectedFloor.value = null // Reset floor selection when changing building
     }
   },
 )
+
+// NEW: Computed property to get only rooms on the selected floor
+const visibleRooms = computed(() => {
+  if (!buildingRef.value) return []
+  if (selectedFloor.value === null) return buildingRef.value.rooms
+
+  // Filter rooms that match the selected Y coordinate
+  return buildingRef.value.rooms.filter((r) => r.position.y === selectedFloor.value)
+})
+
+// NEW: Computed property to pass a "filtered building" to RightMenu
+// This ensures the list on the right only shows rooms for the current floor
+const displayedBuilding = computed(() => {
+  if (!buildingRef.value) return null
+  return {
+    ...buildingRef.value,
+    rooms: visibleRooms.value,
+  }
+})
 
 const requestBuildingSchema = async () => {
   try {
@@ -56,6 +80,12 @@ const changeBuildingSchema = (currentIndex: number) => {
 
 const handleRoomToggle = (id: string) => {
   selectedRoomId.value = selectedRoomId.value === id ? null : id
+}
+
+// NEW: Handler for floor changes from LeftMenu
+const handleFloorChange = (floorY: number | null) => {
+  selectedFloor.value = floorY
+  selectedRoomId.value = null // Deselect room when switching floors
 }
 
 const onRoomClick = (id: string, event: TresEvent) => {
@@ -98,14 +128,16 @@ const zoomOut = () => {
       <LeftMenu
         :structure-ids="availableBuildingsNames"
         :selected-id="buildingRef?.id || null"
+        :building="buildingRef"
+        :active-floor="selectedFloor"
         @json-uploaded="requestBuildingSchema"
         @change-building="changeBuildingSchema"
+        @change-floor="handleFloorChange"
       />
 
       <main class="flex-1 relative bg-slate-50 z-0 min-w-0">
         <TresCanvas clear-color="#f8fafc" window-size shadows>
           <TresPerspectiveCamera ref="cameraRef" :position="[10, 10, 10]" :look-at="[0, 0, 0]" />
-
           <OrbitControls ref="controlsRef" make-default :damping-factor="0.05" />
 
           <TresAmbientLight :intensity="0.6" />
@@ -113,7 +145,7 @@ const zoomOut = () => {
 
           <template v-if="buildingRef">
             <TresMesh
-              v-for="room in buildingRef.rooms"
+              v-for="room in visibleRooms"
               :key="room.id"
               :position="[room.position.x, room.position.y, room.position.z]"
               @click="(ev) => onRoomClick(room.id, ev)"
@@ -159,7 +191,7 @@ const zoomOut = () => {
       </main>
 
       <RightMenu
-        :building="buildingRef"
+        :building="displayedBuilding"
         :selected-room-id="selectedRoomId"
         @toggle-select="handleRoomToggle"
       />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue' // Added watch
+import { ref, computed, nextTick, watch } from 'vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
 import { useI18n } from 'vue-i18n'
 import Room from './items/Room.vue'
