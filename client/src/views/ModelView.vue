@@ -1,38 +1,30 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
-import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { onMounted, ref, watch } from 'vue'
+import { Vector3 } from 'three'
+import { TresCanvas } from '@tresjs/core'
+import { OrbitControls } from '@tresjs/cientos'
 import NavBar from '@/components/NavBar.vue'
 import LeftMenu from '@/components/menus/LeftMenu.vue'
 import RightMenu from '@/components/menus/RightMenu.vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
 
 const serverUrl = import.meta.env.VITE_SERVER_URL
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const canvasContainerRef = ref<HTMLDivElement | null>(null)
 
-let renderer: THREE.WebGLRenderer | null = null
-let scene: THREE.Scene | null = null
-let camera: THREE.PerspectiveCamera | null = null
-let controls: OrbitControls | null = null
-let animationId: number | null = null
-let meshGroup: THREE.Group | null = null
-let resizeObserver: ResizeObserver | null = null
+interface TresEvent {
+  stopPropagation: () => void
+}
 
 const buildingRef = ref<BuildingPayload | null>(null)
 const selectedRoomId = ref<string | null>(null)
 let allAvailableBuildings: BuildingPayload[] = []
 const availableBuildingsNames = ref<string[]>([])
-
-watch(selectedRoomId, () => {
-  drawBuilding()
-})
+const cameraRef = ref()
+const controlsRef = ref()
 
 watch(
   () => buildingRef.value,
   (newValue) => {
     if (newValue) {
-      drawBuilding()
       selectedRoomId.value = null
     }
   },
@@ -62,160 +54,39 @@ const changeBuildingSchema = (currentIndex: number) => {
   buildingRef.value = allAvailableBuildings[currentIndex] || null
 }
 
-const DEFAULT_POS = { x: 10, y: 10, z: 10 }
-
 const handleRoomToggle = (id: string) => {
   selectedRoomId.value = selectedRoomId.value === id ? null : id
 }
 
+const onRoomClick = (id: string, event: TresEvent) => {
+  if (event && event.stopPropagation) event.stopPropagation()
+  handleRoomToggle(id)
+}
+
 onMounted(() => {
-  initThree()
-  setupResizeObserver() // Initialize the observer
   requestBuildingSchema()
-  if (buildingRef.value) {
-    drawBuilding()
-  }
 })
-
-onUnmounted(() => {
-  if (resizeObserver) resizeObserver.disconnect() // Cleanup observer
-  if (animationId) cancelAnimationFrame(animationId)
-  renderer?.dispose()
-  controls?.dispose()
-})
-
-const setupResizeObserver = () => {
-  if (!canvasContainerRef.value) return
-  resizeObserver = new ResizeObserver(() => {
-    handleResize()
-  })
-  resizeObserver.observe(canvasContainerRef.value)
-}
-
-const initThree = () => {
-  if (!canvasRef.value) return
-
-  scene = new THREE.Scene()
-  scene.background = new THREE.Color('#f8fafc')
-
-  const aspect = canvasRef.value.clientWidth / canvasRef.value.clientHeight
-  camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000)
-  camera.position.set(DEFAULT_POS.x, DEFAULT_POS.y, DEFAULT_POS.z)
-
-  renderer = new THREE.WebGLRenderer({
-    canvas: canvasRef.value,
-    antialias: true,
-    alpha: true,
-  })
-  renderer.setSize(canvasRef.value.clientWidth, canvasRef.value.clientHeight)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.shadowMap.enabled = true
-
-  controls = new OrbitControls(camera, renderer.domElement)
-  controls.enableDamping = true // Adds smooth inertia (requires controls.update in loop)
-  controls.dampingFactor = 0.05
-  controls.target.set(0, 0, 0)
-
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
-  scene.add(ambientLight)
-
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8)
-  dirLight.position.set(10, 20, 10)
-  dirLight.castShadow = true
-  scene.add(dirLight)
-
-  meshGroup = new THREE.Group()
-
-  // const gridHelper = new THREE.GridHelper(50, 50, '#cbd5e1', '#e2e8f0')
-  // scene.add(gridHelper)
-  scene.add(meshGroup)
-
-  animate()
-}
-
-const materials = {
-  selected: new THREE.MeshStandardMaterial({
-    color: '#10b981',
-    transparent: true,
-    opacity: 0.6,
-    depthWrite: false,
-  }),
-  unselected: new THREE.MeshStandardMaterial({
-    color: '#e2e8f0',
-    transparent: true,
-    opacity: 0.3,
-    depthWrite: false,
-  }),
-}
-
-const drawBuilding = () => {
-  if (buildingRef.value && meshGroup) {
-    meshGroup.clear()
-
-    buildingRef.value.rooms.forEach((room) => {
-      const isSelected = room.id === selectedRoomId.value
-      const geometryBase = new THREE.BoxGeometry(
-        room.dimensions.width,
-        room.dimensions.height,
-        room.dimensions.depth,
-      )
-
-      const materialBase = materials[isSelected ? 'selected' : 'unselected']
-
-      const element = new THREE.Mesh(geometryBase, materialBase)
-      element.position.set(room.position.x, room.position.y, room.position.z)
-      element.castShadow = true
-      element.receiveShadow = true
-
-      const edgesGeometry = new THREE.EdgesGeometry(geometryBase)
-      const edgesMaterial = new THREE.LineBasicMaterial({
-        color: isSelected ? '#047857' : '#000000',
-        linewidth: 2,
-      })
-      const border = new THREE.LineSegments(edgesGeometry, edgesMaterial)
-      element.add(border)
-
-      meshGroup!.add(element)
-    })
-  }
-}
-
-const animate = () => {
-  animationId = requestAnimationFrame(animate)
-  if (controls) controls.update()
-  if (renderer && scene && camera) renderer.render(scene, camera)
-}
 
 const resetView = () => {
-  if (!camera || !controls) return
-  camera.position.set(DEFAULT_POS.x, DEFAULT_POS.y, DEFAULT_POS.z)
-  controls.target.set(0, 0, 0) // Reset control target
-  controls.update()
+  if (cameraRef.value && controlsRef.value) {
+    cameraRef.value.position.set(10, 10, 10)
+    controlsRef.value.value.target.set(0, 0, 0)
+    controlsRef.value.value.update()
+  }
 }
 
 const zoomIn = () => {
-  if (!camera) return
-  const direction = new THREE.Vector3()
-  camera.getWorldDirection(direction)
-  camera.position.add(direction.multiplyScalar(2))
+  if (!cameraRef.value) return
+  const direction = new Vector3()
+  cameraRef.value.getWorldDirection(direction)
+  cameraRef.value.position.addScaledVector(direction, 2)
 }
 
 const zoomOut = () => {
-  if (!camera) return
-  const direction = new THREE.Vector3()
-  camera.getWorldDirection(direction)
-  camera.position.add(direction.multiplyScalar(-2))
-}
-
-const handleResize = () => {
-  if (!canvasContainerRef.value || !camera || !renderer) return
-
-  const width = canvasContainerRef.value.clientWidth
-  const height = canvasContainerRef.value.clientHeight
-
-  camera.aspect = width / height
-  camera.updateProjectionMatrix()
-  renderer.setSize(width, height)
+  if (!cameraRef.value) return
+  const direction = new Vector3()
+  cameraRef.value.getWorldDirection(direction)
+  cameraRef.value.position.addScaledVector(direction, -2)
 }
 </script>
 
@@ -231,10 +102,35 @@ const handleResize = () => {
         @change-building="changeBuildingSchema"
       />
 
-      <main ref="canvasContainerRef" class="flex-1 relative bg-slate-50 z-0 min-w-0">
-        <div class="absolute inset-0">
-          <canvas ref="canvasRef" class="w-full h-full block outline-none"></canvas>
-        </div>
+      <main class="flex-1 relative bg-slate-50 z-0 min-w-0">
+        <TresCanvas clear-color="#f8fafc" window-size shadows>
+          <TresPerspectiveCamera ref="cameraRef" :position="[10, 10, 10]" :look-at="[0, 0, 0]" />
+
+          <OrbitControls ref="controlsRef" make-default :damping-factor="0.05" />
+
+          <TresAmbientLight :intensity="0.6" />
+          <TresDirectionalLight :position="[10, 20, 10]" :intensity="0.8" cast-shadow />
+
+          <template v-if="buildingRef">
+            <TresMesh
+              v-for="room in buildingRef.rooms"
+              :key="room.id"
+              :position="[room.position.x, room.position.y, room.position.z]"
+              @click="(ev) => onRoomClick(room.id, ev)"
+            >
+              <TresBoxGeometry
+                :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
+              />
+              <TresMeshStandardMaterial
+                :color="room.id === selectedRoomId ? '#10b981' : '#e2e8f0'"
+                :transparent="true"
+                :opacity="room.id === selectedRoomId ? 0.6 : 0.3"
+                :depth-write="false"
+              />
+            </TresMesh>
+          </template>
+        </TresCanvas>
+
         <div
           class="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 bg-white/90 backdrop-blur rounded-full px-4 py-2 shadow-xl border border-slate-200/50 z-10"
         >
