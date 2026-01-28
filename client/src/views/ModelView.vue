@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch, computed } from 'vue' // Added computed
+import { onMounted, ref, watch, computed } from 'vue'
 import { TresCanvas } from '@tresjs/core'
 import { OrbitControls } from '@tresjs/cientos'
 import { Vector3 } from 'three'
@@ -16,7 +16,6 @@ interface TresEvent {
 
 const buildingRef = ref<BuildingPayload | null>(null)
 const selectedRoomId = ref<string | null>(null)
-// NEW: State for the selected floor (null means all floors visible)
 const selectedFloor = ref<number | null>(null)
 
 let allAvailableBuildings: BuildingPayload[] = []
@@ -30,22 +29,18 @@ watch(
   (newValue) => {
     if (newValue) {
       selectedRoomId.value = null
-      selectedFloor.value = null // Reset floor selection when changing building
+      selectedFloor.value = null
     }
   },
 )
 
-// NEW: Computed property to get only rooms on the selected floor
 const visibleRooms = computed(() => {
   if (!buildingRef.value) return []
   if (selectedFloor.value === null) return buildingRef.value.rooms
 
-  // Filter rooms that match the selected Y coordinate
   return buildingRef.value.rooms.filter((r) => r.position.y === selectedFloor.value)
 })
 
-// NEW: Computed property to pass a "filtered building" to RightMenu
-// This ensures the list on the right only shows rooms for the current floor
 const displayedBuilding = computed(() => {
   if (!buildingRef.value) return null
   return {
@@ -82,10 +77,9 @@ const handleRoomToggle = (id: string) => {
   selectedRoomId.value = selectedRoomId.value === id ? null : id
 }
 
-// NEW: Handler for floor changes from LeftMenu
 const handleFloorChange = (floorY: number | null) => {
   selectedFloor.value = floorY
-  selectedRoomId.value = null // Deselect room when switching floors
+  selectedRoomId.value = null
 }
 
 const onRoomClick = (id: string, event: TresEvent) => {

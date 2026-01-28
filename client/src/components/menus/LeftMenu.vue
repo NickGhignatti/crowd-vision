@@ -18,13 +18,10 @@ const props = defineProps<{
 
 const allowed = ref(false)
 
-// --- NEW COMPUTED PROPERTY FOR DROPDOWN ---
-// This acts as a bridge between the <select> v-model and the parent component
 const selectedFloorModel = computed({
   get: () => props.activeFloor,
   set: (val) => emit('change-floor', val),
 })
-// ------------------------------------------
 
 const askForRankLevel = async () => {
   if (!import.meta.env.VITE_SERVER_URL) return
