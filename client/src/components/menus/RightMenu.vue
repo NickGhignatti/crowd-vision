@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue' // Added watch
 import type { BuildingPayload } from '@/scripts/schema.ts'
 import { useI18n } from 'vue-i18n'
 import Room from './items/Room.vue'
@@ -20,6 +20,8 @@ const isSearchOpen = ref(false)
 const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 
+const roomRefs = ref<Record<string, HTMLElement | null>>({}) // New ref for room elements
+
 const toggleSearch = () => {
   isSearchOpen.value = !isSearchOpen.value
   if (isSearchOpen.value) {
@@ -39,6 +41,19 @@ const filteredRooms = computed(() => {
   const query = searchQuery.value.toLowerCase()
   return props.building.rooms.filter((room) => room.id.toLowerCase().includes(query))
 })
+
+watch(
+  () => props.selectedRoomId,
+  async (newId) => {
+    if (newId && roomRefs.value[newId]) {
+      await nextTick()
+      roomRefs.value[newId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    }
+  },
+)
 
 const { t } = useI18n()
 </script>
@@ -105,13 +120,17 @@ const { t } = useI18n()
         </div>
 
         <div v-else class="space-y-3">
-          <Room
+          <div
             v-for="room in filteredRooms"
             :key="room.id"
-            :room="room"
-            :is-selected="props.selectedRoomId === room.id"
-            @select="emit('toggle-select', $event)"
-          />
+            :ref="(el) => (roomRefs[room.id] = el as HTMLElement)"
+          >
+            <Room
+              :room="room"
+              :is-selected="props.selectedRoomId === room.id"
+              @select="emit('toggle-select', $event)"
+            />
+          </div>
 
           <div v-if="filteredRooms.length === 0" class="text-center py-4">
             <p class="text-slate-400 text-xs">No rooms found</p>
