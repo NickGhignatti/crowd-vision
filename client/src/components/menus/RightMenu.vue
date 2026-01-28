@@ -1,21 +1,59 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
-import { useI18n } from 'vue-i18n';
+import { useI18n } from 'vue-i18n'
+import Room from './items/Room.vue'
 
 const props = defineProps<{
   building: BuildingPayload | null
+  selectedRoomId: string | null
+}>()
+
+const emit = defineEmits<{
+  (e: 'toggle-select', id: string): void
 }>()
 
 const isRightOpen = ref(true)
-
 const toggleRight = () => (isRightOpen.value = !isRightOpen.value)
 
-const getTempColor = (temp: number) => {
-  if (temp > 30) return 'text-rose-500'
-  if (temp < 18) return 'text-sky-500'
-  return 'text-emerald-600'
+const isSearchOpen = ref(false)
+const searchQuery = ref('')
+const searchInput = ref<HTMLInputElement | null>(null)
+
+const roomRefs = ref<Record<string, HTMLElement | null>>({})
+
+const toggleSearch = () => {
+  isSearchOpen.value = !isSearchOpen.value
+  if (isSearchOpen.value) {
+    searchQuery.value = ''
+    nextTick(() => {
+      searchInput.value?.focus()
+    })
+  } else {
+    searchQuery.value = ''
+  }
 }
+
+const filteredRooms = computed(() => {
+  if (!props.building || !props.building.rooms) return []
+  if (!searchQuery.value) return props.building.rooms
+
+  const query = searchQuery.value.toLowerCase()
+  return props.building.rooms.filter((room) => room.id.toLowerCase().includes(query))
+})
+
+watch(
+  () => props.selectedRoomId,
+  async (newId) => {
+    if (newId && roomRefs.value[newId]) {
+      await nextTick()
+      roomRefs.value[newId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    }
+  },
+)
 
 const { t } = useI18n()
 </script>
@@ -26,12 +64,51 @@ const { t } = useI18n()
     :class="isRightOpen ? 'w-80' : 'w-0 overflow-hidden border-none'"
   >
     <div class="p-6 h-full overflow-y-auto w-80">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-lg font-bold text-slate-800">{{ t('model.RightMenu.roomsList') }}</h2>
+      <div class="flex justify-between items-center mb-6 h-10">
+        <div class="flex items-center flex-1 overflow-hidden">
+          <h2
+            v-show="!isSearchOpen"
+            class="text-lg font-bold text-slate-800 whitespace-nowrap mr-3 transition-opacity duration-200"
+          >
+            {{ t('model.RightMenu.roomsList') }}
+          </h2>
+
+          <div
+            class="flex items-center transition-all duration-300 ease-in-out"
+            :class="isSearchOpen ? 'w-full bg-slate-100 rounded-md mr-2' : ''"
+          >
+            <button
+              v-if="!isSearchOpen"
+              @click="toggleSearch"
+              class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
+              title="Search Room"
+            >
+              <i class="ph-bold ph-magnifying-glass text-xl"></i>
+            </button>
+
+            <div v-else class="flex items-center w-full px-2 py-1">
+              <i class="ph-bold ph-magnifying-glass text-slate-400 text-lg mr-2"></i>
+              <input
+                ref="searchInput"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search ID..."
+                class="bg-transparent border-none outline-none text-sm w-full text-slate-700 placeholder:text-slate-400"
+                @keydown.esc="toggleSearch"
+              />
+              <button
+                @click="toggleSearch"
+                class="text-slate-400 hover:text-red-500 ml-1 flex-shrink-0"
+              >
+                <i class="ph-bold ph-x text-lg"></i>
+              </button>
+            </div>
+          </div>
+        </div>
 
         <button
           @click="toggleRight"
-          class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
+          class="text-slate-400 hover:text-emerald-600 transition-colors p-1 ml-1"
         >
           <i class="ph-bold ph-caret-right text-xl"></i>
         </button>
@@ -42,41 +119,21 @@ const { t } = useI18n()
           <p class="text-slate-400 text-sm">{{ t('model.RightMenu.missingRooms') }}</p>
         </div>
 
-        <div
-          v-else
-          v-for="room in props.building.rooms"
-          :key="room.id"
-          class="group p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-emerald-200 hover:shadow-sm transition-all duration-200"
-        >
-          <div class="flex justify-between items-start mb-3 border-b border-slate-200 pb-2">
-            <div>
-              <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider block"
-                >ID</span
-              >
-              <span class="text-slate-700 font-bold font-mono">#{{ room.id }}</span>
-            </div>
-            <span
-              v-if="room.color"
-              class="w-3 h-3 rounded-full shadow-sm border border-slate-200"
-              :style="{ backgroundColor: room.color }"
-            ></span>
+        <div v-else class="space-y-3">
+          <div
+            v-for="room in filteredRooms"
+            :key="room.id"
+            :ref="(el) => (roomRefs[room.id] = el as HTMLElement)"
+          >
+            <Room
+              :room="room"
+              :is-selected="props.selectedRoomId === room.id"
+              @select="emit('toggle-select', $event)"
+            />
           </div>
 
-          <div class="space-y-2">
-            <div class="flex justify-between items-center text-sm">
-              <span class="text-slate-500 font-medium">{{ t('model.RightMenu.temperature') }}</span>
-              <span class="font-bold" :class="getTempColor(22)">
-                22°C
-              </span>
-            </div>
-
-            <div class="flex justify-between items-center text-sm">
-              <span class="text-slate-500 font-medium">{{ t('model.RightMenu.occupancy') }}</span>
-              <div class="flex items-center gap-1.5 text-slate-700 font-bold">
-                <span>1 / {{ room.capacity }}</span>
-                <i class="ph-bold ph-users text-slate-400"></i>
-              </div>
-            </div>
+          <div v-if="filteredRooms.length === 0" class="text-center py-4">
+            <p class="text-slate-400 text-xs">No rooms found</p>
           </div>
         </div>
       </div>
