@@ -20,7 +20,7 @@ const isSearchOpen = ref(false)
 const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 
-const roomRefs = ref<Record<string, HTMLElement | null>>({}) // New ref for room elements
+const roomRefs = ref<Record<string, HTMLElement | null>>({})
 
 const toggleSearch = () => {
   isSearchOpen.value = !isSearchOpen.value
