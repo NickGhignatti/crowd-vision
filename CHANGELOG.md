@@ -1,3 +1,11 @@
+# [1.8.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.7.0...v1.8.0) (2026-01-28)
+
+
+### Features
+
+* building controls ([4c1753d](https://github.com/NickGhignatti/crowd-vision/commit/4c1753d0e9202458efc1a06524193e8ec5b7d9fd))
+* selection by 3d object ([13e98c7](https://github.com/NickGhignatti/crowd-vision/commit/13e98c7a85e3110f55a8b9bb3342736d981e448e))
+
 # [1.7.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.6.0...v1.7.0) (2026-01-27)
 
 
