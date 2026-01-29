@@ -5,10 +5,12 @@ import type { RoomPayload } from '@/scripts/schema'
 const props = defineProps<{
   room: RoomPayload
   isSelected: boolean
+  canEdit?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'select', id: string): void
+  (e: 'edit', room: RoomPayload): void
 }>()
 
 const { t } = useI18n()
@@ -35,7 +37,18 @@ const getTempColor = (temp: number) => {
     <div class="flex justify-between items-start mb-3 border-b border-slate-200 pb-2">
       <div>
         <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider block">ID</span>
-        <span class="text-slate-700 font-bold font-mono">#{{ room.id }}</span>
+        <div class="flex items-center gap-2">
+          <span class="text-slate-700 font-bold font-mono">#{{ room.id }}</span>
+
+          <button
+            v-if="canEdit"
+            @click.stop="emit('edit', props.room)"
+            class="p-1 text-slate-300 hover:text-emerald-600 transition-colors rounded hover:bg-emerald-50"
+            title="Edit Room"
+          >
+            <i class="ph-bold ph-pencil-simple text-sm"></i>
+          </button>
+        </div>
       </div>
       <span
         v-if="room.color"
