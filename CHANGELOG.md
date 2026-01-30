@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.8.0...v1.9.0) (2026-01-29)
+
+
+### Features
+
+* room edit functionality ([d2ced88](https://github.com/NickGhignatti/crowd-vision/commit/d2ced8854f991e2b13f002c2e94bea0f763dd07c))
+
 # [1.8.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.7.0...v1.8.0) (2026-01-28)
 
 

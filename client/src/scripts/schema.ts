@@ -13,6 +13,7 @@ interface RoomDimensions {
 export interface RoomPayload {
   id: string
   capacity: number
+  maxTemperature?: number
   position: Coordinates
   dimensions: RoomDimensions
   color?: string
