@@ -13,10 +13,12 @@ onMounted(() => {
   timer = setInterval(() => {
     now.value = new Date()
   }, 1000)
+  document.addEventListener('fullscreenchange', onFullscreenChange)
 })
 
 onUnmounted(() => {
   clearInterval(timer)
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
 })
 
 const { locale } = useI18n()
@@ -55,14 +57,13 @@ const roomData = ref<any>([])
 const fetchRooms = async () => {
   try {
     const userDomain = (
-      await fetch(serverUrl + '/auth/domain/' + localStorage.getItem('username'))
-        .then((response) =>
+      await fetch(serverUrl + '/auth/domain/' + localStorage.getItem('username')).then((response) =>
         response.json(),
       )
-    ).domain.name as string;
+    ).domain.name as string
 
-    const response = await fetch(serverUrl + '/twin/buildings/' + userDomain);
-    if (!response.ok) console.log('Failed to fetch data');
+    const response = await fetch(serverUrl + '/twin/buildings/' + userDomain)
+    if (!response.ok) console.log('Failed to fetch data')
 
     const result = await response.json()
 
@@ -113,13 +114,61 @@ const getStatusColor = (status: string) => {
     }
   }
 }
+
+const focusSection = ref<HTMLElement | null>(null)
+const isFullscreen = ref(false)
+
+const toggleFocusMode = async () => {
+  const elem = focusSection.value
+  if (!elem) return
+
+  try {
+    if (!document.fullscreenElement) {
+      await elem.requestFullscreen()
+    } else {
+      await document.exitFullscreen()
+    }
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+const onFullscreenChange = () => {
+  isFullscreen.value = !!document.fullscreenElement
+}
 </script>
 
 <template>
   <div class="min-h-screen bg-slate-50">
     <NavBar />
 
-    <div class="flex flex-col items-center pt-12 px-4 pb-20">
+    <div
+      ref="focusSection"
+      class="flex flex-col items-center pt-12 px-4 pb-20 bg-slate-50 overflow-y-auto w-full"
+    >
+      <button
+        v-if="!isFullscreen"
+        @click="toggleFocusMode"
+        class="mb-6 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center gap-2"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+          />
+        </svg>
+        Focus Mode
+      </button>
+
       <div class="mb-10 text-center">
         <h2 class="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums">
           {{ formattedTime }}
@@ -129,7 +178,11 @@ const getStatusColor = (status: string) => {
         </p>
       </div>
 
-      <DataTable :headers="tableHeaders" :items="roomData">
+      <DataTable
+        :headers="tableHeaders"
+        :items="roomData"
+        class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top"
+      >
         <template #status="{ value }">
           <span :class="getStatusColor(value)">{{ value }}</span>
         </template>
