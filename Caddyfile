@@ -9,6 +9,16 @@
         reverse_proxy twin-service:3000
     }
 
+    # Notification service
+    handle_path /notification/* {
+        reverse_proxy notification-service:3000
+    }
+
+    # Socket.IO server
+    handle /socket.io/* {
+        reverse_proxy socket-server:3000
+    }
+
     # Mongo Express - Auth DB 
     handle /auth-db-gui/* {
         reverse_proxy auth-db-express:8081

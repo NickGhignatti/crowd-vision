@@ -15,6 +15,32 @@ services:
     depends_on:
       - auth-service
       - twin-service
+      - socket-server
+
+  # ==========================================
+  # MESSAGE BROKER
+  # ==========================================
+  redis:
+    image: redis:alpine
+    container_name: crowd-vision-broker
+    ports:
+      - "6379:6379"
+    networks:
+      - gateway-net
+
+  # ==========================================
+  # GATEWAY SERVICE
+  # ==========================================
+  socket-server:
+    build: ./server/socket-service
+    container_name: crowd-vision-socket
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - gateway-net
 
   # ==========================================
   # AUTH SERVICE
@@ -83,6 +109,19 @@ services:
       - twin-db
 
   # ==========================================
+  # NOTIFICATION SERVICE
+  # ==========================================
+  notification-service:
+    build: ./server/notification-service
+    container_name: crowd-vision-notification
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - gateway-net
+
+  # ==========================================
   # CLIENT
   # ==========================================
   client:
@@ -103,6 +142,7 @@ services:
 
 networks:
   gateway-net:
+    driver: bridge
   auth-net:
   twin-net:
 
