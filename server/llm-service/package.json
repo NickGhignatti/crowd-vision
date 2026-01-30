@@ -13,8 +13,13 @@
     "dev": "ts-node src/index.ts"
   },
   "dependencies": {
+    "@ai-sdk/deepseek": "^2.0.15",
+    "ai": "^6.0.62",
+    "dotenv": "^17.2.3",
     "mlflow-tracing": "^0.1.2",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
