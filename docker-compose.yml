@@ -15,6 +15,8 @@ services:
     depends_on:
       - auth-service
       - twin-service
+      - simulator-service
+      - sensor-service
 
   # ==========================================
   # AUTH SERVICE
@@ -89,7 +91,41 @@ services:
     build: ./server/sensor-simulator
     networks:
       - gateway-net
-      - twin-net
+      - simulator-net
+
+
+  # ==========================================
+  # SENSOR SERVICE
+  # ==========================================
+  sensor-service:
+    build: ./server/sensor-service
+    networks:
+      - gateway-net
+      - sensor-net
+    environment:
+      - MONGO_URI=mongodb://sensor-db:27017/sensordb
+
+  sensor-db:
+    image: mongo:latest
+    networks:
+      - sensor-net
+    volumes:
+      - sensor-data:/data/db
+
+  sensor-db-express:
+    image: mongo-express
+    profiles: ["dev"]
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://sensor-db:27017/
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass
+      - ME_CONFIG_SITE_BASEURL=/sensor-db-gui/
+    networks:
+      - gateway-net
+      - sensor-net
+    depends_on:
+      - sensor-db
 
   # ==========================================
   # CLIENT
@@ -114,9 +150,11 @@ networks:
   gateway-net:
   auth-net:
   twin-net:
-
+  simulator-net:
+  sensor-net:
 volumes:
   caddy_data:
   caddy_config:
   auth-data:
   twin-data:
+  sensor-data:

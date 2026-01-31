@@ -1,4 +1,9 @@
-import { mySimulationTwins, type ITwin } from '../models/signal.js';
+import { 
+    mySimulationTwins, 
+    type ISignalPeopleCount, 
+    type ISignalTemperature, 
+    type ITwin 
+} from '../models/signal.js';
 
 export class Simulator {
     private isRunning: boolean = false;
@@ -35,7 +40,7 @@ export class Simulator {
     private async sendSignals(twinId: string) {
         const rooms = this.activeTwins.getRooms(twinId);
         for (const roomId of rooms) {
-            await this.sendSingleSignal(roomId, twinId);
+            this.sendSingleSignal(roomId, twinId);
         }
     }
 
@@ -43,19 +48,19 @@ export class Simulator {
         try {
             console.log(`[Simulator] Sending data for ${twinId}...`);
 
-            const payloadPeople = {
+            const payloadPeople: ISignalPeopleCount = {
                 twinId,
                 roomId: roomId,
                 timestamp: Date.now(),
-                value: Math.floor(Math.random() * 
+                peopleCount: Math.floor(Math.random() * 
                     (this.peopleCountRange[1] - this.peopleCountRange[0] + 1)) + this.peopleCountRange[0]
             };
 
-            const payloadTemp = {
+            const payloadTemp: ISignalTemperature = {
                 twinId,
                 roomId: roomId,
                 timestamp: Date.now(),
-                value: parseFloat((Math.random() * 
+                temperature: parseFloat((Math.random() * 
                     (this.temperatureRange[1] - this.temperatureRange[0]) + this.temperatureRange[0]).toFixed(2))
             };
             
@@ -72,11 +77,12 @@ export class Simulator {
             });
 
             if (!responseTemperature.ok || !responsePeopleCount.ok) {
-                console.warn(`[Simulator] API Error: ${responseTemperature.status} ${responseTemperature.statusText}`);
-                console.warn(`[Simulator] API Error: ${responsePeopleCount.status} ${responsePeopleCount.statusText}`);
+                console.error(`[Simulator] Error: Something went wrong sending data to twin ${twinId}`);
+                console.warn(`[Simulator] API Result: ${responseTemperature.status} ${responseTemperature.statusText}`);
+                console.warn(`[Simulator] API Result: ${responsePeopleCount.status} ${responsePeopleCount.statusText}`);
             } else {
-                console.log(`[Simulator] Success: Sent value ${payloadTemp.value} 
-                    for temperature and ${payloadPeople.value} 
+                console.log(`[Simulator] Success: Sent value ${payloadTemp.temperature} 
+                    for temperature and ${payloadPeople.peopleCount} 
                     for people count to twin ${twinId}`);
             }
 

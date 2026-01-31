@@ -1,4 +1,4 @@
- interface SimulationTwins {
+interface SimulationTwins {
     activeTwins: ITwin[];
     push(twin: ITwin): void;
     getRooms(twinId: string): string[];
@@ -22,11 +22,15 @@ export interface ITwin {
 }
 
 export interface ISignalPeopleCount {
+    twinId: string;
     roomId: string;
+    timestamp: number;
     peopleCount: number;
 }
 
 export interface ISignalTemperature {
+    twinId: string;
     roomId: string;
+    timestamp: number;
     temperature: number;
 }
