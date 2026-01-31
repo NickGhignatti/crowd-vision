@@ -24,6 +24,11 @@
         reverse_proxy socket-server:3000
     }
 
+    # Signal sensor service
+    handle_path /sensor/* {
+        reverse_proxy sensor-service:3000
+    }
+
     # Mongo Express - Auth DB 
     handle /auth-db-gui/* {
         reverse_proxy auth-db-express:8081
