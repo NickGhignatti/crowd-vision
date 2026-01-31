@@ -14,8 +14,13 @@
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.15",
+    "@langchain/core": "^1.1.18",
+    "@langchain/deepseek": "^1.0.7",
+    "@langchain/google-genai": "^2.1.14",
     "ai": "^6.0.62",
     "dotenv": "^17.2.3",
+    "fastify": "^5.7.2",
+    "langchain": "^1.2.15",
     "mlflow-tracing": "^0.1.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
