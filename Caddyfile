@@ -28,4 +28,9 @@
     handle /twin-db-gui/* {
         reverse_proxy twin-db-express:8081
     }
+
+    # Mongo Express - Twin DB
+    handle /sensor-db-gui/* {
+        reverse_proxy sensor-db-express:8081
+    }
 }
