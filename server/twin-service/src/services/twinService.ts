@@ -28,3 +28,19 @@ export const getBuildingsByDomain = async (domain: string) => {
     }
     return buildings;
 };
+
+export const updateRoomInBuilding = async (buildingId: string, roomId: string, updates: Partial<Room>) => {
+    const building = await Building.findOne({ id: buildingId });
+    if (!building) throw new Error("Building not found");
+
+    const room = building.rooms.find(r => r.id === roomId);
+    if (!room) throw new Error("Room not found");
+
+    if (updates.id !== undefined) room.id = updates.id;
+    if (updates.color !== undefined) room.color = updates.color;
+    if (updates.capacity !== undefined) room.capacity = updates.capacity;
+    if (updates.maxTemperature !== undefined) room.maxTemperature = updates.maxTemperature;
+
+    await building.save();
+    return room;
+};

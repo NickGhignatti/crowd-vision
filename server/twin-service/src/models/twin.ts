@@ -20,6 +20,7 @@ export interface Room {
     position: Coordinates;
     dimensions: Dimensions;
     color?: string;
+    maxTemperature?: number;
 }
 
 export interface IBuilding {

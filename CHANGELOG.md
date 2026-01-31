@@ -1,3 +1,54 @@
+# [1.9.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.8.0...v1.9.0) (2026-01-29)
+
+
+### Features
+
+* room edit functionality ([d2ced88](https://github.com/NickGhignatti/crowd-vision/commit/d2ced8854f991e2b13f002c2e94bea0f763dd07c))
+
+# [1.8.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.7.0...v1.8.0) (2026-01-28)
+
+
+### Features
+
+* building controls ([4c1753d](https://github.com/NickGhignatti/crowd-vision/commit/4c1753d0e9202458efc1a06524193e8ec5b7d9fd))
+* selection by 3d object ([13e98c7](https://github.com/NickGhignatti/crowd-vision/commit/13e98c7a85e3110f55a8b9bb3342736d981e448e))
+
+# [1.7.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.6.0...v1.7.0) (2026-01-27)
+
+
+### Bug Fixes
+
+* model selection ([62c75b0](https://github.com/NickGhignatti/crowd-vision/commit/62c75b03feedf04be7d7cbeb1edab46cd02500c0))
+
+
+### Features
+
+* search room from lateral menu ([a683cc9](https://github.com/NickGhignatti/crowd-vision/commit/a683cc9cadb9d45acb1751c954519ea1c9c6efde))
+
+# [1.6.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.5.0...v1.6.0) (2026-01-27)
+
+
+### Bug Fixes
+
+* upload button shown previous auth & rank ([f8b2976](https://github.com/NickGhignatti/crowd-vision/commit/f8b29762d89d575c41acd86d0173d0ae5248554c))
+
+
+### Features
+
+* room selection from lateral menu ([d8d0100](https://github.com/NickGhignatti/crowd-vision/commit/d8d01003689445291e3832339e9417cbf7c2bef4))
+
+# [1.5.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.4.0...v1.5.0) (2026-01-26)
+
+
+### Bug Fixes
+
+* CI pipeline rootDir and path not found ([75cd0de](https://github.com/NickGhignatti/crowd-vision/commit/75cd0dee5a8eb2d163593369477cb2e0a2be8e97))
+
+
+### Features
+
+* openapi documentation endpoint ([54cd9e4](https://github.com/NickGhignatti/crowd-vision/commit/54cd9e40f78d6f3f4b3654af675face1fa41d46e))
+
 # [1.4.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.3.0...v1.4.0) (2026-01-25)
 
 

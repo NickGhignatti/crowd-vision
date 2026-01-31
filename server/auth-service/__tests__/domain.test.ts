@@ -14,7 +14,7 @@ describe('Domains should work correctly', () => {
             .send(mockUser);
 
         const res = await request(app)
-            .get('/domain/' + regRes.body.userId);
+            .get('/domain/' + regRes.body.username);
 
         expect(res.status).toBe(200);
         expect(res.body).toHaveProperty('domain');
@@ -30,7 +30,7 @@ describe('Domains should work correctly', () => {
             .send(mockUser);
 
         const res = await request(app)
-            .get('/domain/level/' + regRes.body.userId);
+            .get('/domain/level/' + regRes.body.username);
 
         expect(res.status).toBe(200);
         expect(res.body).toHaveProperty('domainLevel');

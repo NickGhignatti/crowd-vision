@@ -1,0 +1,181 @@
+openapi: 3.1.0
+info:
+  title: Twin Service API
+  description: API for managing digital twins of buildings and rooms.
+  version: 1.0.0
+servers:
+  - url: http://localhost:80/twin/
+    description: Local development server
+paths:
+  /register:
+    post:
+      summary: Register a new building
+      tags:
+        - Twin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildingInput'
+      responses:
+        '201':
+          description: Building registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Building'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /building/{id}:
+    get:
+      summary: Get a building by ID
+      tags:
+        - Twin
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: The unique identifier of the building
+      responses:
+        '200':
+          description: Building retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Building'
+        '404':
+          description: Building not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /buildings/{domain}:
+    get:
+      summary: Get buildings by domain
+      tags:
+        - Twin
+      parameters:
+        - in: path
+          name: domain
+          schema:
+            type: string
+          required: true
+          description: The domain associated with the buildings
+      responses:
+        '200':
+          description: List of buildings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Building'
+        '404':
+          description: Error retrieving buildings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+components:
+  schemas:
+    Coordinates:
+      type: object
+      required:
+        - x
+        - y
+        - z
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        z:
+          type: number
+
+    Dimensions:
+      type: object
+      required:
+        - width
+        - height
+        - depth
+      properties:
+        width:
+          type: number
+        height:
+          type: number
+        depth:
+          type: number
+
+    Room:
+      type: object
+      required:
+        - id
+        - capacity
+        - position
+        - dimensions
+      properties:
+        id:
+          type: string
+        capacity:
+          type: number
+        position:
+          $ref: '#/components/schemas/Coordinates'
+        dimensions:
+          $ref: '#/components/schemas/Dimensions'
+        color:
+          type: string
+        temperature:
+          type: number
+          description: Current temperature (from interface definition)
+        no_person:
+          type: number
+          description: Number of people (from interface definition)
+
+    BuildingInput:
+      type: object
+      required:
+        - id
+        - rooms
+        - domains
+      properties:
+        id:
+          type: string
+        rooms:
+          type: array
+          items:
+            $ref: '#/components/schemas/Room'
+        domains:
+          type: array
+          items:
+            type: string
+
+    Building:
+      allOf:
+        - $ref: '#/components/schemas/BuildingInput'
+        - type: object
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time

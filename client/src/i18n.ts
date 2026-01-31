@@ -84,7 +84,19 @@ const messages = {
       createAccount: 'Create an Account',
       join: 'Join CrowdVision to start monitoring!',
       alreadyAnAccount: 'Already have an account?',
-      forgot: 'Forgot Password?'
+      forgot: 'Forgot Password?',
+    },
+    modals: {
+      editRoom: {
+        title: 'Edit Room',
+        subtitle: 'Configure parameters and thresholds',
+        roomId: 'Room Identifier',
+        capacity: 'Capacity',
+        maxTemp: 'Max Temp (°C)',
+        themeColor: 'Theme Color',
+        cancel: 'Cancel',
+        save: 'Save Changes',
+      },
     },
   },
   it: {
@@ -165,18 +177,30 @@ const messages = {
       welcomeBack: 'Bentornato!',
       signInToContinue: 'Accedi per continuare su CrowdVision',
       signIn: 'Accedi',
-      noAccount: "Non hai un account?",
+      noAccount: 'Non hai un account?',
       signUp: 'Iscriviti',
       createAccount: 'Crea un Account',
       join: 'Unisciti a CrowdVision per iniziare a monitorare!',
       alreadyAnAccount: 'Hai già un account?',
-      forgot: 'Password Dimenticata?'
+      forgot: 'Password Dimenticata?',
+    },
+    modals: {
+      editRoom: {
+        title: 'Modifica Stanza',
+        subtitle: 'Configura parametri e soglie',
+        roomId: 'Identificativo Stanza',
+        capacity: 'Capienza',
+        maxTemp: 'Temp Max (°C)',
+        themeColor: 'Colore Tema',
+        cancel: 'Annulla',
+        save: 'Salva Modifiche',
+      },
     },
   },
 }
 
 const i18n = createI18n({
-  legacy: false, // Use Composition API
+  legacy: false,
   locale: localStorage.getItem('locale') || 'en', // Persist locale
   fallbackLocale: 'en',
   messages,
