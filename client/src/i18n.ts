@@ -97,6 +97,12 @@ const messages = {
         cancel: 'Cancel',
         save: 'Save Changes',
       },
+      notification: {
+        title: 'Enable critical alerts?',
+        message: 'Get notified about system failures even when closed.',
+        enable: 'Enable',
+        later: 'Later',
+      },
     },
   },
   it: {
@@ -194,6 +200,12 @@ const messages = {
         themeColor: 'Colore Tema',
         cancel: 'Annulla',
         save: 'Salva Modifiche',
+      },
+      notification: {
+        title: 'Abilitare avvisi critici?',
+        message: 'Ricevi notifiche sui guasti di sistema anche quando l\'app è chiusa.',
+        enable: 'Abilita',
+        later: 'Più tardi',
       },
     },
   },

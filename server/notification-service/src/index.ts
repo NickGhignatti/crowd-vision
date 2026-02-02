@@ -4,6 +4,7 @@ import cors from 'cors';
 import router from './router.js';
 import { connectRedis } from './config/redis.js';
 import { startNotificationLoop } from './services/notificationService.js';
+import {connectMongo} from "./config/db.js";
 
 dotenv.config();
 
@@ -21,9 +22,11 @@ const startServer = async () => {
     // just to demonstrate notifications being sent periodically
     startNotificationLoop();
 
-    app.listen(PORT, () => {
-        console.log(`🚀 Notification Service running on port ${PORT}`);
-    });
+    if (process.env.NODE_ENV !== 'test') {
+        connectMongo().then(() => {
+            app.listen(PORT, () => console.log(`Authentication service running on localhost:${PORT}`));
+        });
+    }
 };
 
 startServer();
