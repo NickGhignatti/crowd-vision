@@ -30,7 +30,7 @@ To run the application with the default configuration:
 ./build-application.sh
 ```
 
-#### 2. Developer Mode (with MongoDb GUI)
+#### 2. Developer Mode (with MongoDb GUI and Hot Reload)
 
 ```bash
 ./build-application.sh --dev
@@ -39,6 +39,7 @@ To run the application with the default configuration:
 Additional features:
 - Auth DB GUI: Accessible at http://localhost/auth-db-gui/
 - Twin DB GUI: Accessible at http://localhost/twin-db-gui/
+- Hot reload enabled for server and client
 
 #### 3. Manual setup (Docker)
 
@@ -63,8 +64,8 @@ If you prefer to run `docker-compose` manually without the script:
     ```
 
 2. Run services:
-    - Standard: `docker-compose up --build`
-    - Dev mode: `docker-compose --profile dev up --build`
+    - Standard: `docker compose up --build`
+    - Dev mode: `docker compose -f docker-compose.dev.yml up --watch --build`
 
 ## Trigger workflows
 

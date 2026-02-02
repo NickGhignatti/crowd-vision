@@ -1,0 +1,216 @@
+services:
+  # ==========================================
+  # GATEWAY
+  # ==========================================
+  gateway:
+    image: caddy:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - gateway-net
+    depends_on:
+      - auth-service
+      - twin-service
+      - socket-server
+
+  # ==========================================
+  # MESSAGE BROKER
+  # ==========================================
+  redis:
+    image: redis:alpine
+    container_name: crowd-vision-broker
+    ports:
+      - "6379:6379"
+    networks:
+      - gateway-net
+
+  # ==========================================
+  # GATEWAY SERVICE
+  # ==========================================
+  socket-server:
+    build:
+      context: ./server/socket-service
+      target: builder
+    command: npm run dev
+    container_name: crowd-vision-socket
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - gateway-net
+    develop:
+      watch:
+        - action: sync
+          path: ./server/socket-service/src
+          target: /app/src
+        - action: rebuild
+          path: ./server/socket-service/package.json
+
+  # ==========================================
+  # AUTH SERVICE
+  # ==========================================
+  auth-service:
+    build:
+      context: ./server/auth-service
+      target: builder
+    command: npm run dev
+    networks:
+      - gateway-net
+      - auth-net
+    environment:
+      - MONGO_URI=mongodb://auth-db:27017/authdb
+    develop:
+      watch:
+        - action: sync
+          path: ./server/auth-service/src
+          target: /app/src
+        - action: rebuild
+          path: ./server/auth-service/package.json
+
+  auth-db:
+    image: mongo:latest
+    networks:
+      - auth-net
+    volumes:
+      - auth-data:/data/db
+
+  auth-db-express:
+    image: mongo-express:latest
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://auth-db:27017/
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass
+      - ME_CONFIG_SITE_BASEURL=/auth-db-gui/
+    networks:
+      - gateway-net
+      - auth-net
+    depends_on:
+      - auth-db
+
+  # ==========================================
+  # DIGITAL TWIN SERVICE
+  # ==========================================
+  twin-service:
+    build:
+      context: ./server/twin-service
+      target: builder
+    command: npm run dev
+    networks:
+      - gateway-net
+      - twin-net
+    environment:
+      - MONGO_URI=mongodb://twin-db:27017/twindb
+    develop:
+      watch:
+        - action: sync
+          path: ./server/twin-service/src
+          target: /app/src
+        - action: rebuild
+          path: ./server/twin-service/package.json
+
+  twin-db:
+    image: mongo:latest
+    networks:
+      - twin-net
+    volumes:
+      - twin-data:/data/db
+
+  twin-db-express:
+    image: mongo-express
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://twin-db:27017/
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass
+      - ME_CONFIG_SITE_BASEURL=/twin-db-gui/
+    networks:
+      - gateway-net
+      - twin-net
+    depends_on:
+      - twin-db
+
+  # ==========================================
+  # NOTIFICATION SERVICE
+  # ==========================================
+  notification-service:
+    build:
+      context: ./server/notification-service
+      target: builder
+    command: npm run dev
+    container_name: crowd-vision-notification
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb://notification-db:27017/notificationdb
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+    depends_on:
+      - redis
+    networks:
+      - gateway-net
+      - notification-net
+    develop:
+      watch:
+        - action: sync
+          path: ./server/notification-service/src
+          target: /app/src
+        - action: rebuild
+          path: ./server/notification-service/package.json
+
+  notification-db:
+    image: mongo:latest
+    networks:
+      - notification-net
+    volumes:
+      - notification-data:/data/db
+
+  # ==========================================
+  # CLIENT
+  # ==========================================
+  client:
+    container_name: vue-client
+    build:
+      context: ./client
+      target: build-stage
+      args:
+        VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
+        VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+    ports:
+      - "${CLIENT_PORT}:8080"
+    environment:
+      - PORT=${CLIENT_PORT}
+    command: npm run dev -- --host --port 8080
+    networks:
+      - gateway-net
+    depends_on:
+      - auth-service
+      - gateway
+    develop:
+      watch:
+        - action: sync
+          path: ./client/src
+          target: /app/src
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: ./client/package.json
+
+networks:
+  gateway-net:
+    driver: bridge
+  auth-net:
+  twin-net:
+  notification-net:
+
+volumes:
+  caddy_data:
+  caddy_config:
+  auth-data:
+  twin-data:
+  notification-data:

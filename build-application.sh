@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# Default values
 ENV_FILE=".env"
 DEV_MODE=false
 DOWN_MODE=false
 
-# 1. Parse Arguments
 for arg in "$@"
 do
     case $arg in
@@ -24,11 +22,10 @@ done
 
 if [ "$DOWN_MODE" = true ]; then
     echo "Stopping and removing all application containers..."
-    docker-compose down
+    docker compose down
     exit 0
 fi
 
-# 2. Setup .env file
 echo "Checking environment configuration..."
 if [ ! -f "$ENV_FILE" ]; then
     echo "Creating $ENV_FILE with default configuration..."
@@ -75,18 +72,16 @@ else
     echo "$ENV_FILE already exists. Skipping creation."
 fi
 
-# 4. Run Docker Compose
 echo "🚀 Starting application..."
 
 if [ "$DEV_MODE" = true ]; then
-    echo "Starting in DEVELOPER MODE (with Mongo Express)..."
+    echo "Starting in DEVELOPER MODE (Hot Reload + Mongo Express)..."
     echo "Access Auth DB GUI at: http://localhost/auth-db-gui/"
     echo "Access Twin DB GUI at: http://localhost/twin-db-gui/"
-    
-    # Use the 'dev' profile to start the extra containers
-    docker-compose --profile dev up --build
+
+    docker compose -f docker-compose.dev.yml up --watch --build
 else
     echo "Starting in STANDARD MODE..."
-    # Standard up ignores services with profiles unless specified
-    docker-compose up --build
+
+    docker compose up --build
 fi
