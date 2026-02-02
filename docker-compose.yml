@@ -116,10 +116,21 @@ services:
     container_name: crowd-vision-notification
     environment:
       - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb://notification-db:27017/notificationdb
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
     depends_on:
       - redis
     networks:
       - gateway-net
+      - notification-net
+
+  notification-db:
+    image: mongo:latest
+    networks:
+      - notification-net
+    volumes:
+      - notification-data:/data/db
 
   # ==========================================
   # CLIENT
@@ -130,6 +141,7 @@ services:
         context: ./client
         args:
             VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
+            VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
     ports:
         - "${CLIENT_PORT}:8080"
     environment:
@@ -145,9 +157,11 @@ networks:
     driver: bridge
   auth-net:
   twin-net:
+  notification-net:
 
 volumes:
   caddy_data:
   caddy_config:
   auth-data:
   twin-data:
+  notification-data:

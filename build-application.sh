@@ -40,13 +40,43 @@ CLIENT_PORT=8080
 DEV_URL=http://localhost
 PROD_URL=http://localhost
 EOF
+    if grep -q "VAPID_PUBLIC_KEY" "$ENV_FILE"; then
+        echo "✅ VAPID keys already present in $ENV_FILE."
+    else
+        echo "🔑 Generating new VAPID keys for Web Push..."
+
+        if ! command -v npx &> /dev/null; then
+            echo "❌ Error: 'npx' is not installed. Cannot generate VAPID keys."
+            echo "Please install Node.js or manually add VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to .env"
+            exit 1
+        fi
+
+        KEYS_OUTPUT=$(npx --yes web-push generate-vapid-keys)
+
+        PUBLIC_KEY=$(echo "$KEYS_OUTPUT" | grep -A 1 "Public Key:" | tail -n 1 | tr -d '[:space:]')
+        PRIVATE_KEY=$(echo "$KEYS_OUTPUT" | grep -A 1 "Private Key:" | tail -n 1 | tr -d '[:space:]')
+
+        if [ -n "$PUBLIC_KEY" ] && [ -n "$PRIVATE_KEY" ]; then
+            echo "" >> "$ENV_FILE"
+            echo "# Web Push Keys (Auto-Generated)" >> "$ENV_FILE"
+            echo "VAPID_PUBLIC_KEY=$PUBLIC_KEY" >> "$ENV_FILE"
+            echo "VAPID_PRIVATE_KEY=$PRIVATE_KEY" >> "$ENV_FILE"
+            echo "VITE_VAPID_PUBLIC_KEY=$PUBLIC_KEY" >> "$ENV_FILE"
+
+            echo "✅ Keys generated and saved to $ENV_FILE"
+        else
+            echo "❌ Failed to parse generated keys."
+            echo "Raw Output was: $KEYS_OUTPUT"
+            exit 1
+        fi
+    fi
     echo ".env file created successfully."
 else
     echo "$ENV_FILE already exists. Skipping creation."
 fi
 
-# 3. Run Docker Compose
-echo "Starting application..."
+# 4. Run Docker Compose
+echo "🚀 Starting application..."
 
 if [ "$DEV_MODE" = true ]; then
     echo "Starting in DEVELOPER MODE (with Mongo Express)..."

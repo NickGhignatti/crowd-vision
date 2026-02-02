@@ -51,7 +51,17 @@ If you prefer to run `docker-compose` manually without the script:
     CLIENT_PORT=8080
     DEV_URL=http://localhost
     PROD_URL=http://localhost
+    VAPID_PUBLIC_KEY=x
+    VAPID_PRIVATE_KEY=y
+    VITE_VAPID_PUBLIC_KEY=x
     ```
+    The VAPID keys can be generated using thefollowing Node.js script:
+    ```bash
+    npm install web-push
+    npm install -D @types/web-push
+    npx web-push generate-vapid-keys
+    ```
+
 2. Run services:
     - Standard: `docker-compose up --build`
     - Dev mode: `docker-compose --profile dev up --build`
