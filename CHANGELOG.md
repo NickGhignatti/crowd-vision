@@ -1,3 +1,11 @@
+# [1.10.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.9.0...v1.10.0) (2026-02-02)
+
+
+### Features
+
+* in-app push notification ([db31554](https://github.com/NickGhignatti/crowd-vision/commit/db315540b6800a6948812e5fc01d8b133fc38c90))
+* web api push notifications ([c2a21b3](https://github.com/NickGhignatti/crowd-vision/commit/c2a21b31ceb4ed8393dc77c4987fca733decbc36))
+
 # [1.9.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.8.0...v1.9.0) (2026-01-29)
 
 
