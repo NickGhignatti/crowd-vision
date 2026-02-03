@@ -10,6 +10,7 @@ import type { BuildingPayload } from '@/scripts/schema.ts'
 import type { PerspectiveCamera } from 'three'
 import type { OrbitControls as OrbitControlsType } from 'three/examples/jsm/controls/OrbitControls.js'
 import { OrbitControls } from '@tresjs/cientos'
+import AutoRotate from '@/components/AutoRotate.vue'
 
 const serverUrl = import.meta.env.VITE_SERVER_URL
 
@@ -111,6 +112,7 @@ const handleFloorChange = (floorY: number | null) => {
 }
 
 const onRoomClick = (id: string, event: TresEvent) => {
+  if (isRotating.value) return
   if (event && event.stopPropagation) event.stopPropagation()
   handleRoomToggle(id)
 }
@@ -171,6 +173,12 @@ const toggleExplode = () => {
 const isExplodedRoom = (roomId: string) => {
   return isExploded.value && explodedRoomId.value === roomId
 }
+
+const isRotating = ref(false)
+
+const togglePanorama = () => {
+  isRotating.value = !isRotating.value
+}
 </script>
 
 <template>
@@ -191,10 +199,17 @@ const isExplodedRoom = (roomId: string) => {
       <main class="flex-1 relative bg-slate-50 z-0 min-w-0">
         <TresCanvas clear-color="#f8fafc" window-size shadows>
           <TresPerspectiveCamera ref="cameraRef" :position="[10, 10, 10]" :look-at="[0, 0, 0]" />
-          <OrbitControls ref="controlsRef" make-default :damping-factor="0.05" />
+          <OrbitControls
+            ref="controlsRef"
+            make-default
+            :damping-factor="0.05"
+            :enabled="!isRotating"
+          />
 
           <TresAmbientLight :intensity="0.6" />
           <TresDirectionalLight :position="[10, 20, 10]" :intensity="0.8" cast-shadow />
+
+          <AutoRotate :active="isRotating" :camera="cameraRef" />
 
           <template v-if="buildingRef">
             <TresGroup
@@ -202,7 +217,6 @@ const isExplodedRoom = (roomId: string) => {
               :key="room.id"
               :position="[room.position.x, room.position.y, room.position.z]"
             >
-              <!-- Main room mesh -->
               <TresMesh
                 @click="(ev) => onRoomClick(room.id, ev)"
                 :render-order="isExplodedRoom(room.id) ? -1 : 0"
@@ -221,7 +235,6 @@ const isExplodedRoom = (roomId: string) => {
                 />
               </TresMesh>
 
-              <!-- Wireframe edges for exploded room (non-interactive) -->
               <TresLineSegments v-if="isExplodedRoom(room.id)" :render-order="10">
                 <TresEdgesGeometry>
                   <TresBoxGeometry
@@ -237,10 +250,12 @@ const isExplodedRoom = (roomId: string) => {
         <ViewControls
           :selected-room-id="selectedRoomId"
           :is-exploded="isExploded"
+          :disabled="isRotating"
           @reset-view="resetView"
           @toggle-explode="toggleExplode"
           @zoom-in="zoomIn"
           @zoom-out="zoomOut"
+          @toggle-panorama="togglePanorama"
         />
       </main>
 
