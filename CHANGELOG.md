@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.10.0...v1.11.0) (2026-02-03)
+
+
+### Features
+
+* room exploitation ([cde1e89](https://github.com/NickGhignatti/crowd-vision/commit/cde1e89dd394d3c7e692f9bcdbda229eccde350b))
+
 # [1.10.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.9.0...v1.10.0) (2026-02-02)
 
 
