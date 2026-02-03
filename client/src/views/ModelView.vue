@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { onMounted, ref, watch, computed } from 'vue'
 import { TresCanvas } from '@tresjs/core'
-import { OrbitControls } from '@tresjs/cientos'
 import { Vector3 } from 'three'
 import NavBar from '@/components/NavBar.vue'
 import LeftMenu from '@/components/menus/LeftMenu.vue'
 import RightMenu from '@/components/menus/RightMenu.vue'
+import ViewControls from '@/components/menus/ControlPanel.vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
+import type { PerspectiveCamera } from 'three'
+import type { OrbitControls as OrbitControlsType } from 'three/examples/jsm/controls/OrbitControls.js'
+import { OrbitControls } from '@tresjs/cientos'
 
 const serverUrl = import.meta.env.VITE_SERVER_URL
 
@@ -16,13 +19,15 @@ interface TresEvent {
 
 const buildingRef = ref<BuildingPayload | null>(null)
 const selectedRoomId = ref<string | null>(null)
+const explodedRoomId = ref<string | null>(null)
 const selectedFloor = ref<number | null>(null)
+const isExploded = ref(false)
 
 let allAvailableBuildings: BuildingPayload[] = []
 const availableBuildingsNames = ref<string[]>([])
 
-const cameraRef = ref()
-const controlsRef = ref()
+const cameraRef = ref<PerspectiveCamera | null>(null)
+const controlsRef = ref<{ value: OrbitControlsType } | null>(null)
 
 watch(
   () => buildingRef.value,
@@ -36,9 +41,32 @@ watch(
 
 const visibleRooms = computed(() => {
   if (!buildingRef.value) return []
-  if (selectedFloor.value === null) return buildingRef.value.rooms
 
-  return buildingRef.value.rooms.filter((r) => r.position.y === selectedFloor.value)
+  let rooms = buildingRef.value.rooms
+
+  if (selectedFloor.value !== null) {
+    rooms = rooms.filter((r) => r.position.y === selectedFloor.value)
+  }
+
+  if (isExploded.value && explodedRoomId.value) {
+    const targetRoom = buildingRef.value.rooms.find((r) => r.id === explodedRoomId.value)
+
+    if (targetRoom) {
+      rooms = rooms.filter(
+        (r) =>
+          r.position.y >= targetRoom.position.y &&
+          r.position.x >= targetRoom.position.x &&
+          r.position.z >= targetRoom.position.z &&
+          r.position.y + r.dimensions.height <=
+            targetRoom.position.y + targetRoom.dimensions.height &&
+          r.position.x + r.dimensions.width <=
+            targetRoom.position.x + targetRoom.dimensions.width &&
+          r.position.z + r.dimensions.depth <= targetRoom.position.z + targetRoom.dimensions.depth,
+      )
+    }
+  }
+
+  return rooms
 })
 
 const displayedBuilding = computed(() => {
@@ -94,8 +122,8 @@ onMounted(() => {
 const resetView = () => {
   if (cameraRef.value && controlsRef.value) {
     cameraRef.value.position.set(10, 10, 10)
-    controlsRef.value.value.target.set(0, 0, 0)
-    controlsRef.value.value.update()
+    // controlsRef.value.value.target.set(0, 0, 0)
+    // controlsRef.value.value.update()
   }
 }
 
@@ -111,6 +139,37 @@ const zoomOut = () => {
   const direction = new Vector3()
   cameraRef.value.getWorldDirection(direction)
   cameraRef.value.position.addScaledVector(direction, -2)
+}
+
+const toggleExplode = () => {
+  if (!selectedRoomId.value || !buildingRef.value) return
+
+  if (isExploded.value) {
+    resetView()
+    isExploded.value = false
+    explodedRoomId.value = null
+    return
+  }
+
+  const room = buildingRef.value.rooms.find((r) => r.id === selectedRoomId.value)
+  if (!room || !cameraRef.value || !controlsRef.value) return
+
+  const roomCenter = new Vector3(
+    room.position.x,
+    room.position.y + room.dimensions.height / 2,
+    room.position.z,
+  )
+
+  const offset = new Vector3(10, 10, 15)
+  const newPosition = roomCenter.clone().add(offset)
+
+  cameraRef.value.position.copy(newPosition)
+  isExploded.value = true
+  explodedRoomId.value = selectedRoomId.value
+}
+
+const isExplodedRoom = (roomId: string) => {
+  return isExploded.value && explodedRoomId.value === roomId
 }
 </script>
 
@@ -138,50 +197,51 @@ const zoomOut = () => {
           <TresDirectionalLight :position="[10, 20, 10]" :intensity="0.8" cast-shadow />
 
           <template v-if="buildingRef">
-            <TresMesh
+            <TresGroup
               v-for="room in visibleRooms"
               :key="room.id"
               :position="[room.position.x, room.position.y, room.position.z]"
-              @click="(ev) => onRoomClick(room.id, ev)"
             >
-              <TresBoxGeometry
-                :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
-              />
-              <TresMeshStandardMaterial
-                :color="room.id === selectedRoomId ? '#10b981' : '#e2e8f0'"
-                :transparent="true"
-                :opacity="room.id === selectedRoomId ? 0.6 : 0.3"
-                :depth-write="false"
-              />
-            </TresMesh>
+              <!-- Main room mesh -->
+              <TresMesh
+                @click="(ev) => onRoomClick(room.id, ev)"
+                :render-order="isExplodedRoom(room.id) ? -1 : 0"
+                :visible="!isExplodedRoom(room.id)"
+              >
+                <TresBoxGeometry
+                  :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
+                />
+                <TresMeshStandardMaterial
+                  :color="room.id === selectedRoomId ? '#10b981' : '#e2e8f0'"
+                  :transparent="true"
+                  :opacity="room.id === selectedRoomId ? 0.6 : 0.3"
+                  :depth-write="false"
+                  :depth-test="true"
+                  :side="2"
+                />
+              </TresMesh>
+
+              <!-- Wireframe edges for exploded room (non-interactive) -->
+              <TresLineSegments v-if="isExplodedRoom(room.id)" :render-order="10">
+                <TresEdgesGeometry>
+                  <TresBoxGeometry
+                    :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
+                  />
+                </TresEdgesGeometry>
+                <TresLineBasicMaterial color="#475569" :line-width="2" :depth-test="true" />
+              </TresLineSegments>
+            </TresGroup>
           </template>
         </TresCanvas>
 
-        <div
-          class="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 bg-white/90 backdrop-blur rounded-full px-4 py-2 shadow-xl border border-slate-200/50 z-10"
-        >
-          <button
-            @click="resetView"
-            class="p-2 text-slate-500 hover:text-emerald-600 transition-colors"
-            title="Reset View"
-          >
-            <i class="ph-bold ph-cube text-xl"></i>
-          </button>
-          <button
-            @click="zoomIn"
-            class="p-2 text-slate-500 hover:text-emerald-600 transition-colors"
-            title="Zoom In"
-          >
-            <i class="ph-bold ph-plus text-xl"></i>
-          </button>
-          <button
-            @click="zoomOut"
-            class="p-2 text-slate-500 hover:text-emerald-600 transition-colors"
-            title="Zoom Out"
-          >
-            <i class="ph-bold ph-minus text-xl"></i>
-          </button>
-        </div>
+        <ViewControls
+          :selected-room-id="selectedRoomId"
+          :is-exploded="isExploded"
+          @reset-view="resetView"
+          @toggle-explode="toggleExplode"
+          @zoom-in="zoomIn"
+          @zoom-out="zoomOut"
+        />
       </main>
 
       <RightMenu
