@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.11.0...v1.12.0) (2026-02-03)
+
+
+### Features
+
+* model selection dropdown in dashboard ([0000374](https://github.com/NickGhignatti/crowd-vision/commit/00003741a8c357ed831eb3b32af6419e62b40029))
+
 # [1.11.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.10.0...v1.11.0) (2026-02-03)
 
 
