@@ -15,8 +15,6 @@ Identification of individual sensors is managed via unique IDs embedded within t
 
 Between the Vue.js client and the Express server there would be open a websocket where processed data from the server are 
 pushed towards the client. 
-
-!!! note "How to model data sent on the socket ???"
-
-    Here the Express server should have a map containing each processor where is physically located, cause the sensor should
-    send only its ID (if I change the sensor's position it is stupid change the sensor's configuration) ???? 
+1. **Sensor -> Server**: Simulated sensors push telemetry data (updates on people count, temperature) to the **Socket Service**.
+2. **Server -> Client**: The Socket Service broadcasts these updates to connected Vue.js clients subscribed to the specific room or building topics.
+3. **Alerts**: If data thresholds are breached (e.g., temperature > maxTemperature), events are published to Redis. The **Notification Service** consumes these events and triggers Push Notifications to relevant users.
