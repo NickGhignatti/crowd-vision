@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.12.0...v1.13.0) (2026-02-03)
+
+
+### Features
+
+* auto rotate ([c2e70ae](https://github.com/NickGhignatti/crowd-vision/commit/c2e70ae36ea50b72c3c07216b9ac8dcf785f28ff))
+
 # [1.12.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.11.0...v1.12.0) (2026-02-03)
 
 
