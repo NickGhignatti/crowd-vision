@@ -1,0 +1,26 @@
+site_name: CrowdVision User Guide
+docs_dir: user-docs
+site_dir: site/user
+site_url: https://nickghignatti.github.io/crowd-vision/user/
+use_directory_urls: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: green
+    accent: green
+
+extra:
+  generator: false
+
+nav:
+  - Home: index.md
