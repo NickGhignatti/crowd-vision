@@ -2,14 +2,15 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import DataTable, { type TableHeader } from '@/components/DataTable.vue'
-import type { RoomPayload } from '@/scripts/schema.ts'
+import type { RoomPayload, BuildingPayload } from '@/scripts/schema.ts' // Added BuildingPayload
+import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
+import { useI18n } from 'vue-i18n'
 
 const now = ref(new Date())
 const serverUrl = import.meta.env.VITE_SERVER_URL
 let timer: ReturnType<typeof setInterval>
 
 onMounted(() => {
-  fetchRooms()
   timer = setInterval(() => {
     now.value = new Date()
   }, 1000)
@@ -41,8 +42,6 @@ const formattedDate = computed(() => {
   }).format(now.value)
 })
 
-import { useI18n } from 'vue-i18n'
-
 const tableHeaders = ref<TableHeader[]>([
   { key: 'room', label: 'headers.room', cellClass: 'font-medium text-slate-900' },
   { key: 'status', label: 'headers.status', cellClass: 'text-sm' },
@@ -54,64 +53,61 @@ const tableHeaders = ref<TableHeader[]>([
 
 const roomData = ref<any>([])
 
-const fetchRooms = async () => {
+const fetchRoomsByBuilding = async (buildingId: string) => {
   try {
-    const userDomain = (
-      await fetch(serverUrl + '/auth/domain/' + localStorage.getItem('username')).then((response) =>
-        response.json(),
-      )
-    ).domain.name as string
+    roomData.value = []
 
-    const response = await fetch(serverUrl + '/twin/buildings/' + userDomain)
-    if (!response.ok) console.log('Failed to fetch data')
+    const response = await fetch(`${serverUrl}/twin/building/${buildingId}`)
+    if (!response.ok) throw new Error('Failed to fetch building data')
 
-    const result = await response.json()
+    const building = (await response.json()) as BuildingPayload
 
-    result[0].rooms.forEach((room: RoomPayload) => {
-      const occupants = Math.floor(Math.random() * room.capacity)
-      roomData.value.push({
-        room: room.id,
-        status: getStatusByOccupants(occupants, room.capacity),
-        teacher: '',
-        temp: '',
-        people: occupants,
-        capacity: room.capacity,
+    if (building && building.rooms) {
+      building.rooms.forEach((room: RoomPayload) => {
+        const occupants = Math.floor(Math.random() * room.capacity)
+        roomData.value.push({
+          room: room.id,
+          status: getStatusByOccupants(occupants, room.capacity),
+          teacher: '',
+          temp: '',
+          people: occupants,
+          capacity: room.capacity,
+        })
       })
-    })
+    }
   } catch (err) {
-    console.error(err)
+    console.error('Error fetching rooms:', err)
   }
+}
+
+const handleModelChange = (modelId: string) => {
+  console.log('Building/Model switched to:', modelId)
+  fetchRoomsByBuilding(modelId)
 }
 
 const getStatusByOccupants = (occupants: number, roomCapacity: number) => {
   const occupantsPercentage = occupants / roomCapacity
-  if (occupantsPercentage == 0.0) {
-    return 'empty'
-  } else if (occupantsPercentage <= 0.5) {
-    return 'normal'
-  } else if (occupantsPercentage <= 0.95) {
-    return 'crowded'
-  } else if (occupantsPercentage <= 1.0) {
-    return 'full'
-  } else {
-    return 'overcrowded'
-  }
+  if (occupantsPercentage == 0.0) return 'empty'
+  if (occupantsPercentage <= 0.5) return 'normal'
+  if (occupantsPercentage <= 0.95) return 'crowded'
+  if (occupantsPercentage <= 1.0) return 'full'
+  return 'overcrowded'
 }
 
 const getStatusColor = (status: string) => {
-  if (status) {
-    switch (status.toLowerCase()) {
-      case 'empty':
-        return 'text-emerald-600 font-semibold'
-      case 'normal':
-        return 'text-blue-600'
-      case 'crowded':
-        return 'text-orange-600'
-      case 'full':
-        return 'text-red-600 font-semibold'
-      case 'overcrowded':
-        return 'text-red-600 font-semibold'
-    }
+  if (!status) return ''
+  switch (status.toLowerCase()) {
+    case 'empty':
+      return 'text-emerald-600 font-semibold'
+    case 'normal':
+      return 'text-blue-600'
+    case 'crowded':
+      return 'text-orange-600'
+    case 'full':
+    case 'overcrowded':
+      return 'text-red-600 font-semibold'
+    default:
+      return ''
   }
 }
 
@@ -121,13 +117,9 @@ const isFullscreen = ref(false)
 const toggleFocusMode = async () => {
   const elem = focusSection.value
   if (!elem) return
-
   try {
-    if (!document.fullscreenElement) {
-      await elem.requestFullscreen()
-    } else {
-      await document.exitFullscreen()
-    }
+    if (!document.fullscreenElement) await elem.requestFullscreen()
+    else await document.exitFullscreen()
   } catch (err) {
     console.error(err)
   }
@@ -169,11 +161,17 @@ const onFullscreenChange = () => {
         Focus Mode
       </button>
 
-      <div class="mb-10 text-center">
-        <h2 class="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums">
-          {{ formattedTime }}
-        </h2>
-        <p class="text-slate-500 font-medium mt-2 text-lg">
+      <div class="mb-10 w-full max-w-4xl grid grid-cols-3 items-center">
+        <div />
+        <div class="text-center">
+          <h2 class="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums">
+            {{ formattedTime }}
+          </h2>
+        </div>
+        <div class="flex justify-start pl-4">
+          <ModelSelectionDropdown @model-changed="handleModelChange" />
+        </div>
+        <p class="col-span-3 text-center text-slate-500 font-medium mt-2 text-lg">
           {{ formattedDate }}
         </p>
       </div>
@@ -186,11 +184,9 @@ const onFullscreenChange = () => {
         <template #status="{ value }">
           <span :class="getStatusColor(value)">{{ value }}</span>
         </template>
-
         <template #teacher="{ value }">
           <span :class="getStatusColor(value)">{{ value }}</span>
         </template>
-
         <template #people="{ value }">
           <div class="flex items-center gap-2">
             <svg
@@ -203,8 +199,8 @@ const onFullscreenChange = () => {
               stroke-width="2"
               class="text-slate-400"
             >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
             </svg>
             <span class="font-bold">{{ value }}</span>
           </div>
