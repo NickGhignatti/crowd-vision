@@ -24,3 +24,7 @@ export interface BuildingPayload {
   rooms: RoomPayload[]
   domains: string[]
 }
+
+export interface ModelOption {
+  id: string
+}
