@@ -179,7 +179,7 @@ services:
       context: ./client
       target: build-stage
       args:
-        VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
+        VITE_SERVER_URL: ''
         VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
     ports:
       - "${CLIENT_PORT}:8080"

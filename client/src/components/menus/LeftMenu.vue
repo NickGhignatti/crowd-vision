@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import type { BuildingPayload } from '@/scripts/schema.ts'
 import { useI18n } from 'vue-i18n'
+import { useUserPermissions } from '@/composables/useUserPermissions'
 
 const emit = defineEmits<{
   (e: 'json-uploaded'): void
@@ -16,31 +17,11 @@ const props = defineProps<{
   activeFloor: number | null
 }>()
 
-const allowed = ref(false)
+const { isAllowed: allowed } = useUserPermissions()
 
 const selectedFloorModel = computed({
   get: () => props.activeFloor,
   set: (val) => emit('change-floor', val),
-})
-
-const askForRankLevel = async () => {
-  if (!import.meta.env.VITE_SERVER_URL) return
-
-  try {
-    const username = localStorage.getItem('username')
-    if (!username) return
-
-    const response = await fetch(serverUrl + '/auth/domain/level/' + username)
-    const data = await response.json()
-    const level = data.domainLevel as number
-    allowed.value = level == 1
-  } catch (e) {
-    console.warn('Could not fetch rank level', e)
-  }
-}
-
-onMounted(() => {
-  askForRankLevel()
 })
 
 const showControls = ref(false)
