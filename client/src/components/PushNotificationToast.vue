@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { usePush } from '@/services/push'
+import { usePush } from '@/composables/usePush.ts'
 
 const { permission, subscribe, isSupported } = usePush()
 const { t } = useI18n()
