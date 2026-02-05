@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import DataTable, { type TableHeader } from '@/components/DataTable.vue'
-import type { RoomPayload, BuildingPayload } from '@/scripts/schema.ts' // Added BuildingPayload
+import type { RoomPayload, BuildingPayload } from '@/scripts/schema.ts'
 import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
 import { useI18n } from 'vue-i18n'
 
