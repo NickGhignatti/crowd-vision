@@ -1,0 +1,40 @@
+name: notification-service-ci
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "server/notification-service/**"
+      - ".github/workflows/notification.yml"
+  pull_request:
+    branches: [master]
+    paths:
+      - "server/notification-service/**"
+      - ".github/workflows/notification.yml"
+
+jobs:
+  auth-service:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./server/notification-service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Build
+        run: npm run build
+
+      - name: 🧪 Run Server Tests
+        run: npm run test
+        continue-on-error: false
