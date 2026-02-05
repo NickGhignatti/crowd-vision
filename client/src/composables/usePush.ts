@@ -41,7 +41,6 @@ export function usePush() {
       if (subscription) {
         const currentKey = subscription.options.applicationServerKey
         if (!areKeysEqual(publicVapidKey, currentKey)) {
-          console.warn('⚠️ Key Mismatch detected! Resubscribing...')
           await subscription.unsubscribe()
           subscription = null
         }
@@ -67,7 +66,6 @@ export function usePush() {
       isSubscribed.value = true
       permission.value = 'granted'
     } catch (error) {
-      console.error('❌ Failed to subscribe:', error)
       permission.value = 'denied'
     }
   }

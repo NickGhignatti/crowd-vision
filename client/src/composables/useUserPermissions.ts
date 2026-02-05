@@ -14,7 +14,6 @@ export function useUserPermissions() {
       const data = await response.json()
       isAllowed.value = data.domainLevel === 1
     } catch (e) {
-      console.warn('Could not fetch rank level', e)
       isAllowed.value = false
     }
   }
