@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
-    "dev": "nodemon src/index.js",
+    "dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests"
   },
   "keywords": [],
