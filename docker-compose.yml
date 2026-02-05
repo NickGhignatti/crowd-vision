@@ -60,21 +60,6 @@ services:
     volumes:
       - auth-data:/data/db
 
-  auth-db-express:
-    image: mongo-express
-    profiles: ["dev"]
-    environment:
-      - ME_CONFIG_MONGODB_URL=mongodb://auth-db:27017/
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
-      - ME_CONFIG_SITE_BASEURL=/auth-db-gui/
-    networks:
-      - gateway-net
-      - auth-net
-    depends_on:
-      - auth-db
-
   # ==========================================
   # DIGITAL TWIN SERVICE
   # ==========================================
@@ -92,28 +77,12 @@ services:
       - twin-net
     volumes:
       - twin-data:/data/db
-  
-  twin-db-express:
-    image: mongo-express
-    profiles: ["dev"]
-    environment:
-      - ME_CONFIG_MONGODB_URL=mongodb://twin-db:27017/
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
-      - ME_CONFIG_SITE_BASEURL=/twin-db-gui/
-    networks:
-      - gateway-net
-      - twin-net
-    depends_on:
-      - twin-db
 
   # ==========================================
   # NOTIFICATION SERVICE
   # ==========================================
   notification-service:
     build: ./server/notification-service
-    container_name: crowd-vision-notification
     environment:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017/notificationdb

@@ -1,58 +1,5 @@
 services:
   # ==========================================
-  # GATEWAY
-  # ==========================================
-  gateway:
-    image: caddy:latest
-    ports:
-      - "80:80"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - gateway-net
-    depends_on:
-      - auth-service
-      - twin-service
-      - socket-server
-
-  # ==========================================
-  # MESSAGE BROKER
-  # ==========================================
-  redis:
-    image: redis:alpine
-    container_name: crowd-vision-broker
-    ports:
-      - "6379:6379"
-    networks:
-      - gateway-net
-
-  # ==========================================
-  # GATEWAY SERVICE
-  # ==========================================
-  socket-server:
-    build:
-      context: ./server/socket-service
-      target: builder
-    command: npm run dev
-    container_name: crowd-vision-socket
-    environment:
-      - PORT=3000
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
-    networks:
-      - gateway-net
-    develop:
-      watch:
-        - action: sync
-          path: ./server/socket-service/src
-          target: /app/src
-        - action: rebuild
-          path: ./server/socket-service/package.json
-
-  # ==========================================
   # AUTH SERVICE
   # ==========================================
   auth-service:
@@ -72,13 +19,6 @@ services:
           target: /app/src
         - action: rebuild
           path: ./server/auth-service/package.json
-
-  auth-db:
-    image: mongo:latest
-    networks:
-      - auth-net
-    volumes:
-      - auth-data:/data/db
 
   auth-db-express:
     image: mongo-express:latest
@@ -115,13 +55,6 @@ services:
         - action: rebuild
           path: ./server/twin-service/package.json
 
-  twin-db:
-    image: mongo:latest
-    networks:
-      - twin-net
-    volumes:
-      - twin-data:/data/db
-
   twin-db-express:
     image: mongo-express
     environment:
@@ -144,7 +77,6 @@ services:
       context: ./server/notification-service
       target: builder
     command: npm run dev
-    container_name: crowd-vision-notification
     environment:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017/notificationdb
@@ -163,13 +95,6 @@ services:
         - action: rebuild
           path: ./server/notification-service/package.json
 
-  notification-db:
-    image: mongo:latest
-    networks:
-      - notification-net
-    volumes:
-      - notification-data:/data/db
-
   # ==========================================
   # CLIENT
   # ==========================================
@@ -179,7 +104,7 @@ services:
       context: ./client
       target: build-stage
       args:
-        VITE_SERVER_URL: ''
+        VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
         VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
     ports:
       - "${CLIENT_PORT}:8080"
@@ -200,17 +125,3 @@ services:
             - node_modules/
         - action: rebuild
           path: ./client/package.json
-
-networks:
-  gateway-net:
-    driver: bridge
-  auth-net:
-  twin-net:
-  notification-net:
-
-volumes:
-  caddy_data:
-  caddy_config:
-  auth-data:
-  twin-data:
-  notification-data:

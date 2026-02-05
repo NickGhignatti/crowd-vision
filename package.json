@@ -6,6 +6,11 @@
     "server"
   ],
   "scripts": {
+    "setup": "node setup.js",
+    "dev": "npm run setup && docker compose -f docker-compose.yml -f docker-compose.dev.yml up --watch --build",
+    "start": "npm run setup && docker compose up --build -d",
+    "stop": "docker compose down --remove-orphans",
+    "logs": "docker compose logs -f",
     "release": "semantic-release"
   },
   "devDependencies": {
