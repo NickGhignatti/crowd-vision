@@ -10,9 +10,9 @@ export const triggerAlert = async (req: Request, res: Response) => {
     res.status(200).json({ success: true, message: 'Notification sent to Gateway and Push Service' });
 };
 
-const publicVapidKey = process.env.VAPID_PUBLIC_KEY || ''
 
 export const publicKey = async (req: Request, res: Response) => {
+    const publicVapidKey = process.env.VAPID_PUBLIC_KEY || ''
     res.status(200).json({ publicVapidKey });
 };
 
