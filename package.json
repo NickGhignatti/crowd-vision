@@ -18,7 +18,8 @@
     "docs:dev": "npm run build:api && concurrently \"npm:docs:landing\" \"npm:docs:user\" \"npm:docs:devs\" \"npm:watch:api\"",
     "docs:landing": "http-server landing-page -p 8000 -c-1 --cors",
     "docs:user": "mkdocs serve -f mkdocs.user.yml -a localhost:8001",
-    "docs:devs": "mkdocs serve -f mkdocs.dev.yml -a localhost:8002"
+    "docs:devs": "mkdocs serve -f mkdocs.dev.yml -a localhost:8002",
+    "docs:build": "npm run build:api && mkdocs build -f mkdocs.user.yml -d landing-page/user && mkdocs build -f mkdocs.dev.yml -d landing-page/dev"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.0",
