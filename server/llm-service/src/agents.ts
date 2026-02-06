@@ -20,15 +20,18 @@ const gemini = new ChatGoogleGenerativeAI({
 
 
 // Simple invocation
-async function main() {
-  const aiMsg = await gemini.invoke([
-    ["system", "You are a helpful assistant that translates English to French."],
-    ["human", "I love programming."],
-  ]);
-  const response = await gemini.invoke("Why do parrots talk?");
+export async function llmResponse(msg: string) {
+  try {
+    const response = await gemini.invoke([
+      ["system", "You are a helpful assistant that finish reposponses always with 'sir'"],
+      ["human", msg],
+    ]);
 
-  console.log(aiMsg.content); // Output: "J'adore la programmation."
-  console.log(response.content)
+    return response.content;
+    // console.log(aiMsg.content); 
+    // console.log(response.content)
+  } catch (error) {
+    console.error;
+    return "Error: Something went wrong with llm response"
+  }
 }
-
-main().catch(console.error);
