@@ -1,3 +1,20 @@
+# [1.14.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.13.0...v1.14.0) (2026-02-06)
+
+
+### Bug Fixes
+
+* add .DS_Store in gitignore for macos dev ([e490d10](https://github.com/NickGhignatti/crowd-vision/commit/e490d10d565aeadac3d3769bb3d358ed4125ad77))
+* add build working on unix like systems ([fe396ac](https://github.com/NickGhignatti/crowd-vision/commit/fe396ac490dcb1d36ecaa4edc9effc33d0c3295c))
+* add macstyle build ([4a101de](https://github.com/NickGhignatti/crowd-vision/commit/4a101def43db55c010c0eddde0d6dda319a4813d))
+* divide agents from non agents ([82a63a4](https://github.com/NickGhignatti/crowd-vision/commit/82a63a42010c1c598086eeb802f382a42d1aa3ce))
+
+
+### Features
+
+* add configuration for llm ([7e2ef0a](https://github.com/NickGhignatti/crowd-vision/commit/7e2ef0a5cf2d4ea9f7b6c023075da814f53dc8e8))
+* add entry point ([34c8bb8](https://github.com/NickGhignatti/crowd-vision/commit/34c8bb894245ce26e52e4d76f72406e878438356))
+* llm works yay ([01f66c0](https://github.com/NickGhignatti/crowd-vision/commit/01f66c00a276387ce3585971a2ed6bb91542a612))
+
 # [1.13.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.12.0...v1.13.0) (2026-02-03)
 
 
