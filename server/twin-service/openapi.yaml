@@ -4,7 +4,7 @@ info:
   description: API for managing digital twins of buildings and rooms.
   version: 1.0.0
 servers:
-  - url: http://localhost:80/twin/
+  - url: http://localhost:3002
     description: Local development server
 paths:
   /register:
@@ -95,6 +95,52 @@ paths:
                   error:
                     type: string
 
+  /building/{buildingId}/room/{roomId}:
+    patch:
+      summary: Update a room within a building
+      tags:
+        - Twin
+      parameters:
+        - in: path
+          name: buildingId
+          schema:
+            type: string
+          required: true
+          description: The ID of the building
+        - in: path
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: The ID of the room to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Fields to update in the room (e.g., temperature, no_person, color)
+              example:
+                temperature: 24.5
+                no_person: 5
+                color: "#ff0000"
+      responses:
+        '200':
+          description: Room updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          description: Error updating room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
 components:
   schemas:
     Coordinates:
@@ -145,10 +191,8 @@ components:
           type: string
         temperature:
           type: number
-          description: Current temperature (from interface definition)
         no_person:
           type: number
-          description: Number of people (from interface definition)
 
     BuildingInput:
       type: object

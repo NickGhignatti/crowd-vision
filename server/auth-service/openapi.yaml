@@ -4,7 +4,7 @@ info:
   description: API for user authentication and domain management.
   version: 1.0.0
 servers:
-  - url: http://localhost:80/auth/
+  - url: http://localhost:3001
     description: Local development server
 paths:
   /register:
@@ -18,6 +18,7 @@ paths:
           application/json:
             schema:
               type: object
+              required: true
               properties:
                 username:
                   type: string
@@ -43,10 +44,8 @@ paths:
                     example: "User created"
                   userId:
                     type: string
-                    example: "60d5ecb8b392d7001f8e4b5a"
                   username:
                     type: string
-                    example: "jdoe"
         '400':
           description: Bad request
           content:
@@ -68,6 +67,7 @@ paths:
           application/json:
             schema:
               type: object
+              required: true
               properties:
                 username:
                   type: string
@@ -89,12 +89,10 @@ paths:
                     example: "Login successful"
                   userId:
                     type: string
-                    example: "60d5ecb8b392d7001f8e4b5a"
                   username:
                     type: string
-                    example: "jdoe"
         '400':
-          description: Invalid credentials or error
+          description: Invalid credentials
           content:
             application/json:
               schema:
@@ -156,7 +154,7 @@ paths:
                 type: object
                 properties:
                   domainLevel:
-                    type: string # Assuming string or number based on context
+                    type: string
                     description: The level associated with the user's domain
         '400':
           description: Error retrieving domain level
@@ -181,4 +179,3 @@ components:
           example: "analytics"
       required:
         - name
-  
