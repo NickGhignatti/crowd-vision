@@ -121,18 +121,6 @@ services:
         - auth-service
         - gateway
 
-
-  # # LLMops
-  # llm-service:
-  #   build: ./llm-service
-  #   environment:
-  #     - MLFLOW_TRACKING_URI=http://mlflow:5000
-  #     - MLFLOW_EXPERIMENT_ID=123456789
-  #   depends_on:
-  #     - mlflow
-  #   networks:
-  #     - llm-net
-
 networks:
   gateway-net:
     driver: bridge
