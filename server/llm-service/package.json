@@ -8,18 +8,22 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts"
+    "build": "tsc -p tsconfig.json",
+    "start": "node build/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "watch": "tsc -w"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.15",
+    "@fastify/autoload": "^6.3.1",
     "@langchain/core": "^1.1.18",
     "@langchain/deepseek": "^1.0.7",
     "@langchain/google-genai": "^2.1.14",
+    "@sinclair/typebox": "^0.34.48",
     "ai": "^6.0.62",
     "dotenv": "^17.2.3",
     "fastify": "^5.7.2",
+    "fastify-plugin": "^5.1.0",
     "langchain": "^1.2.15",
     "mlflow-tracing": "^0.1.2",
     "ts-node": "^10.9.2",
@@ -28,6 +32,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
+    "nodemon": "^3.1.11",
     "typescript": "^5.9.3"
   }
 }
