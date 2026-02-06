@@ -1,3 +1,10 @@
+## [1.14.1](https://github.com/NickGhignatti/crowd-vision/compare/v1.14.0...v1.14.1) (2026-02-06)
+
+
+### Bug Fixes
+
+* fix dev env ([0d1f27f](https://github.com/NickGhignatti/crowd-vision/commit/0d1f27fc277e7a99b2af57bdb8fa4bc1b0f98479))
+
 # [1.14.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.13.0...v1.14.0) (2026-02-06)
 
 
