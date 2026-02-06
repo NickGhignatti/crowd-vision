@@ -4,6 +4,7 @@ import type { BuildingPayload, RoomPayload } from '@/scripts/schema.ts'
 import { useI18n } from 'vue-i18n'
 import RoomItem from '@/components/menus/items/RoomItem.vue'
 import EditRoom from '@/components/modals/EditRoom.vue'
+import { useUserPermissions } from '@/composables/useUserPermissions'
 
 const props = defineProps<{
   building: BuildingPayload | null
@@ -23,22 +24,9 @@ const searchInput = ref<HTMLInputElement | null>(null)
 
 const roomRefs = ref<Record<string, HTMLElement | null>>({})
 
-const allowed = ref(false)
 const serverUrl = import.meta.env.VITE_SERVER_URL
 
-const askForRankLevel = async () => {
-  if (!serverUrl) return
-  try {
-    const username = localStorage.getItem('username')
-    if (!username) return
-
-    const response = await fetch(serverUrl + '/auth/domain/level/' + username)
-    const data = await response.json()
-    allowed.value = data.domainLevel === 1
-  } catch (e) {
-    console.warn('Could not fetch rank level', e)
-  }
-}
+const { isAllowed: allowed } = useUserPermissions()
 
 const toggleSearch = () => {
   isSearchOpen.value = !isSearchOpen.value
@@ -102,10 +90,6 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
     alert('Failed to update room')
   }
 }
-
-onMounted(() => {
-  askForRankLevel()
-})
 
 const { t } = useI18n()
 </script>

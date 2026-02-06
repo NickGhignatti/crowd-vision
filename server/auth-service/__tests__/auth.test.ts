@@ -44,4 +44,15 @@ describe('Auth should work', () => {
         expect(res.status).toBe(400);
         expect(res.body.error).toBe('Invalid password');
     });
+
+    it('should fail if user does not exist', async () => {
+        const res = await request(app)
+            .post('/login')
+            .send({
+                username: 'ghostuser',
+                password: 'password'
+            });
+
+        expect(res.status).toBe(400);
+    });
 });

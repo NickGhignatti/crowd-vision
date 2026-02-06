@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
-    "dev": "nodemon src/index.js",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests"
+    "dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts",
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
@@ -39,13 +39,14 @@
     "typescript": "^5.9.3"
   },
   "jest": {
-    "preset": "ts-jest/presets/default-esm",
+    "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": [
-      "**/__tests__/**/?(*.)+(spec|test).ts"
+    "setupFilesAfterEnv": [
+      "./__tests__/setup.ts"
     ],
-    "extensionsToTreatAsEsm": [
-      ".ts"
+    "testMatch": [
+      "**/__tests__/**/*.test.ts",
+      "**/__tests__/**/*.spec.ts"
     ],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
@@ -54,12 +55,11 @@
       "^.+\\.tsx?$": [
         "ts-jest",
         {
-          "useESM": true
+          "tsconfig": {
+            "module": "commonjs"
+          }
         }
       ]
-    },
-    "setupFilesAfterEnv": [
-      "./__tests__/setup.ts"
-    ]
+    }
   }
 }

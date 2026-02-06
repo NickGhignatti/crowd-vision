@@ -15,6 +15,32 @@ services:
     depends_on:
       - auth-service
       - twin-service
+      - socket-server
+
+  # ==========================================
+  # MESSAGE BROKER
+  # ==========================================
+  redis:
+    image: redis:alpine
+    container_name: crowd-vision-broker
+    ports:
+      - "6379:6379"
+    networks:
+      - gateway-net
+
+  # ==========================================
+  # GATEWAY SERVICE
+  # ==========================================
+  socket-server:
+    build: ./server/socket-service
+    container_name: crowd-vision-socket
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - gateway-net
 
   # ==========================================
   # AUTH SERVICE
@@ -34,21 +60,6 @@ services:
     volumes:
       - auth-data:/data/db
 
-  auth-db-express:
-    image: mongo-express
-    profiles: ["dev"]
-    environment:
-      - ME_CONFIG_MONGODB_URL=mongodb://auth-db:27017/
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
-      - ME_CONFIG_SITE_BASEURL=/auth-db-gui/
-    networks:
-      - gateway-net
-      - auth-net
-    depends_on:
-      - auth-db
-
   # ==========================================
   # DIGITAL TWIN SERVICE
   # ==========================================
@@ -66,21 +77,29 @@ services:
       - twin-net
     volumes:
       - twin-data:/data/db
-  
-  twin-db-express:
-    image: mongo-express
-    profiles: ["dev"]
+
+  # ==========================================
+  # NOTIFICATION SERVICE
+  # ==========================================
+  notification-service:
+    build: ./server/notification-service
     environment:
-      - ME_CONFIG_MONGODB_URL=mongodb://twin-db:27017/
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
-      - ME_CONFIG_SITE_BASEURL=/twin-db-gui/
+      - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb://notification-db:27017/notificationdb
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+    depends_on:
+      - redis
     networks:
       - gateway-net
-      - twin-net
-    depends_on:
-      - twin-db
+      - notification-net
+
+  notification-db:
+    image: mongo:latest
+    networks:
+      - notification-net
+    volumes:
+      - notification-data:/data/db
 
   # ==========================================
   # CLIENT
@@ -91,6 +110,7 @@ services:
         context: ./client
         args:
             VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
+            VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
     ports:
         - "${CLIENT_PORT}:8080"
     environment:
@@ -125,11 +145,14 @@ networks:
   llm-net:
     deliver: bridge
   gateway-net:
+    driver: bridge
   auth-net:
   twin-net:
+  notification-net:
 
 volumes:
   caddy_data:
   caddy_config:
   auth-data:
   twin-data:
+  notification-data:

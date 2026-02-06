@@ -1,0 +1,17 @@
+name: Security Audit
+on: [push, pull_request]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit Client
+        run: cd client && npm audit --audit-level=high
+      - name: Audit Auth Service
+        run: cd server/auth-service && npm audit --audit-level=high
+      - name: Audit Notification Service
+        run: cd server/notification-service && npm audit --audit-level=high
+      - name: Audit Socker Service
+        run: cd server/socket-service && npm audit --audit-level=high
+      - name: Audit Twin Service
+        run: cd server/twin-service && npm audit --audit-level=high

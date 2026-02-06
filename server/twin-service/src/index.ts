@@ -5,8 +5,8 @@ import YAML from "yamljs";
 import router from "./router.js";
 import {connectMongo} from "./config/db.js";
 
-export const app = express()
 const PORT = 3000;
+export const app = express()
 
 const swaggerDocument = YAML.load('./openapi.yaml');
 

@@ -8,6 +8,7 @@ import RequireLogin from '@/components/modals/RequireLogin.vue'
 import LanguageSelector from '@/components/link/LanguageSelector.vue'
 import ProfileDropdown from '@/components/menus/ProfileDropdown.vue'
 import { useI18n } from 'vue-i18n'
+import NotificationDropdown from '@/components/menus/NotificationDropdown.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -94,6 +95,7 @@ onMounted(() => {
 
         <div class="hidden md:flex items-center gap-4">
           <LanguageSelector></LanguageSelector>
+          <NotificationDropdown v-if="isLoggedIn"></NotificationDropdown>
 
           <template v-if="!isLoggedIn">
             <button
@@ -120,6 +122,7 @@ onMounted(() => {
         </div>
 
         <div class="flex items-center md:hidden">
+          <NotificationDropdown v-if="isLoggedIn"></NotificationDropdown>
           <button @click="toggleMobileMenu" class="text-slate-600 hover:text-slate-900 p-2">
             <i class="ph-bold text-2xl" :class="isMobileMenuOpen ? 'ph-x' : 'ph-list'"></i>
           </button>
@@ -128,6 +131,7 @@ onMounted(() => {
     </div>
 
     <div v-if="isMobileMenuOpen" class="md:hidden border-t border-slate-100 bg-white">
+      <NotificationDropdown v-if="isLoggedIn"></NotificationDropdown>
       <div class="px-4 pt-4 pb-6 space-y-4 flex flex-col">
         <NavbarLink v-if="isLoggedIn" to="/dashboard" @click="isMobileMenuOpen = false">
           {{ t('nav.dashboard') }}

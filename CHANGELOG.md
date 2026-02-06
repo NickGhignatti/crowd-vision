@@ -1,3 +1,32 @@
+# [1.13.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.12.0...v1.13.0) (2026-02-03)
+
+
+### Features
+
+* auto rotate ([c2e70ae](https://github.com/NickGhignatti/crowd-vision/commit/c2e70ae36ea50b72c3c07216b9ac8dcf785f28ff))
+
+# [1.12.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.11.0...v1.12.0) (2026-02-03)
+
+
+### Features
+
+* model selection dropdown in dashboard ([0000374](https://github.com/NickGhignatti/crowd-vision/commit/00003741a8c357ed831eb3b32af6419e62b40029))
+
+# [1.11.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.10.0...v1.11.0) (2026-02-03)
+
+
+### Features
+
+* room exploitation ([cde1e89](https://github.com/NickGhignatti/crowd-vision/commit/cde1e89dd394d3c7e692f9bcdbda229eccde350b))
+
+# [1.10.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.9.0...v1.10.0) (2026-02-02)
+
+
+### Features
+
+* in-app push notification ([db31554](https://github.com/NickGhignatti/crowd-vision/commit/db315540b6800a6948812e5fc01d8b133fc38c90))
+* web api push notifications ([c2a21b3](https://github.com/NickGhignatti/crowd-vision/commit/c2a21b31ceb4ed8393dc77c4987fca733decbc36))
+
 # [1.9.0](https://github.com/NickGhignatti/crowd-vision/compare/v1.8.0...v1.9.0) (2026-01-29)
 
 

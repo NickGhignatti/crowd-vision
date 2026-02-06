@@ -56,7 +56,7 @@ const toggleAutoPlay = () => {
   isAutoPlaying.value = !isAutoPlaying.value
 
   if (isAutoPlaying.value) {
-    autoPlayInterval = setInterval(() => {
+    autoPlayInterval = window.setInterval(() => {
       nextPage()
     }, 2000)
   } else {

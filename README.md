@@ -17,28 +17,25 @@ You can run this project easily using Docker or manually by setting up the envir
 
 ### Quick start
 
-We provide a `build-application.sh` script to automate the setup process.
-
-> ⚠️ **Attention**
->
-> To delete the containers the script offer a `--down` mode which cna be triggered through `build-application.sh --down` command
+We provide convenient `npm` scripts to automate the setup and running process.
 
 #### 1. Standard Run
-To run the application with the default configuration:
+To run the application with the default configuration in the background:
 
 ```bash
-./build-application.sh
+npm start
 ```
 
-#### 2. Developer Mode (with MongoDb GUI)
+#### 2. Developer Mode (with MongoDb GUI and Hot Reload)
 
 ```bash
-./build-application.sh --dev
+npm run dev
 ```
 
 Additional features:
 - Auth DB GUI: Accessible at http://localhost/auth-db-gui/
 - Twin DB GUI: Accessible at http://localhost/twin-db-gui/
+- Hot reload enabled for server and client
 
 #### 3. Manual setup (Docker)
 
@@ -51,10 +48,25 @@ If you prefer to run `docker-compose` manually without the script:
     CLIENT_PORT=8080
     DEV_URL=http://localhost
     PROD_URL=http://localhost
+    VAPID_PUBLIC_KEY=x
+    VAPID_PRIVATE_KEY=y
+    VITE_VAPID_PUBLIC_KEY=x
     ```
+    The VAPID keys can be generated using thefollowing Node.js script:
+    ```bash
+    npm install web-push
+    npm install -D @types/web-push
+    npx web-push generate-vapid-keys
+    ```
+
 2. Run services:
-    - Standard: `docker-compose up --build`
-    - Dev mode: `docker-compose --profile dev up --build`
+    - Standard: `docker compose up --build`
+    - Dev mode: `docker compose -f docker-compose.dev.yml up --watch --build`
+
+#### Stop application
+```bash
+npm run stop
+```
 
 ## Trigger workflows
 
