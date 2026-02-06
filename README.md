@@ -61,7 +61,7 @@ If you prefer to run `docker-compose` manually without the script:
 
 2. Run services:
     - Standard: `docker compose up --build`
-    - Dev mode: `docker compose -f docker-compose.dev.yml up --watch --build`
+    - Dev mode: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`
 
 #### Stop application
 ```bash

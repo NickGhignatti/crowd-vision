@@ -122,28 +122,18 @@ services:
         - gateway
 
 
-  # LLMops
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:latest
-    ports:
-      - "5001:5001"
-    command: mlflow server --host 0.0.0.0 --port 5001
-    networks:
-      - llm-net
-
-  llm-service:
-    build: ./llm-service
-    environment:
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - MLFLOW_EXPERIMENT_ID=123456789
-    depends_on:
-      - mlflow
-    networks:
-      - llm-net
+  # # LLMops
+  # llm-service:
+  #   build: ./llm-service
+  #   environment:
+  #     - MLFLOW_TRACKING_URI=http://mlflow:5000
+  #     - MLFLOW_EXPERIMENT_ID=123456789
+  #   depends_on:
+  #     - mlflow
+  #   networks:
+  #     - llm-net
 
 networks:
-  llm-net:
-    deliver: bridge
   gateway-net:
     driver: bridge
   auth-net:
