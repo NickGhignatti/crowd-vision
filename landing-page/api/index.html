@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+        body { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+<script>
+    window.onload = () => {
+        // 1. Parse the query parameter ?spec=filename.yaml
+        const urlParams = new URLSearchParams(window.location.search);
+        const specFile = urlParams.get('spec');
+
+        if (!specFile) {
+            document.body.innerHTML = '<h2 style="text-align:center; margin-top:20px;">No API definition specified.</h2>';
+            return;
+        }
+
+        // 2. Initialize Swagger UI
+        window.ui = SwaggerUIBundle({
+            url: specFile, // Load the YAML file relative to this HTML
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [
+                SwaggerUIBundle.presets.apis,
+                SwaggerUIStandalonePreset
+            ],
+            layout: "StandaloneLayout"
+        });
+    };
+</script>
+</body>
+</html>
