@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import DataTable from '../DataTable.vue'
+import DataTable from '../../tables/DataTable.vue'
 
 describe('DataTable.vue', () => {
   const headers = [

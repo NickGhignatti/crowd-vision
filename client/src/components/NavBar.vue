@@ -91,6 +91,14 @@ onMounted(() => {
           <RequireLogin v-else @click="openLogin">
             {{ t('nav.digitalTwin') }}
           </RequireLogin>
+
+          <NavbarLink v-if="isLoggedIn" to="/domains">
+            {{ t('nav.domains') }}
+          </NavbarLink>
+
+          <RequireLogin v-else @click="openLogin">
+            {{ t('nav.domains') }}
+          </RequireLogin>
         </div>
 
         <div class="hidden md:flex items-center gap-4">
@@ -122,6 +130,7 @@ onMounted(() => {
         </div>
 
         <div class="flex items-center md:hidden">
+          <LanguageSelector></LanguageSelector>
           <NotificationDropdown v-if="isLoggedIn"></NotificationDropdown>
           <button @click="toggleMobileMenu" class="text-slate-600 hover:text-slate-900 p-2">
             <i class="ph-bold text-2xl" :class="isMobileMenuOpen ? 'ph-x' : 'ph-list'"></i>
@@ -131,7 +140,6 @@ onMounted(() => {
     </div>
 
     <div v-if="isMobileMenuOpen" class="md:hidden border-t border-slate-100 bg-white">
-      <NotificationDropdown v-if="isLoggedIn"></NotificationDropdown>
       <div class="px-4 pt-4 pb-6 space-y-4 flex flex-col">
         <NavbarLink v-if="isLoggedIn" to="/dashboard" @click="isMobileMenuOpen = false">
           {{ t('nav.dashboard') }}
@@ -146,13 +154,21 @@ onMounted(() => {
           {{ t('nav.digitalTwin') }}
         </RequireLogin>
 
-        <div class="h-px bg-slate-100 my-2"></div>
+        <NavbarLink v-if="isLoggedIn" to="/domains">
+          {{ t('nav.domains') }}
+        </NavbarLink>
 
-        <div class="flex gap-2">
-          <LanguageSelector></LanguageSelector>
-        </div>
+        <RequireLogin v-else @click="openLogin">
+          {{ t('nav.domains') }}
+        </RequireLogin>
 
-        <div class="h-px bg-slate-100 my-2"></div>
+        <!--        <div class="h-px bg-slate-100 my-2"></div>-->
+
+        <!--        <div class="flex gap-2">-->
+        <!--          <LanguageSelector></LanguageSelector>-->
+        <!--        </div>-->
+
+        <!--        <div class="h-px bg-slate-100 my-2"></div>-->
 
         <div class="flex flex-col gap-3">
           <template v-if="!isLoggedIn">

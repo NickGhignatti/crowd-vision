@@ -1,26 +1,47 @@
+// client/src/composables/useUserPermissions.ts
 import { ref, onMounted } from 'vue'
+import type { DomainMembership } from '@/scripts/schema'
 
 export function useUserPermissions() {
-  const isAllowed = ref(false)
+  const memberships = ref<DomainMembership[]>([])
   const serverUrl = import.meta.env.VITE_SERVER_URL
 
-  const checkPermissions = async () => {
+  // Fetch the user's roles for all domains
+  const fetchPermissions = async () => {
     if (!serverUrl) return
     try {
       const username = localStorage.getItem('username')
       if (!username) return
 
-      const response = await fetch(`${serverUrl}/auth/domain/level/${username}`)
+      const response = await fetch(`${serverUrl}/auth/domains/${username}`)
       const data = await response.json()
-      isAllowed.value = data.domainLevel === 1
+
+      // The API returns { domains: [...] } where items are Memberships
+      if (data && data.domains) {
+        memberships.value = data.domains
+      }
     } catch (e) {
-      isAllowed.value = false
+      console.error('Failed to fetch permissions', e)
+      memberships.value = []
     }
   }
 
+  // A building belongs to domains. If I am 'admin' or 'owner' in ANY of them, I can edit.
+  const canEdit = (buildingDomains: string[]): boolean => {
+    if (!buildingDomains || buildingDomains.length === 0) return false
+
+    return memberships.value.some(
+      (m) => buildingDomains.includes(m.domainName) && ['owner', 'admin'].includes(m.role),
+    )
+  }
+
   onMounted(() => {
-    checkPermissions()
+    fetchPermissions()
   })
 
-  return { isAllowed, checkPermissions }
+  return {
+    memberships,
+    fetchPermissions,
+    canEdit,
+  }
 }

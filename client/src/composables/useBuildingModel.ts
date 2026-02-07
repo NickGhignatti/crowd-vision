@@ -1,11 +1,11 @@
 import { ref, computed, watch } from 'vue'
-import type { BuildingPayload } from '@/scripts/schema'
+import type { BuildingPayload, DomainMembership } from '@/scripts/schema'
 
 export function useBuildingModel() {
   const serverUrl = import.meta.env.VITE_SERVER_URL
 
   const building = ref<BuildingPayload | null>(null)
-  const allBuildings = ref<BuildingPayload[]>([])
+  const allBuildings = ref<BuildingPayload[]>([]) // <--- This exists
   const selectedRoomId = ref<string | null>(null)
   const selectedFloor = ref<number | null>(null)
   const explodedRoomId = ref<string | null>(null)
@@ -57,13 +57,27 @@ export function useBuildingModel() {
       const username = localStorage.getItem('username')
       if (!username) return
 
-      const domainRes = await fetch(`${serverUrl}/auth/domain/${username}`)
-      const { domain } = await domainRes.json()
+      const domainRes = await fetch(`${serverUrl}/auth/domains/${username}`)
+      const data = await domainRes.json()
+      const memberships = data.domains as DomainMembership[]
 
-      const buildingsRes = await fetch(`${serverUrl}/twin/buildings/${domain.name}`)
-      if (!buildingsRes.ok) throw new Error('Failed to fetch buildings')
+      allBuildings.value = []
 
-      allBuildings.value = (await buildingsRes.json()) as BuildingPayload[]
+      for (const m of memberships) {
+        if (!m.domainName) continue
+
+        const buildingsRes = await fetch(`${serverUrl}/twin/buildings/${m.domainName}`)
+
+        if (buildingsRes.ok) {
+          const buildingsOfDomain = (await buildingsRes.json()) as BuildingPayload[]
+
+          buildingsOfDomain.forEach((b: BuildingPayload) => {
+            if (!allBuildings.value.some((existing) => existing.id === b.id)) {
+              allBuildings.value.push(b)
+            }
+          })
+        }
+      }
 
       if (!building.value && allBuildings.value.length > 0) {
         building.value = allBuildings.value[0] || null
@@ -88,6 +102,7 @@ export function useBuildingModel() {
 
   return {
     building,
+    allBuildings, // <--- ADD THIS HERE
     availableBuildingsNames,
     selectedRoomId,
     selectedFloor,

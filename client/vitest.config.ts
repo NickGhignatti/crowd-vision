@@ -9,10 +9,22 @@ export default defineConfig((env) => {
     viteConf,
     defineConfig({
       test: {
-        environment: 'jsdom',
+        environment: 'happy-dom',
         exclude: [...configDefaults.exclude, 'e2e/**'],
         root: fileURLToPath(new URL('./', import.meta.url)),
         setupFiles: ['./src/components/__tests__/setup.ts'],
+        globals: true,
+        mockReset: true,
+        restoreMocks: true,
+        deps: {
+          optimizer: {
+            web: {
+              enabled: true,
+              include: ['vue', 'vue-router', '@vue/test-utils'],
+            },
+          },
+        },
+        pool: "threads"
       },
     }),
   )

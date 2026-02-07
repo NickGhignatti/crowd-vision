@@ -8,7 +8,7 @@ config.global.stubs = {
   RouterView: true,
 }
 
-// Mock LocalStorage (JSDOM has it, but sometimes it needs a reset)
+// Mock LocalStorage
 const localStorageMock = (function () {
   let store: Record<string, string> = {}
   return {
@@ -31,26 +31,34 @@ global.fetch = vi.fn()
 
 // Mock vue-i18n globally
 vi.mock('vue-i18n', () => ({
+  createI18n: () => ({
+    global: {
+      t: (key: string) => key,
+      locale: { value: 'en' },
+    },
+  }),
   useI18n: () => ({
     t: (key: string) => key,
     locale: { value: 'en' },
   }),
 }))
 
-// Mock Vue Router
-vi.mock('vue-router', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
+// Mock socket.io-client (Prevents hanging tests)
+vi.mock('socket.io-client', () => ({
+  io: () => ({
+    on: vi.fn(),
+    emit: vi.fn(),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    off: vi.fn(),
+    connected: false,
   }),
-  RouterLink: {
-    template: '<a><slot /></a>',
-  },
 }))
 
-// Mock ScrollIntoView (for RightMenu)
+// Mock ScrollIntoView
 Element.prototype.scrollIntoView = vi.fn()
 
-// Mock ResizeObserver (common in UI libs)
+// Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import type { BuildingPayload } from '@/scripts/schema.ts'
+import { computed, ref, watch } from 'vue'
+import type { BuildingPayload } from '@/scripts/schema'
 import { useI18n } from 'vue-i18n'
 import { useUserPermissions } from '@/composables/useUserPermissions'
 
@@ -17,7 +17,13 @@ const props = defineProps<{
   activeFloor: number | null
 }>()
 
-const { isAllowed: allowed } = useUserPermissions()
+const { t } = useI18n()
+const { memberships } = useUserPermissions()
+
+// User can upload if they are an admin/owner of AT LEAST one domain
+const canUpload = computed(() => {
+  return memberships.value.some((m) => ['owner', 'admin'].includes(m.role))
+})
 
 const selectedFloorModel = computed({
   get: () => props.activeFloor,
@@ -65,6 +71,8 @@ const handleFileUpload = async (event: Event) => {
       isUploading.value = true
       const payload = JSON.parse(await file.text()) as BuildingPayload
 
+      // The backend should ideally verify if the user has access
+      // to the domain specified inside this JSON payload.
       await fetch(serverUrl + `/twin/register`, {
         method: 'POST',
         headers: {
@@ -79,11 +87,10 @@ const handleFileUpload = async (event: Event) => {
       alert('Failed to upload building data')
     } finally {
       isUploading.value = false
+      if (fileInput.value) fileInput.value.value = ''
     }
   }
 }
-
-const { t } = useI18n()
 
 const availableFloors = computed(() => {
   if (!props.building || !props.building.rooms) return []
@@ -97,11 +104,11 @@ const availableFloors = computed(() => {
     class="bg-white border-r border-slate-200 transition-all duration-300 ease-in-out flex flex-col relative z-30 shadow-sm"
     :class="isLeftOpen ? 'w-80' : 'w-0 overflow-hidden border-none'"
   >
-    <div class="p-6 h-full overflow-y-auto w-80">
+    <div class="p-6 h-full overflow-y-auto w-80 custom-scrollbar">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-lg font-bold text-slate-800">{{ t('model.LeftMenu.data') }}</h2>
         <div class="flex items-center gap-2">
-          <div v-if="allowed">
+          <div v-if="canUpload">
             <button
               @click="triggerUpload"
               class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
@@ -231,3 +238,19 @@ const availableFloors = computed(() => {
     </button>
   </Transition>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+</style>

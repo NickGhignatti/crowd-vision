@@ -27,7 +27,7 @@ describe('RoomItem.vue', () => {
 
     // Check Color indicator
     const colorDot = wrapper.find('.rounded-full.shadow-sm')
-    expect(colorDot.attributes('style')).toContain('background-color: rgb(255, 87, 51)') // #FF5733 in RGB
+    expect(colorDot.attributes('style')).toContain('background-color: #FF5733') // rgb(255, 87, 51)
   })
 
   it('emits select event when clicking the card', async () => {
