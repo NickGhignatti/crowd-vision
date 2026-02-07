@@ -1,32 +1,18 @@
-import { Schema } from 'mongoose';
-import * as mongoose from "mongoose";
+import { Schema, model, Document } from "mongoose";
+import { membershipSchema, type IDomainMembership } from "./domain.js";
 
-export interface IDomain {
-    name: string;
-    subdomain: string;
-}
-
-export interface UserParams {
-    username: string;
-}
-
-const domainSchema = new Schema<IDomain>({
-    name: { type: String, required: true },
-    subdomain: { type: String, required: false, unique: false },
-});
-
-export interface IUser {
-    username: string;
-    email: string;
-    password: string;
-    domain: IDomain;
+export interface IUser extends Document {
+  username: string;
+  email: string;
+  password: string;
+  memberships: IDomainMembership[];
 }
 
 const userSchema = new Schema<IUser>({
-    username: { type: String, required: true, unique: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    domain: { type: domainSchema, required: true },
+  username: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  memberships: [membershipSchema],
 });
 
-export const User = mongoose.model<IUser>('User', userSchema);
+export const User = model<IUser>("User", userSchema);

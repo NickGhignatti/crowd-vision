@@ -1,10 +1,13 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import ModelView from '@/views/ModelView.vue'
+import DomainsView from '@/views/DomainsView.vue'
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: import.meta.env.TEST
+    ? createMemoryHistory(import.meta.env.BASE_URL)
+    : createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
@@ -27,11 +30,20 @@ const router = createRouter({
         requiresAuth: true,
       },
     },
+    {
+      path: '/domains',
+      name: 'domains',
+      component: DomainsView,
+      meta: {
+        requiresAuth: true,
+      },
+    },
   ],
 })
 
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
+  const isAuthenticated =
+    typeof localStorage !== 'undefined' && localStorage.getItem('isAuthenticated') === 'true'
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next('/')

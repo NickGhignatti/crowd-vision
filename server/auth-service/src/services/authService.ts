@@ -1,65 +1,148 @@
-import { type IDomain, User } from '../models/user.js';
-import bcrypt from 'bcrypt';
+import bcrypt from "bcrypt";
+import * as client from "openid-client";
+import { User } from "../models/user.js";
+import { Domain } from "../models/domain.js";
 
-export const registerUser = async (username: string, email: string, password: string) => {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-        throw new Error('User already exists');
-    }
+// Helper to get server URL
+const getServerUrl = () =>
+  process.env.VITE_SERVER_URL || "http://localhost:3000";
+const getClientUrl = () => process.env.CLIENT_URL || "http://localhost:5173";
 
-    const fullDomainName = String(email).split('@')[1] || '';
-    const allDomains = fullDomainName.split('.');
-    const domain = {
-        name: [allDomains.at(-2), allDomains.at(-1)].join('.'),
-        subdomain: allDomains.length > 2 ? allDomains.slice(0, -2).join('.') : '',
-    };
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+// --- Local Auth ---
 
-    return await User.create({
-        username,
-        email,
-        password: passwordHash,
-        domain
-    });
+export const registerUser = async (
+  username: string,
+  email: string,
+  password: string,
+) => {
+  const existing = await User.findOne({ $or: [{ email }, { username }] });
+  if (existing) throw new Error("User already exists");
+
+  const salt = await bcrypt.genSalt(10);
+  const passwordHash = await bcrypt.hash(password, salt);
+
+  return await User.create({
+    username,
+    email,
+    password: passwordHash,
+    memberships: [],
+  });
 };
 
-export const loginUser = async (username: string, password: string) => {
-    const user = await User.findOne({ username });
-    if (!user) {
-        throw new Error('Invalid username or password');
-    }
+export const authenticateUser = async (username: string, password: string) => {
+  const user = await User.findOne({ username });
+  if (!user) throw new Error("Invalid credentials");
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-        throw new Error('Invalid password');
-    }
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) throw new Error("Invalid credentials");
 
-    return user;
-}
+  return user;
+};
 
-export const getUserDomain = async (username: string) => {
-    const user = await User.findOne({ username });
-    if (!user) {
-        throw new Error('User not found');
-    }
+// --- SSO Logic ---
 
-    return {
-        name: user.domain.name,
-        subdomain: user.domain.subdomain
-    };
-}
+export const generateSSOLoginUrl = async (
+  domainName: string,
+  username: string,
+) => {
+  // Fetch domain with secret
+  const domain = await Domain.findOne({ name: domainName }).select(
+    "+ssoConfig.clientSecret",
+  );
 
-export const getDomainLevel = async (domain: IDomain) => {
-    let rank = 1;
+  if (!domain || domain.authStrategy !== "oidc" || !domain.ssoConfig) {
+    throw new Error("SSO not configured for this domain");
+  }
 
-    switch (domain.subdomain) {
-        case 'studio':
-            rank += 1;
-            break;
-        default:
-            break;
-    }
+  // Discover IdP
+  const serverUrl = new URL(domain.ssoConfig.issuerUrl);
+  const config = await client.discovery(
+    serverUrl,
+    domain.ssoConfig.clientId,
+    domain.ssoConfig.clientSecret,
+  );
 
-    return rank;
-}
+  // Generate Code Challenge
+  const code_verifier = client.randomPKCECodeVerifier();
+  const code_challenge = await client.calculatePKCECodeChallenge(code_verifier);
+
+  // Encode State (username + domain + verifier) to survive the redirect
+  // TODO : In production, store this in Redis/Session. Here we use base64 for statelessness.
+  const statePayload = JSON.stringify({
+    cv_username: username,
+    domain: domainName,
+    cv_verifier: code_verifier,
+  });
+  const state = Buffer.from(statePayload).toString("base64");
+
+  // Build URL
+  const redirectUrl = client.buildAuthorizationUrl(config, {
+    redirect_uri: `${getServerUrl()}/auth/sso/callback`,
+    scope: "openid email profile groups",
+    code_challenge,
+    code_challenge_method: "S256",
+    state,
+  });
+
+  return redirectUrl.href;
+};
+
+export const processSSOCallback = async (fullUrl: string) => {
+  const currentUrl = new URL(fullUrl, getServerUrl());
+  const stateParam = currentUrl.searchParams.get("state");
+  if (!stateParam) throw new Error("No state returned from provider");
+
+  // Decode State
+  const { cv_username, domain, cv_verifier } = JSON.parse(
+    Buffer.from(stateParam, "base64").toString(),
+  );
+
+  // Re-fetch Config
+  const domainDoc = await Domain.findOne({ name: domain }).select(
+    "+ssoConfig.clientSecret",
+  );
+  if (!domainDoc || !domainDoc.ssoConfig)
+    throw new Error("Invalid domain config");
+
+  const serverUrl = new URL(domainDoc.ssoConfig.issuerUrl);
+  const config = await client.discovery(
+    serverUrl,
+    domainDoc.ssoConfig.clientId,
+    domainDoc.ssoConfig.clientSecret,
+  );
+
+  // Exchange Code for Tokens
+  const tokenSet = await client.authorizationCodeGrant(config, currentUrl, {
+    pkceCodeVerifier: cv_verifier,
+  });
+
+  const claims = tokenSet.claims();
+
+  // Map Roles
+  const userGroups = claims ? (claims.groups as string[]) || [] : [];
+  const role =
+    userGroups.includes("staff") || userGroups.includes("admin")
+      ? "admin"
+      : "viewer";
+
+  // Update User Membership (Upsert)
+  await User.findOneAndUpdate(
+    { username: cv_username },
+    { $pull: { memberships: { domainName: domain } } }, // Remove old
+  );
+
+  await User.findOneAndUpdate(
+    { username: cv_username },
+    {
+      $push: {
+        memberships: {
+          domainName: domain,
+          role: role,
+          externalId: claims ? claims.sub : null,
+        },
+      },
+    },
+  );
+
+  return `${getClientUrl()}/domains?refresh=true`;
+};

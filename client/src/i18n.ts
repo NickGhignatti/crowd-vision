@@ -5,6 +5,7 @@ const messages = {
     nav: {
       dashboard: 'Dashboard',
       digitalTwin: 'Digital Twin',
+      domains: 'Domains',
       login: 'Log in',
       getStarted: 'Get Started',
       signedInAs: 'Signed in as',
@@ -104,11 +105,37 @@ const messages = {
         later: 'Later',
       },
     },
+    domains: {
+      management: 'Domain Management',
+      name: 'Name',
+      action: 'Action',
+      searchPlaceholder: 'Search domain...',
+      private: 'Private',
+      add: 'Add Domain',
+      noDomainFound: 'No domains found',
+      modal: {
+        new: 'New Domain',
+        step: 'step',
+        of: 'of 2',
+        main: 'Main Domain',
+        desc: 'The main domain represents the primary organizational unit. It can have multiple subdomains under it.',
+        edit: 'Edit',
+        addSub: 'Add Subdomains',
+        press: 'Press',
+        enter: 'enter',
+        to: 'to add it to the list.',
+        cancel: 'Cancel',
+        back: 'Back',
+        continue: 'Continue',
+        create: 'Create',
+      },
+    },
   },
   it: {
     nav: {
       dashboard: 'Cruscotto',
       digitalTwin: 'Gemello Digitale',
+      domains: 'Domini',
       login: 'Accedi',
       getStarted: 'Inizia',
       signedInAs: 'Utente',
@@ -203,17 +230,28 @@ const messages = {
       },
       notification: {
         title: 'Abilitare avvisi critici?',
-        message: 'Ricevi notifiche sui guasti di sistema anche quando l\'app è chiusa.',
+        message: "Ricevi notifiche sui guasti di sistema anche quando l'app è chiusa.",
         enable: 'Abilita',
         later: 'Più tardi',
       },
     },
+    domains: {
+      management: 'Gestione dei Domini',
+      name: 'Nome',
+      action: 'Azione',
+      searchPlaceholder: 'Cerca dominio...',
+      private: 'Privato',
+      add: 'Aggiungi Dominio',
+      noDomainFound: 'Nessun dominio trovato',
+    },
   },
 }
 
+const storedLocale = typeof localStorage !== 'undefined' ? localStorage.getItem('locale') : null
+
 const i18n = createI18n({
   legacy: false,
-  locale: localStorage.getItem('locale') || 'en', // Persist locale
+  locale: storedLocale || 'en', // Persist locale
   fallbackLocale: 'en',
   messages,
 })

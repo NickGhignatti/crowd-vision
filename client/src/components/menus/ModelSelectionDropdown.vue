@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import type { BuildingPayload, ModelOption } from '@/scripts/schema.ts' //
+import type { BuildingPayload, DomainMembership } from '@/scripts/schema'
 
-const models = ref<ModelOption[]>([])
-
-onMounted(() => {
-  getInitialModels()
-})
-
-const isDropdownOpen = ref<boolean>(false)
-
-const selectedModel = ref<ModelOption | null>(null)
+export interface ModelOption {
+  id: string
+  name: string
+}
 
 const emit = defineEmits<{
   (e: 'model-changed', value: string): void
 }>()
+
+const models = ref<ModelOption[]>([])
+const isDropdownOpen = ref<boolean>(false)
+const selectedModel = ref<ModelOption | null>(null)
+const serverUrl = import.meta.env.VITE_SERVER_URL
+
+onMounted(() => {
+  getInitialModels()
+})
 
 const selectModel = (model: ModelOption) => {
   selectedModel.value = model
@@ -22,74 +26,132 @@ const selectModel = (model: ModelOption) => {
   emit('model-changed', model.id)
 }
 
-const serverUrl = import.meta.env.VITE_SERVER_URL //
-
 const getInitialModels = async () => {
   try {
     const username = localStorage.getItem('username')
-    const userDomainResponse = await fetch(`${serverUrl}/auth/domain/${username}`)
-    const domainData = await userDomainResponse.json()
-    const userDomain = domainData.domain.name as string
+    if (!username) return
 
-    const response = await fetch(`${serverUrl}/twin/buildings/${userDomain}`) //
-    if (!response.ok) throw new Error('Failed to fetch')
+    const authRes = await fetch(`${serverUrl}/auth/domains/${username}`)
+    if (!authRes.ok) throw new Error('Failed to fetch user domains')
 
-    const buildings = (await response.json()) as BuildingPayload[]
+    const authData = await authRes.json()
+    const memberships = authData.domains as DomainMembership[]
 
-    models.value = buildings.map((building) => ({
-      id: building.id,
-    }))
+    let allBuildings: BuildingPayload[] = []
 
-    selectModel({
-      id: buildings[0] ? buildings[0].id : '',
-    })
-  } catch (e) {
-    console.error(e)
+    // Fetch Buildings for each Domain
+    await Promise.all(
+      memberships.map(async (m) => {
+        try {
+          const buildRes = await fetch(`${serverUrl}/twin/buildings/${m.domainName}`)
+          if (buildRes.ok) {
+            const domainBuildings = (await buildRes.json()) as BuildingPayload[]
+            allBuildings.push(...domainBuildings)
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch buildings for domain ${m.domainName}`, err)
+        }
+      }),
+    )
+
+    const uniqueIds = new Set()
+    models.value = allBuildings
+      .filter((b) => {
+        if (uniqueIds.has(b.id)) return false
+        uniqueIds.add(b.id)
+        return true
+      })
+      .map((b) => ({
+        id: b.id,
+        name: b.id,
+      }))
+
+    if (models.value.length > 0 && models.value[0]) {
+      selectModel(models.value[0])
+    }
+  } catch (error) {
+    console.error('Error initializing models:', error)
   }
 }
 </script>
 
 <template>
-  <div class="relative inline-block text-left">
+  <div class="relative min-w-[200px]">
     <button
       @click="isDropdownOpen = !isDropdownOpen"
-      class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm group"
+      class="w-full bg-white border border-slate-200 text-slate-700 font-medium py-2.5 px-4 rounded-xl inline-flex items-center justify-between hover:bg-slate-50 hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm group"
     >
-      <i class="ph-bold ph-buildings text-lg group-hover:text-emerald-600"></i>
-      <span v-if="selectedModel" class="max-w-[100px] truncate">{{ selectedModel.id }}</span>
+      <div class="flex items-center gap-2 overflow-hidden">
+        <i
+          class="ph-duotone ph-buildings text-xl text-slate-400 group-hover:text-emerald-500 transition-colors"
+        ></i>
+        <span class="truncate">
+          {{ selectedModel?.name || 'Select Building' }}
+        </span>
+      </div>
       <i
-        class="ph-bold ph-caret-down text-xs transition-transform duration-200"
+        class="ph-bold ph-caret-down ml-2 text-slate-400 group-hover:text-emerald-500 transition-transform duration-200"
         :class="{ 'rotate-180': isDropdownOpen }"
       ></i>
     </button>
 
-    <div
-      v-if="isDropdownOpen"
-      class="absolute right-0 lg:left-1/2 lg:-translate-x-1/2 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-200"
+    <Transition
+      enter-active-class="transition duration-100 ease-out"
+      enter-from-class="transform scale-95 opacity-0"
+      enter-to-class="transform scale-100 opacity-100"
+      leave-active-class="transition duration-75 ease-in"
+      leave-from-class="transform scale-100 opacity-100"
+      leave-to-class="transform scale-95 opacity-0"
     >
       <div
-        class="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2"
+        v-if="isDropdownOpen"
+        class="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden origin-top-right"
       >
-        <i class="ph-bold ph-map-pin"></i>
-        Select Building/Model
+        <ul class="max-h-60 overflow-y-auto custom-scrollbar p-1">
+          <li v-for="model in models" :key="model.id">
+            <button
+              @click="selectModel(model)"
+              class="w-full text-left px-4 py-2.5 text-sm rounded-lg transition-colors flex items-center justify-between group"
+              :class="
+                selectedModel?.id === model.id
+                  ? 'bg-emerald-50 text-emerald-700 font-medium'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              "
+            >
+              <span>{{ model.name }}</span>
+              <i
+                v-if="selectedModel?.id === model.id"
+                class="ph-bold ph-check text-emerald-600"
+              ></i>
+            </button>
+          </li>
+          <li
+            v-if="models.length === 0"
+            class="px-4 py-3 text-sm text-slate-400 text-center italic"
+          >
+            No buildings found
+          </li>
+        </ul>
       </div>
-      <button
-        v-for="model in models"
-        :key="model.id"
-        @click="selectModel(model)"
-        class="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-50 transition-colors flex items-center justify-between"
-        :class="
-          selectedModel?.id === model.id
-            ? 'text-emerald-600 font-bold bg-emerald-50/50'
-            : 'text-slate-600'
-        "
-      >
-        <div class="flex items-center gap-2">
-          <i class="ph-bold ph-house-line"></i>
-          {{ model.id }}
-        </div>
-        <i v-if="selectedModel?.id === model.id" class="ph-bold ph-check"></i>
-      </button>
-    </div>
+    </Transition>
+
+    <div
+      v-if="isDropdownOpen"
+      class="fixed inset-0 z-40 bg-transparent"
+      @click="isDropdownOpen = false"
+    ></div>
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 2px;
+}
+</style>

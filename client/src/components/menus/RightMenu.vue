@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted } from 'vue'
-import type { BuildingPayload, RoomPayload } from '@/scripts/schema.ts'
+import { ref, computed, nextTick, watch } from 'vue'
+import type { BuildingPayload, RoomPayload } from '@/scripts/schema'
 import { useI18n } from 'vue-i18n'
 import RoomItem from '@/components/menus/items/RoomItem.vue'
 import EditRoom from '@/components/modals/EditRoom.vue'
@@ -15,6 +15,14 @@ const emit = defineEmits<{
   (e: 'toggle-select', id: string): void
 }>()
 
+const { t } = useI18n()
+const { canEdit } = useUserPermissions()
+
+// Check if user is Admin/Owner for this SPECIFIC building's domains
+const userCanEdit = computed(() => {
+  return props.building ? canEdit(props.building.domains) : false
+})
+
 const isRightOpen = ref(true)
 const toggleRight = () => (isRightOpen.value = !isRightOpen.value)
 
@@ -25,8 +33,6 @@ const searchInput = ref<HTMLInputElement | null>(null)
 const roomRefs = ref<Record<string, HTMLElement | null>>({})
 
 const serverUrl = import.meta.env.VITE_SERVER_URL
-
-const { isAllowed: allowed } = useUserPermissions()
 
 const toggleSearch = () => {
   isSearchOpen.value = !isSearchOpen.value
@@ -90,8 +96,6 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
     alert('Failed to update room')
   }
 }
-
-const { t } = useI18n()
 </script>
 
 <template>
@@ -152,7 +156,7 @@ const { t } = useI18n()
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-6 pb-6">
+      <div class="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
         <div class="space-y-4">
           <div
             v-if="!props.building || props.building.rooms.length === 0"
@@ -170,7 +174,7 @@ const { t } = useI18n()
               <RoomItem
                 :room="room"
                 :is-selected="props.selectedRoomId === room.id"
-                :can-edit="allowed"
+                :can-edit="userCanEdit"
                 @select="emit('toggle-select', $event)"
                 @edit="handleOpenEdit"
               />
@@ -207,3 +211,19 @@ const { t } = useI18n()
     </button>
   </Transition>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+</style>

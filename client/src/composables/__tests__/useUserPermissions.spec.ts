@@ -1,86 +1,70 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { flushPromises } from '@vue/test-utils'
 import { useUserPermissions } from '../useUserPermissions'
-import { defineComponent } from 'vue'
 
-const TestComponent = defineComponent({
-  setup() {
-    return {
-      ...useUserPermissions(),
-    }
-  },
-  template: '<div></div>',
-})
+vi.stubEnv('VITE_SERVER_URL', 'http://localhost:3000')
+
+const fetchMock = vi.fn()
+global.fetch = fetchMock
 
 describe('useUserPermissions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.clear()
-
-    vi.stubEnv('VITE_SERVER_URL', 'http://localhost:3000')
-
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({}),
-    })
+    localStorage.setItem('username', 'TestUser')
   })
 
   afterEach(() => {
-    vi.restoreAllMocks()
-    vi.unstubAllEnvs() // 2. Clean up env mocks
+    localStorage.clear()
   })
 
-  it('initializes with isAllowed = false', () => {
-    const wrapper = mount(TestComponent)
-    expect(wrapper.vm.isAllowed).toBe(false)
+  it('initializes with empty memberships', () => {
+    const { memberships } = useUserPermissions()
+    expect(memberships.value).toEqual([])
   })
 
-  it('sets isAllowed to TRUE if domainLevel is 1', async () => {
-    localStorage.setItem('username', 'AdminUser')
-
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ domainLevel: 1 }),
+  it('fetches permissions and allows edit if role is admin/owner', async () => {
+    // User is admin of 'domain-a'
+    fetchMock.mockResolvedValue({
+      json: () =>
+        Promise.resolve({
+          domains: [{ domainName: 'domain-a', role: 'admin' }],
+        }),
     })
 
-    const wrapper = mount(TestComponent)
-    await flushPromises()
+    const { fetchPermissions, canEdit, memberships } = useUserPermissions()
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/auth/domain/level/AdminUser'),
-    )
-    expect(wrapper.vm.isAllowed).toBe(true)
+    await fetchPermissions()
+
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/auth/domains/TestUser')
+    expect(memberships.value).toHaveLength(1)
+
+    // Check Logic
+    expect(canEdit(['domain-a'])).toBe(true)
+    expect(canEdit(['domain-b'])).toBe(false) // Not admin of this one
   })
 
-  it('sets isAllowed to FALSE if domainLevel is NOT 1', async () => {
-    localStorage.setItem('username', 'RegularUser')
-
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ domainLevel: 2 }),
+  it('denies edit if role is viewer', async () => {
+    fetchMock.mockResolvedValue({
+      json: () =>
+        Promise.resolve({
+          domains: [{ domainName: 'domain-a', role: 'viewer' }],
+        }),
     })
 
-    const wrapper = mount(TestComponent)
-    await flushPromises()
+    const { fetchPermissions, canEdit } = useUserPermissions()
+    await fetchPermissions()
 
-    expect(wrapper.vm.isAllowed).toBe(false)
+    expect(canEdit(['domain-a'])).toBe(false)
   })
 
-  it('does nothing if username is missing', async () => {
-    const wrapper = mount(TestComponent)
-    await flushPromises()
+  it('handles API errors gracefully', async () => {
+    fetchMock.mockRejectedValue(new Error('Network Error'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    expect(global.fetch).not.toHaveBeenCalled()
-    expect(wrapper.vm.isAllowed).toBe(false)
-  })
+    const { fetchPermissions, memberships } = useUserPermissions()
+    await fetchPermissions()
 
-  it('handles API errors gracefully (remains false)', async () => {
-    localStorage.setItem('username', 'TestUser')
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network Error'))
-
-    const wrapper = mount(TestComponent)
-    await flushPromises()
-
-    expect(wrapper.vm.isAllowed).toBe(false)
+    expect(memberships.value).toEqual([])
+    expect(consoleSpy).toHaveBeenCalled()
   })
 })

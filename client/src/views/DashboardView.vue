@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import NavBar from '@/components/NavBar.vue'
-import DataTable, { type TableHeader } from '@/components/DataTable.vue'
+import DataTable, { type TableHeader } from '@/components/tables/DataTable.vue'
 import type { RoomPayload, BuildingPayload } from '@/scripts/schema.ts'
 import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
 import { useI18n } from 'vue-i18n'
@@ -81,7 +81,6 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
 }
 
 const handleModelChange = (modelId: string) => {
-  console.log('Building/Model switched to:', modelId)
   fetchRoomsByBuilding(modelId)
 }
 
