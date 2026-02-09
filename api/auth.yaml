@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+  title: Auth Service API
+  description: API for user authentication and domain management.
+  version: 1.0.0
+servers:
+  - url: http://localhost:80/auth/
+    description: Local development server
+paths:
+  /register:
+    post:
+      summary: Register a new user
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: "jdoe"
+                email:
+                  type: string
+                  format: email
+                  example: "jdoe@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "securePassword123"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User created"
+                  userId:
+                    type: string
+                    example: "60d5ecb8b392d7001f8e4b5a"
+                  username:
+                    type: string
+                    example: "jdoe"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /login:
+    post:
+      summary: Login a user
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: "jdoe"
+                password:
+                  type: string
+                  format: password
+                  example: "securePassword123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Login successful"
+                  userId:
+                    type: string
+                    example: "60d5ecb8b392d7001f8e4b5a"
+                  username:
+                    type: string
+                    example: "jdoe"
+        '400':
+          description: Invalid credentials or error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /domain/{username}:
+    get:
+      summary: Get user domain information
+      tags:
+        - Domain
+      parameters:
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
+          description: The username to fetch the domain for
+      responses:
+        '200':
+          description: User domain retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  domain:
+                    $ref: '#/components/schemas/Domain'
+        '400':
+          description: Error retrieving domain
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /domain/level/{username}:
+    get:
+      summary: Get user domain level
+      tags:
+        - Domain
+      parameters:
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
+          description: The username to fetch the domain level for
+      responses:
+        '200':
+          description: Domain level retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  domainLevel:
+                    type: string # Assuming string or number based on context
+                    description: The level associated with the user's domain
+        '400':
+          description: Error retrieving domain level
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+components:
+  schemas:
+    Domain:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "crowd-vision"
+        subdomain:
+          type: string
+          example: "analytics"
+      required:
+        - name
+
