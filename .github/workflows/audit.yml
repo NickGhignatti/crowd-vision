@@ -4,7 +4,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Audit Client
         run: cd client && npm audit --audit-level=high
       - name: Audit Auth Service
