@@ -14,6 +14,7 @@ The backend is divided into four core domain services:
 - **Digital Twin Service**: Manages the state, configuration, and hierarchy of building digital twins.
 - **Socket Service**: Handles real-time bi-directional communication (WebSockets) for sensor data streaming.
 - **Notification Service**: Manages subscription and delivery of push notifications (Web Push and In-App).
+- **LLM Service**: Provides AI capabilities using Large Language Models (LLMs) like DeepSeek and Gemini. It handles prompt engineering, context retrieval, and reasoning tasks.
 
 ```mermaid
 graph TD
@@ -34,6 +35,9 @@ graph TD
         Auth <-->|Read/Write| AuthDB[(Auth MongoDB)]
         Twins <-->|Read/Write| TwinsDB[(Twins MongoDB)]
         Data <-->|Read/Write| DataDB[(Sensor Data MongoDB)]
+        
+        Proxy -->|/ai/*| LLM[LLM Service]
+        LLM <-->|Read| Redis
     end
 ```
 
