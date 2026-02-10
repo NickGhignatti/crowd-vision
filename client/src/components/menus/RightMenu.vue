@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
-import type { BuildingPayload, RoomPayload } from '@/scripts/schema'
-import { useI18n } from 'vue-i18n'
-import RoomItem from '@/components/menus/items/RoomItem.vue'
 import EditRoom from '@/components/modals/EditRoom.vue'
+import RoomItem from '@/components/menus/components/RoomItem.vue'
+import type { BuildingPayload, RoomPayload } from '@/models/building'
 import { useUserPermissions } from '@/composables/useUserPermissions'
+
+import { ref, computed, nextTick, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
   building: BuildingPayload | null
@@ -18,7 +19,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { canEdit } = useUserPermissions()
 
-// Check if user is Admin/Owner for this SPECIFIC building's domains
+// Check if user is Admin/Owner for this specific building's domains
 const userCanEdit = computed(() => {
   return props.building ? canEdit(props.building.domains) : false
 })
@@ -29,10 +30,9 @@ const toggleRight = () => (isRightOpen.value = !isRightOpen.value)
 const isSearchOpen = ref(false)
 const searchQuery = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
-
+const isEditModalOpen = ref(false)
+const editingRoom = ref<RoomPayload | null>(null)
 const roomRefs = ref<Record<string, HTMLElement | null>>({})
-
-const serverUrl = import.meta.env.VITE_SERVER_URL
 
 const toggleSearch = () => {
   isSearchOpen.value = !isSearchOpen.value
@@ -67,9 +67,6 @@ watch(
   },
 )
 
-const isEditModalOpen = ref(false)
-const editingRoom = ref<RoomPayload | null>(null)
-
 const handleOpenEdit = (room: RoomPayload) => {
   editingRoom.value = room
   isEditModalOpen.value = true
@@ -82,11 +79,14 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
     const buildingId = props.building.id
     const roomId = editingRoom.value.id
 
-    const res = await fetch(`${serverUrl}/twin/building/${buildingId}/room/${roomId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    })
+    const res = await fetch(
+      `${import.meta.env.VITE_SERVER_URL}/twin/building/${buildingId}/room/${roomId}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      },
+    )
 
     if (!res.ok) throw new Error('Update failed')
 
@@ -111,7 +111,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
               v-show="!isSearchOpen"
               class="text-lg font-bold text-slate-800 whitespace-nowrap mr-3 transition-opacity duration-200"
             >
-              {{ t('model.RightMenu.roomsList') }}
+              {{ t('model.roomList') }}
             </h2>
 
             <div
@@ -122,7 +122,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
                 v-if="!isSearchOpen"
                 @click="toggleSearch"
                 class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
-                title="Search Room"
+                :title="t('model.searchRoom')"
               >
                 <i class="ph-bold ph-magnifying-glass text-xl"></i>
               </button>
@@ -133,7 +133,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
                   ref="searchInput"
                   v-model="searchQuery"
                   type="text"
-                  placeholder="Search ID..."
+                  :placeholder="t('commons.search') + ' ' + t('commons.id') + '...'"
                   class="bg-transparent border-none outline-none text-sm w-full text-slate-700 placeholder:text-slate-400"
                   @keydown.esc="toggleSearch"
                 />
@@ -181,7 +181,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
             </div>
 
             <div v-if="filteredRooms.length === 0" class="text-center py-4">
-              <p class="text-slate-400 text-xs">No rooms found</p>
+              <p class="text-slate-400 text-xs">{{ t('model.noRooms') }}</p>
             </div>
           </div>
         </div>
@@ -205,7 +205,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
       v-if="!isRightOpen"
       @click="toggleRight"
       class="absolute right-6 top-4 z-40 bg-white p-2 rounded-lg shadow-lg border border-slate-200 text-slate-600 hover:text-emerald-600 hover:scale-105 transition-all"
-      title="Open Room List"
+      :title="t('commons.open')"
     >
       <i class="ph-bold ph-caret-left text-xl"></i>
     </button>

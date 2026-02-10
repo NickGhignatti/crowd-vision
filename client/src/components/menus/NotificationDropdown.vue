@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { socketState } from '@/services/socket'
+
+import { ref } from 'vue'
 
 const isOpen = ref(false)
 

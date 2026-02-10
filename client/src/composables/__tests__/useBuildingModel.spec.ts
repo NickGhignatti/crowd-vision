@@ -34,18 +34,9 @@ describe('useBuildingModel', () => {
 
     // Verification
     expect(fetchMock).toHaveBeenCalledTimes(2)
-
-    if (fetchMock.mock && fetchMock.mock.calls[0] && fetchMock.mock.calls[1]) {
-      // Check 1st URL (Auth)
-      expect(fetchMock.mock.calls[0][0]).toContain('/auth/domains/TestUser')
-
-      // Check 2nd URL (Twin Service)
-      expect(fetchMock.mock.calls[1][0]).toContain('/twin/buildings/TestDomain')
-    }
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('/auth/domains/TestUser')
+    expect(fetchMock.mock.calls[1]?.[0]).toContain('/twin/buildings/TestDomain')
     expect(allBuildings.value).toHaveLength(1)
-
-    if (allBuildings.value[0]) {
-      expect(allBuildings.value[0].id).toBe('Building1')
-    }
+    expect(allBuildings.value[0]?.id).toBe('Building1')
   })
 })

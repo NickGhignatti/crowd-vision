@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n'
 import { usePush } from '@/composables/usePush.ts'
 
-const { permission, subscribe, isSupported } = usePush()
+import { useI18n } from 'vue-i18n'
+
 const { t } = useI18n()
+const { permission, subscribe, isSupported } = usePush()
 
 const enableAlerts = async () => {
   await subscribe()
@@ -31,10 +32,10 @@ const dismiss = () => {
         <span class="text-2xl">🔔</span>
         <div class="text-sm">
           <strong class="mb-1 block font-semibold text-gray-800">{{
-            t('modals.notification.title')
+            t('notifications.title')
           }}</strong>
           <p class="m-0 leading-snug text-gray-500">
-            {{ t('modals.notification.message') }}
+            {{ t('notifications.description') }}
           </p>
         </div>
       </div>
@@ -44,14 +45,14 @@ const dismiss = () => {
           @click="enableAlerts"
           class="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
         >
-          {{ t('modals.notification.enable') }}
+          {{ t('commons.enable') }}
         </button>
 
         <button
           @click="dismiss"
           class="rounded-md bg-transparent px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
         >
-          {{ t('modals.notification.later') }}
+          {{ t('commons.later') }}
         </button>
       </div>
     </div>

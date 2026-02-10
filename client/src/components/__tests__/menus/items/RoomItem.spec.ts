@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import RoomItem from '@/components/menus/items/RoomItem.vue'
+import RoomItem from '@/components/menus/components/RoomItem.vue'
 
 describe('RoomItem.vue', () => {
   const mockRoom = {
@@ -69,7 +69,7 @@ describe('RoomItem.vue', () => {
       },
     })
 
-    expect(wrapper.find('button[title="Edit Room"]').exists()).toBe(true)
+    expect(wrapper.find(`button[title="${('model.rooms.editRoom.title')}"]`).exists()).toBe(true)
   })
 
   it('emits edit event and stops propagation when edit button is clicked', async () => {
@@ -81,7 +81,7 @@ describe('RoomItem.vue', () => {
       },
     })
 
-    const editBtn = wrapper.find('button[title="Edit Room"]')
+    const editBtn = wrapper.find(`button[title="${('model.rooms.editRoom.title')}"]`)
     await editBtn.trigger('click')
 
     // 1. Should emit 'edit'

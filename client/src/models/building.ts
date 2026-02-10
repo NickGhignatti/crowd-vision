@@ -24,19 +24,3 @@ export interface BuildingPayload {
   rooms: RoomPayload[]
   domains: string[]
 }
-
-export interface ModelOption {
-  id: string
-}
-
-export interface DomainPayload {
-  name: string
-  subdomains: string[]
-  authStrategy: 'internal' | 'oidc' // Added field
-}
-
-export interface DomainMembership {
-  domainName: string
-  role: 'owner' | 'admin' | 'viewer'
-  externalId?: string
-}

@@ -28,7 +28,7 @@ describe('RightMenu.vue', () => {
     })
 
     // Open Search
-    await wrapper.find('button[title="Search Room"]').trigger('click')
+    await wrapper.find(`button[title = "${('model.searchRoom')}"]`).trigger('click')
 
     // Type in search box
     const input = wrapper.find('input')

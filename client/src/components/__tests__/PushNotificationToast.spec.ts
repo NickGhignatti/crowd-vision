@@ -20,7 +20,7 @@ vi.mock('@/composables/usePush', async () => {
 describe('PushNotificationToast.vue', () => {
   it('renders when supported and permission is default', () => {
     const wrapper = mount(PushNotificationToast)
-    expect(wrapper.text()).toContain('modals.notification.title')
+    expect(wrapper.text()).toContain('notifications.title')
   })
 
   it('calls subscribe on enable', async () => {

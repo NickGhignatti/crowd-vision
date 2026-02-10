@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import type { RoomPayload } from '@/models/building'
+
 import { useI18n } from 'vue-i18n'
-import type { RoomPayload } from '@/scripts/schema'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   room: RoomPayload
@@ -12,8 +15,6 @@ const emit = defineEmits<{
   (e: 'select', id: string): void
   (e: 'edit', room: RoomPayload): void
 }>()
-
-const { t } = useI18n()
 
 const getTempColor = (temp: number) => {
   if (temp > 30) return 'text-rose-500'
@@ -36,7 +37,9 @@ const getTempColor = (temp: number) => {
 
     <div class="flex justify-between items-start mb-3 border-b border-slate-200 pb-2">
       <div>
-        <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider block">ID</span>
+        <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider block">{{
+          t('commons.ID')
+        }}</span>
         <div class="flex items-center gap-2">
           <span class="text-slate-700 font-bold font-mono">#{{ room.id }}</span>
 
@@ -44,7 +47,7 @@ const getTempColor = (temp: number) => {
             v-if="canEdit"
             @click.stop="emit('edit', props.room)"
             class="p-1 text-slate-300 hover:text-emerald-600 transition-colors rounded hover:bg-emerald-50"
-            title="Edit Room"
+            :title="t('model.rooms.editRoom.title')"
           >
             <i class="ph-bold ph-pencil-simple text-sm"></i>
           </button>
@@ -59,12 +62,12 @@ const getTempColor = (temp: number) => {
 
     <div class="space-y-2">
       <div class="flex justify-between items-center text-sm">
-        <span class="text-slate-500 font-medium">{{ t('model.RightMenu.temperature') }}</span>
+        <span class="text-slate-500 font-medium">{{ t('model.rooms.temperature') }}</span>
         <span class="font-bold" :class="getTempColor(22)"> 22°C </span>
       </div>
 
       <div class="flex justify-between items-center text-sm">
-        <span class="text-slate-500 font-medium">{{ t('model.RightMenu.occupancy') }}</span>
+        <span class="text-slate-500 font-medium">{{ t('model.rooms.occupancy') }}</span>
         <div class="flex items-center gap-1.5 text-slate-700 font-bold">
           <span>1 / {{ room.capacity }}</span>
           <i class="ph-bold ph-users text-slate-400"></i>

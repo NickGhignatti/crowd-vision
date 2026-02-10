@@ -65,7 +65,7 @@ export function usePush() {
 
       isSubscribed.value = true
       permission.value = 'granted'
-    } catch (error) {
+    } catch {
       permission.value = 'denied'
     }
   }

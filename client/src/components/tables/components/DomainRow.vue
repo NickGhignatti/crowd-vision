@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 interface Props {
   id: number
   name: string
@@ -8,7 +7,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'subscribe', id: number): void
   (e: 'unsubscribe', id: number): void
 }>()

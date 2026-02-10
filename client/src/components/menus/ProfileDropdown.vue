@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
+
 defineProps<{
   isUserDropdownOpen: boolean
   isMobileMenuOpen: boolean
@@ -12,9 +14,7 @@ defineEmits<{
   (e: 'closeDropDown'): void
 }>()
 
-const { t } = useI18n()
-const username = ref('')
-username.value = localStorage.getItem('username') || 'User'
+const username = ref(localStorage.getItem('username') || 'User')
 </script>
 
 <template>
@@ -37,7 +37,7 @@ username.value = localStorage.getItem('username') || 'User'
     >
       <div class="px-4 py-3 border-b border-slate-50">
         <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          {{ t('nav.signedInAs') }}
+          {{ t('authentication.signedInAs') }}
         </p>
         <p class="text-sm font-bold text-slate-800 truncate">{{ username }}</p>
       </div>
@@ -47,7 +47,7 @@ username.value = localStorage.getItem('username') || 'User'
         class="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-rose-600 transition-colors flex items-center gap-2"
       >
         <i class="ph-bold ph-sign-out text-lg"></i>
-        {{ t('nav.signOut') }}
+        {{ t('authentication.logout') }}
       </button>
     </div>
   </div>
@@ -59,7 +59,9 @@ username.value = localStorage.getItem('username') || 'User'
         <i class="ph-bold ph-user text-xl"></i>
       </div>
       <div class="flex flex-col">
-        <span class="text-xs font-bold text-slate-400 uppercase">{{ t('nav.signedInAs') }}</span>
+        <span class="text-xs font-bold text-slate-400 uppercase">{{
+          t('authentication.signedInAs')
+        }}</span>
         <span class="font-bold text-slate-900">{{ username }}</span>
       </div>
     </div>
@@ -68,7 +70,7 @@ username.value = localStorage.getItem('username') || 'User'
       class="w-full text-center py-2.5 text-rose-600 font-bold border border-rose-100 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
     >
       <i class="ph-bold ph-sign-out"></i>
-      {{ t('nav.signOut') }}
+      {{ t('authentication.logout') }}
     </button>
   </div>
 </template>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import MailInput from '@/components/auth/inputs/PasswordInput.vue'
+import MailInput from '@/components/inputs/PasswordInput.vue'
 
 describe('PasswordInput.vue', () => {
   it('updates the model value when input changes', async () => {

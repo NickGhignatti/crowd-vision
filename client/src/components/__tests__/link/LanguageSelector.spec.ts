@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import LanguageSelector from '@/components/link/LanguageSelector.vue'
+import LanguageSelector from '@/components/buttons/LanguageSelector.vue'
 import type { Ref } from 'vue'
 
 const mocks = vi.hoisted(() => ({

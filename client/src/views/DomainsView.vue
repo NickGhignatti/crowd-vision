@@ -1,24 +1,19 @@
 <script setup lang="ts">
+import NavBar from '@/components/NavBar.vue'
+import AddDomainModal from '@/components/modals/AddDomain.vue'
+import DomainsTable from '@/components/tables/DomainsTable.vue'
+import type { DomainPayload, DomainMembership, SSODomainPayload } from '@/models/domain'
+
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import DomainsTable from '@/components/tables/DomainsTable.vue'
-import AddDomainModal from '@/components/modals/AddDomain.vue'
-import NavBar from '@/components/NavBar.vue'
-import type { DomainPayload, DomainMembership } from '@/scripts/schema'
 
 const { t } = useI18n()
 
-// State
 const domains = ref<DomainPayload[]>([])
 const userMemberships = ref<DomainMembership[]>([])
 const searchQuery = ref('')
 const isAddDomainModalOpen = ref(false)
 const isSubmitting = ref(false)
-
-onMounted(() => {
-  fetchAllDomains()
-  fetchUserDomains()
-})
 
 const fetchAllDomains = async () => {
   try {
@@ -52,7 +47,7 @@ const fetchUserDomains = async () => {
 }
 
 // Handle Creation (Internal or SSO)
-const handleCreateDomain = async (payload: any) => {
+const handleCreateDomain = async (payload: SSODomainPayload) => {
   isSubmitting.value = true
   const username = localStorage.getItem('username')
 
@@ -92,6 +87,11 @@ const filteredDomains = computed(() => {
 const handlePrivateDomain = () => {
   console.log('Open Private Domain Modal - To Be Implemented')
 }
+
+onMounted(() => {
+  fetchAllDomains()
+  fetchUserDomains()
+})
 </script>
 
 <template>
@@ -102,7 +102,7 @@ const handlePrivateDomain = () => {
         class="text-2xl font-bold text-slate-900 dark:text-dark ml-1 shrink-0 flex items-center gap-3"
       >
         <i class="ph-duotone ph-globe text-emerald-600"></i>
-        {{ t('domains.management') }}
+        {{ t('domains.table.title') }}
       </h1>
 
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -113,7 +113,7 @@ const handlePrivateDomain = () => {
           <input
             v-model="searchQuery"
             type="text"
-            :placeholder="t('domains.searchPlaceholder')"
+            :placeholder="t('domains.inputs.search')"
             class="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent shadow-sm transition-all"
           />
         </div>
@@ -125,7 +125,7 @@ const handlePrivateDomain = () => {
           class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 hover:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors shadow-sm"
         >
           <i class="ph-bold ph-lock-key text-lg"></i>
-          <span>{{ t('domains.private') }}</span>
+          <span>{{ t('domains.inputs.private') }}</span>
         </button>
 
         <button
@@ -133,7 +133,7 @@ const handlePrivateDomain = () => {
           class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-colors shadow-sm shadow-emerald-600/20"
         >
           <i class="ph-bold ph-plus text-lg"></i>
-          <span>{{ t('domains.add') }}</span>
+          <span>{{ t('domains.inputs.create') }}</span>
         </button>
       </div>
     </div>

@@ -42,8 +42,8 @@ describe('ProfileDropdown.vue', () => {
       })
 
       // Dropdown should be in DOM
-      expect(wrapper.text()).toContain('nav.signedInAs')
-      expect(wrapper.text()).toContain('nav.signOut')
+      expect(wrapper.text()).toContain('authentication.signedInAs')
+      expect(wrapper.text()).toContain('authentication.logout')
     })
 
     it('emits handleLogout when clicking Sign Out in dropdown', async () => {
@@ -53,7 +53,7 @@ describe('ProfileDropdown.vue', () => {
 
       // Find the logout button
       const buttons = wrapper.findAll('button')
-      const logoutBtn = buttons.find((b) => b.text().includes('nav.signOut'))
+      const logoutBtn = buttons.find((b) => b.text().includes('authentication.logout'))
 
       await logoutBtn?.trigger('click')
 

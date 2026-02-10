@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import type { RoomPayload } from '@/models/building'
+
 import { useI18n } from 'vue-i18n'
-import type { RoomPayload } from '@/scripts/schema.ts'
+import { ref, watch, computed } from 'vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   isOpen: boolean
@@ -44,8 +47,6 @@ const save = () => {
 const headerStyle = computed(() => ({
   background: `linear-gradient(135deg, ${form.value.color}22 0%, white 100%)`,
 }))
-
-const { t } = useI18n()
 </script>
 
 <template>
@@ -71,10 +72,10 @@ const { t } = useI18n()
           <div>
             <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
               <i class="ph-bold ph-sliders-horizontal text-emerald-600"></i>
-              {{ t('modals.editRoom.title') }}
+              {{ t('model.rooms.editRoom.title') }}
             </h3>
             <p class="text-xs text-slate-500 font-medium mt-0.5 ml-7">
-              {{ t('modals.editRoom.subtitle') }}
+              {{ t('model.rooms.editRoom.subtitle') }}
             </p>
           </div>
           <button
@@ -88,7 +89,7 @@ const { t } = useI18n()
         <div class="p-6 space-y-5">
           <div class="space-y-1.5">
             <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">{{
-              t('modals.editRoom.roomId')
+              t('model.rooms.editRoom.identifier')
             }}</label>
             <div class="relative group">
               <i
@@ -98,7 +99,7 @@ const { t } = useI18n()
                 v-model="form.id"
                 type="text"
                 class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-mono font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-                placeholder="Room ID"
+                :placeholder="t('modals.editRoom.identifierPlaceholder')"
               />
             </div>
           </div>
@@ -106,7 +107,7 @@ const { t } = useI18n()
           <div class="grid grid-cols-2 gap-5">
             <div class="space-y-1.5">
               <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">{{
-                t('modals.editRoom.capacity')
+                t('model.rooms.editRoom.capacity')
               }}</label>
               <div class="relative group">
                 <i
@@ -123,7 +124,7 @@ const { t } = useI18n()
 
             <div class="space-y-1.5">
               <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">{{
-                t('modals.editRoom.maxTemp')
+                t('model.rooms.editRoom.maxTemp')
               }}</label>
               <div class="relative group">
                 <i
@@ -140,7 +141,7 @@ const { t } = useI18n()
 
           <div class="space-y-1.5">
             <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">{{
-              t('modals.editRoom.themeColor')
+              t('model.rooms.editRoom.themeColor')
             }}</label>
             <div class="flex gap-3 items-center p-2 border border-slate-200 rounded-xl bg-slate-50">
               <div
@@ -167,14 +168,14 @@ const { t } = useI18n()
             @click="emit('close')"
             class="px-5 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-200/50 rounded-xl transition-colors"
           >
-            {{ t('modals.editRoom.cancel') }}
+            {{ t('commons.cancel') }}
           </button>
           <button
             @click="save"
             class="px-6 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-lg shadow-emerald-600/20 rounded-xl transition-all flex items-center gap-2"
           >
             <i class="ph-bold ph-check"></i>
-            {{ t('modals.editRoom.save') }}
+            {{ t('commons.save') }}
           </button>
         </div>
       </div>

@@ -20,8 +20,8 @@ describe('NavBar.vue', () => {
 
   it('shows login/signup buttons when not authenticated', () => {
     const wrapper = mount(NavBar, { global: { stubs } })
-    expect(wrapper.text()).toContain('nav.login')
-    expect(wrapper.text()).toContain('nav.getStarted')
+    expect(wrapper.text()).toContain('authentication.login')
+    expect(wrapper.text()).toContain('authentication.getStarted')
     expect(wrapper.findComponent({ name: 'ProfileDropdown' }).exists()).toBe(false)
   })
 
@@ -33,7 +33,7 @@ describe('NavBar.vue', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.findComponent({ name: 'ProfileDropdown' }).exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('nav.getStarted')
+    expect(wrapper.text()).not.toContain('authentication.getStarted')
   })
 
   it('opens login modal when clicking require-login link', async () => {

@@ -1,3 +1,5 @@
+import type { NotificationPayload } from "@/models/notification"
+
 import { io, type Socket } from 'socket.io-client'
 import { reactive } from 'vue'
 
@@ -10,7 +12,7 @@ export interface Notification {
 }
 
 interface ServerToClientEvents {
-  notification: (data: any) => void
+  notification: (data: NotificationPayload) => void
 }
 
 interface ClientToServerEvents {

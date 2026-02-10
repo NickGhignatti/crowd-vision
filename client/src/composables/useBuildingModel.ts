@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
-import type { BuildingPayload, DomainMembership } from '@/scripts/schema'
+import type { BuildingPayload } from '@/models/building'
+import type { DomainMembership } from '@/models/domain'
 
 export function useBuildingModel() {
   const serverUrl = import.meta.env.VITE_SERVER_URL

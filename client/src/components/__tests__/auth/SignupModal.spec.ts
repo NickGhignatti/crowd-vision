@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
 import { mount } from '@vue/test-utils'
-import SignupModal from '@/components/auth/SignupModal.vue'
+import SignupModal from '@/components/modals/SignupModal.vue'
 
 const stubs = {
   Teleport: true,
@@ -29,14 +29,14 @@ describe('SignupModal.vue', () => {
   })
 
   it('does not render when isOpen is false', () => {
-    const wrapper = mount(SignupModal, {
+    mount(SignupModal, {
       props: { isOpen: false },
       global: { stubs },
     })
   })
 
   it('submits signup form and saves token on success', async () => {
-    ;(global.fetch as any).mockResolvedValue({
+    (global.fetch as Mock).mockResolvedValue({
       ok: true,
       json: async () => ({ username: 'myuser' }),
     })

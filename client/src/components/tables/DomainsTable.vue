@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import DomainRow from '@/components/tables/components/DomainRow.vue'
+import type { DomainPayload, DomainMembership } from '@/models/domain'
+
 import { useI18n } from 'vue-i18n'
-import type { DomainPayload, DomainMembership } from '@/scripts/schema'
 import { ref, watch } from 'vue'
 
 const { t } = useI18n()
@@ -17,11 +18,10 @@ const emit = defineEmits<{
 }>()
 
 const headers = [
-  { key: 'name', label: 'domains.name' },
-  { key: 'actions', label: 'domains.action' },
+  { key: 'name', label: 'domains.table.headers.name' },
+  { key: 'actions', label: 'domains.table.headers.action' },
 ]
 
-// We use a Set for O(1) lookups to check if a user is subscribed
 const subscribedSet = ref(new Set<string>())
 
 // Watch for changes in memberships to update the local Set
@@ -45,7 +45,6 @@ const handleSubscribe = async (index: number) => {
   try {
     // STRATEGY A: External SSO (OIDC)
     if (domain.authStrategy === 'oidc') {
-      // 1. Ask backend for the Redirect URL associated with this domain
       const res = await fetch(
         `${import.meta.env.VITE_SERVER_URL}/auth/sso/login/${domain.name}?username=${username}`,
       )
@@ -54,7 +53,7 @@ const handleSubscribe = async (index: number) => {
 
       const data = await res.json()
 
-      // 2. Redirect the user away to the Identity Provider (e.g., Unibo, Google)
+      // Redirect the user away to the Identity Provider (e.g., Unibo, Google)
       // They will come back to the app via the backend callback
       if (data.redirectUrl) {
         window.location.href = data.redirectUrl
@@ -63,10 +62,8 @@ const handleSubscribe = async (index: number) => {
     }
 
     // STRATEGY B: Internal (Crowd Vision Managed)
-    // 1. Optimistic Update (update UI immediately)
     subscribedSet.value.add(domain.name)
 
-    // 2. Call API
     const response = await fetch(
       `${import.meta.env.VITE_SERVER_URL}/auth/domains/${username}/subscribe`,
       {
@@ -80,7 +77,6 @@ const handleSubscribe = async (index: number) => {
 
     emit('refresh')
   } catch (error) {
-    // Rollback optimistic update on error (only for internal)
     if (domain.authStrategy === 'internal') {
       subscribedSet.value.delete(domain.name)
     }
@@ -95,7 +91,6 @@ const handleUnsubscribe = async (index: number) => {
   const username = localStorage.getItem('username')
 
   try {
-    // Optimistic Update
     subscribedSet.value.delete(domain.name)
 
     const response = await fetch(
@@ -111,7 +106,6 @@ const handleUnsubscribe = async (index: number) => {
 
     emit('refresh')
   } catch (error) {
-    // Rollback
     subscribedSet.value.add(domain.name)
     console.error(error)
   }
@@ -160,7 +154,7 @@ const hasSub = (domainName: string): boolean => {
           <td colspan="2" class="p-8 text-center text-slate-500">
             <div class="flex flex-col items-center gap-2">
               <i class="ph-duotone ph-magnifying-glass text-3xl opacity-50"></i>
-              <span>{{ t('domains.noDomainFound') }}</span>
+              <span>{{ t('domains.inputs.notFound') }}</span>
             </div>
           </td>
         </tr>
@@ -170,7 +164,6 @@ const hasSub = (domainName: string): boolean => {
 </template>
 
 <style scoped>
-/* Custom scrollbar for a cleaner look */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
