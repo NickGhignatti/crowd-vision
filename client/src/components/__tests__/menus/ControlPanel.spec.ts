@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ControlPanel from '@/components/menus/ControlPanel.vue'
-import ControlButton from '@/components/menus/items/ControlButton.vue'
+import ControlButton from '@/components/buttons/ControlButton.vue'
 
 describe('ControlPanel.vue', () => {
   const defaultProps = {

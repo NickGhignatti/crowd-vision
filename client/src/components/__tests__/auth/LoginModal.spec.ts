@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import LoginModal from '@/components/auth/LoginModal.vue'
+import LoginModal from '@/components/modals/LoginModal.vue'
+
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
 
 const stubs = {
   Teleport: true,
@@ -24,7 +25,7 @@ describe('LoginModal.vue', () => {
   })
 
   it('submits login form and saves token on success', async () => {
-    ;(global.fetch as any).mockResolvedValue({
+    ; (global.fetch as Mock).mockResolvedValue({
       ok: true,
       json: async () => ({ username: 'myuser' }),
     })

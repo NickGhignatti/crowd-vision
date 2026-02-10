@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
+
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -15,18 +16,18 @@ const { t } = useI18n()
           class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold uppercase tracking-wide mb-6"
         >
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          {{ t('home.monitoring') }}
+          {{ t('home.title.monitoring') }}
         </div>
 
         <h1 class="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
-          {{ t('home.utils.insights') }} <br class="hidden md:block" />
+          {{ t('home.title.insights') }} <br class="hidden md:block" />
           <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">
-            {{ t('home.utils.spaces') }}
+            {{ t('home.title.spaces') }}
           </span>
         </h1>
 
         <p class="mt-4 max-w-2xl mx-auto text-xl text-slate-600">
-          {{ t('home.bio') }}
+          {{ t('home.subTitle.biography') }}
         </p>
 
         <div class="mt-10 flex justify-center gap-4">
@@ -34,7 +35,7 @@ const { t } = useI18n()
             class="px-8 py-3.5 rounded-xl bg-white text-slate-700 font-bold border border-slate-200 hover:border-slate-300 shadow-sm transition-all hover:bg-slate-50"
             href="https://nickghignatti.github.io/crowd-vision/"
           >
-            {{ t('home.doc') }}
+            {{ t('home.subTitle.documentation') }}
           </a>
         </div>
       </div>
@@ -56,7 +57,7 @@ const { t } = useI18n()
         <div class="text-center mb-16">
           <h2 class="text-3xl font-bold text-slate-900">{{ t('home.features.why') }}</h2>
           <p class="mt-4 text-slate-500">
-            {{ t('home.features.built') }}
+            {{ t('home.features.motivation') }}
           </p>
         </div>
 
@@ -69,9 +70,11 @@ const { t } = useI18n()
             >
               <i class="ph-bold ph-users-three text-2xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-slate-900 mb-3">{{ t('home.features.f1.title') }}</h3>
+            <h3 class="text-xl font-bold text-slate-900 mb-3">
+              {{ t('home.features.feature1.title') }}
+            </h3>
             <p class="text-slate-600 leading-relaxed">
-              {{ t('home.features.f1.description') }}
+              {{ t('home.features.feature1.description') }}
             </p>
           </div>
 
@@ -83,9 +86,11 @@ const { t } = useI18n()
             >
               <i class="ph-bold ph-chart-bar text-2xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-slate-900 mb-3">{{ t('home.features.f2.title') }}</h3>
+            <h3 class="text-xl font-bold text-slate-900 mb-3">
+              {{ t('home.features.feature2.title') }}
+            </h3>
             <p class="text-slate-600 leading-relaxed">
-              {{ t('home.features.f2.description') }}
+              {{ t('home.features.feature2.description') }}
             </p>
           </div>
 
@@ -97,8 +102,12 @@ const { t } = useI18n()
             >
               <i class="ph-bold ph-shield-check text-2xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-slate-900 mb-3">{{ t('home.features.f3.title') }}</h3>
-            <p class="text-slate-600 leading-relaxed">{{ t('home.features.f3.description') }}</p>
+            <h3 class="text-xl font-bold text-slate-900 mb-3">
+              {{ t('home.features.feature3.title') }}
+            </h3>
+            <p class="text-slate-600 leading-relaxed">
+              {{ t('home.features.feature3.description') }}
+            </p>
           </div>
         </div>
       </div>
@@ -107,7 +116,7 @@ const { t } = useI18n()
     <footer class="bg-slate-50 py-12 border-t border-slate-200">
       <div class="max-w-7xl mx-auto px-4 text-center">
         <p class="text-slate-400 text-sm">
-          © {{ new Date().getFullYear() }} CrowdVision Systems. All rights reserved.
+          © {{ new Date().getFullYear() }} {{ t('commons.app.rights') }}
         </p>
       </div>
     </footer>

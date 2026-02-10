@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useSceneControls } from '../useSceneControls'
 import { type PerspectiveCamera, Vector3 } from 'three'
-import type { BuildingPayload } from '@/scripts/schema.ts'
+import type { BuildingPayload } from '@/models/building'
 
 describe('useSceneControls', () => {
   const createMockCamera = () => ({

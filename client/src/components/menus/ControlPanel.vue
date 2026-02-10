@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import ControlButton from '@/components/menus/items/ControlButton.vue'
+import ControlButton from '@/components/buttons/ControlButton.vue'
+
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Props {
   selectedRoomId: string | null
@@ -24,31 +28,36 @@ defineEmits<{
   >
     <ControlButton
       icon="ph-cube"
-      title="Reset View"
+      :title="t('model.controls.buttons.reset')"
       @click="$emit('resetView')"
       :disabled="disabled"
     />
 
     <ControlButton
       :icon="isExploded ? 'ph-arrows-in' : 'ph-arrows-out'"
-      title="Focus on Room"
+      :title="t('model.controls.buttons.focus')"
       :disabled="!selectedRoomId || disabled"
       :active="isExploded"
       @click="$emit('toggleExplode')"
     />
 
-    <ControlButton icon="ph-plus" title="Zoom In" @click="$emit('zoomIn')" :disabled="disabled" />
+    <ControlButton
+      icon="ph-plus"
+      :title="t('model.controls.buttons.zoomIn')"
+      @click="$emit('zoomIn')"
+      :disabled="disabled"
+    />
 
     <ControlButton
       icon="ph-minus"
-      title="Zoom Out"
+      :title="t('model.controls.buttons.zoomOut')"
       @click="$emit('zoomOut')"
       :disabled="disabled"
     />
 
     <ControlButton
       icon="ph-camera"
-      title="Panorama Mode"
+      :title="t('model.controls.buttons.panorama')"
       @click="$emit('togglePanorama')"
     />
   </div>

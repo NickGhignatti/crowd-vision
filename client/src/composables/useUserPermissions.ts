@@ -1,6 +1,5 @@
-// client/src/composables/useUserPermissions.ts
 import { ref, onMounted } from 'vue'
-import type { DomainMembership } from '@/scripts/schema'
+import type { DomainMembership } from '@/models/domain'
 
 export function useUserPermissions() {
   const memberships = ref<DomainMembership[]>([])

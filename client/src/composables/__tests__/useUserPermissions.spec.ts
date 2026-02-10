@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { flushPromises } from '@vue/test-utils'
 import { useUserPermissions } from '../useUserPermissions'
 
 vi.stubEnv('VITE_SERVER_URL', 'http://localhost:3000')
@@ -59,7 +58,7 @@ describe('useUserPermissions', () => {
 
   it('handles API errors gracefully', async () => {
     fetchMock.mockRejectedValue(new Error('Network Error'))
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
 
     const { fetchPermissions, memberships } = useUserPermissions()
     await fetchPermissions()

@@ -1,7 +1,8 @@
+import type { BuildingPayload } from '@/models/building'
+
 import { ref } from 'vue'
 import { Vector3, type PerspectiveCamera } from 'three'
 import type { OrbitControls as OrbitControlsType } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { BuildingPayload } from '@/scripts/schema'
 
 export function useSceneControls() {
   const cameraRef = ref<PerspectiveCamera | null>(null)

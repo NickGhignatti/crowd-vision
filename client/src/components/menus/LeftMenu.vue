@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import type { BuildingPayload } from '@/scripts/schema'
-import { useI18n } from 'vue-i18n'
+import type { BuildingPayload } from '@/models/building'
 import { useUserPermissions } from '@/composables/useUserPermissions'
+
+import { useI18n } from 'vue-i18n'
+import { computed, ref, watch } from 'vue'
 
 const emit = defineEmits<{
   (e: 'json-uploaded'): void
@@ -30,7 +31,11 @@ const selectedFloorModel = computed({
   set: (val) => emit('change-floor', val),
 })
 
+const isLeftOpen = ref(true)
+const isUploading = ref(false)
 const showControls = ref(false)
+const serverUrl = import.meta.env.VITE_SERVER_URL
+const fileInput = ref<HTMLInputElement | null>(null)
 
 watch(
   () => props.selectedId,
@@ -43,11 +48,6 @@ const toggleControls = (event: Event) => {
   event.stopPropagation()
   showControls.value = !showControls.value
 }
-
-const isLeftOpen = ref(true)
-const fileInput = ref<HTMLInputElement | null>(null)
-const isUploading = ref(false)
-const serverUrl = import.meta.env.VITE_SERVER_URL
 
 const toggleLeft = () => (isLeftOpen.value = !isLeftOpen.value)
 
@@ -71,6 +71,7 @@ const handleFileUpload = async (event: Event) => {
       isUploading.value = true
       const payload = JSON.parse(await file.text()) as BuildingPayload
 
+      // TODO:
       // The backend should ideally verify if the user has access
       // to the domain specified inside this JSON payload.
       await fetch(serverUrl + `/twin/register`, {
@@ -106,13 +107,13 @@ const availableFloors = computed(() => {
   >
     <div class="p-6 h-full overflow-y-auto w-80 custom-scrollbar">
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-lg font-bold text-slate-800">{{ t('model.LeftMenu.data') }}</h2>
+        <h2 class="text-lg font-bold text-slate-800">{{ t('model.data') }}</h2>
         <div class="flex items-center gap-2">
           <div v-if="canUpload">
             <button
               @click="triggerUpload"
               class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
-              title="Upload JSON"
+              :title="t('model.controls.uploadJson')"
               :disabled="isUploading"
             >
               <i
@@ -155,7 +156,7 @@ const availableFloors = computed(() => {
                 class="text-xs font-bold uppercase tracking-wider"
                 :class="item === selectedId ? 'text-emerald-700' : 'text-emerald-600'"
               >
-                {{ t('model.LeftMenu.structureName') }}:
+                {{ t('model.name') }}:
               </span>
               <p class="text-slate-700 font-medium mt-1 truncate">{{ item }}</p>
             </div>
@@ -169,7 +170,7 @@ const availableFloors = computed(() => {
                   ? 'bg-emerald-200/50 text-emerald-700'
                   : 'text-emerald-600/70 hover:bg-emerald-100 hover:text-emerald-700'
               "
-              title="Toggle Controls"
+              :title="t('model.controls.toggleControls')"
             >
               <i class="ph-bold ph-sliders-horizontal text-xl"></i>
             </button>
@@ -197,7 +198,7 @@ const availableFloors = computed(() => {
                 <label
                   class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1"
                 >
-                  Floor Selection
+                  {{ t('model.controls.floorSelection') }}
                 </label>
 
                 <div class="relative">
@@ -207,7 +208,7 @@ const availableFloors = computed(() => {
                   >
                     <option :value="null">All Floors</option>
                     <option v-for="(floorY, idx) in availableFloors" :key="floorY" :value="floorY">
-                      Floor {{ idx }} ({{ floorY }}m)
+                      {{ t('model.controls.floor') }} {{ idx }} ({{ floorY }}m)
                     </option>
                   </select>
 
@@ -232,7 +233,7 @@ const availableFloors = computed(() => {
       v-if="!isLeftOpen"
       @click="toggleLeft"
       class="absolute left-6 top-4 z-40 bg-white p-2 rounded-lg shadow-lg border border-slate-200 text-slate-600 hover:text-emerald-600 hover:scale-105 transition-all"
-      title="Open Sidebar"
+      :title="t('commons.open')"
     >
       <i class="ph-bold ph-caret-right text-xl"></i>
     </button>

@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { TresCanvas } from '@tresjs/core'
-import { OrbitControls } from '@tresjs/cientos'
-
 import NavBar from '@/components/NavBar.vue'
+import AutoRotate from '@/components/AutoRotate.vue'
 import LeftMenu from '@/components/menus/LeftMenu.vue'
 import RightMenu from '@/components/menus/RightMenu.vue'
 import ViewControls from '@/components/menus/ControlPanel.vue'
-import AutoRotate from '@/components/AutoRotate.vue'
-
 import { useBuildingModel } from '@/composables/useBuildingModel'
 import { useSceneControls } from '@/composables/useSceneControls'
+
+import { onMounted } from 'vue'
+import { TresCanvas } from '@tresjs/core'
+import type { Intersection } from 'three'
+import { OrbitControls } from '@tresjs/cientos'
+
+interface TresEvent extends Intersection {
+  stopPropagation: () => void
+}
 
 const model = useBuildingModel()
 
@@ -35,7 +39,7 @@ const handleExplodeToggle = () => {
   model.explodedRoomId.value = result.roomId
 }
 
-const onRoomClick = (id: string, event: any) => {
+const onRoomClick = (id: string, event: TresEvent) => {
   if (isRotating.value) return
   if (event && event.stopPropagation) event.stopPropagation()
   model.toggleRoom(id)

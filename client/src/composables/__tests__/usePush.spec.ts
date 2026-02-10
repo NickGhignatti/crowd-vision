@@ -1,10 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { usePush } from '../usePush'
 
 describe('usePush', () => {
   const MOCK_VAPID_KEY = 'AQID'
 
-  let mockRegistration: any
+  type MockRegistration = {
+    pushManager: {
+      getSubscription: Mock;
+      subscribe: Mock;
+    }
+  }
+
+  let mockRegistration: MockRegistration
 
   const createMockSubscription = (keyAsString: string | null = null) => ({
     endpoint: 'https://fcm.googleapis.com/fcm/send/test',

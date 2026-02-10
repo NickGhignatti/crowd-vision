@@ -1,8 +1,9 @@
-import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
-import DashboardView from '@/views/DashboardView.vue'
 import ModelView from '@/views/ModelView.vue'
 import DomainsView from '@/views/DomainsView.vue'
+import DashboardView from '@/views/DashboardView.vue'
+
+import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
   history: import.meta.env.TEST

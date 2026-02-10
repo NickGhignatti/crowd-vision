@@ -2,41 +2,81 @@ import { createI18n } from 'vue-i18n'
 
 const messages = {
   en: {
-    nav: {
+    language: 'English',
+    commons: {
       dashboard: 'Dashboard',
       digitalTwin: 'Digital Twin',
       domains: 'Domains',
-      login: 'Log in',
+      app: {
+        crowd: 'Crowd',
+        vision: 'Vision',
+        crowdVision: 'Crowd Vision',
+        rights: 'CrowdVision Systems. All rights reserved.',
+      },
+      enable: 'Enable',
+      later: 'Later',
+      save: 'Save',
+      cancel: 'Cancel',
+      back: 'Back',
+      continue: 'Continue',
+      create: 'Create',
+      edit: 'Edit',
+      press: 'Press',
+      enter: 'Enter',
+      ID: 'ID',
+      open: 'Open',
+      search: 'Search',
+    },
+    authentication: {
+      login: 'Login',
+      register: 'Register',
+      logout: 'Logout',
+      profile: 'Profile',
       getStarted: 'Get Started',
       signedInAs: 'Signed in as',
-      signOut: 'Sign Out',
+      input: {
+        username: 'Username',
+        usernamePlaceholder: 'Enter your username',
+        password: 'Password',
+        passwordPlaceholder: '••••••••',
+        forgotPassword: 'Forgot Password?',
+        email: 'Email',
+      },
+      createAnAccount: 'Create an Account',
+      join: 'Join CrowdVision to start monitoring!',
+      alreadyAnAccount: 'Already have an account?',
+      welcomeBack: 'Welcome Back!',
+      signInToContinue: 'Sign in to continue to CrowdVision',
+      noAccount: "Don't have an account?",
     },
     home: {
-      monitoring: 'Live Monitoring',
-      utils: {
+      title: {
+        monitoring: 'Live Monitoring',
         insights: 'Smart insights for',
         spaces: 'safer spaces',
       },
-      bio:
-        'CrowdVision provides real-time occupancy tracking and flow analysis for educational\n' +
-        '          institutions. Make data-driven decisions without the clutter.',
-      doc: 'View Documentation',
+      subTitle: {
+        biography:
+          'CrowdVision provides real-time occupancy tracking and flow analysis for educational\n' +
+          '          institutions. Make data-driven decisions without the clutter.',
+        documentation: 'View Documentation',
+      },
       features: {
         why: 'Why CrowdVision?',
-        built: 'Built for administrators who need clarity, not complexity.',
-        f1: {
-          title: 'Real-time Counting',
+        motivation: 'Built for administrators who need clarity, not complexity.',
+        feature1: {
+          title: 'Real-time Occupancy Tracking',
           description:
             'Monitor student density across multiple rooms instantly. Visual indicators update via\n' +
             '              our optimized 3D engine.',
         },
-        f2: {
+        feature2: {
           title: 'Capacity Alerts',
           description:
             'Set thresholds for specific zones. Receive visual cues when hallways or classrooms\n' +
             ' exceed safe capacity limits.',
         },
-        f3: {
+        feature3: {
           title: 'Privacy First',
           description:
             'We analyze movement data without storing biometric information. Compliant with\n' +
@@ -44,205 +84,297 @@ const messages = {
         },
       },
     },
-    headers: {
-      room: 'Room',
-      status: 'Status',
-      teacher: 'Teacher',
-      temp: 'Temperature',
-      people: 'People',
-      capacity: 'Capacity',
-    },
-    table: {
-      buttons: {
-        next: 'Next',
-        previous: 'Previous',
-        auto: 'Auto play',
-        stop: 'Stop auto',
+    dashboard: {
+      table: {
+        headers: {
+          room: 'Room',
+          status: 'Status',
+          teacher: 'Teacher',
+          capacity: 'Capacity',
+          temperature: 'Temperature',
+          people: 'People',
+        },
+        rooms: {
+          status: {
+            empty: 'Empty',
+            normal: 'Normal',
+            crowded: 'Crowded',
+            full: 'Full',
+            overcrowded: 'Overcrowded',
+          },
+        },
+        noDataAvailable: 'No data available',
+        startIndex: 'Page',
+        ofIndex: 'of',
+        buttons: {
+          stop: 'Stop auto',
+          start: 'Start auto',
+          next: 'Next',
+          previous: 'Previous',
+        },
       },
-      index: {
-        page: 'Page',
-        of: 'of',
-      },
-    },
-    model: {
-      LeftMenu: {
-        data: 'Building Data',
-        structureName: 'Structure Name',
-      },
-      RightMenu: {
-        roomsList: 'Rooms List',
-        missingRooms: 'No rooms data available',
-        temperature: 'Temperature',
-        occupancy: 'Occupancy',
-      },
-    },
-    auth: {
-      welcomeBack: 'Welcome Back!',
-      signInToContinue: 'Sign in to continue to CrowdVision',
-      signIn: 'Sign In',
-      noAccount: "Don't have an account?",
-      signUp: 'Sign Up',
-      createAccount: 'Create an Account',
-      join: 'Join CrowdVision to start monitoring!',
-      alreadyAnAccount: 'Already have an account?',
-      forgot: 'Forgot Password?',
-    },
-    modals: {
-      editRoom: {
-        title: 'Edit Room',
-        subtitle: 'Configure parameters and thresholds',
-        roomId: 'Room Identifier',
-        capacity: 'Capacity',
-        maxTemp: 'Max Temp (°C)',
-        themeColor: 'Theme Color',
-        cancel: 'Cancel',
-        save: 'Save Changes',
-      },
-      notification: {
-        title: 'Enable critical alerts?',
-        message: 'Get notified about system failures even when closed.',
-        enable: 'Enable',
-        later: 'Later',
+      mode: {
+        focusMode: 'Focus Mode',
       },
     },
     domains: {
-      management: 'Domain Management',
-      name: 'Name',
-      action: 'Action',
-      searchPlaceholder: 'Search domain...',
-      private: 'Private',
-      add: 'Add Domain',
-      noDomainFound: 'No domains found',
-      modal: {
-        new: 'New Domain',
-        step: 'step',
-        of: 'of 2',
-        main: 'Main Domain',
-        desc: 'The main domain represents the primary organizational unit. It can have multiple subdomains under it.',
-        edit: 'Edit',
-        addSub: 'Add Subdomains',
-        press: 'Press',
-        enter: 'enter',
-        to: 'to add it to the list.',
-        cancel: 'Cancel',
-        back: 'Back',
-        continue: 'Continue',
-        create: 'Create',
+      table: {
+        title: 'Domains Management',
+        headers: {
+          name: 'Name',
+          action: 'Action',
+        },
       },
+      inputs: {
+        search: 'Search domain...',
+        create: 'Create new domain',
+        private: 'Enter in a private domain',
+        notFound: 'No domains found',
+        modal: {
+          step: 'step',
+          of: 'of 2',
+          main: 'Main Domain',
+          desc: 'The main domain represents the primary organizational unit. It can have multiple subdomains under it.',
+          addSub: 'Add Subdomains',
+          to: 'to add it to',
+        },
+        strategy: 'Authentication Strategy',
+        standard: 'Standard',
+        managedBy: 'Managed by CrowdVision',
+        external: 'External SSO',
+        externalSSO: 'OIDC (Keycloak, Auth0, etc)',
+        issuerUrl: 'Issuer URL',
+        clientID: 'Client ID',
+        clientSecret: 'Client Secret',
+        invalid: 'Invalid subdomain format.',
+        alreadyPresent: 'Domain already exists.',
+      },
+    },
+    notifications: {
+      title: 'Enable critical alerts?',
+      description: 'Receive notifications when critical events occur.',
+    },
+    model: {
+      rooms: {
+        editRoom: {
+          title: 'Edit Room',
+          subtitle: 'Configure parameters and thresholds',
+          identifier: 'Room Identifier',
+          identifierPlaceholder: 'Room ID',
+          capacity: 'Capacity',
+          maxTemp: 'Max Temp (°C)',
+          themeColor: 'Theme Color',
+        },
+        temperature: 'Temperature',
+        occupancy: 'Occupancy',
+      },
+      controls: {
+        buttons: {
+          reset: 'Reset View',
+          focus: 'Focus on Room',
+          zoomIn: 'Zoom In',
+          zoomOut: 'Zoom Out',
+          panorama: 'Panorama Mode',
+        },
+        uploadJson: 'Upload JSON',
+        toggleControls: 'Toggle Controls',
+        floor: 'Floor',
+        floorSelection: 'Floor Selection',
+      },
+      selection: 'Select building',
+      noBuildings: 'No buildings found',
+      roomList: 'Room List',
+      searchRoom: 'Search Room',
+      noRooms: 'No rooms found',
+      name: 'Structure Name',
+      data: 'Buildings Data',
     },
   },
   it: {
-    nav: {
+    language: 'Italiano',
+    commons: {
       dashboard: 'Cruscotto',
       digitalTwin: 'Gemello Digitale',
       domains: 'Domini',
+      app: {
+        crowd: 'Crowd',
+        vision: 'Vision',
+        crowdVision: 'Crowd Vision',
+        rights: 'CrowdVision Systems. Tutti i diritti riservati.',
+      },
+      enable: 'Abilita',
+      later: 'Più tardi',
+      save: 'Salva',
+      cancel: 'Annulla',
+      back: 'Indietro',
+      continue: 'Continua',
+      create: 'Crea',
+      edit: 'Modifica',
+      press: 'Premi',
+      enter: 'Invio',
+      ID: 'ID',
+      open: 'Apri',
+      search: 'Cerca',
+    },
+    authentication: {
       login: 'Accedi',
+      register: 'Registrati',
+      logout: 'Esci',
+      profile: 'Profilo',
       getStarted: 'Inizia',
-      signedInAs: 'Utente',
-      signOut: 'Disconnetti',
+      signedInAs: 'Accesso effettuato come',
+      input: {
+        username: 'Nome utente',
+        usernamePlaceholder: 'Inserisci il tuo nome utente',
+        password: 'Password',
+        passwordPlaceholder: '••••••••',
+        forgotPassword: 'Password dimenticata?',
+        email: 'Email',
+      },
+      createAnAccount: 'Crea un Account',
+      join: 'Unisciti a CrowdVision per iniziare il monitoraggio!',
+      alreadyAnAccount: 'Hai già un account?',
+      welcomeBack: 'Bentornato!',
+      signInToContinue: 'Accedi per continuare su CrowdVision',
+      noAccount: 'Non hai un account?',
     },
     home: {
-      monitoring: 'Monitoraggio in tempo reale',
-      utils: {
+      title: {
+        monitoring: 'Monitoraggio in tempo reale',
         insights: 'Analisi intelligenti per',
         spaces: 'spazi più sicuri',
       },
-      bio:
-        "CrowdVision offre monitoraggio dell'occupazione e analisi dei flussi in tempo reale per\n" +
-        '          le istituzioni educative. Prendi decisioni basate sui dati, senza il superfluo.',
-      doc: 'Visualizza Documentazione',
+      subTitle: {
+        biography:
+          "CrowdVision fornisce tracciamento dell'occupazione in tempo reale e analisi dei flussi per istituti\n" +
+          '          educativi. Prendi decisioni basate sui dati senza confusione.',
+        documentation: 'Vedi Documentazione',
+      },
       features: {
         why: 'Perché CrowdVision?',
-        built: 'Creato per amministratori che cercano chiarezza, non complessità.',
-        f1: {
-          title: 'Conteggio in Tempo Reale',
+        motivation: 'Costruito per amministratori che necessitano di chiarezza, non complessità.',
+        feature1: {
+          title: 'Tracciamento Occupazione Live',
           description:
-            'Monitora la densità studentesca in più aule istantaneamente. Gli indicatori visivi si aggiornano tramite\n' +
+            'Monitora la densità degli studenti in più stanze istantaneamente. Indicatori visivi aggiornati tramite\n' +
             '              il nostro motore 3D ottimizzato.',
         },
-        f2: {
-          title: 'Avvisi di Capienza',
+        feature2: {
+          title: 'Avvisi di Capacità',
           description:
             'Imposta soglie per zone specifiche. Ricevi segnali visivi quando corridoi o aule\n' +
-            ' superano i limiti di capienza sicura.',
+            ' superano i limiti di capacità di sicurezza.',
         },
-        f3: {
+        feature3: {
           title: 'Privacy al Primo Posto',
           description:
-            'Analizziamo i dati di movimento senza archiviare informazioni biometriche. Conforme alle\n' +
+            'Analizziamo i dati di movimento senza memorizzare informazioni biometriche. Conforme alle\n' +
             '              normative di sicurezza standard.',
         },
       },
     },
-    headers: {
-      room: 'Stanza',
-      status: 'Stato',
-      teacher: 'Insegnante',
-      temp: 'Temperatura',
-      people: 'Persone',
-      capacity: 'Capienza',
-    },
-    table: {
-      buttons: {
-        next: 'Successivo',
-        previous: 'Precedente',
-        auto: 'Riproduzione automatica',
-        stop: 'Ferma riproduzione',
+    dashboard: {
+      table: {
+        headers: {
+          room: 'Stanza',
+          status: 'Stato',
+          teacher: 'Insegnante',
+          capacity: 'Capacità',
+          temperature: 'Temperatura',
+          people: 'Persone',
+        },
+        rooms: {
+          status: {
+            empty: 'Vuota',
+            normal: 'Normale',
+            crowded: 'Affollata',
+            full: 'Piena',
+            overcrowded: 'Sovraffollata',
+          },
+        },
+        noDataAvailable: 'Nessun dato disponibile',
+        startIndex: 'Pagina',
+        ofIndex: 'di',
+        buttons: {
+          stop: 'Stop auto',
+          start: 'Avvia auto',
+          next: 'Succ.',
+          previous: 'Prec.',
+        },
       },
-      index: {
-        page: 'Pagina',
-        of: 'di',
-      },
-    },
-    model: {
-      LeftMenu: {
-        data: 'Dati Edificio',
-        structureName: 'Nome Struttura',
-      },
-      RightMenu: {
-        roomsList: 'Lista Stanze',
-        missingRooms: 'Nessun dato disponibile per le stanze',
-        temperature: 'Temperatura',
-        occupancy: 'Percentuale di Occupazione',
-      },
-    },
-    auth: {
-      welcomeBack: 'Bentornato!',
-      signInToContinue: 'Accedi per continuare su CrowdVision',
-      signIn: 'Accedi',
-      noAccount: 'Non hai un account?',
-      signUp: 'Iscriviti',
-      createAccount: 'Crea un Account',
-      join: 'Unisciti a CrowdVision per iniziare a monitorare!',
-      alreadyAnAccount: 'Hai già un account?',
-      forgot: 'Password Dimenticata?',
-    },
-    modals: {
-      editRoom: {
-        title: 'Modifica Stanza',
-        subtitle: 'Configura parametri e soglie',
-        roomId: 'Identificativo Stanza',
-        capacity: 'Capienza',
-        maxTemp: 'Temp Max (°C)',
-        themeColor: 'Colore Tema',
-        cancel: 'Annulla',
-        save: 'Salva Modifiche',
-      },
-      notification: {
-        title: 'Abilitare avvisi critici?',
-        message: "Ricevi notifiche sui guasti di sistema anche quando l'app è chiusa.",
-        enable: 'Abilita',
-        later: 'Più tardi',
+      mode: {
+        focusMode: 'Modalità Focus',
       },
     },
     domains: {
-      management: 'Gestione dei Domini',
-      name: 'Nome',
-      action: 'Azione',
-      searchPlaceholder: 'Cerca dominio...',
-      private: 'Privato',
-      add: 'Aggiungi Dominio',
-      noDomainFound: 'Nessun dominio trovato',
+      table: {
+        title: 'Gestione Domini',
+        headers: {
+          name: 'Nome',
+          action: 'Azione',
+        },
+      },
+      inputs: {
+        search: 'Cerca dominio...',
+        create: 'Crea nuovo dominio',
+        private: 'Entra in un dominio privato',
+        notFound: 'Nessun dominio trovato',
+        modal: {
+          step: 'passaggio',
+          of: 'di 2',
+          main: 'Dominio Principale',
+          desc: "Il dominio principale rappresenta l'unità organizzativa primaria. Può avere molteplici sottodomini al suo interno.",
+          addSub: 'Aggiungi Sottodomini',
+          to: 'per aggiungere',
+        },
+        strategy: 'Strategia di Autenticazione',
+        standard: 'Standard',
+        managedBy: 'Gestito da CrowdVision',
+        external: 'SSO Esterno',
+        externalSSO: 'OIDC (Keycloak, Auth0, ecc.)',
+        issuerUrl: 'Issuer URL',
+        clientID: 'Client ID',
+        clientSecret: 'Client Secret',
+      },
+    },
+    notifications: {
+      title: 'Abilitare avvisi critici?',
+      description: 'Ricevi notifiche quando si verificano eventi critici.',
+    },
+    model: {
+      rooms: {
+        editRoom: {
+          title: 'Modifica Stanza',
+          subtitle: 'Configura parametri e soglie',
+          identifier: 'Identificativo Stanza',
+          identifierPlaceholder: 'ID Stanza',
+          capacity: 'Capacità',
+          maxTemp: 'Temp Max (°C)',
+          themeColor: 'Colore Tema',
+        },
+        temperature: 'Temperatura',
+        occupancy: 'Occupazione',
+      },
+      controls: {
+        buttons: {
+          reset: 'Reimposta Vista',
+          focus: 'Focus su Stanza',
+          zoomIn: 'Zoom Avanti',
+          zoomOut: 'Zoom Indietro',
+          panorama: 'Modalità Panorama',
+        },
+        uploadJson: 'Carica JSON',
+        toggleControls: 'Mostra/Nascondi Controlli',
+        floor: 'Piano',
+        floorSelection: 'Selezione Piano',
+      },
+      selection: 'Seleziona edificio',
+      noBuildings: 'Nessun edificio trovato',
+      roomList: 'Lista Stanze',
+      searchRoom: 'Cerca Stanza',
+      noRooms: 'Nessuna stanza trovata',
+      name: 'Nome Struttura',
+      data: 'Dati delle Strutture',
     },
   },
 }

@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import type { DomainMembership } from '@/models/domain'
+import type { BuildingPayload } from '@/models/building'
+
 import { onMounted, ref } from 'vue'
-import type { BuildingPayload, DomainMembership } from '@/scripts/schema'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export interface ModelOption {
   id: string
@@ -15,10 +20,6 @@ const models = ref<ModelOption[]>([])
 const isDropdownOpen = ref<boolean>(false)
 const selectedModel = ref<ModelOption | null>(null)
 const serverUrl = import.meta.env.VITE_SERVER_URL
-
-onMounted(() => {
-  getInitialModels()
-})
 
 const selectModel = (model: ModelOption) => {
   selectedModel.value = model
@@ -37,7 +38,7 @@ const getInitialModels = async () => {
     const authData = await authRes.json()
     const memberships = authData.domains as DomainMembership[]
 
-    let allBuildings: BuildingPayload[] = []
+    const allBuildings: BuildingPayload[] = []
 
     // Fetch Buildings for each Domain
     await Promise.all(
@@ -73,6 +74,10 @@ const getInitialModels = async () => {
     console.error('Error initializing models:', error)
   }
 }
+
+onMounted(() => {
+  getInitialModels()
+})
 </script>
 
 <template>
@@ -86,7 +91,7 @@ const getInitialModels = async () => {
           class="ph-duotone ph-buildings text-xl text-slate-400 group-hover:text-emerald-500 transition-colors"
         ></i>
         <span class="truncate">
-          {{ selectedModel?.name || 'Select Building' }}
+          {{ selectedModel?.name || t('model.selection') }}
         </span>
       </div>
       <i
@@ -129,7 +134,7 @@ const getInitialModels = async () => {
             v-if="models.length === 0"
             class="px-4 py-3 text-sm text-slate-400 text-center italic"
           >
-            No buildings found
+            {{ t('model.noBuildings') }}
           </li>
         </ul>
       </div>

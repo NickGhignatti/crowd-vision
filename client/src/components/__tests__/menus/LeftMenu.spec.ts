@@ -23,6 +23,6 @@ describe('LeftMenu.vue', () => {
 
   it('renders upload button if user is admin', () => {
     const wrapper = mount(LeftMenu, { props: defaultProps })
-    expect(wrapper.find('button[title="Upload JSON"]').exists()).toBe(true)
+    expect(wrapper.find(`button[title="${('model.controls.uploadJson')}"]`).exists()).toBe(true)
   })
 })

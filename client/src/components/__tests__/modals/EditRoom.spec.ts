@@ -83,12 +83,12 @@ describe('EditRoom.vue', () => {
     await capacityInput.setValue(99)
 
     // Find Save button (contains "check" icon or text "modals.editRoom.save")
-    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('modals.editRoom.save'))
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('commons.save'))
     await saveBtn?.trigger('click')
 
     // Assert 'save' emitted
     expect(wrapper.emitted('save')).toBeTruthy()
-    const emitPayload = wrapper.emitted('save')?.[0][0] as any
+    const emitPayload = wrapper.emitted('save')?.[0][0] as Record<string, unknown>
 
     expect(emitPayload).toMatchObject({
       id: 'Room-A1',
@@ -105,7 +105,7 @@ describe('EditRoom.vue', () => {
 
     const cancelBtn = wrapper
       .findAll('button')
-      .find((b) => b.text().includes('modals.editRoom.cancel'))
+      .find((b) => b.text().includes('commons.cancel'))
     await cancelBtn?.trigger('click')
 
     expect(wrapper.emitted('close')).toBeTruthy()

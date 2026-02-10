@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import UsernameInput from '@/components/auth/inputs/UsernameInput.vue'
-import PasswordInput from '@/components/auth/inputs/PasswordInput.vue'
+import UsernameInput from '@/components/inputs/UsernameInput.vue'
+import PasswordInput from '@/components/inputs/PasswordInput.vue'
 import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -82,8 +82,10 @@ const handleLogin = async () => {
             >
               <i class="ph-bold ph-user-circle text-2xl"></i>
             </div>
-            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ t('auth.welcomeBack') }}</h2>
-            <p class="text-sm text-slate-500 mt-2">{{ t('auth.signInToContinue') }}</p>
+            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">
+              {{ t('authentication.welcomeBack') }}
+            </h2>
+            <p class="text-sm text-slate-500 mt-2">{{ t('authentication.signInToContinue') }}</p>
           </div>
 
           <form @submit.prevent="handleLogin" class="relative z-10 space-y-5">
@@ -93,18 +95,18 @@ const handleLogin = async () => {
               type="submit"
               class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
-              {{ t('auth.signIn') }}
+              {{ t('authentication.login') }}
             </button>
           </form>
 
           <div class="relative z-10 mt-6 text-center">
             <p class="text-xs text-slate-500">
-              {{ t('auth.noAccount') }}
+              {{ t('authentication.noAccount') }}
               <button
                 @click="$emit('switch-to-signup')"
                 class="text-emerald-600 hover:text-emerald-500 font-bold hover:underline"
               >
-                {{ t('auth.signUp') }}
+                {{ t('authentication.register') }}
               </button>
             </p>
           </div>

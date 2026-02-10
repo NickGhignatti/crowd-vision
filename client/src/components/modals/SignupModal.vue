@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import UsernameInput from '@/components/auth/inputs/UsernameInput.vue'
-import PasswordInput from '@/components/auth/inputs/PasswordInput.vue'
-import MailInput from '@/components/auth/inputs/MailInput.vue'
+import MailInput from '@/components/inputs/MailInput.vue'
+import UsernameInput from '@/components/inputs/UsernameInput.vue'
+import PasswordInput from '@/components/inputs/PasswordInput.vue'
+
 import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -16,12 +17,14 @@ const emit = defineEmits<{
   (e: 'switch-to-login'): void
 }>()
 
+const serverUrl = import.meta.env.VITE_SERVER_URL
+
 const user = reactive({
   username: '',
   email: '',
   password: '',
 })
-const serverUrl = import.meta.env.VITE_SERVER_URL
+
 const handleSignUp = async () => {
   const response = await fetch(serverUrl + `/auth/register`, {
     method: 'POST',
@@ -85,9 +88,9 @@ const handleSignUp = async () => {
               <i class="ph-bold ph-user-plus text-2xl"></i>
             </div>
             <h2 class="text-2xl font-bold text-slate-900 tracking-tight">
-              {{ t('auth.createAccount') }}
+              {{ t('authentication.createAnAccount') }}
             </h2>
-            <p class="text-sm text-slate-500 mt-2">{{ t('auth.join') }}</p>
+            <p class="text-sm text-slate-500 mt-2">{{ t('authentication.join') }}</p>
           </div>
 
           <form @submit.prevent="handleSignUp" class="relative z-10 space-y-4">
@@ -99,18 +102,18 @@ const handleSignUp = async () => {
               type="submit"
               class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0 mt-2"
             >
-              {{ t('auth.createAccount') }}
+              {{ t('authentication.createAnAccount') }}
             </button>
           </form>
 
           <div class="relative z-10 mt-6 text-center">
             <p class="text-xs text-slate-500">
-              {{ t('auth.alreadyAnAccount') }}
+              {{ t('authentication.alreadyAnAccount') }}
               <button
                 @click="$emit('switch-to-login')"
                 class="text-emerald-600 hover:text-emerald-500 font-bold hover:underline"
               >
-                {{ t('auth.signIn') }}
+                {{ t('authentication.login') }}
               </button>
             </p>
           </div>
