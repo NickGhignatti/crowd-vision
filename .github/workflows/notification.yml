@@ -1,11 +1,6 @@
 name: notification-service-ci
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - "server/notification-service/**"
-      - ".github/workflows/notification.yml"
   pull_request:
     branches: [master]
     paths:

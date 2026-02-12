@@ -1,16 +1,13 @@
 name: Docker Build
 
 on:
-  push:
+  pull_request:
     branches: ["master"]
-    # Only run if docker-related files or source code changes
     paths:
       - "docker-compose.yml"
       - "server/**"
       - "client/**"
       - ".github/workflows/docker.yml"
-  pull_request:
-    branches: ["master"]
 
 jobs:
   build-images:

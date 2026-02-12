@@ -1,16 +1,12 @@
 name: twin-service-ci
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - "server/twin-service/**"
-      - ".github/workflows/twin.yml"
   pull_request:
     branches: [master]
     paths:
       - "server/twin-service/**"
       - ".github/workflows/twin.yml"
+
 jobs:
   twin-service:
     runs-on: ubuntu-latest
