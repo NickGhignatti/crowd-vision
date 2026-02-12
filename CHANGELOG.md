@@ -1,3 +1,11 @@
+## [2.0.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.0.0...v2.0.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* CI pipelines ([5b99c44](https://github.com/NickGhignatti/crowd-vision/commit/5b99c44e98a05d439e10a0f268efd6356fd8ef5f))
+* typos and refactor code ([91c1658](https://github.com/NickGhignatti/crowd-vision/commit/91c1658a0545365bf55879f798323d7058dff09a))
+
 ## [1.14.1](https://github.com/NickGhignatti/crowd-vision/compare/v1.14.0...v1.14.1) (2026-02-06)
 
 
