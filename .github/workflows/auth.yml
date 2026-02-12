@@ -1,11 +1,6 @@
 name: auth-service-ci
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - "server/auth-service/**"
-      - ".github/workflows/auth.yml"
   pull_request:
     branches: [master]
     paths:

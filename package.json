@@ -1,6 +1,10 @@
 {
   "name": "crowd-vision",
   "private": true,
+  "workspaces": [
+    "client",
+    "server/*"
+  ],
   "scripts": {
     "setup": "node setup.js",
     "dev": "npm run setup && docker compose -f docker-compose.yml -f docker-compose.dev.yml up --watch --build",
@@ -8,8 +12,7 @@
     "stop": "docker compose down --remove-orphans",
     "logs": "docker compose logs -f",
     "release": "semantic-release",
-    "clear" : "docker compose exec auth-db mongosh authdb --eval \"db.dropDatabase()\" && docker compose exec twin-db mongosh twindb --eval \"db.dropDatabase()\" && docker compose exec notification-db mongosh notificationdb --eval \"db.dropDatabase()\"",
-
+    "clear": "docker compose exec auth-db mongosh authdb --eval \"db.dropDatabase()\" && docker compose exec twin-db mongosh twindb --eval \"db.dropDatabase()\" && docker compose exec notification-db mongosh notificationdb --eval \"db.dropDatabase()\"",
     "//": "Documentation related scripts",
     "build:api": "npm run copy:yamls",
     "copy:yamls": "shx cp server/auth-service/openapi.yaml landing-page/api/auth.yaml && shx cp server/twin-service/openapi.yaml landing-page/api/twin.yaml && shx cp server/notification-service/openapi.yaml landing-page/api/notification.yaml",
