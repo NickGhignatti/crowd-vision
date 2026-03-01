@@ -245,7 +245,9 @@ onUnmounted(() => {
           </div>
 
           <div v-else key="graph" class="w-full">
-            <GraphDashboard :buildings="allBuildings" />
+            <GraphDashboard 
+              :buildings="allBuildings" 
+            />
           </div>
 
         </Transition>

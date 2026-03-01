@@ -9,11 +9,13 @@ export interface ITemperature {
 }
 
 const temperatureSchema = new Schema<ITemperature>({
-    twin: { type: String, required: true, unique: true },
+    twin: { type: String, required: true },
     roomId: { type: String, required: true },
     timestamp: { type: Number, required: true },
     temperature: { type: Number, required: true },
 });
+
+temperatureSchema.index({ twin: 1, timestamp: -1 });
 
 export const Temperature = mongoose.model<ITemperature>('Temperature', temperatureSchema);
 
@@ -25,5 +27,10 @@ export interface TemperatureParams {
 export interface DashboardTemperatureParams {
     twin: string;
     roomId: string;
+    timeRange: string;
+}
+
+export interface DashboardTwinTemperatureParams {
+    twin: string;
     timeRange: string;
 }
