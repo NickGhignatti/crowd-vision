@@ -63,7 +63,7 @@ const {
   isLoading: loadingTemp 
 } = getTwinHistory(twinIdRef, timeRange, 'temperature')
 
-const { isSimRunning, error, refetch } = useIsRunning(twinIdRef.value)
+const { isSimRunning, error, refetch } = useIsRunning(twinIdRef)
 
 const checkSimStatus = () => {
   refetch()

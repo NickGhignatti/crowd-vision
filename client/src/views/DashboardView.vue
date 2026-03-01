@@ -201,7 +201,7 @@ onUnmounted(() => {
 
     <div
       ref="focusSection"
-      class="flex flex-col items-center pt-12 px-4 pb-20 bg-slate-50 overflow-y-auto w-full"
+      class="flex flex-col items-center pt-8 px-4 pb-20 bg-slate-50 overflow-y-auto w-full transition-all"
     >
       <FullScreenMode :is-fullscreen="isFullscreen" @toggleFocusMode="toggleFocusMode"></FullScreenMode>
 
