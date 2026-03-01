@@ -7,12 +7,16 @@ import {
 
 export class Simulator {
     private isRunning: boolean = false;
-    private readonly targetUrlTemp: string = "http://localhost:80/sensor/temperature";
-    private readonly targetUrlPeople: string = "http://localhost:80/sensor/peopleCount";
-    private readonly delay: number = 5000;  // 5 seconds
+    private readonly targetUrlTemp: string = "http://gateway:80/sensor/temperature";
+    private readonly targetUrlPeople: string = "http://gateway:80/sensor/peopleCount";
+    private readonly delay: number = 10000;  // 10 seconds
     private readonly peopleCountRange: [number, number] = [0, 50];
     private readonly temperatureRange: [number, number] = [18, 30];
     private activeTwins = mySimulationTwins;
+
+    public getIsRunning(twinId: string | string[]): boolean {
+        return this.isRunning && this.activeTwins.activeTwins.some(t => t.twinId === twinId);
+    }
 
     public startOrAdd(twin: ITwin) {
         this.activeTwins.push(twin);
@@ -22,8 +26,12 @@ export class Simulator {
         }
     }
 
-    public stop() {
-        this.isRunning = false;
+    public stop(twinId: string) {
+        if (!this.isRunning || this.activeTwins.activeTwins.length === 0) return;
+        this.activeTwins.activeTwins = this.activeTwins.activeTwins.filter(t => t.twinId !== twinId);
+        if (this.activeTwins.activeTwins.length === 0) {
+            this.isRunning = false;
+        }
     }
 
     private async tick() {
