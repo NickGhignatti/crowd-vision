@@ -5,52 +5,30 @@ import type { RoomPayload, BuildingPayload } from '@/models/building'
 import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
 import DataTable, { type TableBody, type TableHeader } from '@/components/tables/DataTable.vue'
 
-import { useI18n } from 'vue-i18n'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import NavBar from '@/components/NavBar.vue'
-import DataTable, { type TableHeader } from '@/components/dashboard/DataTable.vue'
 import GraphDashboard from '@/components/dashboard/GraphDashboard.vue'
-import type { RoomPayload } from '@/scripts/schema.ts'
+import type { DomainMembership } from '@/models/domain'
 
 const now = ref(new Date())
-const isFullscreen = ref(false)
-const roomData = ref<TableBody[]>([])
-const focusSection = ref<HTMLElement | null>(null)
 
 let timer: ReturnType<typeof setInterval>
-const { locale } = useI18n()
+const { t, locale } = useI18n()
 
 // View State
 const viewMode = ref<'table' | 'graph'>('table')
 const focusSection = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
 
+export interface ModelOption {
+  id: string
+  name: string
+}
+const models = ref<ModelOption[]>([])
+const selectedModel = ref<ModelOption | null>(null)
+
 // Data State
 const roomData = ref<any>([])       // Processed data for Table
-const allBuildings = ref<any[]>([]) // Raw data for Graph Component
-
-const tableHeaders = ref<TableHeader[]>([
-  { key: 'room', label: 'headers.room', cellClass: 'font-medium text-slate-900' },
-  { key: 'status', label: 'headers.status', cellClass: 'text-sm' },
-  { key: 'teacher', label: 'headers.teacher', cellClass: 'text-sm' },
-  { key: 'temp', label: 'headers.temp', cellClass: 'text-slate-900 font-medium' },
-  { key: 'people', label: 'headers.people', cellClass: 'text-slate-900' },
-  { key: 'capacity', label: 'headers.capacity', cellClass: 'text-slate-900 font-medium' },
-])
-
-onMounted(() => {
-  fetchRooms()
-  timer = setInterval(() => {
-    now.value = new Date()
-  }, 1000)
-  document.addEventListener('fullscreenchange', onFullscreenChange)
-})
-
-onUnmounted(() => {
-  clearInterval(timer)
-  document.removeEventListener('fullscreenchange', onFullscreenChange)
-})
 
 const formattedTime = computed(() => {
   return new Intl.DateTimeFormat(locale.value, {
@@ -110,8 +88,9 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
   }
 }
 
-const handleModelChange = (modelId: string) => {
-  fetchRoomsByBuilding(modelId)
+const handleModelChange = (model: ModelOption) => {
+  selectedModel.value = model
+  fetchRoomsByBuilding(model.id)
 }
 
 const getStatusByOccupants = (occupants: number, roomCapacity: number) => {
@@ -154,7 +133,56 @@ const onFullscreenChange = () => {
   isFullscreen.value = !!document.fullscreenElement
 }
 
+const serverUrl = import.meta.env.VITE_SERVER_URL
+const getInitialModels = async () => {
+  try {
+    const username = localStorage.getItem('username')
+    if (!username) return
+
+    const authRes = await fetch(`${serverUrl}/auth/domains/${username}`)
+    if (!authRes.ok) throw new Error('Failed to fetch user domains')
+
+    const authData = await authRes.json()
+    const memberships = authData.domains as DomainMembership[]
+    const allBuildings: BuildingPayload[] = []
+
+    // Fetch Buildings for each Domain
+    await Promise.all(
+      memberships.map(async (m) => {
+        try {
+          const buildRes = await fetch(`${serverUrl}/twin/buildings/${m.domainName}`)
+          if (buildRes.ok) {
+            const domainBuildings = (await buildRes.json()) as BuildingPayload[]
+            allBuildings.push(...domainBuildings)
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch buildings for domain ${m.domainName}`, err)
+        }
+      }),
+    )
+
+    const uniqueIds = new Set()
+    models.value = allBuildings
+      .filter((b) => {
+        if (uniqueIds.has(b.id)) return false
+        uniqueIds.add(b.id)
+        return true
+      })
+      .map((b) => ({
+        id: b.id,
+        name: b.id,
+      }))
+
+    if (models.value.length > 0 && models.value[0]) {
+      handleModelChange(models.value[0])
+    }
+  } catch (error) {
+    console.error('Error initializing models:', error)
+  }
+}
+
 onMounted(() => {
+  getInitialModels()
   timer = setInterval(() => {
     now.value = new Date()
   }, 1000)
@@ -176,32 +204,47 @@ onUnmounted(() => {
       class="flex flex-col items-center pt-12 px-4 pb-20 bg-slate-50 overflow-y-auto w-full"
     >
       <FullScreenMode :is-fullscreen="isFullscreen" @toggleFocusMode="toggleFocusMode"></FullScreenMode>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
-          />
-        </svg>
-        Focus Mode
-      </button>
 
-      <div class="mb-10 text-center">
-        <h2 class="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums">
-          {{ formattedTime }}
-        </h2>
-        <div class="flex justify-start pl-4">
-          <ModelSelectionDropdown @model-changed="handleModelChange" />
+      <div class="mb-10 w-full max-w-5xl grid grid-cols-3 items-center">
+        
+        <div class="flex justify-start">
+          <div class="bg-slate-200 p-1 rounded-full flex relative shadow-inner w-max">
+            <div 
+              class="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full shadow-sm transition-all duration-300 ease-out"
+              :class="viewMode === 'table' ? 'left-1' : 'left-[50%]'"
+            ></div>
+            
+            <button 
+              @click="viewMode = 'table'"
+              class="relative z-10 px-6 py-1.5 text-sm font-semibold rounded-full transition-colors duration-300 flex items-center gap-2"
+              :class="viewMode === 'table' ? 'text-slate-800' : 'text-slate-500 hover:text-slate-700'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              List
+            </button>
+
+            <button 
+              @click="viewMode = 'graph'"
+              class="relative z-10 px-6 py-1.5 text-sm font-semibold rounded-full transition-colors duration-300 flex items-center gap-2"
+              :class="viewMode === 'graph' ? 'text-slate-800' : 'text-slate-500 hover:text-slate-700'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              Graph
+            </button>
+          </div>
         </div>
-        <p class="text-slate-500 font-medium mt-2 text-lg">
+
+        <div class="text-center">
+          <h2 class="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums">
+            {{ formattedTime }}
+          </h2>
+        </div>
+
+        <div class="flex justify-end">
+          <ModelSelectionDropdown :selectedModel="selectedModel" :models="models" @model-changed="handleModelChange" />
+        </div>
+
+        <p class="col-span-3 text-center text-slate-500 font-medium mt-2 text-lg">
           {{ formattedDate }}
         </p>
       </div>
@@ -210,33 +253,20 @@ onUnmounted(() => {
         <Transition name="fade" mode="out-in">
           
           <div v-if="viewMode === 'table'" key="table" class="w-full">
-            <DataTable
-              :headers="tableHeaders"
-              :items="roomData"
-              class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top"
-            >
+            <DataTable :headers="tableHeaders" :items="roomData"
+              class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top">
               <template #status="{ value }">
                 <span :class="getStatusColor(value)">{{ value }}</span>
               </template>
-
               <template #teacher="{ value }">
                 <span :class="getStatusColor(value)">{{ value }}</span>
               </template>
-
               <template #people="{ value }">
                 <div class="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    class="text-slate-400"
-                  >
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" class="text-slate-400">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
                   <span class="font-bold">{{ value }}</span>
                 </div>
@@ -246,7 +276,8 @@ onUnmounted(() => {
 
           <div v-else key="graph" class="w-full">
             <GraphDashboard 
-              :buildings="allBuildings" 
+              :selectedRooms="roomData.map((r: TableBody) => r.room)"
+              :selectedTwinId="selectedModel?.id" 
             />
           </div>
 

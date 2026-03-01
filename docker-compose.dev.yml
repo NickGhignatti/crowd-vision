@@ -54,7 +54,9 @@ services:
           target: /app/src
         - action: rebuild
           path: ./server/twin-service/package.json
-
+  twin-db:
+    ports:
+      - "27017:27017"
   twin-db-express:
     image: mongo-express
     environment:
@@ -125,3 +127,7 @@ services:
             - node_modules/
         - action: rebuild
           path: ./client/package.json
+
+  sensor-db:
+    ports:
+      - "27018:27017"

@@ -1,83 +1,27 @@
 <script setup lang="ts">
-import type { DomainMembership } from '@/models/domain'
-import type { BuildingPayload } from '@/models/building'
 
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { ModelOption } from '@/views/DashboardView.vue'
 
 const { t } = useI18n()
 
-export interface ModelOption {
-  id: string
-  name: string
-}
-
-const emit = defineEmits<{
-  (e: 'model-changed', value: string): void
+const props = defineProps<{
+  selectedModel: ModelOption | null
+  models: ModelOption[]
 }>()
 
-const models = ref<ModelOption[]>([])
-const isDropdownOpen = ref<boolean>(false)
-const selectedModel = ref<ModelOption | null>(null)
-const serverUrl = import.meta.env.VITE_SERVER_URL
+const emit = defineEmits<{
+  (e: 'model-changed', value: ModelOption): void
+}>()
 
 const selectModel = (model: ModelOption) => {
-  selectedModel.value = model
   isDropdownOpen.value = false
-  emit('model-changed', model.id)
-}
+  emit('model-changed', model)
+} 
 
-const getInitialModels = async () => {
-  try {
-    const username = localStorage.getItem('username')
-    if (!username) return
+const isDropdownOpen = ref<boolean>(false)
 
-    const authRes = await fetch(`${serverUrl}/auth/domains/${username}`)
-    if (!authRes.ok) throw new Error('Failed to fetch user domains')
-
-    const authData = await authRes.json()
-    const memberships = authData.domains as DomainMembership[]
-
-    const allBuildings: BuildingPayload[] = []
-
-    // Fetch Buildings for each Domain
-    await Promise.all(
-      memberships.map(async (m) => {
-        try {
-          const buildRes = await fetch(`${serverUrl}/twin/buildings/${m.domainName}`)
-          if (buildRes.ok) {
-            const domainBuildings = (await buildRes.json()) as BuildingPayload[]
-            allBuildings.push(...domainBuildings)
-          }
-        } catch (err) {
-          console.warn(`Failed to fetch buildings for domain ${m.domainName}`, err)
-        }
-      }),
-    )
-
-    const uniqueIds = new Set()
-    models.value = allBuildings
-      .filter((b) => {
-        if (uniqueIds.has(b.id)) return false
-        uniqueIds.add(b.id)
-        return true
-      })
-      .map((b) => ({
-        id: b.id,
-        name: b.id,
-      }))
-
-    if (models.value.length > 0 && models.value[0]) {
-      selectModel(models.value[0])
-    }
-  } catch (error) {
-    console.error('Error initializing models:', error)
-  }
-}
-
-onMounted(() => {
-  getInitialModels()
-})
 </script>
 
 <template>
@@ -113,7 +57,7 @@ onMounted(() => {
         class="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden origin-top-right"
       >
         <ul class="max-h-60 overflow-y-auto custom-scrollbar p-1">
-          <li v-for="model in models" :key="model.id">
+          <li v-for="model in props.models" :key="model.id">
             <button
               @click="selectModel(model)"
               class="w-full text-left px-4 py-2.5 text-sm rounded-lg transition-colors flex items-center justify-between group"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, toRef } from 'vue'
 import {
   Chart as ChartJS,
   Title,
@@ -15,7 +15,6 @@ import { Line } from 'vue-chartjs'
 import { getTwinHistory } from '@/composables/getTwinHistory'
 import { useIsRunning, toggleSimulator } from '@/composables/simulator'
 import { useI18n } from 'vue-i18n'
-import type { RoomPayload } from '@/scripts/schema'
 const { t } = useI18n()
 
 // Register Chart.js components
@@ -26,26 +25,19 @@ export type TimeRange = '1D' | '1W' | '1M'
 type AggMode = 'sum' | 'avg' | 'min' | 'max'
 
 const props = defineProps<{
-  buildings: any[]
+  selectedRooms: string[],
+  selectedTwinId: string | undefined
 }>()
 
+const twinIdRef = toRef(props, 'selectedTwinId')
+
 // --- State ---
-const selectedTwinId = ref<string>('')
-const selectedRooms = ref<RoomPayload[]>([])
 const timeRange = ref<TimeRange>('1D')
 const aggMode = ref<AggMode>('avg')
 
-// Select first building on load
-watch(() => props.buildings, (newVal) => {
-  if (newVal && newVal.length > 0 && !selectedTwinId.value) {
-    selectedTwinId.value = newVal[0].id
-    selectedRooms.value = newVal[0].rooms || []
-  }
-}, { immediate: true })
-
 const toggleSimulatorButton = () => {
-  if (!selectedTwinId.value) return
-  toggleSimulator(selectedTwinId.value, isSimRunning.value ? 'stop' : 'start', selectedRooms.value.map(r => r.id)).then(
+  if (!twinIdRef.value) return
+  toggleSimulator(twinIdRef.value, isSimRunning.value ? 'stop' : 'start', props.selectedRooms).then(
     () => {
       isSimRunning.value = !isSimRunning.value
       
@@ -59,36 +51,19 @@ const toggleSimulatorButton = () => {
   })
 }
 
-const handleBuildingChange = () => {
-  selectedRooms.value = props.buildings.find(b => b.id === selectedTwinId.value)?.rooms || []
-  console.log('Selected Rooms:', selectedRooms.value)
-}
-
-const formatChartLabel = (isoDate: string, range: string) => {
-  const date = new Date(isoDate);
-
-  if (range === '1D') {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); 
-    // Output: "14:00"
-  } 
-
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  // Output: "Feb 08"
-};
-
 const { 
   data: peopleData, 
   labels: peopleLabels,
   isLoading: loadingPeople 
-} = getTwinHistory(selectedTwinId, timeRange, 'peopleCount')
+} = getTwinHistory(twinIdRef, timeRange, 'peopleCount')
 
 const { 
   data: tempData, 
   labels: tempLabels,
   isLoading: loadingTemp 
-} = getTwinHistory(selectedTwinId, timeRange, 'temperature')
+} = getTwinHistory(twinIdRef, timeRange, 'temperature')
 
-const { isSimRunning, error, refetch } = useIsRunning(selectedTwinId)
+const { isSimRunning, error, refetch } = useIsRunning(twinIdRef.value)
 
 const checkSimStatus = () => {
   refetch()
@@ -194,35 +169,23 @@ const tempChartData = computed(() => {
     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col xl:flex-row items-center justify-between gap-4">
       
       <div class="relative w-full xl:w-auto">
-        <select 
-          v-model="selectedTwinId"
-          @change="handleBuildingChange"
-          class="appearance-none bg-slate-50 border border-slate-300 text-slate-700 font-medium text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full xl:w-64 p-2.5 pr-8"
+        <button
+          @click="toggleSimulatorButton"
+          class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 mr-2"
+          :class="
+            isSimRunning
+              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+              : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'
+          "
         >
-          <option v-for="twin in buildings" :key="twin.id" :value="twin.id">
-            {{ twin.name || twin.id }}
-          </option>
-        </select>
-        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-        </div>
-          <button
-            @click="toggleSimulatorButton"
-            class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 mr-2"
-            :class="
-              isSimRunning
-                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'
-            "
-          >
-            <span v-if="isSimRunning" class="relative flex h-2 w-2">
-              <span
-                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
-              ></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            {{ isSimRunning ? t('table.buttons.stop') : t('table.buttons.auto') }}
-          </button>
+          <span v-if="isSimRunning" class="relative flex h-2 w-2">
+            <span
+              class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
+            ></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          {{ isSimRunning ? t('table.buttons.stop') : t('table.buttons.auto') }}
+        </button>
       </div>
 
       <div class="flex flex-wrap gap-4 justify-center w-full xl:w-auto">
@@ -275,7 +238,7 @@ const tempChartData = computed(() => {
           </span>
         </h3>
         <div class="h-[320px]">
-          <div v-if="!selectedTwinId" class="animate-pulse">No data</div>
+          <div v-if="!twinIdRef?.valueOf" class="animate-pulse">No data</div>
           <div v-else-if="loadingPeople" class="animate-pulse">Loading...</div>
           <Line v-else :data="peopleChartData" :options="commonOptions" />
         </div>
@@ -292,7 +255,7 @@ const tempChartData = computed(() => {
           </span>
         </h3>
         <div class="h-[320px]">
-            <div v-if="!selectedTwinId" class="animate-pulse">No data</div>
+            <div v-if="!twinIdRef?.valueOf" class="animate-pulse">No data</div>
             <div v-else-if="loadingTemp" class="animate-pulse">Loading...</div>
            <Line v-else :data="tempChartData" :options="commonOptions" />
         </div>
