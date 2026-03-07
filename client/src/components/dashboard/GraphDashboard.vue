@@ -53,13 +53,11 @@ const toggleSimulatorButton = () => {
 
 const { 
   data: peopleData, 
-  labels: peopleLabels,
   isLoading: loadingPeople 
 } = getTwinHistory(twinIdRef, timeRange, 'peopleCount')
 
 const { 
   data: tempData, 
-  labels: tempLabels,
   isLoading: loadingTemp 
 } = getTwinHistory(twinIdRef, timeRange, 'temperature')
 

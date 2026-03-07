@@ -2,18 +2,16 @@ import { ref, watchEffect } from 'vue'
 
 export interface ApiDataPoint {
   timestamp: string
-  avg: number
-  max: number
-  min: number
-  sum: number
+  roomId: string
+  value: number
+  twin: string
 }
 
-export function getTwinHistory(twinId: any, range: any, apiType: 'peopleCount' | 'temperature') {
+export function getTwinData(twinId: any, apiType: 'peopleCount' | 'temperature') {
     const data = ref<ApiDataPoint[]>([])
     const isLoading = ref(false)
     const error = ref(null)
     const serverUrl = import.meta.env.VITE_SERVER_URL
-
     watchEffect(async () => {
         if (!twinId.value) return
         
@@ -23,7 +21,7 @@ export function getTwinHistory(twinId: any, range: any, apiType: 'peopleCount' |
 
         try {
             const response = await fetch(
-                `${serverUrl}/sensor/${apiType}/dashboard/entireTwin/?twin=${twinId.value}&timeRange=${range.value}`
+                `${serverUrl}/sensor/${apiType}/entireTwin/?twin=${twinId.value}`
             )
             
             if (!response.ok) throw new Error('Fetch failed')

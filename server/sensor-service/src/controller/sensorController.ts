@@ -3,7 +3,9 @@ import {
     postPeopleCountSignal,
     postTemperatureSignal,
     getLatestsPeopleCountSignal,
-    getLatestsTemperatureSignal
+    getLatestsTemperatureSignal,
+    getAllLatestsPeopleCountSignal,
+    getAllLatestsTemperatureSignal
 } from "../services/sensorService.js";
 import { getTemperatureData, getPeopleCountData } from '../services/dashboardService.js';
 import type { 
@@ -37,7 +39,7 @@ export const postTemperature = async (req: Request, res: Response) => {
     }
 };
 
-export const getPeopleCount = async (req: Request<PeopleCountParams>, res: Response) => {
+export const getSinglePeopleCount = async (req: Request<PeopleCountParams>, res: Response) => {
     try {
         const { twin, roomId } = req.query;
         const peopleCount = await getLatestsPeopleCountSignal(twin as string, roomId as string);
@@ -47,10 +49,30 @@ export const getPeopleCount = async (req: Request<PeopleCountParams>, res: Respo
     }
 };
 
-export const getTemperature = async (req: Request<TemperatureParams>, res: Response) => {
+export const getSingleTemperature = async (req: Request<TemperatureParams>, res: Response) => {
     try {
         const { twin, roomId } = req.query;
         const temperature = await getLatestsTemperatureSignal(twin as string, roomId as string);
+        res.status(200).json({ temperature });
+    } catch (error: any) {
+        res.status(400).json({ error: error.message });
+    }
+};
+
+export const getAllPeopleCount = async (req: Request<PeopleCountParams>, res: Response) => {
+    try {
+        const { twin } = req.query;
+        const peopleCount = await getAllLatestsPeopleCountSignal(twin as string);
+        res.status(200).json({ peopleCount });
+    } catch (error: any) {
+        res.status(400).json({ error: error.message });
+    }
+};
+
+export const getAllTemperature = async (req: Request<TemperatureParams>, res: Response) => {
+    try {
+        const { twin } = req.query;
+        const temperature = await getAllLatestsTemperatureSignal(twin as string);
         res.status(200).json({ temperature });
     } catch (error: any) {
         res.status(400).json({ error: error.message });

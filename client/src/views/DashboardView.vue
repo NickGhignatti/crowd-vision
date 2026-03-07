@@ -72,13 +72,12 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
 
     if (building && building.rooms) {
       building.rooms.forEach((room: RoomPayload) => {
-        const occupants = Math.floor(Math.random() * room.capacity)
         roomData.value.push({
           room: room.id,
-          status: t(getStatusByOccupants(occupants, room.capacity)),
+          status: t(getStatusByOccupants(0, room.capacity)),
           teacher: '',
           temp: '',
-          people: occupants.toString(),
+          people: 0,
           capacity: room.capacity.toString(),
         })
       })
@@ -253,7 +252,7 @@ onUnmounted(() => {
         <Transition name="fade" mode="out-in">
           
           <div v-if="viewMode === 'table'" key="table" class="w-full">
-            <DataTable :headers="tableHeaders" :items="roomData"
+            <DataTable :headers="tableHeaders" :items="roomData" :selectedTwinId="selectedModel?.id"
               class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top">
               <template #status="{ value }">
                 <span :class="getStatusColor(value)">{{ value }}</span>
