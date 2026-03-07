@@ -12,7 +12,7 @@ const { t, locale } = useI18n()
 
 const now = ref(new Date())
 const isFullscreen = ref(false)
-const roomData = ref<TableBody[]>([])
+const tableRoomsData = ref<TableBody[]>([])
 const focusSection = ref<HTMLElement | null>(null)
 
 let timer: ReturnType<typeof setInterval>
@@ -50,19 +50,19 @@ const tableHeaders = ref<TableHeader[]>([
 
 const fetchRoomsByBuilding = async (buildingId: string) => {
   try {
-    roomData.value = []
+    tableRoomsData.value = []
 
     const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/twin/building/${buildingId}`)
     if (!response.ok) throw new Error('Failed to fetch building data')
 
-    const building = (await response.json()) as BuildingPayload
+    const buildingModel = (await response.json()) as BuildingPayload
 
-    if (building && building.rooms) {
-      building.rooms.forEach((room: RoomPayload) => {
+    if (buildingModel && buildingModel.rooms) {
+      buildingModel.rooms.forEach((room: RoomPayload) => {
         const occupants = Math.floor(Math.random() * room.capacity)
-        roomData.value.push({
+        tableRoomsData.value.push({
           room: room.id,
-          status: t(getStatusByOccupants(occupants, room.capacity)),
+          status: t(getRoomStatusByOccupants(occupants, room.capacity)),
           teacher: '',
           temp: '',
           people: occupants.toString(),
@@ -75,11 +75,11 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
   }
 }
 
-const handleModelChange = (modelId: string) => {
-  fetchRoomsByBuilding(modelId)
+const handleModelChange = (buildingModelID: string) => {
+  fetchRoomsByBuilding(buildingModelID)
 }
 
-const getStatusByOccupants = (occupants: number, roomCapacity: number) => {
+const getRoomStatusByOccupants = (occupants: number, roomCapacity: number) => {
   const occupantsPercentage = occupants / roomCapacity
   if (occupantsPercentage == 0.0) return 'dashboard.table.rooms.status.empty'
   if (occupantsPercentage <= 0.5) return 'dashboard.table.rooms.status.normal'
@@ -137,7 +137,7 @@ onUnmounted(() => {
     <NavBar />
 
     <div ref="focusSection" class="flex flex-col items-center pt-12 px-4 pb-20 bg-slate-50 overflow-y-auto w-full">
-      <FullScreenMode :is-fullscreen="isFullscreen" @toggleFocusMode="toggleFocusMode"></FullScreenMode>
+      <FullScreenMode :isFullscreen="isFullscreen" @toggleFocusMode="toggleFocusMode"></FullScreenMode>
 
       <div class="mb-10 w-full max-w-4xl grid grid-cols-3 items-center">
         <div />
@@ -154,7 +154,7 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <DataTable :headers="tableHeaders" :items="roomData"
+      <DataTable :headers="tableHeaders" :roomsData="tableRoomsData"
         class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top">
         <template #status="{ value }">
           <span :class="getStatusColor(value)">{{ value }}</span>

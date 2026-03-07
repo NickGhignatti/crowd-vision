@@ -5,15 +5,15 @@ import { Domain } from "../models/domain.js";
 
 // Helper to get server URL
 const getServerUrl = () =>
-  process.env.VITE_SERVER_URL || "http://localhost:3000";
+    process.env.VITE_SERVER_URL || "http://localhost:3000";
 const getClientUrl = () => process.env.CLIENT_URL || "http://localhost:5173";
 
 // --- Local Auth ---
 
 export const registerUser = async (
-  username: string,
-  email: string,
-  password: string,
+    username: string,
+    email: string,
+    password: string,
 ) => {
   const existing = await User.findOne({ $or: [{ email }, { username }] });
   if (existing) throw new Error("User already exists");
@@ -42,12 +42,12 @@ export const authenticateUser = async (username: string, password: string) => {
 // --- SSO Logic ---
 
 export const generateSSOLoginUrl = async (
-  domainName: string,
-  username: string,
+    domainName: string,
+    username: string,
 ) => {
   // Fetch domain with secret
   const domain = await Domain.findOne({ name: domainName }).select(
-    "+ssoConfig.clientSecret",
+      "+ssoConfig.clientSecret",
   );
 
   if (!domain || domain.authStrategy !== "oidc" || !domain.ssoConfig) {
@@ -57,9 +57,9 @@ export const generateSSOLoginUrl = async (
   // Discover IdP
   const serverUrl = new URL(domain.ssoConfig.issuerUrl);
   const config = await client.discovery(
-    serverUrl,
-    domain.ssoConfig.clientId,
-    domain.ssoConfig.clientSecret,
+      serverUrl,
+      domain.ssoConfig.clientId,
+      domain.ssoConfig.clientSecret,
   );
 
   // Generate Code Challenge
@@ -94,21 +94,21 @@ export const processSSOCallback = async (fullUrl: string) => {
 
   // Decode State
   const { cv_username, domain, cv_verifier } = JSON.parse(
-    Buffer.from(stateParam, "base64").toString(),
+      Buffer.from(stateParam, "base64").toString(),
   );
 
   // Re-fetch Config
   const domainDoc = await Domain.findOne({ name: domain }).select(
-    "+ssoConfig.clientSecret",
+      "+ssoConfig.clientSecret",
   );
   if (!domainDoc || !domainDoc.ssoConfig)
     throw new Error("Invalid domain config");
 
   const serverUrl = new URL(domainDoc.ssoConfig.issuerUrl);
   const config = await client.discovery(
-    serverUrl,
-    domainDoc.ssoConfig.clientId,
-    domainDoc.ssoConfig.clientSecret,
+      serverUrl,
+      domainDoc.ssoConfig.clientId,
+      domainDoc.ssoConfig.clientSecret,
   );
 
   // Exchange Code for Tokens
@@ -121,27 +121,27 @@ export const processSSOCallback = async (fullUrl: string) => {
   // Map Roles
   const userGroups = claims ? (claims.groups as string[]) || [] : [];
   const role =
-    userGroups.includes("staff") || userGroups.includes("admin")
-      ? "admin"
-      : "viewer";
+      userGroups.includes("staff") || userGroups.includes("admin")
+          ? "admin"
+          : "viewer";
 
   // Update User Membership (Upsert)
   await User.findOneAndUpdate(
-    { username: cv_username },
-    { $pull: { memberships: { domainName: domain } } }, // Remove old
+      { username: cv_username },
+      { $pull: { memberships: { domainName: domain } } }, // Remove old
   );
 
   await User.findOneAndUpdate(
-    { username: cv_username },
-    {
-      $push: {
-        memberships: {
-          domainName: domain,
-          role: role,
-          externalId: claims ? claims.sub : null,
+      { username: cv_username },
+      {
+        $push: {
+          memberships: {
+            domainName: domain,
+            role: role,
+            externalId: claims ? claims.sub : null,
+          },
         },
       },
-    },
   );
 
   return `${getClientUrl()}/domains?refresh=true`;

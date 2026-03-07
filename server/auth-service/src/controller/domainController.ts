@@ -4,14 +4,14 @@ import * as DomainService from "../services/domainService.js";
 export const registerDomain = async (req: Request, res: Response) => {
   try {
     const { name, subdomains, authStrategy, ssoConfig, creatorUsername } =
-      req.body;
+        req.body;
 
     const domain = await DomainService.createDomain(
-      name,
-      subdomains,
-      creatorUsername,
-      authStrategy,
-      ssoConfig,
+        name,
+        subdomains,
+        creatorUsername,
+        authStrategy,
+        ssoConfig,
     );
 
     res.status(201).json(domain);
@@ -33,7 +33,7 @@ export const getUserDomains = async (req: Request, res: Response) => {
   try {
     const { username } = req.params;
     const memberships = await DomainService.getUserMemberships(
-      username as string,
+        username as string,
     );
     res.json({ domains: memberships });
   } catch (error: any) {

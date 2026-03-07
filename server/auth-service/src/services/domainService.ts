@@ -2,11 +2,11 @@ import { Domain, type ISSOConfig } from "../models/domain.js";
 import { User } from "../models/user.js";
 
 export const createDomain = async (
-  name: string,
-  subdomains: string[],
-  creatorUsername: string,
-  authStrategy: "internal" | "oidc",
-  ssoConfig?: ISSOConfig,
+    name: string,
+    subdomains: string[],
+    creatorUsername: string,
+    authStrategy: "internal" | "oidc",
+    ssoConfig?: ISSOConfig,
 ) => {
   const existing = await Domain.findOne({ name });
   if (existing) throw new Error("Domain already exists");
@@ -19,8 +19,8 @@ export const createDomain = async (
   });
 
   await User.findOneAndUpdate(
-    { username: creatorUsername },
-    { $push: { memberships: { domainName: name, role: "owner" } } },
+      { username: creatorUsername },
+      { $push: { memberships: { domainName: name, role: "owner" } } },
   );
 
   return domain;
@@ -44,8 +44,8 @@ export const getUserMemberships = async (username: string) => {
 };
 
 export const subscribeInternal = async (
-  username: string,
-  domainName: string,
+    username: string,
+    domainName: string,
 ) => {
   const domain = await Domain.findOne({ name: domainName });
   if (!domain) throw new Error("Domain not found");
@@ -55,14 +55,14 @@ export const subscribeInternal = async (
   }
 
   await User.findOneAndUpdate(
-    { username },
-    { $addToSet: { memberships: { domainName, role: "viewer" } } },
+      { username },
+      { $addToSet: { memberships: { domainName, role: "viewer" } } },
   );
 };
 
 export const unsubscribe = async (username: string, domainName: string) => {
   await User.findOneAndUpdate(
-    { username },
-    { $pull: { memberships: { domainName } } },
+      { username },
+      { $pull: { memberships: { domainName } } },
   );
 };

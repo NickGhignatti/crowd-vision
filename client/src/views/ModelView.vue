@@ -16,7 +16,7 @@ interface TresEvent extends Intersection {
   stopPropagation: () => void
 }
 
-const model = useBuildingModel()
+const buildingModel = useBuildingModel()
 
 const {
   cameraRef,
@@ -31,26 +31,26 @@ const {
 
 const handleExplodeToggle = () => {
   const result = triggerExplodeView(
-    model.selectedRoomId.value,
-    model.building.value,
-    model.isExploded.value,
+    buildingModel.selectedRoomId.value,
+    buildingModel.building.value,
+    buildingModel.isExploded.value,
   )
-  model.isExploded.value = result.exploded
-  model.explodedRoomId.value = result.roomId
+  buildingModel.isExploded.value = result.exploded
+  buildingModel.explodedRoomId.value = result.roomId
 }
 
 const onRoomClick = (id: string, event: TresEvent) => {
   if (isRotating.value) return
   if (event && event.stopPropagation) event.stopPropagation()
-  model.toggleRoom(id)
+  buildingModel.toggleRoom(id)
 }
 
 const isExplodedRoom = (roomId: string) => {
-  return model.isExploded.value && model.explodedRoomId.value === roomId
+  return buildingModel.isExploded.value && buildingModel.explodedRoomId.value === roomId
 }
 
 onMounted(() => {
-  model.fetchBuildings()
+  buildingModel.fetchBuildings()
 })
 </script>
 
@@ -60,13 +60,13 @@ onMounted(() => {
 
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
       <LeftMenu
-        :structure-ids="model.availableBuildingsNames.value"
-        :selected-id="model.building.value?.id || null"
-        :building="model.building.value"
-        :active-floor="model.selectedFloor.value"
-        @json-uploaded="model.fetchBuildings"
-        @change-building="model.setBuildingByIndex"
-        @change-floor="model.setFloor"
+        :availableBuildingIds="buildingModel.availableBuildingsNames.value"
+        :selectedBuildingId="buildingModel.building.value?.id || null"
+        :buildingModel="buildingModel.building.value"
+        :currentSelectedFloor="buildingModel.selectedFloor.value"
+        @json-uploaded="buildingModel.fetchBuildings"
+        @change-building="buildingModel.setBuildingByIndex"
+        @change-floor="buildingModel.setFloor"
       />
 
       <main class="flex-1 relative bg-slate-50 z-0 min-w-0">
@@ -85,9 +85,9 @@ onMounted(() => {
 
           <AutoRotate :active="isRotating" :camera="cameraRef" />
 
-          <template v-if="model.building.value">
+          <template v-if="buildingModel.building.value">
             <TresGroup
-              v-for="room in model.visibleRooms.value"
+              v-for="room in buildingModel.visibleRooms.value"
               :key="room.id"
               :position="[room.position.x, room.position.y, room.position.z]"
             >
@@ -100,9 +100,9 @@ onMounted(() => {
                   :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
                 />
                 <TresMeshStandardMaterial
-                  :color="room.id === model.selectedRoomId.value ? '#10b981' : '#e2e8f0'"
+                  :color="room.id === buildingModel.selectedRoomId.value ? '#10b981' : '#e2e8f0'"
                   :transparent="true"
-                  :opacity="room.id === model.selectedRoomId.value ? 0.6 : 0.3"
+                  :opacity="room.id === buildingModel.selectedRoomId.value ? 0.6 : 0.3"
                   :depth-write="false"
                   :depth-test="true"
                   :side="2"
@@ -122,8 +122,8 @@ onMounted(() => {
         </TresCanvas>
 
         <ViewControls
-          :selected-room-id="model.selectedRoomId.value"
-          :is-exploded="model.isExploded.value"
+          :selected-room-id="buildingModel.selectedRoomId.value"
+          :is-exploded="buildingModel.isExploded.value"
           :disabled="isRotating"
           @reset-view="resetView"
           @toggle-explode="handleExplodeToggle"
@@ -134,9 +134,9 @@ onMounted(() => {
       </main>
 
       <RightMenu
-        :building="model.displayedBuilding.value"
-        :selected-room-id="model.selectedRoomId.value"
-        @toggle-select="model.toggleRoom"
+        :buildingModel="buildingModel.displayedBuilding.value"
+        :selectedRoomId="buildingModel.selectedRoomId.value"
+        @toggle-select="buildingModel.toggleRoom"
       />
     </div>
   </div>

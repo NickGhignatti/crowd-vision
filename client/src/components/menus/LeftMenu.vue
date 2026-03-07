@@ -12,10 +12,10 @@ const emit = defineEmits<{
 }>()
 
 const props = defineProps<{
-  structureIds: string[]
-  selectedId?: string | null
-  building: BuildingPayload | null
-  activeFloor: number | null
+  availableBuildingIds: string[]
+  selectedBuildingId?: string | null
+  buildingModel: BuildingPayload | null
+  currentSelectedFloor: number | null
 }>()
 
 const { t } = useI18n()
@@ -27,7 +27,7 @@ const canUpload = computed(() => {
 })
 
 const selectedFloorModel = computed({
-  get: () => props.activeFloor,
+  get: () => props.currentSelectedFloor,
   set: (val) => emit('change-floor', val),
 })
 
@@ -38,7 +38,7 @@ const serverUrl = import.meta.env.VITE_SERVER_URL
 const fileInput = ref<HTMLInputElement | null>(null)
 
 watch(
-  () => props.selectedId,
+  () => props.selectedBuildingId,
   () => {
     showControls.value = false
   },
@@ -94,8 +94,8 @@ const handleFileUpload = async (event: Event) => {
 }
 
 const availableFloors = computed(() => {
-  if (!props.building || !props.building.rooms) return []
-  const yCoords = new Set(props.building.rooms.map((r) => r.position.y))
+  if (!props.buildingModel || !props.buildingModel.rooms) return []
+  const yCoords = new Set(props.buildingModel.rooms.map((r) => r.position.y))
   return Array.from(yCoords).sort((a, b) => a - b)
 })
 </script>
@@ -141,11 +141,11 @@ const availableFloors = computed(() => {
       </div>
 
       <div class="flex-1 overflow-y-auto p-3 space-y-1">
-        <div v-for="(item, index) in structureIds" :key="item" class="mb-3">
+        <div v-for="(item, index) in availableBuildingIds" :key="item" class="mb-3">
           <div
             class="p-4 rounded-xl border cursor-pointer transition-all duration-200 ease-in-out relative group"
             :class="[
-              item === selectedId
+              item === selectedBuildingId
                 ? 'border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500'
                 : 'border-slate-100 bg-slate-50 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-md hover:-translate-y-0.5',
             ]"
@@ -154,7 +154,7 @@ const availableFloors = computed(() => {
             <div class="pr-8">
               <span
                 class="text-xs font-bold uppercase tracking-wider"
-                :class="item === selectedId ? 'text-emerald-700' : 'text-emerald-600'"
+                :class="item === selectedBuildingId ? 'text-emerald-700' : 'text-emerald-600'"
               >
                 {{ t('model.name') }}:
               </span>
@@ -162,7 +162,7 @@ const availableFloors = computed(() => {
             </div>
 
             <button
-              v-if="item === selectedId"
+              v-if="item === selectedBuildingId"
               @click="toggleControls"
               class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all"
               :class="
@@ -186,7 +186,7 @@ const availableFloors = computed(() => {
           >
             <div
               v-if="
-                item === selectedId && showControls && props.building && availableFloors.length > 0
+                item === selectedBuildingId && showControls && props.buildingModel && availableFloors.length > 0
               "
               class="mt-2 ml-4 relative"
             >

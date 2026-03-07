@@ -35,8 +35,8 @@ export const startSSOLogin = async (req: Request, res: Response) => {
     const { username } = req.query;
 
     const redirectUrl = await AuthService.generateSSOLoginUrl(
-      domainName as string,
-      username as string,
+        domainName as string,
+        username as string,
     );
 
     res.json({ redirectUrl });
@@ -49,13 +49,13 @@ export const handleSSOCallback = async (req: Request, res: Response) => {
   try {
     // Pass full URL to service to handle state/code extraction
     const clientRedirect = await AuthService.processSSOCallback(
-      req.originalUrl,
+        req.originalUrl,
     );
     res.redirect(clientRedirect);
   } catch (error: any) {
     console.error("SSO Error:", error);
     res.redirect(
-      `${process.env.CLIENT_URL || "http://localhost:8080"}/domains?error=sso_failed`,
+        `${process.env.CLIENT_URL || "http://localhost:8080"}/domains?error=sso_failed`,
     );
   }
 };
