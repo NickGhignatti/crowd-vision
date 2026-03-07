@@ -9,7 +9,7 @@ const { t } = useI18n()
 
 // Props: Items are all available domains. userMemberships is the user's current status.
 const props = defineProps<{
-  items: DomainPayload[]
+  domains: DomainPayload[]
   userMemberships: DomainMembership[]
 }>()
 
@@ -36,7 +36,7 @@ watch(
 )
 
 const handleSubscribe = async (index: number) => {
-  const domain = props.items[index]
+  const domain = props.domains[index]
   if (!domain) return
 
   const username = localStorage.getItem('username')
@@ -85,7 +85,7 @@ const handleSubscribe = async (index: number) => {
 }
 
 const handleUnsubscribe = async (index: number) => {
-  const domain = props.items[index]
+  const domain = props.domains[index]
   if (!domain) return
 
   const username = localStorage.getItem('username')
@@ -137,7 +137,7 @@ const hasSub = (domainName: string): boolean => {
 
       <tbody class="divide-y divide-slate-100 bg-white">
         <tr
-          v-for="(item, index) in items"
+          v-for="(item, index) in domains"
           :key="index"
           class="group hover:bg-slate-50 transition-colors duration-150"
         >
@@ -150,7 +150,7 @@ const hasSub = (domainName: string): boolean => {
           />
         </tr>
 
-        <tr v-if="items.length === 0">
+        <tr v-if="domains.length === 0">
           <td colspan="2" class="p-8 text-center text-slate-500">
             <div class="flex flex-col items-center gap-2">
               <i class="ph-duotone ph-magnifying-glass text-3xl opacity-50"></i>

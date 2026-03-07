@@ -24,7 +24,7 @@ describe('RightMenu.vue', () => {
 
   it('filters rooms based on search', async () => {
     const wrapper = mount(RightMenu, {
-      props: { building: mockBuilding, selectedRoomId: null },
+      props: { buildingModel: mockBuilding, selectedRoomId: null },
     })
 
     // Open Search
@@ -40,7 +40,7 @@ describe('RightMenu.vue', () => {
 
   it('emits toggle-select when a room is clicked', async () => {
     const wrapper = mount(RightMenu, {
-      props: { building: mockBuilding, selectedRoomId: null },
+      props: { buildingModel: mockBuilding, selectedRoomId: null },
     })
 
     const roomItems = wrapper.findAllComponents({ name: 'RoomItem' })

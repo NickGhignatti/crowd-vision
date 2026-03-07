@@ -20,7 +20,7 @@ export interface TableBody {
 const props = withDefaults(
   defineProps<{
     headers: TableHeader[]
-    items: TableBody[]
+    roomsData: TableBody[]
     itemsPerPage?: number
   }>(),
   {
@@ -34,12 +34,12 @@ const currentPage = ref(1)
 const isAutoPlaying = ref(false)
 let autoPlayInterval: number | undefined
 
-const totalPages = computed(() => Math.ceil(props.items.length / props.itemsPerPage))
+const totalPages = computed(() => Math.ceil(props.roomsData.length / props.itemsPerPage))
 
 const paginatedItems = computed(() => {
   const start = (currentPage.value - 1) * props.itemsPerPage
   const end = start + props.itemsPerPage
-  return props.items.slice(start, end)
+  return props.roomsData.slice(start, end)
 })
 
 const emptyRows = computed(() => {

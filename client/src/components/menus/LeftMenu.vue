@@ -12,9 +12,9 @@ const emit = defineEmits<{
 }>()
 
 const props = defineProps<{
-  structureIds: string[]
+  buildingIds: string[]
   selectedId?: string | null
-  building: BuildingPayload | null
+  buildingModel: BuildingPayload | null
   activeFloor: number | null
 }>()
 
@@ -94,8 +94,8 @@ const handleFileUpload = async (event: Event) => {
 }
 
 const availableFloors = computed(() => {
-  if (!props.building || !props.building.rooms) return []
-  const yCoords = new Set(props.building.rooms.map((r) => r.position.y))
+  if (!props.buildingModel || !props.buildingModel.rooms) return []
+  const yCoords = new Set(props.buildingModel.rooms.map((r) => r.position.y))
   return Array.from(yCoords).sort((a, b) => a - b)
 })
 </script>
@@ -141,7 +141,7 @@ const availableFloors = computed(() => {
       </div>
 
       <div class="flex-1 overflow-y-auto p-3 space-y-1">
-        <div v-for="(item, index) in structureIds" :key="item" class="mb-3">
+        <div v-for="(item, index) in buildingIds" :key="item" class="mb-3">
           <div
             class="p-4 rounded-xl border cursor-pointer transition-all duration-200 ease-in-out relative group"
             :class="[
@@ -186,7 +186,7 @@ const availableFloors = computed(() => {
           >
             <div
               v-if="
-                item === selectedId && showControls && props.building && availableFloors.length > 0
+                item === selectedId && showControls && props.buildingModel && availableFloors.length > 0
               "
               class="mt-2 ml-4 relative"
             >

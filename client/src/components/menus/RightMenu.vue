@@ -8,7 +8,7 @@ import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
-  building: BuildingPayload | null
+  buildingModel: BuildingPayload | null
   selectedRoomId: string | null
 }>()
 
@@ -21,17 +21,17 @@ const { canEdit } = useUserPermissions()
 
 // Check if user is Admin/Owner for this specific building's domains
 const userCanEdit = computed(() => {
-  return props.building ? canEdit(props.building.domains) : false
+  return props.buildingModel ? canEdit(props.buildingModel.domains) : false
 })
 
 const isRightOpen = ref(true)
 const toggleRight = () => (isRightOpen.value = !isRightOpen.value)
 
-const isSearchOpen = ref(false)
 const searchQuery = ref('')
-const searchInput = ref<HTMLInputElement | null>(null)
+const isSearchOpen = ref(false)
 const isEditModalOpen = ref(false)
 const editingRoom = ref<RoomPayload | null>(null)
+const searchInput = ref<HTMLInputElement | null>(null)
 const roomRefs = ref<Record<string, HTMLElement | null>>({})
 
 const toggleSearch = () => {
@@ -47,11 +47,11 @@ const toggleSearch = () => {
 }
 
 const filteredRooms = computed(() => {
-  if (!props.building || !props.building.rooms) return []
-  if (!searchQuery.value) return props.building.rooms
+  if (!props.buildingModel || !props.buildingModel.rooms) return []
+  if (!searchQuery.value) return props.buildingModel.rooms
 
   const query = searchQuery.value.toLowerCase()
-  return props.building.rooms.filter((room) => room.id.toLowerCase().includes(query))
+  return props.buildingModel.rooms.filter((room) => room.id.toLowerCase().includes(query))
 })
 
 watch(
@@ -73,10 +73,10 @@ const handleOpenEdit = (room: RoomPayload) => {
 }
 
 const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
-  if (!props.building || !editingRoom.value) return
+  if (!props.buildingModel || !editingRoom.value) return
 
   try {
-    const buildingId = props.building.id
+    const buildingId = props.buildingModel.id
     const roomId = editingRoom.value.id
 
     const res = await fetch(
@@ -159,7 +159,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
       <div class="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
         <div class="space-y-4">
           <div
-            v-if="!props.building || props.building.rooms.length === 0"
+            v-if="!props.buildingModel || props.buildingModel.rooms.length === 0"
             class="text-center py-10"
           >
             <p class="text-slate-400 text-sm">{{ t('model.RightMenu.missingRooms') }}</p>
