@@ -5,12 +5,12 @@ import type { DomainMembership } from '@/models/domain'
 export function useBuildingModel() {
   const serverUrl = import.meta.env.VITE_SERVER_URL
 
-  const building = ref<BuildingPayload | null>(null)
-  const allBuildings = ref<BuildingPayload[]>([]) // <--- This exists
-  const selectedRoomId = ref<string | null>(null)
-  const selectedFloor = ref<number | null>(null)
-  const explodedRoomId = ref<string | null>(null)
   const isExploded = ref(false)
+  const selectedRoomId = ref<string | null>(null)
+  const explodedRoomId = ref<string | null>(null)
+  const allBuildings = ref<BuildingPayload[]>([])
+  const selectedFloor = ref<number | null>(null)
+  const building = ref<BuildingPayload | null>(null)
 
   const availableBuildingsNames = computed(() => allBuildings.value.map((b) => b.id))
 

@@ -11,7 +11,7 @@ describe('DataTable.vue', () => {
 
   it('paginates correctly', async () => {
     const wrapper = mount(DataTable, {
-      props: { headers, items, itemsPerPage: 5 },
+      props: { headers: headers, roomsData: items, itemsPerPage: 5 },
     })
 
     expect(wrapper.text()).toContain('User 0')
@@ -26,7 +26,7 @@ describe('DataTable.vue', () => {
   it('handles auto-play', async () => {
     vi.useFakeTimers()
     const wrapper = mount(DataTable, {
-      props: { headers, items, itemsPerPage: 5 },
+      props: { headers, roomsData: items, itemsPerPage: 5 },
     })
 
     await wrapper.find('button:first-child').trigger('click')

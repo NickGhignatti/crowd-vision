@@ -9,11 +9,11 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
+const searchQuery = ref('')
+const isSubmitting = ref(false)
+const isAddDomainModalOpen = ref(false)
 const domains = ref<DomainPayload[]>([])
 const userMemberships = ref<DomainMembership[]>([])
-const searchQuery = ref('')
-const isAddDomainModalOpen = ref(false)
-const isSubmitting = ref(false)
 
 const fetchAllDomains = async () => {
   try {
@@ -142,7 +142,7 @@ onMounted(() => {
       class="flex-1 min-h-0 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col"
     >
       <DomainsTable
-        :items="filteredDomains"
+        :domains="filteredDomains"
         :user-memberships="userMemberships"
         @refresh="
           () => {

@@ -23,7 +23,7 @@ describe('DomainsTable.vue', () => {
 
   it('initializes subscription state correctly', () => {
     const wrapper = mount(DomainsTable, {
-      props: { items: mockItems, userMemberships: mockUserMemberships },
+      props: { domains: mockItems, userMemberships: mockUserMemberships },
     })
     const rows = wrapper.findAllComponents(DomainRow)
     expect(rows[0].props('isSubscribed')).toBe(true)
@@ -33,7 +33,7 @@ describe('DomainsTable.vue', () => {
   it('handles subscription success', async () => {
     mockFetch.mockResolvedValue({ ok: true })
     const wrapper = mount(DomainsTable, {
-      props: { items: mockItems, userMemberships: [] },
+      props: { domains: mockItems, userMemberships: [] },
     })
 
     const firstRow = wrapper.findComponent(DomainRow)
@@ -56,7 +56,7 @@ describe('DomainsTable.vue', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const wrapper = mount(DomainsTable, {
-      props: { items: mockItems, userMemberships: [] },
+      props: { domains: mockItems, userMemberships: [] },
     })
 
     const firstRow = wrapper.findComponent(DomainRow)

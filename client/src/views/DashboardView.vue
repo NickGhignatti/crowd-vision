@@ -154,7 +154,7 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <DataTable :headers="tableHeaders" :items="roomData"
+      <DataTable :headers="tableHeaders" :roomsData="roomData"
         class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top">
         <template #status="{ value }">
           <span :class="getStatusColor(value)">{{ value }}</span>

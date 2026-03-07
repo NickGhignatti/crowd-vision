@@ -18,8 +18,8 @@ const emit = defineEmits<{
 
 const models = ref<ModelOption[]>([])
 const isDropdownOpen = ref<boolean>(false)
-const selectedModel = ref<ModelOption | null>(null)
 const serverUrl = import.meta.env.VITE_SERVER_URL
+const selectedModel = ref<ModelOption | null>(null)
 
 const selectModel = (model: ModelOption) => {
   selectedModel.value = model
