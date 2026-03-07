@@ -41,7 +41,7 @@ describe("Domain API", () => {
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty("name", mockDomain.name);
       expect(res.body.subdomains).toEqual(
-        expect.arrayContaining(mockDomain.subdomains),
+          expect.arrayContaining(mockDomain.subdomains),
       );
     });
 
@@ -55,7 +55,7 @@ describe("Domain API", () => {
       expect(Array.isArray(res.body.domains)).toBe(true);
 
       const found = res.body.domains.find(
-        (d: any) => d.name === mockDomain.name,
+          (d: any) => d.name === mockDomain.name,
       );
       expect(found).toBeDefined();
     });
@@ -79,7 +79,7 @@ describe("Domain API", () => {
       expect(res.status).toBe(200);
 
       const membership = res.body.domains.find(
-        (m: any) => m.domainName === mockDomain.name,
+          (m: any) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeDefined();
       expect(membership.role).toBe("owner");
@@ -87,18 +87,18 @@ describe("Domain API", () => {
 
     it("should allow a user to SUBSCRIBE to a domain", async () => {
       const res = await request(app)
-        .post(`/domains/${subscriberUser.username}/subscribe`)
-        .send({ domainName: mockDomain.name });
+          .post(`/domains/${subscriberUser.username}/subscribe`)
+          .send({ domainName: mockDomain.name });
 
       expect(res.status).toBe(200);
 
       const checkRes = await request(app).get(
-        `/domains/${subscriberUser.username}`,
+          `/domains/${subscriberUser.username}`,
       );
       expect(checkRes.status).toBe(200);
 
       const membership = checkRes.body.domains.find(
-        (m: any) => m.domainName === mockDomain.name,
+          (m: any) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeDefined();
       expect(membership.role).toBe("viewer");
@@ -106,20 +106,20 @@ describe("Domain API", () => {
 
     it("should allow a user to UNSUBSCRIBE", async () => {
       await request(app)
-        .post(`/domains/${subscriberUser.username}/subscribe`)
-        .send({ domainName: mockDomain.name });
+          .post(`/domains/${subscriberUser.username}/subscribe`)
+          .send({ domainName: mockDomain.name });
 
       const res = await request(app)
-        .delete(`/domains/${subscriberUser.username}/unsubscribe`)
-        .send({ domainName: mockDomain.name });
+          .delete(`/domains/${subscriberUser.username}/unsubscribe`)
+          .send({ domainName: mockDomain.name });
 
       expect(res.status).toBe(200);
 
       const checkRes = await request(app).get(
-        `/domains/${subscriberUser.username}`,
+          `/domains/${subscriberUser.username}`,
       );
       const membership = checkRes.body.domains.find(
-        (m: any) => m.domainName === mockDomain.name,
+          (m: any) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeUndefined();
     });
