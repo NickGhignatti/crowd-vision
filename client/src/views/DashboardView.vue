@@ -7,6 +7,7 @@ import DataTable, { type TableBody, type TableHeader } from '@/components/tables
 
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { authenticatedFetch } from '@/composables/useApi.ts'
 
 const { t, locale } = useI18n()
 
@@ -39,7 +40,11 @@ const tableHeaders = ref<TableHeader[]>([
   { key: 'room', label: 'dashboard.table.headers.room', cellClass: 'font-medium text-slate-900' },
   { key: 'status', label: 'dashboard.table.headers.status', cellClass: 'text-sm' },
   { key: 'teacher', label: 'dashboard.table.headers.teacher', cellClass: 'text-sm' },
-  { key: 'temp', label: 'dashboard.table.headers.temperature', cellClass: 'text-slate-900 font-medium' },
+  {
+    key: 'temp',
+    label: 'dashboard.table.headers.temperature',
+    cellClass: 'text-slate-900 font-medium',
+  },
   { key: 'people', label: 'dashboard.table.headers.people', cellClass: 'text-slate-900' },
   {
     key: 'capacity',
@@ -52,8 +57,9 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
   try {
     roomData.value = []
 
-    const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/twin/building/${buildingId}`)
-    if (!response.ok) throw new Error('Failed to fetch building data')
+    const response = await authenticatedFetch(`/twin/building/${buildingId}`)
+    if (!response.ok)
+      throw new Error('Failed to fetch building data')
 
     const building = (await response.json()) as BuildingPayload
 
@@ -136,8 +142,14 @@ onUnmounted(() => {
   <div class="min-h-screen bg-slate-50">
     <NavBar />
 
-    <div ref="focusSection" class="flex flex-col items-center pt-12 px-4 pb-20 bg-slate-50 overflow-y-auto w-full">
-      <FullScreenMode :is-fullscreen="isFullscreen" @toggleFocusMode="toggleFocusMode"></FullScreenMode>
+    <div
+      ref="focusSection"
+      class="flex flex-col items-center pt-12 px-4 pb-20 bg-slate-50 overflow-y-auto w-full"
+    >
+      <FullScreenMode
+        :is-fullscreen="isFullscreen"
+        @toggleFocusMode="toggleFocusMode"
+      ></FullScreenMode>
 
       <div class="mb-10 w-full max-w-4xl grid grid-cols-3 items-center">
         <div />
@@ -154,8 +166,11 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <DataTable :headers="tableHeaders" :roomsData="roomData"
-        class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top">
+      <DataTable
+        :headers="tableHeaders"
+        :roomsData="roomData"
+        class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top"
+      >
         <template #status="{ value }">
           <span :class="getStatusColor(value)">{{ value }}</span>
         </template>
@@ -164,8 +179,16 @@ onUnmounted(() => {
         </template>
         <template #people="{ value }">
           <div class="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2" class="text-slate-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="text-slate-400"
+            >
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />
             </svg>
