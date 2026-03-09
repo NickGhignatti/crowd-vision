@@ -1,18 +1,17 @@
 import { ref, onMounted } from 'vue'
 import type { DomainMembership } from '@/models/domain'
+import { authenticatedFetch } from '@/composables/useApi.ts'
 
 export function useUserPermissions() {
   const memberships = ref<DomainMembership[]>([])
-  const serverUrl = import.meta.env.VITE_SERVER_URL
 
   // Fetch the user's roles for all domains
   const fetchPermissions = async () => {
-    if (!serverUrl) return
     try {
       const username = localStorage.getItem('username')
       if (!username) return
 
-      const response = await fetch(`${serverUrl}/auth/domains/${username}`)
+      const response = await authenticatedFetch(`/auth/domains/${username}`)
       const data = await response.json()
 
       // The API returns { domains: [...] } where items are Memberships
@@ -34,8 +33,8 @@ export function useUserPermissions() {
     )
   }
 
-  onMounted(() => {
-    fetchPermissions()
+  onMounted(async () => {
+    await fetchPermissions()
   })
 
   return {

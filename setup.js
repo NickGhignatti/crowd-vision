@@ -1,8 +1,8 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { execSync } = require('node:child_process');
+const fs = require("node:fs");
+const path = require("node:path");
+const { execSync } = require("node:child_process");
 
-const envPath = path.join(__dirname, '.env');
+const envPath = path.join(__dirname, ".env");
 
 // 1. Default Configuration
 const defaultEnv = `
@@ -16,45 +16,65 @@ PROD_URL=http://localhost
 
 // 2. Create .env if it doesn't exist
 if (!fs.existsSync(envPath)) {
-    console.log("📝 Creating .env file with default configuration...");
-    fs.writeFileSync(envPath, defaultEnv + '\n');
+  console.log("📝 Creating .env file with default configuration...");
+  fs.writeFileSync(envPath, defaultEnv + "\n");
 } else {
-    console.log("✅ .env file already exists.");
+  console.log("✅ .env file already exists.");
 }
 
 // 3. Check for VAPID Keys (for Web Push)
-const currentEnv = fs.readFileSync(envPath, 'utf8');
+const currentEnv = fs.readFileSync(envPath, "utf8");
 
-if (!currentEnv.includes('VAPID_PUBLIC_KEY')) {
-    console.log("dt Generating VAPID keys for Web Push...");
+if (!currentEnv.includes("VAPID_PUBLIC_KEY")) {
+  console.log("dt Generating VAPID keys for Web Push...");
 
-    try {
-        const output = execSync('npx --yes web-push generate-vapid-keys', { encoding: 'utf8' });
+  try {
+    const output = execSync("npx --yes web-push generate-vapid-keys", {
+      encoding: "utf8",
+    });
 
-        const publicKeyMatch = output.match(/Public Key:\s*(.+)/);
-        const privateKeyMatch = output.match(/Private Key:\s*(.+)/);
+    const publicKeyMatch = output.match(/Public Key:\s*(.+)/);
+    const privateKeyMatch = output.match(/Private Key:\s*(.+)/);
 
-        if (publicKeyMatch && privateKeyMatch) {
-            const publicKey = publicKeyMatch[1].trim();
-            const privateKey = privateKeyMatch[1].trim();
+    if (publicKeyMatch && privateKeyMatch) {
+      const publicKey = publicKeyMatch[1].trim();
+      const privateKey = privateKeyMatch[1].trim();
 
-            const newKeys = `
+      const newKeys = `
 # Web Push Keys (Auto-Generated)
 VAPID_PUBLIC_KEY=${publicKey}
 VAPID_PRIVATE_KEY=${privateKey}
 VITE_VAPID_PUBLIC_KEY=${publicKey}
 `;
 
-            fs.appendFileSync(envPath, newKeys);
-            console.log("✅ VAPID keys generated and appended to .env");
-        } else {
-            console.error("❌ Failed to parse VAPID keys from output.");
-        }
-    } catch (error) {
-        console.error("❌ Error generating keys:", error.message);
-        console.error("Please install node and npx correctly.");
-        process.exit(1);
+      fs.appendFileSync(envPath, newKeys);
+      console.log("✅ VAPID keys generated and appended to .env");
+    } else {
+      console.error("❌ Failed to parse VAPID keys from output.");
     }
+  } catch (error) {
+    console.error("❌ Error generating keys:", error.message);
+    console.error("Please install node and npx correctly.");
+    process.exit(1);
+  }
 } else {
-    console.log("✅ VAPID keys already present.");
+  console.log("✅ VAPID keys already present.");
+}
+
+// 4. Check for JWT Secret
+if (!currentEnv.includes("JWT_SECRET")) {
+  console.log("🔑 Generating secure JWT secret...");
+
+  const crypto = require("node:crypto");
+  const jwtSecret = crypto.randomBytes(32).toString("hex"); // 64-char hex, 256 bits entropy
+
+  const jwtEnv = `
+# JWT Secret (Auto-Generated, 256-bit)
+JWT_SECRET=${jwtSecret}
+`;
+
+  fs.appendFileSync(envPath, jwtEnv);
+  console.log("✅ JWT secret generated and appended to .env");
+} else {
+  console.log("✅ JWT_SECRET already present.");
 }

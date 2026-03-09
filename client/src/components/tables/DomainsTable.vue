@@ -4,6 +4,7 @@ import type { DomainPayload, DomainMembership } from '@/models/domain'
 
 import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
+import { authenticatedFetch } from '@/composables/useApi.ts'
 
 const { t } = useI18n()
 
@@ -45,13 +46,13 @@ const handleSubscribe = async (index: number) => {
   try {
     // STRATEGY A: External SSO (OIDC)
     if (domain.authStrategy === 'oidc') {
-      const res = await fetch(
-        `${import.meta.env.VITE_SERVER_URL}/auth/sso/login/${domain.name}?username=${username}`,
+      const response = await authenticatedFetch(
+        `/auth/sso/login/${domain.name}?username=${username}`,
       )
 
-      if (!res.ok) throw new Error('Failed to initiate SSO')
+      if (!response.ok) throw new Error('Failed to initiate SSO')
 
-      const data = await res.json()
+      const data = await response.json()
 
       // Redirect the user away to the Identity Provider (e.g., Unibo, Google)
       // They will come back to the app via the backend callback
@@ -64,14 +65,9 @@ const handleSubscribe = async (index: number) => {
     // STRATEGY B: Internal (Crowd Vision Managed)
     subscribedSet.value.add(domain.name)
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SERVER_URL}/auth/domains/${username}/subscribe`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domainName: domain.name }),
-      },
-    )
+    const response = await authenticatedFetch(`/auth/domains/${username}/subscribe`, 'POST', {
+      body: JSON.stringify({ domainName: domain.name }),
+    })
 
     if (!response.ok) throw new Error(`Failed to subscribe to ${domain.name}`)
 
@@ -93,14 +89,9 @@ const handleUnsubscribe = async (index: number) => {
   try {
     subscribedSet.value.delete(domain.name)
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SERVER_URL}/auth/domains/${username}/unsubscribe`,
-      {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domainName: domain.name }),
-      },
-    )
+    const response = await authenticatedFetch(`/auth/domains/${username}/unsubscribe`, 'DELETE', {
+      body: JSON.stringify({ domainName: domain.name }),
+    })
 
     if (!response.ok) throw new Error(`Failed to unsubscribe from ${domain.name}`)
 

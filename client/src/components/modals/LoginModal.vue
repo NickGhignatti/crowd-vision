@@ -3,6 +3,7 @@ import UsernameInput from '@/components/inputs/UsernameInput.vue'
 import PasswordInput from '@/components/inputs/PasswordInput.vue'
 import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { nonAuthenticatedFetch } from '@/composables/useApi.ts'
 
 const { t } = useI18n()
 
@@ -20,13 +21,8 @@ const user = reactive({
   password: '',
 })
 
-const serverUrl = import.meta.env.VITE_SERVER_URL
 const handleLogin = async () => {
-  const response = await fetch(serverUrl + `/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  const response = await nonAuthenticatedFetch(`/auth/login`, 'POST', {
     body: JSON.stringify({
       username: user.username,
       password: user.password,
@@ -36,8 +32,12 @@ const handleLogin = async () => {
   if (response.ok) {
     localStorage.setItem('isAuthenticated', 'true')
     const message = await response.json()
-    localStorage.setItem('username', message.username)
+    localStorage.setItem('token', message.token)
+    localStorage.setItem('username', message.user.username)
     emit('close')
+  } else {
+    const error = await response.json()
+    console.log(error)
   }
 }
 </script>

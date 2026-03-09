@@ -1,9 +1,9 @@
 import { ref, computed, watch } from 'vue'
 import type { BuildingPayload } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
+import { authenticatedFetch } from '@/composables/useApi.ts'
 
 export function useBuildingModel() {
-  const serverUrl = import.meta.env.VITE_SERVER_URL
 
   const isExploded = ref(false)
   const selectedRoomId = ref<string | null>(null)
@@ -58,7 +58,7 @@ export function useBuildingModel() {
       const username = localStorage.getItem('username')
       if (!username) return
 
-      const domainRes = await fetch(`${serverUrl}/auth/domains/${username}`)
+      const domainRes = await authenticatedFetch(`/auth/domains/${username}`)
       const data = await domainRes.json()
       const memberships = data.domains as DomainMembership[]
 
@@ -67,7 +67,7 @@ export function useBuildingModel() {
       for (const m of memberships) {
         if (!m.domainName) continue
 
-        const buildingsRes = await fetch(`${serverUrl}/twin/buildings/${m.domainName}`)
+        const buildingsRes = await authenticatedFetch(`/twin/buildings/${m.domainName}`)
 
         if (buildingsRes.ok) {
           const buildingsOfDomain = (await buildingsRes.json()) as BuildingPayload[]
@@ -103,7 +103,7 @@ export function useBuildingModel() {
 
   return {
     building,
-    allBuildings, // <--- ADD THIS HERE
+    allBuildings,
     availableBuildingsNames,
     selectedRoomId,
     selectedFloor,

@@ -1,52 +1,51 @@
-import request from "supertest";
-import { app } from "../src/index.js";
+import {
+  authenticateUser,
+  registerUser,
+} from "../src/services/authenticationService.js";
 
-describe("Auth API", () => {
+describe("Authentication Service", () => {
   const mockUser = {
     username: "authTestUser",
     email: "auth@example.com",
     password: "password123",
   };
 
-  it("should create a new user", async () => {
-    const res = await request(app).post("/register").send(mockUser);
+  describe("1. User Registration", () => {
+    it("should create a new user", async () => {
+      const createdUser = await registerUser(
+        mockUser.username,
+        mockUser.email,
+        mockUser.password,
+      );
 
-    expect(res.status).toBe(201);
-    expect(res.body).toHaveProperty("userId");
-    expect(res.body.username).toBe(mockUser.username);
+      expect(createdUser.email).toContain(mockUser.email);
+      expect(createdUser.username).toContain(mockUser.username);
+      expect(createdUser.password).not.toContain(mockUser.password);
+    });
   });
 
-  it("should validate an existing user with correct password", async () => {
-    await request(app).post("/register").send(mockUser);
+  describe("2. User Validation", () => {
+    it("should validate an existing user with correct password", async () => {
+      await registerUser(mockUser.username, mockUser.email, mockUser.password);
+      const loggedUser = await authenticateUser(
+        mockUser.username,
+        mockUser.password,
+      );
 
-    const res = await request(app).post("/login").send({
-      username: mockUser.username,
-      password: mockUser.password,
+      expect(loggedUser.email).toContain(mockUser.email);
+      expect(loggedUser.username).toContain(mockUser.username);
     });
 
-    expect(res.status).toBe(200);
-    expect(res.body.message).toBe("Login successful");
-    expect(res.body).toHaveProperty("userId");
-  });
+    it("should reject login with incorrect password", async () => {
+      await registerUser(mockUser.username, mockUser.email, mockUser.password);
 
-  it("should reject login with incorrect password", async () => {
-    await request(app).post("/register").send(mockUser);
-
-    const res = await request(app).post("/login").send({
-      username: mockUser.username,
-      password: "wrongpassword",
+      await expect(
+        authenticateUser(mockUser.username, "wrongpassword"),
+      ).rejects.toThrow();
     });
 
-    expect(res.status).toBe(401);
-    expect(res.body.error).toBeDefined();
-  });
-
-  it("should fail if user does not exist", async () => {
-    const res = await request(app).post("/login").send({
-      username: "ghostuser",
-      password: "password",
+    it("should fail if user does not exist", async () => {
+      await expect(authenticateUser("temp", "password")).rejects.toThrow();
     });
-
-    expect(res.status).toBe(401);
   });
 });

@@ -68,7 +68,9 @@ onMounted(() => {
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="relative flex justify-between items-center h-16">
         <div class="flex items-center gap-2 cursor-pointer" @click="$router.push('/')">
-          <div class="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white shadow-sm">
+          <div
+            class="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white shadow-sm"
+          >
             <i class="ph-bold ph-buildings text-xl"></i>
           </div>
           <span class="font-bold text-slate-800 text-lg tracking-tight">
@@ -77,7 +79,9 @@ onMounted(() => {
           </span>
         </div>
 
-        <div class="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-8">
+        <div
+          class="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-8"
+        >
           <NavbarLink v-if="isLoggedIn" to="/dashboard">
             {{ t('commons.dashboard') }}
           </NavbarLink>
@@ -108,18 +112,27 @@ onMounted(() => {
           <NotificationDropdown v-if="isLoggedIn"></NotificationDropdown>
 
           <template v-if="!isLoggedIn">
-            <button @click="openLogin"
-              class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+            <button
+              @click="openLogin"
+              class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+            >
               {{ t('authentication.login') }}
             </button>
-            <button @click="openSignUp"
-              class="bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+            <button
+              @click="openSignUp"
+              class="bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+            >
               {{ t('authentication.getStarted') }}
             </button>
           </template>
 
-          <ProfileDropdown v-else :isUserDropdownOpen="isUserDropdownOpen" :isMobileMenuOpen="isMobileMenuOpen"
-            @close-drop-down="switchDropdown" @handleLogout="handleLogout" />
+          <ProfileDropdown
+            v-else
+            :isUserDropdownOpen="isUserDropdownOpen"
+            :isMobileMenuOpen="isMobileMenuOpen"
+            @close-drop-down="switchDropdown"
+            @handleLogout="handleLogout"
+          />
         </div>
 
         <div class="flex items-center md:hidden">
@@ -156,27 +169,45 @@ onMounted(() => {
         </RequireLogin>
         <div class="flex flex-col gap-3">
           <template v-if="!isLoggedIn">
-            <button @click="handleLockedClick"
-              class="w-full text-center py-2 text-slate-600 font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2">
+            <button
+              @click="handleLockedClick"
+              class="w-full text-center py-2 text-slate-600 font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2"
+            >
               {{ t('authentication.login') }}
             </button>
-            <button @click="
-              () => {
-                openSignUp()
-                isMobileMenuOpen = false
-              }
-            " class="w-full text-center py-2 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800">
+            <button
+              @click="
+                () => {
+                  openSignUp()
+                  isMobileMenuOpen = false
+                }
+              "
+              class="w-full text-center py-2 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800"
+            >
               {{ t('authentication.getStarted') }}
             </button>
           </template>
-          <ProfileDropdown v-else :isUserDropdownOpen="isUserDropdownOpen" :isMobileMenuOpen="isMobileMenuOpen"
-            @close-drop-down="switchDropdown" @handleLogout="handleLogout" />
+          <ProfileDropdown
+            v-else
+            :isUserDropdownOpen="isUserDropdownOpen"
+            :isMobileMenuOpen="isMobileMenuOpen"
+            @close-drop-down="switchDropdown"
+            @handleLogout="handleLogout"
+          />
         </div>
       </div>
     </div>
 
-    <LoginModal :is-open="activeModal === 'login'" @close="closeAll" @switch-to-signup="openSignUp" />
+    <LoginModal
+      :is-open="activeModal === 'login'"
+      @close="closeAll"
+      @switch-to-signup="openSignUp"
+    />
 
-    <SignUpModal :is-open="activeModal === 'signup'" @close="closeAll" @switch-to-login="openLogin" />
+    <SignUpModal
+      :is-open="activeModal === 'signup'"
+      @close="closeAll"
+      @switch-to-login="openLogin"
+    />
   </nav>
 </template>

@@ -1,14 +1,22 @@
 import type { Request, Response } from "express";
-import * as AuthService from "../services/authService.js";
+import * as AuthService from "../services/authenticationService.js";
+import { generateStandardToken } from "../services/tokenService.js";
 
 export const createNewUser = async (req: Request, res: Response) => {
   try {
     const { username, email, password } = req.body;
     const user = await AuthService.registerUser(username, email, password);
-    res.status(201).json({
-      message: "User created",
-      userId: user._id,
+    const token = generateStandardToken({
+      userId: user._id.toString(),
       username: user.username,
+    });
+
+    res.status(201).json({
+      message: "User creation successful",
+      token,
+      user: {
+        username: user.username,
+      },
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -19,10 +27,17 @@ export const loginUser = async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
     const user = await AuthService.authenticateUser(username, password);
+    const token = generateStandardToken({
+      userId: user._id.toString(),
+      username: user.username,
+    });
+
     res.status(200).json({
       message: "Login successful",
-      userId: user._id,
-      username: user.username,
+      token,
+      user: {
+        username,
+      },
     });
   } catch (error: any) {
     res.status(401).json({ error: error.message });

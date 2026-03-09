@@ -11,7 +11,7 @@ describe('DataTable.vue', () => {
 
   it('paginates correctly', async () => {
     const wrapper = mount(DataTable, {
-      props: { headers: headers, roomsData: items, itemsPerPage: 5 },
+      props: { headers, roomsData: items, itemsPerPage: 5 },
     })
 
     expect(wrapper.text()).toContain('User 0')

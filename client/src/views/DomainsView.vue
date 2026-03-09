@@ -6,6 +6,7 @@ import type { DomainPayload, DomainMembership, SSODomainPayload } from '@/models
 
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { authenticatedFetch } from '@/composables/useApi.ts'
 
 const { t } = useI18n()
 
@@ -17,7 +18,7 @@ const userMemberships = ref<DomainMembership[]>([])
 
 const fetchAllDomains = async () => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/auth/domains`)
+    const response = await authenticatedFetch(`/auth/domains`)
     if (!response.ok) throw new Error('Failed to fetch domains')
 
     const data = await response.json()
@@ -34,7 +35,7 @@ const fetchUserDomains = async () => {
     const username = localStorage.getItem('username')
     if (!username) return
 
-    const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/auth/domains/${username}`)
+    const response = await authenticatedFetch(`/auth/domains/${username}`)
     if (!response.ok) throw new Error('Failed to fetch user domains')
 
     const data = await response.json()
@@ -57,9 +58,7 @@ const handleCreateDomain = async (payload: SSODomainPayload) => {
       creatorUsername: username,
     }
 
-    const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/auth/domains`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await authenticatedFetch(`/auth/domains`, 'POST', {
       body: JSON.stringify(body),
     })
 

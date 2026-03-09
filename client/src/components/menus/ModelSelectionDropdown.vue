@@ -4,6 +4,7 @@ import type { BuildingPayload } from '@/models/building'
 
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { authenticatedFetch } from '@/composables/useApi.ts'
 
 const { t } = useI18n()
 
@@ -18,7 +19,6 @@ const emit = defineEmits<{
 
 const models = ref<ModelOption[]>([])
 const isDropdownOpen = ref<boolean>(false)
-const serverUrl = import.meta.env.VITE_SERVER_URL
 const selectedModel = ref<ModelOption | null>(null)
 
 const selectModel = (model: ModelOption) => {
@@ -32,10 +32,11 @@ const getInitialModels = async () => {
     const username = localStorage.getItem('username')
     if (!username) return
 
-    const authRes = await fetch(`${serverUrl}/auth/domains/${username}`)
-    if (!authRes.ok) throw new Error('Failed to fetch user domains')
+    const authenticationResponse = await authenticatedFetch(`/auth/domains/${username}`)
 
-    const authData = await authRes.json()
+    if (!authenticationResponse.ok) throw new Error('Failed to fetch user domains')
+
+    const authData = await authenticationResponse.json()
     const memberships = authData.domains as DomainMembership[]
 
     const allBuildings: BuildingPayload[] = []
@@ -44,9 +45,10 @@ const getInitialModels = async () => {
     await Promise.all(
       memberships.map(async (m) => {
         try {
-          const buildRes = await fetch(`${serverUrl}/twin/buildings/${m.domainName}`)
-          if (buildRes.ok) {
-            const domainBuildings = (await buildRes.json()) as BuildingPayload[]
+          const buildingResponse = await authenticatedFetch(`/twin/buildings/${m.domainName}`)
+
+          if (buildingResponse.ok) {
+            const domainBuildings = (await buildingResponse.json()) as BuildingPayload[]
             allBuildings.push(...domainBuildings)
           }
         } catch (err) {

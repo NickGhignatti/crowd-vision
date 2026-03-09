@@ -4,6 +4,7 @@ import { useUserPermissions } from '@/composables/useUserPermissions'
 
 import { useI18n } from 'vue-i18n'
 import { computed, ref, watch } from 'vue'
+import { authenticatedFetch } from '@/composables/useApi.ts'
 
 const emit = defineEmits<{
   (e: 'json-uploaded'): void
@@ -74,11 +75,7 @@ const handleFileUpload = async (event: Event) => {
       // TODO:
       // The backend should ideally verify if the user has access
       // to the domain specified inside this JSON payload.
-      await fetch(serverUrl + `/twin/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      await authenticatedFetch(`/twin/register`, 'POST', {
         body: JSON.stringify(payload),
       })
 
@@ -186,7 +183,10 @@ const availableFloors = computed(() => {
           >
             <div
               v-if="
-                item === selectedId && showControls && props.buildingModel && availableFloors.length > 0
+                item === selectedId &&
+                showControls &&
+                props.buildingModel &&
+                availableFloors.length > 0
               "
               class="mt-2 ml-4 relative"
             >

@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import SignupModal from '@/components/modals/SignupModal.vue'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+  }),
+}))
+
+global.fetch = vi.fn()
 
 const stubs = {
   Teleport: true,
@@ -26,19 +34,27 @@ describe('SignupModal.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    ;(global.fetch as Mock).mockReset()
   })
 
   it('does not render when isOpen is false', () => {
-    mount(SignupModal, {
+    const wrapper = mount(SignupModal, {
       props: { isOpen: false },
       global: { stubs },
     })
+
+    // Actually assert that the form isn't there
+    expect(wrapper.find('form').exists()).toBe(false)
   })
 
   it('submits signup form and saves token on success', async () => {
-    (global.fetch as Mock).mockResolvedValue({
+    // 3. Provide the full expected response structure, including the token
+    ;(global.fetch as Mock).mockResolvedValue({
       ok: true,
-      json: async () => ({ username: 'myuser' }),
+      json: async () => ({
+        token: 'fake-jwt-token',
+        user: { username: 'myuser' },
+      }),
     })
 
     const wrapper = mount(SignupModal, {
@@ -46,31 +62,28 @@ describe('SignupModal.vue', () => {
       global: { stubs },
     })
 
-    // Simulate user typing
     await wrapper.find('.username-stub').setValue('myuser')
     await wrapper.find('.mail-stub').setValue('mymail')
     await wrapper.find('.password-stub').setValue('mypass')
 
-    // Submit form
     await wrapper.find('form').trigger('submit')
 
-    // Assert API was called correctly
+    // 4. Wait for ALL pending promises (fetch & .json()) to resolve
+    await flushPromises()
+
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/auth/register'),
       expect.objectContaining({
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: 'myuser', email: 'mymail', password: 'mypass' }),
       }),
     )
 
-    // Assert LocalStorage updates
-    // Wait for promises to resolve
-    await new Promise(process.nextTick)
-
     expect(localStorage.getItem('isAuthenticated')).toBe('true')
+    expect(localStorage.getItem('token')).toBe('fake-jwt-token')
     expect(localStorage.getItem('username')).toBe('myuser')
 
-    // Assert Modal emitted close
     expect(wrapper.emitted('close')).toBeTruthy()
   })
 })

@@ -6,6 +6,7 @@ import { useUserPermissions } from '@/composables/useUserPermissions'
 
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { authenticatedFetch } from '@/composables/useApi.ts'
 
 const props = defineProps<{
   buildingModel: BuildingPayload | null
@@ -79,16 +80,11 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
     const buildingId = props.buildingModel.id
     const roomId = editingRoom.value.id
 
-    const res = await fetch(
-      `${import.meta.env.VITE_SERVER_URL}/twin/building/${buildingId}/room/${roomId}`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      },
-    )
+    const response = await authenticatedFetch(`/twin/building/${buildingId}/room/${roomId}`, 'PATCH', {
+      body: JSON.stringify(updates),
+    });
 
-    if (!res.ok) throw new Error('Update failed')
+    if (!response.ok) throw new Error('Update failed')
 
     Object.assign(editingRoom.value, updates)
   } catch (e) {
@@ -162,7 +158,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
             v-if="!props.buildingModel || props.buildingModel.rooms.length === 0"
             class="text-center py-10"
           >
-            <p class="text-slate-400 text-sm">{{ t('model.RightMenu.missingRooms') }}</p>
+            <p class="text-slate-400 text-sm">{{ t('model.noRooms') }}</p>
           </div>
 
           <div v-else class="space-y-3">
