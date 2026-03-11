@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000/api'
+const API_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://test-api.com'
 
 export function authenticatedFetch(url: string, method: string = "GET", options: object = {}) {
   return fetch(API_BASE_URL + url, {

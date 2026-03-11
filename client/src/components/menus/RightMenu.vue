@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import EditRoom from '@/components/modals/EditRoom.vue'
-import RoomItem from '@/components/menus/components/RoomItem.vue'
+import RoomCard from '@/components/cards/RoomCard.vue'
+import RoomSearchBar from '@/components/inputs/SearchBar.vue'
 import type { BuildingPayload, RoomPayload } from '@/models/building'
 import { useUserPermissions } from '@/composables/useUserPermissions'
 
@@ -20,37 +21,23 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { canEdit } = useUserPermissions()
 
-// Check if user is Admin/Owner for this specific building's domains
-const userCanEdit = computed(() => {
-  return props.buildingModel ? canEdit(props.buildingModel.domains) : false
-})
+const userCanEdit = computed(() =>
+  props.buildingModel ? canEdit(props.buildingModel.domains) : false,
+)
 
 const isRightOpen = ref(true)
 const toggleRight = () => (isRightOpen.value = !isRightOpen.value)
 
 const searchQuery = ref('')
-const isSearchOpen = ref(false)
+const searchBar = ref<InstanceType<typeof RoomSearchBar> | null>(null)
+
 const isEditModalOpen = ref(false)
 const editingRoom = ref<RoomPayload | null>(null)
-const searchInput = ref<HTMLInputElement | null>(null)
 const roomRefs = ref<Record<string, HTMLElement | null>>({})
 
-const toggleSearch = () => {
-  isSearchOpen.value = !isSearchOpen.value
-  if (isSearchOpen.value) {
-    searchQuery.value = ''
-    nextTick(() => {
-      searchInput.value?.focus()
-    })
-  } else {
-    searchQuery.value = ''
-  }
-}
-
 const filteredRooms = computed(() => {
-  if (!props.buildingModel || !props.buildingModel.rooms) return []
+  if (!props.buildingModel?.rooms) return []
   if (!searchQuery.value) return props.buildingModel.rooms
-
   const query = searchQuery.value.toLowerCase()
   return props.buildingModel.rooms.filter((room) => room.id.toLowerCase().includes(query))
 })
@@ -60,10 +47,7 @@ watch(
   async (newId) => {
     if (newId && roomRefs.value[newId]) {
       await nextTick()
-      roomRefs.value[newId]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      })
+      roomRefs.value[newId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   },
 )
@@ -75,17 +59,13 @@ const handleOpenEdit = (room: RoomPayload) => {
 
 const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
   if (!props.buildingModel || !editingRoom.value) return
-
   try {
-    const buildingId = props.buildingModel.id
-    const roomId = editingRoom.value.id
-
-    const response = await authenticatedFetch(`/twin/building/${buildingId}/room/${roomId}`, 'PATCH', {
-      body: JSON.stringify(updates),
-    });
-
+    const response = await authenticatedFetch(
+      `/twin/building/${props.buildingModel.id}/room/${editingRoom.value.id}`,
+      'PATCH',
+      { body: JSON.stringify(updates) },
+    )
     if (!response.ok) throw new Error('Update failed')
-
     Object.assign(editingRoom.value, updates)
   } catch (e) {
     console.error(e)
@@ -100,47 +80,21 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
     :class="isRightOpen ? 'w-80' : 'w-0 overflow-hidden border-none'"
   >
     <div class="h-full flex flex-col w-80">
+      <!-- Header -->
       <div class="px-6 pt-6 pb-2 shrink-0 bg-white border-b border-transparent z-10">
         <div class="flex justify-between items-center h-10 mb-4">
           <div class="flex items-center flex-1 overflow-hidden">
             <h2
-              v-show="!isSearchOpen"
+              v-show="!searchBar?.isOpen"
               class="text-lg font-bold text-slate-800 whitespace-nowrap mr-3 transition-opacity duration-200"
             >
               {{ t('model.roomList') }}
             </h2>
-
-            <div
-              class="flex items-center transition-all duration-300 ease-in-out"
-              :class="isSearchOpen ? 'w-full bg-slate-100 rounded-md mr-2' : ''"
-            >
-              <button
-                v-if="!isSearchOpen"
-                @click="toggleSearch"
-                class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
-                :title="t('model.searchRoom')"
-              >
-                <i class="ph-bold ph-magnifying-glass text-xl"></i>
-              </button>
-
-              <div v-else class="flex items-center w-full px-2 py-1">
-                <i class="ph-bold ph-magnifying-glass text-slate-400 text-lg mr-2"></i>
-                <input
-                  ref="searchInput"
-                  v-model="searchQuery"
-                  type="text"
-                  :placeholder="t('commons.search') + ' ' + t('commons.id') + '...'"
-                  class="bg-transparent border-none outline-none text-sm w-full text-slate-700 placeholder:text-slate-400"
-                  @keydown.esc="toggleSearch"
-                />
-                <button
-                  @click="toggleSearch"
-                  class="text-slate-400 hover:text-red-500 ml-1 flex-shrink-0"
-                >
-                  <i class="ph-bold ph-x text-lg"></i>
-                </button>
-              </div>
-            </div>
+            <SearchBar
+              ref="searchBar"
+              v-model="searchQuery"
+              :placeholder="`${t('commons.search')} ${t('commons.id')}...`"
+            />
           </div>
 
           <button
@@ -152,6 +106,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
         </div>
       </div>
 
+      <!-- Room list -->
       <div class="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
         <div class="space-y-4">
           <div
@@ -167,7 +122,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
               :key="room.id"
               :ref="(el) => (roomRefs[room.id] = el as HTMLElement)"
             >
-              <RoomItem
+              <RoomCard
                 :room="room"
                 :is-selected="props.selectedRoomId === room.id"
                 :can-edit="userCanEdit"

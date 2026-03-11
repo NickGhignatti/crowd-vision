@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { RoomPayload } from '@/models/building'
+import FormField from '@/components/inputs/FormField.vue'
 
 import { useI18n } from 'vue-i18n'
 import { ref, watch, computed } from 'vue'
@@ -65,6 +66,7 @@ const headerStyle = computed(() => ({
         class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all border border-slate-100"
         @click.stop
       >
+        <!-- Header -->
         <div
           class="px-6 py-5 border-b border-slate-100 flex justify-between items-center"
           :style="headerStyle"
@@ -86,63 +88,45 @@ const headerStyle = computed(() => ({
           </button>
         </div>
 
+        <!-- Body -->
         <div class="p-6 space-y-5">
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">{{
-              t('model.rooms.editRoom.identifier')
-            }}</label>
-            <div class="relative group">
-              <i
-                class="ph-bold ph-tag absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors"
-              ></i>
-              <input
-                v-model="form.id"
-                type="text"
-                class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-mono font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-                :placeholder="t('modals.editRoom.identifierPlaceholder')"
-              />
-            </div>
-          </div>
+          <FormField :label="t('model.rooms.editRoom.identifier')" icon="ph-tag">
+            <input
+              v-model="form.id"
+              type="text"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-mono font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
+              :placeholder="t('modals.editRoom.identifierPlaceholder')"
+            />
+          </FormField>
 
           <div class="grid grid-cols-2 gap-5">
-            <div class="space-y-1.5">
-              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">{{
-                t('model.rooms.editRoom.capacity')
-              }}</label>
-              <div class="relative group">
-                <i
-                  class="ph-bold ph-users absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors"
-                ></i>
-                <input
-                  v-model.number="form.capacity"
-                  type="number"
-                  min="1"
-                  class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-                />
-              </div>
-            </div>
+            <FormField :label="t('model.rooms.editRoom.capacity')" icon="ph-users">
+              <input
+                v-model.number="form.capacity"
+                type="number"
+                min="1"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
+              />
+            </FormField>
 
-            <div class="space-y-1.5">
-              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">{{
-                t('model.rooms.editRoom.maxTemp')
-              }}</label>
-              <div class="relative group">
-                <i
-                  class="ph-bold ph-thermometer-hot absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-rose-500 transition-colors"
-                ></i>
-                <input
-                  v-model.number="form.maxTemperature"
-                  type="number"
-                  class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-                />
-              </div>
-            </div>
+            <FormField
+              :label="t('model.rooms.editRoom.maxTemp')"
+              icon="ph-thermometer-hot"
+              icon-focus-class="group-focus-within:text-rose-500"
+            >
+              <input
+                v-model.number="form.maxTemperature"
+                type="number"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
+              />
+            </FormField>
           </div>
 
+          <!-- Color picker: different enough structure to not use FormField -->
           <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">{{
-              t('model.rooms.editRoom.themeColor')
-            }}</label>
+            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">
+              {{ t('model.rooms.editRoom.themeColor') }}
+            </label>
             <div class="flex gap-3 items-center p-2 border border-slate-200 rounded-xl bg-slate-50">
               <div
                 class="relative w-12 h-10 overflow-hidden rounded-lg shadow-sm ring-1 ring-slate-200"
@@ -163,6 +147,7 @@ const headerStyle = computed(() => ({
           </div>
         </div>
 
+        <!-- Footer -->
         <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
           <button
             @click="emit('close')"

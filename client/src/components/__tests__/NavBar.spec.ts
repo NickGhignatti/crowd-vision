@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import NavBar from '@/components/NavBar.vue'
+import NavBar from '../NavBar.vue'
 import RequireLogin from '@/components/modals/RequireLogin.vue'
 
 const stubs = {
