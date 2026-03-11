@@ -1,89 +1,46 @@
 # Architecture
 
-Crowd Vision is a scalable, digital-twin solution designed to monitor and visualize crowd density within building
-structures in real-time. The system employs an event-driven architecture to handle high-frequency data streams from IoT
-sensors, visualizing them on a 3D web dashboard.
+## High-level topology
 
-## 1. High-level architecture
+All HTTP/WebSocket traffic enters through a single **Caddy** gateway on port 80. Caddy strips the service-prefix and reverse-proxies to the target container on the internal Docker bridge network.
 
-The system follows a Client-Server architecture, with the server composed by multiple microservices. A **Caddy** reverse proxy acts as the single entry point (Gateway), managing the internal network and routing requests to specific autonomous services.
-
-The backend is divided into four core domain services:
-
-- **Authentication Service**: Manages user identity and access control.
-- **Digital Twin Service**: Manages the state, configuration, and hierarchy of building digital twins.
-- **Socket Service**: Handles real-time bi-directional communication (WebSockets) for sensor data streaming.
-- **Notification Service**: Manages subscription and delivery of push notifications (Web Push and In-App).
-- **LLM Service**: Provides AI capabilities using Large Language Models (LLMs) like DeepSeek and Gemini. It handles prompt engineering, context retrieval, and reasoning tasks.
+Each service is isolated on two networks: `gateway-net` (shared) and a private network for its own MongoDB instance (`auth-net`, `twin-net`, `notification-net`). This enforces the **Database-per-Service** pattern.
 
 ```mermaid
 graph TD
-    User[User Dashboard] -->|HTTPS| Proxy[Caddy Proxy Gateway]
-    Sensors[IoT Sensor Network] -->|HTTPS| Proxy
-    
-    subgraph "Internal Network (Microservices)"
-        direction TB
-        Proxy -->|/auth/*| Auth[Authentication Service]
-        Proxy -->|/digital-twin/*| Twins[Digital Twin Service]
-        Proxy -->|/sensors/*| Data[Data Processing Service]
-        Proxy -->|/socket.io/*| Socket[Socket Service]
-        Proxy -->|/notification/*| Notify[Notification Service]
-        
-        Socket <-->|Pub/Sub| Redis[Redis Broker]
-        Notify <-->|Read| Redis
-        
-        Auth <-->|Read/Write| AuthDB[(Auth MongoDB)]
-        Twins <-->|Read/Write| TwinsDB[(Twins MongoDB)]
-        Data <-->|Read/Write| DataDB[(Sensor Data MongoDB)]
-        
-        Proxy -->|/ai/*| LLM[LLM Service]
-        LLM <-->|Read| Redis
+    Browser["Browser / Client"] -->|HTTP + WS| Caddy["Caddy Gateway :80"]
+    IoT["IoT Sensors"] -->|HTTP POST /notification/trigger| Caddy
+
+    subgraph Internal Docker Network
+        Caddy -->|/auth/*| Auth["auth-service :3000"]
+        Caddy -->|/twin/*| Twin["twin-service :3000"]
+        Caddy -->|/notification/*| Notif["notification-service :3000"]
+        Caddy -->|/socket.io/*| Socket["socket-service :3000"]
+
+        Notif -->|PUBLISH notifications| Redis[("Redis broker")]
+        Socket -->|SUBSCRIBE notifications| Redis
+
+        Auth --- AuthDB[("auth-db MongoDB")]
+        Twin --- TwinDB[("twin-db MongoDB")]
+        Notif --- NotifDB[("notification-db MongoDB")]
     end
 ```
 
-## 2. Infrastructure & Deployment
-The application infrastructure is containerized, with services orchestrated via Docker Compose.
+## Routing table
 
-- **Gateway Layer**: Caddy handles SSL termination, load balancing, and routing to the internal Docker network.ù
-- **Database Layer**: We adhere to the Database-per-Service pattern. Each microservice connects to its own dedicated MongoDB instance to ensure loose coupling and independent scaling.
-- **Message Broker**: Redis is used for inter-service communication and Pub/Sub messaging for real-time updates.
+| Path prefix | Backend |
+|-------------|---------|
+| `/auth/*` | `auth-service:3000` |
+| `/twin/*` | `twin-service:3000` |
+| `/notification/*` | `notification-service:3000` |
+| `/socket.io/*` | `socket-server:3000` |
+| `/auth-db-gui/*` | `auth-db-express:8081` *(dev only)* |
+| `/twin-db-gui/*` | `twin-db-express:8081` *(dev only)* |
 
-## 3. Core components & Technology stack
+## Real-time data flow
 
-### Client / Frontend
-
-- Framework : Vue3
-- Twin visualization : Three.js
-- Styling : Tailwind CSS
-- Build tool : Vite
-
-### Authentication Service
-Responsible for all security-related operations.
-
-- Stack: Node.js / TypeScript.
-- Responsibilities: User registration, login and validating session states.
-- Data: Stores user credentials and profile information.
-
-### Digital twin Service
-Handles the static and dynamic configuration of the monitored environments.
-
-- Stack: Node.js / TypeScript.
-- Responsibilities: CRUD operations for buildings, rooms, and sensor placement configurations.
-- Data: Stores 3D models metadata and building hierarchy.
-
-### Data processing Service
-The high-throughput component that handles real-time streams.
-
-- Stack: Node.js / TypeScript.
-- Responsibilities: Receives raw sensor data, filters noise, aggregates readings, and prepares data for the frontend visualization.
-- Data: Stores historical sensor logs and processed metrics.
-
-### Socket Service
-The real-time gateway that handles WebSocket connections.
-- Stack: Node.js / TypeScript / Redis / Socket.io.
-- Responsibilities: Establishes persistent connections with clients and sensors to stream live data.
-
-### Notification Service
-Manages alerts and user subscriptions.
-- Stack: Node.js / TypeScript / Redis.
-- Responsibilities: Handles VAPID key generation, push subscription management, and dispatching alerts (overcrowding, temperature) via Web Push protocol.
+1. A sensor (or POST to `/notification/trigger`) calls `publishNotification`.
+2. `notificationService` serialises the payload and calls `redisClient.publish('notifications', ...)`.
+3. `socket-service` Redis subscriber receives the message → `io.emit('notification', data)` → all connected clients.
+4. The Vue client's `socket.ts` receives the event and prepends to the reactive `socketState.notifications` array.
+5. `NotificationBell` badge and `PushNotificationToast` update reactively.
