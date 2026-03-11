@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.0.1...v2.1.0) (2026-03-11)
+
+
+### Features
+
+* authentication service now support token ([1aea157](https://github.com/NickGhignatti/crowd-vision/commit/1aea157cdffe2e0abac95da7c2f3e8f10b6b4e4d))
+
 ## [2.0.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.0.0...v2.0.1) (2026-02-12)
 
 
