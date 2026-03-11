@@ -4,8 +4,8 @@ info:
   description: API for user authentication, domain management, subscriptions, and SSO (OIDC).
   version: 1.0.0
 servers:
-  - url: http://localhost:3000
-    description: Local development server
+  - url: http://localhost/auth
+    description: Local gateway endpoint for Auth Service
 
 components:
   securitySchemes:
@@ -37,7 +37,12 @@ components:
           example: ["analytics", "admin"]
         authStrategy:
           type: string
-          example: "local"
+          description: Authentication strategy for the domain.
+          enum:
+            - internal
+            - oidc
+          default: internal
+          example: "internal"
         ssoConfig:
           type: object
           description: OIDC Configuration details for the domain
@@ -277,7 +282,7 @@ paths:
         '400':
           description: Error unsubscribing
 
-  /auth/sso/login/{domainName}:
+  /sso/login/{domainName}:
     get:
       summary: Start SSO Login flow for a specific domain
       tags:
@@ -291,7 +296,7 @@ paths:
           description: The domain name requiring SSO
         - in: query
           name: username
-          required: false
+          required: true
           schema:
             type: string
           description: The username attempting to login
@@ -310,7 +315,7 @@ paths:
         '400':
           description: Error generating SSO login URL
 
-  /auth/sso/callback:
+  /sso/callback:
     get:
       summary: Handle callback from Identity Provider
       tags:

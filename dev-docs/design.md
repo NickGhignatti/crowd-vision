@@ -12,12 +12,12 @@ Rather than polling or direct service-to-service HTTP calls, the notification pi
 
 JWTs are self-contained and verified by the `requireAuth` middleware without a database round-trip. The 3-hour expiry balances session security with user convenience. Device tokens (for IoT sensors) have a 5-year expiry.
 
-## SSO / OIDC with PKCE (stateless state)
+## SSO / OIDC with PKCE (opaque state)
 
-The SSO flow uses PKCE (`code_challenge_method: S256`) and encodes the PKCE verifier + username + domain name in the OAuth `state` parameter as a base64 JSON blob. This avoids the need for a server-side session store during development.
+The SSO flow uses PKCE (`code_challenge_method: S256`). The OAuth `state` parameter is a random opaque token, and the PKCE verifier plus any user context (e.g. username, domain) are stored server-side (for example in Redis) keyed by that token. The callback handler only trusts data loaded from this server-side store.
 
-!!! warning "Production note"
-Store the PKCE verifier in Redis keyed by a random opaque token for production. The base64 approach is vulnerable to state-tampering.
+!!! warning "Security note"
+    Never encode the PKCE verifier, username, domain, or other sensitive data directly into the `state` parameter (even as base64 JSON). Because clients can tamper with `state`, such designs are vulnerable to state-tampering attacks; always keep `state` opaque and validate it against server-side state.
 
 ## Domain membership as embedded subdocument
 
@@ -33,4 +33,4 @@ Sensors are simulated using the Socket.IO protocol. Each simulated client identi
 
 ## Domains system
 
-The Domain system adds a multi-tenant layer. Buildings are scoped to one or more domain name strings. A user's access to buildings is computed by fetching their memberships, then querying `/twin/buildings/:domainName` for each. This means a single user can belong to multiple organisations and see all their buildings in one view.
+The Domain system adds a multi-tenant layer. Buildings are scoped to one or more domain name strings. A user's access to buildings is enforced in `twin-service`: each request must include a valid JWT, and the service verifies that the user's memberships include the requested domain with a sufficient role before returning or mutating any building data. The frontend discovers accessible buildings by fetching the user's memberships and then querying `/twin/buildings/:domainName` only for domains that the user is authorised to access. This means a single user can belong to multiple organisations and see all their buildings in one view.
