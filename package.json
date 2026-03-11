@@ -13,6 +13,7 @@
     "logs": "docker compose logs -f",
     "release": "semantic-release",
     "clear": "docker compose exec auth-db mongosh authdb --eval \"db.dropDatabase()\" && docker compose exec twin-db mongosh twindb --eval \"db.dropDatabase()\" && docker compose exec notification-db mongosh notificationdb --eval \"db.dropDatabase()\"",
+
     "//": "Documentation related scripts",
     "build:api": "npm run copy:yamls",
     "copy:yamls": "shx cp server/auth-service/openapi.yaml landing-page/api/auth.yaml && shx cp server/twin-service/openapi.yaml landing-page/api/twin.yaml && shx cp server/notification-service/openapi.yaml landing-page/api/notification.yaml",
@@ -22,6 +23,7 @@
     "docs:user": "mkdocs serve -f mkdocs.user.yml -a localhost:8001",
     "docs:devs": "mkdocs serve -f mkdocs.dev.yml -a localhost:8002",
     "docs:build": "npm run build:api && mkdocs build -f mkdocs.user.yml -d landing-page/user && mkdocs build -f mkdocs.dev.yml -d landing-page/dev",
+
     "//": "Testing related scripts",
     "test:auth": "cd server/auth-service && npm test",
     "test:twin": "cd server/twin-service && npm test",

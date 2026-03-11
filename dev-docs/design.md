@@ -1,74 +1,36 @@
-# Design
+# Design Decisions
 
-## Sensors simulation
+## Microservices and database isolation
 
-This project implements a scalable architecture for simulating an IoT sensor network.
+Each service owns its MongoDB instance. This prevents schema coupling, allows independent scaling, and means a slow twin query can never block authentication.
 
-The solution utilizes Node.js scripts integrated with Faker.js to generate stochastic, realistic environmental data. 
-Data transmission is handled via WebSockets (Socket.io), replacing traditional HTTP polling with an event-driven "push" 
-mechanism. The architecture employs a many-to-one multiplexing pattern, where multiple autonomous simulated clients—representing
-distinct classrooms—transmit data asynchronously to a centralized Express.js backend through a shared socket channel.
+## Redis pub/sub for real-time events
 
-Identification of individual sensors is managed via unique IDs embedded within the JSON payload.
+Rather than polling or direct service-to-service HTTP calls, the notification pipeline uses Redis as a message broker. This decouples producers (`notification-service`) from consumers (`socket-service`) and makes it trivial to add more consumers in the future (e.g. an LLM service reacting to crowd events).
 
-## Data exchange
+## Stateless JWT authentication
 
-Between the Vue.js client and the Express server there would be open a websocket where processed data from the server are 
-pushed towards the client. 
-1. **Sensor -> Server**: Simulated sensors push telemetry data (updates on people count, temperature) to the **Socket Service**.
-2. **Server -> Client**: The Socket Service broadcasts these updates to connected Vue.js clients subscribed to the specific room or building topics.
-3. **Alerts**: If data thresholds are breached (e.g., temperature > maxTemperature), events are published to Redis. The **Notification Service** consumes these events and triggers Push Notifications to relevant users.
+JWTs are self-contained and verified by the `requireAuth` middleware without a database round-trip. The 3-hour expiry balances session security with user convenience. Device tokens (for IoT sensors) have a 5-year expiry.
 
-## Domains
+## SSO / OIDC with PKCE (stateless state)
 
-The **Domain System** introduces a multi-tenant layer to `auth-service`. It decouples the "User" from a single entity, allowing many-to-many relationships via **Memberships**.
+The SSO flow uses PKCE (`code_challenge_method: S256`) and encodes the PKCE verifier + username + domain name in the OAuth `state` parameter as a base64 JSON blob. This avoids the need for a server-side session store during development.
 
-### 1. Data Model
+!!! warning "Production note"
+Store the PKCE verifier in Redis keyed by a random opaque token for production. The base64 approach is vulnerable to state-tampering.
 
-#### Domain Schema
-The `Domain` entity defines the configuration for an organization.
-* **`name`**: Unique identifier (Primary Key logic).
-* **`authStrategy`**: Determines how users access the domain.
-    * `internal`: Standard CrowdVision auth.
-    * `oidc`: OpenID Connect for external integration.
-* **`ssoConfig`**: (Encrypted) Stores `clientId`, `clientSecret`, and `issuerUrl` for SSO domains.
+## Domain membership as embedded subdocument
 
-```typescript
-// Schema Reference
-export interface IDomain {
-  name: string;
-  subdomains: string[];
-  authStrategy: "internal" | "oidc";
-  ssoConfig?: {
-    issuerUrl: string;
-    clientId: string;
-    clientSecret: string;
-  };
-}
-```
+User memberships are embedded in the User document as an array rather than a separate collection. This simplifies queries (a single `User.findOne` returns everything) at the cost of some update complexity for membership changes. Given the expected low cardinality of memberships per user, this is the right trade-off.
 
-#### User Membership
-Users are not "in" a domain; they have memberships. This allows a single user to be an Admin in `Domain A` and a Viewer in `Domain B`.
+## Vue Composition API with composables (no global store)
 
-```typescript
-export interface IDomainMembership {
-  domainName: string;
-  role: "owner" | "admin" | "viewer";
-}
-```
+Instead of Pinia or Vuex, reactive state is co-located in `src/composables/`. `socketState` in `socket.ts` is a module-level reactive object, effectively a lightweight global store for notification state. This keeps the bundle small and avoids boilerplate.
 
+## Sensor simulation
 
-### 2. Authentication Workflow
+Sensors are simulated using the Socket.IO protocol. Each simulated client identifies its room via the `id` field in the JSON payload. The many-to-one multiplexing pattern (many sensor clients → one Socket.IO server) mirrors how a real IoT deployment would work.
 
-#### Authentication Flows
-*Standard Flow (Internal)*
-- User clicks "Subscribe".
-- Client calls `POST /subscribe`.
-- Backend verifies domain exists and adds a viewer membership to the user document.
+## Domains system
 
-*SSO Flow (OIDC)*
-- User clicks "Subscribe".
-- Client detects `authStrategy === 'oidc'`.
-- Client requests a redirect URL via `/auth/sso/login`.
-- User authenticates with the external Identity Provider (IdP).
-- IdP calls back to `auth-service`, which validates the token and adds the membership.
+The Domain system adds a multi-tenant layer. Buildings are scoped to one or more domain name strings. A user's access to buildings is computed by fetching their memberships, then querying `/twin/buildings/:domainName` for each. This means a single user can belong to multiple organisations and see all their buildings in one view.

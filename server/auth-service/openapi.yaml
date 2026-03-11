@@ -1,23 +1,70 @@
 openapi: 3.1.0
 info:
   title: Auth Service API
-  description: API for user authentication and domain management.
+  description: API for user authentication, domain management, subscriptions, and SSO (OIDC).
   version: 1.0.0
 servers:
-  - url: http://localhost:80/auth/
+  - url: http://localhost:3000
     description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserResponse:
+      type: object
+      properties:
+        username:
+          type: string
+          example: "jdoe"
+
+    Domain:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "crowd-vision"
+        subdomains:
+          type: array
+          items:
+            type: string
+          example: ["analytics", "admin"]
+        authStrategy:
+          type: string
+          example: "local"
+        ssoConfig:
+          type: object
+          description: OIDC Configuration details for the domain
+        creatorUsername:
+          type: string
+          example: "jdoe"
+
+security:
+  - bearerAuth: []
+
 paths:
   /register:
     post:
       summary: Register a new user
       tags:
         - Auth
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - username
+                - email
+                - password
               properties:
                 username:
                   type: string
@@ -40,15 +87,14 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "User created"
-                  userId:
+                    example: "User creation successful"
+                  token:
                     type: string
-                    example: "60d5ecb8b392d7001f8e4b5a"
-                  username:
-                    type: string
-                    example: "jdoe"
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
         '400':
-          description: Bad request
+          description: Bad request (e.g., user already exists)
           content:
             application/json:
               schema:
@@ -62,12 +108,16 @@ paths:
       summary: Login a user
       tags:
         - Auth
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - username
+                - password
               properties:
                 username:
                   type: string
@@ -87,14 +137,13 @@ paths:
                   message:
                     type: string
                     example: "Login successful"
-                  userId:
+                  token:
                     type: string
-                    example: "60d5ecb8b392d7001f8e4b5a"
-                  username:
-                    type: string
-                    example: "jdoe"
-        '400':
-          description: Invalid credentials or error
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Invalid credentials
           content:
             application/json:
               schema:
@@ -103,82 +152,170 @@ paths:
                   error:
                     type: string
 
-  /domain/{username}:
+  /domains:
     get:
-      summary: Get user domain information
+      summary: Get all domains
       tags:
-        - Domain
+        - Domains
+      responses:
+        '200':
+          description: List of all domains
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  domains:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Domain'
+        '400':
+          description: Error fetching domains
+
+    post:
+      summary: Register a new domain
+      tags:
+        - Domains
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Domain'
+      responses:
+        '201':
+          description: Domain registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Domain'
+        '400':
+          description: Error registering domain
+
+  /domains/{username}:
+    get:
+      summary: Get user domain memberships
+      tags:
+        - Subscriptions
       parameters:
         - in: path
           name: username
+          required: true
           schema:
             type: string
-          required: true
-          description: The username to fetch the domain for
+          description: The username to fetch domains for
       responses:
         '200':
-          description: User domain retrieved successfully
+          description: User's domains retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  domain:
-                    $ref: '#/components/schemas/Domain'
-        '400':
-          description: Error retrieving domain
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                  domains:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Domain'
+        '404':
+          description: User not found or error retrieving domains
 
-  /domain/level/{username}:
-    get:
-      summary: Get user domain level
+  /domains/{username}/subscribe:
+    post:
+      summary: Subscribe user to a domain (Internal Only)
       tags:
-        - Domain
+        - Subscriptions
       parameters:
         - in: path
           name: username
+          required: true
           schema:
             type: string
-          required: true
-          description: The username to fetch the domain level for
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domainName
+              properties:
+                domainName:
+                  type: string
+                  example: "crowd-vision"
       responses:
         '200':
-          description: Domain level retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  domainLevel:
-                    type: string # Assuming string or number based on context
-                    description: The level associated with the user's domain
+          description: Successfully subscribed
         '400':
-          description: Error retrieving domain level
+          description: Error subscribing to domain
+
+  /domains/{username}/unsubscribe:
+    delete:
+      summary: Unsubscribe user from a domain
+      tags:
+        - Subscriptions
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domainName
+              properties:
+                domainName:
+                  type: string
+                  example: "crowd-vision"
+      responses:
+        '200':
+          description: Successfully unsubscribed
+        '400':
+          description: Error unsubscribing
+
+  /auth/sso/login/{domainName}:
+    get:
+      summary: Start SSO Login flow for a specific domain
+      tags:
+        - SSO
+      parameters:
+        - in: path
+          name: domainName
+          required: true
+          schema:
+            type: string
+          description: The domain name requiring SSO
+        - in: query
+          name: username
+          required: false
+          schema:
+            type: string
+          description: The username attempting to login
+      responses:
+        '200':
+          description: Returns the Identity Provider redirect URL
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  error:
+                  redirectUrl:
                     type: string
+                    format: uri
+                    example: "https://idp.example.com/auth?client_id=..."
+        '400':
+          description: Error generating SSO login URL
 
-components:
-  schemas:
-    Domain:
-      type: object
-      properties:
-        name:
-          type: string
-          example: "crowd-vision"
-        subdomain:
-          type: string
-          example: "analytics"
-      required:
-        - name
-
+  /auth/sso/callback:
+    get:
+      summary: Handle callback from Identity Provider
+      tags:
+        - SSO
+      description: This endpoint extracts 'code' and 'state' from the URL and redirects the client appropriately.
+      responses:
+        '302':
+          description: Redirects the user to the client application (success or failure)

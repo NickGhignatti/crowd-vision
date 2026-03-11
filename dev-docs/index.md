@@ -1,24 +1,25 @@
-# Abstract 
+# CrowdVision Developer Guide
 
-Crowd-Vision is a web app simplifying the management of a structure through a 
-digital twin, by monitoring (and showing) in real time the people inside it, thanks 
-to several sensors.
+CrowdVision is a real-time crowd monitoring platform built on a **digital twin** paradigm. It lets administrators observe, in 3D, the live occupancy and environmental state of every room in a building — streamed from IoT sensors.
 
-The goal is to allow a better management and security of movements and study
-through an interactive map and tools.
+The repository is a **Lerna monorepo** (MEVN stack) deployed entirely via Docker Compose with a Caddy reverse-proxy gateway.
 
-## Main features
+## Packages
 
-- **Real time visualization**: High-frequency updates via WebSocket technology to monitor crowd density.
-- **Push Notifications**: Server-initiated alerts for security issues, overcrowded areas, or temperature anomalies (Web Push & In-App).
-- **Digital Twin Management**:
-    - Full 3D visualization of buildings and rooms.
-    - Multi-domain support for managing different environments.
-    - Edit room properties (capacity, layout) directly from the dashboard.
-- **Interactive Tools**:
-    - Search rooms by name or attributes.
-    - Selection by 3D object interaction.
-    - Building controls and visual feedback.
+| Package | Description |
+|---------|-------------|
+| `client` | Vue 3 + TresJS + Tailwind SPA |
+| `server/auth-service` | User auth, JWT, domain management, OIDC/SSO |
+| `server/twin-service` | CRUD for buildings and rooms |
+| `server/socket-service` | Socket.IO gateway bridging Redis pub/sub → browser |
+| `server/notification-service` | Web Push (VAPID) + Redis pub/sub dispatch |
+| `server/llm-service` | *(experimental)* Fastify + LangChain AI service |
 
-## Technical aspects
-Built on top of **MEVN** stack (MongoDB, Express.js, Vue.js, Node.js) with a microservices architecture.
+## Quick start
+
+```bash
+npm run dev     # setup + docker compose watch (hot reload + DB GUIs)
+npm start       # production-like, detached
+npm run stop    # tear down
+npm test        # all service tests in parallel
+```
