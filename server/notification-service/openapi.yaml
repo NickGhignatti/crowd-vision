@@ -4,8 +4,8 @@ info:
   description: API for managing push notifications and subscriptions.
   version: 1.0.0
 servers:
-  - url: http://localhost:3000
-    description: Local development server
+  - url: http://localhost/notification
+    description: Local gateway endpoint for Notification Service
 paths:
   /trigger:
     post:

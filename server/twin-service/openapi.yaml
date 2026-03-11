@@ -4,8 +4,8 @@ info:
   description: API for managing digital twins of buildings and rooms.
   version: 1.0.0
 servers:
-  - url: http://localhost:3000
-    description: Local development server
+  - url: http://localhost/twin
+    description: Local gateway endpoint for Twin Service
 paths:
   /register:
     post:

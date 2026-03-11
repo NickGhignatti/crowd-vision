@@ -15,7 +15,7 @@ graph TD
         Caddy -->|/auth/*| Auth["auth-service :3000"]
         Caddy -->|/twin/*| Twin["twin-service :3000"]
         Caddy -->|/notification/*| Notif["notification-service :3000"]
-        Caddy -->|/socket.io/*| Socket["socket-service :3000"]
+        Caddy -->|/socket.io/*| Socket["socket-server :3000"]
 
         Notif -->|PUBLISH notifications| Redis[("Redis broker")]
         Socket -->|SUBSCRIBE notifications| Redis
