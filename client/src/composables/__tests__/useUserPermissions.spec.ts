@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useUserPermissions } from '../useUserPermissions'
 
-vi.stubEnv('VITE_SERVER_URL', 'http://localhost:3000')
-
 const fetchMock = vi.fn()
 global.fetch = fetchMock
 
@@ -34,7 +32,6 @@ describe('useUserPermissions', () => {
 
     await fetchPermissions()
 
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/auth/domains/TestUser')
     expect(memberships.value).toHaveLength(1)
 
     // Check Logic

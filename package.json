@@ -21,7 +21,14 @@
     "docs:landing": "http-server landing-page -p 8000 -c-1 --cors",
     "docs:user": "mkdocs serve -f mkdocs.user.yml -a localhost:8001",
     "docs:devs": "mkdocs serve -f mkdocs.dev.yml -a localhost:8002",
-    "docs:build": "npm run build:api && mkdocs build -f mkdocs.user.yml -d landing-page/user && mkdocs build -f mkdocs.dev.yml -d landing-page/dev"
+    "docs:build": "npm run build:api && mkdocs build -f mkdocs.user.yml -d landing-page/user && mkdocs build -f mkdocs.dev.yml -d landing-page/dev",
+    "//": "Testing related scripts",
+    "test:auth": "cd server/auth-service && npm test",
+    "test:twin": "cd server/twin-service && npm test",
+    "test:notification": "cd server/notification-service && npm test",
+    "test:socket": "cd server/socket-service && npm test",
+    "test:client": "cd client && npm run test:unit",
+    "test": "concurrently \"npm run test:auth\" \"npm run test:twin\" \"npm run test:notification\" \"npm run test:client\""
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.0",
