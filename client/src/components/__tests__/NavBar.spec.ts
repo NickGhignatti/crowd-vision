@@ -27,7 +27,7 @@ describe('NavBar.vue', () => {
 
   it('shows profile dropdown when authenticated', async () => {
     localStorage.setItem('isAuthenticated', 'true')
-    localStorage.setItem('username', 'TestUser')
+    localStorage.setItem('account-name', 'TestAccount')
 
     const wrapper = mount(NavBar, { global: { stubs } })
     await wrapper.vm.$nextTick()

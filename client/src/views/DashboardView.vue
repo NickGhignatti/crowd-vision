@@ -58,8 +58,9 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
     roomData.value = []
 
     const response = await authenticatedFetch(`/twin/building/${buildingId}`)
-    if (!response.ok)
+    if (!response.ok) {
       throw new Error('Failed to fetch building data')
+    }
 
     const building = (await response.json()) as BuildingPayload
 

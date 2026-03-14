@@ -31,7 +31,7 @@ export const subscribe = async (req: Request, res: Response) => {
             { upsert: true, new: true }
         );
 
-        console.log('✅ User subscribed successfully');
+        console.log('✅ Account subscribed successfully');
         res.status(201).json({ success: true });
     } catch (error) {
         console.error('❌ Subscribe Error:', error);

@@ -32,10 +32,10 @@ const fetchAllDomains = async () => {
 
 const fetchUserDomains = async () => {
   try {
-    const username = localStorage.getItem('username')
-    if (!username) return
+    const accountName = localStorage.getItem('account-name')
+    if (!accountName) return
 
-    const response = await authenticatedFetch(`/auth/domains/${username}`)
+    const response = await authenticatedFetch(`/auth/domains/${accountName}`)
     if (!response.ok) throw new Error('Failed to fetch user domains')
 
     const data = await response.json()
@@ -50,12 +50,12 @@ const fetchUserDomains = async () => {
 // Handle Creation (Internal or SSO)
 const handleCreateDomain = async (payload: SSODomainPayload) => {
   isSubmitting.value = true
-  const username = localStorage.getItem('username')
+  const accountName = localStorage.getItem('account-name')
 
   try {
     const body = {
       ...payload,
-      creatorUsername: username,
+      creatorUsername: accountName,
     }
 
     const response = await authenticatedFetch(`/auth/domains`, 'POST', {

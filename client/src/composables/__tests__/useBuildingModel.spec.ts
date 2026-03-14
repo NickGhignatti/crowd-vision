@@ -9,10 +9,10 @@ global.fetch = fetchMock
 describe('useBuildingModel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.setItem('username', 'TestUser')
+    localStorage.setItem('account-name', 'TestAccount')
   })
 
-  it('fetchBuildings fetches user domains then buildings', async () => {
+  it('fetchBuildings fetches account domains then buildings', async () => {
     // 1st Call: Auth Domains
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -34,7 +34,7 @@ describe('useBuildingModel', () => {
 
     // Verification
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(fetchMock.mock.calls[0]?.[0]).toContain('/auth/domains/TestUser')
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('/auth/domains/TestAccount')
     expect(fetchMock.mock.calls[1]?.[0]).toContain('/twin/buildings/TestDomain')
     expect(allBuildings.value).toHaveLength(1)
     expect(allBuildings.value[0]?.id).toBe('Building1')

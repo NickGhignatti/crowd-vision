@@ -8,8 +8,8 @@ describe('ProfileDropdown.vue', () => {
     vi.clearAllMocks()
   })
 
-  it('renders username from localStorage', () => {
-    localStorage.setItem('username', 'TestAdmin')
+  it('renders account name from localStorage', () => {
+    localStorage.setItem('account-name', 'TestAdmin')
     const wrapper = mount(ProfileDropdown, {
       props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
     })
@@ -17,12 +17,12 @@ describe('ProfileDropdown.vue', () => {
     expect(wrapper.text()).toContain('TestAdmin')
   })
 
-  it('defaults username to "User" if localStorage is empty', () => {
+  it('defaults account name to "Account" if localStorage is empty', () => {
     const wrapper = mount(ProfileDropdown, {
       props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
     })
 
-    expect(wrapper.text()).toContain('User')
+    expect(wrapper.text()).toContain('Account')
   })
 
   describe('Desktop View', () => {

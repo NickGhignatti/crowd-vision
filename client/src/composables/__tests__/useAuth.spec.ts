@@ -66,13 +66,13 @@ describe('useAuth', () => {
       expect(localStorage.getItem('isAuthenticated')).toBeNull()
     })
 
-    it('clears username from localStorage', () => {
-      localStorage.setItem('username', 'john')
+    it('clears account-name from localStorage', () => {
+      localStorage.setItem('account-name', 'john')
       const { handleLogout } = useAuth()
 
       handleLogout()
 
-      expect(localStorage.getItem('username')).toBeNull()
+      expect(localStorage.getItem('account-name')).toBeNull()
     })
 
     it('clears token from localStorage', () => {

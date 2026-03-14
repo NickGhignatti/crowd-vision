@@ -2,20 +2,20 @@ import type { Request, Response } from "express";
 import * as AuthService from "../services/authenticationService.js";
 import { generateStandardToken } from "../services/tokenService.js";
 
-export const createNewUser = async (req: Request, res: Response) => {
+export const createAccount = async (req: Request, res: Response) => {
   try {
-    const { username, email, password } = req.body;
-    const user = await AuthService.registerUser(username, email, password);
+    const { accountName, email, password } = req.body;
+    const account = await AuthService.registerAccount(accountName, email, password);
     const token = generateStandardToken({
-      userId: user._id.toString(),
-      username: user.username,
+      accountId: account._id.toString(),
+      accountName: account.name,
     });
 
     res.status(201).json({
-      message: "User creation successful",
+      message: "Account creation successful",
       token,
-      user: {
-        username: user.username,
+      account: {
+        accountName,
       },
     });
   } catch (error: any) {
@@ -23,20 +23,20 @@ export const createNewUser = async (req: Request, res: Response) => {
   }
 };
 
-export const loginUser = async (req: Request, res: Response) => {
+export const authenticateAccount = async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
-    const user = await AuthService.authenticateUser(username, password);
+    const { username: accountName, password } = req.body;
+    const account = await AuthService.authenticateAccount(accountName, password);
     const token = generateStandardToken({
-      userId: user._id.toString(),
-      username: user.username,
+      accountId: account._id.toString(),
+      accountName: account.name,
     });
 
     res.status(200).json({
       message: "Login successful",
       token,
-      user: {
-        username,
+      account: {
+        accountName,
       },
     });
   } catch (error: any) {
@@ -47,11 +47,11 @@ export const loginUser = async (req: Request, res: Response) => {
 export const startSSOLogin = async (req: Request, res: Response) => {
   try {
     const { domainName } = req.params;
-    const { username } = req.query;
+    const { accountName } = req.query;
 
     const redirectUrl = await AuthService.generateSSOLoginUrl(
       domainName as string,
-      username as string,
+      accountName as string,
     );
 
     res.json({ redirectUrl });

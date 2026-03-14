@@ -7,7 +7,7 @@ global.fetch = fetchMock
 describe('useUserPermissions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.setItem('username', 'TestUser')
+    localStorage.setItem('account-name', 'TestAccount')
   })
 
   afterEach(() => {
@@ -20,7 +20,7 @@ describe('useUserPermissions', () => {
   })
 
   it('fetches permissions and allows edit if role is admin/owner', async () => {
-    // User is admin of 'domain-a'
+    // Account is admin of 'domain-a'
     fetchMock.mockResolvedValue({
       json: () =>
         Promise.resolve({

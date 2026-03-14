@@ -1,15 +1,15 @@
 import request from "supertest";
 import { app } from "../src/index.js";
-import { User } from "../src/models/user.js";
+import { Account } from "../src/models/account.js";
 import { Domain } from "../src/models/domain.js";
 import {
-  authenticateUser,
-  registerUser,
+  authenticateAccount,
+  registerAccount,
 } from "../src/services/authenticationService.js";
 import {
   createDomain,
   getAllDomains,
-  getUserMemberships, subscribeInternal, unsubscribe,
+  getAccountMemberships, subscribeInternal, unsubscribe,
 } from "../src/services/domainService.js";
 
 describe("Domain API", () => {
@@ -32,13 +32,13 @@ describe("Domain API", () => {
   };
 
   beforeEach(async () => {
-    await User.deleteMany({});
+    await Account.deleteMany({});
     await Domain.deleteMany({});
 
     await Domain.syncIndexes();
-    await User.syncIndexes();
+    await Account.syncIndexes();
 
-    await registerUser(mockUser.username, mockUser.email, mockUser.password);
+    await registerAccount(mockUser.username, mockUser.email, mockUser.password);
   });
 
   describe("1. System Domains", () => {
@@ -92,7 +92,7 @@ describe("Domain API", () => {
     });
   });
 
-  describe("User Domains & Subscriptions", () => {
+  describe("Account Domains & Subscriptions", () => {
     beforeEach(async () => {
       await createDomain(
         mockDomain.name,
@@ -103,7 +103,7 @@ describe("Domain API", () => {
     });
 
     it("should verify the creator is the OWNER", async () => {
-      const userDomains = await getUserMemberships(mockUser.username);
+      const userDomains = await getAccountMemberships(mockUser.username);
 
       const membership = userDomains.find(
         (m) => m.domainName === mockDomain.name,
@@ -113,11 +113,11 @@ describe("Domain API", () => {
     });
 
     it("should allow a user to SUBSCRIBE to a domain", async () => {
-      const newUser = await registerUser("sub", "sub@gmail.com", "sub");
-      const subscribed = await subscribeInternal(newUser.username, mockDomain.name);
+      const newAccount = await registerAccount("sub", "sub@gmail.com", "sub");
+      const subscribed = await subscribeInternal(newAccount.name, mockDomain.name);
 
       expect(subscribed).toBeUndefined();
-      const userDomains = await getUserMemberships(newUser.username);
+      const userDomains = await getAccountMemberships(newAccount.name);
 
       const membership = userDomains.find(
         (m) => m.domainName === mockDomain.name,
@@ -127,14 +127,14 @@ describe("Domain API", () => {
     });
 
     it("should allow a user to UNSUBSCRIBE", async () => {
-      const newUser = await registerUser("sub", "sub@gmail.com", "sub");
+      const newAccount = await registerAccount("sub", "sub@gmail.com", "sub");
       await subscribeInternal(
-        newUser.username,
+        newAccount.name,
         mockDomain.name,
       );
-      await expect(unsubscribe(newUser.username, mockDomain.name)).resolves.not.toThrow();
+      await expect(unsubscribe(newAccount.name, mockDomain.name)).resolves.not.toThrow();
 
-      const memberships = await getUserMemberships(newUser.username);
+      const memberships = await getAccountMemberships(newAccount.name);
       const membership = memberships.find(
         (m: any) => m.domainName === mockDomain.name,
       );

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import * as DomainService from "../services/domainService.js";
 
-export const registerDomain = async (req: Request, res: Response) => {
+export const createDomain = async (req: Request, res: Response) => {
   try {
     const { name, subdomains, authStrategy, ssoConfig, creatorUsername } =
       req.body;
@@ -20,7 +20,7 @@ export const registerDomain = async (req: Request, res: Response) => {
   }
 };
 
-export const allDomains = async (req: Request, res: Response) => {
+export const getAllDomains = async (req: Request, res: Response) => {
   try {
     const domains = await DomainService.getAllDomains();
     res.json({ domains });
@@ -29,11 +29,11 @@ export const allDomains = async (req: Request, res: Response) => {
   }
 };
 
-export const getUserDomains = async (req: Request, res: Response) => {
+export const getDomainsByAccount = async (req: Request, res: Response) => {
   try {
-    const { username } = req.params;
-    const memberships = await DomainService.getUserMemberships(
-      username as string,
+    const { accountName } = req.params;
+    const memberships = await DomainService.getAccountMemberships(
+      accountName as string,
     );
     res.json({ domains: memberships });
   } catch (error: any) {
@@ -41,22 +41,22 @@ export const getUserDomains = async (req: Request, res: Response) => {
   }
 };
 
-export const subscribeUser = async (req: Request, res: Response) => {
+export const subscribeAccountToDomain = async (req: Request, res: Response) => {
   try {
-    const { username } = req.params;
+    const { accountName } = req.params;
     const { domainName } = req.body;
-    await DomainService.subscribeInternal(username as string, domainName);
+    await DomainService.subscribeInternal(accountName as string, domainName);
     res.status(200).send();
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
 };
 
-export const unsubscribeUser = async (req: Request, res: Response) => {
+export const unsubscribeAccountFromDomain = async (req: Request, res: Response) => {
   try {
-    const { username } = req.params;
+    const { accountName } = req.params;
     const { domainName } = req.body;
-    await DomainService.unsubscribe(username as string, domainName);
+    await DomainService.unsubscribe(accountName as string, domainName);
     res.status(200).send();
   } catch (error: any) {
     res.status(400).json({ error: error.message });

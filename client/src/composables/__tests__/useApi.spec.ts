@@ -15,13 +15,13 @@ describe('useApi', () => {
 
   describe('authenticatedFetch', () => {
     it('calls fetch with the correct full URL', () => {
-      authenticatedFetch('/users')
+      authenticatedFetch('/accounts')
 
-      expect(fetch).toHaveBeenCalledWith(`${BASE_URL}/users`, expect.any(Object))
+      expect(fetch).toHaveBeenCalledWith(`${BASE_URL}/accounts`, expect.any(Object))
     })
 
     it('uses GET as default method', () => {
-      authenticatedFetch('/users')
+      authenticatedFetch('/accounts')
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
@@ -32,7 +32,7 @@ describe('useApi', () => {
     })
 
     it('uses the provided method', () => {
-      authenticatedFetch('/users', 'POST')
+      authenticatedFetch('/accounts', 'POST')
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
@@ -43,7 +43,7 @@ describe('useApi', () => {
     })
 
     it('sets Content-Type to application/json', () => {
-      authenticatedFetch('/users')
+      authenticatedFetch('/accounts')
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
@@ -58,7 +58,7 @@ describe('useApi', () => {
     it('sets Authorization header with token from localStorage', () => {
       localStorage.setItem('token', 'my-token')
 
-      authenticatedFetch('/users')
+      authenticatedFetch('/accounts')
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
@@ -71,7 +71,7 @@ describe('useApi', () => {
     })
 
     it('sets Authorization header with null when no token in localStorage', () => {
-      authenticatedFetch('/users')
+      authenticatedFetch('/accounts')
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
@@ -84,7 +84,7 @@ describe('useApi', () => {
     })
 
     it('merges extra options into the request', () => {
-      authenticatedFetch('/users', 'POST', { body: JSON.stringify({ name: 'John' }) })
+      authenticatedFetch('/accounts', 'POST', { body: JSON.stringify({ name: 'John' }) })
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
@@ -98,7 +98,7 @@ describe('useApi', () => {
       const mockResponse = new Response()
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse))
 
-      const result = authenticatedFetch('/users')
+      const result = authenticatedFetch('/accounts')
 
       expect(result).toBeInstanceOf(Promise)
     })

@@ -1,36 +1,38 @@
 import { Router } from "express";
 import {
-  loginUser,
-  createNewUser,
+  authenticateAccount,
+  createAccount,
   startSSOLogin,
   handleSSOCallback,
 } from "./controller/authenticationController.js";
 import {
-  allDomains,
-  getUserDomains,
-  registerDomain,
-  subscribeUser,
-  unsubscribeUser,
+  getAllDomains,
+  getDomainsByAccount,
+  createDomain,
+  subscribeAccountToDomain,
+  unsubscribeAccountFromDomain,
 } from "./controller/domainController.js";
-import { requireAuth } from "./controller/authenticationMiddleware.js";
+import { requireAuthentication, requireHmacSignature } from "./controller/authenticationMiddleware.js";
+import { provideAdministratorAccount } from "./controller/administrationController.js";
 
 const router = Router();
 
-// --- User Auth ---
-router.post("/register", createNewUser);
-router.post("/login", loginUser);
+// --- Authentication ---
+router.post("/register", createAccount);
+router.post("/login", authenticateAccount);
+router.post('/business/register', requireHmacSignature, provideAdministratorAccount);
 
 // --- Domains ---
-router.get("/domains", requireAuth, allDomains);
-router.post("/domains", requireAuth, registerDomain);
+router.get("/domains", requireAuthentication, getAllDomains);
+router.post("/domains", requireAuthentication, createDomain);
 
 // --- Subscriptions ---
-router.get("/domains/:username", requireAuth, getUserDomains);
-router.post("/domains/:username/subscribe", requireAuth, subscribeUser); // Internal Only
-router.delete("/domains/:username/unsubscribe", requireAuth, unsubscribeUser);
+router.get("/domains/:accountName", requireAuthentication, getDomainsByAccount);
+router.post("/domains/:accountName/subscribe", requireAuthentication, subscribeAccountToDomain);
+router.delete("/domains/:accountName/unsubscribe", requireAuthentication, unsubscribeAccountFromDomain);
 
 // --- SSO (OIDC) ---
-router.get("/auth/sso/login/:domainName", requireAuth, startSSOLogin);
-router.get("/auth/sso/callback", requireAuth, handleSSOCallback);
+router.get("/auth/sso/login/:domainName", requireAuthentication, startSSOLogin);
+router.get("/auth/sso/callback", requireAuthentication, handleSSOCallback);
 
 export default router;

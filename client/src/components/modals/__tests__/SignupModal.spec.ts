@@ -15,8 +15,8 @@ const stubs = {
   Transition: true,
   UsernameInput: {
     template:
-      '<input class="username-stub" :value="username" @input="$emit(\'update:username\', $event.target.value)" />',
-    props: ['username'],
+      '<input class="name-stub" :value="name" @input="$emit(\'update:name\', $event.target.value)" />',
+    props: ['name'],
   },
   MailInput: {
     template:
@@ -53,7 +53,7 @@ describe('SignupModal.vue', () => {
       ok: true,
       json: async () => ({
         token: 'fake-jwt-token',
-        user: { username: 'myuser' },
+        account: { accountName: 'my-account' },
       }),
     })
 
@@ -62,7 +62,7 @@ describe('SignupModal.vue', () => {
       global: { stubs },
     })
 
-    await wrapper.find('.username-stub').setValue('myuser')
+    await wrapper.find('.name-stub').setValue('my-account')
     await wrapper.find('.mail-stub').setValue('mymail')
     await wrapper.find('.password-stub').setValue('mypass')
 
@@ -76,13 +76,13 @@ describe('SignupModal.vue', () => {
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'myuser', email: 'mymail', password: 'mypass' }),
+        body: JSON.stringify({ name: 'my-account', email: 'mymail', password: 'mypass' }),
       }),
     )
 
     expect(localStorage.getItem('isAuthenticated')).toBe('true')
     expect(localStorage.getItem('token')).toBe('fake-jwt-token')
-    expect(localStorage.getItem('username')).toBe('myuser')
+    expect(localStorage.getItem('account-name')).toBe('my-account')
 
     expect(wrapper.emitted('close')).toBeTruthy()
   })
