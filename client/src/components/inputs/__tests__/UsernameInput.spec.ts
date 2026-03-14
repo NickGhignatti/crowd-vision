@@ -1,21 +1,21 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import MailInput from '../UsernameInput.vue'
+import UsernameInput from '../UsernameInput.vue'
 
-describe('usernameInput.vue', () => {
+describe('UsernameInput.vue', () => {
   it('updates the model value when input changes', async () => {
-    const wrapper = mount(MailInput, {
+    const wrapper = mount(UsernameInput, {
       props: {
-        username: '',
-        'onUpdate:username': (e: string | undefined) => wrapper.setProps({ username: e }),
+        name: '',
+        'onUpdate:name': (e: string | undefined) => wrapper.setProps({ name: e }),
       },
     })
 
     const input = wrapper.find('input')
     await input.setValue('pass')
 
-    expect(wrapper.props('username')).toBe('pass')
+    expect(wrapper.props('name')).toBe('pass')
 
-    expect(wrapper.emitted('update:username')?.[0]).toEqual(['pass'])
+    expect(wrapper.emitted('update:name')?.[0]).toEqual(['pass'])
   })
 })

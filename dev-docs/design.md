@@ -21,7 +21,7 @@ The SSO flow uses PKCE (`code_challenge_method: S256`). The OAuth `state` parame
 
 ## Domain membership as embedded subdocument
 
-User memberships are embedded in the User document as an array rather than a separate collection. This simplifies queries (a single `User.findOne` returns everything) at the cost of some update complexity for membership changes. Given the expected low cardinality of memberships per user, this is the right trade-off.
+Account memberships are embedded in the Account document as an array rather than a separate collection. This simplifies queries (a single `Account.findOne` returns everything) at the cost of some update complexity for membership changes. Given the expected low cardinality of memberships per user, this is the right trade-off.
 
 ## Vue Composition API with composables (no global store)
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Auth Service API
-  description: API for user authentication, domain management, subscriptions, and SSO (OIDC).
+  description: API for account authentication, domain management, subscriptions, and SSO (OIDC).
   version: 1.0.0
 servers:
   - url: http://localhost/auth
@@ -15,10 +15,10 @@ components:
       bearerFormat: JWT
 
   schemas:
-    UserResponse:
+    Account:
       type: object
       properties:
-        username:
+        accountName:
           type: string
           example: "jdoe"
 
@@ -46,7 +46,7 @@ components:
         ssoConfig:
           type: object
           description: OIDC Configuration details for the domain
-        creatorUsername:
+        creatorAccountName:
           type: string
           example: "jdoe"
 
@@ -56,7 +56,7 @@ security:
 paths:
   /register:
     post:
-      summary: Register a new user
+      summary: Register a new account
       tags:
         - Auth
       security: []
@@ -67,11 +67,11 @@ paths:
             schema:
               type: object
               required:
-                - username
+                - accountName
                 - email
                 - password
               properties:
-                username:
+                accountName:
                   type: string
                   example: "jdoe"
                 email:
@@ -84,7 +84,7 @@ paths:
                   example: "securePassword123"
       responses:
         '201':
-          description: User created successfully
+          description: Account created successfully
           content:
             application/json:
               schema:
@@ -92,14 +92,14 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "User creation successful"
+                    example: "Account creation successful"
                   token:
                     type: string
                     example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  user:
-                    $ref: '#/components/schemas/UserResponse'
+                  account:
+                    $ref: '#/components/schemas/Account'
         '400':
-          description: Bad request (e.g., user already exists)
+          description: Bad request (e.g., account already exists)
           content:
             application/json:
               schema:
@@ -110,7 +110,7 @@ paths:
 
   /login:
     post:
-      summary: Login a user
+      summary: Login an account
       tags:
         - Auth
       security: []
@@ -121,10 +121,10 @@ paths:
             schema:
               type: object
               required:
-                - username
+                - accountName
                 - password
               properties:
-                username:
+                accountName:
                   type: string
                   example: "jdoe"
                 password:
@@ -145,8 +145,8 @@ paths:
                   token:
                     type: string
                     example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  user:
-                    $ref: '#/components/schemas/UserResponse'
+                  account:
+                    $ref: '#/components/schemas/Account'
         '401':
           description: Invalid credentials
           content:
@@ -197,21 +197,21 @@ paths:
         '400':
           description: Error registering domain
 
-  /domains/{username}:
+  /domains/{accountName}:
     get:
-      summary: Get user domain memberships
+      summary: Get account domain memberships
       tags:
         - Subscriptions
       parameters:
         - in: path
-          name: username
+          name: accountName
           required: true
           schema:
             type: string
-          description: The username to fetch domains for
+          description: The account name to fetch domains for
       responses:
         '200':
-          description: User's domains retrieved successfully
+          description: Account's domains retrieved successfully
           content:
             application/json:
               schema:
@@ -222,16 +222,16 @@ paths:
                     items:
                       $ref: '#/components/schemas/Domain'
         '404':
-          description: User not found or error retrieving domains
+          description: Account not found or error retrieving domains
 
-  /domains/{username}/subscribe:
+  /domains/{accountName}/subscribe:
     post:
-      summary: Subscribe user to a domain (Internal Only)
+      summary: Subscribe account to a domain (Internal Only)
       tags:
         - Subscriptions
       parameters:
         - in: path
-          name: username
+          name: accountName
           required: true
           schema:
             type: string
@@ -253,14 +253,14 @@ paths:
         '400':
           description: Error subscribing to domain
 
-  /domains/{username}/unsubscribe:
+  /domains/{accountName}/unsubscribe:
     delete:
-      summary: Unsubscribe user from a domain
+      summary: Unsubscribe account from a domain
       tags:
         - Subscriptions
       parameters:
         - in: path
-          name: username
+          name: accountName
           required: true
           schema:
             type: string
@@ -295,11 +295,11 @@ paths:
             type: string
           description: The domain name requiring SSO
         - in: query
-          name: username
+          name: accountName
           required: true
           schema:
             type: string
-          description: The username attempting to login
+          description: The account name attempting to login
       responses:
         '200':
           description: Returns the Identity Provider redirect URL
@@ -323,4 +323,4 @@ paths:
       description: This endpoint extracts 'code' and 'state' from the URL and redirects the client appropriately.
       responses:
         '302':
-          description: Redirects the user to the client application (success or failure)
+          description: Redirects the account to the client application (success or failure)

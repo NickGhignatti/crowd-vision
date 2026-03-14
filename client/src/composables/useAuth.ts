@@ -12,7 +12,7 @@ export function useAuth() {
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated')
-    localStorage.removeItem('username')
+    localStorage.removeItem('account-name')
     localStorage.removeItem('token')
     isLoggedIn.value = false
     router.push('/')

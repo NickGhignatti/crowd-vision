@@ -9,21 +9,21 @@ describe("JWT token system", () => {
   const MOCK_SECRET = "super-secret-test-key";
 
   beforeAll(() => {
-    process.env.JWT_SECRET = MOCK_SECRET;
+    process.env.TOKEN_SECRET = MOCK_SECRET;
   });
 
   afterAll(() => {
-    delete process.env.JWT_SECRET;
+    delete process.env.TOKEN_SECRET;
   });
 
   describe("1. Token generation", () => {
     it("should generate a valid JWT standard token", () => {
-      const mockUser = {
-        userId: "test-user-id",
-        username: "testuser",
+      const mockPayload = {
+        accountId: "test-user-id",
+        accountName: "testuser",
       };
 
-      const generatedToken = generateStandardToken(mockUser);
+      const generatedToken = generateStandardToken(mockPayload);
 
       expect(typeof generatedToken).toBe("string");
     });
@@ -53,16 +53,16 @@ describe("JWT token system", () => {
 
   describe("2. Token validation", () => {
     it("should successfully verify and decode a valid token", () => {
-      const mockUser = {
-        userId: "test-user-id",
-        username: "testuser",
+      const mockAccount = {
+        accountId: "test-user-id",
+        accountName: "testuser",
       };
 
-      const generatedToken = generateStandardToken(mockUser);
+      const generatedToken = generateStandardToken(mockAccount);
 
       const decoded = verifyToken(generatedToken) as any;
-      expect(decoded.userId).toBe(mockUser.userId);
-      expect(decoded.username).toBe(mockUser.username);
+      expect(decoded.accountId).toBe(mockAccount.accountId);
+      expect(decoded.accountName).toBe(mockAccount.accountName);
     });
 
     it("should throw an error for a completely fake token string", () => {

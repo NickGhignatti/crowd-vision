@@ -8,10 +8,10 @@ export function useUserPermissions() {
   // Fetch the user's roles for all domains
   const fetchPermissions = async () => {
     try {
-      const username = localStorage.getItem('username')
-      if (!username) return
+      const accountName = localStorage.getItem('account-name')
+      if (!accountName) return
 
-      const response = await authenticatedFetch(`/auth/domains/${username}`)
+      const response = await authenticatedFetch(`/auth/domains/${accountName}`)
       const data = await response.json()
 
       // The API returns { domains: [...] } where items are Memberships

@@ -40,14 +40,14 @@ const handleSubscribe = async (index: number) => {
   const domain = props.domains[index]
   if (!domain) return
 
-  const username = localStorage.getItem('username')
-  if (!username) return
+  const accountName = localStorage.getItem('accountName')
+  if (!accountName) return
 
   try {
     // STRATEGY A: External SSO (OIDC)
     if (domain.authStrategy === 'oidc') {
       const response = await authenticatedFetch(
-        `/auth/sso/login/${domain.name}?username=${username}`,
+        `/auth/sso/login/${domain.name}?accountName=${accountName}`,
       )
 
       if (!response.ok) throw new Error('Failed to initiate SSO')
@@ -65,7 +65,7 @@ const handleSubscribe = async (index: number) => {
     // STRATEGY B: Internal (Crowd Vision Managed)
     subscribedSet.value.add(domain.name)
 
-    const response = await authenticatedFetch(`/auth/domains/${username}/subscribe`, 'POST', {
+    const response = await authenticatedFetch(`/auth/domains/${accountName}/subscribe`, 'POST', {
       body: JSON.stringify({ domainName: domain.name }),
     })
 
@@ -84,12 +84,12 @@ const handleUnsubscribe = async (index: number) => {
   const domain = props.domains[index]
   if (!domain) return
 
-  const username = localStorage.getItem('username')
+  const accountName = localStorage.getItem('account-name')
 
   try {
     subscribedSet.value.delete(domain.name)
 
-    const response = await authenticatedFetch(`/auth/domains/${username}/unsubscribe`, 'DELETE', {
+    const response = await authenticatedFetch(`/auth/domains/${accountName}/unsubscribe`, 'DELETE', {
       body: JSON.stringify({ domainName: domain.name }),
     })
 

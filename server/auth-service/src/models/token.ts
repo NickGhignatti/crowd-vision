@@ -1,6 +1,6 @@
 export interface StandardTokenPayload {
-    userId: string
-    username: string
+    accountId: string
+    accountName: string
 }
 
 export interface DeviceTokenPayload {

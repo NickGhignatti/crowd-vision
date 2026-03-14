@@ -1,6 +1,6 @@
-# CrowdVision User Guide
+# CrowdVision Account Guide
 
-Welcome to the **CrowdVision** User Guide. CrowdVision is a comprehensive digital twin and crowd analytics platform designed to help facility managers, administrators, and users monitor building occupancy, environmental conditions, and safety alerts in real-time.
+Welcome to the **CrowdVision** Account Guide. CrowdVision is a comprehensive digital twin and crowd analytics platform designed to help facility managers, administrators, and users monitor building occupancy, environmental conditions, and safety alerts in real-time.
 
 This guide covers how to navigate the dashboard, interact with the 3D digital twin, manage building data, and handle notifications.
 

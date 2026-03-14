@@ -18,18 +18,18 @@ const emit = defineEmits<{
   (e: 'switch-to-signup'): void
 }>()
 
-const user = reactive({ username: '', password: '' })
+const account = reactive({ name: '', password: '' })
 
 const handleLogin = async () => {
   const response = await nonAuthenticatedFetch(`/auth/login`, 'POST', {
-    body: JSON.stringify(user),
+    body: JSON.stringify(account),
   })
 
   if (response.ok) {
     const message = await response.json()
     localStorage.setItem('isAuthenticated', 'true')
     localStorage.setItem('token', message.token)
-    localStorage.setItem('username', message.user.username)
+    localStorage.setItem('account-name', message.account.accountName)
     emit('close')
   } else {
     console.log(await response.json())
@@ -52,8 +52,8 @@ const handleLogin = async () => {
     </div>
 
     <form @submit.prevent="handleLogin" class="relative z-10 space-y-5">
-      <UsernameInput v-model:username="user.username" />
-      <PasswordInput v-model:password="user.password" />
+      <UsernameInput v-model:name="account.name" />
+      <PasswordInput v-model:password="account.password" />
       <button
         type="submit"
         class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0"

@@ -9,7 +9,7 @@ The repository is a **Lerna monorepo** (MEVN stack) deployed entirely via Docker
 | Package | Description |
 |---------|-------------|
 | `client` | Vue 3 + TresJS + Tailwind SPA |
-| `server/auth-service` | User auth, JWT, domain management, OIDC/SSO |
+| `server/auth-service` | Account auth, JWT, domain management, OIDC/SSO |
 | `server/twin-service` | CRUD for buildings and rooms |
 | `server/socket-service` | Socket.IO gateway bridging Redis pub/sub → browser |
 | `server/notification-service` | Web Push (VAPID) + Redis pub/sub dispatch |

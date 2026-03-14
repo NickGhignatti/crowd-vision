@@ -45,7 +45,7 @@ Only the following fields can be changed after upload (via `PATCH /twin/building
 
 Position and dimensions are **immutable** after registration.
 
-## User schema
+## Account schema
 
 ```typescript
 interface IUser {

@@ -19,14 +19,14 @@ describe('ModelSelectionDropdown.vue', () => {
     vi.clearAllMocks()
     localStorage.clear()
 
-    // Simulate a fully authenticated user session
+    // Simulate a fully authenticated account session
     localStorage.setItem('isAuthenticated', 'true')
-    localStorage.setItem('username', 'TestUser')
+    localStorage.setItem('account-name', 'TestAccount')
     localStorage.setItem('token', 'mock-jwt-token-123')
   })
 
   it('fetches data and auto-selects the first model, sending auth headers', async () => {
-    // 1st Fetch: Get domains for the user
+    // 1st Fetch: Get domains for the account
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: () =>
@@ -60,7 +60,7 @@ describe('ModelSelectionDropdown.vue', () => {
     expect(wrapper.text()).toContain('Building A')
   })
 
-  it('allows user to open dropdown and select a different model', async () => {
+  it('allows account to open dropdown and select a different model', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ domains: [{ domainName: 'd1' }] }),

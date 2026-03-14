@@ -1,18 +1,18 @@
 import { Schema, model, Document } from "mongoose";
 import { membershipSchema, type IDomainMembership } from "./domain.js";
 
-export interface IUser extends Document {
-  username: string;
+export interface IAccount extends Document {
+  name: string;
   email: string;
   password: string;
   memberships: IDomainMembership[];
 }
 
-const userSchema = new Schema<IUser>({
-  username: { type: String, required: true, unique: true },
+const accountSchema = new Schema<IAccount>({
+  name: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   memberships: [membershipSchema],
 });
 
-export const User = model<IUser>("User", userSchema);
+export const Account = model<IAccount>("Account", accountSchema);

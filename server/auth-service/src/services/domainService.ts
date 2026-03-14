@@ -1,68 +1,77 @@
 import { Domain, type ISSOConfig } from "../models/domain.js";
-import { User } from "../models/user.js";
+import { Account } from "../models/account.js";
 
 export const createDomain = async (
-  name: string,
-  subdomains: string[],
-  creatorUsername: string,
-  authStrategy: "internal" | "oidc",
-  ssoConfig?: ISSOConfig,
+    domainName: string,
+    subdomains: string[],
+    creatorAccountName: string,
+    authenticationStrategy: "internal" | "oidc",
+    ssoConfig?: ISSOConfig,
 ) => {
-  const existing = await Domain.findOne({ name });
-  if (existing) throw new Error("Domain already exists");
+  const domain = await Domain.findOne({ name: domainName });
 
-  const domain = await Domain.create({
-    name,
+  if (domain) {
+    throw new Error("domain already exists");
+  }
+
+  const createdDomain = await Domain.create({
+    name: domainName,
     subdomains,
-    authStrategy,
-    ...(authStrategy === "oidc" && ssoConfig ? { ssoConfig } : {}),
+    authStrategy: authenticationStrategy,
+    ...(authenticationStrategy === "oidc" && ssoConfig ? { ssoConfig } : {}),
   });
 
-  await User.findOneAndUpdate(
-    { username: creatorUsername },
-    { $push: { memberships: { domainName: name, role: "owner" } } },
+  await Account.findOneAndUpdate(
+    { name: creatorAccountName },
+    { $push: { memberships: { domainName: domainName, role: "owner" } } },
   );
 
-  return domain;
+  return createdDomain;
 };
 
 export const getAllDomains = async () => {
-  // Exclude clientSecret from output
   return Domain.find().select("-ssoConfig.clientSecret");
 };
 
-export const getDomainByName = async (name: string) => {
-  return Domain.findOne({ name }).select("-ssoConfig.clientSecret");
+export const getDomainByName = async (domainName: string) => {
+  return Domain.findOne({ name: domainName }).select("-ssoConfig.clientSecret");
 };
 
 // --- Memberships ---
 
-export const getUserMemberships = async (username: string) => {
-  const user = await User.findOne({ username });
-  if (!user) throw new Error("User not found");
-  return user.memberships;
+export const getAccountMemberships = async (accountName: string) => {
+  const account = await Account.findOne({ name: accountName });
+
+  if (!account) {
+    throw new Error("account not found");
+  }
+
+  return account.memberships;
 };
 
 export const subscribeInternal = async (
-  username: string,
-  domainName: string,
+    accountName: string,
+    domainName: string,
 ) => {
   const domain = await Domain.findOne({ name: domainName });
-  if (!domain) throw new Error("Domain not found");
 
-  if (domain.authStrategy === "oidc") {
-    throw new Error("This domain requires SSO login");
+  if (!domain) {
+    throw new Error("Domain not found");
   }
 
-  await User.findOneAndUpdate(
-    { username },
+  if (domain.authStrategy === "oidc") {
+    throw new Error("this domain requires SSO login");
+  }
+
+  await Account.findOneAndUpdate(
+    { name: accountName },
     { $addToSet: { memberships: { domainName, role: "viewer" } } },
   );
 };
 
-export const unsubscribe = async (username: string, domainName: string) => {
-  await User.findOneAndUpdate(
-    { username },
+export const unsubscribe = async (accountName: string, domainName: string) => {
+  await Account.findOneAndUpdate(
+    { name: accountName },
     { $pull: { memberships: { domainName } } },
   );
 };

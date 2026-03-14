@@ -55,10 +55,10 @@ export function useBuildingModel() {
 
   const fetchBuildings = async () => {
     try {
-      const username = localStorage.getItem('username')
-      if (!username) return
+      const accountName = localStorage.getItem('account-name')
+      if (!accountName) return
 
-      const domainRes = await authenticatedFetch(`/auth/domains/${username}`)
+      const domainRes = await authenticatedFetch(`/auth/domains/${accountName}`)
       const data = await domainRes.json()
       const memberships = data.domains as DomainMembership[]
 

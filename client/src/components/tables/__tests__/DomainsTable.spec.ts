@@ -13,16 +13,16 @@ describe('DomainsTable.vue', () => {
     { name: 'domain-a', subdomains: [], authStrategy: 'internal' },
     { name: 'domain-b', subdomains: [], authStrategy: 'internal' },
   ]
-  const mockUserMemberships: DomainMembership[] = [{ domainName: 'domain-a', role: 'viewer' }]
+  const mockAccountMemberships: DomainMembership[] = [{ domainName: 'domain-a', role: 'viewer' }]
 
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.setItem('username', 'TestUser')
+    localStorage.setItem('accountName', 'TestAccount')
   })
 
   it('initializes subscription state correctly', () => {
     const wrapper = mount(DomainsTable, {
-      props: { domains: mockItems, userMemberships: mockUserMemberships },
+      props: { domains: mockItems, userMemberships: mockAccountMemberships },
     })
     const rows = wrapper.findAllComponents(DomainRow)
     expect(rows[0]?.props('isSubscribed')).toBe(true)
@@ -42,7 +42,7 @@ describe('DomainsTable.vue', () => {
     expect(firstRow.props('isSubscribed')).toBe(true)
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://test-api.com/auth/domains/TestUser/subscribe',
+      'http://test-api.com/auth/domains/TestAccount/subscribe',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer null' },

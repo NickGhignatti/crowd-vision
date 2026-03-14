@@ -29,10 +29,10 @@ const selectModel = (model: ModelOption) => {
 
 const getInitialModels = async () => {
   try {
-    const username = localStorage.getItem('username')
-    if (!username) return
+    const accountName = localStorage.getItem('account-name')
+    if (!accountName) return
 
-    const authenticationResponse = await authenticatedFetch(`/auth/domains/${username}`)
+    const authenticationResponse = await authenticatedFetch(`/auth/domains/${accountName}`)
 
     if (!authenticationResponse.ok) throw new Error('Failed to fetch user domains')
 
