@@ -1,12 +1,31 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { defineComponent } from 'vue'
+import { mount } from '@vue/test-utils'
 import { useUserPermissions } from '../useUserPermissions'
 
 const fetchMock = vi.fn()
 global.fetch = fetchMock
 
 describe('useUserPermissions', () => {
+  const mountComposable = () => {
+    let composable!: ReturnType<typeof useUserPermissions>
+
+    const Host = defineComponent({
+      setup() {
+        composable = useUserPermissions()
+        return () => null
+      },
+    })
+
+    mount(Host)
+    return composable
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
+    fetchMock.mockResolvedValue({
+      json: () => Promise.resolve({ domains: [] }),
+    })
     localStorage.setItem('account-name', 'TestAccount')
   })
 
@@ -15,20 +34,20 @@ describe('useUserPermissions', () => {
   })
 
   it('initializes with empty memberships', () => {
-    const { memberships } = useUserPermissions()
+    const { memberships } = mountComposable()
     expect(memberships.value).toEqual([])
   })
 
-  it('fetches permissions and allows edit if role is admin/owner', async () => {
-    // Account is admin of 'domain-a'
+  it('fetches permissions and allows edit if role is business admin', async () => {
+    // Account is business admin of 'domain-a'
     fetchMock.mockResolvedValue({
       json: () =>
         Promise.resolve({
-          domains: [{ domainName: 'domain-a', role: 'admin' }],
+          domains: [{ domainName: 'domain-a', role: 'business_admin' }],
         }),
     })
 
-    const { fetchPermissions, canEdit, memberships } = useUserPermissions()
+    const { fetchPermissions, canEdit, memberships } = mountComposable()
 
     await fetchPermissions()
 
@@ -36,18 +55,18 @@ describe('useUserPermissions', () => {
 
     // Check Logic
     expect(canEdit(['domain-a'])).toBe(true)
-    expect(canEdit(['domain-b'])).toBe(false) // Not admin of this one
+    expect(canEdit(['domain-b'])).toBe(false) // Not business admin of this one
   })
 
-  it('denies edit if role is viewer', async () => {
+  it('denies edit if role is standard customer', async () => {
     fetchMock.mockResolvedValue({
       json: () =>
         Promise.resolve({
-          domains: [{ domainName: 'domain-a', role: 'viewer' }],
+          domains: [{ domainName: 'domain-a', role: 'standard_customer' }],
         }),
     })
 
-    const { fetchPermissions, canEdit } = useUserPermissions()
+    const { fetchPermissions, canEdit } = mountComposable()
     await fetchPermissions()
 
     expect(canEdit(['domain-a'])).toBe(false)
@@ -57,7 +76,7 @@ describe('useUserPermissions', () => {
     fetchMock.mockRejectedValue(new Error('Network Error'))
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
 
-    const { fetchPermissions, memberships } = useUserPermissions()
+    const { fetchPermissions, memberships } = mountComposable()
     await fetchPermissions()
 
     expect(memberships.value).toEqual([])

@@ -7,6 +7,7 @@ export function useNavLinks() {
     { to: '/dashboard', label: () => t('commons.dashboard') },
     { to: '/model', label: () => t('commons.digitalTwin') },
     { to: '/domains', label: () => t('commons.domains') },
+    { to: '/admin-panel', label: () => t('commons.adminPanel') },
   ]
 
   return { links }

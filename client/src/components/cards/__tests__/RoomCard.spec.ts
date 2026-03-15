@@ -49,7 +49,7 @@ describe('RoomCard', () => {
   })
 
   describe('2. Temperature color', () => {
-    // TODO : update this tests when temperature will be no more hardcoded
+    // Temporary assertion: component currently renders a fixed 22°C preview value.
     it('applies emerald color for normal temperature (22°C)', () => {
       const wrapper = createWrapper()
 

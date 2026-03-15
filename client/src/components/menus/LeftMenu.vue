@@ -3,7 +3,6 @@ import type { BuildingPayload } from '@/models/building'
 import { useUserPermissions } from '@/composables/useUserPermissions'
 import { useI18n } from 'vue-i18n'
 import { computed, ref, watch } from 'vue'
-import { authenticatedFetch } from '@/composables/useApi.ts'
 import BuildingCard from '@/components/cards/BuildingCard.vue'
 
 const emit = defineEmits<{
@@ -20,14 +19,10 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const { memberships } = useUserPermissions()
-
-const canUpload = computed(() => memberships.value.some((m) => ['owner', 'admin'].includes(m.role)))
+useUserPermissions()
 
 const isLeftOpen = ref(true)
-const isUploading = ref(false)
 const showControls = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
 
 watch(
   () => props.selectedId,
@@ -42,32 +37,6 @@ const toggleControls = (event: Event) => {
 }
 
 const toggleLeft = () => (isLeftOpen.value = !isLeftOpen.value)
-
-const triggerUpload = () => fileInput.value?.click()
-
-const handleFileUpload = async (event: Event) => {
-  const target = event.target as HTMLInputElement
-  if (!target.files?.length) return
-
-  const file = target.files[0]
-  if (!file || (file.type !== 'application/json' && !file.name.endsWith('.json'))) {
-    alert('Please upload a valid JSON file')
-    return
-  }
-
-  try {
-    isUploading.value = true
-    const payload = JSON.parse(await file.text()) as BuildingPayload
-    await authenticatedFetch(`/twin/register`, 'POST', { body: JSON.stringify(payload) })
-    emit('json-uploaded')
-  } catch (e) {
-    console.error('Upload failed', e)
-    alert('Failed to upload building data')
-  } finally {
-    isUploading.value = false
-    if (fileInput.value) fileInput.value.value = ''
-  }
-}
 
 const availableFloors = computed(() => {
   if (!props.buildingModel?.rooms) return []
@@ -91,26 +60,6 @@ const activeFloorModel = computed({
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-lg font-bold text-slate-800">{{ t('model.data') }}</h2>
         <div class="flex items-center gap-2">
-          <div v-if="canUpload">
-            <button
-              @click="triggerUpload"
-              class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
-              :title="t('model.controls.uploadJson')"
-              :disabled="isUploading"
-            >
-              <i
-                class="ph-bold ph-upload-simple text-xl"
-                :class="{ 'animate-pulse text-emerald-600': isUploading }"
-              ></i>
-            </button>
-            <input
-              ref="fileInput"
-              type="file"
-              accept=".json"
-              class="hidden"
-              @change="handleFileUpload"
-            />
-          </div>
           <button
             @click="toggleLeft"
             class="text-slate-400 hover:text-emerald-600 transition-colors p-1"

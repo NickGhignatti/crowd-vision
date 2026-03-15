@@ -28,7 +28,7 @@ export const subscribe = async (req: Request, res: Response) => {
         await Subscription.findOneAndUpdate(
             { endpoint: subscription.endpoint },
             subscription,
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
         );
 
         console.log('✅ Account subscribed successfully');

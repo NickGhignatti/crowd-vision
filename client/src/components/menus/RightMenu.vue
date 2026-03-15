@@ -69,7 +69,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
     Object.assign(editingRoom.value, updates)
   } catch (e) {
     console.error(e)
-    alert('Failed to update room')
+    alert(t('model.rooms.updateFailed'))
   }
 }
 </script>

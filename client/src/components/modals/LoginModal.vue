@@ -27,6 +27,7 @@ const handleLogin = async () => {
 
   if (response.ok) {
     const message = await response.json()
+    console.log(message)
     localStorage.setItem('isAuthenticated', 'true')
     localStorage.setItem('token', message.token)
     localStorage.setItem('account-name', message.account.accountName)

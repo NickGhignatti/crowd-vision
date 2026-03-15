@@ -48,8 +48,8 @@ Position and dimensions are **immutable** after registration.
 ## Account schema
 
 ```typescript
-interface IUser {
-  username: string        // unique
+interface IAccount {
+  accountName: string     // unique
   email: string           // unique
   password: string        // bcrypt hash — never returned by API
   memberships: IDomainMembership[]
@@ -57,7 +57,7 @@ interface IUser {
 
 interface IDomainMembership {
   domainName: string
-  role: 'owner' | 'admin' | 'viewer'
+  role: 'admin' | 'business_admin' | 'business_staff' | 'standard_customer'
   externalId?: string     // IdP subject claim — set by SSO flow
 }
 ```

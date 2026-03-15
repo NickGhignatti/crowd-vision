@@ -31,7 +31,7 @@ describe('ModelSelectionDropdown.vue', () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          domains: [{ domainName: 'test-domain', role: 'viewer' }],
+          domains: [{ domainName: 'test-domain', role: 'standard_customer' }],
         }),
     })
 

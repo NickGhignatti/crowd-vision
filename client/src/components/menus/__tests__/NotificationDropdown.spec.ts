@@ -41,7 +41,7 @@ describe('NotificationDropdown.vue', () => {
       global: { stubs: { NotificationItem: true } },
     })
 
-    expect(wrapper.findAllComponents({ name: 'NotificationItem' })).toHaveLength(2)
+    expect(wrapper.findAll('notification-item-stub')).toHaveLength(2)
   })
 
   it('shows empty state when there are no notifications', async () => {

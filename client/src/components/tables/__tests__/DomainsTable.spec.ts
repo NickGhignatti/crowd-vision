@@ -13,7 +13,9 @@ describe('DomainsTable.vue', () => {
     { name: 'domain-a', subdomains: [], authStrategy: 'internal' },
     { name: 'domain-b', subdomains: [], authStrategy: 'internal' },
   ]
-  const mockAccountMemberships: DomainMembership[] = [{ domainName: 'domain-a', role: 'viewer' }]
+  const mockAccountMemberships: DomainMembership[] = [
+    { domainName: 'domain-a', role: 'standard_customer' },
+  ]
 
   beforeEach(() => {
     vi.clearAllMocks()

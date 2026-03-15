@@ -1,16 +1,26 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LangOption from '@/components/buttons/LanguageOption.vue'
 
-const { locale } = useI18n()
+const i18n = useI18n() as {
+  locale: Ref<string>
+  t?: (key: string) => string
+}
+
+const { locale } = i18n
+const tr = (key: string, fallback: string) => {
+  const translated = typeof i18n.t === 'function' ? i18n.t(key) : key
+  return translated === key ? fallback : translated
+}
 
 const isLangDropdownOpen = ref(false)
 
-const languages = [
-  { code: 'en', label: 'English' },
-  { code: 'it', label: 'Italiano' },
-]
+const languages = computed(() => [
+  { code: 'en', label: tr('commons.languageSelector.english', 'English') },
+  { code: 'it', label: tr('commons.languageSelector.italian', 'Italiano') },
+])
 
 const switchLanguage = (lang: string) => {
   locale.value = lang
@@ -24,7 +34,7 @@ const switchLanguage = (lang: string) => {
     <button
       @click="isLangDropdownOpen = !isLangDropdownOpen"
       class="p-2 text-slate-600 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition-colors"
-      title="Change Language"
+      :title="tr('commons.languageSelector.changeLanguage', 'Change Language')"
     >
       <i class="ph-bold ph-globe text-xl"></i>
     </button>

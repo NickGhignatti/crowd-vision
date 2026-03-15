@@ -18,7 +18,7 @@ describe('useBuildingModel', () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          domains: [{ domainName: 'TestDomain', role: 'viewer' }],
+          domains: [{ domainName: 'TestDomain', role: 'standard_customer' }],
         }),
     })
 

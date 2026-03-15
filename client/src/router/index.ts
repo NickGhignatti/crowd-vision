@@ -2,6 +2,7 @@ import HomeView from '@/views/HomeView.vue'
 import ModelView from '@/views/ModelView.vue'
 import DomainsView from '@/views/DomainsView.vue'
 import DashboardView from '@/views/DashboardView.vue'
+import AdministrationView from '@/views/AdministrationView.vue'
 
 import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 
@@ -35,6 +36,14 @@ const router = createRouter({
       path: '/domains',
       name: 'domains',
       component: DomainsView,
+      meta: {
+        requiresAuth: true,
+      },
+    },
+    {
+      path: '/admin-panel',
+      name: 'Administration Tools',
+      component: AdministrationView,
       meta: {
         requiresAuth: true,
       },

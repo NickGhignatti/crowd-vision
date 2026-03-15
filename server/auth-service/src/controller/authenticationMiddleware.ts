@@ -6,7 +6,7 @@ import { getAdminSecret } from "../config/config.js";
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      account?: any;
     }
   }
 }
@@ -26,7 +26,7 @@ export const requireAuthentication = (
 
     const token = authHeader.split(" ")[1];
 
-    req.user = TokenService.verifyToken(token || "");
+    req.account = TokenService.verifyToken(token || "");
 
     next();
   } catch (error) {

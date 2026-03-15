@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   triggerRender: null as null | ((ctx: { elapsed: number }) => void),
 }))
 
-// 2. Mock TresJS
+// Capture Tres render-loop callback so tests can invoke one frame manually.
 vi.mock('@tresjs/core', () => ({
   useLoop: () => ({
     onBeforeRender: (cb: (ctx: { elapsed: number }) => void) => {

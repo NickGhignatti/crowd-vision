@@ -8,6 +8,7 @@ const defaultProps = {
   issuerUrl: '',
   clientId: '',
   clientSecret: '',
+  isVisibleFromOutside: false,
 }
 
 const createWrapper = (props = {}) =>
