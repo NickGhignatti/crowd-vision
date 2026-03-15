@@ -10,7 +10,7 @@ export const registerAccount = async (
   password: string,
 ) => {
   const account = await Account.findOne({
-    $or: [{ email }, { username: accountName }],
+    $or: [{ email }, { name: accountName }],
   });
   if (account) {
     throw new Error("user already exists");

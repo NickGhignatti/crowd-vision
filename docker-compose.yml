@@ -55,6 +55,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - VITE_SERVER_URL=${DEV_URL}:${SERVER_PORT}
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+      - INTERNAL_ADMIN_SECRET=${INTERNAL_ADMIN_SECRET}
 
   auth-db:
     image: mongo:latest
