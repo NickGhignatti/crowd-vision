@@ -3,6 +3,7 @@ import * as client from "openid-client";
 import { Account } from "../models/account.js";
 import { Domain } from "../models/domain.js";
 import { getClientUrl, getServerUrl } from "../config/config.js";
+import type { Role } from "../models/roles.js";
 
 export const registerAccount = async (
   accountName: string,
@@ -10,7 +11,7 @@ export const registerAccount = async (
   password: string,
 ) => {
   const account = await Account.findOne({
-    $or: [{ email }, { username: accountName }],
+    $or: [{ email }, { name: accountName }],
   });
   if (account) {
     throw new Error("user already exists");
@@ -126,19 +127,22 @@ export const processSSOCallback = async (fullUrl: string) => {
 
   // Map Roles
   const userGroups = claims ? (claims.groups as string[]) || [] : [];
-  const role =
-    userGroups.includes("staff") || userGroups.includes("admin")
-      ? "admin"
-      : "viewer";
+  const role: Role = userGroups.includes("admin") || userGroups.includes("platform-admin")
+    ? "admin"
+    : userGroups.includes("business-admin") || userGroups.includes("business_admin")
+      ? "business_admin"
+      : userGroups.includes("staff") || userGroups.includes("business-staff")
+        ? "business_staff"
+        : "standard_customer";
 
   // Update Account Membership (Upsert)
   await Account.findOneAndUpdate(
-    { username: cv_username },
+    { name: cv_username },
     { $pull: { memberships: { domainName: domain } } }, // Remove old
   );
 
   await Account.findOneAndUpdate(
-    { username: cv_username },
+    { name: cv_username },
     {
       $push: {
         memberships: {

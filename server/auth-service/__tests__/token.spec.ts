@@ -4,26 +4,29 @@ import {
   verifyToken,
 } from "../src/services/tokenService.js";
 import jwt from "jsonwebtoken";
+import type { StandardTokenPayload } from "../src/models/token.js";
 
 describe("JWT token system", () => {
   const MOCK_SECRET = "super-secret-test-key";
 
   beforeAll(() => {
-    process.env.TOKEN_SECRET = MOCK_SECRET;
+    process.env.JWT_SECRET = MOCK_SECRET;
   });
 
   afterAll(() => {
-    delete process.env.TOKEN_SECRET;
+    delete process.env.JWT_SECRET;
   });
 
   describe("1. Token generation", () => {
-    it("should generate a valid JWT standard token", () => {
+    it("should generate a valid JWT standard token", async () => {
       const mockPayload = {
         accountId: "test-user-id",
         accountName: "testuser",
       };
 
-      const generatedToken = generateStandardToken(mockPayload);
+      const generatedToken = await generateStandardToken(
+        mockPayload as StandardTokenPayload,
+      );
 
       expect(typeof generatedToken).toBe("string");
     });
@@ -52,15 +55,15 @@ describe("JWT token system", () => {
   });
 
   describe("2. Token validation", () => {
-    it("should successfully verify and decode a valid token", () => {
+    it("should successfully verify and decode a valid token", async () => {
       const mockAccount = {
         accountId: "test-user-id",
         accountName: "testuser",
       };
 
-      const generatedToken = generateStandardToken(mockAccount);
+      const generatedToken = await generateStandardToken(mockAccount as StandardTokenPayload);
 
-      const decoded = verifyToken(generatedToken) as any;
+      const decoded = verifyToken(await generatedToken) as any;
       expect(decoded.accountId).toBe(mockAccount.accountId);
       expect(decoded.accountName).toBe(mockAccount.accountName);
     });

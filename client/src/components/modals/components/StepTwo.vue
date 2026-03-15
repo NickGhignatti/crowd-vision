@@ -18,6 +18,10 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const tr = (key: string, fallback: string) => {
+  const translated = t(key)
+  return translated === key ? fallback : translated
+}
 const subDomainInput = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 
@@ -65,12 +69,12 @@ const handleAdd = () => {
           <span
             v-if="authStrategy === 'oidc'"
             class="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold"
-            >SSO</span
+            >{{ tr('domains.inputs.ssoShort', 'SSO') }}</span
           >
           <span
             v-else
             class="text-[10px] px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded font-bold"
-            >STD</span
+            >{{ tr('domains.inputs.standardShort', 'STD') }}</span
           >
         </div>
       </div>
@@ -92,7 +96,7 @@ const handleAdd = () => {
           v-model="subDomainInput"
           @keydown.enter="handleAdd"
           type="text"
-          placeholder="e.g. api.unibo.it"
+          :placeholder="tr('domains.inputs.modal.subdomainPlaceholder', 'e.g. api.unibo.it')"
           class="flex-1 px-3 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all text-sm"
         />
         <button

@@ -5,18 +5,22 @@ import type {
   StandardTokenPayload,
 } from "../models/token.js";
 import { getTokenSecret } from "../config/config.js";
+import { Account } from "../models/account.js";
 
-export const generateStandardToken = (payload: StandardTokenPayload) => {
+export const generateStandardToken = async (payload: StandardTokenPayload) => {
   const secret = getTokenSecret();
 
   if (!secret) {
     throw new Error("secret configuration error");
   }
 
+  const account = await Account.findOne({name: payload.accountName})
+
   return jwt.sign(
     {
       accountId: payload.accountId,
       accountName: payload.accountName,
+      accountMemberships: account?.memberships,
     },
     secret,
     { expiresIn: "3h" },

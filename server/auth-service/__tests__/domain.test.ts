@@ -1,5 +1,3 @@
-import request from "supertest";
-import { app } from "../src/index.js";
 import { Account } from "../src/models/account.js";
 import { Domain } from "../src/models/domain.js";
 import {
@@ -9,7 +7,10 @@ import {
 import {
   createDomain,
   getAllDomains,
-  getAccountMemberships, subscribeInternal, unsubscribe,
+  getAccountMemberships,
+  getDomainSubdomains,
+  subscribeInternal,
+  unsubscribe,
 } from "../src/services/domainService.js";
 
 describe("Domain API", () => {
@@ -31,6 +32,26 @@ describe("Domain API", () => {
     creatorUsername: mockUser.username,
   };
 
+  const createMockDomainWithSubdomains = async () => {
+    const subdomainDocs = [];
+    for (const subdomainName of mockDomain.subdomains) {
+      const subdomain = await createDomain(
+        `${subdomainName}.${mockDomain.name}`,
+        [],
+        mockDomain.creatorUsername,
+        "internal",
+      );
+      subdomainDocs.push(subdomain);
+    }
+
+    return createDomain(
+      mockDomain.name,
+      subdomainDocs,
+      mockDomain.creatorUsername,
+      "internal",
+    );
+  };
+
   beforeEach(async () => {
     await Account.deleteMany({});
     await Domain.deleteMany({});
@@ -43,73 +64,50 @@ describe("Domain API", () => {
 
   describe("1. System Domains", () => {
     it("should create a new domain", async () => {
-      const domain = await createDomain(
-        mockDomain.name,
-        mockDomain.subdomains,
-        mockDomain.creatorUsername,
-        "internal",
-      );
+      const domain = await createMockDomainWithSubdomains();
 
       expect(domain.name).toBe(mockDomain.name);
-      expect(domain.subdomains).toEqual(
-        expect.arrayContaining(mockDomain.subdomains),
+      expect(domain.subdomains).toHaveLength(mockDomain.subdomains.length);
+
+      const subdomainNames = await getDomainSubdomains(mockDomain.name);
+      expect(subdomainNames).toEqual(
+        expect.arrayContaining([
+          `studio.${mockDomain.name}`,
+          `docenti.${mockDomain.name}`,
+        ]),
       );
     });
 
     it("should retrieve all system domains", async () => {
-      await createDomain(
-        mockDomain.name,
-        mockDomain.subdomains,
-        mockDomain.creatorUsername,
-        "internal",
-      );
+      await createMockDomainWithSubdomains();
 
       const domains = await getAllDomains();
 
-      expect(domains.length).toBe(1);
-      expect(domains[0]).toBeDefined();
-      if (domains[0]) {
-        expect(domains[0].name).toBe(mockDomain.name);
-      }
+      expect(domains.some((d) => d.name === mockDomain.name)).toBe(true);
     });
 
     it("should fail to create a duplicate domain", async () => {
-      await createDomain(
-        mockDomain.name,
-        mockDomain.subdomains,
-        mockDomain.creatorUsername,
-        "internal",
-      );
+      await createMockDomainWithSubdomains();
 
       await expect(
-        createDomain(
-          mockDomain.name,
-          mockDomain.subdomains,
-          mockDomain.creatorUsername,
-          "internal",
-        ),
+        createMockDomainWithSubdomains(),
       ).rejects.toThrow();
     });
   });
 
   describe("Account Domains & Subscriptions", () => {
     beforeEach(async () => {
-      await createDomain(
-        mockDomain.name,
-        mockDomain.subdomains,
-        mockDomain.creatorUsername,
-        "internal",
-      );
+      await createMockDomainWithSubdomains();
     });
 
-    it("should verify the creator is the OWNER", async () => {
+    it("should verify the creator is a business admin", async () => {
       const userDomains = await getAccountMemberships(mockUser.username);
 
       const membership = userDomains.find(
         (m) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeDefined();
-      expect(membership?.role).toBe("owner");
+      expect(membership?.role).toBe("business_admin");
     });
 
     it("should allow a user to SUBSCRIBE to a domain", async () => {
@@ -123,7 +121,7 @@ describe("Domain API", () => {
         (m) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeDefined();
-      expect(membership?.role).toBe("viewer");
+      expect(membership?.role).toBe("standard_customer");
     });
 
     it("should allow a user to UNSUBSCRIBE", async () => {

@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi } from 'vitest'
 import AddDomain from '../AddDomain.vue'
 
+// Keep tests focused on AddDomain state transitions by stubbing wizard steps.
 vi.mock('../components/StepOne.vue', () => ({
   default: {
     name: 'StepOne',
@@ -18,6 +19,7 @@ vi.mock('../components/StepOne.vue', () => ({
   },
 }))
 
+// StepTwo is event-driven in these tests, so a lightweight mock is enough.
 vi.mock('../components/StepTwo.vue', () => ({
   default: {
     name: 'StepTwo',
@@ -141,6 +143,7 @@ describe('AddDomain', () => {
           name: 'unibo.it',
           subdomains: ['cs.unibo.it'],
           authStrategy: 'internal',
+          isVisibleFromOutside: false,
         },
       ])
     })

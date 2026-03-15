@@ -24,12 +24,12 @@ export function useUserPermissions() {
     }
   }
 
-  // A building belongs to domains. If I am 'admin' or 'owner' in ANY of them, I can edit.
+  // A building is editable only for memberships at or above business admin level.
   const canEdit = (buildingDomains: string[]): boolean => {
     if (!buildingDomains || buildingDomains.length === 0) return false
 
     return memberships.value.some(
-      (m) => buildingDomains.includes(m.domainName) && ['owner', 'admin'].includes(m.role),
+      (m) => buildingDomains.includes(m.domainName) && ['business_admin', 'business_staff', 'admin'].includes(m.role),
     )
   }
 

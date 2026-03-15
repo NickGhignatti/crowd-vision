@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import NavBar from '../NavBar.vue'
-import RequireLogin from '@/components/modals/RequireLogin.vue'
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}))
 
 const stubs = {
-  LoginModal: true,
+  NavLink: { template: '<button class="nav-link-stub" @click="$emit(\'locked-click\')"><slot /></button>' },
+  LoginModal: { props: ['isOpen'], template: '<div class="login-modal-stub" :data-open="isOpen" />' },
   SignUpModal: true,
   RequireLogin: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
   NotificationDropdown: true,
@@ -39,10 +45,10 @@ describe('NavBar.vue', () => {
   it('opens login modal when clicking require-login link', async () => {
     const wrapper = mount(NavBar, { global: { stubs } })
 
-    const dashboardLink = wrapper.findAllComponents(RequireLogin)[0]
-    if (dashboardLink) await dashboardLink.trigger('click')
+    const dashboardLink = wrapper.find('.nav-link-stub')
+    await dashboardLink.trigger('click')
 
-    const loginModal = wrapper.findComponent({ name: 'LoginModal' })
-    expect(loginModal.props('isOpen')).toBe(true)
+    const loginModal = wrapper.find('.login-modal-stub')
+    expect(loginModal.attributes('data-open')).toBe('true')
   })
 })

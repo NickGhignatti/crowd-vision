@@ -32,6 +32,7 @@ describe('usePush', () => {
       },
     }
 
+    // Simulate a browser that supports Push + Service Worker.
     Object.defineProperty(global.window, 'PushManager', {
       value: {},
       writable: true,
@@ -83,6 +84,7 @@ describe('usePush', () => {
   it('subscribes successfully (New Subscription)', async () => {
     const { subscribe, isSubscribed, permission } = usePush()
 
+    // The composable fetches VAPID key first, then posts the subscription.
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({

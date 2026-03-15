@@ -14,7 +14,7 @@ const pingRoutes: FastifyPluginAsync = async (fastify: FastifyInstance, options:
     }
   }, async (request, reply) => {
     const { ping: param } = request.params
-    const ping: Ping = { id: param, name: 'ping', email: 'ping@example.com', age: 0 }
+    const ping: Ping = { id: param, subName: 'ping', email: 'ping@example.com', age: 0 }
     return ping
   })
 

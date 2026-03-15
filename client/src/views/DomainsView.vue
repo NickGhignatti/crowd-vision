@@ -47,8 +47,11 @@ const fetchUserDomains = async () => {
   }
 }
 
-// Handle Creation (Internal or SSO)
-const handleCreateDomain = async (payload: SSODomainPayload) => {
+interface AddDomainPayload extends SSODomainPayload {
+  masterDomain?: string
+}
+
+const handleCreateDomain = async (payload: AddDomainPayload) => {
   isSubmitting.value = true
   const accountName = localStorage.getItem('account-name')
 

@@ -19,6 +19,6 @@ export interface ISSOConfig {
 
 export interface DomainMembership {
   domainName: string
-  role: 'owner' | 'admin' | 'viewer'
+  role: string
   externalId?: string
 }

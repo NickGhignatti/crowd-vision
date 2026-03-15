@@ -6,6 +6,7 @@ export interface IAccount extends Document {
   email: string;
   password: string;
   memberships: IDomainMembership[];
+  totpSecret?: string;
 }
 
 const accountSchema = new Schema<IAccount>({
@@ -13,6 +14,7 @@ const accountSchema = new Schema<IAccount>({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   memberships: [membershipSchema],
+  totpSecret: { type: String, required: false },
 });
 
 export const Account = model<IAccount>("Account", accountSchema);

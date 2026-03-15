@@ -2,6 +2,10 @@
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+const tr = (key: string, fallback: string) => {
+  const translated = t(key)
+  return translated === key ? fallback : translated
+}
 
 defineProps<{
   availableFloors: number[]
@@ -20,7 +24,7 @@ const activeFloor = defineModel<number | null>()
         v-model="activeFloor"
         class="w-full bg-white text-slate-700 text-xs font-medium rounded-lg px-3 py-2.5 border border-slate-200 outline-none shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer hover:border-emerald-300 transition-colors"
       >
-        <option :value="null">All Floors</option>
+        <option :value="null">{{ tr('model.controls.allFloors', 'All Floors') }}</option>
         <option v-for="(floorY, idx) in availableFloors" :key="floorY" :value="floorY">
           {{ t('model.controls.floor') }} {{ idx }} ({{ floorY }}m)
         </option>
