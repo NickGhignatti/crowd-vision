@@ -34,7 +34,7 @@ export const provideEnterpriseAccount = async (req: Request, res: Response) => {
       "internal",
     );
 
-    const token = generateStandardToken({
+    const token = await generateStandardToken({
       accountId: accountCreated._id.toString(),
       accountName: accountCreated.name,
     } as StandardTokenPayload);
@@ -47,7 +47,7 @@ export const provideEnterpriseAccount = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({ message: "Error: ", error });
+    res.status(500).json({ message: "Error creating enterprise account", error: error.message });
   }
 };
 
@@ -83,6 +83,6 @@ export const provideEnterpriseAdministratorAccount = async (
       throw new Error("domain of the organization not found");
     }
   } catch (error: any) {
-    res.status(500).json({ message: "Error: ", error });
+    res.status(500).json({ message: "Error creating administrator account", error: error.message });
   }
 };

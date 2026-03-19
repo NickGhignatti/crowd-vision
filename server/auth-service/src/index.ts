@@ -11,7 +11,13 @@ export const app = express();
 const swaggerDocument = YAML.load("./openapi.yaml");
 
 app.use(cors());
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 app.use("/", router);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 

@@ -41,10 +41,10 @@ router.post(
   requireAuthorization("business_admin"),
   createDomain,
 );
-router.get("/domains/:accountName", getDomainsByAccount);
+router.get("/domains/:accountName", requireAuthentication, getDomainsByAccount);
 router.get(
   "/subdomains/:domainName",
-  // requireAuthentication,
+  requireAuthentication,
   getSubdomainsFromDomain,
 );
 router.post(
@@ -68,6 +68,6 @@ router.delete(
 
 // --- SSO (OIDC) ---
 router.get("/auth/sso/login/:domainName", requireAuthentication, startSSOLogin);
-router.get("/auth/sso/callback", requireAuthentication, handleSSOCallback);
+router.get("/auth/sso/callback", handleSSOCallback);
 
 export default router;

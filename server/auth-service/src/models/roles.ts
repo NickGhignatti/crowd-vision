@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { StandardTokenPayload } from "./token.js";
+import { getTokenSecret } from "../config/config.js";
 
 export const ROLE_WEIGHTS = {
   admin: 100,
@@ -21,21 +22,33 @@ const hasRequiredRole = (userRole: Role, requiredRole: Role): boolean => {
 export const requireAuthorization = (requiredLevel: Role) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const authHeader = req.headers.authorization;
+      let tokenFields: StandardTokenPayload | null = null;
 
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res
-          .status(401)
-          .json({ error: "Authentication token missing or malformed" });
+      // Prefer the already-verified payload set by requireAuthentication
+      if (req.account) {
+        tokenFields = req.account as StandardTokenPayload;
+      } else {
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+          return res
+            .status(401)
+            .json({ error: "Authentication token missing or malformed" });
+        }
+
+        const token = authHeader.split(" ")[1];
+
+        if (!token) {
+          throw new Error("token missing");
+        }
+
+        const secret = getTokenSecret();
+        if (!secret) {
+          throw new Error("server configuration error");
+        }
+
+        tokenFields = jwt.verify(token, secret) as StandardTokenPayload;
       }
-
-      const token = authHeader.split(" ")[1];
-
-      if (!token) {
-        throw new Error("token missing");
-      }
-
-      const tokenFields = jwt.decode(token) as StandardTokenPayload;
 
       if (!tokenFields || !Array.isArray(tokenFields.accountMemberships)) {
         throw new Error("invalid token payload");
@@ -54,7 +67,6 @@ export const requireAuthorization = (requiredLevel: Role) => {
       }
 
       const hasPermission = candidateMemberships.some((membership) => {
-        console.log(membership.role);
         return hasRequiredRole(membership.role, requiredLevel);
       });
 
