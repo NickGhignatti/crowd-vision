@@ -93,7 +93,7 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
             <SearchBar
               ref="searchBar"
               v-model="searchQuery"
-              :placeholder="`${t('commons.search')} ${t('commons.id')}...`"
+              :placeholder="`${t('commons.search')} ${t('commons.ID')}...`"
             />
           </div>
 

@@ -19,7 +19,7 @@ const emit = defineEmits<{
   (e: 'switch-to-login'): void
 }>()
 
-const account = reactive({ name: '', email: '', password: '' })
+const account = reactive({ accountName: '', email: '', password: '' })
 
 const handleSignUp = async () => {
   const response = await nonAuthenticatedFetch(`/auth/register`, 'POST', {
@@ -53,7 +53,7 @@ const handleSignUp = async () => {
     </div>
 
     <form @submit.prevent="handleSignUp" class="relative z-10 space-y-4">
-      <UsernameInput v-model:name="account.name" />
+      <UsernameInput v-model:name="account.accountName" />
       <MailInput v-model:mail="account.email" />
       <PasswordInput v-model:password="account.password" />
       <button

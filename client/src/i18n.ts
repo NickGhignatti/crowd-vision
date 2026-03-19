@@ -229,6 +229,7 @@ const messages = {
       noRooms: 'No rooms found',
       subName: 'Structure Name',
       data: 'Buildings Data',
+      name: 'Domain name',
     },
   },
   it: {
@@ -398,8 +399,9 @@ const messages = {
         clientSecret: 'Client Secret',
         invalid: 'Formato sottodominio non valido.',
         alreadyPresent: 'Il dominio esiste gia.',
-        visibleFromOutside: 'Visibile dall\'esterno',
-        visibleFromOutsideDesc: 'Consenti agli utenti esterni all\'organizzazione di vedere questo dominio.',
+        visibleFromOutside: "Visibile dall'esterno",
+        visibleFromOutsideDesc:
+          "Consenti agli utenti esterni all'organizzazione di vedere questo dominio.",
       },
       modal: {
         errorInvalidMain: 'Controlla il nome dominio e la configurazione di autenticazione.',
@@ -459,6 +461,7 @@ const messages = {
       noRooms: 'Nessuna stanza trovata',
       subName: 'Nome Struttura',
       data: 'Dati delle Strutture',
+      name: 'Nome dominio',
     },
   },
 }

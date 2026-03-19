@@ -76,7 +76,7 @@ describe('SignupModal.vue', () => {
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'my-account', email: 'mymail', password: 'mypass' }),
+        body: JSON.stringify({ accountName: 'my-account', email: 'mymail', password: 'mypass' }),
       }),
     )
 
