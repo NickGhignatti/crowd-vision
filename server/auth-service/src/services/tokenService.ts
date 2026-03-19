@@ -14,13 +14,17 @@ export const generateStandardToken = async (payload: StandardTokenPayload) => {
     throw new Error("secret configuration error");
   }
 
-  const account = await Account.findOne({name: payload.accountName})
+  const account = await Account.findOne({name: payload.accountName});
+
+  if (!account) {
+    throw new Error(`Account not found: ${payload.accountName}`);
+  }
 
   return jwt.sign(
     {
       accountId: payload.accountId,
       accountName: payload.accountName,
-      accountMemberships: account?.memberships,
+      accountMemberships: account.memberships,
     },
     secret,
     { expiresIn: "3h" },

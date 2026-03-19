@@ -46,18 +46,29 @@ export const requireHmacSignature = (
     return res.status(500).json({ error: "Server configuration error" });
   }
 
-  if (!signature) {
+  if (!signature || typeof signature !== "string") {
     return res.status(401).json({ error: "Forbidden: missing signature" });
   }
 
-  const message = JSON.stringify(req.body);
+  const rawBody: Buffer | undefined = (req as any).rawBody;
+
+  if (!rawBody) {
+    return res.status(400).json({ error: "Raw request body unavailable for signature verification" });
+  }
+
   const expectedSignature = crypto
     .createHmac("sha256", secret)
-    .update(message)
+    .update(rawBody)
     .digest("hex");
 
-  const signatureBuffer = Buffer.from(signature as String);
-  const expectedBuffer = Buffer.from(expectedSignature);
+  let signatureBuffer: Buffer;
+  let expectedBuffer: Buffer;
+  try {
+    signatureBuffer = Buffer.from(signature, "hex");
+    expectedBuffer = Buffer.from(expectedSignature, "hex");
+  } catch {
+    return res.status(403).json({ error: "Forbidden: Invalid signature" });
+  }
 
   if (
     signatureBuffer.length !== expectedBuffer.length ||

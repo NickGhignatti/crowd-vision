@@ -19,7 +19,7 @@ describe('DomainsTable.vue', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.setItem('accountName', 'TestAccount')
+    localStorage.setItem('account-name', 'TestAccount')
   })
 
   it('initializes subscription state correctly', () => {

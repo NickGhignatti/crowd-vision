@@ -40,7 +40,7 @@ const handleSubscribe = async (index: number) => {
   const domain = props.domains[index]
   if (!domain) return
 
-  const accountName = localStorage.getItem('accountName')
+  const accountName = localStorage.getItem('account-name')
   if (!accountName) return
 
   try {

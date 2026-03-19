@@ -1,4 +1,4 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, Document, Types } from "mongoose";
 import type { Role } from "./roles.js";
 import { ROLE_WEIGHTS } from "./roles.js";
 
@@ -10,7 +10,7 @@ export interface ISSOConfig {
 
 export interface IDomain extends Document {
   name: string;
-  subdomains: IDomain[];
+  subdomains: Types.ObjectId[];
   authStrategy: "internal" | "oidc";
   ssoConfig?: ISSOConfig;
   isVisibleFromOutside?: boolean;
