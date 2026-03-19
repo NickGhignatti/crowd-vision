@@ -1,3 +1,11 @@
+## [2.1.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.0...v2.1.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* apply security and correctness fixes from PR review comments ([32dbfdd](https://github.com/NickGhignatti/crowd-vision/commit/32dbfdd00b185909eeba8d91dcd254820c85fca8))
+* audit fix ([b11d11e](https://github.com/NickGhignatti/crowd-vision/commit/b11d11e4dac3c8842e0162f15ebacdd7256dee40))
+
 # [2.1.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.0.1...v2.1.0) (2026-03-11)
 
 
