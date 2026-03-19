@@ -1,3 +1,10 @@
+## [2.1.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.1...v2.1.2) (2026-03-19)
+
+
+### Bug Fixes
+
+* typos ([c2d97c9](https://github.com/NickGhignatti/crowd-vision/commit/c2d97c9ff947d4c3a48fb817f9f62491f7c4f071))
+
 ## [2.1.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.0...v2.1.1) (2026-03-19)
 
 
