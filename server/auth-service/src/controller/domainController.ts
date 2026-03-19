@@ -4,8 +4,14 @@ import type { IDomain } from "../models/domain.js";
 
 export const createDomain = async (req: Request, res: Response) => {
   try {
-    const { name, subdomains, authStrategy, ssoConfig, creatorUsername, isVisibleFromOutside } =
+    const { name, subdomains, authStrategy, ssoConfig, isVisibleFromOutside } =
       req.body;
+
+    const creatorAccountName: string | undefined = (req.account as { accountName?: string })?.accountName;
+
+    if (!creatorAccountName) {
+      return res.status(401).json({ error: "Authenticated account name missing" });
+    }
 
     const objectSubdomain: IDomain[] = [];
 
@@ -14,7 +20,7 @@ export const createDomain = async (req: Request, res: Response) => {
         objectSubdomain.push(await DomainService.createDomain(
           subdomain,
           [],
-          creatorUsername,
+          creatorAccountName,
           authStrategy,
           ssoConfig,
           isVisibleFromOutside
@@ -25,7 +31,7 @@ export const createDomain = async (req: Request, res: Response) => {
     const domain = await DomainService.createDomain(
       name,
       objectSubdomain,
-      creatorUsername,
+      creatorAccountName,
       authStrategy,
       ssoConfig,
     );
@@ -98,13 +104,19 @@ export const getSubdomainsFromDomain = async (req: Request, res: Response) => {
 export const createSubdomain = async (req: Request, res: Response) => {
   try {
     const { domainName } = req.params;
-    const { name, subdomains, authStrategy, ssoConfig, creatorUsername } =
+    const { name, authStrategy, ssoConfig } =
       req.body;
+
+    const creatorAccountName: string | undefined = (req.account as { accountName?: string })?.accountName;
+
+    if (!creatorAccountName) {
+      return res.status(401).json({ error: "Authenticated account name missing" });
+    }
 
     const subdomain = await DomainService.createDomain(
       name,
-      subdomains,
-      creatorUsername,
+      [],
+      creatorAccountName,
       authStrategy,
       ssoConfig,
     );

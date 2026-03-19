@@ -26,8 +26,8 @@ export const createAccount = async (req: Request, res: Response) => {
 
 export const authenticateAccount = async (req: Request, res: Response) => {
   try {
-    const { name, password } = req.body;
-    const account = await AuthService.authenticateAccount(name, password);
+    const { accountName, password } = req.body;
+    const account = await AuthService.authenticateAccount(accountName, password);
     const token = await generateStandardToken({
       accountId: account._id.toString(),
       accountName: account.name,
@@ -37,7 +37,7 @@ export const authenticateAccount = async (req: Request, res: Response) => {
       message: "Login successful",
       token,
       account: {
-        accountName: name,
+        accountName: account.name,
       },
     });
   } catch (error: any) {

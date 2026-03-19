@@ -168,6 +168,8 @@ const messages = {
         clientSecret: 'Client Secret',
         invalid: 'Invalid subdomain format.',
         alreadyPresent: 'Domain already exists.',
+        visibleFromOutside: 'Visible from outside',
+        visibleFromOutsideDesc: 'Allow users outside the organization to see this domain.',
       },
       modal: {
         errorInvalidMain: 'Please check domain name and auth config.',
@@ -396,6 +398,8 @@ const messages = {
         clientSecret: 'Client Secret',
         invalid: 'Formato sottodominio non valido.',
         alreadyPresent: 'Il dominio esiste gia.',
+        visibleFromOutside: 'Visibile dall\'esterno',
+        visibleFromOutsideDesc: 'Consenti agli utenti esterni all\'organizzazione di vedere questo dominio.',
       },
       modal: {
         errorInvalidMain: 'Controlla il nome dominio e la configurazione di autenticazione.',
