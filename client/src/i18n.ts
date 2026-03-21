@@ -138,6 +138,8 @@ const messages = {
         organizationToken: 'Organization Token',
         activeToken: 'Active Token',
         generateNewToken: 'Generate New Token',
+        scanQRCode: 'Scan with Google Authenticator or Authy',
+        QRCodeTitle: 'Your organization QR Code',
       },
       inputs: {
         search: 'Search domain...',
@@ -369,6 +371,8 @@ const messages = {
         organizationToken: 'Token Organizzazione',
         activeToken: 'Token Attivo',
         generateNewToken: 'Genera Nuovo Token',
+        scanQRCode: 'Scansiona con Google Authenticator o Authy',
+        QRCodeTitle: 'Il QR Code della tua organizzazione',
       },
       inputs: {
         search: 'Cerca dominio...',

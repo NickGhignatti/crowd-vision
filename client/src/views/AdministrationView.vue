@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import DomainList from '@/components/menus/DomainList.vue'
-import OrganizationToken from '@/components/cards/Token.vue'
+import QR from '@/components/cards/QR.vue'
 import NavBar from '@/components/NavBar.vue'
 import AddDomainModal from '@/components/modals/AddDomain.vue'
 import { authenticatedFetch } from '@/composables/useApi.ts'
@@ -22,22 +22,21 @@ export interface UnifiedDomainGroup {
 
 interface AddDomainPayload extends SSODomainPayload {
   masterDomain?: string
+  isVisibleFromOutside: boolean
 }
 
+const selectedDomain = ref<string | null>(null)
 const domains = ref<string[]>([])
 const unifiedDomains = ref<UnifiedDomainGroup[]>([])
 const isSubmitting = ref(false)
-const currentToken = ref('723849')
 const isAddDomainModalOpen = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const isUploading = ref(false)
 const targetUploadDomain = ref<string | null>(null)
-const { t } = useI18n()
+const qrCodes = ref<Record<string, string>>({})
+const isLoadingQr = ref(false)
 
-const generateNewToken = () => {
-  const newToken = Math.floor(100000 + Math.random() * 900000)
-  currentToken.value = newToken.toString()
-}
+const { t } = useI18n()
 
 const handleAddDomain = async (payload: AddDomainPayload) => {
   isSubmitting.value = true
@@ -85,9 +84,20 @@ const handleAddDomain = async (payload: AddDomainPayload) => {
   }
 }
 
-const handleSelectDomain = (domainName: string) => {
-  console.log('Selected domain:', domainName)
-  // TODO: Implement domain selection logic
+const handleSelectDomain = async (domainName: string) => {
+  selectedDomain.value = domainName
+  isLoadingQr.value = true
+  try {
+    const accountName = localStorage.getItem('account-name')
+    const response = await authenticatedFetch(`/auth/domains/${domainName}/totp/qr/${accountName}`)
+    if (!response.ok) throw new Error('Failed to fetch QR codes')
+    const data = await response.json()
+    qrCodes.value = data.qrCodes
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isLoadingQr.value = false
+  }
 }
 
 const triggerUpload = (domainName: string) => {
@@ -120,7 +130,6 @@ const handleFileUpload = async (event: Event) => {
     if (!response.ok) {
       throw new Error('Failed to register twin model')
     }
-
   } catch (e) {
     console.error('Upload failed', e)
     alert(t('model.controls.uploadFailed'))
@@ -169,7 +178,7 @@ const getAllSubdomains = async () => {
           if (groups[domain.domainName]) {
             groups[domain.domainName]?.subdomains.push({
               name: subdomain,
-              displayName: subdomain.replace('.' + domain.domainName, '')
+              displayName: subdomain.replace('.' + domain.domainName, ''),
             })
           }
         })
@@ -213,7 +222,7 @@ onMounted(async () => {
         @upload="triggerUpload"
       />
 
-      <OrganizationToken :token="currentToken" @generate="generateNewToken" />
+      <QR :domain="selectedDomain" :qr-codes="qrCodes" :is-loading="isLoadingQr" />
     </div>
 
     <AddDomainModal

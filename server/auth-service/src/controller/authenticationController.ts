@@ -2,11 +2,18 @@ import type { Request, Response } from "express";
 import * as AuthService from "../services/authenticationService.js";
 import { generateStandardToken } from "../services/tokenService.js";
 import type { StandardTokenPayload } from "../models/token.js";
+import { grantTOTPRoles, resolveRoleFromOTP } from "../services/totpService.js";
 
 export const createAccount = async (req: Request, res: Response) => {
   try {
-    const { accountName, email, password } = req.body;
+    const { accountName, email, password, otp } = req.body;
+
     const account = await AuthService.registerAccount(accountName, email, password);
+
+    if (otp) {
+      await grantTOTPRoles(otp, account._id);
+    }
+
     const token = await generateStandardToken({
       accountId: account._id.toString(),
       accountName: account.name,

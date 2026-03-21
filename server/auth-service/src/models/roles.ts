@@ -12,7 +12,7 @@ export const ROLE_WEIGHTS = {
 
 export type Role = keyof typeof ROLE_WEIGHTS;
 
-const hasRequiredRole = (userRole: Role, requiredRole: Role): boolean => {
+export const hasRequiredRole = (userRole: Role, requiredRole: Role): boolean => {
   const currentUserRoleWeight = ROLE_WEIGHTS[userRole] || 0;
   const requiredRoleWeight = ROLE_WEIGHTS[requiredRole] || Infinity;
 
@@ -61,6 +61,7 @@ export const requireAuthorization = (requiredLevel: Role) => {
             (m) => m.domainName === (domainName as string),
           )
         : tokenFields.accountMemberships;
+
 
       if (candidateMemberships.length <= 0) {
         throw new Error("account does not have memberships for authorization");
