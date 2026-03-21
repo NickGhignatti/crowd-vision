@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import StepOne from './components/StepOne.vue'
-import StepTwo from './components/StepTwo.vue'
+import DomainInput from './components/DomainInput.vue'
 import type { SSODomainPayload } from '@/models/domain.ts'
 
 import { ref, reactive, computed, watch } from 'vue'
@@ -175,9 +174,6 @@ const handleSubmit = () => {
               <h3 class="text-lg font-semibold text-slate-900">
                 {{ t('domains.inputs.modal.main') }}
               </h3>
-              <p class="text-xs text-slate-500 mt-0.5">
-                {{ t('domains.inputs.modal.step') }} {{ step }} {{ t('domains.inputs.modal.of') }}
-              </p>
             </div>
             <button
               @click="handleClose"
@@ -188,7 +184,7 @@ const handleSubmit = () => {
           </div>
 
           <div class="p-6 overflow-y-auto custom-scrollbar">
-            <StepOne
+            <DomainInput
               v-if="step === 1"
               :main-domain="formData.mainDomain"
               :master-domain-choices="masterDomainChoices"
@@ -207,20 +203,6 @@ const handleSubmit = () => {
               @update-is-visible-from-outside="updateIsVisibleFromOutside"
               @next="nextStep"
             />
-
-            <StepTwo
-              v-else
-              :main-domain="fullDomain"
-              :auth-strategy="formData.authStrategy"
-              :sub-domains="subDomainsList"
-              :error="error"
-              @add-subdomain="addSubdomain"
-              @remove-subdomain="removeSubdomain"
-              @set-error="setError"
-              @clear-error="clearError"
-              @edit-main="step = 1"
-            />
-
             <p v-if="error" class="text-sm text-red-600 flex items-center gap-1 mt-4 animate-pulse">
               <i class="ph-fill ph-warning-circle"></i> {{ error }}
             </p>
@@ -245,24 +227,13 @@ const handleSubmit = () => {
               >
                 {{ t('commons.cancel') }}
               </button>
-
               <button
-                v-if="step === 1"
-                @click="nextStep"
-                :disabled="!isValidMain"
-                class="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {{ t('commons.continue') }} <i class="ph-bold ph-arrow-right"></i>
-              </button>
-
-              <button
-                v-else
                 @click="handleSubmit"
                 :disabled="props.isSubmitting"
                 class="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all"
               >
                 <i v-if="isSubmitting" class="ph-bold ph-spinner animate-spin"></i>
-                <span v-else>{{ t('commons.create') }} ({{ subDomainsList.length + 1 }})</span>
+                <span v-else>{{ t('commons.create') }}</span>
               </button>
             </div>
           </div>

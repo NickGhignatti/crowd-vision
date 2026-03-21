@@ -33,7 +33,7 @@ describe('DomainCard', () => {
     expect(wrapper.emitted('select-domain')?.[0]).toEqual(['unibo.it'])
   })
 
-  it('does not emit select-domain from header click when domain has subdomains', async () => {
+  it('does emit select-domain from header click when domain has subdomains', async () => {
     const wrapper = mount(DomainCard, {
       props: {
         domainGroup: createDomainGroup(),
@@ -42,7 +42,7 @@ describe('DomainCard', () => {
 
     await wrapper.find('.p-5').trigger('click')
 
-    expect(wrapper.emitted('select-domain')).toBeUndefined()
+    expect(wrapper.emitted('select-domain')).toBeDefined()
   })
 
   it('forwards upload event with parent domain name', async () => {

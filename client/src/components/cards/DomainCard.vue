@@ -36,9 +36,8 @@ const isOpen = ref(false)
 const toggleAccordion = () => {
   if (props.domainGroup.subdomains.length > 0) {
     isOpen.value = !isOpen.value
-  } else {
-    emit('select-domain', props.domainGroup.name)
   }
+  emit('select-domain', props.domainGroup.name)
 }
 
 const formattedRole = computed(() => {
@@ -114,7 +113,6 @@ const roleBadgeClass = computed(() => {
         <!-- Navigate arrow (no subdomains) -->
         <div
           v-else
-          @click.stop="$emit('select-domain', domainGroup.name)"
           class="w-9 h-9 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-200 hover:translate-x-1 transition-all duration-300"
         >
           <svg

@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import StepOne from '../../components/StepOne.vue'
+import DomainInput from '../../components/DomainInput.vue'
 
 const defaultProps = {
   mainDomain: '',
@@ -12,12 +12,12 @@ const defaultProps = {
 }
 
 const createWrapper = (props = {}) =>
-  mount(StepOne, {
+  mount(DomainInput, {
     props: { ...defaultProps, ...props },
     global: { mocks: { $t: (key: string) => key } },
   })
 
-describe('Step One', () => {
+describe('DomainInput Component', () => {
   describe('1. Emits', () => {
     it('emits "update-main-domain" when main domain input changes', async () => {
       const wrapper = createWrapper()

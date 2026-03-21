@@ -3,15 +3,22 @@ import type { Role } from "./roles.js";
 import { ROLE_WEIGHTS } from "./roles.js";
 
 export interface ISSOConfig {
-  issuerUrl: string; // e.g. https://idp.unibo.it/auth/realms/master
+  issuerUrl: string;
   clientId: string;
-  clientSecret: string; // select: false
+  clientSecret: string;
+}
+
+export interface IDomainTOTPSecrets {
+  business_admin?: string;
+  business_staff?: string;
+  standard_customer?: string;
 }
 
 export interface IDomain extends Document {
   name: string;
   subdomains: Types.ObjectId[];
   authStrategy: "internal" | "oidc";
+  totpSecrets: IDomainTOTPSecrets;
   ssoConfig?: ISSOConfig;
   isVisibleFromOutside?: boolean;
 }
@@ -26,7 +33,16 @@ const ssoConfigSchema = new Schema<ISSOConfig>(
   {
     issuerUrl: { type: String },
     clientId: { type: String },
-    clientSecret: { type: String, select: false }, // Hidden by default
+    clientSecret: { type: String, select: false },
+  },
+  { _id: false },
+);
+
+const totpSecretsSchema = new Schema<IDomainTOTPSecrets>(
+  {
+    business_admin: { type: String },
+    business_staff: { type: String },
+    standard_customer: { type: String },
   },
   { _id: false },
 );
@@ -39,6 +55,7 @@ export const domainSchema = new Schema<IDomain>({
     enum: ["internal", "oidc"],
     default: "internal",
   },
+  totpSecrets: { type: totpSecretsSchema, default: {}, select: false },
   ssoConfig: ssoConfigSchema,
   isVisibleFromOutside: { type: Boolean, required: false, default: false },
 });

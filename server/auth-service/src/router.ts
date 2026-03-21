@@ -6,13 +6,13 @@ import {
   handleSSOCallback,
 } from "./controller/authenticationController.js";
 import {
-  getAllDomains,
   getDomainsByAccount,
   createDomain,
   subscribeAccountToDomain,
   unsubscribeAccountFromDomain,
   getSubdomainsFromDomain,
   createSubdomain,
+  getDomainTOTPQr, getAllAllowedDomains,
 } from "./controller/domainController.js";
 import {
   requireAuthentication,
@@ -20,7 +20,6 @@ import {
 } from "./controller/authenticationMiddleware.js";
 import { provideEnterpriseAccount } from "./controller/administrationController.js";
 import { requireAuthorization } from "./models/roles.js";
-import { getAllAllowedDomains } from "./services/domainService.js";
 
 const router = Router();
 
@@ -69,5 +68,13 @@ router.delete(
 // --- SSO (OIDC) ---
 router.get("/auth/sso/login/:domainName", requireAuthentication, startSSOLogin);
 router.get("/auth/sso/callback", handleSSOCallback);
+
+// --- QR Codes ---
+router.get(
+  "/domains/:domainName/totp/qr/:accountName",
+  requireAuthentication,
+  requireAuthorization("business_admin"),
+  getDomainTOTPQr,
+);
 
 export default router;

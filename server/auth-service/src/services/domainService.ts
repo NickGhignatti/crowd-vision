@@ -1,5 +1,6 @@
 import { Domain, type IDomain, type ISSOConfig } from "../models/domain.js";
 import { Account } from "../models/account.js";
+import { createTOTPForAuthorizedRoles } from "./totpService.js";
 
 export const createDomain = async (
   domainName: string,
@@ -15,11 +16,14 @@ export const createDomain = async (
     throw new Error("domain already exists");
   }
 
+  const totpSecrets = await createTOTPForAuthorizedRoles("business_staff")
+
   const createdDomain = await Domain.create({
     name: domainName,
     subdomains,
     authStrategy: authenticationStrategy,
     ...(authenticationStrategy === "oidc" && ssoConfig ? { ssoConfig } : {}),
+    totpSecrets,
     isVisibleFromOutside
   });
 
