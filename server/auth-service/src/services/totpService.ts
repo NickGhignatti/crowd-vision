@@ -44,6 +44,9 @@ export const grantTOTPRoles = async (otp: string, accountId: Types.ObjectId) => 
 
   if (grantedRole) {
     await Account.findByIdAndUpdate(accountId, {
+      $pull: { memberships: { domainName: grantedRole.domainName } },
+    });
+    await Account.findByIdAndUpdate(accountId, {
       $push: { memberships: grantedRole },
     });
   }
