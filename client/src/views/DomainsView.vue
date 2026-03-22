@@ -23,7 +23,6 @@ const fetchAllDomains = async () => {
     if (!response.ok) throw new Error('Failed to fetch domains')
 
     const data = await response.json()
-    console.log(data)
     if (data && data.domains) {
       domains.value = data.domains
     }
