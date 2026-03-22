@@ -1,3 +1,17 @@
+# [2.2.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.2...v2.2.0) (2026-03-22)
+
+
+### Bug Fixes
+
+* prevent duplicate domain memberships in grantTOTPRoles using $pull then $push ([9f2e177](https://github.com/NickGhignatti/crowd-vision/commit/9f2e177e436d5f1a7d704868ec4987e64cdcf0ac))
+* remove debug console.log from fetchAllDomains ([2d81c10](https://github.com/NickGhignatti/crowd-vision/commit/2d81c10ad934e42ae0bd12424062f0c16cb47e3a))
+
+
+### Features
+
+* interfaces for DRY + unified language check for roles ([022f157](https://github.com/NickGhignatti/crowd-vision/commit/022f157c2edcdad9e74fc4e80aaa3a2e07783123))
+* QR code shown in the admin view ([7576b19](https://github.com/NickGhignatti/crowd-vision/commit/7576b195a6207575f43f6e5e39d27f1b3063d71e))
+
 ## [2.1.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.1...v2.1.2) (2026-03-19)
 
 
