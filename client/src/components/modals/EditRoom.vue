@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RoomPayload } from '@/models/building'
+import type { Room } from '@/models/building'
 import FormField from '@/components/inputs/FormField.vue'
 
 import { useI18n } from 'vue-i18n'
@@ -9,12 +9,12 @@ const { t } = useI18n()
 
 const props = defineProps<{
   isOpen: boolean
-  room: RoomPayload | null
+  room: Room | null
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'save', updates: Partial<RoomPayload>): void
+  (e: 'save', updates: Partial<Room>): void
 }>()
 
 const form = ref({

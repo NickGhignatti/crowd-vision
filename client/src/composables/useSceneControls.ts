@@ -1,4 +1,4 @@
-import type { BuildingPayload } from '@/models/building'
+import type { Building } from '@/models/building'
 
 import { ref } from 'vue'
 import { Vector3, type PerspectiveCamera } from 'three'
@@ -28,7 +28,7 @@ export function useSceneControls() {
 
   const triggerExplodeView = (
     roomId: string | null,
-    building: BuildingPayload | null,
+    building: Building | null,
     isExplodedState: boolean,
   ) => {
     if (!roomId || !building) return { exploded: false, roomId: null }

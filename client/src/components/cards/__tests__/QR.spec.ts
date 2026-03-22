@@ -26,7 +26,13 @@ describe('QR', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(QRCode, 'toDataURL').mockResolvedValue('data:image/png;base64,mocked-qr-code')
+    vi.spyOn(
+      QRCode as unknown as {
+        toDataURL: (text: string, options?: QRCode.QRCodeToDataURLOptions) => Promise<string>
+      },
+      'toDataURL',
+    ).mockResolvedValue('data:image/png;base64,mocked-qr-code')
+
   })
 
   const waitForQrImage = async (wrapper: ReturnType<typeof createWrapper>) => {
@@ -39,7 +45,9 @@ describe('QR', () => {
     it('renders empty state when domain is null', () => {
       const wrapper = createWrapper({ domain: null })
 
-      expect(wrapper.text()).toContain('Select a domain to see its QR codes')
+      expect(wrapper.text()).toContain(
+        'domains.administration.QRCodeTitledomains.administration.selectDomainToSeeQRCode',
+      )
       expect(wrapper.find('.ph-qr-code').exists()).toBe(true)
       expect(wrapper.find('img').exists()).toBe(false)
     })
@@ -83,7 +91,7 @@ describe('QR', () => {
       await flushPromises()
 
       // The first key in defaultProps.qrCodes is 'admin'
-      expect(wrapper.find('.rounded-full').text()).toContain('Admin')
+      expect(wrapper.find('.rounded-full').text()).toContain('domains.roles.admin')
     })
 
     it('allows switching between roles', async () => {
@@ -93,11 +101,13 @@ describe('QR', () => {
       const buttons = wrapper.findAll('button')
       expect(buttons).toHaveLength(2)
 
+           expect(buttons[1]).toBeDefined()
+
       // Click the second button ('business_admin')
-      await buttons[1]?.trigger('click')
+      await buttons[1]!.trigger('click')
 
       // The role badge should update to 'Business admin'
-      expect(wrapper.find('.rounded-full').text()).toContain('Business admin')
+      expect(wrapper.find('.rounded-full').text()).toContain('domains.roles.businessAdmin')
     })
   })
 

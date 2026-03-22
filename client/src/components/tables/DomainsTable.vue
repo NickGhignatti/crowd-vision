@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import DomainRow from '@/components/tables/components/DomainRow.vue'
-import type { DomainPayload, DomainMembership } from '@/models/domain'
+import type { Domain, DomainMembership } from '@/models/domain'
 
 import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
@@ -10,7 +10,7 @@ const { t } = useI18n()
 
 // Props: Items are all available domains. userMemberships is the user's current status.
 const props = defineProps<{
-  domains: DomainPayload[]
+  domains: Domain[]
   userMemberships: DomainMembership[]
 }>()
 

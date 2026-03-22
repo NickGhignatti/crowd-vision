@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DomainMembership } from '@/models/domain'
-import type { BuildingPayload } from '@/models/building'
+import type { Building } from '@/models/building'
 
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -39,7 +39,7 @@ const getInitialModels = async () => {
     const authData = await authenticationResponse.json()
     const memberships = authData.domains as DomainMembership[]
 
-    const allBuildings: BuildingPayload[] = []
+    const allBuildings: Building[] = []
 
     // Fetch Buildings for each Domain
     await Promise.all(
@@ -48,7 +48,7 @@ const getInitialModels = async () => {
           const buildingResponse = await authenticatedFetch(`/twin/buildings/${m.domainName}`)
 
           if (buildingResponse.ok) {
-            const domainBuildings = (await buildingResponse.json()) as BuildingPayload[]
+            const domainBuildings = (await buildingResponse.json()) as Building[]
             allBuildings.push(...domainBuildings)
           }
         } catch (err) {

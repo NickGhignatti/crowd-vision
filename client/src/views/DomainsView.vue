@@ -2,18 +2,19 @@
 import NavBar from '@/components/NavBar.vue'
 import AddDomainModal from '@/components/modals/AddDomain.vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
-import type { DomainPayload, DomainMembership, SSODomainPayload } from '@/models/domain'
+import type { Domain, DomainMembership } from '@/models/domain'
 
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authenticatedFetch } from '@/composables/useApi.ts'
+import type { DomainToAddWithMaster } from '@/interfaces/domain.ts'
 
 const { t } = useI18n()
 
 const searchQuery = ref('')
 const isSubmitting = ref(false)
 const isAddDomainModalOpen = ref(false)
-const domains = ref<DomainPayload[]>([])
+const domains = ref<Domain[]>([])
 const userMemberships = ref<DomainMembership[]>([])
 
 const fetchAllDomains = async () => {
@@ -48,11 +49,7 @@ const fetchUserDomains = async () => {
   }
 }
 
-interface AddDomainPayload extends SSODomainPayload {
-  masterDomain?: string
-}
-
-const handleCreateDomain = async (payload: AddDomainPayload) => {
+const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
   isSubmitting.value = true
   const accountName = localStorage.getItem('account-name')
 

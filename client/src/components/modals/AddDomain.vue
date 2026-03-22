@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import DomainInput from './components/DomainInput.vue'
-import type { SSODomainPayload } from '@/models/domain.ts'
 
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-interface AddDomainPayload extends SSODomainPayload {
-  masterDomain?: string
-  isVisibleFromOutside: boolean
-}
+import type { DomainToAddWithVisibilityPayload } from '@/interfaces/domain.ts'
 
 const props = defineProps<{
   isOpen: boolean
@@ -18,7 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'add', payload: AddDomainPayload): void
+  (e: 'add', payload: DomainToAddWithVisibilityPayload): void
 }>()
 
 const { t } = useI18n()
@@ -110,7 +105,7 @@ const handleClose = () => {
 }
 
 const handleSubmit = () => {
-  const payload: AddDomainPayload = {
+  const payload: DomainToAddWithVisibilityPayload = {
     name: fullDomain.value.trim().toLowerCase(),
     subdomains: subDomainsList.value,
     authStrategy: formData.authStrategy,

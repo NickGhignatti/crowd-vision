@@ -10,7 +10,7 @@ interface RoomDimensions {
   depth: number
 }
 
-export interface RoomPayload {
+export interface Room {
   id: string
   capacity: number
   maxTemperature?: number
@@ -19,8 +19,8 @@ export interface RoomPayload {
   color?: string
 }
 
-export interface BuildingPayload {
+export interface Building {
   id: string
-  rooms: RoomPayload[]
+  rooms: Room[]
   domains: string[]
 }

@@ -3,18 +3,7 @@ import DomainCard from '@/components/cards/DomainCard.vue'
 import type { PropType } from 'vue'
 import CreateDomainButton from '@/components/buttons/CreateDomain.vue'
 import { useI18n } from 'vue-i18n'
-
-interface SubdomainItem {
-  name: string
-  displayName: string
-}
-
-interface UnifiedDomainGroup {
-  name: string
-  role: string
-  canUpload: boolean
-  subdomains: SubdomainItem[]
-}
+import type { UnifiedDomainGroup } from '@/interfaces/domain.ts'
 
 const { t } = useI18n()
 

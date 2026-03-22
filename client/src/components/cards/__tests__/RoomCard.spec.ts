@@ -1,7 +1,7 @@
 import { shallowMount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import RoomCard from '../RoomCard.vue'
-import type { RoomPayload } from '@/models/building.ts'
+import type { Room } from '@/models/building.ts'
 
 const mockRoom: { id: string; capacity: number; color: string } = {
   id: 'room-1',
@@ -12,7 +12,7 @@ const mockRoom: { id: string; capacity: number; color: string } = {
 const createWrapper = (props = {}) =>
   shallowMount(RoomCard, {
     props: {
-      room: mockRoom as RoomPayload,
+      room: mockRoom as Room,
       isSelected: false,
       ...props,
     },

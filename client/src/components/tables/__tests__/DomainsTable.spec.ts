@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import DomainsTable from '../DomainsTable.vue'
 import DomainRow from '../components/DomainRow.vue'
-import type { DomainPayload, DomainMembership } from '@/models/domain'
+import type { Domain, DomainMembership } from '@/models/domain'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (k: string) => k }) }))
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
 describe('DomainsTable.vue', () => {
-  const mockItems: DomainPayload[] = [
+  const mockItems: Domain[] = [
     { name: 'domain-a', subdomains: [], authStrategy: 'internal' },
     { name: 'domain-b', subdomains: [], authStrategy: 'internal' },
   ]

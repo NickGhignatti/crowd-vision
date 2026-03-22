@@ -1,11 +1,7 @@
 <script setup lang="ts">
-interface Props {
-  id: number
-  name: string
-  isSubscribed: boolean
-}
+import type { DomainSubscriptionRowProps } from '@/interfaces/domain.ts'
 
-const props = defineProps<Props>()
+const props = defineProps<DomainSubscriptionRowProps>()
 
 defineEmits<{
   (e: 'subscribe', id: number): void

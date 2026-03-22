@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Notification } from '@/services/socket'
+import type { Notification } from '@/interfaces/notification.ts'
 
 defineProps<{
   notification: Notification
