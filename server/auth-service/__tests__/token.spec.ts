@@ -5,12 +5,22 @@ import {
 } from "../src/services/tokenService.js";
 import jwt from "jsonwebtoken";
 import type { StandardTokenPayload } from "../src/models/token.js";
+import { registerAccount } from "../src/services/authenticationService.js";
 
 describe("JWT token system", () => {
   const MOCK_SECRET = "super-secret-test-key";
 
+  const mockAccount = {
+    accountId: "test-user-id",
+    accountName: "testuser",
+  };
+
   beforeAll(() => {
     process.env.JWT_SECRET = MOCK_SECRET;
+  });
+
+  beforeEach(async () => {
+    await registerAccount(mockAccount.accountName, "t@gmail.com", "tttttt");
   });
 
   afterAll(() => {
@@ -19,13 +29,8 @@ describe("JWT token system", () => {
 
   describe("1. Token generation", () => {
     it("should generate a valid JWT standard token", async () => {
-      const mockPayload = {
-        accountId: "test-user-id",
-        accountName: "testuser",
-      };
-
       const generatedToken = await generateStandardToken(
-        mockPayload as StandardTokenPayload,
+        mockAccount as StandardTokenPayload,
       );
 
       expect(typeof generatedToken).toBe("string");
@@ -56,14 +61,9 @@ describe("JWT token system", () => {
 
   describe("2. Token validation", () => {
     it("should successfully verify and decode a valid token", async () => {
-      const mockAccount = {
-        accountId: "test-user-id",
-        accountName: "testuser",
-      };
-
       const generatedToken = await generateStandardToken(mockAccount as StandardTokenPayload);
 
-      const decoded = verifyToken(await generatedToken) as any;
+      const decoded = verifyToken(generatedToken) as any;
       expect(decoded.accountId).toBe(mockAccount.accountId);
       expect(decoded.accountName).toBe(mockAccount.accountName);
     });
@@ -75,12 +75,7 @@ describe("JWT token system", () => {
     });
 
     it("should throw an error if the token is signed with the wrong secret", () => {
-      const mockUser = {
-        userId: "test-user-id",
-        username: "testuser",
-      };
-
-      const generatedToken = jwt.sign(mockUser, "not-the-real-key", {
+      const generatedToken = jwt.sign(mockAccount, "not-the-real-key", {
         expiresIn: "1d",
       });
 
@@ -90,12 +85,7 @@ describe("JWT token system", () => {
     });
 
     it("should throw an error if the token is expired", () => {
-      const mockUser = {
-        userId: "test-user-id",
-        username: "testuser",
-      };
-
-      const generatedToken = jwt.sign(mockUser, MOCK_SECRET, {
+      const generatedToken = jwt.sign(mockAccount, MOCK_SECRET, {
         expiresIn: "-1s",
       });
 

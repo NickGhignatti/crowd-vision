@@ -5,25 +5,9 @@ import QR from '@/components/cards/QR.vue'
 import NavBar from '@/components/NavBar.vue'
 import AddDomainModal from '@/components/modals/AddDomain.vue'
 import { authenticatedFetch } from '@/composables/useApi.ts'
-import type { DomainMembership, SSODomainPayload } from '@/models/domain.ts'
+import type { DomainMembership } from '@/models/domain.ts'
 import { useI18n } from 'vue-i18n'
-
-export interface SubdomainItem {
-  name: string
-  displayName: string
-}
-
-export interface UnifiedDomainGroup {
-  name: string
-  role: string
-  canUpload: boolean
-  subdomains: SubdomainItem[]
-}
-
-interface AddDomainPayload extends SSODomainPayload {
-  masterDomain?: string
-  isVisibleFromOutside: boolean
-}
+import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
 
 const selectedDomain = ref<string | null>(null)
 const domains = ref<string[]>([])
@@ -38,7 +22,7 @@ const isLoadingQr = ref(false)
 
 const { t } = useI18n()
 
-const handleAddDomain = async (payload: AddDomainPayload) => {
+const handleAddDomain = async (payload: DomainToAddWithVisibilityPayload) => {
   isSubmitting.value = true
   const accountName = localStorage.getItem('account-name')
 

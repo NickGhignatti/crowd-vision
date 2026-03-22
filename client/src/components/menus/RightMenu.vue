@@ -2,7 +2,7 @@
 import EditRoom from '@/components/modals/EditRoom.vue'
 import RoomCard from '@/components/cards/RoomCard.vue'
 import RoomSearchBar from '@/components/inputs/SearchBar.vue'
-import type { BuildingPayload, RoomPayload } from '@/models/building'
+import type { Building, Room } from '@/models/building'
 import { useUserPermissions } from '@/composables/useUserPermissions'
 
 import { ref, computed, nextTick, watch } from 'vue'
@@ -10,7 +10,7 @@ import { useI18n } from 'vue-i18n'
 import { authenticatedFetch } from '@/composables/useApi.ts'
 
 const props = defineProps<{
-  buildingModel: BuildingPayload | null
+  buildingModel: Building | null
   selectedRoomId: string | null
 }>()
 
@@ -32,7 +32,7 @@ const searchQuery = ref('')
 const searchBar = ref<InstanceType<typeof RoomSearchBar> | null>(null)
 
 const isEditModalOpen = ref(false)
-const editingRoom = ref<RoomPayload | null>(null)
+const editingRoom = ref<Room | null>(null)
 const roomRefs = ref<Record<string, HTMLElement | null>>({})
 
 const filteredRooms = computed(() => {
@@ -52,12 +52,12 @@ watch(
   },
 )
 
-const handleOpenEdit = (room: RoomPayload) => {
+const handleOpenEdit = (room: Room) => {
   editingRoom.value = room
   isEditModalOpen.value = true
 }
 
-const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
+const saveRoomConfig = async (updates: Partial<Room>) => {
   if (!props.buildingModel || !editingRoom.value) return
   try {
     const response = await authenticatedFetch(

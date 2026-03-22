@@ -4,18 +4,8 @@ import type { PropType } from 'vue'
 import SubdomainCard from '@/components/cards/SubDomainCard.vue'
 import UploadButton from '@/components/buttons/UploadButton.vue'
 import { useI18n } from 'vue-i18n'
-
-interface SubdomainCard {
-  name: string
-  displayName: string
-}
-
-interface UnifiedDomainGroup {
-  name: string
-  role: string
-  canUpload: boolean
-  subdomains: SubdomainCard[]
-}
+import type { UnifiedDomainGroup } from '@/interfaces/domain.ts'
+import { getRoleMeta } from '@/helpers/roles.ts'
 
 const props = defineProps({
   domainGroup: {
@@ -39,14 +29,6 @@ const toggleAccordion = () => {
   }
   emit('select-domain', props.domainGroup.name)
 }
-
-const formattedRole = computed(() => {
-  const role = props.domainGroup.role.toLowerCase()
-  if (role === 'admin') return t('domains.roles.admin')
-  if (role === 'business_admin') return t('domains.roles.businessAdmin')
-  if (role === 'business_staff') return t('domains.roles.businessStaff')
-  return t('domains.roles.member')
-})
 
 const roleBadgeClass = computed(() => {
   const role = props.domainGroup.role.toLowerCase()
@@ -75,7 +57,7 @@ const roleBadgeClass = computed(() => {
           class="text-[10px] font-bold px-2.5 py-1 rounded-full border shadow-sm tracking-wider"
           :class="roleBadgeClass"
         >
-          {{ formattedRole }}
+          {{ t(getRoleMeta(domainGroup.role)?.i18nKey ?? 'domains.roles.standardCustomer') }}
         </span>
       </div>
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { BuildingPayload } from '@/models/building'
+import type { Building } from '@/models/building'
 import FloorSelector from '@/components/buttons/FloorSelector.vue'
 
 const { t } = useI18n()
@@ -8,7 +8,7 @@ const { t } = useI18n()
 defineProps<{
   buildingId: string
   isSelected: boolean
-  buildingModel: BuildingPayload | null
+  buildingModel: Building | null
   availableFloors: number[]
   showControls: boolean
   activeFloor: number | null

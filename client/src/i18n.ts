@@ -140,6 +140,7 @@ const messages = {
         generateNewToken: 'Generate New Token',
         scanQRCode: 'Scan with Google Authenticator or Authy',
         QRCodeTitle: 'Your organization QR Code',
+        selectDomainToSeeQRCode: 'Select a domain to see its QR codes',
       },
       inputs: {
         search: 'Search domain...',
@@ -177,10 +178,10 @@ const messages = {
         errorInvalidMain: 'Please check domain name and auth config.',
       },
       roles: {
-        admin: 'ADMIN',
-        businessAdmin: 'BUSINESS ADMIN',
-        businessStaff: 'BUSINESS STAFF',
-        member: 'MEMBER',
+        admin: 'Admin',
+        businessAdmin: 'Org. Administrator',
+        businessStaff: 'Org. Staff',
+        standardCustomer: 'Member',
       },
     },
     notifications: {
@@ -373,6 +374,7 @@ const messages = {
         generateNewToken: 'Genera Nuovo Token',
         scanQRCode: 'Scansiona con Google Authenticator o Authy',
         QRCodeTitle: 'Il QR Code della tua organizzazione',
+        selectDomainToSeeQRCode: 'Seleziona un dominio per vedere i suoi QR code',
       },
       inputs: {
         search: 'Cerca dominio...',
@@ -411,10 +413,10 @@ const messages = {
         errorInvalidMain: 'Controlla il nome dominio e la configurazione di autenticazione.',
       },
       roles: {
-        admin: 'AMMINISTRATORE',
-        businessAdmin: 'RESPONSABILE BUSINESS',
-        businessStaff: 'STAFF BUSINESS',
-        member: 'MEMBRO',
+        admin: 'Amministratore',
+        businessAdmin: 'Responsabile Org.',
+        businessStaff: 'Staff Org.',
+        standardCustomer: 'Membro',
       },
     },
     notifications: {

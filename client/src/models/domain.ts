@@ -1,10 +1,10 @@
-export interface DomainPayload {
+export interface Domain {
   name: string
   subdomains: string[]
   authStrategy: 'internal' | 'oidc'
 }
 
-export interface SSODomainPayload {
+export interface SSODomain {
   name: string
   subdomains: string[]
   authStrategy: 'internal' | 'oidc'

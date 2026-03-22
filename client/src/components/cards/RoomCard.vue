@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import type { RoomPayload } from '@/models/building.ts'
+import type { Room } from '@/models/building.ts'
 
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const props = defineProps<{
-  room: RoomPayload
+  room: Room
   isSelected: boolean
   canEdit?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'select', id: string): void
-  (e: 'edit', room: RoomPayload): void
+  (e: 'edit', room: Room): void
 }>()
 
 const getTempColor = (temp: number) => {

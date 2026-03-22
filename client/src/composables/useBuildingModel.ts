@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue'
-import type { BuildingPayload } from '@/models/building'
+import type { Building } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
 import { authenticatedFetch } from '@/composables/useApi.ts'
 
@@ -8,9 +8,9 @@ export function useBuildingModel() {
   const isExploded = ref(false)
   const selectedRoomId = ref<string | null>(null)
   const explodedRoomId = ref<string | null>(null)
-  const allBuildings = ref<BuildingPayload[]>([])
+  const allBuildings = ref<Building[]>([])
   const selectedFloor = ref<number | null>(null)
-  const building = ref<BuildingPayload | null>(null)
+  const building = ref<Building | null>(null)
 
   const availableBuildingsNames = computed(() => allBuildings.value.map((b) => b.id))
 
@@ -70,9 +70,9 @@ export function useBuildingModel() {
         const buildingsRes = await authenticatedFetch(`/twin/buildings/${m.domainName}`)
 
         if (buildingsRes.ok) {
-          const buildingsOfDomain = (await buildingsRes.json()) as BuildingPayload[]
+          const buildingsOfDomain = (await buildingsRes.json()) as Building[]
 
-          buildingsOfDomain.forEach((b: BuildingPayload) => {
+          buildingsOfDomain.forEach((b: Building) => {
             if (!allBuildings.value.some((existing) => existing.id === b.id)) {
               allBuildings.value.push(b)
             }

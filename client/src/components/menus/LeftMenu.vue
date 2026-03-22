@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BuildingPayload } from '@/models/building'
+import type { Building } from '@/models/building'
 import { useUserPermissions } from '@/composables/useUserPermissions'
 import { useI18n } from 'vue-i18n'
 import { computed, ref, watch } from 'vue'
@@ -14,7 +14,7 @@ const emit = defineEmits<{
 const props = defineProps<{
   buildingIds: string[]
   selectedId?: string | null
-  buildingModel: BuildingPayload | null
+  buildingModel: Building | null
   activeFloor: number | null
 }>()
 

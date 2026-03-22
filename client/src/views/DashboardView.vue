@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
 import FullScreenMode from '@/components/buttons/FullScreenMode.vue'
-import type { RoomPayload, BuildingPayload } from '@/models/building'
+import type { Room, Building } from '@/models/building'
 import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
 import DataTable, { type TableBody, type TableHeader } from '@/components/tables/DataTable.vue'
 
@@ -62,10 +62,10 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
       throw new Error('Failed to fetch building data')
     }
 
-    const building = (await response.json()) as BuildingPayload
+    const building = (await response.json()) as Building
 
     if (building && building.rooms) {
-      building.rooms.forEach((room: RoomPayload) => {
+      building.rooms.forEach((room: Room) => {
         const occupants = Math.floor(Math.random() * room.capacity)
         roomData.value.push({
           room: room.id,
