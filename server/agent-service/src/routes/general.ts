@@ -4,7 +4,7 @@ import {
   FastifyPluginOptions,
 } from "fastify";
 import { llmResponse } from "../agents";
-import { messageLLMSchema, messageLLM } from "../schemas/llm.schema";
+import { MessageLLMSchema, messageLLM } from "../schemas/llm.schema";
 
 const generalRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -18,13 +18,19 @@ const generalRoutes: FastifyPluginAsync = async (
     "/msg",
     {
       schema: {
-        body: messageLLMSchema,
+        body: MessageLLMSchema,
       },
     },
     async (request, reply) => {
       const msg: string = request.body.msg;
-      console.log("this is the message: " + msg);
-      return await llmResponse(msg);
+      fastify.log.debug("Received /msg request");
+      try {
+        const result = await llmResponse(msg);
+        return result;
+      } catch (err) {
+        fastify.log.error({ err }, "llmResponse failed");
+        return reply.code(500).send({ error: "Internal server error" });
+      }
     },
   );
 };
