@@ -7,7 +7,7 @@ import DataTable, { type TableBody, type TableHeader } from '@/components/tables
 
 import { useI18n } from 'vue-i18n'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { authenticatedFetch } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/useApi.ts'
 
 const { t, locale } = useI18n()
 
@@ -57,7 +57,7 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
   try {
     roomData.value = []
 
-    const response = await authenticatedFetch(`/twin/building/${buildingId}`)
+    const response = await makeRequest(`/twin/building/${buildingId}`)
     if (!response.ok) {
       throw new Error('Failed to fetch building data')
     }

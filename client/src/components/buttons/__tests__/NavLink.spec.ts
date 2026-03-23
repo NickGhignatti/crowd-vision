@@ -5,7 +5,7 @@ import NavbarLink from '@/components/link/NavbarLink.vue'
 import RequireLogin from '@/components/modals/RequireLogin.vue'
 
 describe('AuthNavbarLink', () => {
-  describe('1. Emits', () => {
+  describe('emits', () => {
     it('emits "click" when logged in and NavbarLink is clicked', async () => {
       const wrapper = shallowMount(NavLink, {
         props: { to: '/dashboard', isLoggedIn: true },
@@ -27,7 +27,7 @@ describe('AuthNavbarLink', () => {
     })
   })
 
-  describe('2. Slots', () => {
+  describe('slots', () => {
     it('renders slot content when logged in', () => {
       const wrapper = mount(NavLink, {
         props: { to: '/dashboard', isLoggedIn: true },

@@ -17,7 +17,7 @@ vi.mock('vue-i18n', () => ({
 const floors = [0, 3, 6, 9]
 
 describe('FloorSelector', () => {
-  describe('Rendering', () => {
+  describe('rendering', () => {
     it('renders the label', () => {
       const wrapper = mount(FloorSelector, {
         props: { availableFloors: floors },
@@ -75,7 +75,7 @@ describe('FloorSelector', () => {
     })
   })
 
-  describe('V-model', () => {
+  describe('v-model', () => {
     it('selects All Floors when modelValue is null', () => {
       const wrapper = mount(FloorSelector, {
         props: {

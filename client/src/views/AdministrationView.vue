@@ -4,7 +4,7 @@ import DomainList from '@/components/menus/DomainList.vue'
 import QR from '@/components/cards/QR.vue'
 import NavBar from '@/components/NavBar.vue'
 import AddDomainModal from '@/components/modals/AddDomain.vue'
-import { authenticatedFetch } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/useApi.ts'
 import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
@@ -52,7 +52,7 @@ const handleAddDomain = async (payload: DomainToAddWithVisibilityPayload) => {
 
     delete body.masterDomain
 
-    const response = await authenticatedFetch(endpoint, 'POST', {
+    const response = await makeRequest(endpoint, 'POST', {
       body: JSON.stringify(body),
     })
 
@@ -80,7 +80,7 @@ const handleSelectDomain = async (domainName: string) => {
   try {
     const accountName = authStore.accountName
     if (!accountName) throw new Error('Missing account name in auth store')
-    const response = await authenticatedFetch(`/auth/domains/${domainName}/totp/qr/${accountName}`)
+    const response = await makeRequest(`/auth/domains/${domainName}/totp/qr/${accountName}`)
     if (!response.ok) throw new Error('Failed to fetch QR codes')
     const data = await response.json()
     qrCodes.value = data.qrCodes
@@ -114,7 +114,7 @@ const handleFileUpload = async (event: Event) => {
       payload.domains = [targetUploadDomain.value]
     }
 
-    const response = await authenticatedFetch(`/twin/register`, 'POST', {
+    const response = await makeRequest(`/twin/register`, 'POST', {
       body: JSON.stringify(payload),
     })
 

@@ -1,35 +1,61 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import PushNotificationToast from '@/components/PushNotificationToast.vue'
 
-const { subscribeMock } = vi.hoisted(() => ({
-  subscribeMock: vi.fn(),
+const { subscribeMock } = vi.hoisted(() => ({ subscribeMock: vi.fn() }))
+
+const permission = ref('default')
+const isSupported = ref(true)
+
+vi.mock('@/composables/usePush', () => ({
+  usePush: () => ({ permission, isSupported, subscribe: subscribeMock }),
 }))
 
-vi.mock('@/composables/usePush', async () => {
-  const { ref } = await import('vue')
-  return {
-    usePush: () => ({
-      permission: ref('default'),
-      isSupported: ref(true),
-      subscribe: subscribeMock,
-    }),
-  }
+beforeEach(() => {
+  permission.value = 'default'
+  isSupported.value = true
 })
 
 describe('PushNotificationToast.vue', () => {
-  it('renders when supported and permission is default', () => {
-    const wrapper = mount(PushNotificationToast)
-    expect(wrapper.text()).toContain('notifications.title')
+  describe('visibility', () => {
+    it('shows the toast when supported and permission is default', () => {
+      const wrapper = mount(PushNotificationToast, { global: { stubs: { Transition: false } } })
+      expect(wrapper.find('[class*="fixed"]').exists()).toBe(true)
+    })
+
+    it('hides the toast when permission is granted', () => {
+      permission.value = 'granted'
+      const wrapper = mount(PushNotificationToast, { global: { stubs: { Transition: false } } })
+      expect(wrapper.find('[class*="fixed"]').exists()).toBe(false)
+    })
+
+    it('hides the toast when permission is denied', () => {
+      permission.value = 'denied'
+      const wrapper = mount(PushNotificationToast, { global: { stubs: { Transition: false } } })
+      expect(wrapper.find('[class*="fixed"]').exists()).toBe(false)
+    })
+
+    it('hides the toast when push is not supported', () => {
+      isSupported.value = false
+      const wrapper = mount(PushNotificationToast, { global: { stubs: { Transition: false } } })
+      expect(wrapper.find('[class*="fixed"]').exists()).toBe(false)
+    })
   })
 
-  it('calls subscribe on enable', async () => {
-    const { usePush } = await import('@/composables/usePush')
-    const { subscribe } = usePush()
+  describe('enable button', () => {
+    it('calls subscribe when clicked', async () => {
+      const wrapper = mount(PushNotificationToast, { global: { stubs: { Transition: false } } })
+      await wrapper.find('button.bg-emerald-500').trigger('click')
+      expect(subscribeMock).toHaveBeenCalledTimes(1)
+    })
+  })
 
-    const wrapper = mount(PushNotificationToast)
-    await wrapper.find('button.bg-emerald-500').trigger('click')
-
-    expect(subscribe).toHaveBeenCalled()
+  describe('dismiss button', () => {
+    it('sets permission to denied when clicked', async () => {
+      const wrapper = mount(PushNotificationToast, { global: { stubs: { Transition: false } } })
+      await wrapper.find('button.bg-transparent').trigger('click')
+      expect(permission.value).toBe('denied')
+    })
   })
 })

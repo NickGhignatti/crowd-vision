@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { authenticatedFetch } from '@/composables/useApi'
+import { makeRequest } from '@/composables/useApi'
 import { useAuthStore } from './authentication'
 import type { DomainMembership, Domain } from '@/models/domain'
 
@@ -17,7 +17,7 @@ export const useDomainsStore = defineStore('domains', {
       this.loading = true
       try {
         const { accountName } = useAuthStore()
-        const res = await authenticatedFetch(`/auth/domains/${accountName}`)
+        const res = await makeRequest(`/auth/domains/${accountName}`)
         const data = await res.json()
         this.memberships = data.domains ?? []
       } finally {
@@ -29,7 +29,7 @@ export const useDomainsStore = defineStore('domains', {
       if (this.allDomains !== null || this.loadingAll) return
       this.loadingAll = true
       try {
-        const res = await authenticatedFetch('/auth/domains')
+        const res = await makeRequest('/auth/domains')
         const data = await res.json()
         this.allDomains = data.domains ?? []
       } finally {
@@ -61,7 +61,7 @@ export const useSubdomainsStore = defineStore('subdomains', {
         await Promise.allSettled(
           missing.map(async (m) => {
             try {
-              const res = await authenticatedFetch(`/auth/subdomains/${m.domainName}`)
+              const res = await makeRequest(`/auth/subdomains/${m.domainName}`)
               this.byDomain[m.domainName] = res.ok ? await res.json() : []
             } catch {
               this.byDomain[m.domainName] = []

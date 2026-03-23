@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { authenticatedFetch } from '@/composables/useApi'
+import { makeRequest } from '@/composables/useApi'
 import type { Building } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
 
@@ -36,7 +36,7 @@ export const useBuildingsStore = defineStore('buildings', {
         await Promise.all(
           missing.map(async (m) => {
             try {
-              const res = await authenticatedFetch(`/twin/buildings/${m.domainName}`)
+              const res = await makeRequest(`/twin/buildings/${m.domainName}`)
               this.byDomain[m.domainName] = res.ok ? await res.json() : []
             } catch {
               this.byDomain[m.domainName] = []

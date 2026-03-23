@@ -4,7 +4,7 @@ import type { Domain, DomainMembership } from '@/models/domain'
 
 import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
-import { authenticatedFetch } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/useApi.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
@@ -48,7 +48,7 @@ const handleSubscribe = async (index: number) => {
   try {
     // STRATEGY A: External SSO (OIDC)
     if (domain.authStrategy === 'oidc') {
-      const response = await authenticatedFetch(
+      const response = await makeRequest(
         `/auth/sso/login/${domain.name}?accountName=${accountName}`,
       )
 
@@ -67,7 +67,7 @@ const handleSubscribe = async (index: number) => {
     // STRATEGY B: Internal (Crowd Vision Managed)
     subscribedSet.value.add(domain.name)
 
-    const response = await authenticatedFetch(`/auth/domains/${accountName}/subscribe`, 'POST', {
+    const response = await makeRequest(`/auth/domains/${accountName}/subscribe`, 'POST', {
       body: JSON.stringify({ domainName: domain.name }),
     })
 
@@ -92,7 +92,7 @@ const handleUnsubscribe = async (index: number) => {
   try {
     subscribedSet.value.delete(domain.name)
 
-    const response = await authenticatedFetch(`/auth/domains/${accountName}/unsubscribe`, 'DELETE', {
+    const response = await makeRequest(`/auth/domains/${accountName}/unsubscribe`, 'DELETE', {
       body: JSON.stringify({ domainName: domain.name }),
     })
 

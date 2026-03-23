@@ -7,7 +7,7 @@ import { useUserPermissions } from '@/composables/useUserPermissions'
 
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { authenticatedFetch } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/useApi.ts'
 
 const props = defineProps<{
   buildingModel: Building | null
@@ -60,7 +60,7 @@ const handleOpenEdit = (room: Room) => {
 const saveRoomConfig = async (updates: Partial<Room>) => {
   if (!props.buildingModel || !editingRoom.value) return
   try {
-    const response = await authenticatedFetch(
+    const response = await makeRequest(
       `/twin/building/${props.buildingModel.id}/room/${editingRoom.value.id}`,
       'PATCH',
       { body: JSON.stringify(updates) },

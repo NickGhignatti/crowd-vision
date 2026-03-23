@@ -76,11 +76,6 @@ const updateClientId = (val: string) => (formData.clientId = val)
 const updateClientSecret = (val: string) => (formData.clientSecret = val)
 const updateIsVisibleFromOutside = (val: boolean) => (formData.isVisibleFromOutside = val)
 
-const addSubdomain = (val: string) => subDomainsList.value.push(val)
-const removeSubdomain = (index: number) => subDomainsList.value.splice(index, 1)
-const setError = (msg: string) => (error.value = msg)
-const clearError = () => (error.value = null)
-
 const nextStep = () => {
   if (!isValidMain.value) {
     error.value = t('domains.modal.errorInvalidMain')
