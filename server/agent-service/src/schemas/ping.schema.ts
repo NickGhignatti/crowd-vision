@@ -8,7 +8,6 @@ export const PingSchema = Type.Object({
 });
 
 
-
 export const CalculateBodySchema = Type.Object({
   x: Type.Number(),
   y: Type.Number(),

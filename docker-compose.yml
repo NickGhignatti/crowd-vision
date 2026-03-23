@@ -129,15 +129,20 @@ services:
         - gateway
 
 
-  # llm-service:
-  #   build: ./llm-service
-  #   environment:
-  #     - MLFLOW_TRACKING_URI=http://mlflow:5000
-  #     - MLFLOW_EXPERIMENT_ID=123456789
-  #   depends_on:
-  #     - mlflow
-  #   networks:
-  #     - llm-net
+  # ==========================================
+  # AGENT SERVICE
+  # ==========================================
+  agent-service:
+    build: ./server/agent-service
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - TWIN_SERVICE_URL=http://twin-service:3000
+      - AUTH_SERVICE_URL=http://auth-service:3000
+    networks:
+      - gateway-net
+      - twin-net
+      - auth-net
 
 networks:
   gateway-net:

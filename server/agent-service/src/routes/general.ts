@@ -6,7 +6,6 @@ import {
 import { llmResponse } from "../agents";
 import { messageLLMSchema, messageLLM } from "../schemas/llm.schema";
 
-
 const generalRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
@@ -24,13 +23,12 @@ const generalRoutes: FastifyPluginAsync = async (
     },
     async (request, reply) => {
       const msg: string = request.body.msg;
-      console.log("this is the message: " + msg)
+      console.log("this is the message: " + msg);
       return await llmResponse(msg);
     },
   );
-
 };
 
-export const autoPrefix = "/llm";
+// export const autoPrefix = "/agent";
 
 export default generalRoutes;
