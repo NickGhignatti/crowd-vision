@@ -1,3 +1,11 @@
+# [2.3.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.2.0...v2.3.0) (2026-03-23)
+
+
+### Features
+
+* stores for authentication ([9e045b5](https://github.com/NickGhignatti/crowd-vision/commit/9e045b5cde6e47e9b666a7b61a159d170514611d))
+* stores to avoid repetitive API calls ([42dc84c](https://github.com/NickGhignatti/crowd-vision/commit/42dc84c7233b9be72018b9423716852274eb31c6))
+
 # [2.2.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.2...v2.2.0) (2026-03-22)
 
 
