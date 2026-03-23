@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { useUserPermissions } from '../useUserPermissions'
+import { useAuthStore } from '@/stores/authentication'
 
 const fetchMock = vi.fn()
 global.fetch = fetchMock
@@ -26,7 +27,8 @@ describe('useUserPermissions', () => {
     fetchMock.mockResolvedValue({
       json: () => Promise.resolve({ domains: [] }),
     })
-    localStorage.setItem('account-name', 'TestAccount')
+    const authStore = useAuthStore()
+    authStore.accountName = 'TestAccount'
   })
 
   afterEach(() => {

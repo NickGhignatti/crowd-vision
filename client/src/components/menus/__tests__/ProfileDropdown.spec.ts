@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ProfileDropdown from '@/components/menus/ProfileDropdown.vue'
+import { useAuthStore } from '@/stores/authentication'
 
 describe('ProfileDropdown.vue', () => {
   beforeEach(() => {
@@ -8,8 +9,9 @@ describe('ProfileDropdown.vue', () => {
     vi.clearAllMocks()
   })
 
-  it('renders account name from localStorage', () => {
-    localStorage.setItem('account-name', 'TestAdmin')
+  it('renders account name from auth store', () => {
+    const authStore = useAuthStore()
+    authStore.accountName = 'TestAdmin'
     const wrapper = mount(ProfileDropdown, {
       props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
     })
@@ -17,7 +19,7 @@ describe('ProfileDropdown.vue', () => {
     expect(wrapper.text()).toContain('TestAdmin')
   })
 
-  it('defaults account name to "Account" if localStorage is empty', () => {
+  it('defaults account name to "Account" if auth store is empty', () => {
     const wrapper = mount(ProfileDropdown, {
       props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
     })

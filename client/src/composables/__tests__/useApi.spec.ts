@@ -6,7 +6,6 @@ const BASE_URL = 'http://test-api.com'
 describe('useApi', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response()))
-    localStorage.clear()
   })
 
   afterEach(() => {
@@ -25,9 +24,7 @@ describe('useApi', () => {
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({
-          method: 'GET',
-        }),
+        expect.objectContaining({ method: 'GET' }),
       )
     })
 
@@ -36,9 +33,7 @@ describe('useApi', () => {
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({
-          method: 'POST',
-        }),
+        expect.objectContaining({ method: 'POST' }),
       )
     })
 
@@ -48,39 +43,25 @@ describe('useApi', () => {
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         }),
       )
     })
 
-    it('sets Authorization header with token from localStorage', () => {
-      localStorage.setItem('token', 'my-token')
-
+    it('includes credentials for cookie attachment', () => {
       authenticatedFetch('/accounts')
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer my-token',
-          }),
-        }),
+        expect.objectContaining({ credentials: 'include' }),
       )
     })
 
-    it('sets Authorization header with null when no token in localStorage', () => {
+    it('does not set an Authorization header', () => {
       authenticatedFetch('/accounts')
 
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer null',
-          }),
-        }),
-      )
+      const calledWith = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit
+      expect(calledWith.headers).not.toHaveProperty('Authorization')
     })
 
     it('merges extra options into the request', () => {
@@ -88,16 +69,11 @@ describe('useApi', () => {
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({
-          body: JSON.stringify({ name: 'John' }),
-        }),
+        expect.objectContaining({ body: JSON.stringify({ name: 'John' }) }),
       )
     })
 
     it('returns the fetch promise', () => {
-      const mockResponse = new Response()
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse))
-
       const result = authenticatedFetch('/accounts')
 
       expect(result).toBeInstanceOf(Promise)
@@ -116,9 +92,7 @@ describe('useApi', () => {
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({
-          method: 'GET',
-        }),
+        expect.objectContaining({ method: 'GET' }),
       )
     })
 
@@ -127,9 +101,7 @@ describe('useApi', () => {
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({
-          method: 'POST',
-        }),
+        expect.objectContaining({ method: 'POST' }),
       )
     })
 
@@ -139,16 +111,21 @@ describe('useApi', () => {
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         }),
       )
     })
 
-    it('does not set Authorization header', () => {
-      localStorage.setItem('token', 'my-token')
+    it('includes credentials so the server can set the auth cookie on login', () => {
+      nonAuthenticatedFetch('/login')
 
+      expect(fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ credentials: 'include' }),
+      )
+    })
+
+    it('does not set an Authorization header', () => {
       nonAuthenticatedFetch('/login')
 
       const calledWith = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit
@@ -160,9 +137,7 @@ describe('useApi', () => {
 
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({
-          body: JSON.stringify({ email: 'a@b.com' }),
-        }),
+        expect.objectContaining({ body: JSON.stringify({ email: 'a@b.com' }) }),
       )
     })
 

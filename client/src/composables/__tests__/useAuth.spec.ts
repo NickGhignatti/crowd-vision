@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useAuth } from '../useAuth'
+import { useAuthStore } from '@/stores/authentication'
 
 const mockPush = vi.fn()
 
@@ -9,96 +10,66 @@ vi.mock('vue-router', () => ({
 
 describe('useAuth', () => {
   beforeEach(() => {
-    localStorage.clear()
+    vi.clearAllMocks()
     mockPush.mockReset()
+    const authStore = useAuthStore()
+    authStore.$reset()
   })
 
   describe('isLoggedIn', () => {
-    it('is true when localStorage has isAuthenticated = true', () => {
-      localStorage.setItem('isAuthenticated', 'true')
+    it('is true when auth store is authenticated', () => {
+      const authStore = useAuthStore()
+      authStore.isAuthenticated = true
       const { isLoggedIn } = useAuth()
 
       expect(isLoggedIn.value).toBe(true)
     })
 
-    it('is false when localStorage does not have isAuthenticated', () => {
+    it('is false when auth store is not authenticated', () => {
       const { isLoggedIn } = useAuth()
 
       expect(isLoggedIn.value).toBe(false)
     })
 
-    it('is false when isAuthenticated is not "true"', () => {
-      localStorage.setItem('isAuthenticated', 'false')
+    it('reacts when auth store state changes', () => {
+      const authStore = useAuthStore()
       const { isLoggedIn } = useAuth()
 
-      expect(isLoggedIn.value).toBe(false)
-    })
-  })
-
-  describe('checkAuth', () => {
-    it('updates isLoggedIn to true when localStorage is set', () => {
-      const { isLoggedIn, checkAuth } = useAuth()
-
-      localStorage.setItem('isAuthenticated', 'true')
-      checkAuth()
-
+      authStore.isAuthenticated = true
       expect(isLoggedIn.value).toBe(true)
-    })
 
-    it('updates isLoggedIn to false when localStorage is cleared', () => {
-      localStorage.setItem('isAuthenticated', 'true')
-      const { isLoggedIn, checkAuth } = useAuth()
-
-      localStorage.removeItem('isAuthenticated')
-      checkAuth()
-
+      authStore.isAuthenticated = false
       expect(isLoggedIn.value).toBe(false)
     })
   })
 
   describe('handleLogout', () => {
-    it('clears isAuthenticated from localStorage', () => {
-      localStorage.setItem('isAuthenticated', 'true')
-      const { handleLogout } = useAuth()
+    it('clears auth store state and redirects to home', async () => {
+      const authStore = useAuthStore()
+      authStore.isAuthenticated = true
+      authStore.accountName = 'john'
 
-      handleLogout()
+      vi.mocked(global.fetch).mockResolvedValue({ ok: true } as Response)
 
-      expect(localStorage.getItem('isAuthenticated')).toBeNull()
-    })
-
-    it('clears account-name from localStorage', () => {
-      localStorage.setItem('account-name', 'john')
-      const { handleLogout } = useAuth()
-
-      handleLogout()
-
-      expect(localStorage.getItem('account-name')).toBeNull()
-    })
-
-    it('clears token from localStorage', () => {
-      localStorage.setItem('token', 'abc123')
-      const { handleLogout } = useAuth()
-
-      handleLogout()
-
-      expect(localStorage.getItem('token')).toBeNull()
-    })
-
-    it('sets isLoggedIn to false', () => {
-      localStorage.setItem('isAuthenticated', 'true')
       const { isLoggedIn, handleLogout } = useAuth()
-
-      handleLogout()
+      await handleLogout()
 
       expect(isLoggedIn.value).toBe(false)
+      expect(authStore.isAuthenticated).toBe(false)
+      expect(authStore.accountName).toBeNull()
+      expect(mockPush).toHaveBeenCalledWith('/')
     })
 
-    it('redirects to "/"', () => {
+    it('calls logout endpoint through authenticated fetch', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({ ok: true } as Response)
       const { handleLogout } = useAuth()
 
-      handleLogout()
+      await handleLogout()
 
-      expect(mockPush).toHaveBeenCalledWith('/')
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/logout'),
+        expect.objectContaining({ method: 'POST' }),
+      )
     })
   })
 })

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useBuildingModel } from '@/composables/useBuildingModel'
+import { useAuthStore } from '@/stores/authentication'
 
 vi.stubEnv('VITE_SERVER_URL', 'http://localhost:3000')
 
@@ -9,7 +10,8 @@ global.fetch = fetchMock
 describe('useBuildingModel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.setItem('account-name', 'TestAccount')
+    const authStore = useAuthStore()
+    authStore.accountName = 'TestAccount'
   })
 
   it('fetchBuildings fetches account domains then buildings', async () => {

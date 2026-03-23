@@ -2,8 +2,10 @@ import { ref, computed, watch } from 'vue'
 import type { Building } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
 import { authenticatedFetch } from '@/composables/useApi.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 export function useBuildingModel() {
+  const authStore = useAuthStore()
 
   const isExploded = ref(false)
   const selectedRoomId = ref<string | null>(null)
@@ -55,7 +57,7 @@ export function useBuildingModel() {
 
   const fetchBuildings = async () => {
     try {
-      const accountName = localStorage.getItem('account-name')
+      const accountName = authStore.accountName
       if (!accountName) return
 
       const domainRes = await authenticatedFetch(`/auth/domains/${accountName}`)

@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import * as TokenService from "../services/tokenService.js";
 import crypto from "crypto";
-import { getAdminSecret } from "../config/config.js";
+import { COOKIE_NAME, getAdminSecret } from "../config/config.js";
 
 declare global {
   namespace Express {
@@ -17,17 +17,13 @@ export const requireAuthentication = (
   next: NextFunction,
 ) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res
-        .status(401)
-        .json({ error: "Authentication token missing or malformed" });
+    const token = req.cookies?.[COOKIE_NAME];
+
+    if (!token) {
+      return res.status(401).json({ error: "Authentication token missing" });
     }
 
-    const token = authHeader.split(" ")[1];
-
-    req.account = TokenService.verifyToken(token || "");
-
+    req.account = TokenService.verifyToken(token);
     next();
   } catch (error) {
     return res.status(401).json({ error: "Invalid or expired token" });

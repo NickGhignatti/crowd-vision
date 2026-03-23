@@ -5,6 +5,7 @@ import DashboardView from '@/views/DashboardView.vue'
 import AdministrationView from '@/views/AdministrationView.vue'
 
 import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const router = createRouter({
   history: import.meta.env.TEST
@@ -51,11 +52,16 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, from, next) => {
-  const isAuthenticated =
-    typeof localStorage !== 'undefined' && localStorage.getItem('isAuthenticated') === 'true'
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore()
 
-  if (to.meta.requiresAuth && !isAuthenticated) {
+  // Wait for hydration before making any auth decision
+  // This prevents the router from redirecting on refresh before /me has responded
+  if (!authStore.isHydrated) {
+    await authStore.hydrate()
+  }
+
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/')
   } else {
     next()

@@ -8,8 +8,10 @@ import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authenticatedFetch } from '@/composables/useApi.ts'
 import type { DomainToAddWithMaster } from '@/interfaces/domain.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 const searchQuery = ref('')
 const isSubmitting = ref(false)
@@ -33,7 +35,7 @@ const fetchAllDomains = async () => {
 
 const fetchUserDomains = async () => {
   try {
-    const accountName = localStorage.getItem('account-name')
+    const accountName = authStore.accountName
     if (!accountName) return
 
     const response = await authenticatedFetch(`/auth/domains/${accountName}`)
@@ -50,7 +52,7 @@ const fetchUserDomains = async () => {
 
 const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
   isSubmitting.value = true
-  const accountName = localStorage.getItem('account-name')
+  const accountName = authStore.accountName
 
   try {
     const body = {

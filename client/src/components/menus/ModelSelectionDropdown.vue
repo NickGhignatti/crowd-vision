@@ -5,6 +5,7 @@ import type { Building } from '@/models/building'
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authenticatedFetch } from '@/composables/useApi.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
 
@@ -12,6 +13,7 @@ export interface ModelOption {
   id: string
   name: string
 }
+const authStore = useAuthStore()
 
 const emit = defineEmits<{
   (e: 'model-changed', value: string): void
@@ -29,7 +31,8 @@ const selectModel = (model: ModelOption) => {
 
 const getInitialModels = async () => {
   try {
-    const accountName = localStorage.getItem('account-name')
+    const accountName = authStore.accountName
+
     if (!accountName) return
 
     const authenticationResponse = await authenticatedFetch(`/auth/domains/${accountName}`)

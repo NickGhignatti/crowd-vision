@@ -8,6 +8,7 @@ import { authenticatedFetch } from '@/composables/useApi.ts'
 import type { DomainMembership } from '@/models/domain.ts'
 import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const selectedDomain = ref<string | null>(null)
 const domains = ref<string[]>([])
@@ -21,15 +22,14 @@ const qrCodes = ref<Record<string, string>>({})
 const isLoadingQr = ref(false)
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 const handleAddDomain = async (payload: DomainToAddWithVisibilityPayload) => {
   isSubmitting.value = true
-  const accountName = localStorage.getItem('account-name')
+  const accountName = authStore.accountName
 
   try {
-    if (!accountName) {
-      throw new Error('Missing account name in local storage')
-    }
+    if (!accountName) throw new Error('Missing account name in auth store')
 
     const masterDomain = payload.masterDomain?.trim().toLowerCase()
     const endpoint = masterDomain
@@ -72,7 +72,8 @@ const handleSelectDomain = async (domainName: string) => {
   selectedDomain.value = domainName
   isLoadingQr.value = true
   try {
-    const accountName = localStorage.getItem('account-name')
+    const accountName = authStore.accountName
+    if (!accountName) throw new Error('Missing account name in auth store')
     const response = await authenticatedFetch(`/auth/domains/${domainName}/totp/qr/${accountName}`)
     if (!response.ok) throw new Error('Failed to fetch QR codes')
     const data = await response.json()
@@ -128,7 +129,7 @@ const getAllSubdomains = async () => {
   domains.value = []
   unifiedDomains.value = []
 
-  const accountName = localStorage.getItem('account-name')
+  const accountName = authStore.accountName
   if (!accountName) return
 
   const mainDomainsResponse = await authenticatedFetch(`/auth/domains/${accountName}`)

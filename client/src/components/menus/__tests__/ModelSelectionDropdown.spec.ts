@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import ModelSelectionDropdown from '../ModelSelectionDropdown.vue'
+import { useAuthStore } from '@/stores/authentication'
 
 // Mock environment variables
 vi.stubEnv('VITE_SERVER_URL', 'http://test-api')
@@ -19,9 +20,11 @@ describe('ModelSelectionDropdown.vue', () => {
     vi.clearAllMocks()
     localStorage.clear()
 
+    const authStore = useAuthStore()
+    authStore.accountName = 'TestAccount'
+
     // Simulate a fully authenticated account session
     localStorage.setItem('isAuthenticated', 'true')
-    localStorage.setItem('account-name', 'TestAccount')
     localStorage.setItem('token', 'mock-jwt-token-123')
   })
 
@@ -52,7 +55,7 @@ describe('ModelSelectionDropdown.vue', () => {
       expect.stringContaining('/twin/buildings/test-domain'),
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Bearer mock-jwt-token-123',
+          'Content-Type': 'application/json',
         }),
       }),
     )

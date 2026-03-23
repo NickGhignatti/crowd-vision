@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 defineProps<{
   isUserDropdownOpen: boolean
@@ -14,7 +16,7 @@ defineEmits<{
   (e: 'closeDropDown'): void
 }>()
 
-const accountName = ref(localStorage.getItem('account-name') || 'Account')
+const accountName = computed(() => authStore.accountName || 'Account')
 </script>
 
 <template>
