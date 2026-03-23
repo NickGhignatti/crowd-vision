@@ -8,14 +8,23 @@ const PORT = 3000;
 export const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
+export const getClientUrl = () =>
+  process.env.CLIENT_URL || "http://localhost:5173";
+
+app.use(
+  cors({
+    origin: getClientUrl(),
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 const io = new Server(server, {
-    cors: {
-        origin: process.env.CORS_ORIGIN || "*",
-        methods: ["GET", "POST"]
-    }
+  cors: {
+    origin: getClientUrl(),
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
 });
 
 const redisSubscriber = createClient({ url: process.env.REDIS_URL || ''});

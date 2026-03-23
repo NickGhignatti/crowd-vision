@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { nonAuthenticatedFetch, authenticatedFetch } from '@/composables/useApi'
+import { useDomainsStore, useSubdomainsStore } from '@/stores/domain.ts'
+import { useBuildingsStore } from '@/stores/buildings.ts'
 
 export const useAuthStore = defineStore('authentication', {
   state: () => ({
@@ -36,6 +38,9 @@ export const useAuthStore = defineStore('authentication', {
       await authenticatedFetch('/auth/logout', 'POST')
       this.accountName = null
       this.isAuthenticated = false
+      useDomainsStore().$reset()
+      useBuildingsStore().$reset()
+      useSubdomainsStore().$reset()
     },
 
     // Called once on app startup to re-hydrate from the cookie

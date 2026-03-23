@@ -2,10 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { useUserPermissions } from '../useUserPermissions'
-import { useAuthStore } from '@/stores/authentication'
+import { useDomainsStore } from '@/stores/domain'
 
-const fetchMock = vi.fn()
-global.fetch = fetchMock
+vi.mock('@/composables/useApi', () => ({
+  authenticatedFetch: vi.fn(() =>
+    Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ domains: [] }),
+    }),
+  ),
+  nonAuthenticatedFetch: vi.fn(),
+}))
 
 describe('useUserPermissions', () => {
   const mountComposable = () => {
@@ -24,11 +31,6 @@ describe('useUserPermissions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    fetchMock.mockResolvedValue({
-      json: () => Promise.resolve({ domains: [] }),
-    })
-    const authStore = useAuthStore()
-    authStore.accountName = 'TestAccount'
   })
 
   afterEach(() => {
@@ -42,16 +44,10 @@ describe('useUserPermissions', () => {
 
   it('fetches permissions and allows edit if role is business admin', async () => {
     // Account is business admin of 'domain-a'
-    fetchMock.mockResolvedValue({
-      json: () =>
-        Promise.resolve({
-          domains: [{ domainName: 'domain-a', role: 'business_admin' }],
-        }),
-    })
+    const domainsStore = useDomainsStore()
+    domainsStore.memberships = [{ domainName: 'domain-a', role: 'business_admin' }]
 
-    const { fetchPermissions, canEdit, memberships } = mountComposable()
-
-    await fetchPermissions()
+    const { canEdit, memberships } = mountComposable()
 
     expect(memberships.value).toHaveLength(1)
 
@@ -61,27 +57,20 @@ describe('useUserPermissions', () => {
   })
 
   it('denies edit if role is standard customer', async () => {
-    fetchMock.mockResolvedValue({
-      json: () =>
-        Promise.resolve({
-          domains: [{ domainName: 'domain-a', role: 'standard_customer' }],
-        }),
-    })
+    const domainsStore = useDomainsStore()
+    domainsStore.memberships = [{ domainName: 'domain-a', role: 'standard_customer' }]
 
-    const { fetchPermissions, canEdit } = mountComposable()
-    await fetchPermissions()
+    const { canEdit } = mountComposable()
 
     expect(canEdit(['domain-a'])).toBe(false)
   })
 
-  it('handles API errors gracefully', async () => {
-    fetchMock.mockRejectedValue(new Error('Network Error'))
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
+  it('handles empty memberships gracefully', () => {
+    const domainsStore = useDomainsStore()
+    domainsStore.memberships = []
 
-    const { fetchPermissions, memberships } = mountComposable()
-    await fetchPermissions()
+    const { memberships } = mountComposable()
 
     expect(memberships.value).toEqual([])
-    expect(consoleSpy).toHaveBeenCalled()
   })
 })

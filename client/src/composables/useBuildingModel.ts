@@ -1,11 +1,11 @@
 import { ref, computed, watch } from 'vue'
 import type { Building } from '@/models/building'
-import type { DomainMembership } from '@/models/domain'
-import { authenticatedFetch } from '@/composables/useApi.ts'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useBuildingsStore } from '@/stores/buildings.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
 
 export function useBuildingModel() {
-  const authStore = useAuthStore()
+  const domainsStore = useDomainsStore()
+  const buildingsStore = useBuildingsStore()
 
   const isExploded = ref(false)
   const selectedRoomId = ref<string | null>(null)
@@ -57,39 +57,21 @@ export function useBuildingModel() {
 
   const fetchBuildings = async () => {
     try {
-      const accountName = authStore.accountName
-      if (!accountName) return
+      await domainsStore.fetchMemberships()
+      if (!domainsStore.memberships) return
 
-      const domainRes = await authenticatedFetch(`/auth/domains/${accountName}`)
-      const data = await domainRes.json()
-      const memberships = data.domains as DomainMembership[]
+      // Parallel fetch — no more sequential for loop
+      await buildingsStore.fetch(domainsStore.memberships)
 
-      allBuildings.value = []
-
-      for (const m of memberships) {
-        if (!m.domainName) continue
-
-        const buildingsRes = await authenticatedFetch(`/twin/buildings/${m.domainName}`)
-
-        if (buildingsRes.ok) {
-          const buildingsOfDomain = (await buildingsRes.json()) as Building[]
-
-          buildingsOfDomain.forEach((b: Building) => {
-            if (!allBuildings.value.some((existing) => existing.id === b.id)) {
-              allBuildings.value.push(b)
-            }
-          })
-        }
-      }
+      allBuildings.value = buildingsStore.all
 
       if (!building.value && allBuildings.value.length > 0) {
-        building.value = allBuildings.value[0] || null
+        building.value = allBuildings.value[0] ?? null
       }
     } catch (e) {
       console.error('Error fetching building schema:', e)
     }
   }
-
   const setBuildingByIndex = (index: number) => {
     building.value = allBuildings.value[index] || null
   }
