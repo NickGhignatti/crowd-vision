@@ -46,7 +46,7 @@ describe('DomainInput Component', () => {
     it('emits "update-auth-strategy" with "oidc" when oidc radio is selected', async () => {
       const wrapper = createWrapper()
 
-      await wrapper.findAll('input[type="radio"]')[1].trigger('change')
+      await wrapper.findAll('input[type="radio"]')[1]?.trigger('change')
 
       expect(wrapper.emitted('update-auth-strategy')?.[0]).toEqual(['oidc'])
     })
@@ -65,7 +65,7 @@ describe('DomainInput Component', () => {
       const wrapper = createWrapper({ authStrategy: 'oidc' })
 
       const inputs = wrapper.findAll('input[type="text"]')
-      await inputs[inputs.length - 1].setValue('my-client-id')
+      await inputs[inputs.length - 1]?.setValue('my-client-id')
 
       expect(wrapper.emitted('update-client-id')?.[0]).toEqual(['my-client-id'])
     })

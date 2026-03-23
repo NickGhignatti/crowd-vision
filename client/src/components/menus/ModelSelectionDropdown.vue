@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import type { DomainMembership } from '@/models/domain'
-import type { Building } from '@/models/building'
-
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { authenticatedFetch } from '@/composables/useApi.ts'
-import { useAuthStore } from '@/stores/authentication.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 
@@ -15,7 +10,6 @@ export interface ModelOption {
   id: string
   name: string
 }
-const authStore = useAuthStore()
 
 const emit = defineEmits<{
   (e: 'model-changed', value: string): void

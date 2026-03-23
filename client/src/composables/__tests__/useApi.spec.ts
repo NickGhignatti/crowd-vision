@@ -1,150 +1,90 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { authenticatedFetch, nonAuthenticatedFetch } from '../useApi.ts'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { makeRequest } from '@/composables/useApi'
 
-const BASE_URL = 'http://test-api.com'
+const fetchSpy = vi.spyOn(global, 'fetch')
 
-describe('useApi', () => {
+describe('useApi.ts - makeRequest', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response()))
+    vi.clearAllMocks()
+
+    // Provide a default successful response for fetch
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({}),
+    } as unknown as Response)
   })
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
+  describe('default behavior', () => {
+    it('calls fetch with the correct base URL and endpoint', async () => {
+      await makeRequest('/health')
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(fetchSpy).toHaveBeenCalledWith('http://test-api.com/health', expect.any(Object))
+    })
+
+    it('uses GET as the default method and includes default configuration', async () => {
+      await makeRequest('/data')
+
+      expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    })
   })
 
-  describe('authenticatedFetch', () => {
-    it('calls fetch with the correct full URL', () => {
-      authenticatedFetch('/accounts')
+  describe('custom parameters', () => {
+    it('uses the provided HTTP method', async () => {
+      await makeRequest('/users', 'POST')
 
-      expect(fetch).toHaveBeenCalledWith(`${BASE_URL}/accounts`, expect.any(Object))
-    })
-
-    it('uses GET as default method', () => {
-      authenticatedFetch('/accounts')
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ method: 'GET' }),
-      )
-    })
-
-    it('uses the provided method', () => {
-      authenticatedFetch('/accounts', 'POST')
-
-      expect(fetch).toHaveBeenCalledWith(
+      expect(fetchSpy).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ method: 'POST' }),
       )
     })
 
-    it('sets Content-Type to application/json', () => {
-      authenticatedFetch('/accounts')
+    it('merges custom options into the fetch configuration', async () => {
+      const customOptions = {
+        body: JSON.stringify({ name: 'Alice' }),
+      }
 
-      expect(fetch).toHaveBeenCalledWith(
+      await makeRequest('/users', 'POST', customOptions)
+
+      expect(fetchSpy).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: '{"name":"Alice"}',
         }),
       )
     })
 
-    it('includes credentials for cookie attachment', () => {
-      authenticatedFetch('/accounts')
+    it('allows overriding default headers via custom options', async () => {
+      const customOptions = {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: 'Bearer test-token',
+        },
+      }
 
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ credentials: 'include' }),
-      )
-    })
+      await makeRequest('/upload', 'PUT', customOptions)
 
-    it('does not set an Authorization header', () => {
-      authenticatedFetch('/accounts')
-
-      const calledWith = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit
-      expect(calledWith.headers).not.toHaveProperty('Authorization')
-    })
-
-    it('merges extra options into the request', () => {
-      authenticatedFetch('/accounts', 'POST', { body: JSON.stringify({ name: 'John' }) })
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ body: JSON.stringify({ name: 'John' }) }),
-      )
-    })
-
-    it('returns the fetch promise', () => {
-      const result = authenticatedFetch('/accounts')
-
-      expect(result).toBeInstanceOf(Promise)
-    })
-  })
-
-  describe('nonAuthenticatedFetch', () => {
-    it('calls fetch with the correct full URL', () => {
-      nonAuthenticatedFetch('/login')
-
-      expect(fetch).toHaveBeenCalledWith(`${BASE_URL}/login`, expect.any(Object))
-    })
-
-    it('uses GET as default method', () => {
-      nonAuthenticatedFetch('/login')
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ method: 'GET' }),
-      )
-    })
-
-    it('uses the provided method', () => {
-      nonAuthenticatedFetch('/login', 'POST')
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ method: 'POST' }),
-      )
-    })
-
-    it('sets Content-Type to application/json', () => {
-      nonAuthenticatedFetch('/login')
-
-      expect(fetch).toHaveBeenCalledWith(
+      expect(fetchSpy).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: 'Bearer test-token',
+          },
         }),
       )
-    })
-
-    it('includes credentials so the server can set the auth cookie on login', () => {
-      nonAuthenticatedFetch('/login')
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ credentials: 'include' }),
-      )
-    })
-
-    it('does not set an Authorization header', () => {
-      nonAuthenticatedFetch('/login')
-
-      const calledWith = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit
-      expect(calledWith.headers).not.toHaveProperty('Authorization')
-    })
-
-    it('merges extra options into the request', () => {
-      nonAuthenticatedFetch('/login', 'POST', { body: JSON.stringify({ email: 'a@b.com' }) })
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ body: JSON.stringify({ email: 'a@b.com' }) }),
-      )
-    })
-
-    it('returns the fetch promise', () => {
-      const result = nonAuthenticatedFetch('/login')
-
-      expect(result).toBeInstanceOf(Promise)
     })
   })
 })

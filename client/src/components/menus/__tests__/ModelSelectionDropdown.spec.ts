@@ -1,91 +1,157 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import ModelSelectionDropdown from '../ModelSelectionDropdown.vue'
-import { useAuthStore } from '@/stores/authentication'
-
-// Mock environment variables
-vi.stubEnv('VITE_SERVER_URL', 'http://test-api')
+import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => key,
+  useI18n: () => ({ t: (key: string) => key }),
+}))
+
+const mockFetchMemberships = vi.fn()
+let mockMemberships: Array<{ domainName: string; role: string }> | null = null
+
+vi.mock('@/stores/domain.ts', () => ({
+  useDomainsStore: () => ({
+    fetchMemberships: mockFetchMemberships,
+    get memberships() {
+      return mockMemberships
+    },
   }),
 }))
 
-const fetchMock = vi.fn()
-global.fetch = fetchMock
+const mockFetchBuildings = vi.fn()
+let mockBuildingsAll: Array<{ id: string }> = []
+
+vi.mock('@/stores/buildings.ts', () => ({
+  useBuildingsStore: () => ({
+    fetch: mockFetchBuildings,
+    get all() {
+      return mockBuildingsAll
+    },
+  }),
+}))
+
+const stubs = {
+  Transition: true,
+}
 
 describe('ModelSelectionDropdown.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.clear()
-
-    const authStore = useAuthStore()
-    authStore.accountName = 'TestAccount'
-
-    // Simulate a fully authenticated account session
-    localStorage.setItem('isAuthenticated', 'true')
-    localStorage.setItem('token', 'mock-jwt-token-123')
+    mockMemberships = [{ domainName: 'acme', role: 'admin' }]
+    mockBuildingsAll = [{ id: 'bldg-1' }, { id: 'bldg-2' }]
   })
 
-  it('fetches data and auto-selects the first model, sending auth headers', async () => {
-    // 1st Fetch: Get domains for the account
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          domains: [{ domainName: 'test-domain', role: 'standard_customer' }],
-        }),
+  describe('initialization and store fetching', () => {
+    it('fetches memberships and buildings on mount', async () => {
+      mount(ModelSelectionDropdown, { global: { stubs } })
+
+      await flushPromises()
+
+      expect(mockFetchMemberships).toHaveBeenCalledTimes(1)
+      expect(mockFetchBuildings).toHaveBeenCalledWith(mockMemberships)
     })
 
-    // 2nd Fetch: Get buildings for the selected domain
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve([{ id: 'Building A' }]),
+    it('does not attempt to fetch buildings if memberships fetch returns null', async () => {
+      mockMemberships = null
+      mount(ModelSelectionDropdown, { global: { stubs } })
+
+      await flushPromises()
+
+      expect(mockFetchMemberships).toHaveBeenCalledTimes(1)
+      expect(mockFetchBuildings).not.toHaveBeenCalled()
     })
 
-    const wrapper = mount(ModelSelectionDropdown)
+    it('filters duplicate building IDs and auto-selects the first model', async () => {
+      mockBuildingsAll = [{ id: 'bldg-1' }, { id: 'bldg-1' }, { id: 'bldg-2' }]
 
-    // Wait for both sequential fetch calls to resolve
-    await flushPromises()
+      const wrapper = mount(ModelSelectionDropdown, { global: { stubs } })
+      await flushPromises()
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+      // It should automatically emit the first model upon initialization
+      expect(wrapper.emitted('model-changed')).toBeTruthy()
+      expect(wrapper.emitted('model-changed')?.[0]).toEqual(['bldg-1'])
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/twin/buildings/test-domain'),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'Content-Type': 'application/json',
-        }),
-      }),
-    )
+      // The main trigger button should now show the selected model's ID
+      expect(wrapper.find('button').text()).toContain('bldg-1')
+    })
 
-    expect(wrapper.text()).toContain('Building A')
+    it('handles errors gracefully during initialization and logs them', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const expectedError = new Error('Network error')
+
+      mockFetchMemberships.mockRejectedValueOnce(expectedError)
+
+      const wrapper = mount(ModelSelectionDropdown, { global: { stubs } })
+      await flushPromises()
+
+      // The error should be logged, but the component shouldn't crash
+      expect(consoleSpy).toHaveBeenCalledWith('Error initializing models:', expectedError)
+
+      expect(wrapper.emitted('model-changed')).toBeUndefined()
+
+      consoleSpy.mockRestore()
+    })
   })
 
-  it('allows account to open dropdown and select a different model', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ domains: [{ domainName: 'd1' }] }),
+  describe('dropdown behavior and interactions', () => {
+    it('toggles the dropdown when the main button is clicked', async () => {
+      const wrapper = mount(ModelSelectionDropdown, { global: { stubs } })
+      await flushPromises()
+
+      const mainBtn = wrapper.find('button')
+
+      expect(wrapper.find('ul').exists()).toBe(false)
+
+      await mainBtn.trigger('click')
+      expect(wrapper.find('ul').exists()).toBe(true)
+
+      await mainBtn.trigger('click')
+      expect(wrapper.find('ul').exists()).toBe(false)
     })
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve([{ id: 'Building A' }, { id: 'Building B' }]),
+
+    it('displays a fallback message when the building list is empty', async () => {
+      mockBuildingsAll = []
+
+      const wrapper = mount(ModelSelectionDropdown, { global: { stubs } })
+      await flushPromises()
+
+      await wrapper.find('button').trigger('click')
+
+      expect(wrapper.text()).toContain('model.noBuildings')
+      expect(wrapper.findAll('ul li button')).toHaveLength(0)
     })
 
-    const wrapper = mount(ModelSelectionDropdown)
-    await flushPromises()
+    it('selects a model, closes the dropdown, and emits when an option is clicked', async () => {
+      const wrapper = mount(ModelSelectionDropdown, { global: { stubs } })
+      await flushPromises()
 
-    const button = wrapper.find('button')
-    await button.trigger('click')
+      wrapper.emitted('model-changed')?.pop()
 
-    const items = wrapper.findAll('li button')
-    expect(items).toHaveLength(2)
+      await wrapper.find('button').trigger('click')
 
-    await items[1]?.trigger('click')
+      const options = wrapper.findAll('ul li button')
+      expect(options).toHaveLength(2)
+      await options[1]?.trigger('click')
 
-    expect(wrapper.emitted('model-changed')).toBeTruthy()
-    const emits = wrapper.emitted('model-changed')
-    expect(emits?.[emits.length - 1]).toEqual(['Building B'])
+      expect(wrapper.find('ul').exists()).toBe(false)
+
+      expect(wrapper.emitted('model-changed')).toHaveLength(1)
+      expect(wrapper.emitted('model-changed')?.[0]).toEqual(['bldg-2'])
+
+      expect(wrapper.find('button').text()).toContain('bldg-2')
+    })
+
+    it('closes the dropdown when the transparent backdrop is clicked', async () => {
+      const wrapper = mount(ModelSelectionDropdown, { global: { stubs } })
+      await flushPromises()
+
+      await wrapper.find('button').trigger('click')
+      expect(wrapper.find('ul').exists()).toBe(true)
+
+      const backdrop = wrapper.find('.fixed.inset-0.bg-transparent')
+      await backdrop.trigger('click')
+
+      expect(wrapper.find('ul').exists()).toBe(false)
+    })
   })
 })

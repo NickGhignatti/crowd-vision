@@ -1,99 +1,122 @@
-import { shallowMount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
-import RoomCard from '../RoomCard.vue'
-import type { Room } from '@/models/building.ts'
+import { describe, it, expect, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
+import RoomCard from '@/components/cards/RoomCard.vue'
+import type { Room } from '@/models/building'
 
-const mockRoom: { id: string; capacity: number; color: string } = {
-  id: 'room-1',
-  capacity: 10,
-  color: '#ff0000',
-}
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}))
 
-const createWrapper = (props = {}) =>
-  shallowMount(RoomCard, {
-    props: {
-      room: mockRoom as Room,
-      isSelected: false,
-      ...props,
-    },
-    global: {
-      mocks: { $t: (key: string) => key },
-    },
+const makeRoom = (overrides: Partial<Room> = {}): Room =>
+  ({
+    id: 'room-101',
+    capacity: 50,
+    maxTemperature: 25,
+    color: '#3b82f6',
+    ...overrides,
+  }) as unknown as Room
+
+describe('RoomCard.vue', () => {
+  describe('rendering', () => {
+    it('displays the room ID and capacity correctly', () => {
+      const room = makeRoom({ id: 'conference-a', capacity: 12 })
+      const wrapper = mount(RoomCard, {
+        props: { room, isSelected: false },
+      })
+
+      expect(wrapper.text()).toContain('#conference-a')
+      expect(wrapper.text()).toContain('1 / 12')
+    })
+
+    it('renders the color indicator when room.color is provided', () => {
+      const room = makeRoom({ color: '#ff0000' })
+      const wrapper = mount(RoomCard, {
+        props: { room, isSelected: false },
+      })
+
+      const colorDot = wrapper.find('span[style="background-color: #ff0000;"]')
+      expect(colorDot.exists()).toBe(true)
+    })
+
+    it('does not render the color indicator when room.color is missing', () => {
+      const room = makeRoom({ color: undefined } as unknown as Partial<Room>)
+      const wrapper = mount(RoomCard, {
+        props: { room, isSelected: false },
+      })
+
+      const colorDot = wrapper.find('span[style]')
+      expect(colorDot.exists()).toBe(false)
+    })
+
+    it('renders structural selection indicators when isSelected is true', () => {
+      const wrapper = mount(RoomCard, {
+        props: { room: makeRoom(), isSelected: true },
+      })
+
+      expect(wrapper.find('.absolute.bg-emerald-600').exists()).toBe(true)
+    })
+
+    it('hides structural selection indicators when isSelected is false', () => {
+      const wrapper = mount(RoomCard, {
+        props: { room: makeRoom(), isSelected: false },
+      })
+
+      expect(wrapper.find('.absolute.bg-emerald-600').exists()).toBe(false)
+    })
   })
 
-describe('RoomCard', () => {
-  describe('1. Emits', () => {
-    it('emits "select" with room id when card is clicked', async () => {
-      const wrapper = createWrapper()
-
-      await wrapper.find('div').trigger('click')
-
-      expect(wrapper.emitted('select')?.[0]).toEqual(['room-1'])
-    })
-
-    it('emits "edit" with room payload when edit button is clicked', async () => {
-      const wrapper = createWrapper({ canEdit: true })
-
-      await wrapper.find('button').trigger('click')
-
-      expect(wrapper.emitted('edit')?.[0]).toEqual([mockRoom])
-    })
-
-    it('does not emit "select" when edit button is clicked', async () => {
-      const wrapper = createWrapper({ canEdit: true })
-
-      await wrapper.find('button').trigger('click')
-
-      expect(wrapper.emitted('select')).toBeUndefined()
-    })
-  })
-
-  describe('2. Temperature color', () => {
-    // Temporary assertion: component currently renders a fixed 22°C preview value.
-    it('applies emerald color for normal temperature (22°C)', () => {
-      const wrapper = createWrapper()
-
-      expect(wrapper.find('.text-emerald-600.font-bold').exists()).toBe(true)
-    })
-  })
-
-  describe('3. Rendering', () => {
-    it('renders the selected indicator bar when isSelected is true', () => {
-      const wrapper = createWrapper({ isSelected: true })
-
-      expect(wrapper.find('.bg-emerald-600.absolute').exists()).toBe(true)
-    })
-
-    it('does not render the selected indicator bar when isSelected is false', () => {
-      const wrapper = createWrapper({ isSelected: false })
-
-      expect(wrapper.find('.bg-emerald-600.absolute').exists()).toBe(false)
-    })
-
-    it('renders the edit button when canEdit is true', () => {
-      const wrapper = createWrapper({ canEdit: true })
-
-      expect(wrapper.find('button').exists()).toBe(true)
-    })
-
-    it('does not render the edit button when canEdit is false or undefined', () => {
-      const wrapper = createWrapper({ canEdit: false })
+  describe('editing permissions', () => {
+    it('does not render the edit button if canEdit is false or omitted', () => {
+      const wrapper = mount(RoomCard, {
+        props: { room: makeRoom(), isSelected: false }, // canEdit omitted
+      })
 
       expect(wrapper.find('button').exists()).toBe(false)
     })
 
-    it('renders the color dot when room.color is set', () => {
-      const wrapper = createWrapper()
+    it('renders the edit button if canEdit is true', () => {
+      const wrapper = mount(RoomCard, {
+        props: { room: makeRoom(), isSelected: false, canEdit: true },
+      })
 
-      const dot = wrapper.find('span[style]')
-      expect(dot.exists()).toBe(true)
-      expect(dot.attributes('style')).toContain('#ff0000')
+      expect(wrapper.find('button').exists()).toBe(true)
+      expect(wrapper.find('button').attributes('title')).toBe('model.rooms.editRoom.title')
+    })
+  })
+
+  describe('interactions and event emitting', () => {
+    it('emits "select" with the room ID when the card is clicked', async () => {
+      const wrapper = mount(RoomCard, {
+        props: { room: makeRoom({ id: 'office-2' }), isSelected: false },
+      })
+
+      await wrapper.trigger('click')
+
+      expect(wrapper.emitted('select')).toBeTruthy()
+      expect(wrapper.emitted('select')?.[0]).toEqual(['office-2'])
     })
 
-    it('does not render the color dot when room.color is absent', () => {
-      const wrapper = createWrapper({ room: { ...mockRoom, color: undefined } })
+    it('emits "edit" with the room object when the edit button is clicked', async () => {
+      const room = makeRoom({ id: 'office-2' })
+      const wrapper = mount(RoomCard, {
+        props: { room, isSelected: false, canEdit: true },
+      })
 
-      expect(wrapper.find('span[style]').exists()).toBe(false)
+      await wrapper.find('button').trigger('click')
+
+      expect(wrapper.emitted('edit')).toBeTruthy()
+      expect(wrapper.emitted('edit')?.[0]).toEqual([room])
+    })
+
+    it('prevents the "select" event from firing when the edit button is clicked', async () => {
+      const wrapper = mount(RoomCard, {
+        props: { room: makeRoom(), isSelected: false, canEdit: true },
+      })
+
+      await wrapper.find('button').trigger('click')
+
+      // Because of the @click.stop modifier, the event shouldn't bubble up to the card
+      expect(wrapper.emitted('select')).toBeUndefined()
     })
   })
 })

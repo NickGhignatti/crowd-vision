@@ -1,34 +1,50 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import ProfileDropdown from '@/components/menus/ProfileDropdown.vue'
-import { useAuthStore } from '@/stores/authentication'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}))
+
+const mockAccountName = ref<string | null>('alice')
+vi.mock('@/stores/authentication.ts', () => ({
+  useAuthStore: () => ({
+    get accountName() {
+      return mockAccountName.value
+    },
+  }),
+}))
 
 describe('ProfileDropdown.vue', () => {
   beforeEach(() => {
-    localStorage.clear()
     vi.clearAllMocks()
+    mockAccountName.value = 'alice'
   })
 
-  it('renders account name from auth store', () => {
-    const authStore = useAuthStore()
-    authStore.accountName = 'TestAdmin'
-    const wrapper = mount(ProfileDropdown, {
-      props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
+  describe('desktop layout (!isMobileMenuOpen)', () => {
+    it('renders the trigger button with the account name', () => {
+      const wrapper = mount(ProfileDropdown, {
+        props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
+      })
+
+      expect(wrapper.text()).toContain('alice')
+
+      expect(wrapper.text()).not.toContain('authentication.signedInAs')
+      expect(wrapper.text()).not.toContain('authentication.logout')
     })
 
-    expect(wrapper.text()).toContain('TestAdmin')
-  })
+    it('shows the dropdown content when isUserDropdownOpen is true', () => {
+      const wrapper = mount(ProfileDropdown, {
+        props: { isUserDropdownOpen: true, isMobileMenuOpen: false },
+      })
 
-  it('defaults account name to "Account" if auth store is empty', () => {
-    const wrapper = mount(ProfileDropdown, {
-      props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
+      expect(wrapper.text()).toContain('authentication.signedInAs')
+      expect(wrapper.text()).toContain('alice')
+      expect(wrapper.text()).toContain('authentication.logout')
     })
 
-    expect(wrapper.text()).toContain('Account')
-  })
-
-  describe('Desktop View', () => {
-    it('emits closeDropDown when clicking the main toggle button', async () => {
+    it('emits "closeDropDown" when the main trigger button is clicked', async () => {
       const wrapper = mount(ProfileDropdown, {
         props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
       })
@@ -36,53 +52,84 @@ describe('ProfileDropdown.vue', () => {
       await wrapper.find('button').trigger('click')
 
       expect(wrapper.emitted('closeDropDown')).toBeTruthy()
+      expect(wrapper.emitted('closeDropDown')).toHaveLength(1)
     })
 
-    it('shows dropdown menu content when open', async () => {
+    it('emits "handleLogout" when the logout button in the dropdown is clicked', async () => {
       const wrapper = mount(ProfileDropdown, {
         props: { isUserDropdownOpen: true, isMobileMenuOpen: false },
       })
 
-      // Dropdown should be in DOM
-      expect(wrapper.text()).toContain('authentication.signedInAs')
-      expect(wrapper.text()).toContain('authentication.logout')
-    })
-
-    it('emits handleLogout when clicking Sign Out in dropdown', async () => {
-      const wrapper = mount(ProfileDropdown, {
-        props: { isUserDropdownOpen: true, isMobileMenuOpen: false },
-      })
-
-      // Find the logout button
-      const buttons = wrapper.findAll('button')
-      const logoutBtn = buttons.find((b) => b.text().includes('authentication.logout'))
-
+      const logoutBtn = wrapper
+        .findAll('button')
+        .find((b) => b.text().includes('authentication.logout'))
       await logoutBtn?.trigger('click')
 
       expect(wrapper.emitted('handleLogout')).toBeTruthy()
+      expect(wrapper.emitted('handleLogout')).toHaveLength(1)
     })
   })
 
-  describe('Mobile View', () => {
-    it('renders mobile specific layout', () => {
+  describe('mobile layout (isMobileMenuOpen)', () => {
+    it('renders the inline mobile view instead of a dropdown trigger', () => {
       const wrapper = mount(ProfileDropdown, {
         props: { isUserDropdownOpen: false, isMobileMenuOpen: true },
       })
 
-      // In mobile view, the structure changes
-      expect(wrapper.find('.bg-rose-50').exists()).toBe(true) // The specific logout button class
+      expect(wrapper.text()).toContain('authentication.signedInAs')
+      expect(wrapper.text()).toContain('alice')
+      expect(wrapper.text()).toContain('authentication.logout')
     })
 
-    it('emits handleLogout when clicking the mobile logout button', async () => {
+    it('emits "handleLogout" when the mobile logout button is clicked', async () => {
       const wrapper = mount(ProfileDropdown, {
         props: { isUserDropdownOpen: false, isMobileMenuOpen: true },
       })
 
-      // Find the large red logout button
-      const logoutBtn = wrapper.find('button.text-rose-600')
-      await logoutBtn.trigger('click')
+      const logoutBtn = wrapper
+        .findAll('button')
+        .find((b) => b.text().includes('authentication.logout'))
+      await logoutBtn?.trigger('click')
 
       expect(wrapper.emitted('handleLogout')).toBeTruthy()
+      expect(wrapper.emitted('handleLogout')).toHaveLength(1)
+    })
+
+    it('does not emit "closeDropDown" in the mobile view since the trigger button does not exist', async () => {
+      const wrapper = mount(ProfileDropdown, {
+        props: { isUserDropdownOpen: false, isMobileMenuOpen: true },
+      })
+
+      await wrapper.find('button').trigger('click')
+
+      expect(wrapper.emitted('closeDropDown')).toBeUndefined()
+    })
+  })
+
+  describe('computed state', () => {
+    it('falls back to "Account" if the store returns a null accountName', () => {
+      mockAccountName.value = null
+
+      const wrapper = mount(ProfileDropdown, {
+        props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
+      })
+
+      expect(wrapper.text()).toContain('Account')
+    })
+
+    it('reacts dynamically if the store accountName changes', async () => {
+      const wrapper = mount(ProfileDropdown, {
+        props: { isUserDropdownOpen: false, isMobileMenuOpen: false },
+      })
+
+      expect(wrapper.text()).toContain('alice')
+
+      mockAccountName.value = 'bob'
+
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('bob')
+      expect(wrapper.text()).not.toContain('alice')
     })
   })
 })

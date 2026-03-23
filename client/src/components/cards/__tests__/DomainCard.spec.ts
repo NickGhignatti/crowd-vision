@@ -1,72 +1,148 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { describe, it, expect } from 'vitest'
-import DomainCard from '../DomainCard.vue'
+import DomainCard from '@/components/cards/DomainCard.vue'
+import type { SubdomainItem, UnifiedDomainGroup } from '@/interfaces/domain'
 
-describe('DomainCard', () => {
-  const createDomainGroup = (overrides = {}) => ({
-    name: 'unibo.it',
-    role: 'business_admin',
-    canUpload: true,
-    subdomains: [{ name: 'api.unibo.it', displayName: 'api' }],
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}))
+
+vi.mock('@/helpers/roles.ts', () => ({
+  getRoleMeta: vi.fn((role: string) => ({ i18nKey: `domains.roles.${role}` })),
+}))
+
+const UploadButtonStub = {
+  props: ['isUploading'],
+  emits: ['click'],
+  template: '<button class="upload-button-stub" @click="$emit(\'click\')"></button>',
+}
+
+const SubdomainCardStub = {
+  props: ['name', 'displayName', 'parentDomainName', 'canUpload', 'isUploading'],
+  emits: ['select', 'upload'],
+  template: '<div class="subdomain-card-stub"></div>',
+}
+
+const stubs = {
+  UploadButton: UploadButtonStub,
+  SubdomainCard: SubdomainCardStub,
+  Transition: true,
+}
+
+const makeDomainGroup = (overrides: Partial<UnifiedDomainGroup> = {}): UnifiedDomainGroup =>
+  ({
+    name: 'acme-corp',
+    role: 'admin',
+    canUpload: false,
+    subdomains: [],
     ...overrides,
+  }) as unknown as UnifiedDomainGroup
+
+describe('DomainCard.vue', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('renders translated role label for supported roles', () => {
-    const wrapper = mount(DomainCard, {
-      props: {
-        domainGroup: createDomainGroup({ role: 'business_admin' }),
-      },
+  describe('rendering', () => {
+    it('renders the domain name and translated role badge', () => {
+      const wrapper = mount(DomainCard, {
+        props: { domainGroup: makeDomainGroup({ name: 'globex', role: 'business_staff' }) },
+        global: { stubs },
+      })
+
+      expect(wrapper.text()).toContain('globex')
+      expect(wrapper.text()).toContain('domains.roles.business_staff')
     })
 
-    expect(wrapper.text()).toContain('domains.roles.businessAdmin')
+    it('renders the upload button only when canUpload is true', () => {
+      const withoutUpload = mount(DomainCard, {
+        props: { domainGroup: makeDomainGroup({ canUpload: false }) },
+        global: { stubs },
+      })
+      expect(withoutUpload.findComponent(UploadButtonStub).exists()).toBe(false)
+
+      const withUpload = mount(DomainCard, {
+        props: { domainGroup: makeDomainGroup({ canUpload: true }) },
+        global: { stubs },
+      })
+      expect(withUpload.findComponent(UploadButtonStub).exists()).toBe(true)
+    })
+
+    it('passes the isUploading prop down to the upload button and subdomain cards', () => {
+      const domainGroup = makeDomainGroup({
+        canUpload: true,
+        subdomains: [{ name: 'sub1', displayName: 'Sub 1' } as SubdomainItem],
+      })
+
+      const wrapper = mount(DomainCard, {
+        props: { domainGroup, isUploading: true },
+        global: { stubs },
+      })
+
+      expect(wrapper.findComponent(UploadButtonStub).props('isUploading')).toBe(true)
+      expect(wrapper.findComponent(SubdomainCardStub).props('isUploading')).toBe(true)
+    })
   })
 
-  it('emits select-domain when clicking a domain without subdomains', async () => {
-    const wrapper = mount(DomainCard, {
-      props: {
-        domainGroup: createDomainGroup({ subdomains: [] }),
-      },
+  describe('interactions and event emitting', () => {
+    it('emits "select-domain" when the header is clicked', async () => {
+      const wrapper = mount(DomainCard, {
+        props: { domainGroup: makeDomainGroup({ name: 'acme' }) },
+        global: { stubs },
+      })
+
+      // Target the header row specifically by its unique class list
+      const header = wrapper.find('.p-5.flex.items-center.justify-between.cursor-pointer')
+      await header.trigger('click')
+
+      expect(wrapper.emitted('select-domain')).toBeTruthy()
+      expect(wrapper.emitted('select-domain')?.[0]).toEqual(['acme'])
     })
 
-    await wrapper.find('.p-5').trigger('click')
+    it('emits "upload" with the domain name when the UploadButton is clicked', async () => {
+      const wrapper = mount(DomainCard, {
+        props: { domainGroup: makeDomainGroup({ name: 'acme', canUpload: true }) },
+        global: { stubs },
+      })
 
-    expect(wrapper.emitted('select-domain')?.[0]).toEqual(['unibo.it'])
+      await wrapper.findComponent(UploadButtonStub).vm.$emit('click')
+
+      expect(wrapper.emitted('upload')).toBeTruthy()
+      expect(wrapper.emitted('upload')?.[0]).toEqual(['acme'])
+    })
   })
 
-  it('does emit select-domain from header click when domain has subdomains', async () => {
-    const wrapper = mount(DomainCard, {
-      props: {
-        domainGroup: createDomainGroup(),
-      },
+  describe('child component event bubbling', () => {
+    it('bubbles the "select" event from a SubdomainCard up as "select-domain"', async () => {
+      const domainGroup = makeDomainGroup({
+        subdomains: [{ name: 'sub1', displayName: 'Sub 1' } as SubdomainItem],
+      })
+      const wrapper = mount(DomainCard, {
+        props: { domainGroup },
+        global: { stubs },
+      })
+
+      const subdomainCard = wrapper.findComponent(SubdomainCardStub)
+      await subdomainCard.vm.$emit('select', 'sub1')
+
+      expect(wrapper.emitted('select-domain')).toBeTruthy()
+      expect(wrapper.emitted('select-domain')?.[0]).toEqual(['sub1'])
     })
 
-    await wrapper.find('.p-5').trigger('click')
+    it('bubbles the "upload" event from a SubdomainCard directly up', async () => {
+      const domainGroup = makeDomainGroup({
+        subdomains: [{ name: 'sub1', displayName: 'Sub 1' } as SubdomainItem],
+      })
+      const wrapper = mount(DomainCard, {
+        props: { domainGroup },
+        global: { stubs },
+      })
 
-    expect(wrapper.emitted('select-domain')).toBeDefined()
-  })
+      const subdomainCard = wrapper.findComponent(SubdomainCardStub)
+      await subdomainCard.vm.$emit('upload', 'sub1')
 
-  it('forwards upload event with parent domain name', async () => {
-    const wrapper = mount(DomainCard, {
-      props: {
-        domainGroup: createDomainGroup({ canUpload: true }),
-      },
+      expect(wrapper.emitted('upload')).toBeTruthy()
+      expect(wrapper.emitted('upload')?.[0]).toEqual(['sub1'])
     })
-
-    await wrapper.findComponent({ name: 'UploadButton' }).vm.$emit('click')
-
-    expect(wrapper.emitted('upload')?.[0]).toEqual(['unibo.it'])
-  })
-
-  it('forwards subdomain selection from nested cards', async () => {
-    const wrapper = mount(DomainCard, {
-      props: {
-        domainGroup: createDomainGroup(),
-      },
-    })
-
-    await wrapper.findComponent({ name: 'SubDomainCard' }).vm.$emit('select', 'api.unibo.it')
-
-    expect(wrapper.emitted('select-domain')?.[0]).toEqual(['api.unibo.it'])
   })
 })
-

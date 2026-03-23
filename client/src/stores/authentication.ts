@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { nonAuthenticatedFetch, authenticatedFetch } from '@/composables/useApi'
+import { makeRequest } from '@/composables/useApi'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domain.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 
@@ -12,7 +12,7 @@ export const useAuthStore = defineStore('authentication', {
 
   actions: {
     async login(accountName: string, password: string) {
-      const res = await nonAuthenticatedFetch('/auth/login', 'POST', {
+      const res = await makeRequest('/auth/login', 'POST', {
         body: JSON.stringify({ accountName, password }),
       })
       if (!res.ok) throw new Error('Login failed')
@@ -25,7 +25,7 @@ export const useAuthStore = defineStore('authentication', {
       const payload: Record<string, string> = { accountName, email, password }
       if (otp) payload.otp = otp
 
-      const res = await nonAuthenticatedFetch('/auth/register', 'POST', {
+      const res = await makeRequest('/auth/register', 'POST', {
         body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error('Registration failed')
@@ -35,7 +35,7 @@ export const useAuthStore = defineStore('authentication', {
     },
 
     async logout() {
-      await authenticatedFetch('/auth/logout', 'POST')
+      await makeRequest('/auth/logout', 'POST')
       this.accountName = null
       this.isAuthenticated = false
       useDomainsStore().$reset()
@@ -46,7 +46,7 @@ export const useAuthStore = defineStore('authentication', {
     // Called once on app startup to re-hydrate from the cookie
     async hydrate() {
       try {
-        const res = await authenticatedFetch('/auth/me')
+        const res = await makeRequest('/auth/me')
         if (res.ok) {
           const data = await res.json()
           this.accountName = data.accountName

@@ -14,7 +14,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('FullScreenMode', () => {
-  describe('Rendering', () => {
+  describe('rendering', () => {
     it('renders the button when not in fullscreen', () => {
       const wrapper = mount(FullScreenMode, {
         props: { isFullscreen: false },
@@ -48,7 +48,7 @@ describe('FullScreenMode', () => {
     })
   })
 
-  describe('Emits', () => {
+  describe('emits', () => {
     it('emits toggleFocusMode when clicked', async () => {
       const wrapper = mount(FullScreenMode, {
         props: { isFullscreen: false },

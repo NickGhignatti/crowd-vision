@@ -40,7 +40,6 @@ const formatOtp = (e: Event) => {
 }
 
 const handleSignUp = async () => {
-  // Validation stays here — it's a UI concern, not an auth concern
   if (hasInviteCode.value && account.otp && account.otp.length !== 6) {
     otpError.value = 'Code must be 6 digits'
     return
