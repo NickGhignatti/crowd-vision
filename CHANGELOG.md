@@ -1,3 +1,15 @@
+# [2.4.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.3.0...v2.4.0) (2026-03-23)
+
+
+### Bug Fixes
+
+* fix agent dependencies ([6cdef2f](https://github.com/NickGhignatti/crowd-vision/commit/6cdef2ff6603dbece0f4e40ec6c82334de019bb5))
+
+
+### Features
+
+* setup agent service structure and add it to the architecture ([c8c81a1](https://github.com/NickGhignatti/crowd-vision/commit/c8c81a1c185d982327d8e1e7f8e968014480d226))
+
 # [2.3.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.2.0...v2.3.0) (2026-03-23)
 
 
