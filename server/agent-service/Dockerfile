@@ -1,6 +1,6 @@
 FROM node:24-alpine
 # ENV NODE_ENV=production # just in case we wanna deploy
-WORKDIR /llm
+WORKDIR /app
 COPY package*.json ./
 RUN npm install
 # RUN npm ci --only = production # just in case we wanna deploy
