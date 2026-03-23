@@ -2,52 +2,28 @@
 import NavBar from '@/components/NavBar.vue'
 import AddDomainModal from '@/components/modals/AddDomain.vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
-import type { Domain, DomainMembership } from '@/models/domain'
+import type { Domain } from '@/models/domain'
 
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authenticatedFetch } from '@/composables/useApi.ts'
 import type { DomainToAddWithMaster } from '@/interfaces/domain.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+const domainsStore = useDomainsStore()
 
 const searchQuery = ref('')
 const isSubmitting = ref(false)
 const isAddDomainModalOpen = ref(false)
 const domains = ref<Domain[]>([])
-const userMemberships = ref<DomainMembership[]>([])
+const userMemberships = computed(() => domainsStore.memberships ?? [])
 
 const fetchAllDomains = async () => {
-  try {
-    const response = await authenticatedFetch(`/auth/domains`)
-    if (!response.ok) throw new Error('Failed to fetch domains')
-
-    const data = await response.json()
-    if (data && data.domains) {
-      domains.value = data.domains
-    }
-  } catch (error) {
-    console.error('Error fetching domains:', error)
-  }
-}
-
-const fetchUserDomains = async () => {
-  try {
-    const accountName = authStore.accountName
-    if (!accountName) return
-
-    const response = await authenticatedFetch(`/auth/domains/${accountName}`)
-    if (!response.ok) throw new Error('Failed to fetch user domains')
-
-    const data = await response.json()
-    if (data && data.domains) {
-      userMemberships.value = data.domains // backend returns list of Membership objects
-    }
-  } catch (error) {
-    console.error('Error fetching user domains:', error)
-  }
+  await domainsStore.fetchAll()
+  domains.value = domainsStore.allDomains ?? []
 }
 
 const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
@@ -69,8 +45,8 @@ const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
       throw new Error(err.error || 'Failed to create domain')
     }
 
-    await fetchAllDomains()
-    await fetchUserDomains()
+    domainsStore.invalidate() // bust cache after mutation
+    await Promise.all([domainsStore.fetchAll(), domainsStore.fetchMemberships()])
     isAddDomainModalOpen.value = false
   } catch (error) {
     console.error(error)
@@ -90,8 +66,7 @@ const handlePrivateDomain = () => {
 }
 
 onMounted(() => {
-  fetchAllDomains()
-  fetchUserDomains()
+  Promise.all([fetchAllDomains(), domainsStore.fetchMemberships()])
 })
 </script>
 
@@ -148,7 +123,6 @@ onMounted(() => {
         @refresh="
           () => {
             fetchAllDomains()
-            fetchUserDomains()
           }
         "
       />

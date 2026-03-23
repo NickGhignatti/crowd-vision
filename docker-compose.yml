@@ -37,6 +37,7 @@ services:
     environment:
       - PORT=3000
       - REDIS_URL=redis://redis:6379
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
     depends_on:
       - redis
     networks:
@@ -74,6 +75,7 @@ services:
       - twin-net
     environment:
       - MONGO_URI=mongodb://twin-db:27017/twindb
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
 
   twin-db:
     image: mongo:latest
@@ -92,6 +94,7 @@ services:
       - MONGO_URI=mongodb://notification-db:27017/notificationdb
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
     depends_on:
       - redis
     networks:

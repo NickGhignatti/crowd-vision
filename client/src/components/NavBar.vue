@@ -12,7 +12,7 @@ import { useI18n } from 'vue-i18n'
 import { ref } from 'vue'
 
 const { t } = useI18n()
-const { isLoggedIn, checkAuth, handleLogout } = useAuth()
+const { isLoggedIn, handleLogout } = useAuth()
 const { links } = useNavLinks()
 
 const activeModal = ref<'login' | 'signup' | null>(null)
@@ -27,7 +27,6 @@ const openSignUp = () => {
 }
 const closeAll = () => {
   activeModal.value = null
-  checkAuth()
 }
 const toggleMobileMenu = () => (isMobileMenuOpen.value = !isMobileMenuOpen.value)
 const handleLockedClick = () => {

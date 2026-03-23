@@ -5,10 +5,10 @@ import QR from '@/components/cards/QR.vue'
 import NavBar from '@/components/NavBar.vue'
 import AddDomainModal from '@/components/modals/AddDomain.vue'
 import { authenticatedFetch } from '@/composables/useApi.ts'
-import type { DomainMembership } from '@/models/domain.ts'
 import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
+import { useDomainsStore, useSubdomainsStore } from '@/stores/domain.ts'
 
 const selectedDomain = ref<string | null>(null)
 const domains = ref<string[]>([])
@@ -23,6 +23,8 @@ const isLoadingQr = ref(false)
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+const domainsStore = useDomainsStore()
+const subdomainsStore = useSubdomainsStore()
 
 const handleAddDomain = async (payload: DomainToAddWithVisibilityPayload) => {
   isSubmitting.value = true
@@ -58,6 +60,10 @@ const handleAddDomain = async (payload: DomainToAddWithVisibilityPayload) => {
       const err = await response.json()
       throw new Error(err.error || 'Failed to create domain')
     }
+
+    const isSub = !!payload.masterDomain?.trim()
+    if (isSub) subdomainsStore.invalidate()
+    else domainsStore.invalidate()
 
     await getAllSubdomains()
     isAddDomainModalOpen.value = false
@@ -126,20 +132,14 @@ const handleFileUpload = async (event: Event) => {
 }
 
 const getAllSubdomains = async () => {
-  domains.value = []
-  unifiedDomains.value = []
+  await domainsStore.fetchMemberships()
+  const memberships = domainsStore.memberships ?? []
 
-  const accountName = authStore.accountName
-  if (!accountName) return
+  await subdomainsStore.fetch(memberships)
 
-  const mainDomainsResponse = await authenticatedFetch(`/auth/domains/${accountName}`)
-  const mainDomains = await mainDomainsResponse.json()
-  const memberships: DomainMembership[] = mainDomains.domains ?? []
-
-  domains.value = memberships.map((domain) => domain.domainName)
+  domains.value = memberships.map((m) => m.domainName)
 
   const groups: Record<string, UnifiedDomainGroup> = {}
-
   memberships.forEach((m) => {
     groups[m.domainName] = {
       name: m.domainName,
@@ -149,41 +149,20 @@ const getAllSubdomains = async () => {
     }
   })
 
-  await Promise.allSettled(
-    memberships.map(async (domain) => {
-      const response = await authenticatedFetch(`/auth/subdomains/${domain.domainName}`)
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error || 'Failed to fetch subdomains')
-      }
-
-      const data = await response.json()
-      if (data.length > 0) {
-        data.forEach((subdomain: string) => {
-          if (groups[domain.domainName]) {
-            groups[domain.domainName]?.subdomains.push({
-              name: subdomain,
-              displayName: subdomain.replace('.' + domain.domainName, ''),
-            })
-          }
-        })
-      }
-    }),
-  ).then((results) => {
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        const failedDomain = memberships[index]?.domainName ?? '(unknown domain)'
-        console.error(`Error fetching subdomains for domain ${failedDomain}:`, result.reason)
-      }
+  memberships.forEach((m) => {
+    const subs = subdomainsStore.byDomain[m.domainName] ?? []
+    subs.forEach((subdomain) => {
+      groups[m.domainName]?.subdomains.push({
+        name: subdomain,
+        displayName: subdomain.replace('.' + m.domainName, ''),
+      })
     })
   })
 
   const allDomainNames = Object.keys(groups)
-
   unifiedDomains.value = Object.values(groups)
     .filter(
-      (group) =>
-        !allDomainNames.some((other) => other !== group.name && group.name.endsWith(`.${other}`)),
+      (g) => !allDomainNames.some((other) => other !== g.name && g.name.endsWith(`.${other}`)),
     )
     .sort((a, b) => a.name.localeCompare(b.name))
 }
