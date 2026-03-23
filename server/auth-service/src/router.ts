@@ -4,6 +4,8 @@ import {
   createAccount,
   startSSOLogin,
   handleSSOCallback,
+  getMe,
+  logout,
 } from "./controller/authenticationController.js";
 import {
   getDomainsByAccount,
@@ -31,6 +33,8 @@ router.post(
   requireHmacSignature,
   provideEnterpriseAccount,
 );
+router.get("/me", requireAuthentication, getMe);
+router.post('/logout', logout)
 
 // --- Domains ---
 router.get("/domains", requireAuthentication, getAllAllowedDomains);

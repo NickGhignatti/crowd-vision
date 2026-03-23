@@ -5,9 +5,10 @@ import PasswordInput from '@/components/inputs/PasswordInput.vue'
 
 import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { nonAuthenticatedFetch } from '@/composables/useApi.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 defineProps<{
   isOpen: boolean
@@ -21,18 +22,11 @@ const emit = defineEmits<{
 const account = reactive({ accountName: '', password: '' })
 
 const handleLogin = async () => {
-  const response = await nonAuthenticatedFetch(`/auth/login`, 'POST', {
-    body: JSON.stringify(account),
-  })
-
-  if (response.ok) {
-    const message = await response.json()
-    localStorage.setItem('isAuthenticated', 'true')
-    localStorage.setItem('token', message.token)
-    localStorage.setItem('account-name', message.account.accountName)
+  try {
+    await authStore.login(account.accountName, account.password)
     emit('close')
-  } else {
-    console.log(await response.json())
+  } catch (e) {
+    console.log(e)
   }
 }
 </script>

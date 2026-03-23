@@ -6,9 +6,10 @@ import PasswordInput from '@/components/inputs/PasswordInput.vue'
 
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { nonAuthenticatedFetch } from '@/composables/useApi.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 defineProps<{
   isOpen: boolean
@@ -39,6 +40,7 @@ const formatOtp = (e: Event) => {
 }
 
 const handleSignUp = async () => {
+  // Validation stays here — it's a UI concern, not an auth concern
   if (hasInviteCode.value && account.otp && account.otp.length !== 6) {
     otpError.value = 'Code must be 6 digits'
     return
@@ -54,18 +56,11 @@ const handleSignUp = async () => {
     payload.otp = account.otp
   }
 
-  const response = await nonAuthenticatedFetch(`/auth/register`, 'POST', {
-    body: JSON.stringify(payload),
-  })
-
-  if (response.ok) {
-    const message = await response.json()
-    localStorage.setItem('isAuthenticated', 'true')
-    localStorage.setItem('token', message.token)
-    localStorage.setItem('account-name', message.account.accountName)
+  try {
+    await authStore.register(account.accountName, account.email, account.password, payload.otp)
     emit('close')
-  } else {
-    console.log(await response.json())
+  } catch (e) {
+    console.log(e)
   }
 }
 </script>

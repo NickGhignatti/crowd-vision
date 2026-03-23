@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import LoginModal from '../LoginModal.vue'
+import { useAuthStore } from '@/stores/authentication'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -41,7 +42,7 @@ describe('LoginModal.vue', () => {
     expect(wrapper.find('form').exists()).toBe(false)
   })
 
-  it('submits login form and saves token on success', async () => {
+  it('submits login form and updates auth store on success', async () => {
     ;(global.fetch as Mock).mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -71,9 +72,9 @@ describe('LoginModal.vue', () => {
       }),
     )
 
-    expect(localStorage.getItem('isAuthenticated')).toBe('true')
-    expect(localStorage.getItem('token')).toBe('fake-jwt-token')
-    expect(localStorage.getItem('account-name')).toBe('my-account')
+    const authStore = useAuthStore()
+    expect(authStore.isAuthenticated).toBe(true)
+    expect(authStore.accountName).toBe('my-account')
 
     expect(wrapper.emitted('close')).toBeTruthy()
   })

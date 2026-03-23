@@ -1,22 +1,18 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 export function useAuth() {
+  const authStore = useAuthStore()
   const router = useRouter()
 
-  const isLoggedIn = ref(localStorage.getItem('isAuthenticated') === 'true')
-
-  const checkAuth = () => {
-    isLoggedIn.value = localStorage.getItem('isAuthenticated') === 'true'
+  const handleLogout = async () => {
+    await authStore.logout()
+    await router.push('/')
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated')
-    localStorage.removeItem('account-name')
-    localStorage.removeItem('token')
-    isLoggedIn.value = false
-    router.push('/')
+  return {
+    isLoggedIn: computed(() => authStore.isAuthenticated),
+    handleLogout,
   }
-
-  return { isLoggedIn, checkAuth, handleLogout }
 }

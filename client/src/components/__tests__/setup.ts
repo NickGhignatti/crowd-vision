@@ -1,5 +1,6 @@
-import { vi } from 'vitest'
+import { beforeEach, vi } from 'vitest'
 import { config } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 
 config.global.stubs = {
   RouterLink: {
@@ -25,6 +26,10 @@ const localStorageMock = (function () {
   }
 })()
 Object.defineProperty(window, 'localStorage', { value: localStorageMock })
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+})
 
 // Mock Fetch
 global.fetch = vi.fn()

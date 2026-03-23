@@ -1,14 +1,16 @@
 import { ref, onMounted } from 'vue'
 import type { DomainMembership } from '@/models/domain'
 import { authenticatedFetch } from '@/composables/useApi.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 export function useUserPermissions() {
   const memberships = ref<DomainMembership[]>([])
+  const authStore = useAuthStore()
 
   // Fetch the user's roles for all domains
   const fetchPermissions = async () => {
     try {
-      const accountName = localStorage.getItem('account-name')
+      const accountName = authStore.accountName
       if (!accountName) return
 
       const response = await authenticatedFetch(`/auth/domains/${accountName}`)

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import NavBar from '../NavBar.vue'
+import { useAuthStore } from '@/stores/authentication'
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
@@ -32,8 +33,9 @@ describe('NavBar.vue', () => {
   })
 
   it('shows profile dropdown when authenticated', async () => {
-    localStorage.setItem('isAuthenticated', 'true')
-    localStorage.setItem('account-name', 'TestAccount')
+    const authStore = useAuthStore()
+    authStore.isAuthenticated = true
+    authStore.accountName = 'TestAccount'
 
     const wrapper = mount(NavBar, { global: { stubs } })
     await wrapper.vm.$nextTick()

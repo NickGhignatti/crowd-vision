@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import DomainsTable from '../DomainsTable.vue'
 import DomainRow from '../components/DomainRow.vue'
 import type { Domain, DomainMembership } from '@/models/domain'
+import { useAuthStore } from '@/stores/authentication'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (k: string) => k }) }))
 const mockFetch = vi.fn()
@@ -19,7 +20,8 @@ describe('DomainsTable.vue', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.setItem('account-name', 'TestAccount')
+    const authStore = useAuthStore()
+    authStore.accountName = 'TestAccount'
   })
 
   it('initializes subscription state correctly', () => {
@@ -47,7 +49,7 @@ describe('DomainsTable.vue', () => {
       'http://test-api.com/auth/domains/TestAccount/subscribe',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer null' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domainName: 'domain-a' }),
       }),
     )

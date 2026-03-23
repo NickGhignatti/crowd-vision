@@ -5,8 +5,10 @@ import type { Domain, DomainMembership } from '@/models/domain'
 import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
 import { authenticatedFetch } from '@/composables/useApi.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 // Props: Items are all available domains. userMemberships is the user's current status.
 const props = defineProps<{
@@ -40,7 +42,7 @@ const handleSubscribe = async (index: number) => {
   const domain = props.domains[index]
   if (!domain) return
 
-  const accountName = localStorage.getItem('account-name')
+  const accountName = authStore.accountName
   if (!accountName) return
 
   try {
@@ -84,7 +86,8 @@ const handleUnsubscribe = async (index: number) => {
   const domain = props.domains[index]
   if (!domain) return
 
-  const accountName = localStorage.getItem('account-name')
+  const accountName = authStore.accountName
+  if (!accountName) return
 
   try {
     subscribedSet.value.delete(domain.name)
