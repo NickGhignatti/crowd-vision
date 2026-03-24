@@ -1,3 +1,16 @@
+# [2.5.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.4.1...v2.5.0) (2026-03-24)
+
+
+### Bug Fixes
+
+* apply CI workflow review feedback ([fbf3dd8](https://github.com/NickGhignatti/crowd-vision/commit/fbf3dd8d066a4df05b5153436d1af6d32d7c50d5))
+* include agent service in the CI ([955f47d](https://github.com/NickGhignatti/crowd-vision/commit/955f47df4369d9a60c45351499eb1aa4be992ee4))
+
+
+### Features
+
+* dependencies CI to check package-lock.json ([59b7ee5](https://github.com/NickGhignatti/crowd-vision/commit/59b7ee5a993bd715103374ad6c7ff478bb7f8a49))
+
 ## [2.4.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.4.0...v2.4.1) (2026-03-23)
 
 
