@@ -5,6 +5,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
       - name: Audit Root Level
         run: npm audit --audit-level=high
       - name: Audit Client
@@ -13,7 +17,7 @@ jobs:
         run: cd server/auth-service && npm audit --audit-level=high
       - name: Audit Notification Service
         run: cd server/notification-service && npm audit --audit-level=high
-      - name: Audit Socker Service
+      - name: Audit Socket Service
         run: cd server/socket-service && npm audit --audit-level=high
       - name: Audit Twin Service
         run: cd server/twin-service && npm audit --audit-level=high
