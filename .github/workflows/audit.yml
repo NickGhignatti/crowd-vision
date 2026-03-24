@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Audit Root Level
+        run: npm audit --audit-level=high
       - name: Audit Client
         run: cd client && npm audit --audit-level=high
       - name: Audit Auth Service

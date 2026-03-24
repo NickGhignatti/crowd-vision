@@ -1,0 +1,28 @@
+name: dependencies.yml
+on: [ pull_request ]
+jobs:
+  check-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: "npm"
+
+      - name: Check Dependencies Root Level
+        run: npm ci
+
+      - name: Check Client
+        run: cd client && npm ci
+      - name: Check Auth Service
+        run: cd server/auth-service && npm ci
+      - name: Check Notification Service
+        run: cd server/notification-service && npm ci
+      - name: Check Socker Service
+        run: cd server/socket-service && npm ci
+      - name: Check Twin Service
+        run: cd server/twin-service && npm ci
