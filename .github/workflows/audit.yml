@@ -17,3 +17,5 @@ jobs:
         run: cd server/socket-service && npm audit --audit-level=high
       - name: Audit Twin Service
         run: cd server/twin-service && npm audit --audit-level=high
+      - name: Audit Agent Service
+        run: cd server/agent-service && npm audit --audit-level=high

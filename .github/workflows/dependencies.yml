@@ -26,3 +26,5 @@ jobs:
         run: cd server/socket-service && npm ci
       - name: Check Twin Service
         run: cd server/twin-service && npm ci
+      - name: Check Agent Service
+        run: cd server/agent-service && npm ci
