@@ -1,4 +1,6 @@
-# CrowdVision
+<div align="center">
+  <img src="documentation/logo.png" alt="CrowdVision Logo" width="2816" />
+</div>
 
 CrowdVision is an advanced digital twin and facility management platform designed to provide real-time insights into building occupancy, environmental conditions, and spatial utilization. 
 
