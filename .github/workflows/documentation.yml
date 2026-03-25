@@ -36,10 +36,10 @@ jobs:
       - uses: quarkdown-labs/setup-quarkdown@v1
 
       - name: Build user docs
-        run: quarkdown c user-docs/main.qd --out landing-page/user
+        run: quarkdown c documentation/user/main.qd --out landing-page/user
 
       - name: Build dev docs
-        run: quarkdown c dev-docs/main.qd --out landing-page/dev
+        run: quarkdown c documentation/developer/main.qd --out landing-page/dev
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
