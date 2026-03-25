@@ -1,0 +1,27 @@
+.docname {Goals}
+.include {docs}
+
+Welcome to the **CrowdVision Developer Guide**. Before diving into the codebase, it is crucial to understand *what* we are building and *why* the architecture is structured the way it is. 
+
+The primary goal of CrowdVision is to provide a robust, real-time crowd monitoring platform built on a digital twin paradigm. It serves facility managers by streaming live IoT sensor data directly into a 3D visualization of their buildings.
+
+---
+
+## 🗺️ System Capabilities Overview
+
+Below is a high-level mindmap of CrowdVision's current and planned functional domains:
+
+.mermaid
+    mindmap
+    root((CrowdVision))
+        Real-Time Operations
+        IoT Sensor Simulation
+        Digital Twin
+        3D Visualisation
+        Building Management
+        Alerting & Safety
+        Domain Memberships
+        Enterprise OIDC / SSO
+        AI Integration
+        LLM Assistant
+        Reporting & Analytics

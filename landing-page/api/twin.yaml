@@ -4,8 +4,8 @@ info:
   description: API for managing digital twins of buildings and rooms.
   version: 1.0.0
 servers:
-  - url: http://localhost:3002
-    description: Local development server
+  - url: http://localhost/twin
+    description: Local gateway endpoint for Twin Service
 paths:
   /register:
     post:
@@ -17,15 +17,15 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BuildingInput'
+              $ref: "#/components/schemas/BuildingInput"
       responses:
-        '201':
+        "201":
           description: Building registered successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Building'
-        '400':
+                $ref: "#/components/schemas/Building"
+        "400":
           description: Bad request
           content:
             application/json:
@@ -48,13 +48,13 @@ paths:
           required: true
           description: The unique identifier of the building
       responses:
-        '200':
+        "200":
           description: Building retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Building'
-        '404':
+                $ref: "#/components/schemas/Building"
+        "404":
           description: Building not found
           content:
             application/json:
@@ -77,15 +77,15 @@ paths:
           required: true
           description: The domain associated with the buildings
       responses:
-        '200':
+        "200":
           description: List of buildings retrieved successfully
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Building'
-        '404':
+                  $ref: "#/components/schemas/Building"
+        "404":
           description: Error retrieving buildings
           content:
             application/json:
@@ -119,19 +119,20 @@ paths:
           application/json:
             schema:
               type: object
-              description: Fields to update in the room (e.g., temperature, no_person, color)
+              description: Fields to update in the room (e.g., temperature, maxTemperature, no_person, color)
               example:
                 temperature: 24.5
+                maxTemperature: 30.0
                 no_person: 5
                 color: "#ff0000"
       responses:
-        '200':
+        "200":
           description: Room updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Room'
-        '400':
+                $ref: "#/components/schemas/Room"
+        "400":
           description: Error updating room
           content:
             application/json:
@@ -184,12 +185,14 @@ components:
         capacity:
           type: number
         position:
-          $ref: '#/components/schemas/Coordinates'
+          $ref: "#/components/schemas/Coordinates"
         dimensions:
-          $ref: '#/components/schemas/Dimensions'
+          $ref: "#/components/schemas/Dimensions"
         color:
           type: string
         temperature:
+          type: number
+        maxTemperature:
           type: number
         no_person:
           type: number
@@ -206,7 +209,7 @@ components:
         rooms:
           type: array
           items:
-            $ref: '#/components/schemas/Room'
+            $ref: "#/components/schemas/Room"
         domains:
           type: array
           items:
@@ -214,7 +217,7 @@ components:
 
     Building:
       allOf:
-        - $ref: '#/components/schemas/BuildingInput'
+        - $ref: "#/components/schemas/BuildingInput"
         - type: object
           properties:
             createdAt:

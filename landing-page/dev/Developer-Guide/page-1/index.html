@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Goals</title>
+    <script src="../script/quarkdown.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="-system-capabilities-overview" data-depth="2"><a href="#-system-capabilities-overview">🗺️ System Capabilities Overview</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../page-1" aria-current="page">Goals</a></li><li><a href="../page-2">Functional Requirements</a></li><li><a href="../page-3">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../page-4">Entities</a></li></ul><h3 id="architecture" data-decorative="">Architecture</h3><ul><li><a href="../page-5">Overview</a></li><li><a href="../page-6">The Microservices</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../page-7">Communication Schema</a></li><li><a href="../page-8">Users and Accounts</a></li><li><a href="../page-9">Domains</a></li><li><a href="../page-10">Buildings</a></li></ul><h3 id="configuration-amp-working-on" data-decorative="">Configuration &amp; Working on</h3><ul><li><a href="../page-11">Setting Up Your Environment</a></li><li><a href="../page-12">Running the Application</a></li><li><a href="../page-13">Contributing</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="-system-capabilities-overview" data-depth="2"><a href="#-system-capabilities-overview">🗺️ System Capabilities Overview</a></li></ol></nav></div><h1 id="goals" data-decorative="">Goals</h1><p>Welcome to the <strong>CrowdVision Developer Guide</strong>. Before diving into the codebase, it is crucial to understand <em>what</em> we are building and <em>why</em> the architecture is structured the way it is.</p><p>The primary goal of CrowdVision is to provide a robust, real-time crowd monitoring platform built on a digital twin paradigm. It serves facility managers by streaming live IoT sensor data directly into a 3D visualization of their buildings.</p><hr /><h2 id="-system-capabilities-overview">🗺️ System Capabilities Overview</h2><p>Below is a high-level mindmap of CrowdVision&rsquo;s current and planned functional domains:</p><figure><pre class="mermaid">mindmap
+root((CrowdVision))
+    Real-Time Operations
+    IoT Sensor Simulation
+    Digital Twin
+    3D Visualisation
+    Building Management
+    Alerting &amp; Safety
+    Domain Memberships
+    Enterprise OIDC / SSO
+    AI Integration
+    LLM Assistant
+    Reporting &amp; Analytics</pre></figure>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

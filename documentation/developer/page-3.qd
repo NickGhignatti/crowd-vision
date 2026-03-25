@@ -1,0 +1,22 @@
+.docname {Non Functional Requirements}
+.include {docs}
+
+### 1. Database-per-Service Architecture
+* **The Requirement:** Every backend microservice (Auth, Twin, Notification) must operate its own dedicated MongoDB instance.
+* **Why this is required:** Isolation prevents "noisy neighbor" problems. If an administrator runs a massive, complex query to fetch a detailed 3D building schema in the Twin service, it must absolutely not drain database resources and prevent new users from logging in via the Auth service.
+
+### 2. Decoupled Event Messaging (Redis Pub/Sub)
+* **The Requirement:** Service-to-service communication for real-time events must use Redis pub/sub as a message broker rather than direct HTTP polling.
+* **Why this is required:** As the system grows, multiple services might need to react to a sensor event (e.g., the Socket server to update UI, the Push server to send mobile alerts, and the LLM service to log an anomaly). Redis decouples the producer from the consumers, allowing us to add new reacting services without slowing down the initial data ingestion.
+
+### 3. Strict SSO Security (OIDC with PKCE)
+* **The Requirement:** Enterprise Single Sign-On (SSO) must utilize PKCE (`code_challenge_method: S256`). The OAuth `state` parameter must be an opaque token, with verification context stored securely on the server.
+* **Why this is required:** Security is paramount for enterprise deployments. Encoding data directly into the OAuth `state` parameter makes the system vulnerable to state-tampering and CSRF attacks. Enforcing server-side state verification guarantees that a malicious actor cannot hijack an authentication flow.
+
+### 4. Stateless Authentication (JWT)
+* **The Requirement:** User sessions must rely on JSON Web Tokens (JWTs) with a 3-hour expiry. IoT device tokens are granted a 5-year expiry. 
+* **Why this is required:** Verifying tokens using middleware cryptography eliminates the need to query the database on every single API request. This drastically reduces latency and database load. A 3-hour expiry ensures that if a token is compromised, the window of vulnerability is short.
+
+### 5. High-Performance Client Architecture
+* **The Requirement:** The Vue 3 frontend must avoid heavy global state managers (like Vuex or Pinia). Instead, it uses module-level reactive objects co-located in composables (e.g., `socketState`).
+* **Why this is required:** The dashboard receives potentially hundreds of WebSocket updates per minute. Heavy global stores introduce overhead and unnecessary re-renders. Using lightweight, co-located composables keeps the Javascript bundle size minimal and ensures the UI remains extremely responsive during data floods.

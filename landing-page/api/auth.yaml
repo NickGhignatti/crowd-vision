@@ -1,25 +1,109 @@
 openapi: 3.1.0
 info:
   title: Auth Service API
-  description: API for user authentication and domain management.
+  description: API for account authentication, domain management, subscriptions, SSO (OIDC), and TOTP features.
   version: 1.0.0
 servers:
-  - url: http://localhost:80/auth/
-    description: Local development server
+  - url: http://localhost/auth
+    description: Gateway endpoint for Auth Service
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    DomainMembership:
+      type: object
+      required:
+        - domainName
+        - role
+      properties:
+        domainName:
+          type: string
+          example: "crowd-vision"
+        role:
+          type: string
+          description: "Role of the account in the domain (e.g., business_admin, business_staff, standard_customer)"
+          example: "standard_customer"
+        externalId:
+          type: string
+          example: "ext-12345"
+
+    SSOConfig:
+      type: object
+      properties:
+        issuerUrl:
+          type: string
+          example: "https://idp.example.com"
+        clientId:
+          type: string
+          example: "client-id-123"
+
+    Account:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "jdoe"
+        email:
+          type: string
+          format: email
+          example: "jdoe@example.com"
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/DomainMembership"
+
+    Domain:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "crowd-vision"
+        subdomains:
+          type: array
+          items:
+            type: string
+          description: "Array of ObjectIds representing subdomains"
+        authStrategy:
+          type: string
+          enum:
+            - internal
+            - oidc
+          default: internal
+        ssoConfig:
+          $ref: "#/components/schemas/SSOConfig"
+        isVisibleFromOutside:
+          type: boolean
+          default: false
+
+security:
+  - bearerAuth: []
+
 paths:
   /register:
     post:
-      summary: Register a new user
+      summary: Register a new account
       tags:
-        - Auth
+        - Authentication
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - name
+                - email
+                - password
               properties:
-                username:
+                name:
                   type: string
                   example: "jdoe"
                 email:
@@ -31,45 +115,28 @@ paths:
                   format: password
                   example: "securePassword123"
       responses:
-        '201':
+        "201":
           description: Account created successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Account created"
-                  userId:
-                    type: string
-                    example: "60d5ecb8b392d7001f8e4b5a"
-                  username:
-                    type: string
-                    example: "jdoe"
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+        "400":
+          description: Bad request (e.g., account already exists)
 
   /login:
     post:
-      summary: Login a user
+      summary: Login an account
       tags:
-        - Auth
+        - Authentication
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - name
+                - password
               properties:
-                username:
+                name:
                   type: string
                   example: "jdoe"
                 password:
@@ -77,7 +144,7 @@ paths:
                   format: password
                   example: "securePassword123"
       responses:
-        '200':
+        "200":
           description: Login successful
           content:
             application/json:
@@ -86,99 +153,266 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Login successful"
-                  userId:
+                  token:
                     type: string
-                    example: "60d5ecb8b392d7001f8e4b5a"
-                  username:
-                    type: string
-                    example: "jdoe"
-        '400':
-          description: Invalid credentials or error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                  account:
+                    $ref: "#/components/schemas/Account"
+        "401":
+          description: Invalid credentials
 
-  /domain/{username}:
-    get:
-      summary: Get user domain information
+  /business/register:
+    post:
+      summary: Register an enterprise account
       tags:
-        - Domain
+        - Authentication
+      security: []
       parameters:
-        - in: path
-          name: username
+        - in: header
+          name: x-hmac-signature
+          required: true
           schema:
             type: string
-          required: true
-          description: The username to fetch the domain for
+          description: HMAC signature required to authorize business registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
       responses:
-        '200':
-          description: Account domain retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  domain:
-                    $ref: '#/components/schemas/Domain'
-        '400':
-          description: Error retrieving domain
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+        "201":
+          description: Enterprise account created
+        "401":
+          description: Unauthorized / Invalid HMAC signature
 
-  /domain/level/{username}:
+  /me:
     get:
-      summary: Get user domain level
+      summary: Get current authenticated account
       tags:
-        - Domain
+        - Authentication
+      responses:
+        "200":
+          description: Current account details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "401":
+          description: Unauthorized
+
+  /logout:
+    post:
+      summary: Logout current account
+      tags:
+        - Authentication
+      responses:
+        "200":
+          description: Successfully logged out
+
+  /domains:
+    get:
+      summary: Get all allowed domains
+      tags:
+        - Domains
+      responses:
+        "200":
+          description: List of allowed domains
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Domain"
+
+    post:
+      summary: Create a new domain
+      description: Requires 'business_admin' role authorization.
+      tags:
+        - Domains
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Domain"
+      responses:
+        "201":
+          description: Domain created successfully
+        "403":
+          description: Forbidden (insufficient role)
+
+  /domains/{accountName}:
+    get:
+      summary: Get domains by account
+      tags:
+        - Domains
       parameters:
         - in: path
-          name: username
+          name: accountName
+          required: true
           schema:
             type: string
-          required: true
-          description: The username to fetch the domain level for
       responses:
-        '200':
-          description: Domain level retrieved successfully
+        "200":
+          description: Account domains retrieved successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  domainLevel:
-                    type: string # Assuming string or number based on context
-                    description: The level associated with the user's domain
-        '400':
-          description: Error retrieving domain level
+                type: array
+                items:
+                  $ref: "#/components/schemas/Domain"
+
+  /subdomains/{domainName}:
+    get:
+      summary: Get subdomains of a specific domain
+      tags:
+        - Subdomains
+      parameters:
+        - in: path
+          name: domainName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subdomains retrieved successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                type: array
+                items:
+                  $ref: "#/components/schemas/Domain"
 
-components:
-  schemas:
-    Domain:
-      type: object
-      properties:
-        name:
-          type: string
-          example: "crowd-vision"
-        subdomain:
-          type: string
-          example: "analytics"
-      required:
-        - name
+    post:
+      summary: Create a subdomain under a domain
+      description: Requires 'business_admin' role authorization.
+      tags:
+        - Subdomains
+      parameters:
+        - in: path
+          name: domainName
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Domain"
+      responses:
+        "201":
+          description: Subdomain created successfully
+        "403":
+          description: Forbidden
 
+  /domains/{accountName}/subscribe:
+    post:
+      summary: Subscribe account to a domain
+      tags:
+        - Subscriptions
+      parameters:
+        - in: path
+          name: accountName
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domainName
+              properties:
+                domainName:
+                  type: string
+      responses:
+        "200":
+          description: Successfully subscribed
+
+  /domains/{accountName}/unsubscribe:
+    delete:
+      summary: Unsubscribe account from a domain
+      tags:
+        - Subscriptions
+      parameters:
+        - in: path
+          name: accountName
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domainName
+              properties:
+                domainName:
+                  type: string
+      responses:
+        "200":
+          description: Successfully unsubscribed
+
+  /auth/sso/login/{domainName}:
+    get:
+      summary: Start SSO Login flow for a domain
+      tags:
+        - SSO
+      parameters:
+        - in: path
+          name: domainName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Redirect URL to Identity Provider generated successfully
+
+  /auth/sso/callback:
+    get:
+      summary: Handle callback from Identity Provider
+      tags:
+        - SSO
+      security: []
+      responses:
+        "302":
+          description: Redirects back to client application
+
+  /domains/{domainName}/totp/qr/{accountName}:
+    get:
+      summary: Get TOTP QR Code for a domain account
+      description: Requires 'business_admin' role authorization.
+      tags:
+        - TOTP
+      parameters:
+        - in: path
+          name: domainName
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: accountName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: QR Code retrieved successfully (typically returns image or image URL)

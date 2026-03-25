@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Run the application</title>
+    <script src="../script/quarkdown.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.9.0/highlightjs-line-numbers.min.js"></script>
+    <script src="https://unpkg.com/highlightjs-copy/dist/highlightjs-copy.min.js"></script>
+    <link href="https://unpkg.com/highlightjs-copy/dist/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="-development-mode-hot-reloading" data-depth="2"><a href="#-development-mode-hot-reloading">🚀 Development Mode (Hot-Reloading)</a><ol><li data-target-id="accessing-the-application" data-depth="3"><a href="#accessing-the-application">Accessing the Application</a></li><li data-target-id="how-hot-reloading-works" data-depth="3"><a href="#how-hot-reloading-works">How Hot-Reloading Works</a></li></ol></li><li data-target-id="-production--detached-mode" data-depth="2"><a href="#-production--detached-mode">🏗️ Production / Detached Mode</a></li><li data-target-id="-stopping-amp-resetting-the-environment" data-depth="2"><a href="#-stopping-amp-resetting-the-environment">🛑 Stopping &amp; Resetting the Environment</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../page-1">Goals</a></li><li><a href="../page-2">Functional Requirements</a></li><li><a href="../page-3">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../page-4">Entities</a></li></ul><h3 id="architecture" data-decorative="">Architecture</h3><ul><li><a href="../page-5">Overview</a></li><li><a href="../page-6">The Microservices</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../page-7">Communication Schema</a></li><li><a href="../page-8">Users and Accounts</a></li><li><a href="../page-9">Domains</a></li><li><a href="../page-10">Buildings</a></li></ul><h3 id="configuration-amp-working-on" data-decorative="">Configuration &amp; Working on</h3><ul><li><a href="../page-11">Setting Up Your Environment</a></li><li><a href="../page-12" aria-current="page">Running the Application</a></li><li><a href="../page-13">Contributing</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="-development-mode-hot-reloading" data-depth="2"><a href="#-development-mode-hot-reloading">🚀 Development Mode (Hot-Reloading)</a><ol><li data-target-id="accessing-the-application" data-depth="3"><a href="#accessing-the-application">Accessing the Application</a></li><li data-target-id="how-hot-reloading-works" data-depth="3"><a href="#how-hot-reloading-works">How Hot-Reloading Works</a></li></ol></li><li data-target-id="-production--detached-mode" data-depth="2"><a href="#-production--detached-mode">🏗️ Production / Detached Mode</a></li><li data-target-id="-stopping-amp-resetting-the-environment" data-depth="2"><a href="#-stopping-amp-resetting-the-environment">🛑 Stopping &amp; Resetting the Environment</a></li></ol></nav></div><h1 id="run-the-application" data-decorative="">Run the application</h1><p>Once your <span class="codespan-content"><code>.env</code></span> file is configured and your initial administrator account is bootstrapped, you are ready to start running and interacting with the CrowdVision platform.</p><p>Because the entire ecosystem is containerized, your day-to-day workflow relies entirely on a few core NPM scripts run from the root of the Lerna monorepo.</p><hr /><h2 id="-development-mode-hot-reloading">🚀 Development Mode (Hot-Reloading)</h2><p>For active development, you will almost exclusively use the <span class="codespan-content"><code>dev</code></span> script.</p><pre><code class="language-bash">npm run dev</code></pre><p>What happens when you run this?</p><ol><li>The script first executes setup.js to verify your <span class="codespan-content"><code>.env</code></span> file and cryptographic keys are intact.</li><li>It launches Docker Compose, merging the base <span class="codespan-content"><code>docker-compose.yml</code></span> with the <span class="codespan-content"><code>docker-compose.dev.yml</code></span> override file.</li><li>It spins up the Caddy proxy, Redis broker, all MongoDB instances, all backend microservices, and the Vue client.</li><li>It enables Docker Watch, which binds your local <span class="codespan-content"><code>./src</code></span> directories directly to the running containers.</li></ol><h3 id="accessing-the-application">Accessing the Application</h3><p>Once the terminal output settles and the containers are healthy, you can access the platform via your browser:</p><table><thead><tr><th>Interface</th><th>URL/Port</th><th>Description</th></tr></thead><tbody><tr><td>Vue Frontend</td><td><a href="http://localhost:8080">http://localhost:8080</a></td><td>The main CrowdVision user interface.</td></tr><tr><td>API Gateway (Backend)</td><td><a href="http://localhost:80">http://localhost:80</a></td><td>The Caddy reverse proxy routing to all microservices (e.g., <a href="http://localhost/auth/login).">http://localhost/auth/login).</a></td></tr><tr><td>Services</td><td>Whatever you like</td><td>Exposed only internally within the Docker network.</td></tr></tbody></table><div class="box tip"><header><h4>Tip</h4></header><div class="box-content"><p>The Database GUIs are only available when running in dev mode. They are explicitly excluded from the production startup sequence for security reasons.</p></div></div><h3 id="how-hot-reloading-works">How Hot-Reloading Works</h3><p>You do not need to restart the server when you change code.</p><ul><li>If you edit a Vue file in the client/src directory, Vite&rsquo;s HMR (Hot Module Replacement) will instantly reflect the change in your browser.</li><li>If you edit a TypeScript file in one of the backend services (e.g., <span class="codespan-content"><code>server/twin-service/src</code></span>), Docker Watch detects the change and uses nodemon / ts-node inside the container to gracefully restart that specific microservice without dropping the rest of the network.</li></ul><hr /><h2 id="-production--detached-mode">🏗️ Production / Detached Mode</h2><p>If you just want to run the application to test it without making code changes (or if you are deploying it to a staging server), use the standard start command:</p><pre><code class="language-bash">npm start</code></pre><p>This command runs the stack using only the base <span class="codespan-content"><code>docker-compose.yml</code></span> file.</p><ul><li>It runs in detached mode (<span class="codespan-content"><code>-d</code></span>), meaning it will start the containers in the background and free up your terminal.</li><li>It does not mount your local source code, meaning hot-reloading is disabled.</li><li>It does not boot up the Mongo-Express database GUIs.</li></ul><hr /><h2 id="-stopping-amp-resetting-the-environment">🛑 Stopping &amp; Resetting the Environment</h2><p>When you are done working, you should gracefully spin down the containers and remove the isolated networks to free up system resources.</p><p>To stop the application:</p><pre><code class="language-bash">npm run stop</code></pre><p><em>The &ldquo;Nuclear&rdquo; Option</em>
+Occasionally, during development, you might corrupt your database state (e.g., by uploading an invalid building schema while testing). If you want to wipe everything and start completely fresh, you can use the clear command.</p><div class="box warning"><header><h4>Warning</h4></header><div class="box-content"><p>This command is destructive. It will permanently delete the persistent Docker volumes containing your databases.</p></div></div><pre><code class="language-bash">npm run clear</code></pre><p>After running this, the next time you boot the app, the databases will be completely empty. You will need to <span class="codespan-content"><code>run npm run enterprise:create</code></span> again to bootstrap a new admin account!</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

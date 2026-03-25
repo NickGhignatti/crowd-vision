@@ -1,0 +1,21 @@
+.docname {Developer Guide}
+.include {docs}
+
+Welcome to [Quarkdown](https://github.com/iamgio/quarkdown)! This is the starting point of your document.
+
+## Compiling
+
+- To compile this document, please `cd` to this file's parent directory and run:
+  `quarkdown c main.qd`
+
+- To enable live preview, run:
+  `quarkdown c main.qd -p -w`
+
+## Wiki
+
+For further information and guides, please check out the [official wiki](https://quarkdown.com/wiki).
+
+## Structure
+
+- `_setup.qd`: global setup, included in each subdocument.
+- `_nav.qd`: navigation tree, displayed in the sidebar.

@@ -1,0 +1,113 @@
+.docname {Environment Setup}
+.include {docs}
+
+CrowdVision relies heavily on Docker to ensure that the environment a developer runs on their laptop matches the environment running in production. 
+
+This guide covers everything you need to bootstrap the project, configure your environment variables, and utilize the built-in development scripts.
+
+---
+
+## 1. Environment Configuration (`.env`)
+
+Before running any scripts, you must create a `.env` file in the root directory. Both Docker Compose and the Node scripts rely heavily on these variables.
+
+Here is a template of the required variables:
+
+.code lang:{python} 
+    # Networking
+    DEV_URL=http://localhost
+    SERVER_PORT=80
+    CLIENT_PORT=8080
+
+    # Security Secrets
+    JWT_SECRET=your_super_secret_jwt_string
+    INTERNAL_ADMIN_SECRET=your_hmac_secret_for_admin_creation
+
+    # Bootstrapping (Used by admin-creator.js)
+    YARVUE_PASSWORD=your_secure_admin_password
+
+    # Web Push Notification Keys (VAPID)
+    VAPID_PUBLIC_KEY=your_vapid_public_key
+    VAPID_PRIVATE_KEY=your_vapid_private_key
+    VITE_VAPID_PUBLIC_KEY=your_vapid_public_key # Passed to the Vue client
+
+    # AI Agent Service (Optional for core functionality)
+    GOOGLE_API_KEY=your_gemini_key
+    DEEPSEEK_API_KEY=your_deepseek_key
+
+## 2. The Docker Architecture
+CrowdVision uses a multi-file Docker Compose setup to separate base infrastructure from development-specific tooling.
+
+*Base Configuration (`docker-compose.yml`)*
+This file defines the strict production-like topology. It establishes:
+- The isolated Docker networks (`gateway-net`, `auth-net`, `twin-net`, `notification-net`).
+- The persistent database volumes.
+- The Caddy reverse-proxy gateway and the Redis broker.
+
+*Development Configuration (`docker-compose.dev.yml`)*
+When running in development mode, this override file is layered on top of the base configuration. It injects crucial developer tooling:
+- Docker Watch (Hot Reloading): It maps your local `./src` folders directly into the containers and triggers automatic rebuilds or syncs whenever you save a file. You don't need to manually restart containers when writing code.
+- Database GUIs: It spins up `auth-db-express` and `twin-db-express` containers. These provide web-based GUI interfaces to inspect your MongoDB databases directly via the Caddy proxy at `/auth-db-gui/` and `/twin-db-gui/`.
+
+---
+
+## 3. NPM Toolbelt
+To streamline common development tasks, the root `package.json` includes a set of scripts that abstract away the underlying Docker commands.
+
+.var {headers}
+   - Command
+   - What it does
+
+.tablebyrows {.headers}
+    - - `npm run dev`
+      - The primary command for everyday coding. It boots the entire stack using both compose files with `--watch` enabled for hot-reloading.
+    - - `npm start`
+      - Boots the stack in a production-like detached mode without hot-reloading or Mongo GUIs.
+    - - `npm run stop`
+      - Safely tears down the docker network and removes orphan containers.
+    - - `npm run clear`
+      - Destructive: Drops the `authdb`, `twindb`, and `notificationdb` databases. Perfect for resetting your environment.
+    - - `npm test`
+      - Runs the Jest test suites for all services. It uses the `--watch` flag for test-driven development.
+
+More can be either already present in the `package.json` or added as needed, but these cover the most common workflows.
+
+---
+
+## 4. Bootstrapping with Admin Creator
+When you spin up a fresh instance of CrowdVision, the database is completely empty. If you create an account via the frontend UI, you will be assigned the standard_customer role by default, meaning you cannot create domains or buildings.
+
+To solve this chicken-and-egg problem, CrowdVision includes the admin-creator.js script.
+
+*What it does:*
+This script bypasses the standard registration flow and acts as an internal system tool to provision the very first "Business Admin" account and Domain.
+
+*How it works securely:*
+Because this endpoint (/auth/business/register) creates high-privilege accounts, it is strictly protected.
+- The script reads your `.env` file to gather the `INTERNAL_ADMIN_SECRET`.
+- It stringifies a payload containing the desired company name ("YarVue") and the `YARVUE_PASSWORD`.
+- It generates an `HMAC SHA-256` signature using the secret and attaches it to the x-signature header of the HTTP POST request.
+- The Auth Service verifies this signature. If it matches the server's secret, it provisions the domain and account.
+
+To use it:
+Once your Docker containers are running, simply execute:
+
+.code lang:{bash} 
+    npm run enterprise:create
+
+You can then log into the frontend using yarvue.admin@yarvue.com and the password you defined in your `.env` file to start managing the system!
+
+---
+
+## 5. The Automated Setup Script (`setup.js`)
+
+To eliminate the friction of manually generating cryptographic keys and boilerplate configuration, CrowdVision includes an automated initialization script: `setup.js`.
+
+You do **not** need to run this script manually. It is automatically triggered as a prerequisite whenever you run the primary NPM commands like `npm run dev` or `npm start`.
+
+**What it does behind the scenes:**
+1. **Creates the `.env` file:** If one does not exist, it scaffolds a `.env` file with default port bindings (`SERVER_PORT=80`, `CLIENT_PORT=8080`) and local URLs.
+2. **Generates VAPID Keys:** It checks if Web Push keys exist. If missing, it invokes `npx web-push generate-vapid-keys` to create a public/private key pair and securely appends `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VITE_VAPID_PUBLIC_KEY` to your environment.
+3. **Generates JWT Secret:** It uses Node's native `crypto` module to generate a highly secure, 256-bit random hex string for your `JWT_SECRET` and appends it to the configuration.
+
+
