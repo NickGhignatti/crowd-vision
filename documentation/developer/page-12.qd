@@ -1,0 +1,84 @@
+.docname {Run the application}
+.include {docs}
+
+Once your `.env` file is configured and your initial administrator account is bootstrapped, you are ready to start running and interacting with the CrowdVision platform. 
+
+Because the entire ecosystem is containerized, your day-to-day workflow relies entirely on a few core NPM scripts run from the root of the Lerna monorepo.
+
+---
+
+## 🚀 Development Mode (Hot-Reloading)
+
+For active development, you will almost exclusively use the `dev` script.
+
+.code lang:{bash} 
+    npm run dev
+
+What happens when you run this?
+1. The script first executes setup.js to verify your `.env` file and cryptographic keys are intact.
+2. It launches Docker Compose, merging the base `docker-compose.yml` with the `docker-compose.dev.yml` override file.
+3. It spins up the Caddy proxy, Redis broker, all MongoDB instances, all backend microservices, and the Vue client.
+4. It enables Docker Watch, which binds your local `./src` directories directly to the running containers.
+
+### Accessing the Application
+Once the terminal output settles and the containers are healthy, you can access the platform via your browser:
+
+.var {headers}
+   - Interface
+   - URL/Port
+   - Description
+
+.tablebyrows {.headers}
+    - - Vue Frontend
+      - `http://localhost:8080`
+      - The main CrowdVision user interface.
+    - - API Gateway (Backend)
+      - `http://localhost:80`
+      - The Caddy reverse proxy routing to all microservices (e.g., `http://localhost/auth/login`).
+    - - Services
+      - Whatever you like
+      - Exposed only internally within the Docker network.
+
+.box type:{tip} 
+    The Database GUIs are only available when running in dev mode. They are explicitly excluded from the production startup sequence for security reasons.
+
+### How Hot-Reloading Works
+You do not need to restart the server when you change code.
+- If you edit a Vue file in the client/src directory, Vite's HMR (Hot Module Replacement) will instantly reflect the change in your browser.
+- If you edit a TypeScript file in one of the backend services (e.g., `server/twin-service/src`), Docker Watch detects the change and uses nodemon / ts-node inside the container to gracefully restart that specific microservice without dropping the rest of the network.
+
+---
+
+## 🏗️ Production / Detached Mode
+
+If you just want to run the application to test it without making code changes (or if you are deploying it to a staging server), use the standard start command:
+
+.code lang:{bash}
+    npm start
+
+This command runs the stack using only the base `docker-compose.yml` file.
+- It runs in detached mode (`-d`), meaning it will start the containers in the background and free up your terminal.
+- It does not mount your local source code, meaning hot-reloading is disabled.
+- It does not boot up the Mongo-Express database GUIs.
+
+---
+
+## 🛑 Stopping & Resetting the Environment
+When you are done working, you should gracefully spin down the containers and remove the isolated networks to free up system resources.
+
+To stop the application:
+
+.code lang:{bash} 
+    npm run stop
+
+*The "Nuclear" Option*
+Occasionally, during development, you might corrupt your database state (e.g., by uploading an invalid building schema while testing). If you want to wipe everything and start completely fresh, you can use the clear command.
+
+.box type:{warning} 
+    This command is destructive. It will permanently delete the persistent Docker volumes containing your databases.
+
+.code lang:{bash}
+    npm run clear
+
+After running this, the next time you boot the app, the databases will be completely empty. You will need to `run npm run enterprise:create` again to bootstrap a new admin account!
+

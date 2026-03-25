@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Domains</title>
+    <script src="../script/quarkdown.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.9.0/highlightjs-line-numbers.min.js"></script>
+    <script src="https://unpkg.com/highlightjs-copy/dist/highlightjs-copy.min.js"></script>
+    <link href="https://unpkg.com/highlightjs-copy/dist/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="-the-domain-entity" data-depth="2"><a href="#-the-domain-entity">🌍 The Domain Entity</a></li><li data-target-id="-the-tripartite-relationship-account--domain--building" data-depth="2"><a href="#-the-tripartite-relationship-account--domain--building">🔗 The Tripartite Relationship (Account ↔ Domain ↔ Building)</a></li><li data-target-id="-authentication-strategies" data-depth="2"><a href="#-authentication-strategies">🔐 Authentication Strategies</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../page-1">Goals</a></li><li><a href="../page-2">Functional Requirements</a></li><li><a href="../page-3">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../page-4">Entities</a></li></ul><h3 id="architecture" data-decorative="">Architecture</h3><ul><li><a href="../page-5">Overview</a></li><li><a href="../page-6">The Microservices</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../page-7">Communication Schema</a></li><li><a href="../page-8">Users and Accounts</a></li><li><a href="../page-9" aria-current="page">Domains</a></li><li><a href="../page-10">Buildings</a></li></ul><h3 id="configuration-amp-working-on" data-decorative="">Configuration &amp; Working on</h3><ul><li><a href="../page-11">Setting Up Your Environment</a></li><li><a href="../page-12">Running the Application</a></li><li><a href="../page-13">Contributing</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="-the-domain-entity" data-depth="2"><a href="#-the-domain-entity">🌍 The Domain Entity</a></li><li data-target-id="-the-tripartite-relationship-account--domain--building" data-depth="2"><a href="#-the-tripartite-relationship-account--domain--building">🔗 The Tripartite Relationship (Account ↔ Domain ↔ Building)</a></li><li data-target-id="-authentication-strategies" data-depth="2"><a href="#-authentication-strategies">🔐 Authentication Strategies</a></li></ol></nav></div><h1 id="domains" data-decorative="">Domains</h1><p>A &ldquo;Domain&rdquo; represents a distinct organization, campus, or physical environment. Every piece of spatial data and every user account is scoped to one or more of these domains.</p><hr /><h2 id="-the-domain-entity">🌍 The Domain Entity</h2><p>The <span class="codespan-content"><code>Domain</code></span> model is managed by the Auth Service. It dictates not just the existence of an organization, but the rules for how users can join and authenticate against it.</p><pre><code class="language-typescript">export interface IDomain extends Document {
+name: string;
+subdomains: Types.ObjectId[];
+authStrategy: &quot;internal&quot; | &quot;oidc&quot;;
+totpSecrets: IDomainTOTPSecrets;
+ssoConfig?: ISSOConfig;
+isVisibleFromOutside?: boolean;
+}</code></pre><p>Key Field Breakdown:</p><ul><li><em>name</em>: The unique identifier for the organization (e.g., university.edu).</li><li><em>authStrategy</em>: Determines how identity is verified for this specific organization. It can be internal (managed entirely by CrowdVision&rsquo;s database) or oidc (delegated to an external identity provider).</li><li><em>subdomains</em>: An array of ObjectIds pointing to other Domain documents. This allows organizations to build complex hierarchical trees (e.g., university.edu &rarr; engineering.university.edu).</li><li><em>isVisibleFromOutside</em>: A flag determining if standard users can discover and freely subscribe to this domain (Public), or if it requires a secure invite link to even perceive its existence (Private).</li></ul><hr /><h2 id="-the-tripartite-relationship-account--domain--building">🔗 The Tripartite Relationship (Account ↔ Domain ↔ Building)</h2><p>Because CrowdVision separates Authentication and Twin data into different databases, multi-tenancy must be enforced symmetrically across the service boundary.</p><figure><pre class="mermaid">erDiagram
+    ACCOUNT {
+        String _id
+        IDomainMembership[] memberships
+    }
+    DOMAIN {
+        String _id
+        String name
+        String authStrategy
+    }
+    BUILDING {
+        String id
+        String[] domains
+    }
+
+    ACCOUNT ||--o{ DOMAIN : &quot;joins via membership&quot;
+    BUILDING }|--|{ DOMAIN : &quot;is assigned to&quot;</pre></figure><ul><li>The User Side (Auth DB): A user&rsquo;s <span class="codespan-content"><code>Account</code></span> contains an array of memberships. Each membership object points to a specific <span class="codespan-content"><code>domainName</code></span> and assigns a role.</li><li>The Spatial Side (Twin DB): A <span class="codespan-content"><code>Building</code></span> does not belong to a user. Instead, it contains an array of domains (strings).</li></ul><p><em>How Isolation is Enforced</em>: When a user attempts to load the buildings for university.edu, the frontend calls <span class="codespan-content"><code>GET /twin/buildings/university.edu</code></span>.
+The twin-service intercepts the request, verifies the JWT signature, and checks the embedded payload. If the payload does not contain a membership for university.edu, the request is rejected with 403 Forbidden. If authorized, it queries its own database for <span class="codespan-content"><code>Building.find({ domains: &quot;university.edu&quot; })</code></span>.
+This guarantees absolute data isolation between tenants without requiring cross-service HTTP calls.</p><hr /><h2 id="-authentication-strategies">🔐 Authentication Strategies</h2><p>Organizations have wildly different security requirements. The <span class="codespan-content"><code>authStrategy</code></span> field dictates how CrowdVision handles sign-ins for a specific domain.</p><p><em>Strategy 1</em>: internal
+This is the default strategy. User credentials (passwords) are hashed and managed entirely within CrowdVision&rsquo;s Auth database.</p><ul><li>Role Management: Internal domains utilize the <span class="codespan-content"><code>totpSecrets</code></span> subdocument. These are permanent, secure cryptographic seeds generated upon domain creation. They are used to generate the temporary 6-digit invite codes (or QR codes) that allow users to claim higher privileges (like <span class="codespan-content"><code>business_admin</code></span> or <span class="codespan-content"><code>business_staff</code></span>).</li></ul><p><em>Strategy 2</em>: oidc (Enterprise SSO)
+For enterprise clients using platforms like Keycloak, Auth0, or Entra ID, CrowdVision acts as an OIDC relying party.
+When a domain uses <span class="codespan-content"><code>oidc</code></span>, it must populate the <span class="codespan-content"><code>ssoConfig</code></span> subdocument:</p><pre><code>export interface ISSOConfig {
+    issuerUrl: string;
+    clientId: string;
+    clientSecret: string;
+}</code></pre><p><em>The PKCE Security Flow</em>:
+To prevent state-tampering and CSRF attacks during the SSO redirect dance, CrowdVision implements strict PKCE (<span class="codespan-content"><code>code_challenge_method: S256</code></span>).</p><ol><li>When a user clicks &ldquo;Login via SSO&rdquo;, the Auth Service generates a PKCE code verifier and challenge.</li><li>It generates a random, opaque state string.</li><li>It securely stores the (state &rarr; { verifier, domainName }) mapping server-side (in Redis or memory).</li><li>The user is redirected to the external IdP.</li><li>Upon returning, the Auth Service extracts the state query parameter and looks up the server-side mapping. If it matches, the exchange proceeds.</li></ol><div class="box warning"><header><h4>Warning</h4></header><div class="box-content"><p>Security Mandate: Never encode sensitive data (like the target domain or username) directly into the state parameter payload (e.g., as base64 JSON). A malicious actor can easily manipulate client-side state payloads. Always rely on server-side lookups using an opaque state key.</p></div></div><p>Once the OIDC exchange completes successfully, the Auth Service maps the external user to an internal <span class="codespan-content"><code>Account</code></span>, embeds the <span class="codespan-content"><code>IDomainMembership</code></span> (using the <span class="codespan-content"><code>externalId</code></span>), and issues a standard CrowdVision JWT. From the perspective of the Twin or Notification services, an OIDC user is completely indistinguishable from an internal user.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

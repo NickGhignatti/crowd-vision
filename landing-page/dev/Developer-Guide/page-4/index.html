@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Entities</title>
+    <script src="../script/quarkdown.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="-identity-amp-access-context" data-depth="2"><a href="#-identity-amp-access-context">🔐 Identity &amp; Access Context</a><ol><li data-target-id="aggregate-account" data-depth="3"><a href="#aggregate-account">Aggregate: Account</a></li><li data-target-id="aggregate-domain" data-depth="3"><a href="#aggregate-domain">Aggregate: Domain</a></li></ol></li><li data-target-id="-building-management-context" data-depth="2"><a href="#-building-management-context">🏢 Building Management Context</a><ol><li data-target-id="aggregate-building" data-depth="3"><a href="#aggregate-building">Aggregate: Building</a></li><li data-target-id="entity-room" data-depth="3"><a href="#entity-room">Entity: Room</a></li></ol></li><li data-target-id="-alerting-context" data-depth="2"><a href="#-alerting-context">🚨 Alerting Context</a><ol><li data-target-id="aggregate-subscription" data-depth="3"><a href="#aggregate-subscription">Aggregate: Subscription</a></li></ol></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../page-1">Goals</a></li><li><a href="../page-2">Functional Requirements</a></li><li><a href="../page-3">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../page-4" aria-current="page">Entities</a></li></ul><h3 id="architecture" data-decorative="">Architecture</h3><ul><li><a href="../page-5">Overview</a></li><li><a href="../page-6">The Microservices</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../page-7">Communication Schema</a></li><li><a href="../page-8">Users and Accounts</a></li><li><a href="../page-9">Domains</a></li><li><a href="../page-10">Buildings</a></li></ul><h3 id="configuration-amp-working-on" data-decorative="">Configuration &amp; Working on</h3><ul><li><a href="../page-11">Setting Up Your Environment</a></li><li><a href="../page-12">Running the Application</a></li><li><a href="../page-13">Contributing</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="-identity-amp-access-context" data-depth="2"><a href="#-identity-amp-access-context">🔐 Identity &amp; Access Context</a><ol><li data-target-id="aggregate-account" data-depth="3"><a href="#aggregate-account">Aggregate: Account</a></li><li data-target-id="aggregate-domain" data-depth="3"><a href="#aggregate-domain">Aggregate: Domain</a></li></ol></li><li data-target-id="-building-management-context" data-depth="2"><a href="#-building-management-context">🏢 Building Management Context</a><ol><li data-target-id="aggregate-building" data-depth="3"><a href="#aggregate-building">Aggregate: Building</a></li><li data-target-id="entity-room" data-depth="3"><a href="#entity-room">Entity: Room</a></li></ol></li><li data-target-id="-alerting-context" data-depth="2"><a href="#-alerting-context">🚨 Alerting Context</a><ol><li data-target-id="aggregate-subscription" data-depth="3"><a href="#aggregate-subscription">Aggregate: Subscription</a></li></ol></li></ol></nav></div><h1 id="entities" data-decorative="">Entities</h1><p>While CrowdVision is implemented using Mongoose schemas across different microservices, conceptually, the system follows a <strong>Domain-Driven Design (DDD)</strong> approach.</p><p>Understanding the &ldquo;Ubiquitous Language&rdquo; and the boundaries of our data models is essential before writing any code. The system is divided into three primary <strong>Bounded Contexts</strong>:</p><ol><li><strong>Identity &amp; Access Context</strong> (Auth Service)</li><li><strong>Building Management Context</strong> (Twin Service)</li><li><strong>Alerting Context</strong> (Notification Service)</li></ol><hr /><h2 id="-identity-amp-access-context">🔐 Identity &amp; Access Context</h2><p>This context is responsible for who users are, what organizations they belong to, and what permissions they hold within those organizations.</p><figure><pre class="mermaid">classDiagram
+    class Account {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +String _id
+        +String name
+        +String email
+        +String password
+        +String totpSecret
+        +IDomainMembership[] memberships
+    }
+
+    class Domain {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +String _id
+        +String name
+        +Boolean isVisibleFromOutside
+        +String authStrategy
+        +Types.ObjectId[] subdomains
+        +IDomainTOTPSecrets totpSecrets
+        +ISSOConfig ssoConfig
+    }
+
+    class IDomainMembership {
+        &lt;&lt;Value Object&gt;&gt;
+        +String domainName
+        +Role role
+        +String externalId
+    }
+
+    class ISSOConfig {
+        &lt;&lt;Value Object&gt;&gt;
+        +String issuerUrl
+        +String clientId
+        +String clientSecret
+    }
+    
+    class IDomainTOTPSecrets {
+        &lt;&lt;Value Object&gt;&gt;
+        +String business_admin
+        +String business_staff
+        +String standard_customer
+    }
+
+    Account &quot;1&quot; *-- &quot;many&quot; IDomainMembership : contains
+    Domain &quot;1&quot; *-- &quot;0..1&quot; ISSOConfig : contains
+    Domain &quot;1&quot; *-- &quot;1&quot; IDomainTOTPSecrets : contains</pre></figure><h3 id="aggregate-account">Aggregate: Account</h3><p>The Account is the aggregate root representing a human user or system entity.</p><ul><li>Key Design Choice: Notice that IDomainMembership is embedded directly into the Account as an array. This makes authentication extremely fast; a single query to fetch the Account immediately retrieves all authorization data required to mint a JWT.</li></ul><h3 id="aggregate-domain">Aggregate: Domain</h3><p>The Domain represents an organization (e.g., a university or a company). It dictates the rules of engagement for its members.</p><ul><li>Strategies: A domain can use an internal auth strategy (managed by CrowdVision) or an oidc (external SSO) strategy.</li><li>Value Objects: If a domain utilizes OIDC, it holds an ISSOConfig. For internal role assignment, it holds IDomainTOTPSecrets, which stores the cryptographic secrets required to generate the 6-digit role invite codes.</li></ul><h2 id="-building-management-context">🏢 Building Management Context</h2><p>This context models the physical reality of the spaces we are monitoring. It is completely isolated from user authentication.</p><figure><pre class="mermaid">classDiagram
+    class Building {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +String id
+        +String[] domains
+        +Room[] rooms
+    }
+
+    class Room {
+        &lt;&lt;Entity&gt;&gt;
+        +String id
+        +Number capacity
+        +Number temperature
+        +Number no_person
+        +String color
+        +Number maxTemperature
+        +Coordinates position
+        +Dimensions dimensions
+    }
+
+    class Coordinates {
+        &lt;&lt;Value Object&gt;&gt;
+        +Number x
+        +Number y
+        +Number z
+    }
+
+    class Dimensions {
+        &lt;&lt;Value Object&gt;&gt;
+        +Number width
+        +Number height
+        +Number depth
+    }
+
+    Building &quot;1&quot; *-- &quot;many&quot; Room : contains
+    Room &quot;1&quot; *-- &quot;1&quot; Coordinates : located at
+    Room &quot;1&quot; *-- &quot;1&quot; Dimensions : sized by</pre></figure><h3 id="aggregate-building">Aggregate: Building</h3><p>The Building is the core spatial aggregate.</p><ul><li>A building doesn&rsquo;t &ldquo;belong&rdquo; to an Account; instead, it is mapped to an array of domains (organizations). When an Account requests building data, the Twin service cross-references the user&rsquo;s domain memberships (provided via JWT) against the Building&rsquo;s domains array.</li></ul><h3 id="entity-room">Entity: Room</h3><p>A Room only exists within the context of a Building.</p><ul><li>Live Data: It tracks dynamic metrics like temperature and no_person (headcount).</li><li>Spatial Data: Its physical layout in the 3D twin is defined by the rigid Value Objects Coordinates (X, Y, Z placement) and Dimensions (Width, Height, Depth).</li></ul><h2 id="-alerting-context">🚨 Alerting Context</h2><p>This context is lightweight and focused entirely on message delivery.</p><figure><pre class="mermaid">classDiagram
+    class Subscription {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +String endpoint
+        +Keys keys
+    }
+
+    class Keys {
+        &lt;&lt;Value Object&gt;&gt;
+        +String p256dh
+        +String auth
+    }
+
+    Subscription &quot;1&quot; *-- &quot;1&quot; Keys : uses</pre></figure><h3 id="aggregate-subscription">Aggregate: Subscription</h3><p>The Subscription model is strictly used by the Web Push protocol (VAPID).</p><ul><li>It stores the unique browser endpoint and the cryptographic Keys required to encrypt and securely deliver a background push notification to an offline user&rsquo;s device.</li></ul>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

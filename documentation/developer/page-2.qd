@@ -1,0 +1,26 @@
+.docname {Functional Requirements}
+.include {docs}
+
+To effectively contribute to CrowdVision, developers must understand both what the system is expected to do (Functional) and how well it is expected to perform those tasks (Non-Functional). 
+
+---
+
+### 1. Real-Time Data Visualisation
+* **The Requirement:** The system must stream high-frequency crowd headcount and temperature data from simulated or physical IoT sensors directly to the client interface. The 3D view and data tables must reflect this data instantly.
+* **Why this is required:** The core value proposition of CrowdVision is immediate situational awareness. Facility managers must know exactly what is happening *right now* to dispatch security to an overcrowded room or adjust HVAC systems before a room becomes uncomfortably hot. Stale, polled data is insufficient for emergency responses.
+
+### 2. Automated Alerting & Push Notifications
+* **The Requirement:** The system must continuously evaluate live sensor data against pre-defined thresholds (e.g., maximum capacity or `maxTemperature`). Breaches must trigger broadcasts via WebSockets for active users and Web Push Notifications via VAPID for offline browsers.
+* **Why this is required:** Administrators cannot stare at a dashboard 24/7. The system must act as an automated watchman, proactively pushing critical safety alerts to staff members' devices so they can intervene only when necessary.
+
+### 3. Digital Twin Lifecycle Management (CRUD)
+* **The Requirement:** Administrators must be able to upload JSON schemas defining building structures (room 3D coordinates/dimensions) and edit room metadata (capacity, thresholds, names, colours) dynamically after deployment.
+* **Why this is required:** Physical buildings evolve—rooms are repurposed, capacities are adjusted due to changing regulations (like social distancing), and layouts are modified. The software must provide tools to keep the digital twin perfectly synced with physical reality without requiring developer intervention or database migrations.
+
+### 4. Multi-Tenancy & Domain Access Control
+* **The Requirement:** A single backend deployment must serve multiple distinct organizations ("Domains"). Access to data is strictly governed by a user's role-based memberships (e.g., Admin, Business Staff, Viewer) within those specific domains.
+* **Why this is required:** Deploying a separate server infrastructure for every single client is expensive and difficult to maintain. Multi-tenancy allows efficient resource sharing. Furthermore, users like external contractors or regional managers often need access to multiple organizations seamlessly using a single account.
+
+### 5. Future: Historical Analytics & AI Assistant
+* **The Requirement:** The system is planned to aggregate historical data for charting, and introduce an LLM-powered assistant capable of answering natural-language queries about the building's status.
+* **Why this is required:** While real-time data is for *operations*, historical data is for *planning* (e.g., deciding if the university needs to build more study rooms). The AI Assistant lowers the learning curve, allowing non-technical staff to extract complex insights just by asking questions.

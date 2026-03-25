@@ -1,0 +1,54 @@
+.docname {The Digital Twin}
+.include {docs}
+
+The **Model View** is the heart of CrowdVision. It offers an interactive 3D representation of your building, allowing you to visually locate rooms, check their physical layout, and manage their underlying properties.
+
+---
+
+## 🖱️ Navigating the 3D Scene
+
+Interacting with your building is intuitive and fluid:
+
+* **Rotate:** Click and drag your mouse anywhere in the scene to rotate the building and view it from different angles.
+* **Zoom:** Scroll up and down with your mouse wheel, or use the on-screen control panel buttons.
+* **Select a Room:** Click directly on any room block to select it. The selected room will instantly turn **Green** and become semi-transparent so you can easily focus on it.
+
+---
+
+## 🎛️ The Control Panel
+
+Located at the bottom center of the screen, the control panel provides quick actions to manipulate the 3D camera:
+
+| Icon | Action | What it does |
+| :---: | :--- | :--- |
+| 🧊 | **Reset View** | Returns the camera to its default starting position. |
+| 💥 | **Focus on Room** | Also known as "Explode" mode. Isolates the currently selected room by expanding the view, allowing you to see it clearly apart from the rest of the building structure. |
+| ➕ | **Zoom In** | Moves the camera closer to the structure. |
+| ➖ | **Zoom Out** | Moves the camera further away. |
+| 🎥 | **Panorama Mode** | Toggles a smooth, automatic rotation of the building—perfect for showcase purposes or wall displays. |
+
+---
+
+## 🏢 Managing Buildings & Floors (Left Menu)
+
+The sidebar on the left side of the screen is your structural navigator. It allows you to:
+1. **Select Building:** Choose which building structure to visualize from your domain.
+2. **Filter by Floor:** Click on a specific floor number. This will automatically hide all other floors, allowing you to focus purely on that level.
+
+---
+
+## 📝 Room Details & Editing (Right Menu)
+
+Whenever you select a room in the 3D view, a dedicated panel appears on the right side of the screen displaying its specific live details.
+
+> 🔒 **Permissions Note:** Editing room parameters requires higher organizational permissions (such as *Business Staff* or *Admin*). Standard Customers can only view the data.
+
+**How to edit a room:**
+1. Select a room in the 3D view.
+2. Click the **Edit** button in the right panel.
+3. You can modify the following fields:
+    * **Room ID:** The unique name or number of the room.
+    * **Capacity:** The maximum safe number of people allowed.
+    * **Max Temperature:** The specific threshold that triggers temperature alerts (the default is 28°C).
+    * **Theme Color:** The color used to represent the room visually in charts or panel headers.
+4. Click **Save** to apply the changes instantly.

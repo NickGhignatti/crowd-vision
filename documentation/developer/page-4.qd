@@ -1,0 +1,150 @@
+.docname {Entities}
+.include {docs}
+
+While CrowdVision is implemented using Mongoose schemas across different microservices, conceptually, the system follows a **Domain-Driven Design (DDD)** approach. 
+
+Understanding the "Ubiquitous Language" and the boundaries of our data models is essential before writing any code. The system is divided into three primary **Bounded Contexts**:
+1. **Identity & Access Context** (Auth Service)
+2. **Building Management Context** (Twin Service)
+3. **Alerting Context** (Notification Service)
+
+---
+
+## 🔐 Identity & Access Context
+
+This context is responsible for who users are, what organizations they belong to, and what permissions they hold within those organizations.
+
+.mermaid 
+    classDiagram
+        class Account {
+            <<Aggregate Root>>
+            +String _id
+            +String name
+            +String email
+            +String password
+            +String totpSecret
+            +IDomainMembership[] memberships
+        }
+
+        class Domain {
+            <<Aggregate Root>>
+            +String _id
+            +String name
+            +Boolean isVisibleFromOutside
+            +String authStrategy
+            +Types.ObjectId[] subdomains
+            +IDomainTOTPSecrets totpSecrets
+            +ISSOConfig ssoConfig
+        }
+
+        class IDomainMembership {
+            <<Value Object>>
+            +String domainName
+            +Role role
+            +String externalId
+        }
+
+        class ISSOConfig {
+            <<Value Object>>
+            +String issuerUrl
+            +String clientId
+            +String clientSecret
+        }
+        
+        class IDomainTOTPSecrets {
+            <<Value Object>>
+            +String business_admin
+            +String business_staff
+            +String standard_customer
+        }
+
+        Account "1" *-- "many" IDomainMembership : contains
+        Domain "1" *-- "0..1" ISSOConfig : contains
+        Domain "1" *-- "1" IDomainTOTPSecrets : contains
+
+### Aggregate: Account
+The Account is the aggregate root representing a human user or system entity.
+- Key Design Choice: Notice that IDomainMembership is embedded directly into the Account as an array. This makes authentication extremely fast; a single query to fetch the Account immediately retrieves all authorization data required to mint a JWT.
+
+### Aggregate: Domain
+The Domain represents an organization (e.g., a university or a company). It dictates the rules of engagement for its members.
+- Strategies: A domain can use an internal auth strategy (managed by CrowdVision) or an oidc (external SSO) strategy.
+- Value Objects: If a domain utilizes OIDC, it holds an ISSOConfig. For internal role assignment, it holds IDomainTOTPSecrets, which stores the cryptographic secrets required to generate the 6-digit role invite codes.
+
+---
+
+## 🏢 Building Management Context
+This context models the physical reality of the spaces we are monitoring. It is completely isolated from user authentication.
+
+.mermaid 
+    classDiagram
+        class Building {
+            <<Aggregate Root>>
+            +String id
+            +String[] domains
+            +Room[] rooms
+        }
+
+        class Room {
+            <<Entity>>
+            +String id
+            +Number capacity
+            +Number temperature
+            +Number no_person
+            +String color
+            +Number maxTemperature
+            +Coordinates position
+            +Dimensions dimensions
+        }
+
+        class Coordinates {
+            <<Value Object>>
+            +Number x
+            +Number y
+            +Number z
+        }
+
+        class Dimensions {
+            <<Value Object>>
+            +Number width
+            +Number height
+            +Number depth
+        }
+
+        Building "1" *-- "many" Room : contains
+        Room "1" *-- "1" Coordinates : located at
+        Room "1" *-- "1" Dimensions : sized by
+
+### Aggregate: Building
+The Building is the core spatial aggregate.
+- A building doesn't "belong" to an Account; instead, it is mapped to an array of domains (organizations). When an Account requests building data, the Twin service cross-references the user's domain memberships (provided via JWT) against the Building's domains array.
+
+### Entity: Room
+A Room only exists within the context of a Building.
+- Live Data: It tracks dynamic metrics like temperature and no_person (headcount).
+- Spatial Data: Its physical layout in the 3D twin is defined by the rigid Value Objects Coordinates (X, Y, Z placement) and Dimensions (Width, Height, Depth).
+
+---
+
+## 🚨 Alerting Context
+This context is lightweight and focused entirely on message delivery.
+
+.mermaid 
+    classDiagram
+        class Subscription {
+            <<Aggregate Root>>
+            +String endpoint
+            +Keys keys
+        }
+
+        class Keys {
+            <<Value Object>>
+            +String p256dh
+            +String auth
+        }
+
+        Subscription "1" *-- "1" Keys : uses
+
+### Aggregate: Subscription
+The Subscription model is strictly used by the Web Push protocol (VAPID).
+- It stores the unique browser endpoint and the cryptographic Keys required to encrypt and securely deliver a background push notification to an offline user's device.
