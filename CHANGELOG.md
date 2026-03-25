@@ -1,3 +1,10 @@
+## [2.5.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.5.0...v2.5.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* CI docs ([6a0f998](https://github.com/NickGhignatti/crowd-vision/commit/6a0f998484ddaf8c4a1a9362757338bb3039cbe1))
+
 # [2.5.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.4.1...v2.5.0) (2026-03-24)
 
 
