@@ -21,7 +21,7 @@ import {
   requireHmacSignature,
 } from "./controller/authenticationMiddleware.js";
 import { provideEnterpriseAccount } from "./controller/administrationController.js";
-import { requireAuthorization } from "./models/roles.js";
+import { requireAuthorization } from "./models/role.js";
 
 const router = Router();
 

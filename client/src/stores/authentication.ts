@@ -15,8 +15,11 @@ export const useAuthStore = defineStore('authentication', {
       const res = await makeRequest('/auth/login', 'POST', {
         body: JSON.stringify({ accountName, password }),
       })
-      if (!res.ok) throw new Error('Login failed')
       const data = await res.json()
+      if (!res.ok) {
+        console.log(`Failed to login: ${data.type} - ${data.message}`)
+        return;
+      }
       this.accountName = data.account.accountName
       this.isAuthenticated = true
     },
@@ -28,8 +31,12 @@ export const useAuthStore = defineStore('authentication', {
       const res = await makeRequest('/auth/register', 'POST', {
         body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error('Registration failed')
       const data = await res.json()
+
+      if (!res.ok) {
+        console.log(`Failed to register: ${data.type} - ${data.message}`)
+        return
+      }
       this.accountName = data.account.accountName
       this.isAuthenticated = true
     },

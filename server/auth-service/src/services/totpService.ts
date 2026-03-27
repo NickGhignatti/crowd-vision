@@ -1,32 +1,32 @@
-import { hasRequiredRole, type Role, ROLE_WEIGHTS } from "../models/roles.js";
+import { hasRequiredRole, type Role, ROLE_WEIGHTS } from "../models/role.js";
 import * as OTPAuth from "otpauth";
 import { Domain, type IDomainMembership } from "../models/domain.js";
 import { Account } from "../models/account.js";
 import { Types } from "mongoose";
+import { NotFoundError } from "../models/error.js";
 
-export const resolveRoleFromOTP = async (
-  otp: string,
-) => {
-  try {
-    const domains = await Domain.find().select("+totpSecrets");
+export const resolveRoleFromOTP = async (otp: string) => {
+  const domains = await Domain.find().select("+totpSecrets");
 
-    if (!domains || domains.length <= 0) {
-      return null;
-    }
+  if (!domains || domains.length <= 0) {
+    throw new NotFoundError("Domain or SSO configuration not found");
+  }
 
-    for (const domain of domains) {
-      for (const [role, secret] of Object.entries(domain.totpSecrets)) {
-        const totp = new OTPAuth.TOTP({
-          secret: OTPAuth.Secret.fromBase32(secret),
-        });
-        if (totp.validate({ token: otp, window: 1 }) !== null) {
-          return {domainName: domain.name, role: role as Role} as IDomainMembership;
-        }
+  for (const domain of domains) {
+    for (const [role, secret] of Object.entries(domain.totpSecrets)) {
+      const totp = new OTPAuth.TOTP({
+        secret: OTPAuth.Secret.fromBase32(secret),
+      });
+      if (totp.validate({ token: otp, window: 1 }) !== null) {
+        return {
+          domainName: domain.name,
+          role: role as Role,
+        } as IDomainMembership
       }
     }
-  } catch (error) {
-    return null;
   }
+
+  throw new NotFoundError("Invalid OTP provided");
 };
 
 export const createTOTPForAuthorizedRoles = async (minimumRole: Role) => {

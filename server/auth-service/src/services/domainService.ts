@@ -1,6 +1,11 @@
-import { Domain, type IDomain, type ISSOConfig } from "../models/domain.js";
+import {
+  Domain,
+  type IDomain,
+  type ISSOConfig,
+} from "../models/domain.js";
 import { Account } from "../models/account.js";
 import { createTOTPForAuthorizedRoles } from "./totpService.js";
+import { ConflictError, NotFoundError } from "../models/error.js";
 
 export const createDomain = async (
   domainName: string,
@@ -13,10 +18,10 @@ export const createDomain = async (
   const domain = await Domain.findOne({ name: domainName });
 
   if (domain) {
-    throw new Error("domain already exists");
+    throw new ConflictError(`Domain with name "${domainName}" already exists`);
   }
 
-  const totpSecrets = await createTOTPForAuthorizedRoles("business_staff")
+  const totpSecrets = await createTOTPForAuthorizedRoles("business_staff");
 
   const createdDomain = await Domain.create({
     name: domainName,
@@ -24,12 +29,16 @@ export const createDomain = async (
     authStrategy: authenticationStrategy,
     ...(authenticationStrategy === "oidc" && ssoConfig ? { ssoConfig } : {}),
     totpSecrets,
-    isVisibleFromOutside
+    isVisibleFromOutside,
   });
 
   await Account.findOneAndUpdate(
     { name: creatorAccountName },
-    { $push: { memberships: { domainName: domainName, role: "business_admin" } } },
+    {
+      $push: {
+        memberships: { domainName: domainName, role: "business_admin" },
+      },
+    },
   );
 
   return createdDomain;
@@ -40,14 +49,16 @@ export const getAllDomains = async () => {
 };
 
 export const getAllAllowedDomains = async () => {
-  return Domain.find({ isVisibleFromOutside: true }).select("-ssoConfig.clientSecret");
-}
+  return Domain.find({ isVisibleFromOutside: true }).select(
+    "-ssoConfig.clientSecret",
+  );
+};
 
 export const getDomainByName = async (domainName: string) => {
   return Domain.findOne({ name: domainName }).select("-ssoConfig.clientSecret");
 };
 
-export const getDomainSubdomains = async (name: string): Promise<string[]> => {
+export const getDomainSubdomains = async (name: string) => {
   const result = await Domain.aggregate([
     { $match: { name } },
     {
@@ -67,24 +78,29 @@ export const getDomainSubdomains = async (name: string): Promise<string[]> => {
     },
   ]);
 
-  if (!result[0]) throw new Error(`Domain "${name}" not found`);
+  if (!result[0]) {
+    throw new NotFoundError(`Domain with name "${name}" not found`);
+  }
 
   return result[0].names ?? [];
 };
 
-export const attachSubdomainToDomain = async (domainName: string, subDomain: IDomain) => {
+export const attachSubdomainToDomain = async (
+  domainName: string,
+  subDomain: IDomain,
+) => {
   const parent = await Domain.findOneAndUpdate(
     { name: domainName },
     { $addToSet: { subdomains: subDomain._id } },
   );
-}
+};
 
 // --- Memberships ---
 export const getAccountMemberships = async (accountName: string) => {
   const account = await Account.findOne({ name: accountName });
 
   if (!account) {
-    throw new Error("account not found");
+    throw new NotFoundError(`Account with name "${accountName}" not found`);
   }
 
   return account.memberships;
@@ -97,11 +113,13 @@ export const subscribeInternal = async (
   const domain = await Domain.findOne({ name: domainName });
 
   if (!domain) {
-    throw new Error("Domain not found");
+    return new NotFoundError(`Domain with name "${domainName}" not found`);
   }
 
   if (domain.authStrategy === "oidc") {
-    throw new Error("this domain requires SSO login");
+    throw new NotFoundError(
+      `Domain with name "${domainName}" does not support internal subscription`,
+    );
   }
 
   await Account.findOneAndUpdate(

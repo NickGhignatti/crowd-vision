@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jwt, { type JwtPayload } from "jsonwebtoken";
 
 import type {
   DeviceTokenPayload,
@@ -6,18 +6,21 @@ import type {
 } from "../models/token.js";
 import { getTokenSecret } from "../config/config.js";
 import { Account } from "../models/account.js";
+import { InternalError, NotFoundError } from "../models/error.js";
 
-export const generateStandardToken = async (payload: StandardTokenPayload) => {
+export const generateStandardToken = async (
+  payload: StandardTokenPayload,
+) => {
   const secret = getTokenSecret();
 
   if (!secret) {
-    throw new Error("secret configuration error");
+    throw new InternalError("Missing token secrets configuration");
   }
 
-  const account = await Account.findOne({name: payload.accountName});
+  const account = await Account.findOne({ name: payload.accountName });
 
   if (!account) {
-    throw new Error(`Account not found: ${payload.accountName}`);
+    throw new NotFoundError(`Account with name "${payload.accountName}" does not exist`);
   }
 
   return jwt.sign(
@@ -35,7 +38,7 @@ export const generateDeviceToken = (payload: DeviceTokenPayload) => {
   const secret = getTokenSecret();
 
   if (!secret) {
-    throw new Error("secret configuration error");
+    throw new InternalError("Missing token secrets configuration");
   }
 
   return jwt.sign(
@@ -55,7 +58,7 @@ export const verifyToken = (token: string) => {
   const secret = getTokenSecret();
 
   if (!secret) {
-    throw new Error("secret configuration error");
+    throw new InternalError("Missing token secrets configuration");
   }
 
   return jwt.verify(token, secret);
