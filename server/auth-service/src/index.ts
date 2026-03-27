@@ -6,6 +6,7 @@ import router from "./router.js";
 import { connectMongo } from "./config/db.js";
 import { getClientUrl } from "./config/config.js";
 import cookieParser from "cookie-parser";
+import { globalErrorHandler } from "./middlewares/errorsMiddleware.js";
 
 const PORT = 3000;
 export const app = express();
@@ -31,6 +32,7 @@ app.use(
 
 app.use("/", router);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(globalErrorHandler);
 
 if (process.env.NODE_ENV !== "test") {
   connectMongo().then(() => {

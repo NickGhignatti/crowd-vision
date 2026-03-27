@@ -7,7 +7,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/helpers/roles.ts', () => ({
+vi.mock('@/helpers/role.ts', () => ({
   getRoleMeta: vi.fn((role: string) => ({ i18nKey: `domains.roles.${role}` })),
 }))
 

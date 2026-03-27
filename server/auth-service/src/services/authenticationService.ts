@@ -3,7 +3,12 @@ import * as client from "openid-client";
 import { Account } from "../models/account.js";
 import { Domain } from "../models/domain.js";
 import { getClientUrl, getServerUrl } from "../config/config.js";
-import type { Role } from "../models/roles.js";
+import type { Role } from "../models/role.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "../models/error.js";
 
 export const registerAccount = async (
   accountName: string,
@@ -13,14 +18,15 @@ export const registerAccount = async (
   const account = await Account.findOne({
     $or: [{ email }, { name: accountName }],
   });
+
   if (account) {
-    throw new Error("user already exists");
+    throw new ConflictError("Account with this email or name already exists");
   }
 
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(password, salt);
 
-  return await Account.create({
+  return Account.create({
     name: accountName,
     email,
     password: passwordHash,
@@ -33,13 +39,14 @@ export const authenticateAccount = async (
   password: string,
 ) => {
   const account = await Account.findOne({ name: accountName });
+
   if (!account) {
-    throw new Error("wrong account name");
+    throw new NotFoundError("Account with this name doesn't exist");
   }
 
   const match = await bcrypt.compare(password, account.password);
   if (!match) {
-    throw new Error("wrong password");
+    throw new ValidationError("Invalid password");
   }
 
   return account;
@@ -55,7 +62,7 @@ export const generateSSOLoginUrl = async (
   );
 
   if (!domain || domain.authStrategy !== "oidc" || !domain.ssoConfig) {
-    throw new Error("SSO not configured for this domain");
+    throw new NotFoundError("SSO not configured for this domain");
   }
 
   // Discover IdP
@@ -91,11 +98,14 @@ export const generateSSOLoginUrl = async (
   return redirectUrl.href;
 };
 
-export const processSSOCallback = async (fullUrl: string) => {
+export const processSSOCallback = async (
+  fullUrl: string,
+) => {
   const currentUrl = new URL(fullUrl, getServerUrl());
   const stateParam = currentUrl.searchParams.get("state");
+
   if (!stateParam) {
-    throw new Error("No state returned from provider");
+    throw new ValidationError("Missing state parameter");
   }
 
   // Decode State
@@ -108,7 +118,7 @@ export const processSSOCallback = async (fullUrl: string) => {
     "+ssoConfig.clientSecret",
   );
   if (!domainDoc || !domainDoc.ssoConfig) {
-    throw new Error("Invalid domain config");
+    throw new NotFoundError("Domain or SSO configuration not found");
   }
 
   const serverUrl = new URL(domainDoc.ssoConfig.issuerUrl);
@@ -127,13 +137,15 @@ export const processSSOCallback = async (fullUrl: string) => {
 
   // Map Roles
   const userGroups = claims ? (claims.groups as string[]) || [] : [];
-  const role: Role = userGroups.includes("admin") || userGroups.includes("platform-admin")
-    ? "admin"
-    : userGroups.includes("business-admin") || userGroups.includes("business_admin")
-      ? "business_admin"
-      : userGroups.includes("staff") || userGroups.includes("business-staff")
-        ? "business_staff"
-        : "standard_customer";
+  const role: Role =
+    userGroups.includes("admin") || userGroups.includes("platform-admin")
+      ? "admin"
+      : userGroups.includes("business-admin") ||
+          userGroups.includes("business_admin")
+        ? "business_admin"
+        : userGroups.includes("staff") || userGroups.includes("business-staff")
+          ? "business_staff"
+          : "standard_customer";
 
   // Update Account Membership (Upsert)
   await Account.findOneAndUpdate(

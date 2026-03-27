@@ -1,6 +1,6 @@
 import { Schema, model, Document, Types } from "mongoose";
-import type { Role } from "./roles.js";
-import { ROLE_WEIGHTS } from "./roles.js";
+import type { Role } from "./role.js";
+import { ROLE_WEIGHTS } from "./role.js";
 
 export interface ISSOConfig {
   issuerUrl: string;
