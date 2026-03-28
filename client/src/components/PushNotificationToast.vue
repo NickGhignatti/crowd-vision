@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { usePush } from '@/composables/usePush.ts'
+import { useWebPushNotifications } from '@/composables/useWebPushNotifications.ts'
 
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
-const { permission, subscribe, isSupported } = usePush()
+const { permission, subscribe, isSupported } = useWebPushNotifications()
 
 const enableAlerts = async () => {
   await subscribe()

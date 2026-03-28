@@ -8,7 +8,7 @@ const { subscribeMock } = vi.hoisted(() => ({ subscribeMock: vi.fn() }))
 const permission = ref('default')
 const isSupported = ref(true)
 
-vi.mock('@/composables/usePush', () => ({
+vi.mock('@/composables/useWebPushNotifications', () => ({
   usePush: () => ({ permission, isSupported, subscribe: subscribeMock }),
 }))
 

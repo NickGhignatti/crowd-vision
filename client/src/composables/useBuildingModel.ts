@@ -60,7 +60,6 @@ export function useBuildingModel() {
       await domainsStore.fetchMemberships()
       if (!domainsStore.memberships) return
 
-      // Parallel fetch — no more sequential for loop
       await buildingsStore.fetch(domainsStore.memberships)
 
       allBuildings.value = buildingsStore.all
