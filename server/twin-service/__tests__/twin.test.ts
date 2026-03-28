@@ -41,8 +41,8 @@ describe('Twin Service API', () => {
                 .post('/register')
                 .send(mockBuilding);
 
-            expect(res.status).toBe(400);
-            expect(res.body.error).toMatch(/exists/i);
+            expect(res.status).toBe(409);
+            expect(res.body.type).toBeDefined();
         });
     });
 
@@ -104,12 +104,12 @@ describe('Twin Service API', () => {
             expect(room?.capacity).toBe(50);
         });
 
-        it('should return 400 if building not found', async () => {
+        it('should return 404 if building not found', async () => {
             const res = await request(app)
                 .patch('/building/FAKE_BUILDING/room/Room-101')
                 .send({ capacity: 50 });
 
-            expect(res.status).toBe(400);
+            expect(res.status).toBe(404);
         });
 
         it('should return 400 if room not found', async () => {
@@ -117,8 +117,9 @@ describe('Twin Service API', () => {
                 .patch(`/building/${mockBuilding.id}/room/FAKE_ROOM`)
                 .send({ capacity: 50 });
 
-            expect(res.status).toBe(400);
-            expect(res.body.error).toMatch(/room not found/i);
+            expect(res.status).toBe(404);
+            expect(res.body.type).toBeDefined();
+            expect(res.body.message.toLowerCase()).toContain("room");
         });
     });
 });

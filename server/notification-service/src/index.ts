@@ -7,13 +7,12 @@ import { connectRedis } from './config/redis.js';
 import { startNotificationLoop } from './services/notificationService.js';
 import {connectMongo} from "./config/db.js";
 import YAML from "yamljs";
+import {globalErrorHandler} from "./middlewares/errorsMiddleware.js";
 
 dotenv.config();
 
 export const app = express();
 const PORT = process.env.PORT || 3000;
-
-const swaggerDocument = YAML.load("./openapi.yaml");
 
 export const getClientUrl = () =>
   process.env.CLIENT_URL || "http://localhost:5173";
@@ -27,7 +26,6 @@ app.use(
 app.use(express.json());
 
 app.use('/', router);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 const startServer = async () => {
     await connectRedis();
@@ -41,5 +39,7 @@ const startServer = async () => {
         });
     }
 };
+
+app.use(globalErrorHandler);
 
 startServer();

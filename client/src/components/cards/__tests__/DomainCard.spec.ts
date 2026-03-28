@@ -51,7 +51,7 @@ describe('DomainCard.vue', () => {
       })
 
       expect(wrapper.text()).toContain('globex')
-      expect(wrapper.text()).toContain('domains.roles.business_staff')
+      expect(wrapper.text()).toContain('domains.roles.businessStaff')
     })
 
     it('renders the upload button only when canUpload is true', () => {

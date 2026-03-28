@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import Subscription from '../models/subscription.js';
+import {NotFoundError} from "../models/error.js";
 
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY || ''
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY || ''
@@ -19,8 +20,7 @@ export const sendPushToAll = async (payload: any) => {
     const subscriptions = await Subscription.find();
 
     if (subscriptions.length === 0) {
-        console.log('⚠️ No users subscribed! (Check DB connection or collection name)');
-        return;
+        throw new NotFoundError("No subscriptions found to send notifications to.");
     }
 
     const notificationPayload = JSON.stringify({
