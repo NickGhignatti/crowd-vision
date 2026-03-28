@@ -1,3 +1,17 @@
+# [2.6.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.5.1...v2.6.0) (2026-03-28)
+
+
+### Bug Fixes
+
+* remove fetch for using the useApi composable ([c1a4568](https://github.com/NickGhignatti/crowd-vision/commit/c1a45685830128a080e058314636b5ef82c998c7))
+* test with the new way of managing errors ([a76436b](https://github.com/NickGhignatti/crowd-vision/commit/a76436bdd9c710b10036da12b4550e9b25e91fb2))
+
+
+### Features
+
+* error handler ([1fc3a6a](https://github.com/NickGhignatti/crowd-vision/commit/1fc3a6ac6fd8bd984e1390da6090846cb541f023))
+* errors openapi spec ([738637f](https://github.com/NickGhignatti/crowd-vision/commit/738637f9b701b94853ad225a5d472b2070678935))
+
 ## [2.5.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.5.0...v2.5.1) (2026-03-25)
 
 
