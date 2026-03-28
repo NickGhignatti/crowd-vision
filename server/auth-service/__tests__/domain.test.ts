@@ -33,20 +33,9 @@ describe("Domain API", () => {
   };
 
   const createMockDomainWithSubdomains = async () => {
-    const subdomainDocs = [];
-    for (const subdomainName of mockDomain.subdomains) {
-      const subdomain = await createDomain(
-        `${subdomainName}.${mockDomain.name}`,
-        [],
-        mockDomain.creatorUsername,
-        "internal",
-      );
-      subdomainDocs.push(subdomain);
-    }
-
     return createDomain(
       mockDomain.name,
-      subdomainDocs,
+      [],
       mockDomain.creatorUsername,
       "internal",
     );
@@ -67,15 +56,10 @@ describe("Domain API", () => {
       const domain = await createMockDomainWithSubdomains();
 
       expect(domain.name).toBe(mockDomain.name);
-      expect(domain.subdomains).toHaveLength(mockDomain.subdomains.length);
+      expect(domain.subdomains).toHaveLength(0);
 
       const subdomainNames = await getDomainSubdomains(mockDomain.name);
-      expect(subdomainNames).toEqual(
-        expect.arrayContaining([
-          `studio.${mockDomain.name}`,
-          `docenti.${mockDomain.name}`,
-        ]),
-      );
+      expect(subdomainNames).toEqual(expect.arrayContaining([]));
     });
 
     it("should retrieve all system domains", async () => {

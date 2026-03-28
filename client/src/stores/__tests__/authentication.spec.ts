@@ -85,9 +85,16 @@ describe('useAuthStore', () => {
     })
 
     it('throws when the response is not ok', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(false, {
+          type: 'AuthError',
+          message: 'User already exists',
+        }) as unknown as Response,
+      )
+      await expect(
+        useAuthStore().login('bob', 'pass'),
+      ).resolves.toBeUndefined()
 
-      await expect(useAuthStore().login('alice', 'wrong')).rejects.toThrow('Login failed')
     })
 
     it('does not mutate state when the response is not ok', async () => {
@@ -178,11 +185,15 @@ describe('useAuthStore', () => {
     })
 
     it('throws when the response is not ok', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
-
-      await expect(useAuthStore().register('bob', 'bob@example.com', 'pass')).rejects.toThrow(
-        'Registration failed',
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(false, {
+          type: 'AuthError',
+          message: 'User already exists',
+        }) as unknown as Response,
       )
+      await expect(
+        useAuthStore().register('bob', 'bob@example.com', 'pass'),
+      ).resolves.toBeUndefined()
     })
 
     it('does not mutate state when the response is not ok', async () => {

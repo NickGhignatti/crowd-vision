@@ -4,11 +4,11 @@ import swaggerUi from 'swagger-ui-express';
 import YAML from "yamljs";
 import router from "./router.js";
 import {connectMongo} from "./config/db.js";
+import {globalErrorHandler} from "./middlewares/errorsMiddleware.js";
 
 const PORT = 3000;
 export const app = express()
 
-const swaggerDocument = YAML.load("./openapi.yaml");
 export const getClientUrl = () =>
   process.env.CLIENT_URL || "http://localhost:5173";
 
@@ -20,7 +20,7 @@ app.use(
 );
 app.use(express.json());
 app.use('/', router);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(globalErrorHandler);
 
 if (process.env.NODE_ENV !== 'test') {
     connectMongo().then(() => {

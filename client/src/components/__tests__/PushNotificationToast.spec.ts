@@ -9,7 +9,7 @@ const permission = ref('default')
 const isSupported = ref(true)
 
 vi.mock('@/composables/useWebPushNotifications', () => ({
-  usePush: () => ({ permission, isSupported, subscribe: subscribeMock }),
+  useWebPushNotifications: () => ({ permission, isSupported, subscribe: subscribeMock }),
 }))
 
 beforeEach(() => {

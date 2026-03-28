@@ -11,8 +11,6 @@ import { globalErrorHandler } from "./middlewares/errorsMiddleware.js";
 const PORT = 3000;
 export const app = express();
 
-const swaggerDocument = YAML.load("./openapi.yaml");
-
 app.use(
   cors({
     origin: getClientUrl(),
@@ -31,7 +29,6 @@ app.use(
 );
 
 app.use("/", router);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(globalErrorHandler);
 
 if (process.env.NODE_ENV !== "test") {

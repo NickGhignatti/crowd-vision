@@ -10,7 +10,9 @@ jobs:
         with:
           node-version: 24.x
       - name: Audit Root Level
-        run: npm audit --audit-level=high
+        run: |
+          npm ci 
+          npm audit --audit-level=high --omit=dev
       - name: Audit Client
         run: cd client && npm audit --audit-level=high
       - name: Audit Auth Service

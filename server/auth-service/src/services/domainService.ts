@@ -113,7 +113,7 @@ export const subscribeInternal = async (
   const domain = await Domain.findOne({ name: domainName });
 
   if (!domain) {
-    return new NotFoundError(`Domain with name "${domainName}" not found`);
+    throw new NotFoundError(`Domain with name "${domainName}" not found`);
   }
 
   if (domain.authStrategy === "oidc") {

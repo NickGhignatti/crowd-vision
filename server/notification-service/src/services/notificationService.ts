@@ -2,24 +2,17 @@ import redisClient from '../config/redis.js';
 import {sendPushToAll} from "./pushService.js";
 
 export const publishNotification = async (message: string, type: string = 'info') => {
-    try {
-        const payload = {
-            id: Date.now().toString(),
-            message,
-            type,
-            timestamp: new Date()
-        };
+    const payload = {
+        id: Date.now().toString(),
+        message,
+        type,
+        timestamp: new Date()
+    };
 
-        await redisClient.publish('notifications', JSON.stringify(payload));
-        console.log(`📤 Published: ${message}`);
-    } catch (error) {
-        console.error('Error publishing notification:', error);
-    }
+    await redisClient.publish('notifications', JSON.stringify(payload));
 };
 
 export const startNotificationLoop = () => {
-    console.log('⏰ Starting 10-second notification loop...');
-
     setInterval(async () => {
         await publishNotification(`System Status Check: ${new Date().toLocaleTimeString()}`, 'info');
         await sendPushToAll({ title: 'Critical Alert', message: "HALLO" })
