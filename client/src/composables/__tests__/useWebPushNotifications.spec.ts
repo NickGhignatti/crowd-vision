@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import { usePush } from '../usePush'
+import { useWebPushNotifications } from '../useWebPushNotifications.ts'
 
-describe('usePush', () => {
+describe('useWebPushNotifications', () => {
   const MOCK_VAPID_KEY = 'AQID'
 
   type MockRegistration = {
@@ -65,7 +65,7 @@ describe('usePush', () => {
   })
 
   it('correctly detects support', () => {
-    const { isSupported } = usePush()
+    const { isSupported } = useWebPushNotifications()
     expect(isSupported.value).toBe(true)
   })
 
@@ -74,7 +74,7 @@ describe('usePush', () => {
     // @ts-expect-error
     delete global.window.PushManager
 
-    const { isSupported, subscribe } = usePush()
+    const { isSupported, subscribe } = useWebPushNotifications()
     expect(isSupported.value).toBe(false)
 
     await subscribe()
@@ -82,7 +82,7 @@ describe('usePush', () => {
   })
 
   it('subscribes successfully (New Subscription)', async () => {
-    const { subscribe, isSubscribed, permission } = usePush()
+    const { subscribe, isSubscribed, permission } = useWebPushNotifications()
 
     // The composable fetches VAPID key first, then posts the subscription.
     const fetchMock = vi
@@ -108,6 +108,7 @@ describe('usePush', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining('/notification/public-key'),
+      expect.objectContaining({ method: 'GET' }),
     )
 
     // Check second call (Subscribe POST)
@@ -129,7 +130,7 @@ describe('usePush', () => {
   })
 
   it('handles Key Mismatch (Resubscribes)', async () => {
-    const { subscribe } = usePush()
+    const { subscribe } = useWebPushNotifications()
 
     global.fetch = vi
       .fn()
@@ -149,7 +150,7 @@ describe('usePush', () => {
   })
 
   it('handles API errors gracefully', async () => {
-    const { subscribe, permission } = usePush()
+    const { subscribe, permission } = useWebPushNotifications()
 
     global.fetch = vi.fn().mockRejectedValue(new Error('Network Error'))
 
@@ -159,7 +160,7 @@ describe('usePush', () => {
   })
 
   it('handles Server Subscription failure', async () => {
-    const { subscribe, permission } = usePush()
+    const { subscribe, permission } = useWebPushNotifications()
 
     global.fetch = vi
       .fn()

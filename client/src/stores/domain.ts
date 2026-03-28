@@ -19,7 +19,7 @@ export const useDomainsStore = defineStore('domains', {
         const { accountName } = useAuthStore()
         const res = await makeRequest(`/auth/domains/${accountName}`)
         const data = await res.json()
-        this.memberships = data.domains ?? []
+        this.memberships = res.ok ? (data.domains ?? []) : []
       } finally {
         this.loading = false
       }
@@ -31,7 +31,7 @@ export const useDomainsStore = defineStore('domains', {
       try {
         const res = await makeRequest('/auth/domains')
         const data = await res.json()
-        this.allDomains = data.domains ?? []
+        this.allDomains = res.ok ? (data.domains ?? []) : []
       } finally {
         this.loadingAll = false
       }

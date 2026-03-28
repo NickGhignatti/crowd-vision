@@ -1,8 +1,8 @@
 import { ref } from 'vue'
+import { makeRequest } from '@/composables/useApi.ts'
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || ''
-
-export function usePush() {
+export function useWebPushNotifications() {
+  // Detects if the browser supports both Service Workers and the Push API
   const isSupported = ref('serviceWorker' in navigator && 'PushManager' in window)
   const permission = ref(Notification.permission)
   const isSubscribed = ref(false)
@@ -31,16 +31,21 @@ export function usePush() {
     if (!isSupported.value) return
 
     try {
-      const keyResponse = await fetch(`${SERVER_URL}/notification/public-key`)
-      if (!keyResponse.ok) throw new Error('Could not fetch VAPID key')
-      const { publicVapidKey } = await keyResponse.json()
+      const keyResponse = await makeRequest(`/notification/public-key`)
+      const data = await keyResponse.json()
+
+      if (!keyResponse.ok){
+        console.log(`Failed to fetch VAPID key: ${data.type} - ${data.message}`)
+        return
+      }
 
       const register = await navigator.serviceWorker.register('/service-worker.js')
       let subscription = await register.pushManager.getSubscription()
 
+      // If is present an old subscription with different keys I have to update the server key
       if (subscription) {
         const currentKey = subscription.options.applicationServerKey
-        if (!areKeysEqual(publicVapidKey, currentKey)) {
+        if (!areKeysEqual(data.publicVapidKey, currentKey)) {
           await subscription.unsubscribe()
           subscription = null
         }
@@ -49,18 +54,18 @@ export function usePush() {
       if (!subscription) {
         subscription = await register.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
+          applicationServerKey: urlBase64ToUint8Array(data.publicVapidKey),
         })
       }
 
-      const response = await fetch(`${SERVER_URL}/notification/subscribe`, {
-        method: 'POST',
+      const response = await makeRequest(`/notification/subscribe`, 'POST', {
         body: JSON.stringify(subscription),
-        headers: { 'Content-Type': 'application/json' },
       })
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`)
+        const errorData = await response.json()
+        console.log(`Failed to subscribe: ${errorData.type} - ${errorData.message}`)
+        return
       }
 
       isSubscribed.value = true
