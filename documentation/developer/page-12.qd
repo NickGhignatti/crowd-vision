@@ -12,7 +12,7 @@ Because the entire ecosystem is containerized, your day-to-day workflow relies e
 For active development, you will almost exclusively use the `dev` script.
 
 .code lang:{bash} 
-    npm run dev
+    npm run docker:dev
 
 What happens when you run this?
 1. The script first executes setup.js to verify your `.env` file and cryptographic keys are intact.
@@ -54,7 +54,7 @@ You do not need to restart the server when you change code.
 If you just want to run the application to test it without making code changes (or if you are deploying it to a staging server), use the standard start command:
 
 .code lang:{bash}
-    npm start
+    npm run docker:start
 
 This command runs the stack using only the base `docker-compose.yml` file.
 - It runs in detached mode (`-d`), meaning it will start the containers in the background and free up your terminal.
@@ -69,7 +69,7 @@ When you are done working, you should gracefully spin down the containers and re
 To stop the application:
 
 .code lang:{bash} 
-    npm run stop
+    npm run docker:stop
 
 *The "Nuclear" Option*
 Occasionally, during development, you might corrupt your database state (e.g., by uploading an invalid building schema while testing). If you want to wipe everything and start completely fresh, you can use the clear command.
@@ -78,7 +78,7 @@ Occasionally, during development, you might corrupt your database state (e.g., b
     This command is destructive. It will permanently delete the persistent Docker volumes containing your databases.
 
 .code lang:{bash}
-    npm run clear
+    npm run db:clear
 
 After running this, the next time you boot the app, the databases will be completely empty. You will need to `run npm run enterprise:create` again to bootstrap a new admin account!
 
