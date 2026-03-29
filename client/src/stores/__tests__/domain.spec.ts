@@ -53,7 +53,7 @@ describe('useDomainsStore', () => {
   })
 
   describe('fetchMemberships', () => {
-    it('calls authenticatedFetch with the account-scoped URL', async () => {
+    it('calls makeRequest with the account-scoped URL', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
         makeResponse(true, { domains: [] }) as unknown as Response,
       )
@@ -95,7 +95,7 @@ describe('useDomainsStore', () => {
       expect(store.memberships).toEqual([])
     })
 
-    it('does not call authenticatedFetch when memberships are already cached', async () => {
+    it('does not call makeRequest when memberships are already cached', async () => {
       const store = useDomainsStore()
       store.memberships = [makeMembership('acme')]
 
@@ -104,13 +104,17 @@ describe('useDomainsStore', () => {
       expect(makeRequest).not.toHaveBeenCalled()
     })
 
-    it('does not call authenticatedFetch when a fetch is already in flight', async () => {
+    it('only calls makeRequest once when multiple fetches happen concurrently', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, { domains: [] }) as unknown as Response,
+      )
       const store = useDomainsStore()
-      store.loading = true
 
-      await store.fetchMemberships()
+      const fetch1 = store.fetchMemberships()
+      const fetch2 = store.fetchMemberships()
+      await Promise.all([fetch1, fetch2])
 
-      expect(makeRequest).not.toHaveBeenCalled()
+      expect(makeRequest).toHaveBeenCalledTimes(1)
     })
 
     it('does not overwrite an existing empty-array cache', async () => {
@@ -159,7 +163,7 @@ describe('useDomainsStore', () => {
   })
 
   describe('fetchAll', () => {
-    it('calls authenticatedFetch with the shared domains endpoint', async () => {
+    it('calls makeRequest with the shared domains endpoint', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
         makeResponse(true, { domains: [] }) as unknown as Response,
       )
@@ -190,7 +194,7 @@ describe('useDomainsStore', () => {
       expect(store.allDomains).toEqual([])
     })
 
-    it('does not call authenticatedFetch when allDomains is already cached', async () => {
+    it('does not call makeRequest when allDomains is already cached', async () => {
       const store = useDomainsStore()
       store.allDomains = [makeDomain('acme')]
 
@@ -199,13 +203,17 @@ describe('useDomainsStore', () => {
       expect(makeRequest).not.toHaveBeenCalled()
     })
 
-    it('does not call authenticatedFetch when a fetch is already in flight', async () => {
+    it('only calls makeRequest once when multiple fetchAll happen concurrently', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, { domains: [] }) as unknown as Response,
+      )
       const store = useDomainsStore()
-      store.loadingAll = true
 
-      await store.fetchAll()
+      const fetch1 = store.fetchAll()
+      const fetch2 = store.fetchAll()
+      await Promise.all([fetch1, fetch2])
 
-      expect(makeRequest).not.toHaveBeenCalled()
+      expect(makeRequest).toHaveBeenCalledTimes(1)
     })
 
     it('does not overwrite an existing empty-array cache', async () => {
@@ -342,16 +350,20 @@ describe('useSubdomainsStore', () => {
   })
 
   describe('fetch', () => {
-    it('does not call authenticatedFetch when already loading', async () => {
+    it('does not call makeRequest when already loading', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, ['sub1']) as unknown as Response)
+
       const store = useSubdomainsStore()
-      store.loading = true
+      const memberships = [makeMembership('acme')]
 
-      await store.fetch([makeMembership('acme')])
+      const fetch1 = store.fetch(memberships)
+      const fetch2 = store.fetch(memberships)
+      await Promise.all([fetch1, fetch2])
 
-      expect(makeRequest).not.toHaveBeenCalled()
+      expect(makeRequest).toHaveBeenCalledTimes(1)
     })
 
-    it('does not call authenticatedFetch when all memberships are already cached', async () => {
+    it('does not call makeRequest when all memberships are already cached', async () => {
       const store = useSubdomainsStore()
       store.byDomain = { acme: ['sub1'] }
 
@@ -360,13 +372,13 @@ describe('useSubdomainsStore', () => {
       expect(makeRequest).not.toHaveBeenCalled()
     })
 
-    it('does not call authenticatedFetch when the memberships list is empty', async () => {
+    it('does not call makeRequest when the memberships list is empty', async () => {
       await useSubdomainsStore().fetch([])
 
       expect(makeRequest).not.toHaveBeenCalled()
     })
 
-    it('calls authenticatedFetch with the correct URL for each missing domain', async () => {
+    it('calls makeRequest with the correct URL for each missing domain', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
         makeResponse(true, ['sub1']) as unknown as Response,
       )
