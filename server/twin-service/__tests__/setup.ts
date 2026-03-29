@@ -20,7 +20,5 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  // Disconnect this worker's mongoose connection.
-  // The MongoMemoryServer itself is stopped by globalTeardown.cjs.
   await mongoose.disconnect();
 });

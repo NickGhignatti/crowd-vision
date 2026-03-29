@@ -108,13 +108,18 @@ describe('useBuildingsStore', () => {
   })
 
   describe('fetch', () => {
-    it('does not call authenticatedFetch when already loading', async () => {
+    it('only calls the API once when multiple fetches happen concurrently', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, [makeBuilding('b1')]) as unknown as Response,
+      )
       const store = useBuildingsStore()
-      store.loading = true
+      const memberships = [makeMembership('acme')]
 
-      await store.fetch([makeMembership('acme')])
+      const fetch1 = store.fetch(memberships)
+      const fetch2 = store.fetch(memberships)
+      await Promise.all([fetch1, fetch2])
 
-      expect(makeRequest).not.toHaveBeenCalled()
+      expect(makeRequest).toHaveBeenCalledTimes(1)
     })
 
     it('does not call authenticatedFetch when all memberships are already cached', async () => {

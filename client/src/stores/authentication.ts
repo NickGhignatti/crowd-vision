@@ -8,6 +8,7 @@ export const useAuthStore = defineStore('authentication', {
     accountName: null as string | null,
     isAuthenticated: false,
     isHydrated: false, // has the /me call completed?
+    _hydratePromise: null as Promise<void> | null,
   }),
 
   actions: {
@@ -18,7 +19,7 @@ export const useAuthStore = defineStore('authentication', {
       const data = await res.json()
       if (!res.ok) {
         console.log(`Failed to login: ${data.type} - ${data.message}`)
-        return;
+        return
       }
       this.accountName = data.account.accountName
       this.isAuthenticated = true
@@ -52,18 +53,26 @@ export const useAuthStore = defineStore('authentication', {
 
     // Called once on app startup to re-hydrate from the cookie
     async hydrate() {
-      try {
-        const res = await makeRequest('/auth/me')
-        if (res.ok) {
-          const data = await res.json()
-          this.accountName = data.accountName
-          this.isAuthenticated = true
+      if (this.isHydrated) return Promise.resolve()
+      if (this._hydratePromise) return this._hydratePromise
+
+      this._hydratePromise = (async () => {
+        try {
+          const res = await makeRequest('/auth/me')
+          if (res.ok) {
+            const data = await res.json()
+            this.accountName = data.accountName
+            this.isAuthenticated = true
+          }
+        } catch {
+          // Cookie missing or expired — user is logged out, do nothing
+        } finally {
+          this.isHydrated = true
+          this._hydratePromise = null
         }
-      } catch {
-        // Cookie missing or expired — user is logged out, do nothing
-      } finally {
-        this.isHydrated = true
-      }
+      })()
+
+      return this._hydratePromise
     },
   },
 })
