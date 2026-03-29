@@ -1,3 +1,10 @@
+## [2.6.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.6.0...v2.6.1) (2026-03-29)
+
+
+### Bug Fixes
+
+* stores promises ([5be9399](https://github.com/NickGhignatti/crowd-vision/commit/5be9399368ab151920e443d7c8a5518db1e0834c))
+
 # [2.6.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.5.1...v2.6.0) (2026-03-28)
 
 
