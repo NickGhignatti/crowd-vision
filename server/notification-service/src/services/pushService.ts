@@ -20,7 +20,7 @@ export const sendPushToAll = async (payload: any) => {
     const subscriptions = await Subscription.find();
 
     if (subscriptions.length === 0) {
-        throw new NotFoundError("No subscriptions found to send notifications to.");
+        return;
     }
 
     const notificationPayload = JSON.stringify({

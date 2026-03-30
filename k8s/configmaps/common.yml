@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-config
+  namespace: crowdvision
+data:
+  REDIS_URL: "redis://redis:6379"
+
+  TWIN_SERVICE_URL: "http://twin-service:3000"
+  AUTH_SERVICE_URL: "http://auth-service:3000"
+
+  CLIENT_URL: "http://localhost"
+
+  PORT: "3000"

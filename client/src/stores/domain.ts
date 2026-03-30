@@ -56,6 +56,13 @@ export const useDomainsStore = defineStore('domains', {
       return this._allDomainsPromise
     },
 
+    domainByName(name: string) {
+      if (this.allDomains !== null) {
+        return this.allDomains.filter((domain) => domain.name === name)
+      }
+      return []
+    },
+
     invalidate() {
       this.memberships = null
       this.allDomains = null

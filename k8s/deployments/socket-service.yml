@@ -1,0 +1,68 @@
+# If you ever scale to multiple replicas, Socket.IO connections are stateful
+# (a client is connected to a specific pod), so load balancing needs to use sticky sessions.
+# With 1 replica it's a non-issue, and your Redis adapter already handles the pub/sub
+# across instances if you scale later.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: socket-service
+  namespace: crowdvision
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: socket-service
+  template:
+    metadata:
+      labels:
+        app: socket-service
+    spec:
+      initContainers:
+        - name: wait-for-redis
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z redis 6379; do
+                echo "waiting for redis..."
+                sleep 2
+              done
+      containers:
+        - name: socket-service
+          image: ghcr.io/nickghignatti/crowdvision-socket:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: common-config    # PORT, REDIS_URL, CLIENT_URL
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: socket-service
+  namespace: crowdvision
+spec:
+  selector:
+    app: socket-service
+  ports:
+    - port: 3000
+      targetPort: 3000
