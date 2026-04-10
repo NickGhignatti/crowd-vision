@@ -1,38 +1,45 @@
 openapi: 3.1.0
 info:
-  title: Auth Service API
-  description: API for user authentication and domain management.
+  title: Sensor Service API
+  description: API for managing and retrieving sensor signals (people count and temperature).
   version: 1.0.0
 servers:
-  - url: http://localhost:80/auth/
+  - url: http://localhost:80/sensor/
     description: Local development server
 paths:
-  /register:
+  /peopleCount:
     post:
-      summary: Register a new user
+      summary: Create a people count signal
       tags:
-        - Auth
+        - People Count
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - twinId
+                - roomId
+                - timestamp
+                - peopleCount
               properties:
-                username:
+                twinId:
                   type: string
-                  example: "jdoe"
-                email:
+                  example: "twin-123"
+                roomId:
                   type: string
-                  format: email
-                  example: "jdoe@example.com"
-                password:
+                  example: "room-A"
+                timestamp:
                   type: string
-                  format: password
-                  example: "securePassword123"
+                  format: date-time
+                  example: "2023-10-01T12:00:00Z"
+                peopleCount:
+                  type: integer
+                  example: 42
       responses:
         '201':
-          description: User created successfully
+          description: People count signal created
           content:
             application/json:
               schema:
@@ -40,45 +47,73 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "User created"
-                  userId:
-                    type: string
-                    example: "60d5ecb8b392d7001f8e4b5a"
-                  username:
-                    type: string
-                    example: "jdoe"
+                    example: "People count signal created"
         '400':
-          description: Bad request
+          $ref: '#/components/responses/BadRequest'
+    get:
+      summary: Get latest people count signal for a specific room
+      tags:
+        - People Count
+      parameters:
+        - in: query
+          name: twin
+          schema:
+            type: string
+          required: true
+          description: Twin ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+      responses:
+        '200':
+          description: Successful response
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  error:
-                    type: string
+                  peopleCount:
+                    type: object
+                    description: Latest people count data
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
-  /login:
+  /temperature:
     post:
-      summary: Login a user
+      summary: Create a temperature signal
       tags:
-        - Auth
+        - Temperature
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - twinId
+                - roomId
+                - timestamp
+                - temperature
               properties:
-                username:
+                twinId:
                   type: string
-                  example: "jdoe"
-                password:
+                  example: "twin-123"
+                roomId:
                   type: string
-                  format: password
-                  example: "securePassword123"
+                  example: "room-A"
+                timestamp:
+                  type: string
+                  format: date-time
+                  example: "2023-10-01T12:00:00Z"
+                temperature:
+                  type: number
+                  example: 22.5
       responses:
-        '200':
-          description: Login successful
+        '201':
+          description: Temperature signal created
           content:
             application/json:
               schema:
@@ -86,99 +121,253 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Login successful"
-                  userId:
-                    type: string
-                    example: "60d5ecb8b392d7001f8e4b5a"
-                  username:
-                    type: string
-                    example: "jdoe"
+                    example: "Temperature signal created"
         '400':
-          description: Invalid credentials or error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-
-  /domain/{username}:
+          $ref: '#/components/responses/BadRequest'
     get:
-      summary: Get user domain information
+      summary: Get latest temperature signal for a specific room
       tags:
-        - Domain
+        - Temperature
       parameters:
-        - in: path
-          name: username
+        - in: query
+          name: twin
           schema:
             type: string
           required: true
-          description: The username to fetch the domain for
-      responses:
-        '200':
-          description: User domain retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  domain:
-                    $ref: '#/components/schemas/Domain'
-        '400':
-          description: Error retrieving domain
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-
-  /domain/level/{username}:
-    get:
-      summary: Get user domain level
-      tags:
-        - Domain
-      parameters:
-        - in: path
-          name: username
+          description: Twin ID
+        - in: query
+          name: roomId
           schema:
             type: string
           required: true
-          description: The username to fetch the domain level for
+          description: Room ID
       responses:
         '200':
-          description: Domain level retrieved successfully
+          description: Successful response
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  domainLevel:
-                    type: string # Assuming string or number based on context
-                    description: The level associated with the user's domain
+                  temperature:
+                    type: object
+                    description: Latest temperature data
         '400':
-          description: Error retrieving domain level
+          $ref: '#/components/responses/BadRequest'
+
+  /peopleCount/entireTwin:
+    get:
+      summary: Get all latest people count signals for an entire twin
+      tags:
+        - People Count
+      parameters:
+        - in: query
+          name: twin
+          schema:
+            type: string
+          required: true
+          description: Twin ID
+      responses:
+        '200':
+          description: Successful response
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  error:
-                    type: string
+                  peopleCount:
+                    type: array
+                    items:
+                      type: object
+                    description: Array of latest people count signals
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /temperature/entireTwin:
+    get:
+      summary: Get all latest temperature signals for an entire twin
+      tags:
+        - Temperature
+      parameters:
+        - in: query
+          name: twin
+          schema:
+            type: string
+          required: true
+          description: Twin ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: array
+                    items:
+                      type: object
+                    description: Array of latest temperature signals
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /peopleCount/dashboard:
+    get:
+      summary: Get people count dashboard data for a room
+      tags:
+        - People Count
+      parameters:
+        - in: query
+          name: twin
+          schema:
+            type: string
+          required: true
+          description: Twin ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  peopleCount:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated people count data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /temperature/dashboard:
+    get:
+      summary: Get temperature dashboard data for a room
+      tags:
+        - Temperature
+      parameters:
+        - in: query
+          name: twin
+          schema:
+            type: string
+          required: true
+          description: Twin ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated temperature data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /peopleCount/dashboard/entireTwin:
+    get:
+      summary: Get people count dashboard data for an entire twin
+      tags:
+        - People Count
+      parameters:
+        - in: query
+          name: twin
+          schema:
+            type: string
+          required: true
+          description: Twin ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  peopleCount:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated people count data for the twin
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /temperature/dashboard/entireTwin:
+    get:
+      summary: Get temperature dashboard data for an entire twin
+      tags:
+        - Temperature
+      parameters:
+        - in: query
+          name: twin
+          schema:
+            type: string
+          required: true
+          description: Twin ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated temperature data for the twin
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
 components:
-  schemas:
-    Domain:
-      type: object
-      properties:
-        name:
-          type: string
-          example: "crowd-vision"
-        subdomain:
-          type: string
-          example: "analytics"
-      required:
-        - name
-  
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Invalid input provided"

@@ -6,6 +6,13 @@ import { useUserPermissions } from '@/composables/useUserPermissions'
 
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getTwinData } from '@/composables/useSensorData'
+
+export interface RoomItemBody {
+  room: RoomPayload
+  temp: number | undefined
+  people: number | undefined
+}
 
 const props = defineProps<{
   building: BuildingPayload | null
@@ -66,6 +73,37 @@ watch(
     }
   },
 )
+
+const buildingId = computed(() => props.building?.id)
+
+const { 
+  data: peopleData, 
+  isLoading: loadingPeople 
+} = getTwinData(buildingId, 'peopleCount')
+
+const { 
+  data: temperatures, 
+  isLoading: loadingTemperature
+} = getTwinData(buildingId, 'temperature')
+
+const enrichedRooms = computed<RoomItemBody[]>(() => {
+  if (!props.building) return []
+
+  return filteredRooms.value.map((room) => {
+    const roomTempData = temperatures.value?.find(
+      (t: any) => t.roomId === room.id
+    )
+    const roomPeople = peopleData.value?.find(
+      (p: any) => p.roomId === room.id
+    )
+
+    return {
+      room,
+      temp: roomTempData?.value,
+      people: roomPeople?.value 
+    }
+  })
+})
 
 const handleOpenEdit = (room: RoomPayload) => {
   editingRoom.value = room
@@ -167,14 +205,16 @@ const saveRoomConfig = async (updates: Partial<RoomPayload>) => {
 
           <div v-else class="space-y-3">
             <div
-              v-for="room in filteredRooms"
-              :key="room.id"
-              :ref="(el) => (roomRefs[room.id] = el as HTMLElement)"
+              v-for="r in enrichedRooms"
+              :key="r.room.id"
+              :ref="(el) => (roomRefs[r.room.id] = el as HTMLElement)"
             >
               <RoomItem
-                :room="room"
-                :is-selected="props.selectedRoomId === room.id"
+                :room="r.room"
+                :is-selected="props.selectedRoomId === r.room.id"
                 :can-edit="userCanEdit"
+                :temp=r.temp
+                :people=r.people
                 @select="emit('toggle-select', $event)"
                 @edit="handleOpenEdit"
               />

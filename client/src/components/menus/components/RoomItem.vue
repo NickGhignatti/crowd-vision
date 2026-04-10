@@ -9,6 +9,8 @@ const props = defineProps<{
   room: RoomPayload
   isSelected: boolean
   canEdit?: boolean
+  temp: number | undefined
+  people: number | undefined
 }>()
 
 const emit = defineEmits<{
@@ -63,13 +65,13 @@ const getTempColor = (temp: number) => {
     <div class="space-y-2">
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.temperature') }}</span>
-        <span class="font-bold" :class="getTempColor(22)"> 22°C </span>
+        <span class="font-bold" :class="getTempColor(props.temp ? props.temp: 0)"> {{ props.temp }} </span>
       </div>
 
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.occupancy') }}</span>
         <div class="flex items-center gap-1.5 text-slate-700 font-bold">
-          <span>1 / {{ room.capacity }}</span>
+          <span>{{ props.people }} / {{ room.capacity }}</span>
           <i class="ph-bold ph-users text-slate-400"></i>
         </div>
       </div>

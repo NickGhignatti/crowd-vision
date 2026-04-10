@@ -6,6 +6,7 @@ import RightMenu from '@/components/menus/RightMenu.vue'
 import ViewControls from '@/components/menus/ControlPanel.vue'
 import { useBuildingModel } from '@/composables/useBuildingModel'
 import { useSceneControls } from '@/composables/useSceneControls'
+import { getTwinData } from '@/composables/useSensorData'
 
 import { onMounted } from 'vue'
 import { TresCanvas } from '@tresjs/core'
@@ -136,6 +137,7 @@ onMounted(() => {
       <RightMenu
         :building="model.displayedBuilding.value"
         :selected-room-id="model.selectedRoomId.value"
+        :selected-id="model.building.value?.id || null"
         @toggle-select="model.toggleRoom"
       />
     </div>
