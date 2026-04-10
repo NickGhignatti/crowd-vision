@@ -1,10 +1,10 @@
-export interface DomainPayload {
+export interface Domain {
   name: string
   subdomains: string[]
   authStrategy: 'internal' | 'oidc'
 }
 
-export interface SSODomainPayload {
+export interface SSODomain {
   name: string
   subdomains: string[]
   authStrategy: 'internal' | 'oidc'
@@ -19,6 +19,6 @@ export interface ISSOConfig {
 
 export interface DomainMembership {
   domainName: string
-  role: 'owner' | 'admin' | 'viewer'
+  role: string
   externalId?: string
 }

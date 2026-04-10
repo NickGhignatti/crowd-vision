@@ -21,7 +21,7 @@ export interface TableBody {
 const props = withDefaults(
   defineProps<{
     headers: TableHeader[]
-    items: TableBody[]
+    roomsData: TableBody[]
     itemsPerPage?: number
     selectedTwinId: string | undefined
   }>(),

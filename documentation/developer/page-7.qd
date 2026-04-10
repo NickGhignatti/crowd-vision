@@ -1,0 +1,87 @@
+.docname {Communication Patterns in our Architecture}
+.include {docs}
+
+In a microservices architecture, how services communicate is just as important as what they do. CrowdVision intentionally restricts direct, synchronous service-to-service HTTP communication to prevent tight coupling and cascading failures.
+
+Instead, the platform relies on three primary communication paradigms:
+1. **API Gateway Routing** (External to Internal)
+2. **Event-Driven Pub/Sub** (Internal Service to Service)
+3. **Stateless Trust** (Cross-Service Authorization)
+
+---
+
+## 1. Client-to-Service (API Gateway)
+
+All external communication from the Vue frontend or IoT sensors is routed through the **Caddy Reverse Proxy**. 
+
+The client never speaks to a microservice directly. Caddy terminates the SSL/TLS connection, reads the URL path (e.g., `/twin/buildings`), strips the prefix, and forwards the request to the correct internal Docker container on the `gateway-net`.
+
+---
+
+## 2. Service-to-Service (Event-Driven via Redis)
+
+When one microservice needs to inform another that something happened (e.g., the Notification Service detects a crowded room and needs the Socket Service to update the UI), **they do not use direct HTTP calls**.
+
+Instead, CrowdVision uses **Redis** as a central message broker implementing the Publish/Subscribe (Pub/Sub) pattern.
+
+.mermaid 
+    graph LR
+        subgraph Producers
+            NS[Notification Service]
+        end
+
+        subgraph Message Broker
+            R[(Redis Pub/Sub)]
+        end
+
+        subgraph Consumers
+            SS[Socket Service]
+            LLM[LLM Agent Service]
+        end
+
+        NS -- "1. PUBLISH ('notifications', payload)" --> R
+        R -- "2. Broadcast" --> SS
+        R -- "2. Broadcast" --> LLM
+
+### Why Redis Pub/Sub?
+- *Decoupling*: The notification-service (Producer) does not need to know the IP address, port, or even the existence of the socket-service (Consumer). It simply fires the event into the ether and forgets about it.
+- *Extensibility*: If we want our future AI service to log an anomaly every time a room gets overcrowded, we don't need to rewrite the Notification service to send a second HTTP request. We simply instruct the LLM service to SUBSCRIBE to the Redis channel.
+
+---
+
+## 3. Stateless Trust (Cross-Service Authorization)
+A major challenge in a Database-per-Service architecture is Authorization.
+If a user asks the Twin Service to delete a building, the Twin Service needs to know if the user is an Admin. However, the Twin Service cannot query the Auth Database because of strict network isolation.
+To solve this without synchronous HTTP calls to the Auth service, CrowdVision uses Stateless *JWT*s (JSON Web Tokens).
+
+.mermaid 
+    sequenceDiagram
+        participant Client as Vue Client
+        participant Auth as Auth Service
+        participant Twin as Twin Service
+
+        Client->>Auth: POST /auth/login
+        Note over Auth: Verifies DB, generates JWT with<br/>embedded Domain Memberships
+        Auth-->>Client: Returns JWT
+        
+        Client->>Twin: DELETE /twin/buildings/123<br/>Header: Bearer {JWT}
+        Note over Twin: Validates JWT signature locally<br/>using shared secret
+        Note over Twin: Reads memberships from JWT payload.<br/>No DB call to Auth required!
+        Twin-->>Client: 200 OK (Building Deleted)
+
+### The Embedded Payload Pattern
+When the Auth Service mints a token, it embeds the user's `IDomainMembership` array directly into the JWT payload.
+Because the Twin and Notification services share the same cryptographic `JWT_SECRET`, they can cryptographically verify the token's authenticity. Once verified, the Twin Service simply reads the memberships from the token payload to authorize the request, entirely eliminating the need for inter-service communication.
+
+---
+
+## 4. IoT Sensor to Service (Multiplexing)
+Physical or simulated IoT sensors communicate their telemetry to the backend using either HTTP POSTs or the Socket.IO protocol.
+- *The Multiplexing Pattern*: Instead of spinning up a unique WebSocket server for every physical room, CrowdVision uses a many-to-one multiplexing pattern.
+- Hundreds of sensor clients connect to the single `socket-service` instance.
+- To differentiate the data streams, each sensor must include its corresponding `Room id` inside its JSON payload
+
+
+
+
+

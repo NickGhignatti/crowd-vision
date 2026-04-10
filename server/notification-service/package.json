@@ -1,6 +1,6 @@
 {
   "name": "notification-service",
-  "version": "2.0.1",
+  "version": "2.6.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -46,6 +46,8 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
+    "globalSetup": "./__tests__/globalSetup.cjs",
+    "globalTeardown": "./__tests__/globalTeardown.cjs",
     "setupFilesAfterEnv": [
       "./__tests__/setup.ts"
     ],

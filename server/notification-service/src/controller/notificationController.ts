@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { publishNotification } from '../services/notificationService.js';
 import Subscription from '../models/subscription.js'
+import {ValidationError} from "../models/error.js";
 
 export const triggerAlert = async (req: Request, res: Response) => {
     const { message, type } = req.body;
@@ -17,24 +18,17 @@ export const publicKey = async (req: Request, res: Response) => {
 };
 
 export const subscribe = async (req: Request, res: Response) => {
-    try {
-        const subscription = req.body;
+    const subscription = req.body;
 
-        if (!subscription || !subscription.endpoint) {
-            res.status(400).json({ error: 'Invalid subscription payload' });
-            return;
-        }
-
-        await Subscription.findOneAndUpdate(
-            { endpoint: subscription.endpoint },
-            subscription,
-            { upsert: true, new: true }
-        );
-
-        console.log('✅ User subscribed successfully');
-        res.status(201).json({ success: true });
-    } catch (error) {
-        console.error('❌ Subscribe Error:', error);
-        res.status(500).json({ error: 'Failed to subscribe' });
+    if (!subscription || !subscription.endpoint) {
+        throw new ValidationError("Invalid subscription object received");
     }
+
+    await Subscription.findOneAndUpdate(
+        { endpoint: subscription.endpoint },
+        subscription,
+        { upsert: true, returnDocument: 'after' }
+    );
+
+    res.status(201).json({ success: true });
 };

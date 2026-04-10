@@ -2,16 +2,11 @@
 import ControlButton from '@/components/buttons/ControlButton.vue'
 
 import { useI18n } from 'vue-i18n'
+import type { BuildingControlPanelProps } from '@/interfaces/building.ts'
 
 const { t } = useI18n()
 
-interface Props {
-  selectedRoomId: string | null
-  isExploded: boolean
-  disabled?: boolean
-}
-
-defineProps<Props>()
+defineProps<BuildingControlPanelProps>()
 
 defineEmits<{
   resetView: []

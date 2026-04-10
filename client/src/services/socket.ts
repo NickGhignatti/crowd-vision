@@ -1,23 +1,6 @@
-import type { NotificationPayload } from "@/models/notification"
-
 import { io, type Socket } from 'socket.io-client'
 import { reactive } from 'vue'
-
-export interface Notification {
-  id: string
-  message: string
-  type: 'info' | 'alert' | 'critical'
-  timestamp: Date
-  read: boolean
-}
-
-interface ServerToClientEvents {
-  notification: (data: NotificationPayload) => void
-}
-
-interface ClientToServerEvents {
-  join_room: (userId: string) => void
-}
+import type { ClientToServerEvents, ServerToClientEvents, Notification } from '@/interfaces/notification.ts'
 
 export const socketState = reactive({
   connected: false,

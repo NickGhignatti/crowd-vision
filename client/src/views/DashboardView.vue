@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
 import FullScreenMode from '@/components/buttons/FullScreenMode.vue'
-import type { RoomPayload, BuildingPayload } from '@/models/building'
+import type { Room, Building } from '@/models/building'
 import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
 import DataTable, { type TableBody, type TableHeader } from '@/components/tables/DataTable.vue'
 
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { makeRequest } from '@/composables/useApi.ts'
 import { useI18n } from 'vue-i18n'
 import GraphDashboard from '@/components/dashboard/GraphDashboard.vue'
 import type { DomainMembership } from '@/models/domain'
@@ -52,7 +53,11 @@ const tableHeaders = ref<TableHeader[]>([
   { key: 'room', label: 'dashboard.table.headers.room', cellClass: 'font-medium text-slate-900' },
   { key: 'status', label: 'dashboard.table.headers.status', cellClass: 'text-sm' },
   { key: 'teacher', label: 'dashboard.table.headers.teacher', cellClass: 'text-sm' },
-  { key: 'temp', label: 'dashboard.table.headers.temperature', cellClass: 'text-slate-900 font-medium' },
+  {
+    key: 'temp',
+    label: 'dashboard.table.headers.temperature',
+    cellClass: 'text-slate-900 font-medium',
+  },
   { key: 'people', label: 'dashboard.table.headers.people', cellClass: 'text-slate-900' },
   {
     key: 'capacity',
@@ -65,13 +70,16 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
   try {
     roomData.value = []
 
-    const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/twin/building/${buildingId}`)
-    if (!response.ok) throw new Error('Failed to fetch building data')
+    const response = await makeRequest(`/twin/building/${buildingId}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch building data')
+    }
 
-    const building = (await response.json()) as BuildingPayload
+    const building = (await response.json()) as Building
 
     if (building && building.rooms) {
-      building.rooms.forEach((room: RoomPayload) => {
+      building.rooms.forEach((room: Room) => {
+        const occupants = Math.floor(Math.random() * room.capacity)
         roomData.value.push({
           room: room.id,
           status: t(getStatusByOccupants(0, room.capacity)),
@@ -200,9 +208,12 @@ onUnmounted(() => {
 
     <div
       ref="focusSection"
-      class="flex flex-col items-center pt-8 px-4 pb-20 bg-slate-50 overflow-y-auto w-full transition-all"
+      class="flex flex-col items-center pt-12 px-4 pb-20 bg-slate-50 overflow-y-auto w-full"
     >
-      <FullScreenMode :is-fullscreen="isFullscreen" @toggleFocusMode="toggleFocusMode"></FullScreenMode>
+      <FullScreenMode
+        :is-fullscreen="isFullscreen"
+        @toggleFocusMode="toggleFocusMode"
+      ></FullScreenMode>
 
       <div class="mb-10 w-full max-w-5xl grid grid-cols-3 items-center">
         

@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import DomainRow from '@/components/tables/components/DomainRow.vue'
-import type { DomainPayload, DomainMembership } from '@/models/domain'
+import type { Domain, DomainMembership } from '@/models/domain'
 
 import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
+import { makeRequest } from '@/composables/useApi.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 // Props: Items are all available domains. userMemberships is the user's current status.
 const props = defineProps<{
-  items: DomainPayload[]
+  domains: Domain[]
   userMemberships: DomainMembership[]
 }>()
 
@@ -36,22 +39,22 @@ watch(
 )
 
 const handleSubscribe = async (index: number) => {
-  const domain = props.items[index]
+  const domain = props.domains[index]
   if (!domain) return
 
-  const username = localStorage.getItem('username')
-  if (!username) return
+  const accountName = authStore.accountName
+  if (!accountName) return
 
   try {
     // STRATEGY A: External SSO (OIDC)
     if (domain.authStrategy === 'oidc') {
-      const res = await fetch(
-        `${import.meta.env.VITE_SERVER_URL}/auth/sso/login/${domain.name}?username=${username}`,
+      const response = await makeRequest(
+        `/auth/sso/login/${domain.name}?accountName=${accountName}`,
       )
 
-      if (!res.ok) throw new Error('Failed to initiate SSO')
+      if (!response.ok) throw new Error('Failed to initiate SSO')
 
-      const data = await res.json()
+      const data = await response.json()
 
       // Redirect the user away to the Identity Provider (e.g., Unibo, Google)
       // They will come back to the app via the backend callback
@@ -64,14 +67,9 @@ const handleSubscribe = async (index: number) => {
     // STRATEGY B: Internal (Crowd Vision Managed)
     subscribedSet.value.add(domain.name)
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SERVER_URL}/auth/domains/${username}/subscribe`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domainName: domain.name }),
-      },
-    )
+    const response = await makeRequest(`/auth/domains/${accountName}/subscribe`, 'POST', {
+      body: JSON.stringify({ domainName: domain.name }),
+    })
 
     if (!response.ok) throw new Error(`Failed to subscribe to ${domain.name}`)
 
@@ -85,22 +83,18 @@ const handleSubscribe = async (index: number) => {
 }
 
 const handleUnsubscribe = async (index: number) => {
-  const domain = props.items[index]
+  const domain = props.domains[index]
   if (!domain) return
 
-  const username = localStorage.getItem('username')
+  const accountName = authStore.accountName
+  if (!accountName) return
 
   try {
     subscribedSet.value.delete(domain.name)
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SERVER_URL}/auth/domains/${username}/unsubscribe`,
-      {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domainName: domain.name }),
-      },
-    )
+    const response = await makeRequest(`/auth/domains/${accountName}/unsubscribe`, 'DELETE', {
+      body: JSON.stringify({ domainName: domain.name }),
+    })
 
     if (!response.ok) throw new Error(`Failed to unsubscribe from ${domain.name}`)
 
@@ -137,7 +131,7 @@ const hasSub = (domainName: string): boolean => {
 
       <tbody class="divide-y divide-slate-100 bg-white">
         <tr
-          v-for="(item, index) in items"
+          v-for="(item, index) in domains"
           :key="index"
           class="group hover:bg-slate-50 transition-colors duration-150"
         >
@@ -150,7 +144,7 @@ const hasSub = (domainName: string): boolean => {
           />
         </tr>
 
-        <tr v-if="items.length === 0">
+        <tr v-if="domains.length === 0">
           <td colspan="2" class="p-8 text-center text-slate-500">
             <div class="flex flex-col items-center gap-2">
               <i class="ph-duotone ph-magnifying-glass text-3xl opacity-50"></i>

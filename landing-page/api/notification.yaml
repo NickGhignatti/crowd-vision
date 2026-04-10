@@ -4,8 +4,8 @@ info:
   description: API for managing push notifications and subscriptions.
   version: 1.0.0
 servers:
-  - url: http://localhost:3003
-    description: Local development server
+  - url: http://localhost/notification
+    description: Local gateway endpoint for Notification Service
 paths:
   /trigger:
     post:
@@ -63,23 +63,9 @@ paths:
                     type: boolean
                     example: true
         '400':
-          description: Invalid subscription payload
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+          $ref: 'error.yaml#/components/responses/BadRequest'
         '500':
-          description: Server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+          $ref: 'error.yaml#/components/responses/InternalServerError'
 
   /public-key:
     get:

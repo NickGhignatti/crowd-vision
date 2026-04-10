@@ -1,52 +1,51 @@
-import request from "supertest";
-import { app } from "../src/index.js";
+import {
+  authenticateAccount,
+  registerAccount,
+} from "../src/services/authenticationService.js";
 
-describe("Auth API", () => {
-  const mockUser = {
-    username: "authTestUser",
+describe("Authentication Service", () => {
+  const mockAccount = {
+    name: "authTestUser",
     email: "auth@example.com",
     password: "password123",
   };
 
-  it("should create a new user", async () => {
-    const res = await request(app).post("/register").send(mockUser);
+  describe("1. Account Registration", () => {
+    it("should create a new Account", async () => {
+      const createdUser = await registerAccount(
+        mockAccount.name,
+        mockAccount.email,
+        mockAccount.password,
+      );
 
-    expect(res.status).toBe(201);
-    expect(res.body).toHaveProperty("userId");
-    expect(res.body.username).toBe(mockUser.username);
+      expect(createdUser.email).toContain(mockAccount.email);
+      expect(createdUser.name).toContain(mockAccount.name);
+      expect(createdUser.password).not.toContain(mockAccount.password);
+    });
   });
 
-  it("should validate an existing user with correct password", async () => {
-    await request(app).post("/register").send(mockUser);
+  describe("2. Account Validation", () => {
+    it("should validate an existing Account with correct password", async () => {
+      await registerAccount(mockAccount.name, mockAccount.email, mockAccount.password);
+      const loggedUser = await authenticateAccount(
+        mockAccount.name,
+        mockAccount.password,
+      );
 
-    const res = await request(app).post("/login").send({
-      username: mockUser.username,
-      password: mockUser.password,
+      expect(loggedUser.email).toContain(mockAccount.email);
+      expect(loggedUser.name).toContain(mockAccount.name);
     });
 
-    expect(res.status).toBe(200);
-    expect(res.body.message).toBe("Login successful");
-    expect(res.body).toHaveProperty("userId");
-  });
+    it("should reject login with incorrect password", async () => {
+      await registerAccount(mockAccount.name, mockAccount.email, mockAccount.password);
 
-  it("should reject login with incorrect password", async () => {
-    await request(app).post("/register").send(mockUser);
-
-    const res = await request(app).post("/login").send({
-      username: mockUser.username,
-      password: "wrongpassword",
+      await expect(
+        authenticateAccount(mockAccount.name, "wrongpassword"),
+      ).rejects.toThrow();
     });
 
-    expect(res.status).toBe(401);
-    expect(res.body.error).toBeDefined();
-  });
-
-  it("should fail if user does not exist", async () => {
-    const res = await request(app).post("/login").send({
-      username: "ghostuser",
-      password: "password",
+    it("should fail if Account does not exist", async () => {
+      await expect(authenticateAccount("temp", "password")).rejects.toThrow();
     });
-
-    expect(res.status).toBe(401);
   });
 });

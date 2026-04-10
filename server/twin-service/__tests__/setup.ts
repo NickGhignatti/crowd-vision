@@ -1,26 +1,24 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import mongoose from 'mongoose';
-
-let mongoServer: MongoMemoryServer;
+import mongoose from "mongoose";
 
 beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const uri = mongoServer.getUri();
-    process.env.MONGO_URI = uri;
-    await mongoose.connect(uri);
-});
+  // Each Jest worker gets its own database within the shared MongoMemoryServer,
+  // so parallel test files can't delete each other's data mid-test.
+  const baseUri = process.env.MONGO_URI!;
+  const dbName = `testdb_worker_${process.env.JEST_WORKER_ID ?? '1'}`;
+  const uri = baseUri.endsWith('/') ? `${baseUri}${dbName}` : `${baseUri}/${dbName}`;
+  await mongoose.connect(uri);
+}, 30_000);
 
 afterEach(async () => {
-    const collections = mongoose.connection.collections;
-    for (const key in collections) {
-        const collection = collections[key];
-        if (collection) {
-            await collection.deleteMany({});
-        }
+  const collections = mongoose.connection.collections;
+  for (const key in collections) {
+    const collection = collections[key];
+    if (collection) {
+      await collection.deleteMany({});
     }
+  }
 });
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
+  await mongoose.disconnect();
 });

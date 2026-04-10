@@ -1,0 +1,60 @@
+.docname {Deep Dive into Microservices}
+.include {docs}
+
+At a macro level, CrowdVision relies on a distributed microservices architecture. However, at a micro level, **each individual service is built as an internally monolithic, layered application**. 
+
+By standardizing the internal architecture of these services, developers can easily jump between the Auth, Twin, or Notification services and instantly understand where to find the business logic, database queries, and route handlers.
+
+---
+
+## 🥞 The Internal Layered Architecture
+
+The primary REST APIs (Auth, Twin, and Notification) share a strict 4-tier internal architecture. The flow of data is strictly unidirectional: requests enter through the Router, pass to the Controller, are processed by the Service, and interact with the Database via the Model.
+
+.mermaid 
+    graph TD
+        subgraph Single Microservice Boundary
+            R[Router Layer<br/>`src/router.ts`] --> C[Controller Layer<br/>`src/controller/`]
+            C --> S[Service Layer<br/>`src/services/`]
+            S --> M[Model Layer<br/>`src/models/`]
+            M -.-> DB[(Dedicated MongoDB)]
+        end
+
+### Layer Breakdown
+- Router Layer (src/router.ts): Acts as the entry point. It defines HTTP methods and paths, attaches middleware (like requireAuth), and delegates the request to the appropriate Controller.
+- Controller Layer: Responsible purely for HTTP concerns. It extracts bodies, parameters, and headers, calls the Service layer, and formats the JSON response or error codes. It contains zero business logic.
+- Service Layer: The heart of the service. All business logic, threshold evaluations, and data manipulation rules reside here.
+- Model Layer: Contains the Mongoose schemas and interfaces representing the Domain Entities (as mapped in the DDD section). It is responsible for database operations and data validation.
+
+---
+
+## 🔍 Service-by-Service Breakdown
+Let's look at the specific responsibilities and internal components of each microservice.
+
+### 1. Auth Service (`/auth/*`)
+The Auth Service is the gatekeeper of the platform.
+- Responsibilities: Account registration, login, JWT minting, Multi-Domain management, and external OIDC/SSO integrations.
+- Internal Structure: * It splits HTTP handlers across multiple controllers (authenticationController, domainController, administrationController).
+- Heavy business logic is separated into specialized services (totpService for 6-digit role codes, tokenService for JWT handling).
+
+### 2. Twin Service (`/twin/*`)
+The Twin Service is the spatial engine.
+- Responsibilities: Full CRUD operations for Building schemas and their child Room entities.
+- Security Notice: Because the Twin Service has its own isolated database, it cannot query the Auth DB to see what domains a user belongs to. Instead, it relies on the self-contained JWT (verified via middleware) to enforce that a user can only read or mutate buildings within their authorized domains.
+
+### 3. Notification Service (`/notification/*`)
+The Notification Service acts as the rule engine and dispatcher.
+- Responsibilities: Receiving sensor POST requests, evaluating them against thresholds, managing offline user Push Subscriptions (VAPID), and publishing events to the Redis broker.
+- Internal Structure: Uses a notificationService to handle Redis publishing and threshold logic, and a pushService specifically designed to handle the encryption and delivery of Web Push payloads to service workers.
+
+### 4. Socket Service (`/socket.io/*`)
+Unlike the REST APIs, the Socket Service is highly specialized and much flatter in its architecture.
+- Responsibilities: Maintaining persistent, multiplexed WebSocket connections to thousands of front-end clients.
+- Design Note: It does not use the Controller/Service/Model pattern because it does not connect to a MongoDB database. It simply runs an index.ts gateway that Subscribes to Redis and emits the incoming payloads directly to connected browsers.
+
+### 5. Agent Service (LLM)
+This service is experimental and represents our future AI capabilities.
+- Responsibilities: Providing natural-language question answering (e.g., "Where is the least crowded room?").
+- Internal Structure: Built on Fastify (instead of Express) for high performance, it utilizes LangChain and type-safe routing with Zod schemas to structure interactions with the LLM providers.
+
+

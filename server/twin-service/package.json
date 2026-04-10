@@ -1,6 +1,6 @@
 {
   "name": "twin-service",
-  "version": "1.0.0",
+  "version": "2.6.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -41,6 +41,8 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
+    "globalSetup": "./__tests__/globalSetup.cjs",
+    "globalTeardown": "./__tests__/globalTeardown.cjs",
     "setupFilesAfterEnv": [
       "./__tests__/setup.ts"
     ],

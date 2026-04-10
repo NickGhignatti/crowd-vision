@@ -2,64 +2,41 @@
 import NavBar from '@/components/NavBar.vue'
 import AddDomainModal from '@/components/modals/AddDomain.vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
-import type { DomainPayload, DomainMembership, SSODomainPayload } from '@/models/domain'
+import type { Domain } from '@/models/domain'
 
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { makeRequest } from '@/composables/useApi.ts'
+import type { DomainToAddWithMaster } from '@/interfaces/domain.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
+const domainsStore = useDomainsStore()
 
-const domains = ref<DomainPayload[]>([])
-const userMemberships = ref<DomainMembership[]>([])
 const searchQuery = ref('')
-const isAddDomainModalOpen = ref(false)
 const isSubmitting = ref(false)
+const isAddDomainModalOpen = ref(false)
+const domains = ref<Domain[]>([])
+const userMemberships = computed(() => domainsStore.memberships ?? [])
 
 const fetchAllDomains = async () => {
-  try {
-    const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/auth/domains`)
-    if (!response.ok) throw new Error('Failed to fetch domains')
-
-    const data = await response.json()
-    if (data && data.domains) {
-      domains.value = data.domains
-    }
-  } catch (error) {
-    console.error('Error fetching domains:', error)
-  }
+  await domainsStore.fetchAll()
+  domains.value = domainsStore.allDomains ?? []
 }
 
-const fetchUserDomains = async () => {
-  try {
-    const username = localStorage.getItem('username')
-    if (!username) return
-
-    const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/auth/domains/${username}`)
-    if (!response.ok) throw new Error('Failed to fetch user domains')
-
-    const data = await response.json()
-    if (data && data.domains) {
-      userMemberships.value = data.domains // backend returns list of Membership objects
-    }
-  } catch (error) {
-    console.error('Error fetching user domains:', error)
-  }
-}
-
-// Handle Creation (Internal or SSO)
-const handleCreateDomain = async (payload: SSODomainPayload) => {
+const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
   isSubmitting.value = true
-  const username = localStorage.getItem('username')
+  const accountName = authStore.accountName
 
   try {
     const body = {
       ...payload,
-      creatorUsername: username,
+      creatorUsername: accountName,
     }
 
-    const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/auth/domains`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await makeRequest(`/auth/domains`, 'POST', {
       body: JSON.stringify(body),
     })
 
@@ -68,8 +45,8 @@ const handleCreateDomain = async (payload: SSODomainPayload) => {
       throw new Error(err.error || 'Failed to create domain')
     }
 
-    await fetchAllDomains()
-    await fetchUserDomains()
+    domainsStore.invalidate() // bust cache after mutation
+    await Promise.all([domainsStore.fetchAll(), domainsStore.fetchMemberships()])
     isAddDomainModalOpen.value = false
   } catch (error) {
     console.error(error)
@@ -89,8 +66,7 @@ const handlePrivateDomain = () => {
 }
 
 onMounted(() => {
-  fetchAllDomains()
-  fetchUserDomains()
+  Promise.all([fetchAllDomains(), domainsStore.fetchMemberships()])
 })
 </script>
 
@@ -142,12 +118,11 @@ onMounted(() => {
       class="flex-1 min-h-0 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col"
     >
       <DomainsTable
-        :items="filteredDomains"
+        :domains="filteredDomains"
         :user-memberships="userMemberships"
         @refresh="
           () => {
             fetchAllDomains()
-            fetchUserDomains()
           }
         "
       />

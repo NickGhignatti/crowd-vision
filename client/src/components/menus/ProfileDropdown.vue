@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 defineProps<{
   isUserDropdownOpen: boolean
@@ -14,7 +16,7 @@ defineEmits<{
   (e: 'closeDropDown'): void
 }>()
 
-const username = ref(localStorage.getItem('username') || 'User')
+const accountName = computed(() => authStore.accountName || 'Account')
 </script>
 
 <template>
@@ -23,7 +25,7 @@ const username = ref(localStorage.getItem('username') || 'User')
       @click="$emit('closeDropDown')"
       class="flex items-center gap-3 pl-3 pr-1 py-1 rounded-full hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
     >
-      <span class="text-sm font-bold text-slate-700">{{ username }}</span>
+      <span class="text-sm font-bold text-slate-700">{{ accountName }}</span>
       <div
         class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center border border-emerald-200"
       >
@@ -39,7 +41,7 @@ const username = ref(localStorage.getItem('username') || 'User')
         <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">
           {{ t('authentication.signedInAs') }}
         </p>
-        <p class="text-sm font-bold text-slate-800 truncate">{{ username }}</p>
+        <p class="text-sm font-bold text-slate-800 truncate">{{ accountName }}</p>
       </div>
 
       <button
@@ -62,7 +64,7 @@ const username = ref(localStorage.getItem('username') || 'User')
         <span class="text-xs font-bold text-slate-400 uppercase">{{
           t('authentication.signedInAs')
         }}</span>
-        <span class="font-bold text-slate-900">{{ username }}</span>
+        <span class="font-bold text-slate-900">{{ accountName }}</span>
       </div>
     </div>
     <button

@@ -1,35 +1,84 @@
 import { Router } from "express";
 import {
-  loginUser,
-  createNewUser,
+  authenticateAccount,
+  createAccount,
   startSSOLogin,
   handleSSOCallback,
-} from "./controller/authController.js";
+  getMe,
+  logout,
+} from "./controller/authenticationController.js";
 import {
-  allDomains,
-  getUserDomains,
-  registerDomain,
-  subscribeUser,
-  unsubscribeUser,
+  getDomainsByAccount,
+  createDomain,
+  subscribeAccountToDomain,
+  unsubscribeAccountFromDomain,
+  getSubdomainsFromDomain,
+  createSubdomain,
+  getDomainTOTPQr, getAllAllowedDomains,
 } from "./controller/domainController.js";
+import {
+  requireAuthentication,
+  requireHmacSignature,
+} from "./controller/authenticationMiddleware.js";
+import { provideEnterpriseAccount } from "./controller/administrationController.js";
+import { requireAuthorization } from "./models/role.js";
 
 const router = Router();
 
-// --- User Auth ---
-router.post("/register", createNewUser);
-router.post("/login", loginUser);
+// --- Authentication ---
+router.post("/register", createAccount);
+router.post("/login", authenticateAccount);
+router.post(
+  "/business/register",
+  requireHmacSignature,
+  provideEnterpriseAccount,
+);
+router.get("/me", requireAuthentication, getMe);
+router.post('/logout', logout)
 
 // --- Domains ---
-router.get("/domains", allDomains);
-router.post("/domains", registerDomain);
+router.get("/domains", requireAuthentication, getAllAllowedDomains);
+router.post(
+  "/domains",
+  requireAuthentication,
+  requireAuthorization("business_admin"),
+  createDomain,
+);
+router.get("/domains/:accountName", requireAuthentication, getDomainsByAccount);
+router.get(
+  "/subdomains/:domainName",
+  requireAuthentication,
+  getSubdomainsFromDomain,
+);
+router.post(
+  "/subdomains/:domainName",
+  requireAuthentication,
+  requireAuthorization("business_admin"),
+  createSubdomain,
+);
 
 // --- Subscriptions ---
-router.get("/domains/:username", getUserDomains);
-router.post("/domains/:username/subscribe", subscribeUser); // Internal Only
-router.delete("/domains/:username/unsubscribe", unsubscribeUser);
+router.post(
+  "/domains/:accountName/subscribe",
+  requireAuthentication,
+  subscribeAccountToDomain,
+);
+router.delete(
+  "/domains/:accountName/unsubscribe",
+  requireAuthentication,
+  unsubscribeAccountFromDomain,
+);
 
 // --- SSO (OIDC) ---
-router.get("/auth/sso/login/:domainName", startSSOLogin);
+router.get("/auth/sso/login/:domainName", requireAuthentication, startSSOLogin);
 router.get("/auth/sso/callback", handleSSOCallback);
+
+// --- QR Codes ---
+router.get(
+  "/domains/:domainName/totp/qr/:accountName",
+  requireAuthentication,
+  requireAuthorization("business_admin"),
+  getDomainTOTPQr,
+);
 
 export default router;

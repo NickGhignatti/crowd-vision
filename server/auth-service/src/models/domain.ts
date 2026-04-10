@@ -1,21 +1,31 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, Document, Types } from "mongoose";
+import type { Role } from "./role.js";
+import { ROLE_WEIGHTS } from "./role.js";
 
 export interface ISSOConfig {
-  issuerUrl: string; // e.g. https://idp.unibo.it/auth/realms/master
+  issuerUrl: string;
   clientId: string;
-  clientSecret: string; // select: false
+  clientSecret: string;
+}
+
+export interface IDomainTOTPSecrets {
+  business_admin?: string;
+  business_staff?: string;
+  standard_customer?: string;
 }
 
 export interface IDomain extends Document {
   name: string;
-  subdomains: string[];
+  subdomains: Types.ObjectId[];
   authStrategy: "internal" | "oidc";
+  totpSecrets: IDomainTOTPSecrets;
   ssoConfig?: ISSOConfig;
+  isVisibleFromOutside?: boolean;
 }
 
 export interface IDomainMembership {
   domainName: string;
-  role: "owner" | "admin" | "viewer";
+  role: Role;
   externalId?: string;
 }
 
@@ -23,30 +33,37 @@ const ssoConfigSchema = new Schema<ISSOConfig>(
   {
     issuerUrl: { type: String },
     clientId: { type: String },
-    clientSecret: { type: String, select: false }, // Hidden by default
+    clientSecret: { type: String, select: false },
+  },
+  { _id: false },
+);
+
+const totpSecretsSchema = new Schema<IDomainTOTPSecrets>(
+  {
+    business_admin: { type: String },
+    business_staff: { type: String },
+    standard_customer: { type: String },
   },
   { _id: false },
 );
 
 export const domainSchema = new Schema<IDomain>({
   name: { type: String, required: true, unique: true },
-  subdomains: { type: [String], default: [] },
+  subdomains: [{ type: Schema.Types.ObjectId, ref: "Domain", default: [] }],
   authStrategy: {
     type: String,
     enum: ["internal", "oidc"],
     default: "internal",
   },
+  totpSecrets: { type: totpSecretsSchema, default: {}, select: false },
   ssoConfig: ssoConfigSchema,
+  isVisibleFromOutside: { type: Boolean, required: false, default: false },
 });
 
 export const membershipSchema = new Schema<IDomainMembership>(
   {
     domainName: { type: String, required: true },
-    role: {
-      type: String,
-      enum: ["owner", "admin", "viewer"],
-      default: "viewer",
-    },
+    role: { type: String, enum: Object.keys(ROLE_WEIGHTS), required: true },
     externalId: { type: String },
   },
   { _id: false },

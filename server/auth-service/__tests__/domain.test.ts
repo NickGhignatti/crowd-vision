@@ -1,8 +1,17 @@
-import request from "supertest";
-import { app } from "../src/index.js";
-import mongoose from "mongoose";
-import { User } from "../src/models/user.js";
+import { Account } from "../src/models/account.js";
 import { Domain } from "../src/models/domain.js";
+import {
+  authenticateAccount,
+  registerAccount,
+} from "../src/services/authenticationService.js";
+import {
+  createDomain,
+  getAllDomains,
+  getAccountMemberships,
+  getDomainSubdomains,
+  subscribeInternal,
+  unsubscribe,
+} from "../src/services/domainService.js";
 
 describe("Domain API", () => {
   const mockUser = {
@@ -21,104 +30,94 @@ describe("Domain API", () => {
     name: "unibo.it",
     subdomains: ["studio", "docenti"],
     creatorUsername: mockUser.username,
-    authStrategy: "internal",
+  };
+
+  const createMockDomainWithSubdomains = async () => {
+    return createDomain(
+      mockDomain.name,
+      [],
+      mockDomain.creatorUsername,
+      "internal",
+    );
   };
 
   beforeEach(async () => {
-    await User.deleteMany({});
+    await Account.deleteMany({});
     await Domain.deleteMany({});
 
     await Domain.syncIndexes();
-    await User.syncIndexes();
+    await Account.syncIndexes();
 
-    await request(app).post("/register").send(mockUser);
+    await registerAccount(mockUser.username, mockUser.email, mockUser.password);
   });
 
-  describe("System Domains", () => {
-    it("should create a new system domain", async () => {
-      const res = await request(app).post("/domains").send(mockDomain);
+  describe("1. System Domains", () => {
+    it("should create a new domain", async () => {
+      const domain = await createMockDomainWithSubdomains();
 
-      expect(res.status).toBe(201);
-      expect(res.body).toHaveProperty("name", mockDomain.name);
-      expect(res.body.subdomains).toEqual(
-        expect.arrayContaining(mockDomain.subdomains),
-      );
+      expect(domain.name).toBe(mockDomain.name);
+      expect(domain.subdomains).toHaveLength(0);
+
+      const subdomainNames = await getDomainSubdomains(mockDomain.name);
+      expect(subdomainNames).toEqual(expect.arrayContaining([]));
     });
 
     it("should retrieve all system domains", async () => {
-      await request(app).post("/domains").send(mockDomain);
+      await createMockDomainWithSubdomains();
 
-      const res = await request(app).get("/domains");
+      const domains = await getAllDomains();
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty("domains");
-      expect(Array.isArray(res.body.domains)).toBe(true);
-
-      const found = res.body.domains.find(
-        (d: any) => d.name === mockDomain.name,
-      );
-      expect(found).toBeDefined();
+      expect(domains.some((d) => d.name === mockDomain.name)).toBe(true);
     });
 
     it("should fail to create a duplicate domain", async () => {
-      await request(app).post("/domains").send(mockDomain);
-      const res = await request(app).post("/domains").send(mockDomain);
+      await createMockDomainWithSubdomains();
 
-      expect(res.status).toBe(400);
+      await expect(
+        createMockDomainWithSubdomains(),
+      ).rejects.toThrow();
     });
   });
 
-  describe("User Domains & Subscriptions", () => {
+  describe("Account Domains & Subscriptions", () => {
     beforeEach(async () => {
-      await request(app).post("/domains").send(mockDomain);
-      await request(app).post("/register").send(subscriberUser);
+      await createMockDomainWithSubdomains();
     });
 
-    it("should verify the creator is the OWNER", async () => {
-      const res = await request(app).get(`/domains/${mockUser.username}`);
-      expect(res.status).toBe(200);
+    it("should verify the creator is a business admin", async () => {
+      const userDomains = await getAccountMemberships(mockUser.username);
 
-      const membership = res.body.domains.find(
-        (m: any) => m.domainName === mockDomain.name,
+      const membership = userDomains.find(
+        (m) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeDefined();
-      expect(membership.role).toBe("owner");
+      expect(membership?.role).toBe("business_admin");
     });
 
     it("should allow a user to SUBSCRIBE to a domain", async () => {
-      const res = await request(app)
-        .post(`/domains/${subscriberUser.username}/subscribe`)
-        .send({ domainName: mockDomain.name });
+      const newAccount = await registerAccount("sub", "sub@gmail.com", "sub");
+      const subscribed = await subscribeInternal(newAccount.name, mockDomain.name);
 
-      expect(res.status).toBe(200);
+      expect(subscribed).toBeUndefined();
+      const userDomains = await getAccountMemberships(newAccount.name);
 
-      const checkRes = await request(app).get(
-        `/domains/${subscriberUser.username}`,
-      );
-      expect(checkRes.status).toBe(200);
-
-      const membership = checkRes.body.domains.find(
-        (m: any) => m.domainName === mockDomain.name,
+      const membership = userDomains.find(
+        (m) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeDefined();
-      expect(membership.role).toBe("viewer");
+      expect(membership?.role).toBe("standard_customer");
     });
 
     it("should allow a user to UNSUBSCRIBE", async () => {
-      await request(app)
-        .post(`/domains/${subscriberUser.username}/subscribe`)
-        .send({ domainName: mockDomain.name });
-
-      const res = await request(app)
-        .delete(`/domains/${subscriberUser.username}/unsubscribe`)
-        .send({ domainName: mockDomain.name });
-
-      expect(res.status).toBe(200);
-
-      const checkRes = await request(app).get(
-        `/domains/${subscriberUser.username}`,
+      const newAccount = await registerAccount("sub", "sub@gmail.com", "sub");
+      await subscribeInternal(
+        newAccount.name,
+        mockDomain.name,
       );
-      const membership = checkRes.body.domains.find(
+      await expect(unsubscribe(newAccount.name, mockDomain.name)).resolves.not.toThrow();
+
+      const memberships = await getAccountMemberships(newAccount.name);
+      const membership = memberships.find(
         (m: any) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeUndefined();

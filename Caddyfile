@@ -19,6 +19,11 @@
         reverse_proxy notification-service:3000
     }
 
+    # Agent service
+    handle_path /agent/* {
+        reverse_proxy agent-service:3000
+    }
+
     # Socket.IO server
     handle /socket.io/* {
         reverse_proxy socket-server:3000

@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 
 jest.mock('../src/config/redis.js', () => ({
-    connectRedis: jest.fn().mockResolvedValue(true)
+    connectRedis: jest.fn<() => Promise<boolean>>().mockResolvedValue(true)
 }));
 
 jest.mock('../src/services/notificationService.js', () => ({
@@ -72,7 +72,8 @@ describe('Notification Service API', () => {
                 .send({}); // Empty body
 
             expect(res.status).toBe(400);
-            expect(res.body.error).toMatch(/invalid/i);
+            expect(res.body.type).toBeDefined();
+            expect(res.body.message).toBeDefined();
         });
     });
 

@@ -1,6 +1,6 @@
 {
   "name": "auth-service",
-  "version": "2.0.1",
+  "version": "2.6.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -14,20 +14,27 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "base32-encode": "^2.0.0",
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.5",
     "openid-client": "^6.8.2",
+    "otpauth": "^9.5.0",
+    "otplib": "^13.3.0",
     "swagger-ui-express": "^5.0.1",
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.96",
     "@types/node": "^25.0.10",
     "@types/supertest": "^6.0.3",
@@ -44,6 +51,8 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
+    "globalSetup": "./__tests__/globalSetup.cjs",
+    "globalTeardown": "./__tests__/globalTeardown.cjs",
     "setupFilesAfterEnv": [
       "./__tests__/setup.ts"
     ],

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ModelOption } from '@/views/DashboardView.vue'
+import { useDomainsStore } from '@/stores/domain.ts'
+import { useBuildingsStore } from '@/stores/buildings.ts'
 
 const { t } = useI18n()
 
@@ -15,13 +15,44 @@ const emit = defineEmits<{
   (e: 'model-changed', value: ModelOption): void
 }>()
 
+const domainsStore = useDomainsStore()
+const buildingsStore = useBuildingsStore()
+
+const models = ref<ModelOption[]>([])
+const isDropdownOpen = ref<boolean>(false)
+const selectedModel = ref<ModelOption | null>(null)
+
 const selectModel = (model: ModelOption) => {
   isDropdownOpen.value = false
-  emit('model-changed', model)
-} 
+  emit('model-changed', model.id)
+}
 
-const isDropdownOpen = ref<boolean>(false)
+const getInitialModels = async () => {
+  try {
+    await domainsStore.fetchMemberships()
+    if (!domainsStore.memberships) return
 
+    await buildingsStore.fetch(domainsStore.memberships)
+
+    const uniqueIds = new Set<string>()
+    models.value = buildingsStore.all
+      .filter((b) => {
+        if (uniqueIds.has(b.id)) return false
+        uniqueIds.add(b.id)
+        return true
+      })
+      .map((b) => ({ id: b.id, name: b.id }))
+
+    if (models.value.length > 0 && models.value[0]) {
+      selectModel(models.value[0])
+    }
+  } catch (error) {
+    console.error('Error initializing models:', error)
+  }
+}
+onMounted(() => {
+  getInitialModels()
+})
 </script>
 
 <template>

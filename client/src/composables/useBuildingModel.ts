@@ -1,16 +1,18 @@
 import { ref, computed, watch } from 'vue'
-import type { BuildingPayload } from '@/models/building'
-import type { DomainMembership } from '@/models/domain'
+import type { Building } from '@/models/building'
+import { useBuildingsStore } from '@/stores/buildings.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
 
 export function useBuildingModel() {
-  const serverUrl = import.meta.env.VITE_SERVER_URL
+  const domainsStore = useDomainsStore()
+  const buildingsStore = useBuildingsStore()
 
-  const building = ref<BuildingPayload | null>(null)
-  const allBuildings = ref<BuildingPayload[]>([]) // <--- This exists
-  const selectedRoomId = ref<string | null>(null)
-  const selectedFloor = ref<number | null>(null)
-  const explodedRoomId = ref<string | null>(null)
   const isExploded = ref(false)
+  const selectedRoomId = ref<string | null>(null)
+  const explodedRoomId = ref<string | null>(null)
+  const allBuildings = ref<Building[]>([])
+  const selectedFloor = ref<number | null>(null)
+  const building = ref<Building | null>(null)
 
   const availableBuildingsNames = computed(() => allBuildings.value.map((b) => b.id))
 
@@ -55,39 +57,20 @@ export function useBuildingModel() {
 
   const fetchBuildings = async () => {
     try {
-      const username = localStorage.getItem('username')
-      if (!username) return
+      await domainsStore.fetchMemberships()
+      if (!domainsStore.memberships) return
 
-      const domainRes = await fetch(`${serverUrl}/auth/domains/${username}`)
-      const data = await domainRes.json()
-      const memberships = data.domains as DomainMembership[]
+      await buildingsStore.fetch(domainsStore.memberships)
 
-      allBuildings.value = []
-
-      for (const m of memberships) {
-        if (!m.domainName) continue
-
-        const buildingsRes = await fetch(`${serverUrl}/twin/buildings/${m.domainName}`)
-
-        if (buildingsRes.ok) {
-          const buildingsOfDomain = (await buildingsRes.json()) as BuildingPayload[]
-
-          buildingsOfDomain.forEach((b: BuildingPayload) => {
-            if (!allBuildings.value.some((existing) => existing.id === b.id)) {
-              allBuildings.value.push(b)
-            }
-          })
-        }
-      }
+      allBuildings.value = buildingsStore.all
 
       if (!building.value && allBuildings.value.length > 0) {
-        building.value = allBuildings.value[0] || null
+        building.value = allBuildings.value[0] ?? null
       }
     } catch (e) {
       console.error('Error fetching building schema:', e)
     }
   }
-
   const setBuildingByIndex = (index: number) => {
     building.value = allBuildings.value[index] || null
   }
@@ -103,7 +86,7 @@ export function useBuildingModel() {
 
   return {
     building,
-    allBuildings, // <--- ADD THIS HERE
+    allBuildings,
     availableBuildingsNames,
     selectedRoomId,
     selectedFloor,

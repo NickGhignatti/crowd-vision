@@ -1,0 +1,86 @@
+.docname {Contributing}
+.include {docs}
+
+## 📦 The Lerna Monorepo
+
+CrowdVision is structured as a **Lerna Monorepo** using npm workspaces. 
+
+.code lang:{json} 
+    {
+        "workspaces": [
+            "client",
+            "server/*"
+        ]
+    }
+
+*What this means for you:*
+- *Run scripts from the root*: You rarely need to `cd` into `server/auth-service` to run a test or start a server. Use the root `package.json` scripts (e.g., `npm run test:auth` or `npm run dev`).
+- *Shared Dependencies*: Lerna hoists shared dependencies to the root `node_modules` where possible, keeping the installation footprint small.
+
+---
+
+## 🚀 Commits & Semantic Release
+We use Semantic Release to fully automate our versioning, package publishing, and `CHANGELOG.md` generation. For this pipeline to work, you must use *Conventional Commits*.
+When you write a commit message, the prefix dictates how the version number will bump in the next release:
+
+.var {headers}
+   - Commit prefix
+   - Example
+   - Impact on release
+
+.tablebyrows {.headers}
+    - - `feat:`
+      - `feat: add support for private domains`
+      - Minor release (e.g., `1.1.0` -> `1.2.0`).
+    - - `fix:`
+      - `fix: resolve issue with user authentication`
+      - Patch release (e.g., `1.1.0` -> `1.1.1`).
+    - - `docs:`,`chore:`, `refactor:`
+      - `docs: update API documentation`
+      - No version bump. Safe internal changes.
+    - - `BREAKING CHANGE:`
+      - `BREAKING CHANGE: remove deprecated user profile fields`
+      - Major release (e.g., `1.1.0` -> `2.0.0` ).
+
+.box type:{note} 
+    ⚙️ The Release Pipeline: When a pull request is merged into the `main` branch, the GitHub Action triggers `npm run release`. Semantic Release reads your commit history since the last tag, calculates the new version, updates the `CHANGELOG.md`, tags the repository, and publishes the release automatically
+
+---
+
+## 🏷️ Naming Conventions
+Because CrowdVision spans both frontend Vue applications and backend Express/Fastify services, we follow strict naming conventions to differentiate architectural layers at a glance.
+
+*Backend Conventions (Express / Node.js)*
+- Controllers & Services: Use camelCase with the layer type as a suffix.
+    - ✅ Good: `twinController.ts`, `notificationService.ts`
+    - ❌ Bad: `twin_ctrl.ts`, `Notification.ts`
+- Models / Entities: Use camelCase for the filename, but PascalCase for the exported Mongoose Model and Interface. Prefix Interfaces with I.
+    - ✅ Good: File: `account.ts` | Code: `export interface IAccount { ... }`, `export const Account = model(...)``
+- Database Collections: Always plural and lowercase (e.g., `accounts`, `buildings`).
+
+*Frontend Conventions (Vue 3 / TresJS)*
+- Vue Components: Use PascalCase for both the filename and the template tag. Use multi-word names to avoid conflicts with HTML elements.
+    - ✅ Good: `BuildingCard.vue`, `NotificationDropdown.vue`, `LeftMenu.vue`
+    -❌ Bad: `card.vue`, `header.vue`
+- Composables: Use camelCase and always prefix with use.
+    - ✅ Good: `useBuildingModel.ts`, `useAuth.ts`, `useSceneControls.ts`
+- Views / Pages: Suffix top-level routing components with View.
+    - ✅ Good: `DashboardView.vue`, `AdministrationView.vue`
+
+--- 
+
+## 🏗️ Architectural Golden Rules
+When adding new features, please respect the architectural boundaries we have put in place:
+- *Never breach the Database-per-Service boundary*: If the Twin Service needs to know something about a User, it must read it from the embedded JWT payload or use a Redis event. Do not configure cross-database Mongoose connections.
+- *Keep the Frontend Lightweight*: Avoid adding Vuex or Pinia unless absolutely necessary.
+- *Test Your Code*: Every backend service has its own `__tests__` directory. Ensure your changes are covered by running `npm test` from the root before submitting a pull request.
+
+
+
+
+
+
+
+
+
+

@@ -39,6 +39,7 @@ services:
     environment:
       - PORT=3000
       - REDIS_URL=redis://redis:6379
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
     depends_on:
       - redis
     networks:
@@ -54,6 +55,10 @@ services:
       - auth-net
     environment:
       - MONGO_URI=mongodb://auth-db:27017/authdb
+      - JWT_SECRET=${JWT_SECRET}
+      - VITE_SERVER_URL=${DEV_URL}:${SERVER_PORT}
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+      - INTERNAL_ADMIN_SECRET=${INTERNAL_ADMIN_SECRET}
 
   auth-db:
     image: mongo:latest
@@ -72,6 +77,7 @@ services:
       - twin-net
     environment:
       - MONGO_URI=mongodb://twin-db:27017/twindb
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
 
   twin-db:
     image: mongo:latest
@@ -148,6 +154,7 @@ services:
       - MONGO_URI=mongodb://notification-db:27017/notificationdb
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
     depends_on:
       - redis
     networks:
@@ -182,15 +189,20 @@ services:
         - gateway
 
 
-  # llm-service:
-  #   build: ./llm-service
-  #   environment:
-  #     - MLFLOW_TRACKING_URI=http://mlflow:5000
-  #     - MLFLOW_EXPERIMENT_ID=123456789
-  #   depends_on:
-  #     - mlflow
-  #   networks:
-  #     - llm-net
+  # ==========================================
+  # AGENT SERVICE
+  # ==========================================
+  agent-service:
+    build: ./server/agent-service
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - TWIN_SERVICE_URL=http://twin-service:3000
+      - AUTH_SERVICE_URL=http://auth-service:3000
+    networks:
+      - gateway-net
+      - twin-net
+      - auth-net
 
 networks:
   gateway-net:

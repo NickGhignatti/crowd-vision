@@ -1,0 +1,90 @@
+.docname {Users and Account}
+.include {docs}
+
+Identity and Access Management (IAM) in CrowdVision is handled exclusively by the **Auth Service**. Because of our Database-per-Service architecture, it is critical that user identity and organizational permissions are perfectly structured so that other services can securely authorize actions without relying on cross-database queries.
+
+---
+
+## 👤 The Account Entity
+
+The `Account` is the central identity record in the system. 
+
+.code lang:{typescript} 
+    export interface IAccount extends Document {
+        name: string;
+        email: string;
+        password: string;
+        memberships: IDomainMembership[];
+        totpSecret?: string;
+    }
+
+
+### The "Embedded Memberships" Design Choice
+Notice that an account's organizational permissions (memberships) are embedded directly as an array of subdocuments within the Account document itself.
+- Why we did this: In standard SQL relational design, memberships would be a join table (e.g., account_domains). However, in CrowdVision, every single login or token refresh requires evaluating all of a user's permissions. By embedding them, a single Account.findOne() query retrieves the user's identity and their entire permission matrix instantly.
+- The Trade-off: We trade slight write-complexity (updating memberships requires array manipulation in Mongo) for massive read-performance. Given the low cardinality of memberships (a user rarely belongs to more than a few domains), this is the optimal design choice.
+
+---
+
+## ⚖️ Role-Based Access Control (RBAC)
+CrowdVision utilizes a *Hierarchical Weight System* to evaluate roles. Instead of explicitly defining what every single role can do, roles are assigned a numeric weight.
+If a route requires a `business_staff` role, the system checks if the user's role weight is greater than or equal to the required weight.
+
+.var {headers}
+   - Role Name
+   - Internal Weight
+   - Privileges
+
+.tablebyrows {.headers}
+    - - Admin
+      - 100
+      - Full system control, can manage other domains.
+    - - Business Admin
+      - 80
+      - Organization owner, can manage buildings, sensors, and generate invite codes.
+    - - Business Staff
+      - 60
+      -Facility managers, can edit room properties (capacity, temp thresholds).
+    - - Standard Customer
+      - 10
+      - General users/viewers. By default, all new accounts are assigned this role.
+
+---
+
+## 🛡️ The Authorization Middleware
+To protect routes, developers use the requireAuthorization(requiredLevel) middleware.
+Because JWTs are stateless, this middleware operates entirely in memory without ever touching the MongoDB database.
+
+.mermaid 
+    flowchart TD
+        A[Incoming Request<br/>e.g., DELETE /twin/buildings/:domainName] --> B{Has Bearer Token?}
+        B -- No --> C[401 Unauthorized]
+        B -- Yes --> D{Verify JWT Signature}
+        
+        D -- Invalid/Expired --> C
+        D -- Valid --> E[Extract StandardTokenPayload]
+        
+        E --> F{Is domainName<br/>in params?}
+        
+        F -- Yes --> G[Filter memberships to<br/>only match requested domain]
+        F -- No --> H[Evaluate all memberships<br/>for Global Admin]
+        
+        G --> I{Does ANY candidate membership<br/>have Weight >= Required Weight?}
+        H --> I
+        
+        I -- No --> J[403 Forbidden]
+        I -- Yes --> K[Allow Access]
+
+### Contextual Evaluation (`domainName`)
+If the Express route includes `domainName` as a parameter (e.g., `/:domainName/rooms`), the middleware will filter the user's embedded memberships and ensure their weight is sufficient only for that specific domain context.
+The middleware is exceptionally smart. A user might be a `business_admin` in the "Main Campus" domain, but only a standard_customer in the "Engineering Lab" domain.
+
+---
+
+## 🔑 Role Elevation (The Invite System)
+When a user signs up, they default to standard_customer. How do they securely get elevated to business_staff without an Admin manually intervening?
+CrowdVision handles this via Domain *TOTP Secrets* (Time-Based One-Time Passwords).
+- Domain Creation: When an organization is created, the system generates underlying cryptographic totpSecrets specifically tied to the elevated roles (e.g., a secret for business_admin, a secret for business_staff).
+- Invite Generation: A current Business Admin can open the QR generator in the dashboard. The client asks the backend to use the specific totpSecret to generate a live, rotating 6-digit code.
+- Role Claiming: During registration (or via their profile settings), a new user submits that 6-digit code.
+- Validation: The Auth Service validates the code against the underlying domain secrets. If it matches the business_staff secret, the new Account is immediately minted with a business_staff membership for that domain.

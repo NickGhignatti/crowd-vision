@@ -98,6 +98,30 @@ services:
           path: ./server/notification-service/package.json
 
   # ==========================================
+  # AGENT SERVICE
+  # ==========================================
+  agent-service:
+    build:
+      context: ./server/agent-service
+    command: npm run dev
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - TWIN_SERVICE_URL=http://twin-service:3000
+      - AUTH_SERVICE_URL=http://auth-service:3000
+    networks:
+      - gateway-net
+      - twin-net
+      - auth-net
+    develop:
+      watch:
+        - action: sync
+          path: ./server/agent-service/src
+          target: /app/src
+        - action: rebuild
+          path: ./server/agent-service/package.json
+
+  # ==========================================
   # CLIENT
   # ==========================================
   client:

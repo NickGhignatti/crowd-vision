@@ -4,16 +4,32 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import router from "./router.js";
 import { connectMongo } from "./config/db.js";
+import { getClientUrl } from "./config/config.js";
+import cookieParser from "cookie-parser";
+import { globalErrorHandler } from "./middlewares/errorsMiddleware.js";
 
 const PORT = 3000;
 export const app = express();
 
-const swaggerDocument = YAML.load("./openapi.yaml");
+app.use(
+  cors({
+    origin: getClientUrl(),
+    credentials: true,
+  }),
+);
 
-app.use(cors());
-app.use(express.json());
+app.use(cookieParser());
+
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
+
 app.use("/", router);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(globalErrorHandler);
 
 if (process.env.NODE_ENV !== "test") {
   connectMongo().then(() => {

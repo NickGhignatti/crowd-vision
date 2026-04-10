@@ -1,3 +1,107 @@
+## [2.6.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.6.0...v2.6.1) (2026-03-29)
+
+
+### Bug Fixes
+
+* stores promises ([5be9399](https://github.com/NickGhignatti/crowd-vision/commit/5be9399368ab151920e443d7c8a5518db1e0834c))
+
+# [2.6.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.5.1...v2.6.0) (2026-03-28)
+
+
+### Bug Fixes
+
+* remove fetch for using the useApi composable ([c1a4568](https://github.com/NickGhignatti/crowd-vision/commit/c1a45685830128a080e058314636b5ef82c998c7))
+* test with the new way of managing errors ([a76436b](https://github.com/NickGhignatti/crowd-vision/commit/a76436bdd9c710b10036da12b4550e9b25e91fb2))
+
+
+### Features
+
+* error handler ([1fc3a6a](https://github.com/NickGhignatti/crowd-vision/commit/1fc3a6ac6fd8bd984e1390da6090846cb541f023))
+* errors openapi spec ([738637f](https://github.com/NickGhignatti/crowd-vision/commit/738637f9b701b94853ad225a5d472b2070678935))
+
+## [2.5.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.5.0...v2.5.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* CI docs ([6a0f998](https://github.com/NickGhignatti/crowd-vision/commit/6a0f998484ddaf8c4a1a9362757338bb3039cbe1))
+
+# [2.5.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.4.1...v2.5.0) (2026-03-24)
+
+
+### Bug Fixes
+
+* apply CI workflow review feedback ([fbf3dd8](https://github.com/NickGhignatti/crowd-vision/commit/fbf3dd8d066a4df05b5153436d1af6d32d7c50d5))
+* include agent service in the CI ([955f47d](https://github.com/NickGhignatti/crowd-vision/commit/955f47df4369d9a60c45351499eb1aa4be992ee4))
+
+
+### Features
+
+* dependencies CI to check package-lock.json ([59b7ee5](https://github.com/NickGhignatti/crowd-vision/commit/59b7ee5a993bd715103374ad6c7ff478bb7f8a49))
+
+## [2.4.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.4.0...v2.4.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* dependencies ([174092e](https://github.com/NickGhignatti/crowd-vision/commit/174092e7d1c50245fbc59a2d9002f9420ed7162b))
+
+# [2.4.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.3.0...v2.4.0) (2026-03-23)
+
+
+### Bug Fixes
+
+* fix agent dependencies ([6cdef2f](https://github.com/NickGhignatti/crowd-vision/commit/6cdef2ff6603dbece0f4e40ec6c82334de019bb5))
+
+
+### Features
+
+* setup agent service structure and add it to the architecture ([c8c81a1](https://github.com/NickGhignatti/crowd-vision/commit/c8c81a1c185d982327d8e1e7f8e968014480d226))
+
+# [2.3.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.2.0...v2.3.0) (2026-03-23)
+
+
+### Features
+
+* stores for authentication ([9e045b5](https://github.com/NickGhignatti/crowd-vision/commit/9e045b5cde6e47e9b666a7b61a159d170514611d))
+* stores to avoid repetitive API calls ([42dc84c](https://github.com/NickGhignatti/crowd-vision/commit/42dc84c7233b9be72018b9423716852274eb31c6))
+
+# [2.2.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.2...v2.2.0) (2026-03-22)
+
+
+### Bug Fixes
+
+* prevent duplicate domain memberships in grantTOTPRoles using $pull then $push ([9f2e177](https://github.com/NickGhignatti/crowd-vision/commit/9f2e177e436d5f1a7d704868ec4987e64cdcf0ac))
+* remove debug console.log from fetchAllDomains ([2d81c10](https://github.com/NickGhignatti/crowd-vision/commit/2d81c10ad934e42ae0bd12424062f0c16cb47e3a))
+
+
+### Features
+
+* interfaces for DRY + unified language check for roles ([022f157](https://github.com/NickGhignatti/crowd-vision/commit/022f157c2edcdad9e74fc4e80aaa3a2e07783123))
+* QR code shown in the admin view ([7576b19](https://github.com/NickGhignatti/crowd-vision/commit/7576b195a6207575f43f6e5e39d27f1b3063d71e))
+
+## [2.1.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.1...v2.1.2) (2026-03-19)
+
+
+### Bug Fixes
+
+* typos ([c2d97c9](https://github.com/NickGhignatti/crowd-vision/commit/c2d97c9ff947d4c3a48fb817f9f62491f7c4f071))
+
+## [2.1.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.1.0...v2.1.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* apply security and correctness fixes from PR review comments ([32dbfdd](https://github.com/NickGhignatti/crowd-vision/commit/32dbfdd00b185909eeba8d91dcd254820c85fca8))
+* audit fix ([b11d11e](https://github.com/NickGhignatti/crowd-vision/commit/b11d11e4dac3c8842e0162f15ebacdd7256dee40))
+
+# [2.1.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.0.1...v2.1.0) (2026-03-11)
+
+
+### Features
+
+* authentication service now support token ([1aea157](https://github.com/NickGhignatti/crowd-vision/commit/1aea157cdffe2e0abac95da7c2f3e8f10b6b4e4d))
+
 ## [2.0.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.0.0...v2.0.1) (2026-02-12)
 
 
