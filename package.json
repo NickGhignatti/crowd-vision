@@ -6,8 +6,15 @@
     "server/*"
   ],
   "scripts": {
-    "// --- ENVIRONMENT & DOCKER ---": "",
-    "env:setup": "node setup.js",
+    "// --- ENVIRONMENT ---": "",
+    "env:create": "node scripts/create.js",
+    "env:admin": "npm run env:create && node scripts/admin.js",
+    "env:vapid": "npm run env:create && node scripts/vapid.js",
+    "env:token": "npm run env:create && node scripts/token.js",
+    "env:config": "npm run env:create && node scripts/config.js",
+    "env:setup": "npm run env:vapid && npm run env:token && npm run env:config && npm run env:admin",
+
+    "// RUN CONFIGURATION ---": "",
     "docker:dev": "npm run env:setup && docker compose -f docker-compose.yml -f docker-compose.dev.yml up --watch --build",
     "docker:start": "npm run env:setup && docker compose up --build -d",
     "docker:down": "docker compose down --remove-orphans",
@@ -34,7 +41,7 @@
     "test": "concurrently \"npm run test:auth\" \"npm run test:twin\" \"npm run test:notification\" \"npm run test:client\" \"npm run test:socket\"",
 
     "// --- UTILITIES ---": "",
-    "enterprise:create": "node --env-file=.env admin-creator.js",
+    "provision:admin": "node scripts/provision.js",
 
     "// --- RELEASE ---": "",
     "release": "semantic-release"
