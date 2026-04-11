@@ -1,10 +1,47 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeAll, describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import DataTable, { type TableHeader, type TableBody } from '../DataTable.vue'
+import { ref } from 'vue'
+
+interface TableHeader {
+  key: keyof TableBody
+  label: string
+  cellClass?: string
+}
+
+interface TableBody {
+  room: string
+  status: string
+  teacher: string
+  temp: string
+  people: string
+  capacity: string
+}
+
+let DataTable: any
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
+
+vi.mock('@/composables/useSensorData', () => ({
+  getBuildingData: () => ({
+    data: ref([]),
+    isLoading: ref(false),
+    error: ref(null),
+  }),
+}))
+
+vi.mock('@/composables/useSensorData.ts', () => ({
+  getBuildingData: () => ({
+    data: ref([]),
+    isLoading: ref(false),
+    error: ref(null),
+  }),
+}))
+
+beforeAll(async () => {
+  DataTable = (await import('../DataTable.vue')).default
+})
 
 const headers: TableHeader[] = [
   { key: 'room', label: 'Room' },
@@ -23,7 +60,7 @@ const makeItems = (count: number): TableBody[] =>
 
 const createWrapper = (props = {}) =>
   mount(DataTable, {
-    props: { headers, roomsData: makeItems(15), itemsPerPage: 5, ...props },
+    props: { headers, roomsData: makeItems(15), itemsPerPage: 5, selectedBuildingId: 'building-1', ...props },
   })
 
 describe('DataTable.vue', () => {

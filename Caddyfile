@@ -9,6 +9,11 @@
         reverse_proxy twin-service:3000
     }
 
+    # Signal Simulator service
+    handle_path /simulator/* {
+        reverse_proxy simulator-service:3000
+    }
+
     # Notification service
     handle_path /notification/* {
         reverse_proxy notification-service:3000
@@ -24,6 +29,11 @@
         reverse_proxy socket-server:3000
     }
 
+    # Signal sensor service
+    handle_path /sensor/* {
+        reverse_proxy sensor-service:3000
+    }
+
     # Mongo Express - Auth DB 
     handle /auth-db-gui/* {
         reverse_proxy auth-db-express:8081
@@ -32,5 +42,10 @@
     # Mongo Express - Twin DB
     handle /twin-db-gui/* {
         reverse_proxy twin-db-express:8081
+    }
+
+    # Mongo Express - Twin DB
+    handle /sensor-db-gui/* {
+        reverse_proxy sensor-db-express:8081
     }
 }

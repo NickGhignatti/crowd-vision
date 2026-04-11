@@ -1,0 +1,373 @@
+openapi: 3.1.0
+info:
+  title: Sensor Service API
+  description: API for managing and retrieving sensor signals (people count and temperature).
+  version: 1.0.0
+servers:
+  - url: http://localhost:80/sensor/
+    description: Local development server
+paths:
+  /peopleCount:
+    post:
+      summary: Create a people count signal
+      tags:
+        - People Count
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - buildingId
+                - roomId
+                - timestamp
+                - peopleCount
+              properties:
+                buildingId:
+                  type: string
+                  example: "building-123"
+                roomId:
+                  type: string
+                  example: "room-A"
+                timestamp:
+                  type: integer
+                  description: Unix timestamp in milliseconds
+                  example: 1712836800000
+                peopleCount:
+                  type: integer
+                  example: 42
+      responses:
+        '201':
+          description: People count signal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "People count signal created"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      summary: Get latest people count signal for a specific room
+      tags:
+        - People Count
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  peopleCount:
+                    type: object
+                    description: Latest people count data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /temperature:
+    post:
+      summary: Create a temperature signal
+      tags:
+        - Temperature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - buildingId
+                - roomId
+                - timestamp
+                - temperature
+              properties:
+                buildingId:
+                  type: string
+                  example: "building-123"
+                roomId:
+                  type: string
+                  example: "room-A"
+                timestamp:
+                  type: integer
+                  description: Unix timestamp in milliseconds
+                  example: 1712836800000
+                temperature:
+                  type: number
+                  example: 22.5
+      responses:
+        '201':
+          description: Temperature signal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Temperature signal created"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      summary: Get latest temperature signal for a specific room
+      tags:
+        - Temperature
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: object
+                    description: Latest temperature data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /peopleCount/entireBuilding:
+    get:
+      summary: Get all latest people count signals for an entire building
+      tags:
+        - People Count
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  peopleCount:
+                    type: array
+                    items:
+                      type: object
+                    description: Array of latest people count signals for the building
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /temperature/entireBuilding:
+    get:
+      summary: Get all latest temperature signals for an entire building
+      tags:
+        - Temperature
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: array
+                    items:
+                      type: object
+                    description: Array of latest temperature signals for the building
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /peopleCount/dashboard:
+    get:
+      summary: Get people count dashboard data for a room
+      tags:
+        - People Count
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  peopleCount:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated people count data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /temperature/dashboard:
+    get:
+      summary: Get temperature dashboard data for a room
+      tags:
+        - Temperature
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated temperature data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /peopleCount/dashboard/entireBuilding:
+    get:
+      summary: Get people count dashboard data for an entire building
+      tags:
+        - People Count
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  peopleCount:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated people count data for the building
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /temperature/dashboard/entireBuilding:
+    get:
+      summary: Get temperature dashboard data for an entire building
+      tags:
+        - Temperature
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temperature:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated temperature data for the building
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Invalid input provided"

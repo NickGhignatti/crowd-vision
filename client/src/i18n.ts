@@ -114,6 +114,8 @@ const messages = {
         startIndex: 'Page',
         ofIndex: 'of',
         buttons: {
+          simStart: 'Start Simulator',
+          simStop: 'Stop Simulator',
           stop: 'Stop auto',
           start: 'Start auto',
           next: 'Next',
@@ -348,6 +350,8 @@ const messages = {
         startIndex: 'Pagina',
         ofIndex: 'di',
         buttons: {
+          simStart: 'Avvia Simulatore',
+          simStop: 'Stop Simulatore',
           stop: 'Stop auto',
           start: 'Avvia auto',
           next: 'Succ.',

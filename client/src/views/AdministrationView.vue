@@ -137,10 +137,10 @@ const getAllSubdomains = async () => {
 
   await subdomainsStore.fetch(memberships)
 
-  domains.value = memberships.map((m) => m.domainName)
+  domains.value = memberships.map((m: any) => m.domainName)
 
   const groups: Record<string, UnifiedDomainGroup> = {}
-  memberships.forEach((m) => {
+  memberships.forEach((m: any) => {
     groups[m.domainName] = {
       name: m.domainName,
       role: m.role,
@@ -149,9 +149,9 @@ const getAllSubdomains = async () => {
     }
   })
 
-  memberships.forEach((m) => {
+  memberships.forEach((m: any) => {
     const subs = subdomainsStore.byDomain[m.domainName] ?? []
-    subs.forEach((subdomain) => {
+    subs.forEach((subdomain: any) => {
       groups[m.domainName]?.subdomains.push({
         name: subdomain,
         displayName: subdomain.replace('.' + m.domainName, ''),

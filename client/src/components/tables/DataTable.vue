@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { getBuildingData } from '@/composables/useSensorData'
+import { ref, computed, onUnmounted, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 export interface TableHeader {
@@ -22,11 +23,14 @@ const props = withDefaults(
     headers: TableHeader[]
     roomsData: TableBody[]
     itemsPerPage?: number
+    selectedBuildingId: string | undefined
   }>(),
   {
     itemsPerPage: 7,
   },
 )
+
+const buildingIdRef = toRef(props, 'selectedBuildingId')
 
 const { t } = useI18n()
 
@@ -34,12 +38,12 @@ const currentPage = ref(1)
 const isAutoPlaying = ref(false)
 let autoPlayInterval: number | undefined
 
-const totalPages = computed(() => Math.ceil(props.roomsData.length / props.itemsPerPage))
+const totalPages = computed(() => Math.ceil(enrichedItems.value.length / props.itemsPerPage))
 
 const paginatedItems = computed(() => {
   const start = (currentPage.value - 1) * props.itemsPerPage
   const end = start + props.itemsPerPage
-  return props.roomsData.slice(start, end)
+  return enrichedItems.value.slice(start, end)
 })
 
 const emptyRows = computed(() => {
@@ -74,6 +78,35 @@ const toggleAutoPlay = () => {
   }
 }
 
+const { 
+  data: peopleData, 
+  isLoading: loadingPeople 
+} = getBuildingData(buildingIdRef, 'peopleCount')
+
+const { 
+  data: temperatures, 
+  isLoading: loadingTemperature
+} = getBuildingData(buildingIdRef, 'temperature')
+
+const enrichedItems = computed<TableBody[]>(() => {
+  if (!props.roomsData) return []
+
+  return props.roomsData.map((item) => {
+    const roomTempData = temperatures.value?.find(
+      (t: any) => t.roomId === item.room
+    )
+    const roomPeople = peopleData.value?.find(
+      (p: any) => p.roomId === item.room
+    )
+
+    return {
+      ...item,
+      temp: roomTempData ? `${roomTempData.value}°C` : item.temp,
+      people: roomPeople ? `${roomPeople.value}` : item.people 
+    }
+  })
+})
+
 onUnmounted(() => {
   if (autoPlayInterval) clearInterval(autoPlayInterval)
 })
@@ -98,7 +131,21 @@ onUnmounted(() => {
           </tr>
         </thead>
 
-        <tbody class="divide-y-2 divide-slate-200">
+       <tbody v-if="!buildingIdRef?.valueOf">
+          <tr>
+            <td :colspan="headers.length" class="p-8 text-center text-slate-500 animate-pulse">
+              No data
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-else-if="loadingTemperature && loadingPeople">
+          <tr>
+            <td :colspan="headers.length" class="p-8 text-center text-slate-500 animate-pulse">
+              Loading data...
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-else class="divide-y-2 divide-slate-200">
           <tr
             v-for="(item, index) in paginatedItems"
             :key="index"
@@ -110,6 +157,7 @@ onUnmounted(() => {
               class="p-5 border-r border-slate-200 last:border-r-0"
               :class="header.cellClass"
             >
+              
               <slot :name="header.key" :item="item" :value="item[header.key]">
                 {{ item[header.key] }}
               </slot>

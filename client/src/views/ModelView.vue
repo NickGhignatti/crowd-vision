@@ -6,6 +6,7 @@ import RightMenu from '@/components/menus/RightMenu.vue'
 import ViewControls from '@/components/menus/ControlPanel.vue'
 import { useBuildingModel } from '@/composables/useBuildingModel'
 import { useSceneControls } from '@/composables/useSceneControls'
+import { getBuildingData } from '@/composables/useSensorData'
 
 import { onMounted } from 'vue'
 import { TresCanvas } from '@tresjs/core'
@@ -60,10 +61,10 @@ onMounted(() => {
 
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
       <LeftMenu
-        :building-ids="buildingModel.availableBuildingsNames.value"
-        :selected-id="buildingModel.building.value?.id || null"
+        :buildingIds="buildingModel.availableBuildingsNames.value"
+        :selectedId="buildingModel.building.value?.id || null"
         :buildingModel="buildingModel.building.value"
-        :active-floor="buildingModel.selectedFloor.value"
+        :activeFloor="buildingModel.selectedFloor.value"
         @json-uploaded="buildingModel.fetchBuildings"
         @change-building="buildingModel.setBuildingByIndex"
         @change-floor="buildingModel.setFloor"

@@ -3,16 +3,12 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDomainsStore } from '@/stores/domain.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
+import type { ModelOption } from '@/views/DashboardView.vue'
 
 const { t } = useI18n()
 
-export interface ModelOption {
-  id: string
-  name: string
-}
-
 const emit = defineEmits<{
-  (e: 'model-changed', value: string): void
+  (e: 'model-changed', value: ModelOption): void
 }>()
 
 const domainsStore = useDomainsStore()
@@ -25,7 +21,7 @@ const selectedModel = ref<ModelOption | null>(null)
 const selectModel = (model: ModelOption) => {
   selectedModel.value = model
   isDropdownOpen.value = false
-  emit('model-changed', model.id)
+  emit('model-changed', model)
 }
 
 const getInitialModels = async () => {
@@ -37,12 +33,12 @@ const getInitialModels = async () => {
 
     const uniqueIds = new Set<string>()
     models.value = buildingsStore.all
-      .filter((b) => {
+      .filter((b: any) => {
         if (uniqueIds.has(b.id)) return false
         uniqueIds.add(b.id)
         return true
       })
-      .map((b) => ({ id: b.id, name: b.id }))
+      .map((b: any) => ({ id: b.id, name: b.id }))
 
     if (models.value.length > 0 && models.value[0]) {
       selectModel(models.value[0])

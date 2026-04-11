@@ -69,7 +69,7 @@ describe('ModelSelectionDropdown.vue', () => {
 
       // It should automatically emit the first model upon initialization
       expect(wrapper.emitted('model-changed')).toBeTruthy()
-      expect(wrapper.emitted('model-changed')?.[0]).toEqual(['bldg-1'])
+      expect(wrapper.emitted('model-changed')?.[0]).toEqual([{ id: 'bldg-1', name: 'bldg-1' }])
 
       // The main trigger button should now show the selected model's ID
       expect(wrapper.find('button').text()).toContain('bldg-1')
@@ -136,7 +136,7 @@ describe('ModelSelectionDropdown.vue', () => {
       expect(wrapper.find('ul').exists()).toBe(false)
 
       expect(wrapper.emitted('model-changed')).toHaveLength(1)
-      expect(wrapper.emitted('model-changed')?.[0]).toEqual(['bldg-2'])
+      expect(wrapper.emitted('model-changed')?.[0]).toEqual([{ id: 'bldg-2', name: 'bldg-2' }])
 
       expect(wrapper.find('button').text()).toContain('bldg-2')
     })
