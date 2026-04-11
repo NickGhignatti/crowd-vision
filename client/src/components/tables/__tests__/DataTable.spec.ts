@@ -23,7 +23,7 @@ const makeItems = (count: number): TableBody[] =>
 
 const createWrapper = (props = {}) =>
   mount(DataTable, {
-    props: { headers, roomsData: makeItems(15), itemsPerPage: 5, ...props },
+    props: { headers, roomsData: makeItems(15), itemsPerPage: 5, selectedTwinId: undefined, ...props },
   })
 
 describe('DataTable.vue', () => {

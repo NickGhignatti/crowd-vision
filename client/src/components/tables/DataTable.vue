@@ -89,9 +89,9 @@ const {
 } = getTwinData(twinIdRef, 'temperature')
 
 const enrichedItems = computed<TableBody[]>(() => {
-  if (!props.items) return []
+  if (!props.roomsData) return []
 
-  return props.items.map((item) => {
+  return props.roomsData.map((item) => {
     const roomTempData = temperatures.value?.find(
       (t: any) => t.roomId === item.room
     )

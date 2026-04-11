@@ -3,13 +3,9 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDomainsStore } from '@/stores/domain.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
+import type { ModelOption } from '@/views/DashboardView.vue'
 
 const { t } = useI18n()
-
-const props = defineProps<{
-  selectedModel: ModelOption | null
-  models: ModelOption[]
-}>()
 
 const emit = defineEmits<{
   (e: 'model-changed', value: ModelOption): void
@@ -23,8 +19,9 @@ const isDropdownOpen = ref<boolean>(false)
 const selectedModel = ref<ModelOption | null>(null)
 
 const selectModel = (model: ModelOption) => {
+  selectedModel.value = model
   isDropdownOpen.value = false
-  emit('model-changed', model.id)
+  emit('model-changed', model)
 }
 
 const getInitialModels = async () => {
@@ -36,12 +33,12 @@ const getInitialModels = async () => {
 
     const uniqueIds = new Set<string>()
     models.value = buildingsStore.all
-      .filter((b) => {
+      .filter((b: any) => {
         if (uniqueIds.has(b.id)) return false
         uniqueIds.add(b.id)
         return true
       })
-      .map((b) => ({ id: b.id, name: b.id }))
+      .map((b: any) => ({ id: b.id, name: b.id }))
 
     if (models.value.length > 0 && models.value[0]) {
       selectModel(models.value[0])
@@ -88,7 +85,7 @@ onMounted(() => {
         class="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden origin-top-right"
       >
         <ul class="max-h-60 overflow-y-auto custom-scrollbar p-1">
-          <li v-for="model in props.models" :key="model.id">
+          <li v-for="model in models" :key="model.id">
             <button
               @click="selectModel(model)"
               class="w-full text-left px-4 py-2.5 text-sm rounded-lg transition-colors flex items-center justify-between group"

@@ -16,17 +16,17 @@ const now = ref(new Date())
 let timer: ReturnType<typeof setInterval>
 const { t, locale } = useI18n()
 
-// View State
-const viewMode = ref<'table' | 'graph'>('table')
-const focusSection = ref<HTMLElement | null>(null)
-const isFullscreen = ref(false)
-
 export interface ModelOption {
   id: string
   name: string
 }
 const models = ref<ModelOption[]>([])
 const selectedModel = ref<ModelOption | null>(null)
+
+// View State
+const viewMode = ref<'table' | 'graph'>('table')
+const focusSection = ref<HTMLElement | null>(null)
+const isFullscreen = ref(false)
 
 // Data State
 const roomData = ref<any>([])       // Processed data for Table
@@ -151,7 +151,7 @@ const getInitialModels = async () => {
 
     const authData = await authRes.json()
     const memberships = authData.domains as DomainMembership[]
-    const allBuildings: BuildingPayload[] = []
+    const allBuildings: Building[] = []
 
     // Fetch Buildings for each Domain
     await Promise.all(
@@ -159,7 +159,7 @@ const getInitialModels = async () => {
         try {
           const buildRes = await fetch(`${serverUrl}/twin/buildings/${m.domainName}`)
           if (buildRes.ok) {
-            const domainBuildings = (await buildRes.json()) as BuildingPayload[]
+            const domainBuildings = (await buildRes.json()) as Building[]
             allBuildings.push(...domainBuildings)
           }
         } catch (err) {
@@ -263,7 +263,7 @@ onUnmounted(() => {
         <Transition name="fade" mode="out-in">
           
           <div v-if="viewMode === 'table'" key="table" class="w-full">
-            <DataTable :headers="tableHeaders" :items="roomData" :selectedTwinId="selectedModel?.id"
+            <DataTable :headers="tableHeaders" :roomsData="roomData" :selectedTwinId="selectedModel?.id"
               class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top">
               <template #status="{ value }">
                 <span :class="getStatusColor(value)">{{ value }}</span>

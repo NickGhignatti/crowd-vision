@@ -21,7 +21,7 @@ describe('RoomCard.vue', () => {
     it('displays the room ID and capacity correctly', () => {
       const room = makeRoom({ id: 'conference-a', capacity: 12 })
       const wrapper = mount(RoomCard, {
-        props: { room, isSelected: false },
+        props: { room, isSelected: false, temp: 22, people: 1 },
       })
 
       expect(wrapper.text()).toContain('#conference-a')
@@ -31,7 +31,7 @@ describe('RoomCard.vue', () => {
     it('renders the color indicator when room.color is provided', () => {
       const room = makeRoom({ color: '#ff0000' })
       const wrapper = mount(RoomCard, {
-        props: { room, isSelected: false },
+        props: { room, isSelected: false, temp: 22, people: 1 },
       })
 
       const colorDot = wrapper.find('span[style="background-color: #ff0000;"]')
@@ -41,7 +41,7 @@ describe('RoomCard.vue', () => {
     it('does not render the color indicator when room.color is missing', () => {
       const room = makeRoom({ color: undefined } as unknown as Partial<Room>)
       const wrapper = mount(RoomCard, {
-        props: { room, isSelected: false },
+        props: { room, isSelected: false, temp: 22, people: 1 },
       })
 
       const colorDot = wrapper.find('span[style]')
@@ -50,7 +50,7 @@ describe('RoomCard.vue', () => {
 
     it('renders structural selection indicators when isSelected is true', () => {
       const wrapper = mount(RoomCard, {
-        props: { room: makeRoom(), isSelected: true },
+        props: { room: makeRoom(), isSelected: true, temp: 22, people: 1 },
       })
 
       expect(wrapper.find('.absolute.bg-emerald-600').exists()).toBe(true)
@@ -58,7 +58,7 @@ describe('RoomCard.vue', () => {
 
     it('hides structural selection indicators when isSelected is false', () => {
       const wrapper = mount(RoomCard, {
-        props: { room: makeRoom(), isSelected: false },
+        props: { room: makeRoom(), isSelected: false, temp: 22, people: 1 },
       })
 
       expect(wrapper.find('.absolute.bg-emerald-600').exists()).toBe(false)
@@ -68,7 +68,7 @@ describe('RoomCard.vue', () => {
   describe('editing permissions', () => {
     it('does not render the edit button if canEdit is false or omitted', () => {
       const wrapper = mount(RoomCard, {
-        props: { room: makeRoom(), isSelected: false }, // canEdit omitted
+        props: { room: makeRoom(), isSelected: false, temp: 22, people: 1 }, // canEdit omitted
       })
 
       expect(wrapper.find('button').exists()).toBe(false)
@@ -76,7 +76,7 @@ describe('RoomCard.vue', () => {
 
     it('renders the edit button if canEdit is true', () => {
       const wrapper = mount(RoomCard, {
-        props: { room: makeRoom(), isSelected: false, canEdit: true },
+        props: { room: makeRoom(), isSelected: false, canEdit: true, temp: 22, people: 1 },
       })
 
       expect(wrapper.find('button').exists()).toBe(true)
@@ -87,7 +87,7 @@ describe('RoomCard.vue', () => {
   describe('interactions and event emitting', () => {
     it('emits "select" with the room ID when the card is clicked', async () => {
       const wrapper = mount(RoomCard, {
-        props: { room: makeRoom({ id: 'office-2' }), isSelected: false },
+        props: { room: makeRoom({ id: 'office-2' }), isSelected: false, temp: 22, people: 1 },
       })
 
       await wrapper.trigger('click')
@@ -99,7 +99,7 @@ describe('RoomCard.vue', () => {
     it('emits "edit" with the room object when the edit button is clicked', async () => {
       const room = makeRoom({ id: 'office-2' })
       const wrapper = mount(RoomCard, {
-        props: { room, isSelected: false, canEdit: true },
+        props: { room, isSelected: false, canEdit: true, temp: 22, people: 1 },
       })
 
       await wrapper.find('button').trigger('click')
@@ -110,7 +110,7 @@ describe('RoomCard.vue', () => {
 
     it('prevents the "select" event from firing when the edit button is clicked', async () => {
       const wrapper = mount(RoomCard, {
-        props: { room: makeRoom(), isSelected: false, canEdit: true },
+        props: { room: makeRoom(), isSelected: false, canEdit: true, temp: 22, people: 1 },
       })
 
       await wrapper.find('button').trigger('click')
