@@ -19,21 +19,21 @@ paths:
             schema:
               type: object
               required:
-                - twinId
+                - buildingId
                 - roomId
                 - timestamp
                 - peopleCount
               properties:
-                twinId:
+                buildingId:
                   type: string
-                  example: "twin-123"
+                  example: "building-123"
                 roomId:
                   type: string
                   example: "room-A"
                 timestamp:
-                  type: string
-                  format: date-time
-                  example: "2023-10-01T12:00:00Z"
+                  type: integer
+                  description: Unix timestamp in milliseconds
+                  example: 1712836800000
                 peopleCount:
                   type: integer
                   example: 42
@@ -56,11 +56,11 @@ paths:
         - People Count
       parameters:
         - in: query
-          name: twin
+          name: building
           schema:
             type: string
           required: true
-          description: Twin ID
+          description: Building ID
         - in: query
           name: roomId
           schema:
@@ -93,21 +93,21 @@ paths:
             schema:
               type: object
               required:
-                - twinId
+                - buildingId
                 - roomId
                 - timestamp
                 - temperature
               properties:
-                twinId:
+                buildingId:
                   type: string
-                  example: "twin-123"
+                  example: "building-123"
                 roomId:
                   type: string
                   example: "room-A"
                 timestamp:
-                  type: string
-                  format: date-time
-                  example: "2023-10-01T12:00:00Z"
+                  type: integer
+                  description: Unix timestamp in milliseconds
+                  example: 1712836800000
                 temperature:
                   type: number
                   example: 22.5
@@ -130,11 +130,11 @@ paths:
         - Temperature
       parameters:
         - in: query
-          name: twin
+          name: building
           schema:
             type: string
           required: true
-          description: Twin ID
+          description: Building ID
         - in: query
           name: roomId
           schema:
@@ -155,18 +155,18 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /peopleCount/entireTwin:
+  /peopleCount/entireBuilding:
     get:
-      summary: Get all latest people count signals for an entire twin
+      summary: Get all latest people count signals for an entire building
       tags:
         - People Count
       parameters:
         - in: query
-          name: twin
+          name: building
           schema:
             type: string
           required: true
-          description: Twin ID
+          description: Building ID
       responses:
         '200':
           description: Successful response
@@ -179,22 +179,22 @@ paths:
                     type: array
                     items:
                       type: object
-                    description: Array of latest people count signals
+                    description: Array of latest people count signals for the building
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /temperature/entireTwin:
+  /temperature/entireBuilding:
     get:
-      summary: Get all latest temperature signals for an entire twin
+      summary: Get all latest temperature signals for an entire building
       tags:
         - Temperature
       parameters:
         - in: query
-          name: twin
+          name: building
           schema:
             type: string
           required: true
-          description: Twin ID
+          description: Building ID
       responses:
         '200':
           description: Successful response
@@ -207,7 +207,7 @@ paths:
                     type: array
                     items:
                       type: object
-                    description: Array of latest temperature signals
+                    description: Array of latest temperature signals for the building
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -218,11 +218,11 @@ paths:
         - People Count
       parameters:
         - in: query
-          name: twin
+          name: building
           schema:
             type: string
           required: true
-          description: Twin ID
+          description: Building ID
         - in: query
           name: roomId
           schema:
@@ -258,11 +258,11 @@ paths:
         - Temperature
       parameters:
         - in: query
-          name: twin
+          name: building
           schema:
             type: string
           required: true
-          description: Twin ID
+          description: Building ID
         - in: query
           name: roomId
           schema:
@@ -291,18 +291,18 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /peopleCount/dashboard/entireTwin:
+  /peopleCount/dashboard/entireBuilding:
     get:
-      summary: Get people count dashboard data for an entire twin
+      summary: Get people count dashboard data for an entire building
       tags:
         - People Count
       parameters:
         - in: query
-          name: twin
+          name: building
           schema:
             type: string
           required: true
-          description: Twin ID
+          description: Building ID
         - in: query
           name: timeRange
           schema:
@@ -321,22 +321,22 @@ paths:
                     type: array
                     items:
                       type: object
-                    description: Aggregated people count data for the twin
+                    description: Aggregated people count data for the building
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /temperature/dashboard/entireTwin:
+  /temperature/dashboard/entireBuilding:
     get:
-      summary: Get temperature dashboard data for an entire twin
+      summary: Get temperature dashboard data for an entire building
       tags:
         - Temperature
       parameters:
         - in: query
-          name: twin
+          name: building
           schema:
             type: string
           required: true
-          description: Twin ID
+          description: Building ID
         - in: query
           name: timeRange
           schema:
@@ -355,7 +355,7 @@ paths:
                     type: array
                     items:
                       type: object
-                    description: Aggregated temperature data for the twin
+                    description: Aggregated temperature data for the building
         '400':
           $ref: '#/components/responses/BadRequest'
 

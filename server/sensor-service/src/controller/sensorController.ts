@@ -11,18 +11,18 @@ import { getTemperatureData, getPeopleCountData } from '../services/dashboardSer
 import type { 
     PeopleCountParams, 
     DashboardPeopleCountParams,
-    DashboardTwinPeopleCountParams
+    DashboardBuildingPeopleCountParams
 } from '../models/peopleCountSignal.js';
 import type { 
     TemperatureParams, 
     DashboardTemperatureParams,
-    DashboardTwinTemperatureParams 
+    DashboardBuildingTemperatureParams 
 } from '../models/temperatureSignal.js';
 
 export const postPeopleCount = async (req: Request, res: Response) => {
     try {
-        const { twinId, roomId, timestamp, peopleCount } = req.body;
-        await postPeopleCountSignal(twinId, roomId, timestamp, peopleCount);
+        const { buildingId, roomId, timestamp, peopleCount } = req.body;
+        await postPeopleCountSignal(buildingId, roomId, timestamp, peopleCount);
         res.status(201).json({ message: 'People count signal created' });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -31,8 +31,8 @@ export const postPeopleCount = async (req: Request, res: Response) => {
 
 export const postTemperature = async (req: Request, res: Response) => {
     try {
-        const { twinId, roomId, timestamp, temperature } = req.body;
-        await postTemperatureSignal(twinId, roomId, timestamp, temperature);
+        const { buildingId, roomId, timestamp, temperature } = req.body;
+        await postTemperatureSignal(buildingId, roomId, timestamp, temperature);
         res.status(201).json({ message: 'Temperature signal created' });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -41,8 +41,8 @@ export const postTemperature = async (req: Request, res: Response) => {
 
 export const getSinglePeopleCount = async (req: Request<PeopleCountParams>, res: Response) => {
     try {
-        const { twin, roomId } = req.query;
-        const peopleCount = await getLatestsPeopleCountSignal(twin as string, roomId as string);
+        const { building, roomId } = req.query;
+        const peopleCount = await getLatestsPeopleCountSignal(building as string, roomId as string);
         res.status(200).json({ peopleCount });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -51,8 +51,8 @@ export const getSinglePeopleCount = async (req: Request<PeopleCountParams>, res:
 
 export const getSingleTemperature = async (req: Request<TemperatureParams>, res: Response) => {
     try {
-        const { twin, roomId } = req.query;
-        const temperature = await getLatestsTemperatureSignal(twin as string, roomId as string);
+        const { building, roomId } = req.query;
+        const temperature = await getLatestsTemperatureSignal(building as string, roomId as string);
         res.status(200).json({ temperature });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -61,8 +61,8 @@ export const getSingleTemperature = async (req: Request<TemperatureParams>, res:
 
 export const getAllPeopleCount = async (req: Request<PeopleCountParams>, res: Response) => {
     try {
-        const { twin } = req.query;
-        const peopleCount = await getAllLatestsPeopleCountSignal(twin as string);
+        const { building } = req.query;
+        const peopleCount = await getAllLatestsPeopleCountSignal(building as string);
         res.status(200).json({ peopleCount });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -71,8 +71,8 @@ export const getAllPeopleCount = async (req: Request<PeopleCountParams>, res: Re
 
 export const getAllTemperature = async (req: Request<TemperatureParams>, res: Response) => {
     try {
-        const { twin } = req.query;
-        const temperature = await getAllLatestsTemperatureSignal(twin as string);
+        const { building } = req.query;
+        const temperature = await getAllLatestsTemperatureSignal(building as string);
         res.status(200).json({ temperature });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -81,8 +81,8 @@ export const getAllTemperature = async (req: Request<TemperatureParams>, res: Re
 
 export const getTemperatureDashboard = async (req: Request<DashboardTemperatureParams>, res: Response) => {
     try {
-        const { twin, roomId, timeRange } = req.query;
-        const temperature = await getTemperatureData(twin as string, timeRange as string, roomId as string);
+        const { building, roomId, timeRange } = req.query;
+        const temperature = await getTemperatureData(building as string, timeRange as string, roomId as string);
         res.status(200).json({ temperature });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -91,28 +91,28 @@ export const getTemperatureDashboard = async (req: Request<DashboardTemperatureP
 
 export const getPeopleCountDashboard = async (req: Request<DashboardPeopleCountParams>, res: Response) => {
     try {
-        const { twin, roomId, timeRange } = req.query;
-        const peopleCount = await getPeopleCountData(twin as string, timeRange as string, roomId as string);
+        const { building, roomId, timeRange } = req.query;
+        const peopleCount = await getPeopleCountData(building as string, timeRange as string, roomId as string);
         res.status(200).json({ peopleCount });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
     }
 };
 
-export const getEntireTwinTemperatureDashboard = async (req: Request<DashboardTwinTemperatureParams>, res: Response) => {
+export const getEntireBuildingTemperatureDashboard = async (req: Request<DashboardBuildingTemperatureParams>, res: Response) => {
     try {
-        const { twin, timeRange } = req.query;
-        const temperature = await getTemperatureData(twin as string, timeRange as string, undefined);
+        const { building, timeRange } = req.query;
+        const temperature = await getTemperatureData(building as string, timeRange as string, undefined);
         res.status(200).json({ temperature });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
     }
 };
 
-export const getEntireTwinPeopleCountDashboard = async (req: Request<DashboardTwinPeopleCountParams>, res: Response) => {
+export const getEntireBuildingPeopleCountDashboard = async (req: Request<DashboardBuildingPeopleCountParams>, res: Response) => {
     try {
-        const { twin, timeRange } = req.query;
-        const peopleCount = await getPeopleCountData(twin as string, timeRange as string, undefined);
+        const { building, timeRange } = req.query;
+        const peopleCount = await getPeopleCountData(building as string, timeRange as string, undefined);
         res.status(200).json({ peopleCount });
     } catch (error: any) {
         res.status(400).json({ error: error.message });

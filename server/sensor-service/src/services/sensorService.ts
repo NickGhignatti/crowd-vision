@@ -1,54 +1,54 @@
 import { PeopleCount } from '../models/peopleCountSignal.js';
 import { Temperature } from '../models/temperatureSignal.js';
 
-export const postPeopleCountSignal = async (twin: string, roomId: string, timestamp: number, peopleCount: number) => {
+export const postPeopleCountSignal = async (building: string, roomId: string, timestamp: number, peopleCount: number) => {
 
     await PeopleCount.create({
-        twin,
+        building,
         roomId,
         timestamp,
         peopleCount
     });
 };
 
-export const postTemperatureSignal = async (twin: string, roomId: string, timestamp: number, temperature: number) => {
+export const postTemperatureSignal = async (building: string, roomId: string, timestamp: number, temperature: number) => {
 
     await Temperature.create({
-        twin,
+        building,
         roomId,
         timestamp,
         temperature
     });
 };
 
-export const getLatestsPeopleCountSignal = async (twin: string, roomId: string) => {
-    const peopleCount = await PeopleCount.findOne({ twin, roomId })
+export const getLatestsPeopleCountSignal = async (building: string, roomId: string) => {
+    const peopleCount = await PeopleCount.findOne({ building, roomId })
         .sort({ timestamp: -1 })
         .exec();
 
     if (!peopleCount) {
-        throw new Error('Invalid twin or roomId');
+        throw new Error('Invalid building or roomId');
     }
 
     return peopleCount;
 };
 
-export const getLatestsTemperatureSignal = async (twin: string, roomId: string) => {
-    const temperature = await Temperature.findOne({ twin, roomId })
+export const getLatestsTemperatureSignal = async (building: string, roomId: string) => {
+    const temperature = await Temperature.findOne({ building, roomId })
         .sort({ timestamp: -1 })
         .exec();
 
     if (!temperature) {
-        throw new Error('Invalid twin or roomId');
+        throw new Error('Invalid building or roomId');
     }
 
     return temperature;
 };
 
-export const getAllLatestsPeopleCountSignal = async (twin: string) => {
+export const getAllLatestsPeopleCountSignal = async (building: string) => {
     const peopleCounts = await PeopleCount.aggregate([
         { 
-            $match: { twin: twin } 
+            $match: { building: building } 
         }, { 
             $sort: { timestamp: -1 } 
         }, { 
@@ -56,7 +56,7 @@ export const getAllLatestsPeopleCountSignal = async (twin: string) => {
                 _id: "$roomId",
                 value: { $first: "$peopleCount" },
                 timestamp: { $first: "$timestamp" },
-                twin: { $first: "$twin" }
+                building: { $first: "$building" }
             } 
         }, { 
             $project: {
@@ -64,22 +64,22 @@ export const getAllLatestsPeopleCountSignal = async (twin: string) => {
                 roomId: "$_id",
                 value: 1,
                 timestamp: 1,
-                twin: 1
+                building: 1
             } 
         }
     ]);
 
     if (!peopleCounts) {
-        throw new Error('Invalid twin or roomId');
+        throw new Error('Invalid building or roomId');
     }
 
     return peopleCounts;
 };
 
-export const getAllLatestsTemperatureSignal = async (twin: string) => {
+export const getAllLatestsTemperatureSignal = async (building: string) => {
     const temperatures = await Temperature.aggregate([
         { 
-            $match: { twin: twin } 
+            $match: { building: building } 
         }, { 
             $sort: { timestamp: -1 } 
         }, { 
@@ -87,7 +87,7 @@ export const getAllLatestsTemperatureSignal = async (twin: string) => {
                 _id: "$roomId",
                 value: { $first: "$temperature" },
                 timestamp: { $first: "$timestamp" },
-                twin: { $first: "$twin" }
+                building: { $first: "$building" }
             } 
         }, { 
             $project: {
@@ -95,13 +95,13 @@ export const getAllLatestsTemperatureSignal = async (twin: string) => {
                 roomId: "$_id",
                 value: 1,
                 timestamp: 1,
-                twin: 1
+                building: 1
             } 
         }
     ]);
 
     if (!temperatures) {
-        throw new Error('Invalid twin or roomId');
+        throw new Error('Invalid building or roomId');
     }
 
     return temperatures;

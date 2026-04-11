@@ -263,7 +263,7 @@ onUnmounted(() => {
         <Transition name="fade" mode="out-in">
           
           <div v-if="viewMode === 'table'" key="table" class="w-full">
-            <DataTable :headers="tableHeaders" :roomsData="roomData" :selectedTwinId="selectedModel?.id"
+            <DataTable :headers="tableHeaders" :roomsData="roomData" :selectedBuildingId="selectedModel?.id"
               class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top">
               <template #status="{ value }">
                 <span :class="getStatusColor(value)">{{ value }}</span>
@@ -287,7 +287,7 @@ onUnmounted(() => {
           <div v-else key="graph" class="w-full">
             <GraphDashboard 
               :selectedRooms="roomData.map((r: TableBody) => r.room)"
-              :selectedTwinId="selectedModel?.id" 
+              :selectedBuildingId="selectedModel?.id" 
             />
           </div>
 

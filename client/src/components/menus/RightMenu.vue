@@ -8,7 +8,7 @@ import { useUserPermissions } from '@/composables/useUserPermissions'
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { makeRequest } from '@/composables/useApi.ts'
-import { getTwinData } from '@/composables/useSensorData'
+import { getBuildingData } from '@/composables/useSensorData'
 
 export interface RoomItemBody {
   room: Room
@@ -64,12 +64,12 @@ const buildingId = computed(() => props.buildingModel?.id)
 const { 
   data: peopleData, 
   isLoading: loadingPeople 
-} = getTwinData(buildingId, 'peopleCount')
+} = getBuildingData(buildingId, 'peopleCount')
 
 const { 
   data: temperatures, 
   isLoading: loadingTemperature
-} = getTwinData(buildingId, 'temperature')
+} = getBuildingData(buildingId, 'temperature')
 
 const enrichedRooms = computed<RoomItemBody[]>(() => {
   if (!props.buildingModel) return []

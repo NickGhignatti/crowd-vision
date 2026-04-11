@@ -8,14 +8,14 @@ export interface ApiDataPoint {
   sum: number
 }
 
-export function getTwinHistory(twinId: any, range: any, apiType: 'peopleCount' | 'temperature') {
+export function getBuildingHistory(buildingId: any, range: any, apiType: 'peopleCount' | 'temperature') {
     const data = ref<ApiDataPoint[]>([])
     const isLoading = ref(false)
     const error = ref(null)
     const serverUrl = import.meta.env.VITE_SERVER_URL
 
     watchEffect(async () => {
-        if (!twinId.value) return
+        if (!buildingId.value) return
         
         isLoading.value = true
         data.value = []
@@ -23,13 +23,12 @@ export function getTwinHistory(twinId: any, range: any, apiType: 'peopleCount' |
 
         try {
             const response = await fetch(
-                `${serverUrl}/sensor/${apiType}/dashboard/entireTwin/?twin=${twinId.value}&timeRange=${range.value}`
+                `${serverUrl}/sensor/${apiType}/dashboard/entireBuilding/?building=${buildingId.value}&timeRange=${range.value}`
             )
             
             if (!response.ok) throw new Error('Fetch failed')
             
             const result = await response.json()
-            console.log('API get twin history Result:', result)
             
             data.value = result[apiType] || []
         } catch (err: any) {

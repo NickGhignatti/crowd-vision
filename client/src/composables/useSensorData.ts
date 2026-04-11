@@ -4,11 +4,11 @@ export interface ApiDataPoint {
   timestamp: string
   roomId: string
   value: number
-  twin: string
+  building: string
 }
 
-export function getTwinData(
-  twinId: Ref<string | undefined>, 
+export function getBuildingData(
+  buildingId: Ref<string | undefined>, 
   apiType: 'peopleCount' | 'temperature',
   pollIntervalMs = 5000 // Configurable, defaults to 5 seconds
 ) {
@@ -17,7 +17,7 @@ export function getTwinData(
     const error = ref<string | null>(null)
     const serverUrl = import.meta.env.VITE_SERVER_URL
 
-    watch(twinId, (newId, oldId, onCleanup) => {
+    watch(buildingId, (newId, oldId, onCleanup) => {
         if (!newId) {
             data.value = []
             return
@@ -38,7 +38,7 @@ export function getTwinData(
 
             try {
                 const response = await fetch(
-                    `${serverUrl}/sensor/${apiType}/entireTwin/?twin=${newId}`,
+                    `${serverUrl}/sensor/${apiType}/entireBuilding/?building=${newId}`,
                     { signal: abortController.signal }
                 )
                 

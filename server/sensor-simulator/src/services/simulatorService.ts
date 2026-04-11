@@ -1,8 +1,8 @@
 import { 
-    mySimulationTwins, 
+    mySimulationBuildings, 
     type ISignalPeopleCount, 
     type ISignalTemperature, 
-    type ITwin 
+    type IBuilding 
 } from '../models/signal.js';
 
 export class Simulator {
@@ -12,24 +12,24 @@ export class Simulator {
     private readonly delay: number = 10000;  // 10 seconds
     private readonly peopleCountRange: [number, number] = [0, 50];
     private readonly temperatureRange: [number, number] = [18, 30];
-    private activeTwins = mySimulationTwins;
+    private activeBuildings = mySimulationBuildings;
 
-    public getIsRunning(twinId: string | string[]): boolean {
-        return this.isRunning && this.activeTwins.activeTwins.some(t => t.twinId === twinId);
+    public getIsRunning(buildingId: string | string[]): boolean {
+        return this.isRunning && this.activeBuildings.activeBuildings.some(t => t.buildingId === buildingId);
     }
 
-    public startOrAdd(twin: ITwin) {
-        this.activeTwins.push(twin);
+    public startOrAdd(building: IBuilding) {
+        this.activeBuildings.push(building);
         if (!this.isRunning) {
             this.isRunning = true;
             this.tick();
         }
     }
 
-    public stop(twinId: string) {
-        if (!this.isRunning || this.activeTwins.activeTwins.length === 0) return;
-        this.activeTwins.activeTwins = this.activeTwins.activeTwins.filter(t => t.twinId !== twinId);
-        if (this.activeTwins.activeTwins.length === 0) {
+    public stop(buildingId: string) {
+        if (!this.isRunning || this.activeBuildings.activeBuildings.length === 0) return;
+        this.activeBuildings.activeBuildings = this.activeBuildings.activeBuildings.filter(t => t.buildingId !== buildingId);
+        if (this.activeBuildings.activeBuildings.length === 0) {
             this.isRunning = false;
         }
     }
@@ -37,27 +37,27 @@ export class Simulator {
     private async tick() {
         if (!this.isRunning) return;
 
-        for (const twin of this.activeTwins.activeTwins) {
-            await this.sendSignals(twin.twinId);
+        for (const building of this.activeBuildings.activeBuildings) {
+            await this.sendSignals(building.buildingId);
         }
         
         console.log(`[Simulator] Sleeping for ${this.delay / 1000}s...`);
         setTimeout(() => this.tick(), this.delay);
     }
 
-    private async sendSignals(twinId: string) {
-        const rooms = this.activeTwins.getRooms(twinId);
+    private async sendSignals(buildingId: string) {
+        const rooms = this.activeBuildings.getRooms(buildingId);
         for (const roomId of rooms) {
-            this.sendSingleSignal(roomId, twinId);
+            this.sendSingleSignal(roomId, buildingId);
         }
     }
 
-    private async sendSingleSignal(roomId: string, twinId: string) {
+    private async sendSingleSignal(roomId: string, buildingId: string) {
         try {
-            console.log(`[Simulator] Sending data for ${twinId}...`);
+            console.log(`[Simulator] Sending data for ${buildingId}...`);
 
             const payloadPeople: ISignalPeopleCount = {
-                twinId,
+                buildingId,
                 roomId: roomId,
                 timestamp: Date.now(),
                 peopleCount: Math.floor(Math.random() * 
@@ -65,7 +65,7 @@ export class Simulator {
             };
 
             const payloadTemp: ISignalTemperature = {
-                twinId,
+                buildingId,
                 roomId: roomId,
                 timestamp: Date.now(),
                 temperature: parseFloat((Math.random() * 
@@ -85,13 +85,13 @@ export class Simulator {
             });
 
             if (!responseTemperature.ok || !responsePeopleCount.ok) {
-                console.error(`[Simulator] Error: Something went wrong sending data to twin ${twinId}`);
+                console.error(`[Simulator] Error: Something went wrong sending data to building ${buildingId}`);
                 console.warn(`[Simulator] API Result: ${responseTemperature.status} ${responseTemperature.statusText}`);
                 console.warn(`[Simulator] API Result: ${responsePeopleCount.status} ${responsePeopleCount.statusText}`);
             } else {
                 console.log(`[Simulator] Success: Sent value ${payloadTemp.temperature} 
                     for temperature and ${payloadPeople.peopleCount} 
-                    for people count to twin ${twinId}`);
+                    for people count to building ${buildingId}`);
             }
 
         } catch (error) {

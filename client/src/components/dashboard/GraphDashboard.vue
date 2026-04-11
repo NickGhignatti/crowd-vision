@@ -12,7 +12,7 @@ import {
   Filler
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import { getTwinHistory } from '@/composables/getTwinHistory'
+import { getBuildingHistory } from '@/composables/useBuildingHistory'
 import { useIsRunning, toggleSimulator } from '@/composables/simulator'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
@@ -26,18 +26,18 @@ type AggMode = 'sum' | 'avg' | 'min' | 'max'
 
 const props = defineProps<{
   selectedRooms: string[],
-  selectedTwinId: string | undefined
+  selectedBuildingId: string | undefined
 }>()
 
-const twinIdRef = toRef(props, 'selectedTwinId')
+const buildingIdRef = toRef(props, 'selectedBuildingId')
 
 // --- State ---
 const timeRange = ref<TimeRange>('1D')
 const aggMode = ref<AggMode>('avg')
 
 const toggleSimulatorButton = () => {
-  if (!twinIdRef.value) return
-  toggleSimulator(twinIdRef.value, isSimRunning.value ? 'stop' : 'start', props.selectedRooms).then(
+  if (!buildingIdRef.value) return
+  toggleSimulator(buildingIdRef.value, isSimRunning.value ? 'stop' : 'start', props.selectedRooms).then(
     () => {
       isSimRunning.value = !isSimRunning.value
       
@@ -54,14 +54,14 @@ const toggleSimulatorButton = () => {
 const { 
   data: peopleData, 
   isLoading: loadingPeople 
-} = getTwinHistory(twinIdRef, timeRange, 'peopleCount')
+} = getBuildingHistory(buildingIdRef, timeRange, 'peopleCount')
 
 const { 
   data: tempData, 
   isLoading: loadingTemp 
-} = getTwinHistory(twinIdRef, timeRange, 'temperature')
+} = getBuildingHistory(buildingIdRef, timeRange, 'temperature')
 
-const { isSimRunning, error, refetch } = useIsRunning(twinIdRef)
+const { isSimRunning, error, refetch } = useIsRunning(buildingIdRef)
 
 const checkSimStatus = () => {
   refetch()
@@ -236,7 +236,7 @@ const tempChartData = computed(() => {
           </span>
         </h3>
         <div class="h-[320px]">
-          <div v-if="!twinIdRef?.valueOf" class="animate-pulse">No data</div>
+          <div v-if="!buildingIdRef?.valueOf" class="animate-pulse">No data</div>
           <div v-else-if="loadingPeople" class="animate-pulse">Loading...</div>
           <Line v-else :data="peopleChartData" :options="commonOptions" />
         </div>
@@ -253,7 +253,7 @@ const tempChartData = computed(() => {
           </span>
         </h3>
         <div class="h-[320px]">
-            <div v-if="!twinIdRef?.valueOf" class="animate-pulse">No data</div>
+            <div v-if="!buildingIdRef?.valueOf" class="animate-pulse">No data</div>
             <div v-else-if="loadingTemp" class="animate-pulse">Loading...</div>
            <Line v-else :data="tempChartData" :options="commonOptions" />
         </div>

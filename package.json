@@ -33,24 +33,18 @@
     "test:twin": "cd server/twin-service && npm test",
     "test:notification": "cd server/notification-service && npm test",
     "test:socket": "cd server/socket-service && npm test",
+    "test:sensor": "cd server/sensor-service && npm test",
     "test:client": "cd client && npm run test:unit",
-    "test": "concurrently \"npm run test:auth\" \"npm run test:twin\" \"npm run test:notification\" \"npm run test:client\" \"npm run test:socket\"",
+    "test": "concurrently \"npm run test:auth\" \"npm run test:twin\" \"npm run test:notification\" \"npm run test:sensor\" \"npm run test:client\" \"npm run test:socket\"",
     "// --- UTILITIES ---": "",
     "provision:admin": "node scripts/provision.js",
-    "// --- RELEASE ---": "",
-    "release": "semantic-release"
+    "// --- RELEASE ---": ""
   },
   "devDependencies": {
-    "@semantic-release/changelog": "^6.0.0",
-    "@semantic-release/exec": "^6.0.0",
-    "@semantic-release/git": "^10.0.0",
-    "@semantic-release/github": "^10.0.0",
     "concurrently": "^9.2.1",
     "http-server": "^14.1.1",
     "lerna": "^9.0.7",
     "nodemon": "^3.1.11",
-    "npm": "^11.12.1",
-    "semantic-release": "^25.0.3",
     "shx": "^0.4.0"
   },
   "overrides": {

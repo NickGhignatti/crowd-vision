@@ -1,35 +1,35 @@
-interface SimulationTwins {
-    activeTwins: ITwin[];
-    push(twin: ITwin): void;
-    getRooms(twinId: string): string[];
+interface SimulationBuildings {
+    activeBuildings: IBuilding[];
+    push(building: IBuilding): void;
+    getRooms(buildingId: string): string[];
 }
 
-export const mySimulationTwins: SimulationTwins = {
-    activeTwins: [],
-    push(twin: ITwin) {
-        this.activeTwins = this.activeTwins.filter(t => t.twinId !== twin.twinId);
-        this.activeTwins.push(twin);
+export const mySimulationBuildings: SimulationBuildings = {
+    activeBuildings: [],
+    push(building: IBuilding) {
+        this.activeBuildings = this.activeBuildings.filter(t => t.buildingId !== building.buildingId);
+        this.activeBuildings.push(building);
     },
-    getRooms(twinId: string): string[] {
-        const twin = this.activeTwins.find(t => t.twinId === twinId);
-        return twin ? twin.roomIds : [];
+    getRooms(buildingId: string): string[] {
+        const building = this.activeBuildings.find(t => t.buildingId === buildingId);
+        return building ? building.roomIds : [];
     }
 };
 
-export interface ITwin {
-    twinId: string;
+export interface IBuilding {
+    buildingId: string;
     roomIds: string[];
 }
 
 export interface ISignalPeopleCount {
-    twinId: string;
+    buildingId: string;
     roomId: string;
     timestamp: number;
     peopleCount: number;
 }
 
 export interface ISignalTemperature {
-    twinId: string;
+    buildingId: string;
     roomId: string;
     timestamp: number;
     temperature: number;

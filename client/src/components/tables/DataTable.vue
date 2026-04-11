@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getTwinData } from '@/composables/useSensorData'
+import { getBuildingData } from '@/composables/useSensorData'
 import { ref, computed, onUnmounted, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -23,14 +23,14 @@ const props = withDefaults(
     headers: TableHeader[]
     roomsData: TableBody[]
     itemsPerPage?: number
-    selectedTwinId: string | undefined
+    selectedBuildingId: string | undefined
   }>(),
   {
     itemsPerPage: 7,
   },
 )
 
-const twinIdRef = toRef(props, 'selectedTwinId')
+const buildingIdRef = toRef(props, 'selectedBuildingId')
 
 const { t } = useI18n()
 
@@ -81,12 +81,12 @@ const toggleAutoPlay = () => {
 const { 
   data: peopleData, 
   isLoading: loadingPeople 
-} = getTwinData(twinIdRef, 'peopleCount')
+} = getBuildingData(buildingIdRef, 'peopleCount')
 
 const { 
   data: temperatures, 
   isLoading: loadingTemperature
-} = getTwinData(twinIdRef, 'temperature')
+} = getBuildingData(buildingIdRef, 'temperature')
 
 const enrichedItems = computed<TableBody[]>(() => {
   if (!props.roomsData) return []
@@ -131,7 +131,7 @@ onUnmounted(() => {
           </tr>
         </thead>
 
-       <tbody v-if="!twinIdRef?.valueOf">
+       <tbody v-if="!buildingIdRef?.valueOf">
           <tr>
             <td :colspan="headers.length" class="p-8 text-center text-slate-500 animate-pulse">
               No data

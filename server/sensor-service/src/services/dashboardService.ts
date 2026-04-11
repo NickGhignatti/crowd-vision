@@ -3,12 +3,12 @@ import { Temperature } from '../models/temperatureSignal.js';
 import { getDateRange, getTimeRange, type TimeRange } from '../utils/dataHelpers.js';
 import { Model } from 'mongoose';
 
-export const getPeopleCountData = async (twin: string, range: string, roomId: string | undefined) => {
-    return await getAggregatedData(PeopleCount, twin, roomId, getTimeRange(range), 'peopleCount');
+export const getPeopleCountData = async (building: string, range: string, roomId: string | undefined) => {
+    return await getAggregatedData(PeopleCount, building, roomId, getTimeRange(range), 'peopleCount');
 };
 
-export const getTemperatureData = async (twin: string, range: string, roomId: string | undefined) => {
-    return await getAggregatedData(Temperature, twin, roomId, getTimeRange(range), 'temperature');
+export const getTemperatureData = async (building: string, range: string, roomId: string | undefined) => {
+    return await getAggregatedData(Temperature, building, roomId, getTimeRange(range), 'temperature');
 };
 
 const getGranularity = (range: TimeRange) => {
@@ -20,7 +20,7 @@ const getGranularity = (range: TimeRange) => {
  */
 const getAggregatedData = async (
     model: Model<any>,
-    twin: string,
+    building: string,
     roomId: string | undefined,
     range: TimeRange,
     valueField: string = 'value'
@@ -32,7 +32,7 @@ const getAggregatedData = async (
         // 1. FILTER
         {
             $match: {
-                twin,
+                building,
                 ...(roomId && { roomId }),
                 timestamp: { $gte: start, $lte: end }
             }

@@ -1,26 +1,12 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import mongoose from 'mongoose';
+import { jest } from '@jest/globals';
 
-let mongoServer: MongoMemoryServer;
+jest.setTimeout(30000);
 
-beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const uri = mongoServer.getUri();
-    process.env.MONGO_URI = uri;
-    await mongoose.connect(uri);
-}, 30000);
-
-afterEach(async () => {
-    const collections = mongoose.connection.collections;
-    for (const key in collections) {
-        const collection = collections[key];
-        if (collection) {
-            await collection.deleteMany({});
-        }
-    }
+beforeAll(() => {
+    process.env.NODE_ENV = 'test';
 });
 
-afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
+afterEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
 });
