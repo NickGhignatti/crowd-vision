@@ -160,7 +160,7 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
               :key="r.room.id"
               :ref="(el) => (roomRefs[r.room.id] = el as HTMLElement)"
             >
-              <RoomItem
+              <RoomCard
                 :room="r.room"
                 :is-selected="props.selectedRoomId === r.room.id"
                 :can-edit="userCanEdit"

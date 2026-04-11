@@ -61,10 +61,10 @@ onMounted(() => {
 
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
       <LeftMenu
-        :building-ids="buildingModel.availableBuildingsNames.value"
-        :selected-id="buildingModel.building.value?.id || null"
+        :buildingIds="buildingModel.availableBuildingsNames.value"
+        :selectedId="buildingModel.building.value?.id || null"
         :buildingModel="buildingModel.building.value"
-        :active-floor="buildingModel.selectedFloor.value"
+        :activeFloor="buildingModel.selectedFloor.value"
         @json-uploaded="buildingModel.fetchBuildings"
         @change-building="buildingModel.setBuildingByIndex"
         @change-floor="buildingModel.setFloor"
@@ -137,7 +137,6 @@ onMounted(() => {
       <RightMenu
         :buildingModel="buildingModel.displayedBuilding.value"
         :selectedRoomId="buildingModel.selectedRoomId.value"
-        :selected-id="buildingModel.building.value?.id || null"
         @toggle-select="buildingModel.toggleRoom"
       />
     </div>
