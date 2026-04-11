@@ -182,7 +182,7 @@ const tempChartData = computed(() => {
             ></span>
             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          {{ isSimRunning ? t('table.buttons.stop') : t('table.buttons.auto') }}
+          {{ isSimRunning ? t('dashboard.table.buttons.simStop') : t('dashboard.table.buttons.simStart') }}
         </button>
       </div>
 
