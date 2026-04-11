@@ -23,9 +23,6 @@ Here is a template of the required variables:
     JWT_SECRET=your_super_secret_jwt_string
     INTERNAL_ADMIN_SECRET=your_hmac_secret_for_admin_creation
 
-    # Bootstrapping (Used by admin-creator.js)
-    YARVUE_PASSWORD=your_secure_admin_password
-
     # Web Push Notification Keys (VAPID)
     VAPID_PUBLIC_KEY=your_vapid_public_key
     VAPID_PRIVATE_KEY=your_vapid_private_key
@@ -99,11 +96,17 @@ You can then log into the frontend using yarvue.admin@yarvue.com and the passwor
 
 ---
 
-## 5. The Automated Setup Script (`setup.js`)
+## 5. The Automated Setup Script
 
-To eliminate the friction of manually generating cryptographic keys and boilerplate configuration, CrowdVision includes an automated initialization script: `setup.js`.
+To eliminate the friction of manually generating cryptographic keys and boilerplate configuration, CrowdVision includes automated initialization scripts present in the folder.
 
 You do **not** need to run this script manually. It is automatically triggered as a prerequisite whenever you run the primary NPM commands like `npm run dev` or `npm start`.
+
+## 6. A default admin account
+
+In order to facilitate immediate access to the system, the `provision.js` script also checks for the presence of an admin account.
+If it detects that no admin users exist in the database, it automatically creates a default admin account.
+The script can be run with the command `npm run provision:admin`, which will create an admin user with the email `
 
 **What it does behind the scenes:**
 1. **Creates the `.env` file:** If one does not exist, it scaffolds a `.env` file with default port bindings (`SERVER_PORT=80`, `CLIENT_PORT=8080`) and local URLs.
