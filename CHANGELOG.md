@@ -1,3 +1,15 @@
+# [2.7.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.6.1...v2.7.0) (2026-04-12)
+
+
+### Bug Fixes
+
+* omit devDependencies for audit check in the CI ([#143](https://github.com/NickGhignatti/crowd-vision/issues/143)) ([48945cc](https://github.com/NickGhignatti/crowd-vision/commit/48945ccc53cc6b7edcc255fce7618f2e227fe58d))
+
+
+### Features
+
+* Add sensor business logic to application ([#141](https://github.com/NickGhignatti/crowd-vision/issues/141)) ([6525eab](https://github.com/NickGhignatti/crowd-vision/commit/6525eab6a7cbae81069173fd57ae29f94fb3b7e4))
+
 ## [2.6.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.6.0...v2.6.1) (2026-03-29)
 
 
