@@ -3,25 +3,24 @@ on: [pull_request]
 jobs:
   audit:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        directory:
+          - "."
+          - "client"
+          - "server/auth-service"
+          - "server/notification-service"
+          - "server/socket-service"
+          - "server/twin-service"
+          - "server/agent-service"
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24.x
-      - name: Audit Root Level
-        run: |
-          npm ci 
-          npm audit --audit-level=high --omit=dev
-      - name: Audit Client
-        run: cd client && npm audit --audit-level=high
-      - name: Audit Auth Service
-        run: cd server/auth-service && npm audit --audit-level=high
-      - name: Audit Notification Service
-        run: cd server/notification-service && npm audit --audit-level=high
-      - name: Audit Socket Service
-        run: cd server/socket-service && npm audit --audit-level=high
-      - name: Audit Twin Service
-        run: cd server/twin-service && npm audit --audit-level=high
-      - name: Audit Agent Service
-        run: cd server/agent-service && npm audit --audit-level=high
+
+      - name: Audit Dependencies
+        run: cd ${{ matrix.directory }} && npm audit --audit-level=high --omit=dev
