@@ -3,7 +3,7 @@ import type { Simulator } from '../services/simulatorService.js';
 
 export const start = async (simulator: Simulator, req: Request, res: Response) => {
     try {
-        simulator.startOrAdd({ buildingId: req.body.buildingId, roomIds: req.body.roomIds });
+        simulator.startOrAdd({ buildingId: req.body.buildingId, roomIds: req.body.roomIds, targetUrl: req.body.targetUrl });
         res.status(200).json({ message: `Simulator started for ${req.body.buildingId}` });
     } catch (error: any) {
         res.status(400).json({ error: error.message });

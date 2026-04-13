@@ -1,101 +1,147 @@
-import { 
-    mySimulationBuildings, 
-    type ISignalPeopleCount, 
-    type ISignalTemperature, 
-    type IBuilding 
-} from '../models/signal.js';
+import {
+  mySimulationBuildings,
+  type ISignalPeopleCount,
+  type ISignalTemperature,
+  type IBuilding,
+} from "../models/signal.js";
 
 export class Simulator {
-    private isRunning: boolean = false;
-    private readonly targetUrlTemp: string = "http://gateway:80/sensor/temperature";
-    private readonly targetUrlPeople: string = "http://gateway:80/sensor/peopleCount";
-    private readonly delay: number = 10000;  // 10 seconds
-    private readonly peopleCountRange: [number, number] = [0, 50];
-    private readonly temperatureRange: [number, number] = [18, 30];
-    private activeBuildings = mySimulationBuildings;
+  private isRunning: boolean = false;
+  private readonly delay: number = 10000; // 10 seconds
+  private readonly peopleCountRange: [number, number] = [0, 50];
+  private readonly temperatureRange: [number, number] = [18, 30];
+  private activeBuildings = mySimulationBuildings;
 
-    public getIsRunning(buildingId: string | string[]): boolean {
-        return this.isRunning && this.activeBuildings.activeBuildings.some(t => t.buildingId === buildingId);
+  public getIsRunning(buildingId: string | string[]): boolean {
+    return (
+      this.isRunning &&
+      this.activeBuildings.activeBuildings.some(
+        (t) => t.buildingId === buildingId,
+      )
+    );
+  }
+
+  public startOrAdd(building: IBuilding) {
+    if (building.targetUrl) {
+      let parsedUrl = building.targetUrl.replace(/\/$/, "");
+      // Inside a Docker container, "localhost" resolves to the container itself.
+      // "host.docker.internal" is Docker Desktop's special hostname that resolves
+      // to the actual host machine — where k3d's port 80 is bound.
+      if (parsedUrl.includes("localhost") || parsedUrl.includes("127.0.0.1")) {
+        parsedUrl = parsedUrl
+          .replace(/localhost/g, "host.docker.internal")
+          .replace(/127\.0\.0\.1/g, "host.docker.internal");
+      }
+      console.log(parsedUrl);
+
+      building.targetUrl = parsedUrl;
+    }
+    console.log(`Simulator started for ${building.targetUrl}`);
+    this.activeBuildings.push(building);
+    if (!this.isRunning) {
+      this.isRunning = true;
+      this.tick();
+    }
+  }
+
+  public stop(buildingId: string) {
+    if (!this.isRunning || this.activeBuildings.activeBuildings.length === 0)
+      return;
+    this.activeBuildings.activeBuildings =
+      this.activeBuildings.activeBuildings.filter(
+        (t) => t.buildingId !== buildingId,
+      );
+    if (this.activeBuildings.activeBuildings.length === 0) {
+      this.isRunning = false;
+    }
+  }
+
+  private async tick() {
+    if (!this.isRunning) return;
+
+    for (const building of this.activeBuildings.activeBuildings) {
+      await this.sendSignals(building);
     }
 
-    public startOrAdd(building: IBuilding) {
-        this.activeBuildings.push(building);
-        if (!this.isRunning) {
-            this.isRunning = true;
-            this.tick();
-        }
+    console.log("Buidings", this.activeBuildings.activeBuildings);
+    console.log(`[Simulator] Sleeping for ${this.delay / 1000}s...`);
+    setTimeout(() => this.tick(), this.delay);
+  }
+
+  private async sendSignals(building: IBuilding) {
+    const rooms = this.activeBuildings.getRooms(building.buildingId);
+    for (const roomId of rooms) {
+      this.sendSingleSignal(roomId, building);
     }
+  }
 
-    public stop(buildingId: string) {
-        if (!this.isRunning || this.activeBuildings.activeBuildings.length === 0) return;
-        this.activeBuildings.activeBuildings = this.activeBuildings.activeBuildings.filter(t => t.buildingId !== buildingId);
-        if (this.activeBuildings.activeBuildings.length === 0) {
-            this.isRunning = false;
-        }
-    }
+  private async sendSingleSignal(roomId: string, building: IBuilding) {
+    try {
+      const payloadPeople: ISignalPeopleCount = {
+        buildingId: building.buildingId,
+        roomId: roomId,
+        timestamp: Date.now(),
+        peopleCount:
+          Math.floor(
+            Math.random() *
+              (this.peopleCountRange[1] - this.peopleCountRange[0] + 1),
+          ) + this.peopleCountRange[0],
+      };
 
-    private async tick() {
-        if (!this.isRunning) return;
+      const payloadTemp: ISignalTemperature = {
+        buildingId: building.buildingId,
+        roomId: roomId,
+        timestamp: Date.now(),
+        temperature: parseFloat(
+          (
+            Math.random() *
+              (this.temperatureRange[1] - this.temperatureRange[0]) +
+            this.temperatureRange[0]
+          ).toFixed(2),
+        ),
+      };
 
-        for (const building of this.activeBuildings.activeBuildings) {
-            await this.sendSignals(building.buildingId);
-        }
-        
-        console.log(`[Simulator] Sleeping for ${this.delay / 1000}s...`);
-        setTimeout(() => this.tick(), this.delay);
-    }
+      const responseTemperature = await fetch(
+        `${building.targetUrl}/temperature`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payloadTemp),
+        },
+      );
 
-    private async sendSignals(buildingId: string) {
-        const rooms = this.activeBuildings.getRooms(buildingId);
-        for (const roomId of rooms) {
-            this.sendSingleSignal(roomId, buildingId);
-        }
-    }
+      const responsePeopleCount = await fetch(
+        `${building.targetUrl}/peopleCount`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payloadPeople),
+        },
+      );
 
-    private async sendSingleSignal(roomId: string, buildingId: string) {
-        try {
-            console.log(`[Simulator] Sending data for ${buildingId}...`);
-
-            const payloadPeople: ISignalPeopleCount = {
-                buildingId,
-                roomId: roomId,
-                timestamp: Date.now(),
-                peopleCount: Math.floor(Math.random() * 
-                    (this.peopleCountRange[1] - this.peopleCountRange[0] + 1)) + this.peopleCountRange[0]
-            };
-
-            const payloadTemp: ISignalTemperature = {
-                buildingId,
-                roomId: roomId,
-                timestamp: Date.now(),
-                temperature: parseFloat((Math.random() * 
-                    (this.temperatureRange[1] - this.temperatureRange[0]) + this.temperatureRange[0]).toFixed(2))
-            };
-            
-            const responseTemperature = await fetch(this.targetUrlTemp, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payloadTemp)
-            });
-
-            const responsePeopleCount = await fetch(this.targetUrlPeople, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payloadPeople)
-            });
-
-            if (!responseTemperature.ok || !responsePeopleCount.ok) {
-                console.error(`[Simulator] Error: Something went wrong sending data to building ${buildingId}`);
-                console.warn(`[Simulator] API Result: ${responseTemperature.status} ${responseTemperature.statusText}`);
-                console.warn(`[Simulator] API Result: ${responsePeopleCount.status} ${responsePeopleCount.statusText}`);
-            } else {
-                console.log(`[Simulator] Success: Sent value ${payloadTemp.temperature} 
+      if (!responseTemperature.ok || !responsePeopleCount.ok) {
+        console.error(
+          `[Simulator] Error: Something went wrong sending data to building ${building.buildingId}`,
+        );
+        console.warn(
+          `[Simulator] API Result: ${responseTemperature.status} ${responseTemperature.statusText}`,
+        );
+        console.warn(
+          `[Simulator] API Result: ${responsePeopleCount.status} ${responsePeopleCount.statusText}`,
+        );
+      } else {
+        console.log(`[Simulator] Success: Sent value ${payloadTemp.temperature} 
                     for temperature and ${payloadPeople.peopleCount} 
-                    for people count to building ${buildingId}`);
-            }
-
-        } catch (error) {
-            console.error(`[Simulator] Network Error: ${(error as Error).message}`);
-        }
+                    for people count to building ${building.buildingId}`);
+      }
+    } catch (error: any) {
+      console.error(
+        `[Simulator] Network Error connecting to: ${building.targetUrl}`,
+      );
+      console.error(`[Simulator] Message: ${error.message}`);
+      if (error.cause) {
+        console.error(`[Simulator] Deep Cause:`, error.cause);
+      }
     }
+  }
 }

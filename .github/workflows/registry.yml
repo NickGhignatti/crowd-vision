@@ -2,11 +2,12 @@ name: push images to ghcr
 on:
   workflow_dispatch:
   push:
-    branches: [ "master",  "**/k8s**"]
+    branches: [ "master", "**/k8s**"]
     paths:
       - "docker-compose.yml"
       - "server/**"
       - "client/**"
+      - "k8s/**"
       - ".github/workflows/registry.yml"
 
 env:
