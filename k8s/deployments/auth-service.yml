@@ -29,7 +29,7 @@ spec:
       containers:
         - name: auth-service
           image: ghcr.io/nickghignatti/crowdvision-auth:latest
-          imagePullPolicy: Never
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           envFrom:

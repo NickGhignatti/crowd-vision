@@ -1,0 +1,79 @@
+name: push images to ghcr
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "master",  "**/k8s**"]
+    paths:
+      - "docker-compose.yml"
+      - "server/**"
+      - "client/**"
+      - ".github/workflows/registry.yml"
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - context: ./server/auth-service
+            image: crowdvision-auth
+          - context: ./server/twin-service
+            image: crowdvision-twin
+          - context: ./server/notification-service
+            image: crowdvision-notification
+          - context: ./server/socket-service
+            image: crowdvision-socket
+          - context: ./server/agent-service
+            image: crowdvision-agent
+          - context: ./server/sensor-service
+            image: crowdvision-sensor
+          - context: ./server/sensor-simulator
+            image: crowdvision-simulator
+          - context: ./client
+            image: crowdvision-client
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set lowercase image prefix
+        run: |
+          OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_PREFIX=ghcr.io/$OWNER_LOWERCASE" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Client Build Args
+        if: matrix.image == 'crowdvision-client'
+        run: echo "BUILD_ARGS=VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}" >> $GITHUB_ENV
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          build-args: ${{ env.BUILD_ARGS }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Print image tag
+        run: |
+          echo "Successfully pushed ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}"

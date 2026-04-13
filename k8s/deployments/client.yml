@@ -16,7 +16,7 @@ spec:
       containers:
         - name: client
           image: ghcr.io/nickghignatti/crowdvision-client:latest
-          imagePullPolicy: Never
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           readinessProbe:

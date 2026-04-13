@@ -39,7 +39,7 @@ spec:
       containers:
         - name: agent-service
           image: ghcr.io/nickghignatti/crowdvision-agent:latest
-          imagePullPolicy: Never
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           envFrom:

@@ -1,7 +1,7 @@
-# If you ever scale to multiple replicas, Socket.IO connections are stateful
+# If we ever scale to multiple replicas, Socket.IO connections are stateful
 # (a client is connected to a specific pod), so load balancing needs to use sticky sessions.
 # With 1 replica it's a non-issue, and your Redis adapter already handles the pub/sub
-# across instances if you scale later.
+# across instances if we scale later.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,7 +31,7 @@ spec:
       containers:
         - name: socket-service
           image: ghcr.io/nickghignatti/crowdvision-socket:latest
-          imagePullPolicy: Never
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           envFrom:
