@@ -1,0 +1,149 @@
+.docname {The External Sensor Simulator}
+.include {docs}
+
+The **Sensor Simulator** is a standalone service designed to generate synthetic IoT sensor data (people count and temperature) and send it to CrowdVision's sensor ingestion API. It is architecturally separate from the main application cluster — it runs as a plain Docker container on your local machine, not as a Kubernetes workload.
+
+---
+
+## 🏗️ Why External?
+
+In a real production deployment, CrowdVision receives data from physical IoT sensors installed in buildings. Those sensors are external systems — they are not part of the cluster; they simply fire HTTP POST requests at the public API.
+
+The simulator is designed to model exactly this reality. It is a **stand-in for a real sensor vendor**. Running it outside Kubernetes means:
+- The K8s manifests describe only the actual system — no test tooling in the cluster.
+- The simulator connects to the cluster the same way a real sensor would: via the public-facing Ingress URL.
+- Deploying to production requires zero changes to the simulator's architecture.
+
+---
+
+## 📦 Running the Simulator
+
+The simulator image is built and pushed to GHCR by the CI workflow. To run it locally:
+
+.code lang:{bash}
+    docker run -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest
+
+This exposes the simulator's control API on `http://localhost:3001`. The simulator itself has no UI — it is controlled via HTTP endpoints called by the Vue frontend.
+
+To stop it:
+
+.code lang:{bash}
+    docker stop <container-id>
+
+---
+
+## 🔌 How Connections Work
+
+The simulator sends data to CrowdVision's `/sensor/` endpoints via HTTP POST. When the user starts the simulator from the dashboard UI, the Vue client:
+
+1. Reads `window.location.origin` to determine the current application's base URL (e.g., `http://localhost`).
+2. Appends `/sensor/` to form the **target URL** (e.g., `http://localhost/sensor/`).
+3. POSTs this target URL to the simulator's `/control/start` endpoint, along with the building ID and room IDs.
+4. The simulator stores this URL and begins firing data at it every 10 seconds.
+
+.mermaid
+    sequenceDiagram
+        participant UI as Vue Dashboard (Browser)
+        participant Sim as Simulator Container (Docker)
+        participant K8s as K8s Cluster (nginx Ingress :80)
+        participant SS as sensor-service Pod
+
+        UI->>Sim: POST http://localhost:3001/control/start\n{targetUrl: "http://localhost/sensor", buildingId, roomIds}
+        Sim->>Sim: Stores targetUrl, starts tick loop
+        
+        loop Every 10 seconds
+            Sim->>K8s: POST http://host.docker.internal/sensor/temperature
+            Sim->>K8s: POST http://host.docker.internal/sensor/peopleCount
+            K8s->>SS: Forwards request (prefix /sensor stripped by Ingress)
+            SS->>SS: Saves to sensor-db MongoDB
+        end
+
+---
+
+## 🐳 The `host.docker.internal` Resolution
+
+This is the most important implementation detail to understand when running the simulator against a local k3d cluster.
+
+**The problem:** When the Vue frontend runs in a browser, `window.location.origin` returns `http://localhost`. The simulator receives this as its target URL. But the simulator is a **Docker container** — from inside a Docker container, `localhost` resolves to `127.0.0.1` of the **container itself**, not your laptop. The k3d load balancer is not listening inside the simulator container, so every `fetch()` call fails with `ECONNREFUSED`.
+
+**The solution:** Docker Desktop (Windows and macOS) provides a special hostname `host.docker.internal` that always resolves to the host machine from inside any container. The simulator automatically rewrites `localhost` and `127.0.0.1` to `host.docker.internal` before making any outbound request:
+
+```typescript
+// simulatorService.ts — startOrAdd()
+if (parsedUrl.includes("localhost") || parsedUrl.includes("127.0.0.1")) {
+  parsedUrl = parsedUrl
+    .replace(/localhost/g, "host.docker.internal")
+    .replace(/127\.0\.0\.1/g, "host.docker.internal");
+}
+```
+
+The rewrite is transparent to the user — they type `http://localhost:3001` as the simulator URL in the dashboard, and the simulator resolves the routing correctly.
+
+.box type:{note}
+    **Linux Docker users:** `host.docker.internal` is not automatically available on Linux. Start the simulator with `--add-host host.docker.internal:host-gateway` to enable it:
+    
+    `docker run --add-host host.docker.internal:host-gateway -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest`
+
+.box type:{note}
+    **Remote VPS deployment:** When the application is deployed on a VPS, the target URL the frontend sends will be `https://yourdomain.com/sensor` — a fully qualified hostname with no `localhost` in it. The rewrite block never runs, and the simulator sends directly to the public URL. No configuration changes are required.
+
+---
+
+## 🎛️ Simulator Control API
+
+The simulator exposes three HTTP endpoints that the Vue dashboard calls directly (bypassing the cluster Ingress entirely):
+
+.var {headers}
+   - Method
+   - Endpoint
+   - Body
+   - Description
+
+.tablebyrows {.headers}
+    - - `POST`
+      - `/control/start`
+      - `{ buildingId, roomIds, targetUrl }`
+      - Starts sending simulated data for the given building. If the building is already registered, it replaces it (idempotent).
+    - - `POST`
+      - `/control/stop`
+      - `{ buildingId }`
+      - Stops sending data for the given building. If no buildings remain active, the simulator loop halts entirely.
+    - - `GET`
+      - `/control/status?buildingId=X`
+      - —
+      - Returns `{ isRunning: boolean }` indicating whether the given building is currently being simulated.
+
+The simulator can manage multiple buildings simultaneously. Each building sends signals for all its rooms independently.
+
+---
+
+## ⚙️ Simulation Parameters
+
+The following values are currently fixed in `simulatorService.ts`. They can be adjusted by editing the service and rebuilding the image:
+
+.var {headers}
+   - Parameter
+   - Default
+   - Description
+
+.tablebyrows {.headers}
+    - - `delay`
+      - `10000 ms`
+      - Interval between signal batches (10 seconds).
+    - - `peopleCountRange`
+      - `[0, 50]`
+      - Random headcount generated per room per tick.
+    - - `temperatureRange`
+      - `[18.0, 30.0]`
+      - Random temperature (°C) generated per room per tick. Rounded to 2 decimal places.
+
+---
+
+## 🔗 Connecting the Simulator from the Dashboard
+
+From the Vue dashboard (Graph view), a gear icon opens the simulator configuration modal. Enter the simulator's base URL (e.g., `http://localhost:3001`) and click Save. The dashboard remembers this URL in `localStorage`, so you only need to enter it once per browser.
+
+Once configured:
+- Click **Start simulator** to begin sending data. The button turns green with an animated indicator while active.
+- Click **Stop simulator** to halt data transmission for the current building.
+- The dashboard polls `/control/status` every time the building selection changes to keep the button state in sync with the actual simulator state.

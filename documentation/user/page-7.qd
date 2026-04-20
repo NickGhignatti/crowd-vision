@@ -1,0 +1,96 @@
+.docname {Analytics Graphs & Sensor Simulation}
+.include {docs}
+
+The **Graph view** is the analytics command centre of CrowdVision. It presents time-series charts for occupancy and temperature across an entire building, and provides controls for managing the sensor simulator.
+
+Switch to Graph view using the **toggle in the top-left corner** of the dashboard.
+
+---
+
+## 📈 The Charts
+
+The Graph view displays two line charts side by side:
+
+* **People Occupancy** — shows how the total headcount in the building has changed over time.
+* **Temperature** — shows how the average temperature across the building has changed over time.
+
+Both charts are driven by data aggregated from the sensor database. They update automatically according to the selected time range.
+
+> 💡 When **Sum** aggregation is selected, only the Occupancy chart is shown and it expands to full width, since summing temperatures across rooms is not meaningful.
+
+---
+
+## ⏱️ Time Range
+
+Use the **Range** buttons in the top-right area to control how far back in time the charts look:
+
+| Range | What it shows |
+| :--- | :--- |
+| **1D** | The last 24 hours, broken down hour by hour. |
+| **1W** | The last 7 days, broken down day by day. |
+| **1M** | The last 30 days, broken down day by day. |
+
+Switching the range causes the charts to immediately reload with the appropriate data resolution. Points with no sensor data for a given hour or day appear as zero.
+
+---
+
+## 🔢 Data Aggregation Mode
+
+Because a building has many rooms, the charts aggregate all room readings into a single value per time slot. Use the **Data** buttons to choose how that aggregation is calculated:
+
+| Mode | What it means |
+| :--- | :--- |
+| **avg** | The average value across all rooms in that time slot. Useful for understanding the typical state of the building. |
+| **sum** | The total across all rooms. Most useful for people count — shows the total number of people in the entire building at each point in time. |
+| **min** | The lowest reading recorded in that time slot. Useful for spotting unusually cold rooms. |
+| **max** | The highest reading recorded in that time slot. Most useful for temperature — quickly spots the hottest room. |
+
+---
+
+## 🤖 Sensor Simulation
+
+The Graph view includes controls for the **Sensor Simulator** — a tool that generates synthetic occupancy and temperature readings when physical sensors are not available (during demos, development, or testing).
+
+.box type:{note}
+    The simulator is a separate service that runs independently from the main application. Before using the simulation controls, an administrator or developer must start the simulator container on their machine and provide you with its URL. See the section below for details.
+
+### Configuring the Simulator URL
+
+1. Click the **gear icon** (⚙) next to the simulator button.
+2. A modal will appear asking for the **Simulator URL** — this is the address where the simulator service is running (e.g., `http://localhost:3001`).
+3. Enter the URL and click **Save**. The dashboard remembers this URL, so you only need to enter it once per browser.
+
+### Starting and Stopping Simulation
+
+Once the URL is configured:
+
+1. Click the **Start simulator** button. It turns green with an animated dot when the simulator is active.
+2. The simulator will begin sending synthetic people count and temperature readings to the sensor API every 10 seconds for the currently selected building and all its rooms.
+3. After a few seconds, the charts will begin showing data as readings accumulate. The `1D` range with `avg` mode is the best view to see incoming data appear in real time.
+4. To stop, click the button again (now labelled **Stop simulator**). Data transmission halts and the button returns to its inactive state.
+
+.box type:{note}
+    The simulator status shown in the button is automatically checked whenever you switch buildings. If you start the simulator for Building A and then switch to Building B, the button will show the correct inactive state for Building B — the simulator is still running for Building A in the background.
+
+### What the Simulator Generates
+
+The simulator creates random but realistic readings within the following ranges for each room in the selected building, every 10 seconds:
+
+| Metric | Range |
+| :--- | :--- |
+| People count | 0 to 50 occupants |
+| Temperature | 18.0°C to 30.0°C |
+
+Each room in the building receives its own independent reading per tick.
+
+---
+
+## 🔔 Notifications from Sensor Data
+
+As sensor data flows in — whether from the simulator or real IoT devices — CrowdVision continuously evaluates each reading against the room's configured thresholds. If a room exceeds its capacity or surpasses its maximum temperature setting:
+
+* The **Notification Bell** in the top navigation bar turns red and displays a counter.
+* A **toast alert** slides onto the screen with the details of the breach.
+* If you have enabled browser push notifications, an alert will be delivered even when the dashboard is not open.
+
+This means you do not need to watch the charts to stay informed — the system watches for you.
