@@ -58,14 +58,14 @@ onMounted(() => {
       @click="isDropdownOpen = !isDropdownOpen"
       class="w-full bg-white border border-slate-200 text-slate-700 font-medium py-2.5 px-4 rounded-xl inline-flex items-center justify-between hover:bg-slate-50 hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm group"
     >
-      <div class="flex items-center gap-2 overflow-hidden">
+      <span class="flex items-center gap-2 overflow-hidden">
         <i
           class="ph-duotone ph-buildings text-xl text-slate-400 group-hover:text-emerald-500 transition-colors"
         ></i>
         <span class="truncate">
           {{ selectedModel?.name || t('model.selection') }}
         </span>
-      </div>
+      </span>
       <i
         class="ph-bold ph-caret-down ml-2 text-slate-400 group-hover:text-emerald-500 transition-transform duration-200"
         :class="{ 'rotate-180': isDropdownOpen }"

@@ -8,10 +8,7 @@ export default defineConfig(({ mode }) => {
   const target = env.VITE_API_TARGET || 'http://localhost'
 
   return {
-    plugins: [
-      vue(),
-      mode === 'development' ? vueDevTools() : null,
-    ],
+    plugins: [vue(), mode === 'development' ? vueDevTools() : null],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -21,23 +18,26 @@ export default defineConfig(({ mode }) => {
     build: {
       target: 'esnext',
       minify: 'esbuild',
-      rollupOptions: {
-        output: {
-          // CACHING: Splits code into separate files.
-          // If you change your app code, users don't need to re-download
-          // massive libraries like Vue or Pinia (they stay cached).
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('vue') || id.includes('pinia') || id.includes('router')) {
-                return 'vue-vendor'
-              }
-              return 'vendor'
-            }
-          },
-        },
-      },
+      // rollupOptions: {
+      //   output: {
+      //     // CACHING: Splits code into separate files.
+      //     // If you change your app code, users don't need to re-download
+      //     // massive libraries like Vue or Pinia (they stay cached).
+      //     manualChunks(id) {
+      //       if (id.includes('three') || id.includes('@tresjs')) {
+      //         return 'three-vendor'
+      //       }
+      //       if (id.includes('node_modules')) {
+      //         return 'vendor'
+      //       }
+      //     },
+      //   },
+      // },
     },
-
+    optimizeDeps: {
+      // Force Vite to pre-bundle Three.js as a single unit
+      include: ['three', '@tresjs/core', '@tresjs/cientos']
+    },
     esbuild: {
       // Automatically removes console.log and debugger from Production builds
       drop: mode === 'production' ? ['console', 'debugger'] : [],

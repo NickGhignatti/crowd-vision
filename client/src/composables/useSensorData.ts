@@ -8,67 +8,74 @@ export interface ApiDataPoint {
 }
 
 export function getBuildingData(
-  buildingId: Ref<string | undefined>, 
+  buildingId: Ref<string | undefined>,
   apiType: 'peopleCount' | 'temperature',
-  pollIntervalMs = 5000 // Configurable, defaults to 5 seconds
+  pollIntervalMs = 5000, // Configurable, defaults to 5 seconds
 ) {
-    const data = ref<ApiDataPoint[]>([])
-    const isLoading = ref(false)
-    const error = ref<string | null>(null)
-    const serverUrl = import.meta.env.VITE_SERVER_URL
+  const data = ref<ApiDataPoint[]>([])
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+  const serverUrl = import.meta.env.VITE_SERVER_URL
 
-    watch(buildingId, (newId, oldId, onCleanup) => {
-        if (!newId) {
-            data.value = []
-            return
+  watch(
+    buildingId,
+    (newId, oldId, onCleanup) => {
+      if (!newId) {
+        data.value = []
+        return
+      }
+
+      let abortController: AbortController | null = null
+      let intervalId: ReturnType<typeof setInterval>
+
+      // Extracted fetch logic so we can call it immediately AND in the interval
+      const fetchData = async (isBackgroundPoll = false) => {
+        // Only show the loading state on the very first fetch
+        if (!isBackgroundPoll) isLoading.value = true
+        error.value = null
+
+        // If a previous fetch is still running, kill it before starting a new one
+        if (abortController) abortController.abort()
+        abortController = new AbortController()
+
+        try {
+          const response = await fetch(
+            `${serverUrl}/sensor/${apiType}/entireBuilding/?building=${newId}`,
+            {
+              signal: abortController.signal,
+            },
+          )
+
+          if (!response.ok) throw new Error('Fetch failed')
+
+          const result = await response.json()
+          console.log(result)
+          data.value = result[apiType] || []
+        } catch (err: any) {
+          if (err.name === 'AbortError') return
+          error.value = err.message
+          console.error(`Polling error (${apiType}):`, err)
+        } finally {
+          if (!isBackgroundPoll) isLoading.value = false
         }
-        
-        let abortController: AbortController | null = null;
-        let intervalId: ReturnType<typeof setInterval>;
+      }
 
-        // Extracted fetch logic so we can call it immediately AND in the interval
-        const fetchData = async (isBackgroundPoll = false) => {
-            // Only show the loading state on the very first fetch
-            if (!isBackgroundPoll) isLoading.value = true
-            error.value = null
+      // 1. Fetch immediately on mount or ID change
+      fetchData()
 
-            // If a previous fetch is still running, kill it before starting a new one
-            if (abortController) abortController.abort()
-            abortController = new AbortController()
+      // 2. Start the 5-second polling loop
+      intervalId = setInterval(() => {
+        fetchData(true) // 'true' means it's a background poll, so don't show loading spinner
+      }, pollIntervalMs)
 
-            try {
-                const response = await fetch(
-                    `${serverUrl}/sensor/${apiType}/entireBuilding/?building=${newId}`,
-                    { signal: abortController.signal }
-                )
-                
-                if (!response.ok) throw new Error('Fetch failed')
-                
-                const result = await response.json()
-                data.value = result[apiType] || []
-            } catch (err: any) {
-                if (err.name === 'AbortError') return 
-                error.value = err.message
-                console.error(`Polling error (${apiType}):`, err)
-            } finally {
-                if (!isBackgroundPoll) isLoading.value = false
-            }
-        }
+      // 3. Clean up interval and abort pending requests when component unmounts or ID changes
+      onCleanup(() => {
+        if (abortController) abortController.abort()
+        clearInterval(intervalId)
+      })
+    },
+    { immediate: true },
+  )
 
-        // 1. Fetch immediately on mount or ID change
-        fetchData()
-
-        // 2. Start the 5-second polling loop
-        intervalId = setInterval(() => {
-            fetchData(true) // 'true' means it's a background poll, so don't show loading spinner
-        }, pollIntervalMs)
-
-        // 3. Clean up interval and abort pending requests when component unmounts or ID changes
-        onCleanup(() => {
-            if (abortController) abortController.abort()
-            clearInterval(intervalId)
-        })
-    }, { immediate: true })
-
-    return { data, isLoading, error }
+  return { data, isLoading, error }
 }

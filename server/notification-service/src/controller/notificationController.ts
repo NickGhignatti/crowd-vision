@@ -21,7 +21,8 @@ export const subscribe = async (req: Request, res: Response) => {
     const subscription = req.body;
 
     if (!subscription || !subscription.endpoint) {
-        throw new ValidationError("Invalid subscription object received");
+        // throw new ValidationError("Invalid subscription object received");
+      res.status(400).send();
     }
 
     await Subscription.findOneAndUpdate(

@@ -1,0 +1,76 @@
+# Headless Service
+# clusterIP: None makes this headless — no virtual IP, just DNS per pod
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-db
+  namespace: crowdvision
+  labels:
+    app: auth-db
+spec:
+  clusterIP: None           # headless — essential for StatefulSet DNS
+  selector:
+    app: auth-db
+  ports:
+    - port: 27017
+      targetPort: 27017
+
+--- # The --- separator lets you put multiple objects in one file
+# StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: auth-db
+  namespace: crowdvision
+spec:
+  serviceName: auth-db      # must match the headless Service name above
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-db           # must match template.metadata.labels
+  template:
+    metadata:
+      labels:
+        app: auth-db
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: auth-data         # references the claim below by name
+              mountPath: /data/db     # standard MongoDB data directory
+          # Lightweight health check — mongod takes a few seconds to start
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+  # volumeClaimTemplates
+  # StatefulSet creates one PVC per pod, named: auth-data-auth-db-0
+  # This PVC persists even if the pod is deleted — data survives restarts
+  volumeClaimTemplates:
+    - metadata:
+        name: auth-data
+      spec:
+        accessModes: ["ReadWriteOnce"]   # one node at a time — correct for MongoDB
+        resources:
+          requests:
+            storage: 1Gi
+        # No storageClassName → uses the cluster default (local-path)
+        # On VPS, add: storageClassName: do-block-storage (DigitalOcean)
+        #              or: storageClassName: hcloud-volumes (Hetzner)

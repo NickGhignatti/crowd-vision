@@ -152,6 +152,24 @@ services:
         - action: rebuild
           path: ./client/package.json
 
+  # ==========================================
+  # SENSOR SERVICE
+  # ==========================================
+
   sensor-db:
     ports:
       - "27018:27017"
+
+  sensor-db-express:
+    image: mongo-express
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://sensor-db:27017/
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass
+      - ME_CONFIG_SITE_BASEURL=/sensor-db-gui/
+    networks:
+      - gateway-net
+      - sensor-net
+    depends_on:
+      - sensor-db

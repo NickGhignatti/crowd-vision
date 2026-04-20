@@ -26,11 +26,11 @@ const accountName = computed(() => authStore.accountName || 'Account')
       class="flex items-center gap-3 pl-3 pr-1 py-1 rounded-full hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
     >
       <span class="text-sm font-bold text-slate-700">{{ accountName }}</span>
-      <div
+      <span
         class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center border border-emerald-200"
       >
         <i class="ph-bold ph-user"></i>
-      </div>
+      </span>
     </button>
 
     <div

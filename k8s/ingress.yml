@@ -1,0 +1,96 @@
+# ==========================================
+# INGRESS 1: API Microservices (Rewrites URLs)
+# ==========================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crowdvision-ingress-api
+  namespace: crowdvision
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+
+    # Optional CORS blocks (if needed)
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "http://localhost"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /auth(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 3000
+          - path: /twin(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: twin-service
+                port:
+                  number: 3000
+          - path: /notification(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 3000
+          - path: /agent(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: agent-service
+                port:
+                  number: 3000
+          - path: /sensor(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: sensor-service
+                port:
+                  number: 3000
+
+---
+# ==========================================
+# INGRESS 2: WebSockets & Client (No Rewriting)
+# ==========================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crowdvision-ingress-root
+  namespace: crowdvision
+  annotations:
+    # Keeps WebSocket connections alive
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+
+    # Sticky Sessions for Socket.io Polling handshake
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "route"
+    nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /socket.io
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: socket-service
+                port:
+                  number: 3000
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: client
+                port:
+                  number: 8080

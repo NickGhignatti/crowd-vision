@@ -61,14 +61,14 @@ watch(
 
 const buildingId = computed(() => props.buildingModel?.id)
 
-const { 
-  data: peopleData, 
-  isLoading: loadingPeople 
+const {
+  data: peopleData,
+  isLoading: _loadingPeople
 } = getBuildingData(buildingId, 'peopleCount')
 
-const { 
-  data: temperatures, 
-  isLoading: loadingTemperature
+const {
+  data: temperatures,
+  isLoading: _loadingTemperature
 } = getBuildingData(buildingId, 'temperature')
 
 const enrichedRooms = computed<RoomItemBody[]>(() => {
@@ -85,7 +85,7 @@ const enrichedRooms = computed<RoomItemBody[]>(() => {
     return {
       room,
       temp: roomTempData?.value,
-      people: roomPeople?.value 
+      people: roomPeople?.value
     }
   })
 })

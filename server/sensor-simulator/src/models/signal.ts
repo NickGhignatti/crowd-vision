@@ -19,6 +19,7 @@ export const mySimulationBuildings: SimulationBuildings = {
 export interface IBuilding {
     buildingId: string;
     roomIds: string[];
+    targetUrl: string;
 }
 
 export interface ISignalPeopleCount {

@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: twin-service
+  namespace: crowdvision
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: twin-service
+  template:
+    metadata:
+      labels:
+        app: twin-service
+    spec:
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z twin-db 27017; do
+                echo "waiting for twin-db..."
+                sleep 2
+              done
+      containers:
+        - name: twin-service
+          image: ghcr.io/nickghignatti/crowdvision-twin:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: twin-service-secret      # injects MONGO_URI
+            - configMapRef:
+                name: common-config    # injects CLIENT_URL, PORT
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: twin-service
+  namespace: crowdvision
+spec:
+  selector:
+    app: twin-service
+  ports:
+    - port: 3000
+      targetPort: 3000
