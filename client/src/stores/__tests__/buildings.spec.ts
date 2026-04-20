@@ -11,6 +11,7 @@ vi.mock('@/composables/useApi', () => ({
 
 const makeBuilding = (id: string, domains: string[] = []): Building => ({
   id,
+  name: id,
   rooms: [],
   domains,
 })

@@ -98,8 +98,9 @@ paths:
           application/json:
             schema:
               type: object
-              description: Fields to update in the room (e.g., temperature, maxTemperature, no_person, color)
+              description: Fields to update in the room (e.g., name, temperature, maxTemperature, no_person, color)
               example:
+                name: "Physics Lab"
                 temperature: 24.5
                 maxTemperature: 30.0
                 no_person: 5
@@ -148,11 +149,14 @@ components:
       type: object
       required:
         - id
+        - name
         - capacity
         - position
         - dimensions
       properties:
         id:
+          type: string
+        name:
           type: string
         capacity:
           type: number
@@ -178,6 +182,9 @@ components:
       properties:
         id:
           type: string
+        name:
+          type: string
+          description: Human-readable building name. If omitted, defaults to id.
         rooms:
           type: array
           items:

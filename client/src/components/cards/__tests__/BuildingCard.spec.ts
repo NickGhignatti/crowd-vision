@@ -5,6 +5,7 @@ import FloorSelector from '@/components/buttons/FloorSelector.vue'
 
 const defaultProps = {
   buildingId: 'building-1',
+  buildingName: 'Engineering Block',
   isSelected: false,
   buildingModel: null,
   availableFloors: [],
@@ -75,7 +76,7 @@ describe('BuildingCard', () => {
       const wrapper = createFullWrapper({
         isSelected: true,
         showControls: true,
-        buildingModel: { id: 'building-1' },
+        buildingModel: { id: 'building-1', name: 'Engineering Block' },
         availableFloors: [1, 2, 3],
       })
 
@@ -86,7 +87,7 @@ describe('BuildingCard', () => {
       const wrapper = createWrapper({
         isSelected: true,
         showControls: false,
-        buildingModel: { id: 'building-1' },
+        buildingModel: { id: 'building-1', name: 'Engineering Block' },
         availableFloors: [1, 2, 3],
       })
 
@@ -97,7 +98,7 @@ describe('BuildingCard', () => {
       const wrapper = createWrapper({
         isSelected: true,
         showControls: true,
-        buildingModel: { id: 'building-1' },
+        buildingModel: { id: 'building-1', name: 'Engineering Block' },
         availableFloors: [],
       })
 

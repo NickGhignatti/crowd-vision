@@ -5,6 +5,11 @@ import { useI18n } from 'vue-i18n'
 import { computed, ref, watch } from 'vue'
 import BuildingCard from '@/components/cards/BuildingCard.vue'
 
+interface BuildingOption {
+  id: string
+  name: string
+}
+
 const emit = defineEmits<{
   (e: 'json-uploaded'): void
   (e: 'change-building', index: number): void
@@ -12,7 +17,7 @@ const emit = defineEmits<{
 }>()
 
 const props = defineProps<{
-  buildingIds: string[]
+  buildingOptions: BuildingOption[]
   selectedId?: string | null
   buildingModel: Building | null
   activeFloor: number | null
@@ -71,10 +76,11 @@ const activeFloorModel = computed({
 
       <div class="flex-1 overflow-y-auto p-3 space-y-1">
         <BuildingCard
-          v-for="(item, index) in buildingIds"
-          :key="item"
-          :building-id="item"
-          :is-selected="item === selectedId"
+          v-for="(item, index) in buildingOptions"
+          :key="item.id"
+          :building-id="item.id"
+          :building-name="item.name"
+          :is-selected="item.id === selectedId"
           :building-model="buildingModel"
           :available-floors="availableFloors"
           :show-controls="showControls"

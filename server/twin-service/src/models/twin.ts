@@ -14,6 +14,7 @@ interface Dimensions {
 
 export interface Room {
     id: string;
+    name: string;
     capacity: number;
     temperature: number;
     no_person: number;
@@ -25,6 +26,7 @@ export interface Room {
 
 export interface IBuilding {
     id: string;
+    name: string;
     rooms: Room[];
     domains: string[];
 }
@@ -43,6 +45,13 @@ const DimensionsSchema = new Schema<Dimensions>({
 
 const RoomSchema = new Schema<Room>({
     id: { type: String, required: true },
+    name: {
+        type: String,
+        required: true,
+        default: function(this: Room) {
+            return this.id;
+        }
+    },
     capacity: { type: Number, required: true },
     position: { type: CoordinatesSchema, required: true },
     dimensions: { type: DimensionsSchema, required: true },
@@ -53,6 +62,13 @@ const RoomSchema = new Schema<Room>({
 
 export const buildingSchema = new Schema<IBuilding>({
     id: { type: String, required: true, unique: true },
+    name: {
+        type: String,
+        required: true,
+        default: function(this: IBuilding) {
+            return this.id;
+        }
+    },
     rooms: { type: [RoomSchema], required: true },
     domains: { type: [String], required: true },
 }, {

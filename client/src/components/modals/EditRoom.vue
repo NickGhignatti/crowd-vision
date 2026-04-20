@@ -18,7 +18,7 @@ const emit = defineEmits<{
 }>()
 
 const form = ref({
-  id: '',
+  name: '',
   capacity: 0,
   maxTemperature: 28,
   color: '#10b981',
@@ -29,7 +29,7 @@ watch(
   (newRoom) => {
     if (newRoom) {
       form.value = {
-        id: newRoom.id,
+        name: newRoom.name || newRoom.id,
         capacity: newRoom.capacity,
         maxTemperature: newRoom.maxTemperature ?? 28,
         color: newRoom.color || '#10b981',
@@ -90,12 +90,12 @@ const headerStyle = computed(() => ({
 
         <!-- Body -->
         <div class="p-6 space-y-5">
-          <FormField :label="t('model.rooms.editRoom.identifier')" icon="ph-tag">
+          <FormField :label="t('model.rooms.editRoom.name')" icon="ph-text-t">
             <input
-              v-model="form.id"
+              v-model="form.name"
               type="text"
-              class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-mono font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-              :placeholder="t('modals.editRoom.identifierPlaceholder')"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-semibold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
+              :placeholder="t('model.rooms.editRoom.namePlaceholder')"
             />
           </FormField>
 

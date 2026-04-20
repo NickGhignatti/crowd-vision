@@ -12,6 +12,7 @@ interface RoomDimensions {
 
 export interface Room {
   id: string
+  name: string
   capacity: number
   maxTemperature?: number
   position: Coordinates
@@ -21,6 +22,7 @@ export interface Room {
 
 export interface Building {
   id: string
+  name: string
   rooms: Room[]
   domains: string[]
 }

@@ -20,6 +20,7 @@ const stubs = {
 
 const makeRoom = (overrides: Partial<Room> = {}): Room =>
   ({
+    name: 'Room 1',
     id: 'room-1',
     capacity: 10,
     maxTemperature: 24,
@@ -56,6 +57,7 @@ describe('EditRoom.vue', () => {
   describe('state initialization and defaults', () => {
     it('populates the form with the provided room properties', async () => {
       const room = makeRoom({
+        name: 'Conference A',
         id: 'conference-a',
         capacity: 25,
         maxTemperature: 21,
@@ -72,7 +74,7 @@ describe('EditRoom.vue', () => {
 
       const emittedPayload = wrapper.emitted('save')?.[0]?.[0]
       expect(emittedPayload).toEqual({
-        id: 'conference-a',
+        name: 'Conference A',
         capacity: 25,
         maxTemperature: 21,
         color: '#ff0000',
@@ -81,6 +83,7 @@ describe('EditRoom.vue', () => {
 
     it('applies default maxTemperature and color if they are missing from the room prop', async () => {
       const room = makeRoom({
+        name: 'Office B',
         id: 'office-b',
         capacity: 4,
         maxTemperature: undefined,
@@ -97,7 +100,7 @@ describe('EditRoom.vue', () => {
 
       const emittedPayload = wrapper.emitted('save')?.[0]?.[0]
       expect(emittedPayload).toEqual({
-        id: 'office-b',
+        name: 'Office B',
         capacity: 4,
         maxTemperature: 28,
         color: '#10b981',

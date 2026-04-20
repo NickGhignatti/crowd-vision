@@ -25,7 +25,6 @@ import type {
 export const postPeopleCount = async (req: Request, res: Response) => {
   try {
     const { buildingId, roomId, timestamp, peopleCount } = req.body;
-    console.log(buildingId);
     await postPeopleCountSignal(buildingId, roomId, timestamp, peopleCount);
     res.status(201).json({ message: "People count signal created" });
   } catch (error: any) {
@@ -36,7 +35,6 @@ export const postPeopleCount = async (req: Request, res: Response) => {
 export const postTemperature = async (req: Request, res: Response) => {
   try {
     const { buildingId, roomId, timestamp, temperature } = req.body;
-    console.log(buildingId);
     await postTemperatureSignal(buildingId, roomId, timestamp, temperature);
     res.status(201).json({ message: "Temperature signal created" });
   } catch (error: any) {

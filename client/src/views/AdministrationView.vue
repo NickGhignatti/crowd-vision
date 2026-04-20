@@ -110,6 +110,15 @@ const handleFileUpload = async (event: Event) => {
     isUploading.value = true
     const payload = JSON.parse(await file.text())
 
+    payload.name = typeof payload?.name === 'string' && payload.name.trim() ? payload.name : payload?.id
+
+    if (Array.isArray(payload.rooms)) {
+      payload.rooms = payload.rooms.map((room: any) => ({
+        ...room,
+        name: typeof room?.name === 'string' && room.name.trim() ? room.name : room?.id,
+      }))
+    }
+
     if (targetUploadDomain.value) {
       payload.domains = [targetUploadDomain.value]
     }
