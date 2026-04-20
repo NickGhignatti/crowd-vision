@@ -1,84 +1,260 @@
-.docname {Run the application}
+.docname {Run the Application}
 .include {docs}
 
-Once your `.env` file is configured and your initial administrator account is bootstrapped, you are ready to start running and interacting with the CrowdVision platform. 
-
-Because the entire ecosystem is containerized, your day-to-day workflow relies entirely on a few core NPM scripts run from the root of the Lerna monorepo.
+CrowdVision can be run in two distinct modes: **Docker Compose** for everyday local development, and **Kubernetes** for production-like environments. Both modes are managed via npm scripts from the root of the monorepo.
 
 ---
 
-## 🚀 Development Mode (Hot-Reloading)
+## 🐳 Docker Compose Mode
 
-For active development, you will almost exclusively use the `dev` script.
+### Development (Hot-Reloading)
 
-.code lang:{bash} 
+For active development with live code reloading, use:
+
+.code lang:{bash}
     npm run docker:dev
 
-What happens when you run this?
-1. The script first executes setup.js to verify your `.env` file and cryptographic keys are intact.
-2. It launches Docker Compose, merging the base `docker-compose.yml` with the `docker-compose.dev.yml` override file.
-3. It spins up the Caddy proxy, Redis broker, all MongoDB instances, all backend microservices, and the Vue client.
-4. It enables Docker Watch, which binds your local `./src` directories directly to the running containers.
+**What happens:**
+1. The setup scripts run to verify your `.env` and regenerate any missing keys.
+2. Docker Compose launches with both `docker-compose.yml` and `docker-compose.dev.yml` merged.
+3. All services start: Caddy proxy, Redis, all MongoDB instances, all backend microservices, and the Vue client.
+4. Docker Watch binds your local `./src` directories into the running containers — saving a file triggers an instant hot-reload.
 
-### Accessing the Application
-Once the terminal output settles and the containers are healthy, you can access the platform via your browser:
+### Accessing the Application (Docker mode)
 
 .var {headers}
    - Interface
-   - URL/Port
+   - URL
    - Description
 
 .tablebyrows {.headers}
     - - Vue Frontend
       - `http://localhost:8080`
       - The main CrowdVision user interface.
-    - - API Gateway (Backend)
+    - - API Gateway
       - `http://localhost:80`
-      - The Caddy reverse proxy routing to all microservices (e.g., `http://localhost/auth/login`).
-    - - Services
-      - Whatever you like
-      - Exposed only internally within the Docker network.
+      - Caddy proxy — routes to all microservices.
+    - - Auth DB GUI
+      - `http://localhost/auth-db-gui/`
+      - Mongo Express for the auth database. Dev mode only.
+    - - Twin DB GUI
+      - `http://localhost/twin-db-gui/`
+      - Mongo Express for the twin database. Dev mode only.
 
-.box type:{tip} 
-    The Database GUIs are only available when running in dev mode. They are explicitly excluded from the production startup sequence for security reasons.
-
-### How Hot-Reloading Works
-You do not need to restart the server when you change code.
-- If you edit a Vue file in the client/src directory, Vite's HMR (Hot Module Replacement) will instantly reflect the change in your browser.
-- If you edit a TypeScript file in one of the backend services (e.g., `server/twin-service/src`), Docker Watch detects the change and uses nodemon / ts-node inside the container to gracefully restart that specific microservice without dropping the rest of the network.
-
----
-
-## 🏗️ Production / Detached Mode
-
-If you just want to run the application to test it without making code changes (or if you are deploying it to a staging server), use the standard start command:
+### Production / Detached Mode
 
 .code lang:{bash}
     npm run docker:start
 
-This command runs the stack using only the base `docker-compose.yml` file.
-- It runs in detached mode (`-d`), meaning it will start the containers in the background and free up your terminal.
-- It does not mount your local source code, meaning hot-reloading is disabled.
-- It does not boot up the Mongo-Express database GUIs.
+Runs the stack using only the base `docker-compose.yml` in detached mode (`-d`). No hot-reloading, no database GUIs.
+
+### Stopping & Resetting
+
+.code lang:{bash}
+    # Graceful shutdown
+    npm run docker:down
+
+    # Wipe all database volumes (destructive)
+    npm run db:clear
+
+.box type:{warning}
+    `npm run db:clear` permanently deletes the persistent Docker volumes. You will need to run `npm run provision:admin` again after a clear to recreate the admin account.
 
 ---
 
-## 🛑 Stopping & Resetting the Environment
-When you are done working, you should gracefully spin down the containers and remove the isolated networks to free up system resources.
+## ☸️ Kubernetes Mode
 
-To stop the application:
+### First Time: Creating the Cluster
 
-.code lang:{bash} 
-    npm run docker:stop
-
-*The "Nuclear" Option*
-Occasionally, during development, you might corrupt your database state (e.g., by uploading an invalid building schema while testing). If you want to wipe everything and start completely fresh, you can use the clear command.
-
-.box type:{warning} 
-    This command is destructive. It will permanently delete the persistent Docker volumes containing your databases.
+Before deploying for the first time on a machine, create the k3d cluster with explicit API server binding. The `--api-port 127.0.0.1:6550` flag is critical on Windows — it prevents a known issue where `kubectl` resolves `host.docker.internal` to a non-loopback IP and fails to connect.
 
 .code lang:{bash}
-    npm run db:clear
+    k3d cluster create crowdvision \
+      --servers 1 \
+      --agents 3 \
+      --api-port 127.0.0.1:6550 \
+      -p "80:80@loadbalancer" \
+      -p "443:443@loadbalancer" \
+      --k3s-arg "--disable=traefik@server:*"
 
-After running this, the next time you boot the app, the databases will be completely empty. You will need to `run npm run enterprise:create` again to bootstrap a new admin account!
+**Flag explanation:**
 
+.var {headers}
+   - Flag
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `--servers 1`
+      - One control plane node.
+    - - `--agents 3`
+      - Three worker nodes — pods are distributed across them.
+    - - `--api-port 127.0.0.1:6550`
+      - Binds the K8s API server explicitly to localhost. Prevents `kubectl` connection failures on Windows when `host.docker.internal` resolves incorrectly.
+    - - `-p "80:80@loadbalancer"`
+      - Maps host port 80 to the k3d load balancer, so `http://localhost/` reaches the nginx Ingress controller.
+    - - `--k3s-arg "--disable=traefik@server:*"`
+      - Disables the default Traefik ingress controller. CrowdVision uses nginx instead.
+
+Verify the cluster is reachable:
+
+.code lang:{bash}
+    kubectl cluster-info
+    kubectl get nodes
+    # All nodes should show STATUS: Ready
+
+### Deploying the Full Stack (Production Images from GHCR)
+
+Once the cluster is running, deploy using the pre-built images from GitHub Container Registry:
+
+.code lang:{bash}
+    npm run k8s:up:prod
+
+This runs the following sequence automatically:
+1. Installs the nginx Ingress controller into the `ingress-nginx` namespace.
+2. Waits until the Ingress controller pod is fully `Running`.
+3. Creates the `crowdvision` namespace and sets it as the kubectl default.
+4. Applies all ConfigMaps from `k8s/configmaps/`.
+5. Applies all Secrets from `k8s/secrets/`.
+6. Deploys all StatefulSets (MongoDB × 4 + Redis) from `k8s/stateful/`.
+7. Deploys all application Deployments from `k8s/deployments/`.
+8. Applies the Ingress routing rules from `k8s/ingress.yml`.
+
+.box type:{note}
+    The secrets in `k8s/secrets/` must be populated before running this command. See the [Environment Setup](page-11.qd) page for the required files and keys.
+
+### Deploying with Locally Built Images (Dev)
+
+To test local code changes in the cluster without pushing to GHCR:
+
+.code lang:{bash}
+    npm run k8s:up:dev
+
+This is identical to `k8s:up:prod` but adds a build step first — it builds all Docker images locally using your current source code and loads them into the k3d cluster.
+
+### Updating a Single Service
+
+After making code changes to one service, rebuild and roll it out without redeploying the entire stack:
+
+.code lang:{bash}
+    # Build updated image
+    npm run k8s:build:auth       # or :twin, :sensor, :client, :agent, etc.
+
+    # Roll out the new image (zero-downtime rolling update)
+    kubectl rollout restart deployment/auth-service -n crowdvision
+
+    # Watch the update progress
+    kubectl rollout status deployment/auth-service -n crowdvision
+
+Or rebuild and restart everything at once:
+
+.code lang:{bash}
+    npm run k8s:update
+
+### Accessing the Application (Kubernetes mode)
+
+All traffic enters through the nginx Ingress controller on port 80.
+
+.var {headers}
+   - Interface
+   - URL
+   - Description
+
+.tablebyrows {.headers}
+    - - Vue Frontend
+      - `http://localhost/`
+      - The main CrowdVision user interface.
+    - - Auth API
+      - `http://localhost/auth/`
+      - Routes to `auth-service` (prefix stripped by Ingress rewrite).
+    - - Twin API
+      - `http://localhost/twin/`
+      - Routes to `twin-service`.
+    - - Sensor API
+      - `http://localhost/sensor/`
+      - Routes to `sensor-service`.
+    - - Socket.IO
+      - `http://localhost/socket.io/`
+      - Routes to `socket-service` (sticky sessions enabled).
+
+### Managing Cluster Lifecycle
+
+.code lang:{bash}
+    # Pause the cluster (preserves all pods, volumes, and secrets)
+    k3d cluster stop crowdvision
+
+    # Resume from exactly where you left off (~30 seconds)
+    k3d cluster start crowdvision
+
+    # Verify everything came back up
+    kubectl get pods -n crowdvision
+
+    # Destroy the cluster completely (data is lost)
+    k3d cluster delete crowdvision
+
+.box type:{note}
+    Use `k3d cluster stop` at the end of your working day. All pod state and persistent volume data survives the stop/start cycle — your databases are intact.
+
+### Verifying Cluster Health
+
+.code lang:{bash}
+    # All pods should show 1/1 Running
+    kubectl get pods -n crowdvision
+
+    # Check persistent volumes are Bound
+    kubectl get pvc -n crowdvision
+
+    # Check Ingress has an ADDRESS
+    kubectl get ingress -n crowdvision
+
+    # Check a specific service's logs
+    kubectl logs deployment/auth-service -n crowdvision
+
+    # Describe a pod for detailed events (useful for debugging)
+    kubectl describe pod <pod-name> -n crowdvision
+
+---
+
+## 📋 Full Script Reference
+
+.var {headers}
+   - Script
+   - Mode
+   - What it does
+
+.tablebyrows {.headers}
+    - - `npm run docker:dev`
+      - Docker
+      - Full stack with hot-reloading and DB GUIs.
+    - - `npm run docker:start`
+      - Docker
+      - Full stack in detached/production mode.
+    - - `npm run docker:down`
+      - Docker
+      - Graceful shutdown, removes orphan containers.
+    - - `npm run docker:logs`
+      - Docker
+      - Follow logs for all containers.
+    - - `npm run db:clear`
+      - Docker
+      - Drop all databases (destructive).
+    - - `npm run k8s:up:prod`
+      - Kubernetes
+      - Install ingress + deploy everything from GHCR images.
+    - - `npm run k8s:up:dev`
+      - Kubernetes
+      - Build images locally + install ingress + deploy.
+    - - `npm run k8s:deploy`
+      - Kubernetes
+      - Apply all manifests (namespace, configmaps, secrets, stateful, deployments, ingress).
+    - - `npm run k8s:update`
+      - Kubernetes
+      - Rebuild all images and restart all deployments.
+    - - `npm run k8s:build`
+      - Kubernetes
+      - Build all Docker images in parallel.
+    - - `npm run provision:admin`
+      - Both
+      - Bootstrap the first admin account (run after services are healthy).
+    - - `npm test`
+      - Both
+      - Run all service test suites in parallel.

@@ -1,0 +1,175 @@
+.docname {Kubernetes Architecture}
+.include {docs}
+
+This page covers the Kubernetes-specific implementation details of CrowdVision: how the cluster is structured, what each manifest type does, how the nginx Ingress works, and how data is persisted across pod restarts.
+
+---
+
+## 🗂️ Manifest Structure
+
+All Kubernetes configuration lives in the `k8s/` directory:
+
+.code lang:{bash}
+    k8s/
+    ├── namespace.yml              # The crowdvision namespace
+    ├── ingress.yml                # nginx Ingress routing rules (2 objects)
+    ├── configmaps/
+    │   └── common.yml             # Non-sensitive shared environment variables
+    ├── secrets/                   # GITIGNORED — sensitive credentials
+    │   ├── authentication.yml
+    │   ├── twin.yml
+    │   ├── notification.yml
+    │   └── agent.yml
+    ├── stateful/                  # Databases and stateful services
+    │   ├── auth-db.yml
+    │   ├── twin-db.yml
+    │   ├── notification-db.yml
+    │   ├── sensor-db.yml
+    │   └── redis.yml
+    └── deployments/               # Stateless application services
+        ├── auth-service.yml
+        ├── twin-service.yml
+        ├── notification-service.yml
+        ├── sensor-service.yml
+        ├── socket-service.yml
+        ├── agent-service.yml
+        └── client.yml
+
+---
+
+## 🔑 ConfigMaps and Secrets
+
+Kubernetes separates configuration into two object types based on sensitivity.
+
+**ConfigMap (`k8s/configmaps/common.yml`)** — stores non-sensitive, shared configuration injected as environment variables into all pods that reference it:
+
+.code lang:{yaml}
+    data:
+      REDIS_URL: "redis://redis:6379"
+      TWIN_SERVICE_URL: "http://twin-service:3000"
+      AUTH_SERVICE_URL: "http://auth-service:3000"
+      CLIENT_URL: "http://localhost"
+      PORT: "3000"
+
+**Secrets (`k8s/secrets/*.yml`)** — store sensitive values (database URIs, JWT keys, API keys). Values written under `stringData` are plain text in the manifest file but are base64-encoded automatically by Kubernetes before storage in etcd. Secrets are gitignored and must be created locally before deploying.
+
+.box type:{warning}
+    `stringData` is not encryption — it is base64 encoding. Real security comes from RBAC controlling who can `kubectl get secret`. For production, consider integrating an external secrets manager (HashiCorp Vault, AWS Secrets Manager) that injects values at runtime.
+
+---
+
+## 🗄️ StatefulSets vs Deployments
+
+CrowdVision uses two different Kubernetes workload types depending on whether the service needs persistent identity.
+
+**Deployments** are used for all stateless application services (`auth-service`, `twin-service`, `sensor-service`, `client`, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.
+
+**StatefulSets** are used for all databases (MongoDB × 4) and Redis. StatefulSets give each pod:
+- A **stable, predictable name** — `auth-db-0`, `auth-db-1` (never random hashes).
+- A **dedicated PersistentVolumeClaim (PVC)** — the storage is bound to `auth-db-0` specifically. If the pod is rescheduled to a different node, Kubernetes remounts the same volume there.
+- A **headless Service** (`clusterIP: None`) — enables direct per-pod DNS (`auth-db-0.auth-db.crowdvision.svc.cluster.local`).
+
+.mermaid
+    graph LR
+        subgraph StatefulSet: auth-db
+            Pod["auth-db-0 Pod"] --- PVC["PVC: auth-data-auth-db-0\n(1Gi, Bound)"]
+            PVC --- PV["PersistentVolume\n(local-path provisioner)"]
+        end
+
+        SVC["Headless Service\nauth-db\nclusterIP: None"] --> Pod
+---
+
+## 🌐 Ingress Configuration
+
+The Ingress resource is split into two objects in `k8s/ingress.yml` because they require different annotation sets.
+
+**Ingress 1: API services (with URL rewriting)**
+
+All API services use a regex path with a capture group and the `rewrite-target: /$2` annotation. This strips the service prefix before forwarding — so a request to `/auth/login` reaches `auth-service` as `/login`, not `/auth/login`.
+
+.code lang:{yaml}
+    annotations:
+      nginx.ingress.kubernetes.io/use-regex: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    
+    # Path pattern — two capture groups:
+    path: /auth(/|$)(.*)
+    # Group 1: (/|$)  — matches the slash or end of path
+    # Group 2: (.*)   — captures everything after /auth/
+    # $2 in rewrite-target = the captured remainder → forwarded as /login
+
+**Ingress 2: WebSocket and client (no rewriting)**
+
+The second Ingress object handles the Vue client and Socket.IO. No URL rewriting is needed — the client serves from `/` and Socket.IO expects to receive requests at `/socket.io/`. This object also sets sticky session cookies so that Socket.IO polling handshakes are consistently routed to the same backend pod.
+
+.code lang:{yaml}
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/affinity: "cookie"
+      nginx.ingress.kubernetes.io/session-cookie-name: "route"
+
+.box type:{note}
+    The `/` catch-all rule for the Vue client uses the path `/()(.*)` — an empty first capture group followed by the full path as group 2. This ensures `rewrite-target: /$2` forwards `/assets/bundle.js` correctly rather than rewriting all asset requests to `/`.
+
+---
+
+## 🚀 Deployment Startup Order
+
+Services have dependencies — `auth-service` must not start before `auth-db` is accepting connections. CrowdVision uses `initContainers` in each Deployment to enforce this ordering without any cluster-level dependency management:
+
+.code lang:{yaml}
+    initContainers:
+      - name: wait-for-db
+        image: busybox:1.36
+        command:
+          - sh
+          - -c
+          - until nc -z auth-db 27017; do echo "waiting..."; sleep 2; done
+
+The `initContainer` runs before the main container. It polls `auth-db:27017` every 2 seconds using `netcat`. Only when the TCP connection succeeds does Kubernetes start the main `auth-service` container. The pod shows `Init:0/1` in `kubectl get pods` during this wait.
+
+---
+
+## 🔄 Rolling Updates & Rollbacks
+
+Every application Deployment uses `imagePullPolicy: Always`. When you run `kubectl rollout restart deployment/auth-service`, Kubernetes creates a new pod with the fresh image, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down.
+
+.code lang:{bash}
+    # Roll out a single service
+    kubectl rollout restart deployment/auth-service -n crowdvision
+
+    # Watch the transition
+    kubectl rollout status deployment/auth-service -n crowdvision
+
+    # Something broke — instant rollback to the previous version
+    kubectl rollout undo deployment/auth-service -n crowdvision
+
+---
+
+## 🔍 Debugging Reference
+
+```bash
+    # See why a pod is not Ready
+    kubectl describe pod <pod-name> -n crowdvision
+    # Look at the Events section at the bottom — shows OOMKilled, probe failures, etc.
+
+    # View live logs
+    kubectl logs deployment/auth-service -n crowdvision
+
+    # View logs from the previous crashed container
+    kubectl logs <pod-name> -n crowdvision --previous
+
+    # View initContainer logs specifically
+    kubectl logs <pod-name> -n crowdvision -c wait-for-db
+
+    # Open a shell inside a running pod
+    kubectl exec -it <pod-name> -n crowdvision -- sh
+
+    # Decode a secret value to verify it stored correctly
+    kubectl get secret authentication-service-secret -n crowdvision \
+      -o jsonpath='{.data.JWT_SECRET}' | base64 --decode
+
+    # Recent cluster events sorted by time
+    kubectl get events -n crowdvision --sort-by='.lastTimestamp' | tail -20
+```

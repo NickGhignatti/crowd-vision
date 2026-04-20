@@ -1,27 +1,30 @@
 .docname {Architecture Overview}
 .include {docs}
 
-CrowdVision is designed as a distributed, event-driven microservices architecture
+CrowdVision is designed as a distributed, event-driven microservices architecture.
 By completely separating the frontend client from the backend services—and further isolating those backend services from one another—the platform achieves high fault tolerance, independent scalability, and strict data boundary enforcement.
+
+CrowdVision supports **two deployment models** that share the exact same service code and Docker images, differing only in how traffic is routed into the cluster.
 
 ---
 
-## 🏗️ High-Level Topology
+## 🐳 Model 1: Docker Compose (Local Development)
 
-All incoming external traffic (both standard HTTP and WebSockets) enters the system through a single **Caddy** reverse-proxy gateway exposed on port `80`. 
+All incoming external traffic enters the system through a single **Caddy** reverse-proxy gateway exposed on port `80`.
 
 Caddy acts as the traffic cop: it strips the service prefixes from the URLs and securely proxies the requests to the appropriate target containers running on the internal Docker bridge network.
 
 .mermaid 
     graph TD
         Browser["Browser / Vue Client"] -->|HTTP + WS| Caddy["Caddy Gateway :80"]
-        IoT["IoT Sensors (Physical/Simulated)"] -->|HTTP POST| Caddy
+        IoT["IoT Sensors (Simulated)"] -->|HTTP POST| Caddy
 
         subgraph gateway-net [Shared Gateway Network]
             Caddy -->|/auth/*| Auth["auth-service :3000"]
             Caddy -->|/twin/*| Twin["twin-service :3000"]
             Caddy -->|/notification/*| Notif["notification-service :3000"]
             Caddy -->|/socket.io/*| Socket["socket-server :3000"]
+            Caddy -->|/sensor/*| Sensor["sensor-service :3000"]
 
             Notif -->|PUBLISH| Redis[("Redis Broker")]
             Socket -->|SUBSCRIBE| Redis
@@ -39,21 +42,69 @@ Caddy acts as the traffic cop: it strips the service prefixes from the URLs and 
             Notif --- NotifDB[("notification-db MongoDB")]
         end
 
+        subgraph sensor-net [Sensor Private Network]
+            Sensor --- SensorDB[("sensor-db MongoDB")]
+        end
+
 ### Network Segregation & Database Isolation
-Notice the strict network segregation in the diagram above.
 Each microservice is attached to two networks:
-- The shared gateway-net (so Caddy can reach them).
-- A completely private database network (e.g., auth-net, twin-net, notification-net).
-This physically enforces the Database-per-Service pattern. The Twin Service physically cannot query the Auth Database, ensuring that cross-domain data mutations are impossible and schemas remain strictly decoupled.
+- The shared **gateway-net** (so Caddy can reach them).
+- A completely **private database network** (e.g., `auth-net`, `twin-net`, `notification-net`, `sensor-net`).
+
+This physically enforces the Database-per-Service pattern. The Twin Service physically cannot query the Auth Database, ensuring that cross-domain data mutations are impossible.
+
+---
+
+## ☸️ Model 2: Kubernetes (Production / Staging)
+
+In Kubernetes mode, Caddy is replaced by an **nginx Ingress Controller**. The concept is identical — a single entry point that routes traffic by URL path — but the implementation is declarative YAML rather than a `Caddyfile`.
+
+.mermaid 
+    graph TD
+        Browser["Browser / Vue Client"] -->|HTTP port 80| LB["k3d LoadBalancer"]
+        Simulator["Sensor Simulator (external Docker)"] -->|HTTP POST| LB
+
+        LB --> Ingress["nginx Ingress Controller"]
+
+        subgraph crowdvision [Namespace: crowdvision]
+            Ingress -->|/auth| AuthSvc["auth-service ClusterIP"]
+            Ingress -->|/twin| TwinSvc["twin-service ClusterIP"]
+            Ingress -->|/notification| NotifSvc["notification-service ClusterIP"]
+            Ingress -->|/sensor| SensorSvc["sensor-service ClusterIP"]
+            Ingress -->|/agent| AgentSvc["agent-service ClusterIP"]
+            Ingress -->|/socket.io| SocketSvc["socket-service ClusterIP"]
+            Ingress -->|/ catch-all| ClientSvc["client ClusterIP"]
+
+            AuthSvc --> AuthPod["auth-service Pod"]
+            AuthPod --- AuthDB[("auth-db StatefulSet")]
+
+            TwinSvc --> TwinPod["twin-service Pod"]
+            TwinPod --- TwinDB[("twin-db StatefulSet")]
+
+            NotifSvc --> NotifPod["notification-service Pod"]
+            NotifPod --- NotifDB[("notification-db StatefulSet")]
+
+            SensorSvc --> SensorPod["sensor-service Pod"]
+            SensorPod --- SensorDB[("sensor-db StatefulSet")]
+
+            SocketSvc --> SocketPod["socket-service Pod"]
+            SocketPod -->|SUBSCRIBE| RedisPod[("Redis Deployment")]
+            NotifPod -->|PUBLISH| RedisPod
+        end
+
+A key architectural difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it communicates with the cluster through the load balancer's public port, just like a browser would. See the [External Sensor Simulator](page-15.qd) page for the full explanation.
+
+For a deep dive into the Kubernetes-specific configuration — StatefulSets, Secrets, Ingress rules, and the cluster setup — see the [Kubernetes Architecture](page-14.qd) page.
 
 ---
 
 ## 🚏 Routing Table
-Caddy maps external URL paths to internal services according to this strict routing table:
+
+The routing table is identical across both deployment models. The only difference is which component enforces it (Caddy vs nginx Ingress).
 
 .var {headers}
-   - External Auth Prefix
-   - Internal Target Backend Service
+   - External Path Prefix
+   - Internal Target Service
    - Purpose
 
 .tablebyrows {.headers}
@@ -66,22 +117,32 @@ Caddy maps external URL paths to internal services according to this strict rout
     - - `/notification/`
       - `notification-service`
       - Processing sensor events, triggering Web Push alerts.
+    - - `/sensor/`
+      - `sensor-service`
+      - Ingesting time-series sensor readings (people count, temperature).
+    - - `/agent/`
+      - `agent-service`
+      - LLM-powered natural language queries about building data.
     - - `/socket.io/`
       - `socket-service`
       - Maintaining persistent WebSocket connections to the frontend.
+    - - `/`
+      - `client`
+      - Serves the Vue 3 SPA. Catch-all, must be defined last.
 
 .box {Dev Mode} type:{note} 
-    🛠️ Developer Mode Only: When running npm run dev, Caddy also exposes `auth-db-gui:8081` and `twin-db-gui:8081` on paths `/auth-db-gui/*` and `/twin-db-gui/*` to allow direct database inspection.
+    🛠️ Developer Mode Only: When running `npm run docker:dev`, Caddy also exposes `auth-db-express` and `twin-db-express` at `/auth-db-gui/*` and `/twin-db-gui/*`. These are not present in Kubernetes deployments for security reasons.
 
 ---
 
 ## ⚡ Real-Time Data Flow Pipeline
+
 The most critical flow in CrowdVision is how a physical event (like 50 people walking into a room) triggers a UI update and an emergency notification in a facility manager's browser.
 This is achieved using Redis Pub/Sub to decouple the data ingestion from the data broadcast.
 
 .mermaid 
     sequenceDiagram
-        participant Sensor as IoT Sensor
+        participant Sensor as IoT Sensor / Simulator
         participant NotifSvc as Notification Service
         participant Redis as Redis Broker
         participant SocketSvc as Socket Service
@@ -102,19 +163,7 @@ This is achieved using Redis Pub/Sub to decouple the data ingestion from the dat
         deactivate SocketSvc
         
         activate VueClient
-        Note over VueClient: Client socket.ts updates reactive<br/>`socketState.notifications` array
+        Note over VueClient: socket.ts updates reactive socketState
         VueClient-->>VueClient: NotificationBell badge increments
         VueClient-->>VueClient: PushNotificationToast displays alert
         deactivate VueClient
-
-### Flow Breakdown
-- Ingestion: An IoT sensor (or simulation script) hits the /notification/trigger endpoint.
-- Evaluation & Publication: The notification-service serialises the payload and acts as a producer, calling publish() on the Redis notifications channel.
-- Broadcasting: The socket-service acts as a consumer. Because it is subscribed to Redis, it instantly receives the message and performs an io.emit() to fan the data out to all currently connected user browsers.
-- Reactivity: The Vue client receives the event via its lightweight composable store (socket.ts) and prepends the new data to the reactive socketState.notifications array.
-- UI Update: Vue's reactivity system automatically triggers the NotificationBell to turn red and the PushNotificationToast to slide onto the screen without a manual page refresh.
-
-
-
-
-

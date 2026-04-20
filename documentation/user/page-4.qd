@@ -1,62 +1,60 @@
-.docname {Using the Dashboard}
+.docname {Live Room Overview}
 .include {docs}
 
-Once you have logged in and selected your organization's domain, the **Dashboard** serves as your primary command center for real-time analytics. 
+Once you have logged in and selected your organization's domain, the **Dashboard** serves as your primary command center for real-time analytics.
 
-Unlike the 3D Digital Twin, which provides a spatial view, the Dashboard gives you a comprehensive tabular overview of all rooms within a selected building at a single glance.
+The dashboard has two distinct views you can switch between at any time using the toggle in the top-left corner:
+- **List view** — a live data table showing every room at a glance (this page).
+- **Graph view** — time-series charts and sensor simulation controls (see [Analytics Graphs](page-7.qd)).
 
 ---
 
-## 🎛️ Dashboard Interface
+## 🎛️ Dashboard Controls
 
-At the top of the dashboard, you will find two primary controls:
+At the top of the dashboard you will find three controls:
 
-1. **Time & Date:** Displayed prominently for quick reference, ensuring you always know you are looking at live, current data.
-2. **Building Selection:** Use the dropdown menu to switch between different buildings within your current domain (for example, switching from "Main Campus" to "Science Block").
-3. **Fullscreen Mode Icon:** Click this to enter Focus Mode, which optimizes the dashboard for large display screens (more on this later).
+1. **View toggle (top-left):** Switch between the List and Graph views.
+2. **Clock & Date (centre):** Displays the current time and date, confirming you are looking at live data.
+3. **Building selector (top-right):** Switch between different buildings in your current domain. The table and graphs update instantly when you change buildings.
+
+A **Fullscreen icon** also appears at the top — see Focus Mode below.
 
 ---
 
 ## 📊 The Room Statistics Table
 
-The core of the dashboard is the live data table. It automatically updates to provide real-time metrics for every room in the selected building. 
-
-Here is a breakdown of what each column tells you:
+The core of the List view is the live data table. It automatically updates to show real-time metrics for every room in the selected building.
 
 | Column | What it means |
 | :--- | :--- |
-| **Room** | The unique identifier, name, or number of the room. |
-| **Status** | A quick-read text indicator of how full the room is (see the logic below). |
-| **Teacher** | The name of the staff member currently scheduled for that room (if applicable). |
-| **Temp** | The current live temperature of the room. |
-| **People** | The real-time count of occupants currently detected by the room's sensors. |
-| **Capacity** | The maximum allowed number of people for the room for safety and comfort. |
+| **Room** | The unique identifier or name of the room. |
+| **Status** | A quick-read text indicator of how full the room is. |
+| **Teacher** | The staff member currently scheduled for that room (if applicable). |
+| **Temp** | The current live temperature reading from the room's sensor. |
+| **People** | The real-time occupant count detected by the room's sensors. |
+| **Capacity** | The maximum allowed number of occupants for safety and comfort. |
 
 ---
 
-## 🚦 Understanding Occupancy Status
+## 🚦 Occupancy Status Indicators
 
-To help you identify potential bottlenecks or safety hazards instantly, CrowdVision automatically calculates a status based on the percentage of the room's capacity currently filled.
+CrowdVision automatically calculates an occupancy status based on the percentage of the room's capacity that is currently filled.
 
-Look out for these color-coded indicators:
-
-* 🟢 **Empty:** 0% Occupancy
-* 🔵 **Normal:** 1% – 50% Occupancy
-* 🟠 **Crowded:** 51% – 95% Occupancy
-* 🔴 **Full:** 96% – 100% Occupancy
-* 🚨 **Overcrowded:** > 100% Occupancy (Requires immediate attention)
+* 🟢 **Empty** — 0% occupancy.
+* 🔵 **Normal** — 1% to 50% occupancy.
+* 🟠 **Crowded** — 51% to 95% occupancy.
+* 🔴 **Full** — 96% to 100% occupancy.
+* 🚨 **Overcrowded** — over 100% occupancy. Requires immediate attention.
 
 ---
 
-## 📺 Fullscreen Mode (Focus Mode)
+## 📺 Focus Mode (Fullscreen)
 
-If you are setting up CrowdVision on a dedicated display monitor—like in a public lobby, a hallway, or a security control room—you will want to use **Fullscreen Mode**.
+If you are setting up CrowdVision on a dedicated display — such as in a lobby, corridor, or security control room — use Focus Mode.
 
-**How to use it:**
-1. Look for the **Fullscreen Icon** (expand arrows) at the top of the dashboard.
-2. Click it to enter Focus Mode. 
+**How to activate:**
+1. Click the **Fullscreen icon** (expand arrows) at the top of the dashboard.
+2. The interface hides the side navigation and top bar, expanding the data table to fill the entire screen.
+3. Text is automatically scaled up for readability from a distance.
 
-**What happens next?**
-The interface will immediately hide the side navigation menus and the top bar, expanding the data table to fill the entire screen. The text size is also automatically scaled up, making the dashboard highly readable from a distance. 
-
-> 💡 **Exiting Fullscreen:** To go back to the normal view, simply press the `Esc` key on your keyboard or click the Fullscreen icon again.
+> 💡 **To exit:** Press `Esc` or click the Fullscreen icon again.

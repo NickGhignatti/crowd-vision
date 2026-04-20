@@ -11,12 +11,12 @@ The `Domain` model is managed by the Auth Service. It dictates not just the exis
 
 .code lang:{typescript}
     export interface IDomain extends Document {
-    name: string;
-    subdomains: Types.ObjectId[];
-    authStrategy: "internal" | "oidc";
-    totpSecrets: IDomainTOTPSecrets;
-    ssoConfig?: ISSOConfig;
-    isVisibleFromOutside?: boolean;
+        name: string;
+        subdomains: Types.ObjectId[];
+        authStrategy: "internal" | "oidc";
+        totpSecrets: IDomainTOTPSecrets;
+        ssoConfig?: ISSOConfig;
+        isVisibleFromOutside?: boolean;
     }
 
 Key Field Breakdown:
