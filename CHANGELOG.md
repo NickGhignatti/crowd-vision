@@ -1,3 +1,10 @@
+# [2.8.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.7.0...v2.8.0) (2026-04-20)
+
+
+### Features
+
+* ID + name for both Room and Building struct ([786367f](https://github.com/NickGhignatti/crowd-vision/commit/786367f081eff91d5a5a85226418094155bafbdc))
+
 # [2.7.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.6.1...v2.7.0) (2026-04-12)
 
 
