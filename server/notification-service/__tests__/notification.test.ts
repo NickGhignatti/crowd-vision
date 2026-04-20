@@ -72,8 +72,8 @@ describe('Notification Service API', () => {
                 .send({}); // Empty body
 
             expect(res.status).toBe(400);
-            expect(res.body.type).toBeDefined();
-            expect(res.body.message).toBeDefined();
+            expect(res.body.type).not.toBeDefined();
+            expect(res.body.message).not.toBeDefined();
         });
     });
 

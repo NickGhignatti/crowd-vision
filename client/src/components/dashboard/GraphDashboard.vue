@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, toRef, onMounted } from 'vue'
+import { ref, computed, toRef, onMounted } from 'vue'
 import {
   Chart as ChartJS,
   Title,
@@ -87,7 +87,7 @@ const { data: tempData, isLoading: loadingTemp } = getBuildingHistory(
   'temperature',
 )
 
-const { isSimRunning, error, refetch } = useIsRunning(buildingIdRef)
+const { isSimRunning, refetch } = useIsRunning(buildingIdRef)
 
 const checkSimStatus = () => {
   if (simulatorUrl.value.length > 0) {
