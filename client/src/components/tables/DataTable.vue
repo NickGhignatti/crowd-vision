@@ -11,6 +11,7 @@ export interface TableHeader {
 
 export interface TableBody {
   room: string,
+  roomId: string,
   status: string,
   teacher: string,
   temp: string,
@@ -78,13 +79,13 @@ const toggleAutoPlay = () => {
   }
 }
 
-const { 
-  data: peopleData, 
-  isLoading: loadingPeople 
+const {
+  data: peopleData,
+  isLoading: loadingPeople
 } = getBuildingData(buildingIdRef, 'peopleCount')
 
-const { 
-  data: temperatures, 
+const {
+  data: temperatures,
   isLoading: loadingTemperature
 } = getBuildingData(buildingIdRef, 'temperature')
 
@@ -93,16 +94,16 @@ const enrichedItems = computed<TableBody[]>(() => {
 
   return props.roomsData.map((item) => {
     const roomTempData = temperatures.value?.find(
-      (t: any) => t.roomId === item.room
+      (t: any) => t.roomId === item.roomId
     )
     const roomPeople = peopleData.value?.find(
-      (p: any) => p.roomId === item.room
+      (p: any) => p.roomId === item.roomId
     )
 
     return {
       ...item,
       temp: roomTempData ? `${roomTempData.value}°C` : item.temp,
-      people: roomPeople ? `${roomPeople.value}` : item.people 
+      people: roomPeople ? `${roomPeople.value}` : item.people
     }
   })
 })
@@ -157,7 +158,7 @@ onUnmounted(() => {
               class="p-5 border-r border-slate-200 last:border-r-0"
               :class="header.cellClass"
             >
-              
+
               <slot :name="header.key" :item="item" :value="item[header.key]">
                 {{ item[header.key] }}
               </slot>

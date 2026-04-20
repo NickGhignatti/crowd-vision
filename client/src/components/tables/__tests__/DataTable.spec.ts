@@ -10,6 +10,7 @@ interface TableHeader {
 
 interface TableBody {
   room: string
+  roomId: string
   status: string
   teacher: string
   temp: string
@@ -51,6 +52,7 @@ const headers: TableHeader[] = [
 const makeItems = (count: number): TableBody[] =>
   Array.from({ length: count }, (_, i) => ({
     room: `Room ${i}`,
+    roomId: `room-${i}`,
     status: 'active',
     teacher: 'Teacher',
     temp: '22°C',

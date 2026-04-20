@@ -49,6 +49,7 @@ const stubs = {
 const makeRoom = (id: string, overrides: Partial<Room> = {}): Room =>
   ({
     id,
+    name: id,
     capacity: 10,
     maxTemperature: 25,
     color: '#ffffff',
@@ -58,6 +59,7 @@ const makeRoom = (id: string, overrides: Partial<Room> = {}): Room =>
 const makeBuilding = (rooms: Room[] = []): Building =>
   ({
     id: 'bldg-1',
+    name: 'Main Campus',
     domains: ['acme'],
     rooms,
   }) as unknown as Building

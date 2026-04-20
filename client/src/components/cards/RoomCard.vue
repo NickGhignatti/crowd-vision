@@ -39,12 +39,8 @@ const getTempColor = (temp: number) => {
 
     <div class="flex justify-between items-start mb-3 border-b border-slate-200 pb-2">
       <div>
-        <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider block">{{
-          t('commons.ID')
-        }}</span>
         <div class="flex items-center gap-2">
-          <span class="text-slate-700 font-bold font-mono">#{{ room.id }}</span>
-
+          <span class="text-sm font-bold text-slate-800 leading-tight">{{ room.name }}</span>
           <button
             v-if="canEdit"
             @click.stop="emit('edit', props.room)"

@@ -3,6 +3,11 @@ import type { Building } from '@/models/building'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
 
+interface BuildingOption {
+  id: string
+  name: string
+}
+
 export function useBuildingModel() {
   const domainsStore = useDomainsStore()
   const buildingsStore = useBuildingsStore()
@@ -14,7 +19,12 @@ export function useBuildingModel() {
   const selectedFloor = ref<number | null>(null)
   const building = ref<Building | null>(null)
 
-  const availableBuildingsNames = computed(() => allBuildings.value.map((b) => b.id))
+  const availableBuildingsNames = computed<BuildingOption[]>(() =>
+    allBuildings.value.map((b) => ({
+      id: b.id,
+      name: b.name?.trim() || b.id,
+    })),
+  )
 
   const visibleRooms = computed(() => {
     if (!building.value) return []

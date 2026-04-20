@@ -31,7 +31,7 @@ const focusSection = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
 
 // Data State
-const roomData = ref<any>([]) // Processed data for Table
+const roomData = ref<TableBody[]>([]) // Processed data for Table
 
 const formattedTime = computed(() => {
   return new Intl.DateTimeFormat(locale.value, {
@@ -74,19 +74,22 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
 
     const response = await makeRequest(`/twin/building/${buildingId}`)
     if (!response.ok) {
-      throw new Error('Failed to fetch building data')
+      console.error('Failed to fetch building data')
+      return
     }
 
     const building = (await response.json()) as Building
 
     if (building && building.rooms) {
       building.rooms.forEach((room: Room) => {
+        const roomName = room.name?.trim() || room.id
         roomData.value.push({
-          room: room.id,
+          room: roomName,
+          roomId: room.id,
           status: t(getStatusByOccupants(0, room.capacity)),
           teacher: '',
           temp: '',
-          people: 0,
+          people: '0',
           capacity: room.capacity.toString(),
         })
       })
@@ -147,7 +150,10 @@ const getInitialModels = async () => {
     if (!username) return
 
     const authRes = await makeRequest(`/auth/domains/${username}`)
-    if (!authRes.ok) throw new Error('Failed to fetch user domains')
+    if (!authRes.ok) {
+      console.error('Failed to fetch user domains')
+      return
+    }
 
     const authData = await authRes.json()
     const memberships = authData.domains as DomainMembership[]
@@ -177,7 +183,7 @@ const getInitialModels = async () => {
       })
       .map((b) => ({
         id: b.id,
-        name: b.id,
+        name: b.name?.trim() || b.id,
       }))
 
     if (models.value.length > 0 && models.value[0]) {
@@ -335,7 +341,7 @@ onUnmounted(() => {
 
           <div v-else key="graph" class="w-full">
             <GraphDashboard
-              :selectedRooms="roomData.map((r: TableBody) => r.room)"
+              :selectedRooms="roomData.map((r: TableBody) => r.roomId)"
               :selectedBuildingId="selectedModel?.id"
             />
           </div>

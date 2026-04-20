@@ -9,6 +9,7 @@ vi.mock('vue-i18n', () => ({
 
 const makeRoom = (overrides: Partial<Room> = {}): Room =>
   ({
+    name: 'Room 101',
     id: 'room-101',
     capacity: 50,
     maxTemperature: 25,
@@ -18,13 +19,14 @@ const makeRoom = (overrides: Partial<Room> = {}): Room =>
 
 describe('RoomCard.vue', () => {
   describe('rendering', () => {
-    it('displays the room ID and capacity correctly', () => {
-      const room = makeRoom({ id: 'conference-a', capacity: 12 })
+    it('displays room name and capacity correctly without showing the ID', () => {
+      const room = makeRoom({ name: 'Conference A', id: 'conference-a', capacity: 12 })
       const wrapper = mount(RoomCard, {
         props: { room, isSelected: false, temp: 22, people: 1 },
       })
 
-      expect(wrapper.text()).toContain('#conference-a')
+      expect(wrapper.text()).toContain('Conference A')
+      expect(wrapper.text()).not.toContain('#conference-a')
       expect(wrapper.text()).toContain('1 / 12')
     })
 

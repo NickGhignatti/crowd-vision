@@ -7,6 +7,7 @@ const { t } = useI18n()
 
 defineProps<{
   buildingId: string
+  buildingName: string
   isSelected: boolean
   buildingModel: Building | null
   availableFloors: number[]
@@ -41,7 +42,7 @@ const floorModel = defineModel<number | null>('activeFloor')
         >
           {{ t('model.name') }}:
         </span>
-        <p class="text-slate-700 font-medium mt-1 truncate">{{ buildingId }}</p>
+        <p class="text-slate-700 font-medium mt-1 truncate">{{ buildingName }}</p>
       </div>
 
       <button

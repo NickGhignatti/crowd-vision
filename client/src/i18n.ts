@@ -201,6 +201,8 @@ const messages = {
         editRoom: {
           title: 'Edit Room',
           subtitle: 'Configure parameters and thresholds',
+          name: 'Room Name',
+          namePlaceholder: 'e.g. Physics Lab',
           identifier: 'Room Identifier',
           identifierPlaceholder: 'Room ID',
           capacity: 'Capacity',
@@ -438,6 +440,8 @@ const messages = {
         editRoom: {
           title: 'Modifica Stanza',
           subtitle: 'Configura parametri e soglie',
+          name: 'Nome Stanza',
+          namePlaceholder: 'es. Laboratorio di Fisica',
           identifier: 'Identificativo Stanza',
           identifierPlaceholder: 'ID Stanza',
           capacity: 'Capacità',

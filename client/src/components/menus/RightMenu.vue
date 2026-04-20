@@ -46,7 +46,9 @@ const filteredRooms = computed(() => {
   if (!props.buildingModel?.rooms) return []
   if (!searchQuery.value) return props.buildingModel.rooms
   const query = searchQuery.value.toLowerCase()
-  return props.buildingModel.rooms.filter((room) => room.id.toLowerCase().includes(query))
+  return props.buildingModel.rooms.filter((room) => {
+    return room.id.toLowerCase().includes(query) || room.name.toLowerCase().includes(query)
+  })
 })
 
 watch(
@@ -63,12 +65,10 @@ const buildingId = computed(() => props.buildingModel?.id)
 
 const {
   data: peopleData,
-  isLoading: _loadingPeople
 } = getBuildingData(buildingId, 'peopleCount')
 
 const {
   data: temperatures,
-  isLoading: _loadingTemperature
 } = getBuildingData(buildingId, 'temperature')
 
 const enrichedRooms = computed<RoomItemBody[]>(() => {
@@ -103,7 +103,10 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
       'PATCH',
       { body: JSON.stringify(updates) },
     )
-    if (!response.ok) throw new Error('Update failed')
+    if (!response.ok) {
+      alert(t('model.rooms.updateFailed'))
+      return
+    }
     Object.assign(editingRoom.value, updates)
   } catch (e) {
     console.error(e)
@@ -131,7 +134,7 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
             <SearchBar
               ref="searchBar"
               v-model="searchQuery"
-              :placeholder="`${t('commons.search')} ${t('commons.ID')}...`"
+              :placeholder="`${t('commons.search')} ${t('model.rooms.editRoom.name')}...`"
             />
           </div>
 

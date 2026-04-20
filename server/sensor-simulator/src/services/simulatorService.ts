@@ -32,11 +32,9 @@ export class Simulator {
           .replace(/localhost/g, "host.docker.internal")
           .replace(/127\.0\.0\.1/g, "host.docker.internal");
       }
-      console.log(parsedUrl);
 
       building.targetUrl = parsedUrl;
     }
-    console.log(`Simulator started for ${building.targetUrl}`);
     this.activeBuildings.push(building);
     if (!this.isRunning) {
       this.isRunning = true;
@@ -63,8 +61,6 @@ export class Simulator {
       await this.sendSignals(building);
     }
 
-    console.log("Buidings", this.activeBuildings.activeBuildings);
-    console.log(`[Simulator] Sleeping for ${this.delay / 1000}s...`);
     setTimeout(() => this.tick(), this.delay);
   }
 
@@ -129,10 +125,6 @@ export class Simulator {
         console.warn(
           `[Simulator] API Result: ${responsePeopleCount.status} ${responsePeopleCount.statusText}`,
         );
-      } else {
-        console.log(`[Simulator] Success: Sent value ${payloadTemp.temperature} 
-                    for temperature and ${payloadPeople.peopleCount} 
-                    for people count to building ${building.buildingId}`);
       }
     } catch (error: any) {
       console.error(

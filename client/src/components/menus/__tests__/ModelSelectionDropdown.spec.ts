@@ -19,7 +19,7 @@ vi.mock('@/stores/domain.ts', () => ({
 }))
 
 const mockFetchBuildings = vi.fn()
-let mockBuildingsAll: Array<{ id: string }> = []
+let mockBuildingsAll: Array<{ id: string; name?: string }> = []
 
 vi.mock('@/stores/buildings.ts', () => ({
   useBuildingsStore: () => ({
@@ -38,7 +38,10 @@ describe('ModelSelectionDropdown.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockMemberships = [{ domainName: 'acme', role: 'admin' }]
-    mockBuildingsAll = [{ id: 'bldg-1' }, { id: 'bldg-2' }]
+    mockBuildingsAll = [
+      { id: 'bldg-1', name: 'Main Campus' },
+      { id: 'bldg-2', name: 'West Annex' },
+    ]
   })
 
   describe('initialization and store fetching', () => {
@@ -62,17 +65,21 @@ describe('ModelSelectionDropdown.vue', () => {
     })
 
     it('filters duplicate building IDs and auto-selects the first model', async () => {
-      mockBuildingsAll = [{ id: 'bldg-1' }, { id: 'bldg-1' }, { id: 'bldg-2' }]
+      mockBuildingsAll = [
+        { id: 'bldg-1', name: 'Main Campus' },
+        { id: 'bldg-1', name: 'Main Campus Duplicate' },
+        { id: 'bldg-2', name: 'West Annex' },
+      ]
 
       const wrapper = mount(ModelSelectionDropdown, { global: { stubs } })
       await flushPromises()
 
       // It should automatically emit the first model upon initialization
       expect(wrapper.emitted('model-changed')).toBeTruthy()
-      expect(wrapper.emitted('model-changed')?.[0]).toEqual([{ id: 'bldg-1', name: 'bldg-1' }])
+      expect(wrapper.emitted('model-changed')?.[0]).toEqual([{ id: 'bldg-1', name: 'Main Campus' }])
 
-      // The main trigger button should now show the selected model's ID
-      expect(wrapper.find('button').text()).toContain('bldg-1')
+      // The main trigger button should now show the selected model's display name
+      expect(wrapper.find('button').text()).toContain('Main Campus')
     })
 
     it('handles errors gracefully during initialization and logs them', async () => {
@@ -136,9 +143,9 @@ describe('ModelSelectionDropdown.vue', () => {
       expect(wrapper.find('ul').exists()).toBe(false)
 
       expect(wrapper.emitted('model-changed')).toHaveLength(1)
-      expect(wrapper.emitted('model-changed')?.[0]).toEqual([{ id: 'bldg-2', name: 'bldg-2' }])
+      expect(wrapper.emitted('model-changed')?.[0]).toEqual([{ id: 'bldg-2', name: 'West Annex' }])
 
-      expect(wrapper.find('button').text()).toContain('bldg-2')
+      expect(wrapper.find('button').text()).toContain('West Annex')
     })
 
     it('closes the dropdown when the transparent backdrop is clicked', async () => {

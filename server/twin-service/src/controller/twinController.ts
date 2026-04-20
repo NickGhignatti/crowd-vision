@@ -7,8 +7,8 @@ import {
 } from "../services/twinService.js";
 
 export const register = async (req: Request, res: Response) => {
-    const { id, rooms, domains } = req.body;
-    const building = await registerBuilding(id, rooms, domains);
+    const { id, name, rooms, domains } = req.body;
+    const building = await registerBuilding(id, name, rooms, domains);
     res.status(201).json(building);
 };
 

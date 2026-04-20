@@ -37,6 +37,7 @@ const makeRoom = (
   depth = 5,
 ): Room => ({
   id,
+  name: id,
   capacity: 10,
   position: { x, y, z },
   dimensions: { width, height, depth },
@@ -44,6 +45,7 @@ const makeRoom = (
 
 const makeBuilding = (id: string, rooms: Room[] = []): Building => ({
   id,
+  name: id,
   rooms,
   domains: ['test-domain'],
 })
@@ -117,21 +119,27 @@ describe('useBuildingModel', () => {
       expect(availableBuildingsNames.value).toEqual([])
     })
 
-    it('returns the ids of all buildings', () => {
+    it('returns id-name pairs for all buildings', () => {
       const { allBuildings, availableBuildingsNames } = useBuildingModel()
       allBuildings.value = [makeBuilding('hq'), makeBuilding('annex')]
 
-      expect(availableBuildingsNames.value).toEqual(['hq', 'annex'])
+      expect(availableBuildingsNames.value).toEqual([
+        { id: 'hq', name: 'hq' },
+        { id: 'annex', name: 'annex' },
+      ])
     })
 
     it('updates reactively when allBuildings changes', () => {
       const { allBuildings, availableBuildingsNames } = useBuildingModel()
 
       allBuildings.value = [makeBuilding('hq')]
-      expect(availableBuildingsNames.value).toEqual(['hq'])
+      expect(availableBuildingsNames.value).toEqual([{ id: 'hq', name: 'hq' }])
 
       allBuildings.value = [makeBuilding('hq'), makeBuilding('annex')]
-      expect(availableBuildingsNames.value).toEqual(['hq', 'annex'])
+      expect(availableBuildingsNames.value).toEqual([
+        { id: 'hq', name: 'hq' },
+        { id: 'annex', name: 'annex' },
+      ])
     })
   })
 

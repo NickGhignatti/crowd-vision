@@ -13,22 +13,26 @@ vi.mock('@/composables/useUserPermissions', () => ({
 describe('LeftMenu', () => {
   const buildingModel = {
     id: 'b-1',
+    name: 'Main Campus',
     domains: ['unibo.it'],
     rooms: [
       {
         id: 'r1',
+        name: 'Room r1',
         capacity: 100,
         position: { x: 0, y: 2, z: 0 },
         dimensions: { width: 2, height: 2, depth: 2 },
       },
       {
         id: 'r2',
+        name: 'Room r2',
         capacity: 100,
         position: { x: 1, y: 1, z: 0 },
         dimensions: { width: 2, height: 2, depth: 2 },
       },
       {
         id: 'r3',
+        name: 'Room r3',
         capacity: 100,
         position: { x: 2, y: 2, z: 0 },
         dimensions: { width: 2, height: 2, depth: 2 },
@@ -39,7 +43,10 @@ describe('LeftMenu', () => {
   const createWrapper = () =>
     mount(LeftMenu, {
       props: {
-        buildingIds: ['b-1', 'b-2'],
+        buildingOptions: [
+          { id: 'b-1', name: 'Main Campus' },
+          { id: 'b-2', name: 'Annex' },
+        ],
         selectedId: 'b-1',
         buildingModel,
         activeFloor: null,

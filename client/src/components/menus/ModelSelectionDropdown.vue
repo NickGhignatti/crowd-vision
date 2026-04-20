@@ -38,7 +38,7 @@ const getInitialModels = async () => {
         uniqueIds.add(b.id)
         return true
       })
-      .map((b: any) => ({ id: b.id, name: b.id }))
+      .map((b: any) => ({ id: b.id, name: b.name?.trim() || b.id }))
 
     if (models.value.length > 0 && models.value[0]) {
       selectModel(models.value[0])

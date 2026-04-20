@@ -73,9 +73,11 @@ describe('useSceneControls', () => {
   describe('triggerExplodeView', () => {
     const mockBuilding = {
       id: 'Building-1',
+      name: 'Building 1',
       rooms: [
         {
           id: 'Room-A',
+          name: 'Room A',
           position: { x: 10, y: 0, z: 10 },
           dimensions: { width: 10, height: 10, depth: 10 },
         },
