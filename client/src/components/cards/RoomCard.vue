@@ -2,6 +2,7 @@
 import type { Room } from '@/models/building.ts'
 
 import { useI18n } from 'vue-i18n'
+import { roomColorByTemperature } from '@/helpers/colors.ts'
 
 const { t } = useI18n()
 
@@ -17,12 +18,6 @@ const emit = defineEmits<{
   (e: 'select', id: string): void
   (e: 'edit', room: Room): void
 }>()
-
-const getTempColor = (temp: number) => {
-  if (temp > 30) return 'text-rose-500'
-  if (temp < 18) return 'text-sky-500'
-  return 'text-emerald-600'
-}
 </script>
 
 <template>
@@ -61,7 +56,9 @@ const getTempColor = (temp: number) => {
     <div class="space-y-2">
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.temperature') }}</span>
-        <span class="font-bold" :class="getTempColor(props.temp ? props.temp: 0)"> {{ props.temp }} </span>
+        <span class="font-bold" :style="{ color: roomColorByTemperature(props.temp ?? 0.0) }">
+          {{ props.temp !== undefined ? props.temp + '°C' : '--' }}
+        </span>
       </div>
 
       <div class="flex justify-between items-center text-sm">

@@ -1,22 +1,27 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ControlPanel from '../ControlPanel.vue'
 import ControlButton from '@/components/buttons/ControlButton.vue'
+import { Mode, useModes } from '@/composables/useModes'
 
 describe('ControlPanel.vue', () => {
+  beforeEach(() => {
+    useModes().currentMode.value = Mode.NoSensor
+  })
+
   const defaultProps = {
     selectedRoomId: null,
     isExploded: false,
     disabled: false,
   }
 
-  it('renders all 5 control buttons', () => {
+  it('renders all 6 control buttons', () => {
     const wrapper = mount(ControlPanel, {
       props: defaultProps,
       global: { stubs: { ControlButton: true } },
     })
 
-    expect(wrapper.findAllComponents(ControlButton)).toHaveLength(5)
+    expect(wrapper.findAllComponents(ControlButton)).toHaveLength(6)
   })
 
   it('handles "Reset View" button', async () => {
@@ -105,6 +110,21 @@ describe('ControlPanel.vue', () => {
     expect(wrapper.emitted('togglePanorama')).toBeTruthy()
   })
 
+  it('toggles temperature mode when the temperature button is clicked', async () => {
+    const wrapper = mount(ControlPanel, {
+      props: defaultProps,
+      global: { stubs: { ControlButton: true } },
+    })
+
+    const btn = wrapper.findAllComponents(ControlButton)[5]!
+    expect(btn.props('icon')).toBe('ph-thermometer')
+    expect(btn.props('active')).toBe(false)
+
+    await btn.trigger('click')
+
+    expect(useModes().currentMode.value).toBe(Mode.TemperatureSensor)
+  })
+
   it('disables applicable buttons when global disabled prop is true', () => {
     const wrapper = mount(ControlPanel, {
       props: { ...defaultProps, disabled: true },
@@ -118,5 +138,6 @@ describe('ControlPanel.vue', () => {
     expect(buttons[2]!.props('disabled')).toBe(true)
     expect(buttons[3]!.props('disabled')).toBe(true)
     expect(buttons[4]!.props('disabled')).toBeFalsy()
+    expect(buttons[5]!.props('disabled')).toBeFalsy()
   })
 })

@@ -19,6 +19,15 @@ export function useBuildingModel() {
   const selectedFloor = ref<number | null>(null)
   const building = ref<Building | null>(null)
 
+  watch(building, (newValue) => {
+    if (newValue) {
+      selectedRoomId.value = null
+      selectedFloor.value = null
+      isExploded.value = false
+      explodedRoomId.value = null
+    }
+  })
+
   const availableBuildingsNames = computed<BuildingOption[]>(() =>
     allBuildings.value.map((b) => ({
       id: b.id,
@@ -56,15 +65,6 @@ export function useBuildingModel() {
     return { ...building.value, rooms: visibleRooms.value }
   })
 
-  watch(building, (newValue) => {
-    if (newValue) {
-      selectedRoomId.value = null
-      selectedFloor.value = null
-      isExploded.value = false
-      explodedRoomId.value = null
-    }
-  })
-
   const fetchBuildings = async () => {
     try {
       await domainsStore.fetchMemberships()
@@ -81,6 +81,7 @@ export function useBuildingModel() {
       console.error('Error fetching building schema:', e)
     }
   }
+
   const setBuildingByIndex = (index: number) => {
     building.value = allBuildings.value[index] || null
   }
