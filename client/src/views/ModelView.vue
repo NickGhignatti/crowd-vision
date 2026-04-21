@@ -6,12 +6,13 @@ import RightMenu from '@/components/menus/RightMenu.vue'
 import ViewControls from '@/components/menus/ControlPanel.vue'
 import { useBuildingModel } from '@/composables/useBuildingModel'
 import { useSceneControls } from '@/composables/useSceneControls'
-
-import { onMounted } from 'vue'
+import { useBuildingTemperature } from '@/composables/useRoomsData.ts'
+import { computed, onMounted } from 'vue'
 import { TresCanvas } from '@tresjs/core'
 import type { Intersection } from 'three'
 import { OrbitControls } from '@tresjs/cientos'
-import { roomOpacity } from '@/helpers/colors.ts'
+import { roomColorByTemperature, roomOpacity } from '@/helpers/colors.ts'
+import { useModes } from '@/composables/useModes.ts'
 
 interface TresEvent extends Intersection {
   stopPropagation: () => void
@@ -29,6 +30,11 @@ const {
   togglePanorama,
   triggerExplodeView,
 } = useSceneControls()
+
+const modes = useModes()
+
+const currentBuildingId = computed(() => buildingModel.building.value?.id)
+const { temperatures: roomTemperatures } = useBuildingTemperature(currentBuildingId)
 
 const handleExplodeToggle = () => {
   const result = triggerExplodeView(
@@ -101,7 +107,7 @@ onMounted(() => {
                   :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
                 />
                 <TresMeshStandardMaterial
-                  :color="room.id === buildingModel.selectedRoomId.value ? '#10b981' : '#e2e8f0'"
+                  :color="modes.getColorByMode({temperature: roomTemperatures[room.id] || 0.0})"
                   :transparent="true"
                   :opacity="roomOpacity(room.id === buildingModel.selectedRoomId.value)"
                   :depth-write="false"

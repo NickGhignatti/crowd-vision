@@ -3,8 +3,10 @@ import ControlButton from '@/components/buttons/ControlButton.vue'
 
 import { useI18n } from 'vue-i18n'
 import type { BuildingControlPanelProps } from '@/interfaces/building.ts'
+import { Mode, useModes } from '@/composables/useModes.ts'
 
 const { t } = useI18n()
+const mode = useModes()
 
 defineProps<BuildingControlPanelProps>()
 
@@ -54,6 +56,13 @@ defineEmits<{
       icon="ph-camera"
       :title="t('model.controls.buttons.panorama')"
       @click="$emit('togglePanorama')"
+    />
+
+    <ControlButton
+      icon="ph-thermometer"
+      :title="t('model.controls.buttons.temperature')"
+      :active="mode.currentMode.value === Mode.TemperatureSensor"
+      @click="mode.changeMode(Mode.TemperatureSensor)"
     />
   </div>
 </template>

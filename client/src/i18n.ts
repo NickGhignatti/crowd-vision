@@ -220,6 +220,7 @@ const messages = {
           zoomIn: 'Zoom In',
           zoomOut: 'Zoom Out',
           panorama: 'Panorama Mode',
+          temperature: 'Temperature Mode'
         },
         uploadJson: 'Upload JSON',
         invalidJsonUpload: 'Please upload a valid JSON file',
@@ -459,6 +460,7 @@ const messages = {
           zoomIn: 'Zoom Avanti',
           zoomOut: 'Zoom Indietro',
           panorama: 'Modalità Panorama',
+          temperature: 'Modalità Temperatura',
         },
         uploadJson: 'Carica JSON',
         invalidJsonUpload: 'Carica un file JSON valido',

@@ -49,7 +49,6 @@ export function getBuildingData(
           if (!response.ok) throw new Error('Fetch failed')
 
           const result = await response.json()
-          console.log(result)
           data.value = result[apiType] || []
         } catch (err: any) {
           if (err.name === 'AbortError') return
