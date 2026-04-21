@@ -11,6 +11,7 @@ import { onMounted } from 'vue'
 import { TresCanvas } from '@tresjs/core'
 import type { Intersection } from 'three'
 import { OrbitControls } from '@tresjs/cientos'
+import { roomOpacity } from '@/helpers/colors.ts'
 
 interface TresEvent extends Intersection {
   stopPropagation: () => void
@@ -102,7 +103,7 @@ onMounted(() => {
                 <TresMeshStandardMaterial
                   :color="room.id === buildingModel.selectedRoomId.value ? '#10b981' : '#e2e8f0'"
                   :transparent="true"
-                  :opacity="room.id === buildingModel.selectedRoomId.value ? 0.6 : 0.3"
+                  :opacity="roomOpacity(room.id === buildingModel.selectedRoomId.value)"
                   :depth-write="false"
                   :depth-test="true"
                   :side="2"
