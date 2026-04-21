@@ -40,6 +40,10 @@ vi.mock('@/composables/useSensorData.ts', () => ({
   }),
 }))
 
+vi.mock('@/helpers/colors.ts', () => ({
+  roomColorByTemperature: () => 'rgb(1, 2, 3)',
+}))
+
 beforeAll(async () => {
   DataTable = (await import('../DataTable.vue')).default
 })
@@ -121,6 +125,17 @@ describe('DataTable.vue', () => {
       const wrapper = createWrapper({ roomsData: [] })
 
       expect(wrapper.text()).toContain('dashboard.table.noDataAvailable')
+    })
+
+    it('applies temperature color styling for temp cells', () => {
+      const tempHeaders: TableHeader[] = [
+        { key: 'room', label: 'Room' },
+        { key: 'temp', label: 'Temp' },
+      ]
+      const wrapper = createWrapper({ headers: tempHeaders, roomsData: makeItems(1), itemsPerPage: 5 })
+
+      const temperatureCell = wrapper.findAll('tbody td')[1]?.find('span')
+      expect(temperatureCell?.attributes('style')).toContain('rgb(1, 2, 3)')
     })
   })
 

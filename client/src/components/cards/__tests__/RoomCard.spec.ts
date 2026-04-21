@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import RoomCard from '@/components/cards/RoomCard.vue'
 import type { Room } from '@/models/building'
+import { roomColorByTemperature } from '@/helpers/colors'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -46,8 +47,19 @@ describe('RoomCard.vue', () => {
         props: { room, isSelected: false, temp: 22, people: 1 },
       })
 
-      const colorDot = wrapper.find('span[style]')
+      const colorDot = wrapper.find('span.w-3.h-3.rounded-full')
       expect(colorDot.exists()).toBe(false)
+    })
+
+    it('applies temperature-based text color for the temperature value', () => {
+      const wrapper = mount(RoomCard, {
+        props: { room: makeRoom(), isSelected: false, temp: 22, people: 1 },
+      })
+
+      const expectedColor = roomColorByTemperature(22)
+      const temperatureValue = wrapper.findAll('span').find((span) => span.text() === '22°C')
+
+      expect(temperatureValue?.attributes('style')).toContain(expectedColor)
     })
 
     it('renders structural selection indicators when isSelected is true', () => {
