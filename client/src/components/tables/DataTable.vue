@@ -2,6 +2,7 @@
 import { getBuildingData } from '@/composables/useSensorData'
 import { ref, computed, onUnmounted, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { roomColorByTemperature } from '@/helpers/colors.ts'
 
 export interface TableHeader {
   key: keyof TableBody
@@ -10,13 +11,13 @@ export interface TableHeader {
 }
 
 export interface TableBody {
-  room: string,
-  roomId: string,
-  status: string,
-  teacher: string,
-  temp: string,
-  people: string,
-  capacity: string,
+  room: string
+  roomId: string
+  status: string
+  teacher: string
+  temp: string
+  people: string
+  capacity: string
 }
 
 const props = withDefaults(
@@ -79,31 +80,24 @@ const toggleAutoPlay = () => {
   }
 }
 
-const {
-  data: peopleData,
-  isLoading: loadingPeople
-} = getBuildingData(buildingIdRef, 'peopleCount')
+const { data: peopleData, isLoading: loadingPeople } = getBuildingData(buildingIdRef, 'peopleCount')
 
-const {
-  data: temperatures,
-  isLoading: loadingTemperature
-} = getBuildingData(buildingIdRef, 'temperature')
+const { data: temperatures, isLoading: loadingTemperature } = getBuildingData(
+  buildingIdRef,
+  'temperature',
+)
 
 const enrichedItems = computed<TableBody[]>(() => {
   if (!props.roomsData) return []
 
   return props.roomsData.map((item) => {
-    const roomTempData = temperatures.value?.find(
-      (t: any) => t.roomId === item.roomId
-    )
-    const roomPeople = peopleData.value?.find(
-      (p: any) => p.roomId === item.roomId
-    )
+    const roomTempData = temperatures.value?.find((t: any) => t.roomId === item.roomId)
+    const roomPeople = peopleData.value?.find((p: any) => p.roomId === item.roomId)
 
     return {
       ...item,
       temp: roomTempData ? `${roomTempData.value}°C` : item.temp,
-      people: roomPeople ? `${roomPeople.value}` : item.people
+      people: roomPeople ? `${roomPeople.value}` : item.people,
     }
   })
 })
@@ -111,7 +105,6 @@ const enrichedItems = computed<TableBody[]>(() => {
 onUnmounted(() => {
   if (autoPlayInterval) clearInterval(autoPlayInterval)
 })
-
 </script>
 
 <template>
@@ -132,7 +125,7 @@ onUnmounted(() => {
           </tr>
         </thead>
 
-       <tbody v-if="!buildingIdRef?.valueOf">
+        <tbody v-if="!buildingIdRef?.valueOf">
           <tr>
             <td :colspan="headers.length" class="p-8 text-center text-slate-500 animate-pulse">
               No data
@@ -158,9 +151,17 @@ onUnmounted(() => {
               class="p-5 border-r border-slate-200 last:border-r-0"
               :class="header.cellClass"
             >
-
               <slot :name="header.key" :item="item" :value="item[header.key]">
-                {{ item[header.key] }}
+                <span
+                  :style="{
+                    color:
+                      header.key === 'temp'
+                        ? roomColorByTemperature(parseFloat(item[header.key]))
+                        : 'inherit',
+                  }"
+                >
+                  {{ item[header.key] }}
+                </span>
               </slot>
             </td>
           </tr>
