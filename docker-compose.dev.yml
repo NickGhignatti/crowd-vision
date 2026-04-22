@@ -1,17 +1,14 @@
 services:
-  # ==========================================
-  # AUTH SERVICE
-  # ==========================================
   auth-service:
     build:
       context: ./server/auth-service
       target: builder
     command: npm run dev
+    environment:
+      - MONGO_URI=mongodb://auth-db:27017/authdb
     networks:
       - gateway-net
       - auth-net
-    environment:
-      - MONGO_URI=mongodb://auth-db:27017/authdb
     develop:
       watch:
         - action: sync
@@ -20,33 +17,16 @@ services:
         - action: rebuild
           path: ./server/auth-service/package.json
 
-  auth-db-express:
-    image: mongo-express:latest
-    environment:
-      - ME_CONFIG_MONGODB_URL=mongodb://auth-db:27017/
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
-      - ME_CONFIG_SITE_BASEURL=/auth-db-gui/
-    networks:
-      - gateway-net
-      - auth-net
-    depends_on:
-      - auth-db
-
-  # ==========================================
-  # DIGITAL TWIN SERVICE
-  # ==========================================
   twin-service:
     build:
       context: ./server/twin-service
       target: builder
     command: npm run dev
+    environment:
+      - MONGO_URI=mongodb://twin-db:27017/twindb
     networks:
       - gateway-net
       - twin-net
-    environment:
-      - MONGO_URI=mongodb://twin-db:27017/twindb
     develop:
       watch:
         - action: sync
@@ -54,26 +34,15 @@ services:
           target: /app/src
         - action: rebuild
           path: ./server/twin-service/package.json
+
   twin-db:
     ports:
       - "27017:27017"
-  twin-db-express:
-    image: mongo-express
-    environment:
-      - ME_CONFIG_MONGODB_URL=mongodb://twin-db:27017/
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
-      - ME_CONFIG_SITE_BASEURL=/twin-db-gui/
-    networks:
-      - gateway-net
-      - twin-net
-    depends_on:
-      - twin-db
 
-  # ==========================================
-  # NOTIFICATION SERVICE
-  # ==========================================
+  sensor-db:
+    ports:
+      - "27018:27017"
+
   notification-service:
     build:
       context: ./server/notification-service
@@ -97,9 +66,6 @@ services:
         - action: rebuild
           path: ./server/notification-service/package.json
 
-  # ==========================================
-  # AGENT SERVICE
-  # ==========================================
   agent-service:
     build:
       context: ./server/agent-service
@@ -121,9 +87,6 @@ services:
         - action: rebuild
           path: ./server/agent-service/package.json
 
-  # ==========================================
-  # CLIENT
-  # ==========================================
   client:
     container_name: vue-client
     build:
@@ -151,25 +114,3 @@ services:
             - node_modules/
         - action: rebuild
           path: ./client/package.json
-
-  # ==========================================
-  # SENSOR SERVICE
-  # ==========================================
-
-  sensor-db:
-    ports:
-      - "27018:27017"
-
-  sensor-db-express:
-    image: mongo-express
-    environment:
-      - ME_CONFIG_MONGODB_URL=mongodb://sensor-db:27017/
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
-      - ME_CONFIG_SITE_BASEURL=/sensor-db-gui/
-    networks:
-      - gateway-net
-      - sensor-net
-    depends_on:
-      - sensor-db

@@ -5,6 +5,12 @@ on:
     branches: [ "master" ]
     paths:
       - "docker-compose.yml"
+      - "docker-compose.dbs.yml"
+      - "docker-compose.services.yml"
+      - "docker-compose.simulators.yml"
+      - "docker-compose.client.yml"
+      - "docker-compose.interfaces.yml"
+      - "docker-compose.dev.yml"
       - "server/**"
       - "client/**"
       - ".github/workflows/docker.yml"
@@ -28,4 +34,4 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: "dummy_key"
           VAPID_PUBLIC_KEY: "dummy_key"
           VAPID_PRIVATE_KEY: "dummy_key"
-        run: docker compose build
+        run: docker compose -f docker-compose.yml -f docker-compose.dbs.yml -f docker-compose.services.yml -f docker-compose.simulators.yml -f docker-compose.client.yml -f docker-compose.interfaces.yml build

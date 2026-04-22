@@ -1,0 +1,68 @@
+services:
+  socket-server:
+    build: ./server/socket-service
+    container_name: crowd-vision-socket
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+    depends_on:
+      - redis
+    networks:
+      - gateway-net
+
+  auth-service:
+    build: ./server/auth-service
+    environment:
+      - MONGO_URI=mongodb://auth-db:27017/authdb
+      - JWT_SECRET=${JWT_SECRET}
+      - VITE_SERVER_URL=${DEV_URL}:${SERVER_PORT}
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+      - INTERNAL_ADMIN_SECRET=${INTERNAL_ADMIN_SECRET}
+    networks:
+      - gateway-net
+      - auth-net
+
+  twin-service:
+    build: ./server/twin-service
+    environment:
+      - MONGO_URI=mongodb://twin-db:27017/twindb
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+    networks:
+      - gateway-net
+      - twin-net
+
+  sensor-service:
+    build: ./server/sensor-service
+    environment:
+      - MONGO_URI=mongodb://sensor-db:27017/sensordb
+    networks:
+      - gateway-net
+      - sensor-net
+
+  notification-service:
+    build: ./server/notification-service
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb://notification-db:27017/notificationdb
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+    depends_on:
+      - redis
+    networks:
+      - gateway-net
+      - notification-net
+
+  agent-service:
+    build: ./server/agent-service
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - TWIN_SERVICE_URL=http://twin-service:3000
+      - AUTH_SERVICE_URL=http://auth-service:3000
+    networks:
+      - gateway-net
+      - twin-net
+      - auth-net
+
