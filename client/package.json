@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
-    "lint": "eslint . --fix --cache",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
     "start": "serve -s dist -l 8080"
   },

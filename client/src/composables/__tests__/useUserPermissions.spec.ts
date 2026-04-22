@@ -94,14 +94,12 @@ describe('useUserPermissions', () => {
     it('returns false when buildingDomains is null (defensive, beyond TypeScript)', () => {
       const { composable } = mountComposable()
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(composable.canEdit(null as any)).toBe(false)
     })
 
     it('returns false when buildingDomains is undefined (defensive, beyond TypeScript)', () => {
       const { composable } = mountComposable()
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(composable.canEdit(undefined as any)).toBe(false)
     })
   })
