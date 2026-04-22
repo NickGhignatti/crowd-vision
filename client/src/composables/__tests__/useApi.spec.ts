@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { makeRequest } from '@/composables/useApi'
+import { makeExternalRequest, makeRequest } from '@/composables/useApi'
 
 const fetchSpy = vi.spyOn(global, 'fetch')
 
@@ -83,6 +83,39 @@ describe('useApi.ts - makeRequest', () => {
             'Content-Type': 'multipart/form-data',
             Authorization: 'Bearer test-token',
           },
+        }),
+      )
+    })
+
+    it('supports absolute URLs without prefixing the API base URL', async () => {
+      await makeRequest('http://simulator.local/control/status/?buildingId=abc')
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'http://simulator.local/control/status/?buildingId=abc',
+        expect.any(Object),
+      )
+    })
+
+    it('allows overriding default credentials in custom options', async () => {
+      await makeRequest('/simulator/status', 'GET', {
+        credentials: 'omit',
+      })
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'http://test-api.com/simulator/status',
+        expect.objectContaining({
+          credentials: 'omit',
+        }),
+      )
+    })
+
+    it('sends external URLs without prefixing the API base URL', async () => {
+      await makeExternalRequest('http://localhost:3001/control/status/?buildingId=abc')
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'http://localhost:3001/control/status/?buildingId=abc',
+        expect.objectContaining({
+          credentials: 'omit',
         }),
       )
     })

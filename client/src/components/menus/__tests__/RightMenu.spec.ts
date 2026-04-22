@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { ref } from 'vue'
 import RightMenu from '@/components/menus/RightMenu.vue'
 import { makeRequest } from '@/composables/useApi'
 import type { Building, Room } from '@/models/building'
@@ -15,6 +16,14 @@ vi.mock('@/composables/useUserPermissions', () => ({
 
 vi.mock('@/composables/useApi', () => ({
   makeRequest: vi.fn(),
+}))
+
+vi.mock('@/composables/useSensorData', () => ({
+  getBuildingData: vi.fn(() => ({
+    data: ref([]),
+    isLoading: ref(false),
+    error: ref(null),
+  })),
 }))
 
 const EditRoomStub = {
@@ -42,7 +51,7 @@ const SearchBarStub = {
 const stubs = {
   EditRoom: EditRoomStub,
   RoomCard: RoomCardStub,
-  SearchBar: SearchBarStub,
+  RoomSearchBar: SearchBarStub,
   Transition: false, // Disable async animations for instant DOM updates
 }
 

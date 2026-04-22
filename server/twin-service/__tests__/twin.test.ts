@@ -91,9 +91,10 @@ describe('Twin Service API', () => {
             expect(res.body.length).toBeGreaterThanOrEqual(2);
         });
 
-        it('should return 404 if no buildings found for domain', async () => {
+        it('should return an empty list if no buildings found for domain', async () => {
             const res = await request(app).get('/buildings/unknown-domain');
-            expect(res.status).toBe(404);
+            expect(res.status).toBe(200);
+            expect(res.body).toEqual([]);
         });
     });
 

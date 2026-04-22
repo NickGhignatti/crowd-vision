@@ -1,4 +1,5 @@
 import { ref, watch, type Ref } from 'vue'
+import { makeRequest } from '@/composables/useApi'
 
 export interface ApiDataPoint {
   timestamp: string
@@ -15,7 +16,6 @@ export function getBuildingData(
   const data = ref<ApiDataPoint[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-  const serverUrl = import.meta.env.VITE_SERVER_URL
 
   watch(
     buildingId,
@@ -39,14 +39,19 @@ export function getBuildingData(
         abortController = new AbortController()
 
         try {
-          const response = await fetch(
-            `${serverUrl}/sensor/${apiType}/entireBuilding/?building=${newId}`,
+          const response = await makeRequest(
+            `/sensor/${apiType}/entireBuilding/?building=${newId}`,
+            'GET',
             {
               signal: abortController.signal,
+              credentials: 'omit',
             },
           )
 
-          if (!response.ok) throw new Error('Fetch failed')
+          if (!response.ok) {
+            error.value = 'Fetch failed'
+            return
+          }
 
           const result = await response.json()
           data.value = result[apiType] || []
