@@ -1,4 +1,5 @@
 import { ref, watchEffect } from 'vue'
+import { makeRequest } from '@/composables/useApi'
 
 export interface ApiDataPoint {
   timestamp: string
@@ -15,8 +16,7 @@ export function getBuildingHistory(
 ) {
   const data = ref<ApiDataPoint[]>([])
   const isLoading = ref(false)
-  const error = ref(null)
-  const serverUrl = import.meta.env.VITE_SERVER_URL
+  const error = ref<string | null>(null)
 
   watchEffect(async () => {
     if (!buildingId.value) return
@@ -26,14 +26,20 @@ export function getBuildingHistory(
     error.value = null
 
     try {
-      const response = await fetch(
-        `${serverUrl}/sensor/${apiType}/dashboard/entireBuilding/?building=${buildingId.value}&timeRange=${range.value}`,
+      const response = await makeRequest(
+        `/sensor/${apiType}/dashboard/entireBuilding/?building=${buildingId.value}&timeRange=${range.value}`,
+        'GET',
+        {
+          credentials: 'omit',
+        },
       )
 
-      if (!response.ok) throw new Error('Fetch failed')
+      if (!response.ok) {
+        error.value = 'Fetch failed'
+        return
+      }
 
       const result = await response.json()
-      console.log('Fetched data:', result)
 
       data.value = result[apiType] || []
     } catch (err: any) {

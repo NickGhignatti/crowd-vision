@@ -163,7 +163,7 @@ const getInitialModels = async () => {
     await Promise.all(
       memberships.map(async (m) => {
         try {
-          const buildRes = await makeRequest(`$/twin/buildings/${m.domainName}`)
+          const buildRes = await makeRequest(`/twin/buildings/${m.domainName}`)
           if (buildRes.ok) {
             const domainBuildings = (await buildRes.json()) as Building[]
             allBuildings.push(...domainBuildings)

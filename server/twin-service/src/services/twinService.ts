@@ -61,7 +61,7 @@ export const getBuildingsByDomain = async (domain: string) => {
     const buildings = await Building.find({ domains: domain });
 
     if (buildings.length === 0) {
-        throw new NotFoundError(`Building within the domain: "${domain}" not found`);
+        return [];
     }
 
     await Promise.all(buildings.map((building) => backfillNames(building)));

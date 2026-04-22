@@ -2,13 +2,14 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import { templateCompilerOptions } from '@tresjs/core'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const target = env.VITE_API_TARGET || 'http://localhost'
 
   return {
-    plugins: [vue(), mode === 'development' ? vueDevTools() : null],
+    plugins: [vue(templateCompilerOptions), mode === 'development' ? vueDevTools() : null],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

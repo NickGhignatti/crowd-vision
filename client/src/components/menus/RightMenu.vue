@@ -131,7 +131,7 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
             >
               {{ t('model.roomList') }}
             </h2>
-            <SearchBar
+            <RoomSearchBar
               ref="searchBar"
               v-model="searchQuery"
               :placeholder="`${t('commons.search')} ${t('model.rooms.editRoom.name')}...`"

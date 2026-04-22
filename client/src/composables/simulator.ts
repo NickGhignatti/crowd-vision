@@ -1,15 +1,20 @@
 import { ref, watchEffect, toValue } from 'vue'
+import { makeExternalRequest } from '@/composables/useApi'
+
+const SIMULATOR_URL_STORAGE_KEY = 'simulatorUrl'
 
 export function useIsRunning(buildingIdSource: any) {
   const isSimRunning = ref(false)
-  const error = ref(null)
-  const lastSimulatorUrl = ref(localStorage.getItem('SimulatorUrl') || '')
+  const error = ref<string | null>(null)
+  const lastSimulatorUrl = ref(
+    localStorage.getItem(SIMULATOR_URL_STORAGE_KEY) || ''
+  )
 
   const refetch = async (simulatorUrl: string) => {
     const id = toValue(buildingIdSource)
-    if (simulatorUrl != lastSimulatorUrl.value) {
+    if (simulatorUrl !== lastSimulatorUrl.value) {
       lastSimulatorUrl.value = simulatorUrl
-      localStorage.setItem('SimulatorUrl', simulatorUrl)
+      localStorage.setItem(SIMULATOR_URL_STORAGE_KEY, simulatorUrl)
     }
     if (!id || !simulatorUrl) {
       isSimRunning.value = false
@@ -17,8 +22,12 @@ export function useIsRunning(buildingIdSource: any) {
     }
 
     try {
-      const response = await fetch(`${simulatorUrl}/control/status/?buildingId=${id}`)
-      if (!response.ok) throw new Error('Fetch failed')
+      const response = await makeExternalRequest(`${simulatorUrl}/control/status/?buildingId=${id}`)
+      if (!response.ok) {
+        error.value = 'Fetch failed'
+        isSimRunning.value = false
+        return
+      }
 
       const result = await response.json()
       isSimRunning.value = result.isRunning
@@ -50,12 +59,11 @@ export async function toggleSimulator(
 
   // Ensure no double-slashes by removing any trailing slash from serverUrl
   const cleanServerUrl = serverUrl.replace(/\/$/, '')
-  console.log(cleanServerUrl)
 
-  if (action == 'start') {
-    startSimulator(buildingId, simulatorUrl, cleanServerUrl + "/sensor/", rooms)
+  if (action === 'start') {
+    await startSimulator(buildingId, simulatorUrl, cleanServerUrl + '/sensor/', rooms)
   } else {
-    stopSimulator(buildingId, simulatorUrl)
+    await stopSimulator(buildingId, simulatorUrl)
   }
 }
 
@@ -66,20 +74,16 @@ const startSimulator = async (
   rooms?: string[],
 ) => {
   try {
-    const response = await fetch(`${simulatorUrl}/control/start/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const response = await makeExternalRequest(`${simulatorUrl}/control/start/`, 'POST', {
       body: JSON.stringify({
         buildingId: buildingId,
         roomIds: rooms || [],
         targetUrl,
       }),
     })
-    if (!response.ok) throw new Error('Fetch failed')
+    if (!response.ok) return
 
-    const result = await response.json()
+    await response.json()
   } catch (err: any) {
     console.error(err)
   }
@@ -87,18 +91,14 @@ const startSimulator = async (
 
 const stopSimulator = async (buildingId: string, simulatorUrl: string) => {
   try {
-    const response = await fetch(`${simulatorUrl}/control/stop/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const response = await makeExternalRequest(`${simulatorUrl}/control/stop/`, 'POST', {
       body: JSON.stringify({
         buildingId: buildingId,
       }),
     })
-    if (!response.ok) throw new Error('Fetch failed')
+    if (!response.ok) return
 
-    const result = await response.json()
+    await response.json()
   } catch (err: any) {
     console.error(err)
   }
