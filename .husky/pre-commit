@@ -6,19 +6,21 @@ if [ -z "$STAGED_FILES" ]; then
   exit 0
 fi
 
-# Check if any client files are staged
-if echo "$STAGED_FILES" | grep -q "^client/"; then
-  echo "🔍 Linting client files..."
+# Lint only client source files supported by ESLint config
+CLIENT_ESLINT_FILES=$(echo "$STAGED_FILES" | grep "^client/" | grep -E '\.(ts|tsx|mts|cts|js|jsx|vue)$' | sed 's|^client/||' || true)
+if [ -n "$CLIENT_ESLINT_FILES" ]; then
+  echo "Linting client files..."
   cd client
-  npx eslint --fix $(echo "$STAGED_FILES" | grep "^client/" | sed 's|^client/||')
+  npx eslint --fix $CLIENT_ESLINT_FILES
   cd ..
 fi
 
-# Check if any server files are staged
-if echo "$STAGED_FILES" | grep -q "^server/"; then
-  echo "🔍 Linting server files..."
+# Lint only server source files supported by ESLint config
+SERVER_ESLINT_FILES=$(echo "$STAGED_FILES" | grep "^server/" | grep -E '\.(ts|tsx|mts|cts|js|jsx|cjs)$' | sed 's|^server/||' || true)
+if [ -n "$SERVER_ESLINT_FILES" ]; then
+  echo "Linting server files..."
   cd server
-  npx eslint --fix --config ./eslint.config.mjs $(echo "$STAGED_FILES" | grep "^server/" | sed 's|^server/||')
+  npx eslint --fix --config ./eslint.config.mjs $SERVER_ESLINT_FILES
   cd ..
 fi
 

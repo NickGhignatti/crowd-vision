@@ -6,19 +6,21 @@ if [ -z "$CHANGED_FILES" ]; then
   exit 0
 fi
 
-# Check if any client files changed
-if echo "$CHANGED_FILES" | grep -q "^client/"; then
-  echo "🔍 Linting client files..."
+# Lint only changed client source files supported by ESLint config
+CLIENT_ESLINT_FILES=$(echo "$CHANGED_FILES" | grep "^client/" | grep -E '\.(ts|tsx|mts|cts|js|jsx|vue)$' | sed 's|^client/||' || true)
+if [ -n "$CLIENT_ESLINT_FILES" ]; then
+  echo "Linting client files..."
   cd client
-  npx eslint $(echo "$CHANGED_FILES" | grep "^client/" | sed 's|^client/||')
+  npx eslint $CLIENT_ESLINT_FILES
   cd ..
 fi
 
-# Check if any server files changed
-if echo "$CHANGED_FILES" | grep -q "^server/"; then
-  echo "🔍 Linting server files..."
+# Lint only changed server source files supported by ESLint config
+SERVER_ESLINT_FILES=$(echo "$CHANGED_FILES" | grep "^server/" | grep -E '\.(ts|tsx|mts|cts|js|jsx|cjs)$' | sed 's|^server/||' || true)
+if [ -n "$SERVER_ESLINT_FILES" ]; then
+  echo "Linting server files..."
   cd server
-  npx eslint --config ./eslint.config.mjs $(echo "$CHANGED_FILES" | grep "^server/" | sed 's|^server/||')
+  npx eslint --config ./eslint.config.mjs $SERVER_ESLINT_FILES
   cd ..
 fi
 
