@@ -24,6 +24,10 @@ if echo "$STAGED_FILES" | grep -q "^server/"; then
   cd ..
 fi
 
-# Run prettier on all staged files
-npx prettier --write $STAGED_FILES
+# Format JSON and markdown files only
+PRETTIER_FILES=$(echo "$STAGED_FILES" | grep -E "\.(json|md)$" || true)
+if [ -n "$PRETTIER_FILES" ]; then
+  echo "💅 Formatting JSON and markdown files..."
+  npx prettier --write $PRETTIER_FILES || exit 1
+fi
 
