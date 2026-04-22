@@ -1,3 +1,10 @@
+## [2.9.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.9.0...v2.9.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* standard API calling point ([ed66e96](https://github.com/NickGhignatti/crowd-vision/commit/ed66e96285cd4ae1cb45117ea8554e6502925238))
+
 # [2.9.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.8.0...v2.9.0) (2026-04-21)
 
 
