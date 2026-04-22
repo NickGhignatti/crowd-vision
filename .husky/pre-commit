@@ -1,7 +1,5 @@
 #!/usr/bin/env sh
-. "$(dirname "$0")/_/husky.sh"
-
-# Get the list of staged files
+# Run only on staged service files
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 
 if [ -z "$STAGED_FILES" ]; then
@@ -24,10 +22,4 @@ if echo "$STAGED_FILES" | grep -q "^server/"; then
   cd ..
 fi
 
-# Format JSON and markdown files only
-PRETTIER_FILES=$(echo "$STAGED_FILES" | grep -E "\.(json|md)$" || true)
-if [ -n "$PRETTIER_FILES" ]; then
-  echo "💅 Formatting JSON and markdown files..."
-  npx prettier --write $PRETTIER_FILES || exit 1
-fi
 

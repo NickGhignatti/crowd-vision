@@ -1,7 +1,5 @@
 #!/usr/bin/env sh
-. "$(dirname "$0")/_/husky.sh"
-
-# Get files changed compared to main/origin
+# Run only on changed service files
 CHANGED_FILES=$(git diff origin/HEAD --name-only --diff-filter=ACM 2>/dev/null || git diff HEAD --name-only --diff-filter=ACM)
 
 if [ -z "$CHANGED_FILES" ]; then

@@ -93,10 +93,5 @@
   "overrides": {
     "brace-expansion": "^5.0.5",
     "picomatch": "^4.0.4"
-  },
-  "lint-staged": {
-    "*.{json,md}": "prettier --write",
-    "client/**/*.{ts,tsx,vue,js,jsx}": "prettier --write",
-    "server/**/*.{ts,tsx,js,jsx}": "prettier --write"
   }
 }
