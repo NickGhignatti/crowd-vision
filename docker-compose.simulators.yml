@@ -1,0 +1,9 @@
+services:
+  simulator-service:
+    build: ./server/sensor-simulator
+    ports:
+      - "3001:3000"
+    networks:
+      - gateway-net
+      - simulator-net
+

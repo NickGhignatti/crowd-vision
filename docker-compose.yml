@@ -1,7 +1,4 @@
 services:
-  # ==========================================
-  # GATEWAY
-  # ==========================================
   gateway:
     image: caddy:latest
     ports:
@@ -19,9 +16,6 @@ services:
       - sensor-service
       - socket-server
 
-  # ==========================================
-  # MESSAGE BROKER
-  # ==========================================
   redis:
     image: redis:alpine
     container_name: crowd-vision-broker
@@ -29,151 +23,6 @@ services:
       - "6379:6379"
     networks:
       - gateway-net
-
-  # ==========================================
-  # GATEWAY SERVICE
-  # ==========================================
-  socket-server:
-    build: ./server/socket-service
-    container_name: crowd-vision-socket
-    environment:
-      - PORT=3000
-      - REDIS_URL=redis://redis:6379
-      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
-    depends_on:
-      - redis
-    networks:
-      - gateway-net
-
-  # ==========================================
-  # AUTH SERVICE
-  # ==========================================
-  auth-service:
-    build: ./server/auth-service
-    networks:
-      - gateway-net
-      - auth-net
-    environment:
-      - MONGO_URI=mongodb://auth-db:27017/authdb
-      - JWT_SECRET=${JWT_SECRET}
-      - VITE_SERVER_URL=${DEV_URL}:${SERVER_PORT}
-      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
-      - INTERNAL_ADMIN_SECRET=${INTERNAL_ADMIN_SECRET}
-
-  auth-db:
-    image: mongo:latest
-    networks:
-      - auth-net
-    volumes:
-      - auth-data:/data/db
-
-  # ==========================================
-  # DIGITAL TWIN SERVICE
-  # ==========================================
-  twin-service:
-    build: ./server/twin-service
-    networks:
-      - gateway-net
-      - twin-net
-    environment:
-      - MONGO_URI=mongodb://twin-db:27017/twindb
-      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
-
-  twin-db:
-    image: mongo:latest
-    networks:
-      - twin-net
-    volumes:
-      - twin-data:/data/db
-
-  # ==========================================
-  # SIMULATOR SERVICE SERVICE
-  # ==========================================
-  simulator-service:
-    build: ./server/sensor-simulator
-    ports:
-      - "3001:3000"
-    networks:
-      - gateway-net
-      - simulator-net
-
-  # ==========================================
-  # SENSOR SERVICE
-  # ==========================================
-  sensor-service:
-    build: ./server/sensor-service
-    networks:
-      - gateway-net
-      - sensor-net
-    environment:
-      - MONGO_URI=mongodb://sensor-db:27017/sensordb
-
-  sensor-db:
-    image: mongo:latest
-    networks:
-      - sensor-net
-    volumes:
-      - sensor-data:/data/db
-
-  # ==========================================
-  # NOTIFICATION SERVICE
-  # ==========================================
-  notification-service:
-    build: ./server/notification-service
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - MONGO_URI=mongodb://notification-db:27017/notificationdb
-      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
-      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
-      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
-    depends_on:
-      - redis
-    networks:
-      - gateway-net
-      - notification-net
-
-  notification-db:
-    image: mongo:latest
-    networks:
-      - notification-net
-    volumes:
-      - notification-data:/data/db
-
-  # ==========================================
-  # CLIENT
-  # ==========================================
-  client:
-    container_name: vue-client
-    build:
-        context: ./client
-        args:
-            VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
-            VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
-    ports:
-        - "${CLIENT_PORT}:8080"
-    environment:
-        - PORT=${CLIENT_PORT}
-    networks:
-        - gateway-net
-    depends_on:
-        - auth-service
-        - gateway
-
-
-  # ==========================================
-  # AGENT SERVICE
-  # ==========================================
-  agent-service:
-    build: ./server/agent-service
-    environment:
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - TWIN_SERVICE_URL=http://twin-service:3000
-      - AUTH_SERVICE_URL=http://auth-service:3000
-    networks:
-      - gateway-net
-      - twin-net
-      - auth-net
 
 networks:
   gateway-net:
@@ -187,7 +36,4 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
-  auth-data:
-  twin-data:
-  sensor-data:
-  notification-data:
+
