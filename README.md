@@ -21,3 +21,4 @@ The primary goal of CrowdVision is to bridge the gap between physical spaces and
 Whether you are a user learning how to navigate the dashboard, or a developer looking to spin up the local environment, generate VAPID keys, or trigger semantic releases, please visit our GitHub Pages website:
 
 👉 **[CrowdVision Official Documentation](https://nickghignatti.github.io/crowd-vision/)**
+
