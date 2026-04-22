@@ -1,3 +1,10 @@
+# [2.10.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.9.1...v2.10.0) (2026-04-22)
+
+
+### Features
+
+* linting ([838bdae](https://github.com/NickGhignatti/crowd-vision/commit/838bdae058af16863717b6b19592b3b9de703ac5))
+
 ## [2.9.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.9.0...v2.9.1) (2026-04-22)
 
 
