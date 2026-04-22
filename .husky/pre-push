@@ -1,3 +1,26 @@
 #!/usr/bin/env sh
-npm run lint
+. "$(dirname "$0")/_/husky.sh"
+
+# Get files changed compared to main/origin
+CHANGED_FILES=$(git diff origin/HEAD --name-only --diff-filter=ACM 2>/dev/null || git diff HEAD --name-only --diff-filter=ACM)
+
+if [ -z "$CHANGED_FILES" ]; then
+  exit 0
+fi
+
+# Check if any client files changed
+if echo "$CHANGED_FILES" | grep -q "^client/"; then
+  echo "🔍 Linting client files..."
+  cd client
+  npx eslint $(echo "$CHANGED_FILES" | grep "^client/" | sed 's|^client/||')
+  cd ..
+fi
+
+# Check if any server files changed
+if echo "$CHANGED_FILES" | grep -q "^server/"; then
+  echo "🔍 Linting server files..."
+  cd server
+  npx eslint --config ./eslint.config.mjs $(echo "$CHANGED_FILES" | grep "^server/" | sed 's|^server/||')
+  cd ..
+fi
 
