@@ -1,3 +1,10 @@
+## [2.10.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.10.0...v2.10.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* fine-grained control over docker compose ([8be52ce](https://github.com/NickGhignatti/crowd-vision/commit/8be52ce0064d94348e5f56467f33fefc33c3b682))
+
 # [2.10.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.9.1...v2.10.0) (2026-04-22)
 
 
