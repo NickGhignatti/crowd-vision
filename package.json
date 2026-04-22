@@ -61,7 +61,6 @@
     "// --- LINTING ---": "",
     "lint": "npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
-    "prepare": "husky",
     "// --- UTILITIES ---": "",
     "provision:admin": "node scripts/provision.js",
     "// --- RELEASE ---": ""
@@ -82,7 +81,6 @@
     "eslint-plugin-vue": "~10.5.1",
     "http-server": "^14.1.1",
     "globals": "^17.5.0",
-    "husky": "^9.1.7",
     "lerna": "^9.0.7",
     "nodemon": "^3.1.11",
     "prettier": "3.6.2",
