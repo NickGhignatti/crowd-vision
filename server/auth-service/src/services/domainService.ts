@@ -6,6 +6,7 @@ import {
 import { Account } from "../models/account.js";
 import { createTOTPForAuthorizedRoles } from "./totpService.js";
 import { ConflictError, NotFoundError } from "../models/error.js";
+import { getServerUrl } from "../config/config.js";
 
 export const createDomain = async (
   domainName: string,
@@ -126,6 +127,18 @@ export const subscribeInternal = async (
     { name: accountName },
     { $addToSet: { memberships: { domainName, role: "standard_customer" } } },
   );
+
+  await fetch(`${getServerUrl()}/notification/preferences`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userId: accountName,
+      domainId: domainName,
+      enabled: true
+    }),
+  });
 };
 
 export const unsubscribe = async (accountName: string, domainName: string) => {
@@ -133,4 +146,16 @@ export const unsubscribe = async (accountName: string, domainName: string) => {
     { name: accountName },
     { $pull: { memberships: { domainName } } },
   );
+
+  await fetch(`${getServerUrl()}/notification/preferences`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userId: accountName,
+      domainId: domainName,
+      enabled: false,
+    }),
+  });
 };
