@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domain.ts'
+import { useNotificationStore } from '@/stores/notification.ts'
 
 const selectedDomain = ref<string | null>(null)
 const domains = ref<string[]>([])
@@ -25,6 +26,7 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 const domainsStore = useDomainsStore()
 const subdomainsStore = useSubdomainsStore()
+const notificationStore = useNotificationStore()
 
 const handleAddDomain = async (payload: DomainToAddWithVisibilityPayload) => {
   isSubmitting.value = true
@@ -176,6 +178,10 @@ const getAllSubdomains = async () => {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+const handleNotificationSubscription = async () => {
+  await notificationStore.handleNotificationSubscription(authStore.accountName || '', selectedDomain.value || '')
+}
+
 onMounted(async () => {
   await getAllSubdomains()
 })
@@ -193,6 +199,7 @@ onMounted(async () => {
         @add-domain="isAddDomainModalOpen = true"
         @select-domain="handleSelectDomain"
         @upload="triggerUpload"
+        @notification-trigger="handleNotificationSubscription"
       />
 
       <QR :domain="selectedDomain" :qr-codes="qrCodes" :is-loading="isLoadingQr" />

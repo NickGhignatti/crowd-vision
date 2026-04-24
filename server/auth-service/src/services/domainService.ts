@@ -42,6 +42,18 @@ export const createDomain = async (
     },
   );
 
+  await fetch(`${getServerUrl()}/notification/preferences`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userId: creatorAccountName,
+      domainId: domainName,
+      enabled: true,
+    }),
+  });
+
   return createdDomain;
 };
 
