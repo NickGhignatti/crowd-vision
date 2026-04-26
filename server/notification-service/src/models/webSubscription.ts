@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IWebPushSubscription extends Document {
-  userId: string;
+  accountName: string;
   endpoint: string;
   keys: {
     p256dh: string;
@@ -10,7 +10,7 @@ export interface IWebPushSubscription extends Document {
 }
 
 const WebPushSubscriptionSchema: Schema = new Schema({
-  userId: { type: String, required: true, index: true },
+  accountName: { type: String, required: true, index: true },
   endpoint: { type: String, required: true, unique: true },
   keys: {
     p256dh: { type: String, required: true },
@@ -18,7 +18,7 @@ const WebPushSubscriptionSchema: Schema = new Schema({
   },
 });
 
-WebPushSubscriptionSchema.index({ userId: 1, endpoint: 1 }, { unique: true });
+WebPushSubscriptionSchema.index({ accountName: 1, endpoint: 1 }, { unique: true });
 
 export default mongoose.model<IWebPushSubscription>(
   "WebPushSubscription",

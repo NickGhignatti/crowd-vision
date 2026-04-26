@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  getPreferences,
   publicKey,
   pushTemperatureAlert,
   subscribe,
@@ -11,6 +12,7 @@ const router = Router();
 
 router.get('/public-key', publicKey);
 router.post('/subscribe', subscribe);
+router.get('/preferences/:accountName', getPreferences);
 router.post('/preferences', updatePreference);
 router.post('/trigger', triggerAlert);
 router.post('/push/temperature', pushTemperatureAlert);

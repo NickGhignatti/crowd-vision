@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { publishNotification } from '../services/notificationService.js';
 import {
+  getAccountNotificationPreference,
   sendPushToDomain,
   setUserNotificationPreference,
   subscribeUser,
@@ -8,8 +9,8 @@ import {
 import { ValidationError } from '../models/error.js';
 
 type SubscriptionRequestBody = {
-  userId?: string;
-  domainId?: string;
+  accountName?: string;
+  domainName?: string;
   enabled?: boolean;
   subscription?: {
     endpoint?: string;
@@ -41,21 +42,21 @@ const isValidSubscription = (subscription: IncomingSubscription) =>
   );
 
 export const triggerAlert = async (req: Request, res: Response) => {
-  const { message, type, domainId } = req.body as {
+  const { message, type, domainName } = req.body as {
     message?: string;
     type?: string;
-    domainId?: string;
+    domainName?: string;
   };
 
   const normalizedMessage = message || 'Manual Alert Triggered';
   const normalizedType = type || 'alert';
 
-  await publishNotification(normalizedMessage, normalizedType, domainId);
+  await publishNotification(normalizedMessage, normalizedType, domainName);
 
-  if (domainId) {
+  if (domainName) {
     await sendPushToDomain(
       { title: 'CrowdVision Alert', message: normalizedMessage },
-      domainId,
+      domainName,
     );
   }
 
@@ -70,7 +71,7 @@ export const publicKey = async (_req: Request, res: Response) => {
 
 export const subscribe = async (req: Request, res: Response) => {
   const body = req.body as SubscriptionRequestBody;
-  const userId = body.userId;
+  const accountName = body.accountName;
   const subscription: IncomingSubscription = body.subscription?.endpoint
     ? body.subscription
     : {
@@ -78,15 +79,15 @@ export const subscribe = async (req: Request, res: Response) => {
       ...(body.keys ? { keys: body.keys } : {}),
     };
 
-  if (!userId) {
-    throw new ValidationError('Missing required field: userId');
+  if (!accountName) {
+    throw new ValidationError('Missing required field: accountName');
   }
 
   if (!isValidSubscription(subscription)) {
     throw new ValidationError('Invalid push subscription payload');
   }
 
-  await subscribeUser(userId, {
+  await subscribeUser(accountName, {
     endpoint: subscription.endpoint as string,
     keys: {
       p256dh: subscription.keys?.p256dh as string,
@@ -94,10 +95,10 @@ export const subscribe = async (req: Request, res: Response) => {
     },
   });
 
-  if (body.domainId) {
+  if (body.domainName) {
     await setUserNotificationPreference(
-      userId,
-      body.domainId,
+      accountName,
+      body.domainName,
       body.enabled !== false,
     );
   }
@@ -105,45 +106,57 @@ export const subscribe = async (req: Request, res: Response) => {
   res.status(201).json({ success: true });
 };
 
+export const getPreferences = async (req: Request, res: Response) => {
+  const { accountName } = req.params;
+
+  if (!accountName) {
+    throw new ValidationError('Missing required field: accountName');
+  }
+
+  const accountPreferences = await getAccountNotificationPreference(accountName as string);
+
+  res.status(200).json({ success: true, accountPreferences });
+}
+
 export const updatePreference = async (req: Request, res: Response) => {
-  const { userId, domainId, enabled } = req.body as {
-    userId?: string;
-    domainId?: string;
+  const { accountName, domainName, enabled } = req.body as {
+    accountName?: string;
+    domainName?: string;
     enabled?: boolean;
   };
 
-  if (!userId || !domainId || typeof enabled !== 'boolean') {
-    throw new ValidationError('userId, domainId and enabled are required');
+  if (!accountName || !domainName || typeof enabled !== 'boolean') {
+    throw new ValidationError('accountName, domainName and enabled are required');
   }
 
-  await setUserNotificationPreference(userId, domainId, enabled);
+  await setUserNotificationPreference(accountName, domainName, enabled);
 
   res.status(200).json({ success: true });
 };
 
 export const pushTemperatureAlert = async (req: Request, res: Response) => {
-  const { roomId, buildingId, temperature, domainId } = req.body as {
+  const { roomId, buildingId, temperature, domainName } = req.body as {
     roomId?: string;
     buildingId?: string;
     temperature?: number;
-    domainId?: string;
+    domainName?: string;
   };
 
-  const targetDomainId = domainId || buildingId;
+  const targetdomainName = domainName || buildingId;
 
-  if (!targetDomainId) {
-    throw new ValidationError('domainId (or buildingId fallback) is required');
+  if (!targetdomainName) {
+    throw new ValidationError('domainName (or buildingId fallback) is required');
   }
 
   const message = `Temperature alert${roomId ? ` in room ${roomId}` : ''}: ${temperature ?? 'N/A'} C`;
 
-  await publishNotification(message, 'danger', targetDomainId);
+  await publishNotification(message, 'danger', targetdomainName);
   await sendPushToDomain(
     {
       title: `Temperature Alert${buildingId ? ` - ${buildingId}` : ''}`,
       message,
     },
-    targetDomainId,
+    targetdomainName,
   );
 
   res.status(200).json({ success: true });

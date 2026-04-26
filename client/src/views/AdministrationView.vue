@@ -178,12 +178,13 @@ const getAllSubdomains = async () => {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-const handleNotificationSubscription = async () => {
-  await notificationStore.handleNotificationSubscription(authStore.accountName || '', selectedDomain.value || '')
+const handleNotificationSubscription = async (domainName: string) => {
+  await notificationStore.handleNotificationSubscription(authStore.accountName || '', domainName)
 }
 
 onMounted(async () => {
   await getAllSubdomains()
+  await notificationStore.fetchAccountNotificationPreference(authStore.accountName || '')
 })
 </script>
 

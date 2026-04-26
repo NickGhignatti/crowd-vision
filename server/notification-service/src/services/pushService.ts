@@ -54,37 +54,42 @@ const sendToSubscriptions = async (
     await Promise.all(promises);
 };
 
-export const subscribeUser = async (userId: string, subscription: WebSubscriptionInput) => {
+export const subscribeUser = async (accountName: string, subscription: WebSubscriptionInput) => {
     await Subscription.findOneAndUpdate(
         { endpoint: subscription.endpoint },
-        { ...subscription, userId },
+        { ...subscription, accountName },
         { upsert: true, returnDocument: 'after' },
     );
 };
 
-export const setUserNotificationPreference = async (
-    userId: string,
-    domainId: string,
-    enabled: boolean,
-) => {
-    if (enabled) {
-        await NotificationSubscription.findOneAndUpdate(
-            { userId, domainId },
-            { userId, domainId },
-            { upsert: true, returnDocument: 'after' },
-        );
-        return;
-    }
-
-    await NotificationSubscription.deleteOne({ userId, domainId });
+export const getAccountNotificationPreference = async (accountName: string) => {
+  return NotificationSubscription.find({ accountName });
 };
 
-export const sendPushToUsers = async (payload: NotificationPayload, userIds: string[]) => {
-    if (userIds.length === 0) {
+export const setUserNotificationPreference = async (
+  accountName: string,
+  domainName: string,
+  enabled: boolean,
+) => {
+  console.log('setUserNotificationPreference', accountName, domainName, enabled);
+  if (enabled) {
+    await NotificationSubscription.updateOne(
+      { accountName, domainName },
+      { $setOnInsert: { accountName, domainName, createdAt: new Date() } },
+      { upsert: true },
+    );
+    return;
+  }
+
+  await NotificationSubscription.deleteOne({ accountName, domainName });
+};
+
+export const sendPushToUsers = async (payload: NotificationPayload, accountNames: string[]) => {
+    if (accountNames.length === 0) {
         return;
     }
 
-    const subscriptions = await Subscription.find({ userId: { $in: userIds } }).lean();
+    const subscriptions = await Subscription.find({ accountName: { $in: accountNames } }).lean();
 
     if (subscriptions.length === 0) {
         return;
@@ -93,10 +98,10 @@ export const sendPushToUsers = async (payload: NotificationPayload, userIds: str
     await sendToSubscriptions(subscriptions, payload);
 };
 
-export const sendPushToDomain = async (payload: NotificationPayload, domainId: string) => {
-    const domainSubscriptions = await NotificationSubscription.find({ domainId }).lean();
-    const userIds = [...new Set(domainSubscriptions.map((subscription) => subscription.userId))];
+export const sendPushToDomain = async (payload: NotificationPayload, domainName: string) => {
+    const domainSubscriptions = await NotificationSubscription.find({ domainName }).lean();
+    const accountNames = [...new Set(domainSubscriptions.map((subscription) => subscription.accountName))];
 
-    await sendPushToUsers(payload, userIds);
+    await sendPushToUsers(payload, accountNames);
 };
 

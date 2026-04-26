@@ -64,13 +64,13 @@ const roleBadgeClass = computed(() => {
 
       <div class="flex items-center gap-2">
         <button
-          @click.stop="$emit('notification-trigger')"
+          @click.stop="$emit('notification-trigger', domainGroup.name)"
           class="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors duration-200"
           aria-label="Trigger notification"
         >
           <i
             class="ph text-xl"
-            :class="notificationStore.notificationAreEnabled ? 'ph-bell' : 'ph-bell-slash'"
+            :class="notificationStore.isSubscribed(domainGroup.name) ? 'ph-bell' : 'ph-bell-slash'"
           ></i>
         </button>
 
@@ -110,6 +110,7 @@ const roleBadgeClass = computed(() => {
         :is-uploading="isUploading"
         @select="$emit('select-domain', $event)"
         @upload="$emit('upload', $event)"
+        @notification-trigger="$emit('notification-trigger', $event)"
       />
     </div>
   </div>
