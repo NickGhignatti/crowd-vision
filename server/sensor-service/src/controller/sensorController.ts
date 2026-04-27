@@ -21,6 +21,7 @@ import type {
   DashboardTemperatureParams,
   DashboardBuildingTemperatureParams,
 } from "../models/temperatureSignal.js";
+import { checkTemperature } from "../services/alertingService.js";
 
 export const postPeopleCount = async (req: Request, res: Response) => {
   try {
@@ -36,6 +37,7 @@ export const postTemperature = async (req: Request, res: Response) => {
   try {
     const { buildingId, roomId, timestamp, temperature } = req.body;
     await postTemperatureSignal(buildingId, roomId, timestamp, temperature);
+    checkTemperature(buildingId, roomId, temperature);
     res.status(201).json({ message: "Temperature signal created" });
   } catch (error: any) {
     res.status(400).json({ error: error.message });

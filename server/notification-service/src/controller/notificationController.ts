@@ -1,5 +1,8 @@
 import type { Request, Response } from 'express';
-import { publishNotification } from '../services/notificationService.js';
+import {
+  getServerUrl,
+  publishNotification,
+} from "../services/notificationService.js";
 import {
   getAccountNotificationPreference,
   sendPushToDomain,
@@ -42,22 +45,33 @@ const isValidSubscription = (subscription: IncomingSubscription) =>
   );
 
 export const triggerAlert = async (req: Request, res: Response) => {
-  const { message, type, domainName } = req.body as {
+  const { message, type, buildingName } = req.body as {
     message?: string;
     type?: string;
-    domainName?: string;
+    buildingName?: string;
   };
+
+  console.log("__" + message);
 
   const normalizedMessage = message || 'Manual Alert Triggered';
   const normalizedType = type || 'alert';
 
-  await publishNotification(normalizedMessage, normalizedType, domainName);
+  const response = await fetch(`${getServerUrl()}/twin/domain/${buildingName}`, {})
 
-  if (domainName) {
-    await sendPushToDomain(
-      { title: 'CrowdVision Alert', message: normalizedMessage },
-      domainName,
-    );
+  if (!response.ok) {
+    res.status(500);
+  }
+  const domains = await response.json() as string[];
+
+  for (const domainName of domains) {
+    await publishNotification(normalizedMessage, normalizedType, domainName);
+
+    if (domainName) {
+      await sendPushToDomain(
+        { title: "CrowdVision Alert", message: normalizedMessage },
+        domainName,
+      );
+    }
   }
 
   res.status(200).json({ success: true, message: 'Notification sent' });

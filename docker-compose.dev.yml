@@ -51,6 +51,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017/notificationdb
+      - VITE_SERVER_URL=http://gateway
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
     depends_on:

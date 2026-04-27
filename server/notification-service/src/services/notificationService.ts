@@ -5,16 +5,16 @@ export const getServerUrl = () =>
   process.env.VITE_SERVER_URL || "http://localhost:3000";
 
 export const publishNotification = async (
-    message: string,
-    type: string = 'info',
-    domainId?: string,
+  message: string,
+  type: string = "info",
+  domainName?: string,
 ) => {
   const payload: {
     id: string;
     message: string;
     type: string;
     timestamp: Date;
-    domainId?: string;
+    domainName?: string;
   } = {
     id: Date.now().toString(),
     message,
@@ -22,11 +22,8 @@ export const publishNotification = async (
     timestamp: new Date(),
   };
 
-  // TODO: fetch all domains and foreach domain I should send a notification to every user subscribed to that domain
-  await fetch(`${getServerUrl()}/twin/`);
-
-  if (domainId) {
-    payload.domainId = domainId;
+  if (domainName) {
+    payload.domainName = domainName;
   }
 
   await redisClient.publish("notifications", JSON.stringify(payload));

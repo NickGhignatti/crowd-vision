@@ -1,9 +1,10 @@
 import type {Request, Response} from 'express';
 import {
-    getBuildingById,
-    getBuildingsByDomain,
-    registerBuilding,
-    updateRoomInBuilding
+  getBuildingById,
+  getBuildingsByDomain,
+  getDomainsByBuilding,
+  registerBuilding,
+  updateRoomInBuilding,
 } from "../services/twinService.js";
 
 export const register = async (req: Request, res: Response) => {
@@ -29,4 +30,9 @@ export const updateRoom = async (req: Request, res: Response) => {
     const updates = req.body;
     const updatedRoom = await updateRoomInBuilding(buildingId as string, roomId as string, updates);
     res.status(200).json(updatedRoom);
+}
+
+export const getDomainByBuilding = async (req: Request, res: Response) => {
+  const buildingName = req.params.buildingName as string;
+  res.status(200).json(await getDomainsByBuilding(buildingName));
 }

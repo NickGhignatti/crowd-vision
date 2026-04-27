@@ -68,20 +68,32 @@ export const getBuildingsByDomain = async (domain: string) => {
     return buildings;
 };
 
-export const updateRoomInBuilding = async (buildingId: string, roomId: string, updates: Partial<Room>) => {
-    const building = await getBuildingById(buildingId);
+export const updateRoomInBuilding = async (
+  buildingId: string,
+  roomId: string,
+  updates: Partial<Room>,
+) => {
+  const building = await getBuildingById(buildingId);
 
-    const room = building.rooms.find(r => r.id === roomId);
-    if (!room) {
-        throw new NotFoundError(`Room with id "${roomId}" in the building "${buildingId}" not found`);
-    }
+  const room = building.rooms.find((r) => r.id === roomId);
+  if (!room) {
+    throw new NotFoundError(
+      `Room with id "${roomId}" in the building "${buildingId}" not found`,
+    );
+  }
 
-    if (updates.id !== undefined) room.id = updates.id;
-    if (updates.name !== undefined) room.name = updates.name;
-    if (updates.color !== undefined) room.color = updates.color;
-    if (updates.capacity !== undefined) room.capacity = updates.capacity;
-    if (updates.maxTemperature !== undefined) room.maxTemperature = updates.maxTemperature;
+  if (updates.id !== undefined) room.id = updates.id;
+  if (updates.name !== undefined) room.name = updates.name;
+  if (updates.color !== undefined) room.color = updates.color;
+  if (updates.capacity !== undefined) room.capacity = updates.capacity;
+  if (updates.maxTemperature !== undefined)
+    room.maxTemperature = updates.maxTemperature;
 
-    await building.save();
-    return room;
+  await building.save();
+  return room;
+};
+
+export const getDomainsByBuilding = async (buildingName: string) => {
+  const buildings = await Building.find({ name: buildingName });
+  return buildings.flatMap((building) => building.domains);
 };
