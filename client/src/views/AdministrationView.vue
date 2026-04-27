@@ -132,6 +132,24 @@ const handleFileUpload = async (event: Event) => {
     if (!response.ok) {
       throw new Error('Failed to register twin model')
     }
+
+    const createdBuilding = await response.json()
+    const thresholdResponse = await makeRequest('/sensor/thresholds/buildings', 'POST', {
+      body: JSON.stringify({
+        buildingId: createdBuilding.id,
+        name: createdBuilding.name,
+        rooms: Array.isArray(createdBuilding.rooms)
+          ? createdBuilding.rooms.map((room: any) => ({
+              id: room.id,
+              name: room.name,
+            }))
+          : [],
+      }),
+    })
+
+    if (!thresholdResponse.ok) {
+      throw new Error('Failed to initialize temperature thresholds')
+    }
   } catch (e) {
     console.error('Upload failed', e)
     alert(t('model.controls.uploadFailed'))

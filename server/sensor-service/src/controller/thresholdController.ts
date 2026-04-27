@@ -7,6 +7,28 @@ import {
   updateRoomThreshold,
 } from "../services/buildingThresholdService.js";
 
+export const createBuildingThreshold = async (req: Request, res: Response) => {
+  const { buildingId, name, maxTemperature, rooms } = req.body as {
+    buildingId?: string;
+    name?: string;
+    maxTemperature?: number;
+    rooms?: Array<{ id: string; name?: string; maxTemperature?: number }>;
+  };
+
+  if (!buildingId || !name) {
+    return res.status(400).json({ error: 'buildingId and name are required' });
+  }
+
+  const building = await syncBuildingThreshold({
+    buildingId,
+    name,
+    maxTemperature,
+    rooms,
+  } as BuildingThresholdInput);
+
+  return res.status(201).json(building);
+};
+
 export const syncBuilding = async (req: Request, res: Response) => {
   const { buildingId } = req.params;
   const { name, maxTemperature, rooms } = req.body as {

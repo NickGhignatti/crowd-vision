@@ -37,6 +37,7 @@ services:
     build: ./server/sensor-service
     environment:
       - MONGO_URI=mongodb://sensor-db:27017/sensordb
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
       - VITE_SERVER_URL=http://gateway
     networks:
       - gateway-net

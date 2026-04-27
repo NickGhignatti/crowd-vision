@@ -21,7 +21,7 @@ defineEmits(['click'])
 
 <template>
   <button
-    @click.stop="$emit('click')"
+    @click.stop="$emit('click', $event)"
     :title="title || t('model.controls.uploadJson')"
     :disabled="isUploading"
     class="flex items-center justify-center rounded-lg border bg-white shadow-sm transition-all duration-300 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 hover:scale-105"

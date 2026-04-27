@@ -9,7 +9,6 @@ export const useNotificationStore = defineStore('notification', {
 
   getters: {
     isSubscribed: (state) => (domainName: string) => {
-      console.log(`Checking subscription for ${domainName}:`, state.notificationPreferences[domainName])
       return state.notificationPreferences[domainName] ?? false
     },
   },
@@ -47,7 +46,6 @@ export const useNotificationStore = defineStore('notification', {
       }
 
       this.notificationPreferences[domainName] = !currentValue
-      console.log(this.notificationPreferences)
     },
   },
 })

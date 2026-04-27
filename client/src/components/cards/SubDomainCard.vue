@@ -47,7 +47,7 @@ const notificationStore = useNotificationStore()
         v-if="canUpload"
         size="sm"
         :is-uploading="isUploading"
-        @click="$emit('upload', name)"
+        @click="$emit('upload', displayName + '.' + parentDomainName)"
       />
 
       <div

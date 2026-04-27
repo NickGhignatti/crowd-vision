@@ -23,6 +23,7 @@ export interface Room {
 export interface Building {
   id: string
   name: string
+  maxTemperature?: number
   rooms: Room[]
   domains: string[]
 }

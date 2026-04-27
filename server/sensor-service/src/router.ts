@@ -12,6 +12,7 @@ import {
     getEntireBuildingTemperatureDashboard
 } from "./controller/sensorController.js";
 import {
+    createBuildingThreshold,
     getBuildingThreshold,
     patchBuildingThreshold,
     patchRoomThreshold,
@@ -31,6 +32,7 @@ router.get('/temperature/dashboard', getTemperatureDashboard);
 router.get('/peopleCount/dashboard/entireBuilding', getEntireBuildingPeopleCountDashboard);
 router.get('/temperature/dashboard/entireBuilding', getEntireBuildingTemperatureDashboard);
 router.get('/thresholds/buildings/:buildingId', getBuildingThreshold);
+router.post('/thresholds/buildings', createBuildingThreshold);
 router.put('/thresholds/buildings/:buildingId', syncBuilding);
 router.patch('/thresholds/buildings/:buildingId', patchBuildingThreshold);
 router.patch('/thresholds/buildings/:buildingId/rooms/:roomId', patchRoomThreshold);

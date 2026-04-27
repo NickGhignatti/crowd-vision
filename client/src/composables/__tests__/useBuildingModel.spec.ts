@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { useBuildingModel } from '@/composables/useBuildingModel'
 import { useDomainsStore } from '@/stores/domain'
 import { useBuildingsStore } from '@/stores/buildings'
+import { makeRequest } from '@/composables/useApi'
 import type { Building, Room } from '@/models/building'
 
 // ---------------------------------------------------------------------------
@@ -27,6 +28,10 @@ vi.mock('@/stores/buildings', () => ({
   useBuildingsStore: vi.fn(),
 }))
 
+vi.mock('@/composables/useApi', () => ({
+  makeRequest: vi.fn(),
+}))
+
 const makeRoom = (
   id: string,
   x: number,
@@ -49,6 +54,14 @@ const makeBuilding = (id: string, rooms: Room[] = []): Building => ({
   rooms,
   domains: ['test-domain'],
 })
+
+const makeThresholdResponse = (
+  payload: Record<string, unknown>,
+): Response =>
+  ({
+    ok: true,
+    json: vi.fn().mockResolvedValue(payload),
+  }) as unknown as Response
 
 const makeDomainStoreMock = (
   overrides: { memberships?: { domainName: string; role: string }[] | null } = {},
@@ -75,6 +88,8 @@ describe('useBuildingModel', () => {
     mockFetchMemberships.mockResolvedValue(undefined)
     mockFetchBuildings.mockReset()
     mockFetchBuildings.mockResolvedValue(undefined)
+    vi.mocked(makeRequest).mockReset()
+    vi.mocked(makeRequest).mockResolvedValue({ ok: false } as Response)
 
     domainStoreMock = makeDomainStoreMock()
     buildingsStoreMock = makeBuildingsStoreMock()
@@ -380,7 +395,40 @@ describe('useBuildingModel', () => {
       const { fetchBuildings, allBuildings } = useBuildingModel()
       await fetchBuildings()
 
-      expect(allBuildings.value).toEqual(buildings)
+      expect(allBuildings.value).toEqual([{ ...buildings[0], maxTemperature: 27 }])
+    })
+
+    it('hydrates room maxTemperature values from sensor thresholds', async () => {
+      const buildings = [
+        makeBuilding('hq', [makeRoom('room-1', 0, 0, 0), makeRoom('room-2', 1, 0, 0)]),
+      ]
+      buildingsStoreMock.all = buildings
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeThresholdResponse({
+          buildingId: 'hq',
+          maxTemperature: 30,
+          rooms: [{ id: 'room-1', maxTemperature: 32 }],
+        }),
+      )
+
+      const { fetchBuildings, allBuildings } = useBuildingModel()
+      await fetchBuildings()
+
+      expect(allBuildings.value[0]?.maxTemperature).toBe(30)
+      expect(allBuildings.value[0]?.rooms.find((r) => r.id === 'room-1')?.maxTemperature).toBe(32)
+      expect(allBuildings.value[0]?.rooms.find((r) => r.id === 'room-2')?.maxTemperature).toBe(30)
+    })
+
+    it('defaults maxTemperature when threshold endpoint is unavailable', async () => {
+      const buildings = [makeBuilding('hq', [makeRoom('room-1', 0, 0, 0)])]
+      buildingsStoreMock.all = buildings
+      vi.mocked(makeRequest).mockResolvedValue({ ok: false } as Response)
+
+      const { fetchBuildings, allBuildings } = useBuildingModel()
+      await fetchBuildings()
+
+      expect(allBuildings.value[0]?.maxTemperature).toBe(27)
+      expect(allBuildings.value[0]?.rooms[0]?.maxTemperature).toBe(27)
     })
 
     it('auto-selects the first building when building is null', async () => {
@@ -390,7 +438,7 @@ describe('useBuildingModel', () => {
       const { fetchBuildings, building } = useBuildingModel()
       await fetchBuildings()
 
-      expect(building.value).toEqual(buildings[0])
+      expect(building.value).toEqual({ ...buildings[0], maxTemperature: 27 })
     })
 
     it('does not overwrite an already selected building', async () => {

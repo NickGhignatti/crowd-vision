@@ -77,7 +77,7 @@ const roleBadgeClass = computed(() => {
         <UploadButton
           v-if="domainGroup.canUpload"
           :is-uploading="isUploading"
-          @click.stop="$emit('upload')"
+          @click.stop="$emit('upload', domainGroup.name)"
         />
 
         <div
