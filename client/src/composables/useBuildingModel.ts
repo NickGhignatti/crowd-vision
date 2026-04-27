@@ -8,7 +8,6 @@ const DEFAULT_MAX_TEMPERATURE = 27
 
 type ThresholdClone = {
   buildingId: string
-  name?: string
   maxTemperature?: number
   rooms?: Array<{ id: string; name?: string; maxTemperature?: number }>
 }

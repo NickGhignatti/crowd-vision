@@ -4,7 +4,6 @@ const DEFAULT_MAX_TEMPERATURE = 27;
 
 export type BuildingThresholdInput = {
   buildingId: string;
-  name: string;
   maxTemperature?: number;
   rooms?: Array<Partial<ThresholdRoom> & { id: string }>;
 };
@@ -23,7 +22,6 @@ export const syncBuildingThreshold = async (payload: BuildingThresholdInput) => 
     const existingRoom = existingRoomsById.get(room.id);
     return {
       id: room.id,
-      name: room.name ?? existingRoom?.name ?? room.id,
       maxTemperature:
         typeof room.maxTemperature === 'number'
           ? room.maxTemperature
@@ -37,7 +35,6 @@ export const syncBuildingThreshold = async (payload: BuildingThresholdInput) => 
     { buildingId: payload.buildingId },
     {
       buildingId: payload.buildingId,
-      name: payload.name,
       maxTemperature: buildingMaxTemperature,
       rooms,
     },
@@ -47,12 +44,10 @@ export const syncBuildingThreshold = async (payload: BuildingThresholdInput) => 
 
 export const updateBuildingThreshold = async (
   buildingId: string,
-  updates: { name?: string; maxTemperature?: number },
+  updates: { maxTemperature?: number },
 ) => {
   const building = await BuildingThresholdModel.findOne({ buildingId });
   if (!building) return null;
-
-  if (updates.name !== undefined) building.name = updates.name;
 
   if (typeof updates.maxTemperature === 'number') {
     const previousMaxTemperature = building.maxTemperature ?? DEFAULT_MAX_TEMPERATURE;
@@ -72,7 +67,7 @@ export const updateBuildingThreshold = async (
 export const updateRoomThreshold = async (
   buildingId: string,
   roomId: string,
-  updates: { name?: string; maxTemperature?: number },
+  updates: { maxTemperature?: number },
 ) => {
   const building = await BuildingThresholdModel.findOne({ buildingId });
   if (!building) return null;
@@ -80,7 +75,6 @@ export const updateRoomThreshold = async (
   const room = building.rooms.find((candidate) => candidate.id === roomId);
   if (!room) return null;
 
-  if (updates.name !== undefined) room.name = updates.name;
   if (typeof updates.maxTemperature === 'number') room.maxTemperature = updates.maxTemperature;
 
   await building.save();

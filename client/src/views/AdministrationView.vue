@@ -137,11 +137,9 @@ const handleFileUpload = async (event: Event) => {
     const thresholdResponse = await makeRequest('/sensor/thresholds/buildings', 'POST', {
       body: JSON.stringify({
         buildingId: createdBuilding.id,
-        name: createdBuilding.name,
         rooms: Array.isArray(createdBuilding.rooms)
           ? createdBuilding.rooms.map((room: any) => ({
               id: room.id,
-              name: room.name,
             }))
           : [],
       }),

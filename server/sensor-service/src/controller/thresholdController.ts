@@ -8,20 +8,18 @@ import {
 } from "../services/buildingThresholdService.js";
 
 export const createBuildingThreshold = async (req: Request, res: Response) => {
-  const { buildingId, name, maxTemperature, rooms } = req.body as {
+  const { buildingId, maxTemperature, rooms } = req.body as {
     buildingId?: string;
-    name?: string;
     maxTemperature?: number;
-    rooms?: Array<{ id: string; name?: string; maxTemperature?: number }>;
+    rooms?: Array<{ id: string; maxTemperature?: number }>;
   };
 
-  if (!buildingId || !name) {
+  if (!buildingId) {
     return res.status(400).json({ error: 'buildingId and name are required' });
   }
 
   const building = await syncBuildingThreshold({
     buildingId,
-    name,
     maxTemperature,
     rooms,
   } as BuildingThresholdInput);
@@ -52,9 +50,9 @@ export const syncBuilding = async (req: Request, res: Response) => {
 
 export const patchBuildingThreshold = async (req: Request, res: Response) => {
   const { buildingId } = req.params;
-  const { name, maxTemperature } = req.body as { name?: string; maxTemperature?: number };
+  const { maxTemperature } = req.body as { maxTemperature?: number };
 
-  const building = await updateBuildingThreshold(buildingId as string, { name: name as string, maxTemperature: maxTemperature as number });
+  const building = await updateBuildingThreshold(buildingId as string, { maxTemperature: maxTemperature as number });
   if (!building) return res.status(404).json({ error: 'Building threshold not found' });
 
   return res.status(200).json(building);
@@ -62,12 +60,12 @@ export const patchBuildingThreshold = async (req: Request, res: Response) => {
 
 export const patchRoomThreshold = async (req: Request, res: Response) => {
   const { buildingId, roomId } = req.params;
-  const { name, maxTemperature } = req.body as { name?: string; maxTemperature?: number };
+  const { maxTemperature } = req.body as { maxTemperature?: number };
 
   const building = await updateRoomThreshold(
     buildingId as string,
     roomId as string,
-    { name: name as string, maxTemperature: maxTemperature as number },
+    { maxTemperature: maxTemperature as number },
   );
   if (!building) return res.status(404).json({ error: 'Room threshold not found' });
 
