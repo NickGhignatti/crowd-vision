@@ -68,7 +68,7 @@ describe('sensor routes and controller integration', () => {
 
     it('creates temperature signal', async () => {
         sensorServiceMocks.postTemperatureSignal.mockResolvedValue(undefined);
-        alertingServiceMocks.checkTemperature.mockReturnValue(undefined);
+        alertingServiceMocks.checkTemperature.mockResolvedValue(undefined);
 
         const res = await request(app)
             .post('/temperature')

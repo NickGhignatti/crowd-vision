@@ -4,6 +4,7 @@ import {
   getBuildingsByDomain,
   getDomainsByBuilding,
   registerBuilding,
+  updateBuilding,
   updateRoomInBuilding,
 } from "../services/twinService.js";
 
@@ -30,6 +31,13 @@ export const updateRoom = async (req: Request, res: Response) => {
     const updates = req.body;
     const updatedRoom = await updateRoomInBuilding(buildingId as string, roomId as string, updates);
     res.status(200).json(updatedRoom);
+}
+
+export const updateBuildingById = async (req: Request, res: Response) => {
+    const { buildingId } = req.params;
+    const updates = req.body;
+    const updatedBuilding = await updateBuilding(buildingId as string, updates);
+    res.status(200).json(updatedBuilding);
 }
 
 export const getDomainByBuilding = async (req: Request, res: Response) => {

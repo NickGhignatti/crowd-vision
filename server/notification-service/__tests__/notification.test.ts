@@ -7,7 +7,8 @@ jest.mock('../src/config/redis.js', () => ({
 
 jest.mock('../src/services/notificationService.js', () => ({
     startNotificationLoop: jest.fn(),
-    publishNotification: jest.fn() // Verify this is called
+    publishNotification: jest.fn(), // Verify this is called
+    getServerUrl: jest.fn(() => 'http://localhost:3000'),
 }));
 
 jest.mock('../src/services/pushService.js', () => {
@@ -45,8 +46,8 @@ describe('Notification Service API', () => {
 
     describe('POST /subscribe', () => {
         const mockSubscription = {
-            userId: 'alice',
-            domainId: 'domain-1',
+            accountName: 'alice',
+            domainName: 'domain-1',
             subscription: {
                 endpoint: 'https://fcm.googleapis.com/fcm/send/test-endpoint',
                 keys: {
@@ -66,19 +67,19 @@ describe('Notification Service API', () => {
             // Verify DB persistence
             const sub = await Subscription.findOne({ endpoint: mockSubscription.subscription.endpoint });
             expect(sub).toBeTruthy();
-            expect(sub?.userId).toBe(mockSubscription.userId);
+            expect(sub?.accountName).toBe(mockSubscription.accountName);
             expect(sub?.keys.p256dh).toBe('test-key');
 
             const preference = await NotificationSubscription.findOne({
-                userId: mockSubscription.userId,
-                domainId: mockSubscription.domainId,
+                accountName: mockSubscription.accountName,
+                domainName: mockSubscription.domainName,
             });
             expect(preference).toBeTruthy();
         });
 
         it('should update existing subscription if endpoint exists', async () => {
             await Subscription.create({
-                userId: 'alice',
+                accountName: 'alice',
                 endpoint: mockSubscription.subscription.endpoint,
                 keys: { p256dh: 'old-key', auth: 'old-auth' }
             });
@@ -113,7 +114,7 @@ describe('Notification Service API', () => {
 
         it('should accept flat payload shape without creating preference when domain is missing', async () => {
             const flatPayload = {
-                userId: 'bob',
+                accountName: 'bob',
                 endpoint: 'https://fcm.googleapis.com/fcm/send/bob-endpoint',
                 keys: {
                     p256dh: 'bob-key',
@@ -128,20 +129,20 @@ describe('Notification Service API', () => {
             expect(res.status).toBe(201);
 
             const sub = await Subscription.findOne({ endpoint: flatPayload.endpoint });
-            expect(sub?.userId).toBe(flatPayload.userId);
+            expect(sub?.accountName).toBe(flatPayload.accountName);
 
-            const preference = await NotificationSubscription.findOne({ userId: flatPayload.userId });
+            const preference = await NotificationSubscription.findOne({ accountName: flatPayload.accountName });
             expect(preference).toBeNull();
         });
 
         it('should remove preference when subscribe payload has enabled=false', async () => {
-            await NotificationSubscription.create({ userId: 'alice', domainId: 'domain-1' });
+            await NotificationSubscription.create({ accountName: 'alice', domainName: 'domain-1' });
 
             const res = await request(app)
                 .post('/subscribe')
                 .send({
-                    userId: 'alice',
-                    domainId: 'domain-1',
+                    accountName: 'alice',
+                    domainName: 'domain-1',
                     enabled: false,
                     subscription: {
                         endpoint: 'https://fcm.googleapis.com/fcm/send/test-endpoint-2',
@@ -154,7 +155,7 @@ describe('Notification Service API', () => {
 
             expect(res.status).toBe(201);
 
-            const preference = await NotificationSubscription.findOne({ userId: 'alice', domainId: 'domain-1' });
+            const preference = await NotificationSubscription.findOne({ accountName: 'alice', domainName: 'domain-1' });
             expect(preference).toBeNull();
         });
     });
@@ -163,44 +164,49 @@ describe('Notification Service API', () => {
         it('should allow user to enable domain notifications (upsert)', async () => {
             const res = await request(app)
                 .post('/preferences')
-                .send({ userId: 'alice', domainId: 'domain-1', enabled: true });
+                .send({ accountName: 'alice', domainName: 'domain-1', enabled: true });
 
             expect(res.status).toBe(200);
 
-            const preference = await NotificationSubscription.findOne({ userId: 'alice', domainId: 'domain-1' });
+            const preference = await NotificationSubscription.findOne({ accountName: 'alice', domainName: 'domain-1' });
             expect(preference).toBeTruthy();
         });
 
         it('should allow user to disable domain notifications', async () => {
-            await NotificationSubscription.create({ userId: 'alice', domainId: 'domain-1' });
+            await NotificationSubscription.create({ accountName: 'alice', domainName: 'domain-1' });
 
             const res = await request(app)
                 .post('/preferences')
-                .send({ userId: 'alice', domainId: 'domain-1', enabled: false });
+                .send({ accountName: 'alice', domainName: 'domain-1', enabled: false });
 
             expect(res.status).toBe(200);
 
-            const preference = await NotificationSubscription.findOne({ userId: 'alice', domainId: 'domain-1' });
+            const preference = await NotificationSubscription.findOne({ accountName: 'alice', domainName: 'domain-1' });
             expect(preference).toBeNull();
         });
 
         it('should reject invalid preference payload', async () => {
             const res = await request(app)
                 .post('/preferences')
-                .send({ userId: 'alice', domainId: 'domain-1' });
+                .send({ accountName: 'alice', domainName: 'domain-1' });
 
             expect(res.status).toBe(400);
             expect(res.body.type).toBe('Validation Error');
-            expect(res.body.message).toBe('userId, domainId and enabled are required');
+            expect(res.body.message).toBe('accountName/userId, domainName/domainId and enabled are required');
         });
     });
 
     describe('POST /trigger', () => {
         it('should trigger an alert and call publishNotification', async () => {
+            jest.spyOn(global, 'fetch').mockResolvedValue({
+                ok: true,
+                json: async () => ['domain-1'],
+            } as any);
+
             const payload = {
                 message: 'High Temperature Detected',
                 type: 'danger',
-                domainId: 'domain-1',
+                buildingName: 'building-1',
             };
 
             const res = await request(app)
@@ -209,35 +215,33 @@ describe('Notification Service API', () => {
 
             expect(res.status).toBe(200);
 
-            // Check if service function was called
-            expect(mockedPublishNotification).toHaveBeenCalledWith(payload.message, payload.type, payload.domainId);
+            expect(mockedPublishNotification).toHaveBeenCalledWith(payload.message, payload.type, 'domain-1');
             expect(mockedSendPushToDomain).toHaveBeenCalledWith(
                 { title: 'CrowdVision Alert', message: payload.message },
-                payload.domainId,
+                'domain-1',
             );
         });
 
-        it('should use defaults if fields are missing', async () => {
+        it('should require buildingName', async () => {
             const res = await request(app)
                 .post('/trigger')
                 .send({});
 
-            expect(res.status).toBe(200);
-
-            expect(mockedPublishNotification).toHaveBeenCalledWith(
-                'Manual Alert Triggered',
-                'alert',
-                undefined,
-            );
+            expect(res.status).toBe(400);
+            expect(res.body.type).toBe('Validation Error');
             expect(mockedSendPushToDomain).not.toHaveBeenCalled();
         });
 
         it('should return 500 when publishNotification throws', async () => {
+            jest.spyOn(global, 'fetch').mockResolvedValue({
+                ok: true,
+                json: async () => ['domain-1'],
+            } as any);
             mockedPublishNotification.mockRejectedValueOnce(new Error('publish failed'));
 
             const res = await request(app)
                 .post('/trigger')
-                .send({ message: 'x', type: 'info', domainId: 'domain-1' });
+                .send({ message: 'x', type: 'info', buildingName: 'building-1' });
 
             expect(res.status).toBe(500);
             expect(res.body.type).toBe('Internal Server Error');
@@ -274,6 +278,11 @@ describe('Notification Service API', () => {
         });
 
         it('should fallback to buildingId when domainId is missing', async () => {
+            jest.spyOn(global, 'fetch').mockResolvedValue({
+                ok: true,
+                json: async () => ['domain-from-building'],
+            } as any);
+
             const res = await request(app)
                 .post('/push/temperature')
                 .send({ buildingId: 'building-2', temperature: 35 });
@@ -282,14 +291,14 @@ describe('Notification Service API', () => {
             expect(mockedPublishNotification).toHaveBeenCalledWith(
                 'Temperature alert: 35 C',
                 'danger',
-                'building-2',
+                'domain-from-building',
             );
             expect(mockedSendPushToDomain).toHaveBeenCalledWith(
                 {
                     title: 'Temperature Alert - building-2',
                     message: 'Temperature alert: 35 C',
                 },
-                'building-2',
+                'domain-from-building',
             );
         });
 
@@ -300,7 +309,7 @@ describe('Notification Service API', () => {
 
             expect(res.status).toBe(400);
             expect(res.body.type).toBe('Validation Error');
-            expect(res.body.message).toBe('domainId (or buildingId fallback) is required');
+            expect(res.body.message).toBe('domainName/domainId (or buildingId fallback) is required');
             expect(mockedPublishNotification).not.toHaveBeenCalled();
             expect(mockedSendPushToDomain).not.toHaveBeenCalled();
         });

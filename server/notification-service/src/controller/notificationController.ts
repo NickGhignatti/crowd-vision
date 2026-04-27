@@ -13,7 +13,9 @@ import { ValidationError } from '../models/error.js';
 
 type SubscriptionRequestBody = {
   accountName?: string;
+  userId?: string;
   domainName?: string;
+  domainId?: string;
   enabled?: boolean;
   subscription?: {
     endpoint?: string;
@@ -44,6 +46,22 @@ const isValidSubscription = (subscription: IncomingSubscription) =>
       subscription.keys?.auth,
   );
 
+const getAccountName = (body: { accountName?: string; userId?: string }) =>
+  body.accountName || body.userId;
+
+const getDomainName = (body: { domainName?: string; domainId?: string }) =>
+  body.domainName || body.domainId;
+
+const getDomainsForBuilding = async (buildingName: string) => {
+  const response = await fetch(`${getServerUrl()}/twin/domain/${encodeURIComponent(buildingName)}`);
+
+  if (!response.ok) {
+    throw new Error(`Twin lookup failed for building ${buildingName}`);
+  }
+
+  return (await response.json()) as string[];
+};
+
 export const triggerAlert = async (req: Request, res: Response) => {
   const { message, type, buildingName } = req.body as {
     message?: string;
@@ -56,12 +74,11 @@ export const triggerAlert = async (req: Request, res: Response) => {
   const normalizedMessage = message || 'Manual Alert Triggered';
   const normalizedType = type || 'alert';
 
-  const response = await fetch(`${getServerUrl()}/twin/domain/${buildingName}`, {})
-
-  if (!response.ok) {
-    res.status(500);
+  if (!buildingName) {
+    throw new ValidationError('Missing required field: buildingName');
   }
-  const domains = await response.json() as string[];
+
+  const domains = await getDomainsForBuilding(buildingName);
 
   for (const domainName of domains) {
     await publishNotification(normalizedMessage, normalizedType, domainName);
@@ -85,7 +102,8 @@ export const publicKey = async (_req: Request, res: Response) => {
 
 export const subscribe = async (req: Request, res: Response) => {
   const body = req.body as SubscriptionRequestBody;
-  const accountName = body.accountName;
+  const accountName = getAccountName(body);
+  const domainName = getDomainName(body);
   const subscription: IncomingSubscription = body.subscription?.endpoint
     ? body.subscription
     : {
@@ -109,10 +127,10 @@ export const subscribe = async (req: Request, res: Response) => {
     },
   });
 
-  if (body.domainName) {
+  if (domainName) {
     await setUserNotificationPreference(
       accountName,
-      body.domainName,
+      domainName,
       body.enabled !== false,
     );
   }
@@ -133,14 +151,20 @@ export const getPreferences = async (req: Request, res: Response) => {
 }
 
 export const updatePreference = async (req: Request, res: Response) => {
-  const { accountName, domainName, enabled } = req.body as {
+  const body = req.body as {
     accountName?: string;
+    userId?: string;
     domainName?: string;
+    domainId?: string;
     enabled?: boolean;
   };
 
+  const accountName = getAccountName(body);
+  const domainName = getDomainName(body);
+  const { enabled } = body;
+
   if (!accountName || !domainName || typeof enabled !== 'boolean') {
-    throw new ValidationError('accountName, domainName and enabled are required');
+    throw new ValidationError('accountName/userId, domainName/domainId and enabled are required');
   }
 
   await setUserNotificationPreference(accountName, domainName, enabled);
@@ -149,29 +173,41 @@ export const updatePreference = async (req: Request, res: Response) => {
 };
 
 export const pushTemperatureAlert = async (req: Request, res: Response) => {
-  const { roomId, buildingId, temperature, domainName } = req.body as {
+  const body = req.body as {
     roomId?: string;
     buildingId?: string;
     temperature?: number;
     domainName?: string;
+    domainId?: string;
   };
 
-  const targetdomainName = domainName || buildingId;
+  const { roomId, buildingId, temperature } = body;
+  const directDomainName = getDomainName(body);
 
-  if (!targetdomainName) {
-    throw new ValidationError('domainName (or buildingId fallback) is required');
+  const targetDomainNames = directDomainName
+    ? [directDomainName]
+    : buildingId
+      ? await getDomainsForBuilding(buildingId)
+      : [];
+
+  const uniqueDomainNames = [...new Set(targetDomainNames.filter(Boolean))];
+
+  if (uniqueDomainNames.length === 0) {
+    throw new ValidationError('domainName/domainId (or buildingId fallback) is required');
   }
 
   const message = `Temperature alert${roomId ? ` in room ${roomId}` : ''}: ${temperature ?? 'N/A'} C`;
 
-  await publishNotification(message, 'danger', targetdomainName);
-  await sendPushToDomain(
-    {
-      title: `Temperature Alert${buildingId ? ` - ${buildingId}` : ''}`,
-      message,
-    },
-    targetdomainName,
-  );
+  for (const domainName of uniqueDomainNames) {
+    await publishNotification(message, 'danger', domainName);
+    await sendPushToDomain(
+      {
+        title: `Temperature Alert${buildingId ? ` - ${buildingId}` : ''}`,
+        message,
+      },
+      domainName,
+    );
+  }
 
   res.status(200).json({ success: true });
 

@@ -11,6 +11,12 @@ import {
     getEntireBuildingPeopleCountDashboard,
     getEntireBuildingTemperatureDashboard
 } from "./controller/sensorController.js";
+import {
+    getBuildingThreshold,
+    patchBuildingThreshold,
+    patchRoomThreshold,
+    syncBuilding,
+} from "./controller/thresholdController.js";
 
 const router = Router();
 
@@ -24,5 +30,9 @@ router.get('/peopleCount/dashboard', getPeopleCountDashboard);
 router.get('/temperature/dashboard', getTemperatureDashboard);
 router.get('/peopleCount/dashboard/entireBuilding', getEntireBuildingPeopleCountDashboard);
 router.get('/temperature/dashboard/entireBuilding', getEntireBuildingTemperatureDashboard);
+router.get('/thresholds/buildings/:buildingId', getBuildingThreshold);
+router.put('/thresholds/buildings/:buildingId', syncBuilding);
+router.patch('/thresholds/buildings/:buildingId', patchBuildingThreshold);
+router.patch('/thresholds/buildings/:buildingId/rooms/:roomId', patchRoomThreshold);
 
 export default router;
