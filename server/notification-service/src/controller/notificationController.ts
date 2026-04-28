@@ -10,6 +10,7 @@ import {
   subscribeUser,
 } from '../services/pushService.js';
 import { ValidationError } from '../models/error.js';
+import redisClient from "../config/redis.js";
 
 type SubscriptionRequestBody = {
   accountName?: string;
@@ -182,6 +183,19 @@ export const pushTemperatureAlert = async (req: Request, res: Response) => {
   };
 
   const { roomId, buildingId, temperature } = body;
+  const cacheKey = `temp_alert:${buildingId || "unknown"}:${roomId || "unknown"}`;
+  const COOLDOWN_SECONDS = 300;
+
+  const isCooldownActive = await redisClient.get(cacheKey);
+  if (isCooldownActive) {
+    res
+      .status(200)
+      .json({
+        success: true,
+      });
+    return;
+  }
+
   const directDomainName = getDomainName(body);
 
   const targetDomainNames = directDomainName
@@ -208,6 +222,8 @@ export const pushTemperatureAlert = async (req: Request, res: Response) => {
       domainName,
     );
   }
+
+  await redisClient.set(cacheKey, "1", { EX: COOLDOWN_SECONDS });
 
   res.status(200).json({ success: true });
 
