@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express';
+import type { Request, Response } from "express";
 import {
   getServerUrl,
   publishNotification,
@@ -8,8 +8,8 @@ import {
   sendPushToDomain,
   setUserNotificationPreference,
   subscribeUser,
-} from '../services/pushService.js';
-import { ValidationError } from '../models/error.js';
+} from "../services/pushService.js";
+import { ValidationError } from "../models/error.js";
 import redisClient from "../config/redis.js";
 import { NotificationType } from "../models/notificationSubscription.js";
 
@@ -18,7 +18,11 @@ type SubscriptionRequestBody = {
   userId?: string;
   domainName?: string;
   domainId?: string;
+  // Legacy / single updates
   enabled?: boolean;
+  type?: NotificationType;
+  types?: NotificationType[]; // e.g. ["temperature", "air_quality"]
+  preferences?: { type: NotificationType; enabled: boolean }[]; // e.g. [{type: "temperature", enabled: true}]
   subscription?: {
     endpoint?: string;
     keys?: {
@@ -55,7 +59,9 @@ const getDomainName = (body: { domainName?: string; domainId?: string }) =>
   body.domainName || body.domainId;
 
 const getDomainsForBuilding = async (buildingName: string) => {
-  const response = await fetch(`${getServerUrl()}/twin/domain/${encodeURIComponent(buildingName)}`);
+  const response = await fetch(
+    `${getServerUrl()}/twin/domain/${encodeURIComponent(buildingName)}`,
+  );
 
   if (!response.ok) {
     throw new Error(`Twin lookup failed for building ${buildingName}`);
@@ -65,17 +71,18 @@ const getDomainsForBuilding = async (buildingName: string) => {
 };
 
 export const triggerAlert = async (req: Request, res: Response) => {
-  const { message, type, buildingName } = req.body as {
+  const { message, type, buildingName, notificationType } = req.body as {
     message?: string;
     type?: string;
     buildingName?: string;
+    notificationType: NotificationType;
   };
 
-  const normalizedMessage = message || 'Manual Alert Triggered';
-  const normalizedType = type || 'alert';
+  const normalizedMessage = message || "Manual Alert Triggered";
+  const normalizedType = type || "alert";
 
   if (!buildingName) {
-    throw new ValidationError('Missing required field: buildingName');
+    throw new ValidationError("Missing required field: buildingName");
   }
 
   const domains = await getDomainsForBuilding(buildingName);
@@ -87,18 +94,17 @@ export const triggerAlert = async (req: Request, res: Response) => {
       await sendPushToDomain(
         { title: "CrowdVision Alert", message: normalizedMessage },
         domainName,
-        NotificationType.TEMPERATURE, // TODO: This should be updated when there would be other sensors type
+        notificationType,
       );
     }
   }
 
-  res.status(200).json({ success: true, message: 'Notification sent' });
+  res.status(200).json({ success: true, message: "Notification sent" });
 };
 
-
 export const publicKey = async (_req: Request, res: Response) => {
-    const publicVapidKey = process.env.VAPID_PUBLIC_KEY || ''
-    res.status(200).json({ publicVapidKey });
+  const publicVapidKey = process.env.VAPID_PUBLIC_KEY || "";
+  res.status(200).json({ publicVapidKey });
 };
 
 export const subscribe = async (req: Request, res: Response) => {
@@ -108,16 +114,16 @@ export const subscribe = async (req: Request, res: Response) => {
   const subscription: IncomingSubscription = body.subscription?.endpoint
     ? body.subscription
     : {
-      ...(body.endpoint ? { endpoint: body.endpoint } : {}),
-      ...(body.keys ? { keys: body.keys } : {}),
-    };
+        ...(body.endpoint ? { endpoint: body.endpoint } : {}),
+        ...(body.keys ? { keys: body.keys } : {}),
+      };
 
   if (!accountName) {
-    throw new ValidationError('Missing required field: accountName');
+    throw new ValidationError("Missing required field: accountName");
   }
 
   if (!isValidSubscription(subscription)) {
-    throw new ValidationError('Invalid push subscription payload');
+    throw new ValidationError("Invalid push subscription payload");
   }
 
   await subscribeUser(accountName, {
@@ -129,12 +135,38 @@ export const subscribe = async (req: Request, res: Response) => {
   });
 
   if (domainName) {
-    await setUserNotificationPreference(
-      accountName,
-      domainName,
-      body.enabled !== false,
-      NotificationType.TEMPERATURE, // TODO: This should be updated when there would be other sensors type
-    );
+    if (body.preferences && body.preferences.length > 0) {
+      await Promise.all(
+        body.preferences.map((pref) =>
+          setUserNotificationPreference(
+            accountName,
+            domainName,
+            pref.enabled,
+            pref.type,
+          ),
+        ),
+      );
+    } else if (body.types && body.types.length > 0) {
+      const isEnabled = body.enabled !== false;
+      await Promise.all(
+        body.types.map((type) =>
+          setUserNotificationPreference(
+            accountName,
+            domainName,
+            isEnabled,
+            type,
+          ),
+        ),
+      );
+    } else {
+      // 3. Fallback for backwards compatibility (Single insert)
+      await setUserNotificationPreference(
+        accountName,
+        domainName,
+        body.enabled !== false,
+        NotificationType.TEMPERATURE,
+      );
+    }
   }
 
   res.status(201).json({ success: true });
@@ -144,37 +176,67 @@ export const getPreferences = async (req: Request, res: Response) => {
   const { accountName } = req.params;
 
   if (!accountName) {
-    throw new ValidationError('Missing required field: accountName');
+    throw new ValidationError("Missing required field: accountName");
   }
 
-  const accountPreferences = await getAccountNotificationPreference(accountName as string);
+  const accountPreferences = await getAccountNotificationPreference(
+    accountName as string,
+  );
 
   res.status(200).json({ success: true, accountPreferences });
-}
+};
 
 export const updatePreference = async (req: Request, res: Response) => {
-  const body = req.body as {
-    accountName?: string;
-    userId?: string;
-    domainName?: string;
-    domainId?: string;
-    enabled?: boolean;
-  };
+  const body = req.body as SubscriptionRequestBody;
 
   const accountName = getAccountName(body);
   const domainName = getDomainName(body);
-  const { enabled } = body;
 
-  if (!accountName || !domainName || typeof enabled !== 'boolean') {
-    throw new ValidationError('accountName/userId, domainName/domainId and enabled are required');
+  if (!accountName || !domainName) {
+    throw new ValidationError(
+      "accountName/userId and domainName/domainId are required",
+    );
   }
 
-  await setUserNotificationPreference(
-    accountName,
-    domainName,
-    enabled,
-    NotificationType.TEMPERATURE, // TODO: This should be updated when there would be other sensors type
-  );
+  if (body.preferences && body.preferences.length > 0) {
+    await Promise.all(
+      body.preferences.map((pref) =>
+        setUserNotificationPreference(
+          accountName,
+          domainName,
+          pref.enabled,
+          pref.type,
+        ),
+      ),
+    );
+  } else if (body.types && body.types.length > 0) {
+    if (typeof body.enabled !== "boolean") {
+      throw new ValidationError(
+        "enabled boolean is required when passing a types array",
+      );
+    }
+    await Promise.all(
+      body.types.map((type) =>
+        setUserNotificationPreference(
+          accountName,
+          domainName,
+          body.enabled as boolean,
+          type,
+        ),
+      ),
+    );
+  } else {
+    if (typeof body.enabled !== "boolean") {
+      throw new ValidationError("enabled is required");
+    }
+    const type = body.type || NotificationType.TEMPERATURE;
+    await setUserNotificationPreference(
+      accountName,
+      domainName,
+      body.enabled,
+      type,
+    );
+  }
 
   res.status(200).json({ success: true });
 };
@@ -186,19 +248,20 @@ export const pushTemperatureAlert = async (req: Request, res: Response) => {
     temperature?: number;
     domainName?: string;
     domainId?: string;
+    type?: NotificationType;
   };
 
   const { roomId, buildingId, temperature } = body;
+  const notificationType = body.type || NotificationType.TEMPERATURE;
+
   const cacheKey = `temp_alert:${buildingId || "unknown"}:${roomId || "unknown"}`;
   const COOLDOWN_SECONDS = 300;
 
   const isCooldownActive = await redisClient.get(cacheKey);
   if (isCooldownActive) {
-    res
-      .status(200)
-      .json({
-        success: true,
-      });
+    res.status(200).json({
+      success: true,
+    });
     return;
   }
 
@@ -213,25 +276,26 @@ export const pushTemperatureAlert = async (req: Request, res: Response) => {
   const uniqueDomainNames = [...new Set(targetDomainNames.filter(Boolean))];
 
   if (uniqueDomainNames.length === 0) {
-    throw new ValidationError('domainName/domainId (or buildingId fallback) is required');
+    throw new ValidationError(
+      "domainName/domainId (or buildingId fallback) is required",
+    );
   }
 
-  const message = `Temperature alert${roomId ? ` in room ${roomId}` : ''}: ${temperature ?? 'N/A'} C`;
+  const message = `Temperature alert${roomId ? ` in room ${roomId}` : ""}: ${temperature ?? "N/A"} C`;
 
   for (const domainName of uniqueDomainNames) {
-    await publishNotification(message, 'danger', domainName);
+    await publishNotification(message, "danger", domainName);
     await sendPushToDomain(
       {
         title: `Temperature Alert${buildingId ? ` - ${buildingId}` : ""}`,
         message,
       },
       domainName,
-      NotificationType.TEMPERATURE, // TODO: This should be updated when there would be other sensors type
+      notificationType,
     );
   }
 
   await redisClient.set(cacheKey, "1", { EX: COOLDOWN_SECONDS });
 
   res.status(200).json({ success: true });
-
-}
+};

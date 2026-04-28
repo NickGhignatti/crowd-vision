@@ -15,11 +15,19 @@ export const checkTemperature = async (
   }
 
   try {
-    const response = await fetch(`${getServerUrl()}/notification/push/temperature`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ buildingId, roomId, temperature }),
-    });
+    const response = await fetch(
+      `${getServerUrl()}/notification/push/temperature`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buildingId,
+          roomId,
+          temperature,
+          type: "temperature",
+        }),
+      },
+    );
 
     if (!response.ok) {
       const details = await response.text();
