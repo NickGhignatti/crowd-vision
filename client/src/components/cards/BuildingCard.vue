@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Building } from '@/models/building'
 import FloorSelector from '@/components/buttons/FloorSelector.vue'
+import EditBuilding from '@/components/modals/EditBuilding.vue'
+import { makeRequest } from '@/composables/useApi'
 
 const { t } = useI18n()
 
-defineProps<{
+const props = defineProps<{
   buildingId: string
   buildingName: string
   isSelected: boolean
@@ -19,9 +22,28 @@ const emit = defineEmits<{
   select: []
   'toggle-controls': [event: Event]
   'change-floor': [floorY: number | null]
+  'building-updated': [] // New event to trigger a refetch in the parent component
 }>()
 
 const floorModel = defineModel<number | null>('activeFloor')
+
+const isEditModalOpen = ref(false)
+
+const handleSaveBuilding = async (updates: Partial<Building>) => {
+  try {
+    const res = await makeRequest(`/twin/building/${props.buildingId}`, 'PATCH', {
+      body: JSON.stringify(updates),
+    })
+
+    if (res.ok) {
+      emit('building-updated')
+    } else {
+      console.error('Failed to update the building')
+    }
+  } catch (error) {
+    console.error('Error while updating the building:', error)
+  }
+}
 </script>
 
 <template>
@@ -35,7 +57,7 @@ const floorModel = defineModel<number | null>('activeFloor')
       ]"
       @click="emit('select')"
     >
-      <div class="pr-8">
+      <div class="pr-20">
         <span
           class="text-xs font-bold uppercase tracking-wider"
           :class="isSelected ? 'text-emerald-700' : 'text-emerald-600'"
@@ -45,19 +67,31 @@ const floorModel = defineModel<number | null>('activeFloor')
         <p class="text-slate-700 font-medium mt-1 truncate">{{ buildingName }}</p>
       </div>
 
-      <button
+      <div
         v-if="isSelected"
-        @click.stop="emit('toggle-controls', $event)"
-        class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all"
-        :class="
-          showControls
-            ? 'bg-emerald-200/50 text-emerald-700'
-            : 'text-emerald-600/70 hover:bg-emerald-100 hover:text-emerald-700'
-        "
-        :title="t('model.controls.toggleControls')"
+        class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1"
       >
-        <i class="ph-bold ph-sliders-horizontal text-xl"></i>
-      </button>
+        <button
+          @click.stop="isEditModalOpen = true"
+          class="p-1.5 rounded-lg transition-all text-emerald-600/70 hover:bg-emerald-200/50 hover:text-emerald-700"
+          :title="t('commons.edit') || 'Edit Building'"
+        >
+          <i class="ph-bold ph-pencil-simple text-xl"></i>
+        </button>
+
+        <button
+          @click.stop="emit('toggle-controls', $event)"
+          class="p-1.5 rounded-lg transition-all"
+          :class="
+            showControls
+              ? 'bg-emerald-200/50 text-emerald-700'
+              : 'text-emerald-600/70 hover:bg-emerald-100 hover:text-emerald-700'
+          "
+          :title="t('model.controls.toggleControls')"
+        >
+          <i class="ph-bold ph-sliders-horizontal text-xl"></i>
+        </button>
+      </div>
     </div>
 
     <Transition
@@ -78,5 +112,12 @@ const floorModel = defineModel<number | null>('activeFloor')
         <FloorSelector :available-floors="availableFloors" v-model="floorModel" />
       </div>
     </Transition>
+
+    <EditBuilding
+      :is-open="isEditModalOpen"
+      :building="buildingModel"
+      @close="isEditModalOpen = false"
+      @save="handleSaveBuilding"
+    />
   </div>
 </template>

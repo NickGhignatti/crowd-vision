@@ -13,24 +13,38 @@ const syncThresholdClone = async (path: string, init: RequestInit) => {
   const response = await fetch(`${getSensorServiceUrl()}${path}`, init);
   if (!response.ok) {
     const details = await response.text();
-    throw new Error(`Failed to sync sensor threshold clone: ${response.status} ${details}`);
+    throw new Error(
+      `Failed to sync sensor threshold clone: ${response.status} ${details}`,
+    );
   }
 };
 
-const buildThresholdClonePayload = (building: Pick<IBuilding, 'id' | 'name' | 'rooms'>) => ({
+const buildThresholdClonePayload = (
+  building: Pick<IBuilding, "id" | "name" | "rooms">,
+  maxTemperature?: number,
+) => ({
   name: building.name,
+  ...(maxTemperature !== undefined && { maxTemperature }), // Add it to payload if provided
   rooms: building.rooms.map((room) => ({
     id: room.id,
     name: room.name?.trim() || room.id,
   })),
 });
 
-const syncBuildingClone = async (building: Pick<IBuilding, 'id' | 'name' | 'rooms'>) => {
-  await syncThresholdClone(`/thresholds/buildings/${encodeURIComponent(building.id)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildThresholdClonePayload(building)),
-  });
+const syncBuildingClone = async (
+  building: Pick<IBuilding, "id" | "name" | "rooms">,
+  maxTemperature?: number,
+) => {
+  await syncThresholdClone(
+    `/thresholds/buildings/${encodeURIComponent(building.id)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildThresholdClonePayload(building, maxTemperature),
+      ),
+    },
+  );
 };
 
 const normalizeBuildingName = (name: string | undefined, id: string): string => {
@@ -90,7 +104,9 @@ export const registerBuilding = async (
 
 export const updateBuilding = async (
   buildingId: string,
-  updates: Partial<Pick<IBuilding, "name" | "domains">>,
+  updates: Partial<Pick<IBuilding, "name" | "domains">> & {
+    maxTemperature?: number;
+  },
 ) => {
   const building = await getBuildingById(buildingId);
 
@@ -103,7 +119,9 @@ export const updateBuilding = async (
   }
 
   await building.save();
-  await syncBuildingClone(building.toObject());
+
+  await syncBuildingClone(building.toObject(), updates.maxTemperature);
+
   return building;
 };
 
