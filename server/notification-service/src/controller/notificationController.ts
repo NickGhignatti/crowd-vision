@@ -11,6 +11,7 @@ import {
 } from '../services/pushService.js';
 import { ValidationError } from '../models/error.js';
 import redisClient from "../config/redis.js";
+import { NotificationType } from "../models/notificationSubscription.js";
 
 type SubscriptionRequestBody = {
   accountName?: string;
@@ -70,8 +71,6 @@ export const triggerAlert = async (req: Request, res: Response) => {
     buildingName?: string;
   };
 
-  console.log("__" + message);
-
   const normalizedMessage = message || 'Manual Alert Triggered';
   const normalizedType = type || 'alert';
 
@@ -88,6 +87,7 @@ export const triggerAlert = async (req: Request, res: Response) => {
       await sendPushToDomain(
         { title: "CrowdVision Alert", message: normalizedMessage },
         domainName,
+        NotificationType.TEMPERATURE, // TODO: This should be updated when there would be other sensors type
       );
     }
   }
@@ -133,6 +133,7 @@ export const subscribe = async (req: Request, res: Response) => {
       accountName,
       domainName,
       body.enabled !== false,
+      NotificationType.TEMPERATURE, // TODO: This should be updated when there would be other sensors type
     );
   }
 
@@ -168,7 +169,12 @@ export const updatePreference = async (req: Request, res: Response) => {
     throw new ValidationError('accountName/userId, domainName/domainId and enabled are required');
   }
 
-  await setUserNotificationPreference(accountName, domainName, enabled);
+  await setUserNotificationPreference(
+    accountName,
+    domainName,
+    enabled,
+    NotificationType.TEMPERATURE, // TODO: This should be updated when there would be other sensors type
+  );
 
   res.status(200).json({ success: true });
 };
@@ -216,10 +222,11 @@ export const pushTemperatureAlert = async (req: Request, res: Response) => {
     await publishNotification(message, 'danger', domainName);
     await sendPushToDomain(
       {
-        title: `Temperature Alert${buildingId ? ` - ${buildingId}` : ''}`,
+        title: `Temperature Alert${buildingId ? ` - ${buildingId}` : ""}`,
         message,
       },
       domainName,
+      NotificationType.TEMPERATURE, // TODO: This should be updated when there would be other sensors type
     );
   }
 

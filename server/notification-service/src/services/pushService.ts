@@ -1,6 +1,8 @@
 import webpush from 'web-push';
 import Subscription from '../models/webSubscription.js';
-import NotificationSubscription from '../models/notificationSubscription.js';
+import NotificationSubscription, {
+  NotificationType,
+} from "../models/notificationSubscription.js";
 
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY || ''
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY || ''
@@ -70,18 +72,21 @@ export const setUserNotificationPreference = async (
   accountName: string,
   domainName: string,
   enabled: boolean,
+  type: NotificationType,
 ) => {
-  console.log('setUserNotificationPreference', accountName, domainName, enabled);
-  if (enabled) {
-    await NotificationSubscription.updateOne(
-      { accountName, domainName },
-      { $setOnInsert: { accountName, domainName, createdAt: new Date() } },
-      { upsert: true },
-    );
-    return;
-  }
+  await NotificationSubscription.updateOne(
+    { accountName, domainName },
+    { $pull: { preferences: { notificationType: type } } },
+  );
 
-  await NotificationSubscription.deleteOne({ accountName, domainName });
+  await NotificationSubscription.updateOne(
+    { accountName, domainName },
+    {
+      $setOnInsert: { accountName, domainName, createdAt: new Date() },
+      $push: { preferences: { notificationType: type, isSubscribed: enabled } },
+    },
+    { upsert: true },
+  );
 };
 
 export const sendPushToUsers = async (payload: NotificationPayload, accountNames: string[]) => {
@@ -98,10 +103,22 @@ export const sendPushToUsers = async (payload: NotificationPayload, accountNames
     await sendToSubscriptions(subscriptions, payload);
 };
 
-export const sendPushToDomain = async (payload: NotificationPayload, domainName: string) => {
-    const domainSubscriptions = await NotificationSubscription.find({ domainName }).lean();
-    const accountNames = [...new Set(domainSubscriptions.map((subscription) => subscription.accountName))];
-
-    await sendPushToUsers(payload, accountNames);
+export const sendPushToDomain = async (
+  payload: NotificationPayload,
+  domainName: string,
+  type: NotificationType,
+) => {
+  const domainSubscriptions = await NotificationSubscription.find({
+    domainName,
+    preferences: {
+      $elemMatch: { notificationType: type, isSubscribed: true },
+    },
+  }).lean();
+  const accountNames = [
+    ...new Set(
+      domainSubscriptions.map((subscription) => subscription.accountName),
+    ),
+  ];
+  await sendPushToUsers(payload, accountNames);
 };
 
