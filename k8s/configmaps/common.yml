@@ -6,6 +6,12 @@ metadata:
 data:
   REDIS_URL: "redis://redis:6379"
 
+  # Public base URL used by backend services to call each other through the ingress.
+  # In the k3d/local setup this resolves to the host ingress endpoint.
+  VITE_SERVER_URL: "http://host.docker.internal"
+
+  # Internal service DNS used by twin-service when syncing sensor thresholds.
+  SENSOR_SERVICE_URL: "http://sensor-service:3000"
   TWIN_SERVICE_URL: "http://twin-service:3000"
   AUTH_SERVICE_URL: "http://auth-service:3000"
 
