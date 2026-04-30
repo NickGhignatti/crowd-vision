@@ -66,7 +66,7 @@ def chunk_markdown(
     Preserves fenced code blocks and tables as atomic chunks, and keeps heading
     hierarchy in ``section_path`` so retrieval can surface where a chunk came from.
     """
-    md = MarkdownIt("commonmark")
+    md = MarkdownIt("commonmark").enable("table")
     tokens = md.parse(text)
 
     chunks: list[Chunk] = []
