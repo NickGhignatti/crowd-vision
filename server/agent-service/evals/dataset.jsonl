@@ -1,0 +1,10 @@
+{"id": "cv-001", "question": "What is Crowd-Vision?", "expected_keywords": ["digital twin", "occupancy"], "expected_source": "readme.md", "must_cite": true}
+{"id": "cv-002", "question": "Which frontend framework does Crowd-Vision use?", "expected_keywords": ["Vue 3", "Vite"], "expected_source": "readme.md", "must_cite": true}
+{"id": "cv-003", "question": "How do services communicate?", "expected_keywords": ["Caddy", "reverse proxy"], "expected_source": "readme.md", "must_cite": true}
+{"id": "cv-004", "question": "Which databases are used?", "expected_keywords": ["MongoDB", "Redis"], "expected_source": "readme.md", "must_cite": true}
+{"id": "cv-005", "question": "How are real-time updates delivered?", "expected_keywords": ["Socket.IO", "Redis"], "expected_source": "readme.md", "must_cite": true}
+{"id": "cv-006", "question": "What library renders the 3D building model?", "expected_keywords": ["TresJS", "Three.js"], "expected_source": "readme.md", "must_cite": true}
+{"id": "cv-007", "question": "How is auth handled?", "expected_keywords": ["JWT", "cookie"], "expected_source": "readme.md", "must_cite": true}
+{"id": "cv-008", "question": "What is the airspeed velocity of an unladen swallow?", "expected_keywords": [], "expected_idk": true, "must_cite": false}
+{"id": "cv-009", "question": "Hi, how are you?", "expected_keywords": [], "expected_decision": "out_of_scope", "must_cite": false}
+{"id": "cv-010", "question": "stuff", "expected_keywords": [], "expected_decision": "clarification_needed", "must_cite": false}
