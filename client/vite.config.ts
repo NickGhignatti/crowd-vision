@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // Helper to avoid repeating code.
         // 'secure: false' is recommended for local dev to avoid SSL errors.
-        ...['/auth', '/twin'].reduce(
+        ...['/auth', '/twin', '/agent'].reduce(
           (acc, route) => ({
             ...acc,
             [route]: { target, changeOrigin: true, secure: false },
