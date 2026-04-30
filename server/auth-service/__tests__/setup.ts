@@ -25,6 +25,15 @@ beforeAll(async () => {
   await mongoose.connect(uri);
 }, 30_000);
 
+beforeEach(() => {
+  jest.spyOn(global, "fetch").mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({}),
+    text: async () => "",
+  } as Response);
+});
+
 afterEach(async () => {
   const collections = mongoose.connection.collections;
   for (const key in collections) {
@@ -33,6 +42,8 @@ afterEach(async () => {
       await collection.deleteMany({});
     }
   }
+
+  jest.restoreAllMocks();
 });
 
 afterAll(async () => {

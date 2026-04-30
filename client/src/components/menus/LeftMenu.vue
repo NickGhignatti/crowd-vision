@@ -10,6 +10,9 @@ interface BuildingOption {
   name: string
 }
 
+import { useBuildingsStore } from '@/stores/buildings.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
+
 const emit = defineEmits<{
   (e: 'json-uploaded'): void
   (e: 'change-building', index: number): void
@@ -54,6 +57,14 @@ const activeFloorModel = computed({
   get: () => props.activeFloor,
   set: (val) => emit('change-floor', val),
 })
+
+const buildingsStore = useBuildingsStore()
+const domainStore = useDomainsStore()
+
+const handleBuildingUpdated = async () => {
+  buildingsStore.invalidate()
+  await buildingsStore.fetch(domainStore.memberships || [])
+}
 </script>
 
 <template>
@@ -87,6 +98,7 @@ const activeFloorModel = computed({
           v-model:active-floor="activeFloorModel"
           @select="emit('change-building', index)"
           @toggle-controls="toggleControls"
+          @building-updated="handleBuildingUpdated"
           class="mb-3"
         />
       </div>

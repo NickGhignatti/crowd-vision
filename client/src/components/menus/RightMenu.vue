@@ -98,15 +98,33 @@ const handleOpenEdit = (room: Room) => {
 const saveRoomConfig = async (updates: Partial<Room>) => {
   if (!props.buildingModel || !editingRoom.value) return
   try {
-    const response = await makeRequest(
-      `/twin/building/${props.buildingModel.id}/room/${editingRoom.value.id}`,
-      'PATCH',
-      { body: JSON.stringify(updates) },
-    )
-    if (!response.ok) {
-      alert(t('model.rooms.updateFailed'))
-      return
+    const { maxTemperature, ...geometryUpdates } = updates
+
+    const hasGeometryUpdates = Object.keys(geometryUpdates).length > 0
+    if (hasGeometryUpdates) {
+      const geometryResponse = await makeRequest(
+        `/twin/building/${props.buildingModel.id}/room/${editingRoom.value.id}`,
+        'PATCH',
+        { body: JSON.stringify(geometryUpdates) },
+      )
+      if (!geometryResponse.ok) {
+        alert(t('model.rooms.updateFailed'))
+        return
+      }
     }
+
+    if (typeof maxTemperature === 'number') {
+      const thresholdResponse = await makeRequest(
+        `/sensor/thresholds/buildings/${props.buildingModel.id}/rooms/${editingRoom.value.id}`,
+        'PATCH',
+        { body: JSON.stringify({ maxTemperature }) },
+      )
+      if (!thresholdResponse.ok) {
+        alert(t('model.rooms.updateFailed'))
+        return
+      }
+    }
+
     Object.assign(editingRoom.value, updates)
   } catch (e) {
     console.error(e)

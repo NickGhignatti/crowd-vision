@@ -45,7 +45,7 @@ describe('BuildingCard', () => {
     it('emits "toggle-controls" when toggle button is clicked', async () => {
       const wrapper = createWrapper({ isSelected: true })
 
-      await wrapper.find('button').trigger('click')
+      await wrapper.find('button[title="model.controls.toggleControls"]').trigger('click')
 
       expect(wrapper.emitted('toggle-controls')).toHaveLength(1)
     })
@@ -53,7 +53,7 @@ describe('BuildingCard', () => {
     it('does not emit "select" when toggle button is clicked', async () => {
       const wrapper = createWrapper({ isSelected: true })
 
-      await wrapper.find('button').trigger('click')
+      await wrapper.find('button[title="model.controls.toggleControls"]').trigger('click')
 
       expect(wrapper.emitted('select')).toBeUndefined()
     })

@@ -28,6 +28,7 @@ services:
     environment:
       - MONGO_URI=mongodb://twin-db:27017/twindb
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+      - SENSOR_SERVICE_URL=http://sensor-service:3000
     networks:
       - gateway-net
       - twin-net
@@ -36,6 +37,8 @@ services:
     build: ./server/sensor-service
     environment:
       - MONGO_URI=mongodb://sensor-db:27017/sensordb
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+      - VITE_SERVER_URL=http://gateway
     networks:
       - gateway-net
       - sensor-net
@@ -45,6 +48,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017/notificationdb
+      - VITE_SERVER_URL=http://gateway
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}

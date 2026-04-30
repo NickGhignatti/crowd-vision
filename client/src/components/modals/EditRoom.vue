@@ -20,7 +20,7 @@ const emit = defineEmits<{
 const form = ref({
   name: '',
   capacity: 0,
-  maxTemperature: 28,
+  maxTemperature: 27,
   color: '#10b981',
 })
 
@@ -31,7 +31,7 @@ watch(
       form.value = {
         name: newRoom.name || newRoom.id,
         capacity: newRoom.capacity,
-        maxTemperature: newRoom.maxTemperature ?? 28,
+        maxTemperature: newRoom.maxTemperature ?? 27,
         color: newRoom.color || '#10b981',
       }
     }

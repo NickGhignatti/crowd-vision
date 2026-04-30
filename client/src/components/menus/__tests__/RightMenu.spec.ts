@@ -300,5 +300,36 @@ describe('RightMenu.vue', () => {
       delete window.alert
       consoleSpy.mockRestore()
     })
+
+    it('sends maxTemperature updates to sensor threshold endpoint', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+
+      const room = makeRoom('room-a', { maxTemperature: 25 })
+      const wrapper = mount(RightMenu, {
+        props: { buildingModel: makeBuilding([room]), selectedRoomId: null },
+        global: { stubs },
+      })
+
+      await wrapper.findComponent(RoomCardStub).vm.$emit('edit', room)
+      await wrapper.findComponent(EditRoomStub).vm.$emit('save', {
+        name: 'room-a',
+        capacity: 10,
+        color: '#ffffff',
+        maxTemperature: 31,
+      })
+      await flushPromises()
+
+      expect(makeRequest).toHaveBeenCalledWith('/twin/building/bldg-1/room/room-a', 'PATCH', {
+        body: JSON.stringify({ name: 'room-a', capacity: 10, color: '#ffffff' }),
+      })
+      expect(makeRequest).toHaveBeenCalledWith(
+        '/sensor/thresholds/buildings/bldg-1/rooms/room-a',
+        'PATCH',
+        { body: JSON.stringify({ maxTemperature: 31 }) },
+      )
+      expect(room.maxTemperature).toBe(31)
+    })
   })
 })

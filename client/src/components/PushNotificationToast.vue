@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useWebPushNotifications } from '@/composables/useWebPushNotifications.ts'
+import { useAuthStore } from '@/stores/authentication.ts'
 
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const { permission, subscribe, isSupported } = useWebPushNotifications()
+const authStore = useAuthStore()
 
 const enableAlerts = async () => {
-  await subscribe()
+  await subscribe(authStore.accountName ?? undefined)
 }
 
 const dismiss = () => {

@@ -12,7 +12,6 @@ export const postPeopleCountSignal = async (building: string, roomId: string, ti
 };
 
 export const postTemperatureSignal = async (building: string, roomId: string, timestamp: number, temperature: number) => {
-
     await Temperature.create({
         building,
         roomId,

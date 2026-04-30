@@ -1,7 +1,5 @@
 import express from "express";
 import cors from "cors";
-import swaggerUi from "swagger-ui-express";
-import YAML from "yamljs";
 import router from "./router.js";
 import { connectMongo } from "./config/db.js";
 import { getClientUrl } from "./config/config.js";

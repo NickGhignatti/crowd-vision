@@ -99,13 +99,15 @@ describe('DomainCard.vue', () => {
       expect(wrapper.emitted('select-domain')?.[0]).toEqual(['acme'])
     })
 
-    it('emits "upload" with the domain name when the UploadButton is clicked', async () => {
+    it('emits "upload" when the UploadButton is clicked', async () => {
       const wrapper = mount(DomainCard, {
         props: { domainGroup: makeDomainGroup({ name: 'acme', canUpload: true }) },
         global: { stubs },
       })
 
-      await wrapper.findComponent(UploadButtonStub).vm.$emit('click')
+      await wrapper.findComponent(UploadButtonStub).vm.$emit('click', {
+        stopPropagation: vi.fn(),
+      })
 
       expect(wrapper.emitted('upload')).toBeTruthy()
       expect(wrapper.emitted('upload')?.[0]).toEqual(['acme'])

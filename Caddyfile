@@ -34,7 +34,7 @@
         reverse_proxy sensor-service:3000
     }
 
-    # Mongo Express - Auth DB 
+    # Mongo Express - Auth DB
     handle /auth-db-gui/* {
         reverse_proxy auth-db-express:8081
     }
@@ -47,5 +47,10 @@
     # Mongo Express - Twin DB
     handle /sensor-db-gui/* {
         reverse_proxy sensor-db-express:8081
+    }
+
+    # Mongo Express - Notification DB
+    handle /notification-db-gui/* {
+        reverse_proxy notification-db-express:8081
     }
 }

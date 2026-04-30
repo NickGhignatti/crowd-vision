@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domain.ts'
+import { useNotificationStore } from '@/stores/notification.ts'
 
 const selectedDomain = ref<string | null>(null)
 const domains = ref<string[]>([])
@@ -25,6 +26,7 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 const domainsStore = useDomainsStore()
 const subdomainsStore = useSubdomainsStore()
+const notificationStore = useNotificationStore()
 
 const handleAddDomain = async (payload: DomainToAddWithVisibilityPayload) => {
   isSubmitting.value = true
@@ -130,6 +132,22 @@ const handleFileUpload = async (event: Event) => {
     if (!response.ok) {
       throw new Error('Failed to register twin model')
     }
+
+    const createdBuilding = await response.json()
+    const thresholdResponse = await makeRequest('/sensor/thresholds/buildings', 'POST', {
+      body: JSON.stringify({
+        buildingId: createdBuilding.id,
+        rooms: Array.isArray(createdBuilding.rooms)
+          ? createdBuilding.rooms.map((room: any) => ({
+              id: room.id,
+            }))
+          : [],
+      }),
+    })
+
+    if (!thresholdResponse.ok) {
+      throw new Error('Failed to initialize temperature thresholds')
+    }
   } catch (e) {
     console.error('Upload failed', e)
     alert(t('model.controls.uploadFailed'))
@@ -176,8 +194,13 @@ const getAllSubdomains = async () => {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+const handleNotificationSubscription = async (domainName: string) => {
+  await notificationStore.handleNotificationSubscription(authStore.accountName || '', domainName)
+}
+
 onMounted(async () => {
   await getAllSubdomains()
+  await notificationStore.fetchAccountNotificationPreference(authStore.accountName || '')
 })
 </script>
 
@@ -193,6 +216,7 @@ onMounted(async () => {
         @add-domain="isAddDomainModalOpen = true"
         @select-domain="handleSelectDomain"
         @upload="triggerUpload"
+        @notification-trigger="handleNotificationSubscription"
       />
 
       <QR :domain="selectedDomain" :qr-codes="qrCodes" :is-loading="isLoadingQr" />

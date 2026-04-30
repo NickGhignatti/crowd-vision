@@ -1,7 +1,7 @@
 {
   "name": "agent-service",
-  "version": "2.10.1",
-  "description": "RAG-based Q&A agent for crowd-vision",
+  "version": "2.10.2",
+  "description": "a tool-wielding agent that reads the docs, pokes the digital twin, runs its own loop, picks its own LLM, and cites its sources like it's got something to prove. Sometimes it answers questions. Sometimes it goes and gets the answer itself.",
   "private": true,
   "scripts": {
     "lint": "uv run ruff check . && uv run ruff format --check . && uv run pyright",

@@ -47,3 +47,18 @@ services:
     depends_on:
       - sensor-db
 
+  notification-db-express:
+    image: mongo-express:latest
+    profiles:
+      - dev
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://notification-db:27017/
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass
+      - ME_CONFIG_SITE_BASEURL=/notification-db-gui/
+    networks:
+      - gateway-net
+      - notification-net
+    depends_on:
+      - notification-db

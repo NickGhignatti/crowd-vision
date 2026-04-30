@@ -31,7 +31,7 @@ const startServer = async () => {
     await connectRedis();
 
     // just to demonstrate notifications being sent periodically
-    startNotificationLoop();
+    // startNotificationLoop();
 
     if (process.env.NODE_ENV !== 'test') {
         connectMongo().then(() => {
