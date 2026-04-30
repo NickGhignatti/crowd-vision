@@ -110,7 +110,7 @@ describe('DomainCard.vue', () => {
       })
 
       expect(wrapper.emitted('upload')).toBeTruthy()
-      expect(wrapper.emitted('upload')?.[0]).toEqual([])
+      expect(wrapper.emitted('upload')?.[0]).toEqual(['acme'])
     })
   })
 

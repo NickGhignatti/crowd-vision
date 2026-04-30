@@ -2,6 +2,12 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 
 jest.mock('../src/config/redis.js', () => ({
+    __esModule: true,
+    default: {
+        get: jest.fn(),
+        set: jest.fn(),
+        publish: jest.fn(),
+    },
     connectRedis: jest.fn<() => Promise<boolean>>().mockResolvedValue(true)
 }));
 
@@ -20,6 +26,7 @@ jest.mock('../src/services/pushService.js', () => {
 });
 
 import { app } from '../src/index.js';
+import redisClient from '../src/config/redis.js';
 import Subscription from '../src/models/webSubscription.js';
 import NotificationSubscription from '../src/models/notificationSubscription.js';
 import { publishNotification } from '../src/services/notificationService.js';
@@ -27,10 +34,14 @@ import { sendPushToDomain } from '../src/services/pushService.js';
 
 const mockedPublishNotification = publishNotification as jest.MockedFunction<typeof publishNotification>;
 const mockedSendPushToDomain = sendPushToDomain as jest.MockedFunction<typeof sendPushToDomain>;
+const mockedRedisClient = redisClient as any;
 
 describe('Notification Service API', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockedRedisClient.get.mockResolvedValue(null);
+        mockedRedisClient.set.mockResolvedValue('OK');
+        mockedRedisClient.publish.mockResolvedValue(1);
     });
 
     describe('GET /public-key', () => {
@@ -156,7 +167,13 @@ describe('Notification Service API', () => {
             expect(res.status).toBe(201);
 
             const preference = await NotificationSubscription.findOne({ accountName: 'alice', domainName: 'domain-1' });
-            expect(preference).toBeNull();
+            expect(preference).toBeTruthy();
+            expect((preference as any)?.preferences).toEqual([
+                expect.objectContaining({
+                    notificationType: 'temperature',
+                    isSubscribed: false,
+                }),
+            ]);
         });
     });
 
@@ -182,7 +199,13 @@ describe('Notification Service API', () => {
             expect(res.status).toBe(200);
 
             const preference = await NotificationSubscription.findOne({ accountName: 'alice', domainName: 'domain-1' });
-            expect(preference).toBeNull();
+            expect(preference).toBeTruthy();
+            expect((preference as any)?.preferences).toEqual([
+                expect.objectContaining({
+                    notificationType: 'temperature',
+                    isSubscribed: false,
+                }),
+            ]);
         });
 
         it('should reject invalid preference payload', async () => {
@@ -192,7 +215,7 @@ describe('Notification Service API', () => {
 
             expect(res.status).toBe(400);
             expect(res.body.type).toBe('Validation Error');
-            expect(res.body.message).toBe('accountName/userId, domainName/domainId and enabled are required');
+            expect(res.body.message).toBe('enabled is required');
         });
     });
 
@@ -207,6 +230,7 @@ describe('Notification Service API', () => {
                 message: 'High Temperature Detected',
                 type: 'danger',
                 buildingName: 'building-1',
+                notificationType: 'temperature',
             };
 
             const res = await request(app)
@@ -219,6 +243,7 @@ describe('Notification Service API', () => {
             expect(mockedSendPushToDomain).toHaveBeenCalledWith(
                 { title: 'CrowdVision Alert', message: payload.message },
                 'domain-1',
+                'temperature',
             );
         });
 
@@ -274,6 +299,7 @@ describe('Notification Service API', () => {
                     message: 'Temperature alert in room A-01: 38 C',
                 },
                 'domain-77',
+                'temperature',
             );
         });
 
@@ -299,6 +325,7 @@ describe('Notification Service API', () => {
                     message: 'Temperature alert: 35 C',
                 },
                 'domain-from-building',
+                'temperature',
             );
         });
 
