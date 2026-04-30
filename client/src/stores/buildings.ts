@@ -54,7 +54,9 @@ export const useBuildingsStore = defineStore('buildings', {
 
       return this._fetchPromise
     },
+    async relaod() {
 
+    },
     invalidate() {
       this.byDomain = {}
       this._fetchPromise = null

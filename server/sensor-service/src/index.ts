@@ -8,9 +8,17 @@ import {connectMongo} from "./config/db.js";
 export const app = express()
 const PORT = 3000;
 
-const swaggerDocument = YAML.load('./openapi.yaml');
+const swaggerDocument = YAML.load("./openapi.yaml");
 
-app.use(cors());
+export const getClientUrl = () =>
+  process.env.CLIENT_URL || "http://localhost:5173";
+
+app.use(
+  cors({
+    origin: getClientUrl(),
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use('/', router);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

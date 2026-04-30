@@ -2,6 +2,64 @@ import { ref, computed, watch } from 'vue'
 import type { Building } from '@/models/building'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
+import { makeRequest } from '@/composables/useApi.ts'
+
+const DEFAULT_MAX_TEMPERATURE = 27
+
+type ThresholdClone = {
+  buildingId: string
+  maxTemperature?: number
+  rooms?: Array<{ id: string; name?: string; maxTemperature?: number }>
+}
+
+const mergeThresholdClone = (building: Building, threshold: ThresholdClone | null): Building => {
+  const buildingMaxTemperature =
+    typeof threshold?.maxTemperature === 'number'
+      ? threshold.maxTemperature
+      : typeof building.maxTemperature === 'number'
+        ? building.maxTemperature
+        : DEFAULT_MAX_TEMPERATURE
+
+  const roomThresholds = new Map((threshold?.rooms ?? []).map((room) => [room.id, room]))
+
+  return {
+    ...building,
+    maxTemperature: buildingMaxTemperature,
+    rooms: building.rooms.map((room) => {
+      const thresholdRoom = roomThresholds.get(room.id)
+      return {
+        ...room,
+        maxTemperature:
+          typeof thresholdRoom?.maxTemperature === 'number'
+            ? thresholdRoom.maxTemperature
+            : typeof room.maxTemperature === 'number'
+              ? room.maxTemperature
+              : buildingMaxTemperature,
+      }
+    }),
+  }
+}
+
+const hydrateBuildingThresholds = async (buildings: Building[]) => {
+  return Promise.all(
+    buildings.map(async (candidate) => {
+      try {
+        const response = await makeRequest(
+          `/sensor/thresholds/buildings/${encodeURIComponent(candidate.id)}`,
+        )
+
+        if (!response.ok) {
+          return mergeThresholdClone(candidate, null)
+        }
+
+        const threshold = (await response.json()) as ThresholdClone | null
+        return mergeThresholdClone(candidate, threshold)
+      } catch {
+        return mergeThresholdClone(candidate, null)
+      }
+    }),
+  )
+}
 
 interface BuildingOption {
   id: string
@@ -72,7 +130,15 @@ export function useBuildingModel() {
 
       await buildingsStore.fetch(domainsStore.memberships)
 
-      allBuildings.value = buildingsStore.all
+      const hydratedBuildings = await hydrateBuildingThresholds(buildingsStore.all)
+      allBuildings.value = hydratedBuildings
+
+      if (building.value) {
+        const refreshedBuilding = hydratedBuildings.find((candidate) => candidate.id === building.value?.id)
+        if (refreshedBuilding) {
+          Object.assign(building.value, refreshedBuilding)
+        }
+      }
 
       if (!building.value && allBuildings.value.length > 0) {
         building.value = allBuildings.value[0] ?? null

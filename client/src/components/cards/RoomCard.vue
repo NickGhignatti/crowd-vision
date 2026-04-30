@@ -68,6 +68,13 @@ const emit = defineEmits<{
           <i class="ph-bold ph-users text-slate-400"></i>
         </div>
       </div>
+
+      <div class="flex justify-between items-center text-sm">
+        <span class="text-slate-500 font-medium">{{ t('model.rooms.editRoom.maxTemp') }}</span>
+        <span class="font-bold text-slate-700">
+          {{ room.maxTemperature !== undefined ? room.maxTemperature + '°C' : '--' }}
+        </span>
+      </div>
     </div>
   </div>
 </template>

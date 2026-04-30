@@ -77,7 +77,7 @@ describe('useWebPushNotifications', () => {
     const { isSupported, subscribe } = useWebPushNotifications()
     expect(isSupported.value).toBe(false)
 
-    await subscribe()
+    await subscribe('alice')
     expect(global.navigator.serviceWorker.register).not.toHaveBeenCalled()
   })
 
@@ -99,7 +99,7 @@ describe('useWebPushNotifications', () => {
     mockRegistration.pushManager.getSubscription.mockResolvedValue(null)
     mockRegistration.pushManager.subscribe.mockResolvedValue(createMockSubscription())
 
-    await subscribe()
+    await subscribe('alice')
 
     // Assertions
     expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -143,7 +143,7 @@ describe('useWebPushNotifications', () => {
     mockRegistration.pushManager.getSubscription.mockResolvedValue(oldSubscription)
     mockRegistration.pushManager.subscribe.mockResolvedValue(newSubscription)
 
-    await subscribe()
+    await subscribe('alice')
 
     expect(oldSubscription.unsubscribe).toHaveBeenCalled()
     expect(mockRegistration.pushManager.subscribe).toHaveBeenCalled()
@@ -154,7 +154,7 @@ describe('useWebPushNotifications', () => {
 
     global.fetch = vi.fn().mockRejectedValue(new Error('Network Error'))
 
-    await subscribe()
+    await subscribe('alice')
 
     expect(permission.value).toBe('denied')
   })
@@ -170,7 +170,7 @@ describe('useWebPushNotifications', () => {
     mockRegistration.pushManager.getSubscription.mockResolvedValue(null)
     mockRegistration.pushManager.subscribe.mockResolvedValue(createMockSubscription())
 
-    await subscribe()
+    await subscribe('alice')
 
     expect(permission.value).toBe('denied')
   })

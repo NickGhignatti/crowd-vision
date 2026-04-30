@@ -102,7 +102,7 @@ describe('EditRoom.vue', () => {
       expect(emittedPayload).toEqual({
         name: 'Office B',
         capacity: 4,
-        maxTemperature: 28,
+        maxTemperature: 27,
         color: '#10b981',
       })
     })

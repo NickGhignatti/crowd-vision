@@ -1,22 +1,40 @@
 import request from 'supertest';
 import { jest } from '@jest/globals';
+import type {
+    postPeopleCountSignal,
+    postTemperatureSignal,
+    getLatestsPeopleCountSignal,
+    getLatestsTemperatureSignal,
+    getAllLatestsPeopleCountSignal,
+    getAllLatestsTemperatureSignal,
+} from '../src/services/sensorService.js';
+import type {
+    getPeopleCountData,
+    getTemperatureData,
+} from '../src/services/dashboardService.js';
+import type { checkTemperature } from '../src/services/alertingService.js';
 
 const sensorServiceMocks = {
-    postPeopleCountSignal: jest.fn(),
-    postTemperatureSignal: jest.fn(),
-    getLatestsPeopleCountSignal: jest.fn(),
-    getLatestsTemperatureSignal: jest.fn(),
-    getAllLatestsPeopleCountSignal: jest.fn(),
-    getAllLatestsTemperatureSignal: jest.fn()
+    postPeopleCountSignal: jest.fn<typeof postPeopleCountSignal>(),
+    postTemperatureSignal: jest.fn<typeof postTemperatureSignal>(),
+    getLatestsPeopleCountSignal: jest.fn<typeof getLatestsPeopleCountSignal>(),
+    getLatestsTemperatureSignal: jest.fn<typeof getLatestsTemperatureSignal>(),
+    getAllLatestsPeopleCountSignal: jest.fn<typeof getAllLatestsPeopleCountSignal>(),
+    getAllLatestsTemperatureSignal: jest.fn<typeof getAllLatestsTemperatureSignal>()
 };
 
 const dashboardServiceMocks = {
-    getPeopleCountData: jest.fn(),
-    getTemperatureData: jest.fn()
+    getPeopleCountData: jest.fn<typeof getPeopleCountData>(),
+    getTemperatureData: jest.fn<typeof getTemperatureData>()
+};
+
+const alertingServiceMocks = {
+    checkTemperature: jest.fn<typeof checkTemperature>(),
 };
 
 jest.unstable_mockModule('../src/services/sensorService.js', () => sensorServiceMocks);
 jest.unstable_mockModule('../src/services/dashboardService.js', () => dashboardServiceMocks);
+jest.unstable_mockModule('../src/services/alertingService.js', () => alertingServiceMocks);
 
 const { app } = await import('../src/index.js');
 
@@ -50,6 +68,7 @@ describe('sensor routes and controller integration', () => {
 
     it('creates temperature signal', async () => {
         sensorServiceMocks.postTemperatureSignal.mockResolvedValue(undefined);
+        alertingServiceMocks.checkTemperature.mockResolvedValue(undefined);
 
         const res = await request(app)
             .post('/temperature')
@@ -58,6 +77,7 @@ describe('sensor routes and controller integration', () => {
         expect(res.status).toBe(201);
         expect(res.body).toEqual({ message: 'Temperature signal created' });
         expect(sensorServiceMocks.postTemperatureSignal).toHaveBeenCalledWith('building-api-2', 'room-1', 1000, 22.5);
+        expect(alertingServiceMocks.checkTemperature).toHaveBeenCalledWith('building-api-2', 'room-1', 22.5);
     });
 
     it('returns latest people count for a room', async () => {
@@ -66,7 +86,7 @@ describe('sensor routes and controller integration', () => {
             roomId: 'room-1',
             timestamp: 2000,
             peopleCount: 7
-        });
+        } as unknown as Awaited<ReturnType<typeof getLatestsPeopleCountSignal>>);
 
         const res = await request(app)
             .get('/peopleCount')
@@ -84,7 +104,7 @@ describe('sensor routes and controller integration', () => {
             roomId: 'room-1',
             timestamp: 2000,
             temperature: 23.1
-        });
+        } as unknown as Awaited<ReturnType<typeof getLatestsTemperatureSignal>>);
 
         const res = await request(app)
             .get('/temperature')

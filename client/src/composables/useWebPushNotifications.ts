@@ -27,7 +27,7 @@ export function useWebPushNotifications() {
     return localKeyB64 === serverKeyB64
   }
 
-  const subscribe = async () => {
+  const subscribe = async (accountName?: string) => {
     if (!isSupported.value) return
 
     try {
@@ -58,18 +58,28 @@ export function useWebPushNotifications() {
         })
       }
 
-      const response = await makeRequest(`/notification/subscribe`, 'POST', {
-        body: JSON.stringify(subscription),
-      })
+      if (accountName) {
+        const payload = {
+          accountName,
+          subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.log(`Failed to subscribe: ${errorData.type} - ${errorData.message}`)
+        const response = await makeRequest(`/notification/subscribe`, 'POST', {
+          body: JSON.stringify(payload),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.log(`Failed to subscribe: ${errorData.type} - ${errorData.message}`)
+          return
+        }
+
+        isSubscribed.value = true
+        permission.value = 'granted'
         return
       }
 
-      isSubscribed.value = true
-      permission.value = 'granted'
+      console.log('Push subscription created locally, but accountName is missing so it was not persisted.')
     } catch {
       permission.value = 'denied'
     }

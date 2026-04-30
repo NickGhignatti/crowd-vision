@@ -143,4 +143,20 @@ describe('Twin Service API', () => {
             expect(res.body.message.toLowerCase()).toContain("room");
         });
     });
+
+    describe('PATCH /building/:buildingId', () => {
+        it('updates building details', async () => {
+            await new Building(mockBuilding).save();
+
+            const res = await request(app)
+                .patch(`/building/${mockBuilding.id}`)
+                .send({ name: 'New Building Name' });
+
+            expect(res.status).toBe(200);
+            expect(res.body.name).toBe('New Building Name');
+
+            const inDb = await Building.findOne({ id: mockBuilding.id });
+            expect(inDb?.name).toBe('New Building Name');
+        });
+    });
 });

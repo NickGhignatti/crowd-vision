@@ -18,7 +18,7 @@ defineProps({
   },
 })
 
-defineEmits(['add-domain', 'select-domain', 'upload'])
+defineEmits(['add-domain', 'select-domain', 'upload', 'notification-trigger'])
 </script>
 
 <template>
@@ -35,6 +35,7 @@ defineEmits(['add-domain', 'select-domain', 'upload'])
         :is-uploading="isUploading"
         @upload="$emit('upload', $event)"
         @select-domain="$emit('select-domain', $event)"
+        @notification-trigger="$emit('notification-trigger', $event)"
       />
     </div>
 

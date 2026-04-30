@@ -1,0 +1,46 @@
+.docname {Notification Service}
+.include {docs}
+
+## Caching mechanism
+To solve this, we implemented a Debouncing/Throttling pattern using Redis at the destination level (`notification-service`).
+
+Instead of trusting the source (`sensor-service`) to know when to stop sending, the `notification-service` acts as a smart gateway.
+It checks a centralized cache to see if an alert for a specific room has been sent recently. If it has, the new alert is silently dropped (throttled).
+
+### Implementation details
+The mechanism relies on Redis's **TTL (Time-To-Live)** feature. Every piece of data stored in Redis can be given an expiration timer, after which Redis automatically deletes it.
+
+Here is the exact step-by-step logic executed when a new temperature alert arrives:
+1. Cache-key generation: We generate a unique identifier string (the "Cache Key") representing the specific event.
+2. Cache check: Before processing the alert, we query Redis to see if this Cache Key already exists.
+3. Throttle decision: If the Cache Key exists, it means an alert for this room was sent recently, so we drop the new alert. If it doesn't exist, we proceed to send
+4. Set the Lock (SET + EX): Immediately after dispatching, the service writes the unique cache key back to Redis using the `EX` (Expiration) flag.
+
+.mermaid
+    sequenceDiagram
+        participant S as Sensor Simulator
+        participant SS as Sensor Service
+        participant NS as Notification Service
+        participant R as Redis Cache
+        participant U as User (Push/WS)
+
+        S->>SS: Temp reading (e.g., 28°C) every 10s
+        SS->>SS: Check threshold (Max 25°C) -> EXCEEDED
+        SS->>NS: POST /push/temperature {roomId: 101}
+
+        NS->>R: GET cooldown:temp_alert:bld:101
+
+        alt Key DOES NOT exist (First Alert)
+            R-->>NS: null
+            NS->>U: Dispatch Alert (WebSocket/Push)
+            NS->>R: SET cooldown:temp_alert:bld:101 "1" EX 300
+            Note over R: Redis starts 5-minute countdown
+            NS-->>SS: 200 OK (Sent)
+        else Key EXISTS (Active Cooldown)
+            S->>SS: Temp reading (e.g., 28°C) 10s later
+            SS->>NS: POST /push/temperature {roomId: 101}
+            NS->>R: GET cooldown:temp_alert:bld:101
+            R-->>NS: "1" (Cooldown active!)
+            Note over NS: Request silently dropped to prevent spam
+            NS-->>SS: 200 OK (Throttled)
+        end
