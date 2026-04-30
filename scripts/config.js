@@ -49,11 +49,30 @@ async function setupConfig() {
         }
     }
 
+    async function checkAndAskOptional(key, promptText) {
+        if (existingEnv[key]) {
+            const masked = existingEnv[key] ? "***" : "(empty)";
+            console.log(`⏩ Skipping ${promptText} (Found in .env: ${masked})`);
+            return;
+        }
+        const val = await askQuestion(`${promptText} (leave empty to skip)`, "");
+        // Always write the key so the agent-service config picks up an empty default
+        // rather than crashing on a missing alias.
+        newConfigs.push(`${key}=${val}`);
+    }
+
     await checkAndAsk("MONGO_PORT", "Enter MONGO_PORT", "27017");
     await checkAndAsk("SERVER_PORT", "Enter SERVER_PORT", "80");
     await checkAndAsk("CLIENT_PORT", "Enter CLIENT_PORT", "8080");
     await checkAndAsk("DEV_URL", "Enter DEV_URL", "http://localhost");
     await checkAndAsk("PROD_URL", "Enter PROD_URL", "http://localhost");
+
+    // Agent-service LLM credentials. Optional — the service boots without them
+    // but /ask will fail on the first tool-calling hop. Get them from:
+    //   - GOOGLE_API_KEY:   https://aistudio.google.com/apikey
+    //   - DEEPSEEK_API_KEY: https://platform.deepseek.com/api_keys
+    await checkAndAskOptional("GOOGLE_API_KEY", "Enter GOOGLE_API_KEY (Gemini)");
+    await checkAndAskOptional("DEEPSEEK_API_KEY", "Enter DEEPSEEK_API_KEY");
 
     rl.close();
 

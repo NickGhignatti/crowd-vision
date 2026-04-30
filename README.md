@@ -22,3 +22,16 @@ Whether you are a user learning how to navigate the dashboard, or a developer lo
 
 👉 **[CrowdVision Official Documentation](https://nickghignatti.github.io/crowd-vision/)**
 
+---
+
+## 🔑 AI Agent API Keys
+
+The agent-service uses two LLM providers and needs an API key for each:
+
+- `GOOGLE_API_KEY` — Gemini (chat + embeddings). Create one at <https://aistudio.google.com/apikey>.
+- `DEEPSEEK_API_KEY` — DeepSeek (alternative chat backend). Create one at <https://platform.deepseek.com/api_keys>.
+
+The `npm run setup` script (run automatically by `npm run docker:dev` / `npm run docker:start`) will prompt you for both and write them to your local `.env`. You can leave them empty if you don't plan to use the agent — the service will boot, but `/ask` will fail on the first LLM call.
+
+For the full env layout (Docker Compose **and** Kubernetes secret manifests under `k8s/secrets/agent.yml`), see [Environment Setup in the developer docs](documentation/developer/page-11.qd).
+

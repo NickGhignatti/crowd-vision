@@ -8,6 +8,7 @@
     "lint:fix": "uv run ruff check --fix . && uv run ruff format .",
     "format": "uv run ruff format .",
     "typecheck": "uv run pyright",
-    "test": "uv run pytest"
+    "test": "uv run pytest",
+    "openapi": "uv run python scripts/export_openapi.py --out openapi"
   }
 }

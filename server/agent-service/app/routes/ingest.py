@@ -7,10 +7,24 @@ from app.embeddings import get_embedder
 from app.models.api import IngestRequest, IngestResponse
 from app.services.ingest import ingest_document
 
-router = APIRouter()
+router = APIRouter(tags=["ingest"])
 
 
-@router.post("/ingest", response_model=IngestResponse)
+@router.post(
+    "/ingest",
+    response_model=IngestResponse,
+    summary="Ingest a document into the knowledge base",
+    description=(
+        "Chunks the markdown content, embeds each chunk with Gemini, and upserts "
+        "into pgvector + tsvector. Idempotent on content hash — re-ingesting the "
+        "same `source` + `content` returns `skipped=true` without re-embedding."
+    ),
+    openapi_extra={"security": [{"cookieAuth": []}]},
+    responses={
+        401: {"description": "Missing or invalid JWT cookie."},
+        422: {"description": "Validation error in request body."},
+    },
+)
 async def ingest(
     payload: IngestRequest,
     session: AsyncSession = Depends(get_session),

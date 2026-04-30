@@ -128,6 +128,24 @@ Two tools, both configured in [pyproject.toml](pyproject.toml) and exposed as wo
 
 Picked up by the root `npm run lint --workspaces` along with the JS services.
 
+## OpenAPI
+
+FastAPI auto-generates an OpenAPI 3.1 schema from the Pydantic models and route metadata. While the service is running:
+
+| URL                  | What                                  |
+| -------------------- | ------------------------------------- |
+| `/openapi.json`      | Raw schema                            |
+| `/docs`              | Swagger UI (try-it-out console)       |
+| `/redoc`             | ReDoc (read-only reference)           |
+
+To dump a static copy to disk for tracking or codegen:
+
+```bash
+npm run openapi   # writes openapi.json + openapi.yaml at the service root
+```
+
+Authentication is declared as a `cookieAuth` security scheme (the `authentication_token` JWT cookie issued by `auth-service`). Per-route metadata (`tags`, `summary`, `description`, error responses, examples) lives next to each handler in [app/routes/](app/routes/); request/response field docs live in [app/models/api.py](app/models/api.py).
+
 ## Testing
 
 `pytest` + `pytest-asyncio`. Two tiers under [tests/](tests/), kept separate so unit tests stay sub-second and integration tests own the slow Postgres setup.

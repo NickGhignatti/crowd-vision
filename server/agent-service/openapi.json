@@ -1,0 +1,370 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "agent-service",
+    "summary": "RAG-based Q&A agent for Crowd-Vision.",
+    "description": "Tool-calling RAG agent for Crowd-Vision.\n\nThe agent answers questions by orchestrating tools \u2014 `search_docs` (hybrid\nretrieval over ingested documentation) and the `twin-*` tools (live data from\nthe digital-twin service). Answers come back with inline `[^chunk_id]` citation\nmarkers that resolve to the `citations` array in the response.\n\n**Authentication.** Protected endpoints require a JWT in the `authentication_token`\ncookie (issued by `auth-service`). `/health` is public.",
+    "version": "2.10.2"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Liveness + DB reachability probe",
+        "description": "Public. Returns `ok` if the database responds, `degraded` if it doesn't.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Ingest a document into the knowledge base",
+        "description": "Chunks the markdown content, embeds each chunk with Gemini, and upserts into pgvector + tsvector. Idempotent on content hash \u2014 re-ingesting the same `source` + `content` returns `skipped=true` without re-embedding.",
+        "operationId": "ingest_ingest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT cookie."
+          },
+          "422": {
+            "description": "Validation error in request body."
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/ask": {
+      "post": {
+        "tags": [
+          "ask"
+        ],
+        "summary": "Ask the agent a question",
+        "description": "Runs the tool-calling loop and returns an answer with citations and a tool-call trace. If `stream=true` (default), the response is a Server-Sent Events stream of `{type: 'token', text}` events terminated by a `{type: 'done', citations, usage, ...}` event. If `stream=false`, returns a single JSON `AskResponse`.",
+        "operationId": "ask_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Answer payload (JSON) or SSE stream when `stream=true`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskResponse"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "data: {\"type\":\"token\",\"text\":\"Crowd-Vision is...\"}\n\ndata: {\"type\":\"done\",\"citations\":[],\"usage\":{}}\n\n"
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT cookie."
+          },
+          "422": {
+            "description": "Validation error in request body."
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AskRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question",
+            "description": "Natural-language question for the agent."
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K",
+            "description": "Override default retrieval depth for `search_docs`."
+          },
+          "stream": {
+            "type": "boolean",
+            "title": "Stream",
+            "description": "If true, return Server-Sent Events. If false, return a single JSON response.",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AskRequest",
+        "example": {
+          "question": "Which rooms are over capacity in building HQ right now?",
+          "stream": false
+        }
+      },
+      "AskResponse": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "title": "Answer",
+            "description": "Final answer with inline `[^chunk_id]` citation markers."
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationModel"
+            },
+            "type": "array",
+            "title": "Citations",
+            "description": "Resolved citations for every valid `[^chunk_id]` marker in `answer`."
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageModel"
+          },
+          "retrieval": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Retrieval",
+            "description": "Diagnostic payload: `tool_calls` (trace of tools the agent ran) and `hallucinated_citations` (markers the model invented; stripped from `answer`)."
+          },
+          "idk": {
+            "type": "boolean",
+            "title": "Idk",
+            "description": "True if the agent emitted the IDK marker because it couldn't answer."
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "description": "`answered` on success, `tool_loop_exhausted` if hop limit was hit."
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer",
+          "citations",
+          "usage",
+          "retrieval",
+          "idk",
+          "decision"
+        ],
+        "title": "AskResponse"
+      },
+      "CitationModel": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id",
+            "description": "UUID of the cited chunk."
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id",
+            "description": "UUID of the parent document."
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "Original source identifier (file path or URL)."
+          },
+          "section_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Path",
+            "description": "Heading hierarchy of the chunk, e.g. 'Top > Sub'."
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "document_id",
+          "source"
+        ],
+        "title": "CitationModel"
+      },
+      "IngestRequest": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source",
+            "description": "Stable identifier for the document (e.g. file path or URL)."
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Content",
+            "description": "Raw markdown content to ingest."
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "Free-form metadata stored alongside the document."
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "description": "Role/domain identifiers allowed to retrieve chunks from this document. Empty list means public to any authenticated user."
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "content"
+        ],
+        "title": "IngestRequest",
+        "example": {
+          "content": "# Getting started\n\nCrowd-Vision is...",
+          "metadata": {
+            "team": "platform"
+          },
+          "permissions": [
+            "domain:acme"
+          ],
+          "source": "documentation/getting-started.md"
+        }
+      },
+      "IngestResponse": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id",
+            "description": "UUID of the upserted document."
+          },
+          "chunks": {
+            "type": "integer",
+            "title": "Chunks",
+            "description": "Number of chunks produced."
+          },
+          "skipped": {
+            "type": "boolean",
+            "title": "Skipped",
+            "description": "True if the document was already present (same content hash)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "chunks",
+          "skipped"
+        ],
+        "title": "IngestResponse"
+      },
+      "UsageModel": {
+        "properties": {
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "type": "number",
+            "title": "Cost Usd",
+            "description": "Estimated USD cost of the request."
+          }
+        },
+        "type": "object",
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "cost_usd"
+        ],
+        "title": "UsageModel"
+      }
+    },
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "authentication_token",
+        "description": "JWT issued by auth-service, set as an HttpOnly cookie."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness and dependency checks."
+    },
+    {
+      "name": "ingest",
+      "description": "Add documents to the knowledge base. Admin-only \u2014 content is chunked, embedded with Gemini, and stored in pgvector + tsvector."
+    },
+    {
+      "name": "ask",
+      "description": "Ask the agent a question. Supports SSE streaming and a JSON one-shot response."
+    }
+  ]
+}
