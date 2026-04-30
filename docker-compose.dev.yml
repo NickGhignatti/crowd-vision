@@ -69,23 +69,29 @@ services:
   agent-service:
     build:
       context: ./server/agent-service
-    command: npm run dev
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload"]
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - TWIN_SERVICE_URL=http://twin-service:3000
-      - AUTH_SERVICE_URL=http://auth-service:3000
+      - JWT_SECRET=${JWT_SECRET}
+      - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+    depends_on:
+      - agent-db
     networks:
       - gateway-net
-      - twin-net
-      - auth-net
+      - agent-net
     develop:
       watch:
         - action: sync
-          path: ./server/agent-service/src
-          target: /app/src
+          path: ./server/agent-service/app
+          target: /app/app
         - action: rebuild
-          path: ./server/agent-service/package.json
+          path: ./server/agent-service/pyproject.toml
+
+  agent-db:
+    ports:
+      - "5432:5432"
 
   client:
     container_name: vue-client

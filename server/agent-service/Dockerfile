@@ -1,12 +1,16 @@
-FROM node:24-alpine
-# ENV NODE_ENV=production # just in case we wanna deploy
+FROM python:3.12-slim AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
-# RUN npm ci --only = production # just in case we wanna deploy
-COPY . .
-# USER node # for security is good to run it as non-root
-# RUN npm run build
-CMD ["npm", "run", "dev"]
+RUN pip install --no-cache-dir uv
+COPY pyproject.toml ./
+COPY app ./app
+RUN uv pip install --system --no-cache .
 
-
+FROM python:3.12-slim AS production
+WORKDIR /app
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
+EXPOSE 3000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000"]
