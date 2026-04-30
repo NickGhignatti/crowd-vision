@@ -1,5 +1,6 @@
 import redisClient from '../config/redis.js';
 import { sendPushToDomain } from './pushService.js';
+import { NotificationType } from "../models/notificationSubscription.js";
 
 export const getServerUrl = () =>
   process.env.VITE_SERVER_URL || "http://localhost:3000";
@@ -35,7 +36,7 @@ export const startNotificationLoop = () => {
     setInterval(async () => {
         await publishNotification(`System Status Check: ${new Date().toLocaleTimeString()}`, 'info');
         if (demoDomainId) {
-            await sendPushToDomain({ title: 'Critical Alert', message: 'HALLO' }, demoDomainId);
+            await sendPushToDomain({ title: 'Critical Alert', message: 'HALLO' }, demoDomainId, NotificationType.TEMPERATURE);
         }
     }, 10000);
 };
