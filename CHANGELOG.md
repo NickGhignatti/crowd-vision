@@ -1,3 +1,10 @@
+## [2.10.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.10.1...v2.10.2) (2026-04-30)
+
+
+### Bug Fixes
+
+* add logic for notification ([bfc6524](https://github.com/NickGhignatti/crowd-vision/commit/bfc652450f8beb4daa383be431782cdc2d3394cb))
+
 ## [2.10.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.10.0...v2.10.1) (2026-04-22)
 
 
