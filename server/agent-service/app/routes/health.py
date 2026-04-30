@@ -4,10 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 
-router = APIRouter()
+router = APIRouter(tags=["health"])
 
 
-@router.get("/health")
+@router.get(
+    "/health",
+    summary="Liveness + DB reachability probe",
+    description="Public. Returns `ok` if the database responds, `degraded` if it doesn't.",
+)
 async def health(session: AsyncSession = Depends(get_session)) -> dict:
     try:
         await session.execute(text("SELECT 1"))

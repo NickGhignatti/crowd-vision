@@ -9,11 +9,39 @@ from app.auth import AuthUser, require_user
 from app.db import get_session
 from app.models.api import AskRequest, AskResponse, CitationModel, UsageModel
 
-router = APIRouter()
+router = APIRouter(tags=["ask"])
 _agent = Agent()
 
 
-@router.post("/ask")
+@router.post(
+    "/ask",
+    response_model=AskResponse,
+    summary="Ask the agent a question",
+    description=(
+        "Runs the tool-calling loop and returns an answer with citations and a "
+        "tool-call trace. If `stream=true` (default), the response is a "
+        "Server-Sent Events stream of `{type: 'token', text}` events terminated "
+        "by a `{type: 'done', citations, usage, ...}` event. If `stream=false`, "
+        "returns a single JSON `AskResponse`."
+    ),
+    openapi_extra={"security": [{"cookieAuth": []}]},
+    responses={
+        200: {
+            "description": "Answer payload (JSON) or SSE stream when `stream=true`.",
+            "content": {
+                "text/event-stream": {
+                    "schema": {"type": "string"},
+                    "example": (
+                        'data: {"type":"token","text":"Crowd-Vision is..."}\n\n'
+                        'data: {"type":"done","citations":[],"usage":{}}\n\n'
+                    ),
+                },
+            },
+        },
+        401: {"description": "Missing or invalid JWT cookie."},
+        422: {"description": "Validation error in request body."},
+    },
+)
 async def ask(
     payload: AskRequest,
     session: AsyncSession = Depends(get_session),
