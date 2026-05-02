@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from google import genai
+import google.genai as genai
 
 from app.config import get_settings
 
@@ -22,6 +22,8 @@ class GeminiEmbedder:
                 contents=text,
                 config={"task_type": task_type, "output_dimensionality": self.dim},
             )
+            if not result.embeddings or result.embeddings[0].values is None:
+                raise RuntimeError("Gemini embed_content returned no embeddings")
             return list(result.embeddings[0].values)
 
         return await asyncio.wait_for(asyncio.to_thread(_call), timeout=self._timeout)

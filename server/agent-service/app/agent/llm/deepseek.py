@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, cast
 
-from openai import AsyncOpenAI
+from openai import NOT_GIVEN, AsyncOpenAI
 
 from app.agent.llm.base import ChatTurn, Completion, CompletionUsage, ToolCall, ToolSchema
 from app.agent.llm.pricing import estimate_cost
@@ -86,7 +86,7 @@ class DeepSeekClient:
             model=self.model,
             messages=cast("list[ChatCompletionMessageParam]", oai_messages),
             temperature=temperature,
-            tools=cast("list[ChatCompletionToolUnionParam] | None", oai_tools),
+            tools=cast("list[ChatCompletionToolUnionParam]", oai_tools) if oai_tools else NOT_GIVEN,
         )
         msg = resp.choices[0].message
         calls: list[ToolCall] = []
