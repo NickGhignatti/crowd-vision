@@ -30,8 +30,9 @@ networks:
   auth-net:
   twin-net:
   simulator-net:
-  sensor-net:  
+  sensor-net:
   notification-net:
+  agent-net:
 
 volumes:
   caddy_data:
