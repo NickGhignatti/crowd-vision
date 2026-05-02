@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.agent.llm.base import ToolSchema
 
@@ -22,17 +22,17 @@ def _strip_for_gemini(schema: dict) -> dict:
 
 class ToolRegistry:
     def __init__(self) -> None:
-        self._tools: dict[str, Tool] = {}
+        self._tools: dict[str, Tool[Any]] = {}
 
-    def register(self, tool: Tool) -> None:
+    def register(self, tool: Tool[Any]) -> None:
         if tool.name in self._tools:
             raise ValueError(f"tool {tool.name!r} already registered")
         self._tools[tool.name] = tool
 
-    def get(self, name: str) -> Tool | None:
+    def get(self, name: str) -> Tool[Any] | None:
         return self._tools.get(name)
 
-    def all(self) -> list[Tool]:
+    def all(self) -> list[Tool[Any]]:
         return list(self._tools.values())
 
     def schemas(self) -> list[ToolSchema]:

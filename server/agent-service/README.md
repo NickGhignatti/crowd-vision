@@ -239,10 +239,13 @@ If we want to change db we can just switch to a different driver in here
 
 - **Stale integration tests.** The two agent-flow tests in `tests/integration/test_ingest_and_ask.py` were dropped during the tool-calling rewrite — only the ingest idempotency test remains. Rewrite them against the new `Agent.answer(session, question, user)` shape with a fake `LLMClient` that scripts tool calls.
 - **Chunker `table` kind regression.** `test_table_preserved_as_single_chunk` fails: `chunk_markdown` doesn't emit chunks with `kind="table"` for pipe tables. Either fix the chunker or update the test if the policy changed.
-- **Pyright `standard` mode.** Currently `basic`. 27 errors block the upgrade — mostly:
-  - `app/agent/llm/deepseek.py`: openai SDK `ChatCompletionMessageParam` type mismatches (need `cast` or proper typed dicts).
-  - `app/agent/llm/gemini.py`, `app/embeddings/gemini.py`: `from google import genai` import unresolved + `Schema` shape mismatch.
-  - `app/agent/tools/__init__.py`: `register(tool: Tool)` rejects concrete subclasses — make `Tool` generic or use a `Protocol`.
+- **Pyright `standard` mode.** Currently `basic`. The 14 errors that previously blocked the upgrade are fixed — codebase is clean under `basic`. Summary of the fixes:
+  - `app/agent/llm/deepseek.py`: messages/tools `cast` to `ChatCompletionMessageParam` / `ChatCompletionToolUnionParam`; `tools=None` replaced with the OpenAI SDK's `omit` sentinel (the SDK distinguishes "omitted" from "explicitly None").
+  - `app/agent/llm/gemini.py`, `app/embeddings/gemini.py`: switched to `import google.genai as genai` so pyright resolves the namespace package; `FunctionDeclaration(parameters=...)` now wraps the dict in `genai_types.Schema(**...)`; `tools=` cast to `ToolListUnion | None`. Embedder guards against `result.embeddings is None` with an explicit `RuntimeError`.
+  - `app/agent/tools/base.py`: `Tool` is now a generic protocol `Tool(Protocol[ArgsT])` with `ArgsT = TypeVar("ArgsT", bound=BaseModel)`. Concrete tools satisfy it structurally without changes; `ToolRegistry` stores/exposes `Tool[Any]`. This resolves the LSP violation where each concrete tool narrowed `Args: type[BaseModel]` and `run(args: BaseModel, ...)` to its own Pydantic model.
+  - Test imports parked behind commented-out tests now carry both `# noqa: F401` (ruff) and `# pyright: ignore[reportUnusedImport]` (pyright) per name, so they survive ruff's multi-line reformat.
+
+  Next step: bump `[tool.pyright].typeCheckingMode` from `basic` to `standard` and address the new diagnostics it surfaces.
 - **Drop tracked `__pycache__` / `.pyc`.** Add to `server/agent-service/.gitignore` and `git rm --cached` the existing ones before any further commits.
 - **Postgres credentials.** `agent:agent` default in `app/config.py` — wire to `.env` like the other services.
 
