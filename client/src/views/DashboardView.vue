@@ -5,17 +5,19 @@ import type { Room, Building } from '@/models/building'
 import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
 import DataTable, { type TableBody, type TableHeader } from '@/components/tables/DataTable.vue'
 
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { makeRequest } from '@/composables/useApi.ts'
+import { useDateTime } from '@/composables/useDateTime'
+import { getStatusByOccupants, getStatusColor } from '@/helpers/status'
 import { useI18n } from 'vue-i18n'
 import GraphDashboard from '@/components/dashboard/GraphDashboard.vue'
 import type { DomainMembership } from '@/models/domain'
 import { useAuthStore } from '@/stores/authentication.ts'
+import { useBuildingsStore } from '@/stores/buildings.ts'
 
-const now = ref(new Date())
 const authStore = useAuthStore()
+const buildingStore = useBuildingsStore()
 
-let timer: ReturnType<typeof setInterval>
 const { t, locale } = useI18n()
 
 export interface ModelOption {
@@ -33,23 +35,7 @@ const isFullscreen = ref(false)
 // Data State
 const roomData = ref<TableBody[]>([]) // Processed data for Table
 
-const formattedTime = computed(() => {
-  return new Intl.DateTimeFormat(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(now.value)
-})
-
-const formattedDate = computed(() => {
-  return new Intl.DateTimeFormat(locale.value, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(now.value)
-})
+const { formattedTime, formattedDate } = useDateTime(locale)
 
 const tableHeaders = ref<TableHeader[]>([
   { key: 'room', label: 'dashboard.table.headers.room', cellClass: 'font-medium text-slate-900' },
@@ -72,21 +58,15 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
   try {
     roomData.value = []
 
-    const response = await makeRequest(`/twin/building/${buildingId}`)
-    if (!response.ok) {
-      console.error('Failed to fetch building data')
-      return
-    }
-
-    const building = (await response.json()) as Building
+    const building = buildingStore.getById(buildingId)
 
     if (building && building.rooms) {
-      building.rooms.forEach((room: Room) => {
+        building.rooms.forEach((room: Room) => {
         const roomName = room.name?.trim() || room.id
         roomData.value.push({
           room: roomName,
           roomId: room.id,
-          status: t(getStatusByOccupants(0, room.capacity)),
+          status: getStatusByOccupants(0, room.capacity),
           teacher: '',
           temp: '',
           people: '0',
@@ -102,31 +82,6 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
 const handleModelChange = (model: ModelOption) => {
   selectedModel.value = model
   fetchRoomsByBuilding(model.id)
-}
-
-const getStatusByOccupants = (occupants: number, roomCapacity: number) => {
-  const occupantsPercentage = occupants / roomCapacity
-  if (occupantsPercentage == 0.0) return 'dashboard.table.rooms.status.empty'
-  if (occupantsPercentage <= 0.5) return 'dashboard.table.rooms.status.normal'
-  if (occupantsPercentage <= 0.95) return 'dashboard.table.rooms.status.crowded'
-  if (occupantsPercentage <= 1.0) return 'dashboard.table.rooms.status.full'
-  return 'dashboard.table.rooms.status.overcrowded'
-}
-
-const getStatusColor = (status: string) => {
-  if (!status) return ''
-  switch (status) {
-    case t('dashboard.table.rooms.status.empty'):
-      return 'text-emerald-600 font-semibold'
-    case t('dashboard.table.rooms.status.normal'):
-      return 'text-blue-600'
-    case t('dashboard.table.rooms.status.crowded'):
-      return 'text-orange-600'
-    case t('dashboard.table.rooms.status.full'):
-      return 'text-red-600 font-semibold'
-    default:
-      return 'text-red-600 font-semibold'
-  }
 }
 
 const toggleFocusMode = async () => {
@@ -196,14 +151,10 @@ const getInitialModels = async () => {
 
 onMounted(() => {
   getInitialModels()
-  timer = setInterval(() => {
-    now.value = new Date()
-  }, 1000)
   document.addEventListener('fullscreenchange', onFullscreenChange)
 })
 
 onUnmounted(() => {
-  clearInterval(timer)
   document.removeEventListener('fullscreenchange', onFullscreenChange)
 })
 </script>
@@ -313,7 +264,7 @@ onUnmounted(() => {
               class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top"
             >
               <template #status="{ value }">
-                <span :class="getStatusColor(value)">{{ value }}</span>
+                <span :class="getStatusColor(value)">{{ t(value) }}</span>
               </template>
               <template #teacher="{ value }">
                 <span :class="getStatusColor(value)">{{ value }}</span>

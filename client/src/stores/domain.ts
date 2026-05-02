@@ -11,18 +11,16 @@ export const useDomainsStore = defineStore('domains', {
     loadingAll: false,
     _membershipsPromise: null as Promise<void> | null,
     _allDomainsPromise: null as Promise<void> | null,
+    _authStore: useAuthStore(),
   }),
 
   actions: {
-    async fetchMemberships() {
-      if (this.memberships !== null) return Promise.resolve()
-
-      // If a fetch is currently in progress, return that existing promise
-      // so the caller awaits the same request instead of resolving instantly.
-      if (this._membershipsPromise) return this._membershipsPromise
+    async fetchMemberships(forceRefresh = false) {
+      if (!forceRefresh && this.memberships !== null) return Promise.resolve()
+      if (!forceRefresh && this._membershipsPromise) return this._membershipsPromise
 
       this.loading = true
-      this._membershipsPromise = ( async () => {
+      this._membershipsPromise = (async () => {
         try {
           const { accountName } = useAuthStore()
           const res = await makeRequest(`/auth/domains/${accountName}`)
@@ -37,12 +35,12 @@ export const useDomainsStore = defineStore('domains', {
       return this._membershipsPromise
     },
 
-    async fetchAll() {
-      if (this.allDomains !== null) return Promise.resolve()
-      if (this._allDomainsPromise) return this._allDomainsPromise
+    async fetchAll(forceRefresh = false) {
+      if (!forceRefresh && this.allDomains !== null) return Promise.resolve()
+      if (!forceRefresh && this._allDomainsPromise) return this._allDomainsPromise
 
       this.loadingAll = true
-      this._allDomainsPromise = ( async () => {
+      this._allDomainsPromise = (async () => {
         try {
           const res = await makeRequest('/auth/domains')
           const data = await res.json()
@@ -56,11 +54,87 @@ export const useDomainsStore = defineStore('domains', {
       return this._allDomainsPromise
     },
 
-    domainByName(name: string) {
-      if (this.allDomains !== null) {
-        return this.allDomains.filter((domain) => domain.name === name)
+    async createNewDomain(payload: any) {
+      const accountName = this._authStore.accountName
+      if (!accountName) throw new Error('Missing account name in auth store')
+
+      const masterDomain = payload.masterDomain?.trim().toLowerCase()
+      const endpoint = masterDomain
+        ? `/auth/subdomains/${encodeURIComponent(masterDomain)}`
+        : '/auth/domains'
+
+      const normalizedName = payload.name.trim().toLowerCase()
+      const domainName =
+        masterDomain && !normalizedName.endsWith(`.${masterDomain}`)
+          ? `${normalizedName}.${masterDomain}`
+          : normalizedName
+
+      const body = {
+        ...payload,
+        name: domainName,
+        creatorUsername: accountName,
       }
-      return []
+
+      delete body.masterDomain
+
+      const response = await makeRequest(endpoint, 'POST', {
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Failed to create domain')
+      }
+
+      return await response.json()
+    },
+
+    async subscribeToDomain(domain: Domain) {
+      const accountName = this._authStore.accountName
+      if (!accountName) throw new Error('Missing account name in auth store')
+
+      if (domain.authStrategy === 'oidc') {
+        const response = await makeRequest(
+          `/auth/sso/login/${domain.name}?accountName=${accountName}`,
+        )
+        if (!response.ok) throw new Error('Failed to initiate SSO')
+
+        const data = await response.json()
+        if (data.redirectUrl) {
+          window.location.href = data.redirectUrl
+        }
+        return
+      }
+
+      // Internal Strategy
+      const response = await makeRequest(`/auth/domains/${accountName}/subscribe`, 'POST', {
+        body: JSON.stringify({ domainName: domain.name }),
+      })
+
+      if (!response.ok) throw new Error(`Failed to subscribe to ${domain.name}`)
+
+      await this.fetchMemberships(true)
+    },
+
+    async unsubscribeFromDomain(domainName: string) {
+      const accountName = this._authStore.accountName
+      if (!accountName) throw new Error('Missing account name in auth store')
+
+      const response = await makeRequest(`/auth/domains/${accountName}/unsubscribe`, 'DELETE', {
+        body: JSON.stringify({ domainName }),
+      })
+
+      if (!response.ok) throw new Error(`Failed to unsubscribe from ${domainName}`)
+
+      await this.fetchMemberships(true)
+    },
+
+    async getDomainQRs(domainName: string) {
+      const accountName = this._authStore.accountName
+      const response = await makeRequest(`/auth/domains/${domainName}/totp/qr/${accountName}`)
+      if (!response.ok) throw new Error('Failed to fetch QR codes')
+      const data = await response.json()
+      return data.domainQRs
     },
 
     invalidate() {
