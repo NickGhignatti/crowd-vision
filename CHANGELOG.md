@@ -1,3 +1,23 @@
+# [2.11.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.10.2...v2.11.0) (2026-05-02)
+
+
+### Bug Fixes
+
+* fuck the trailing spaces ([f4beb48](https://github.com/NickGhignatti/crowd-vision/commit/f4beb4893a04d19e5aca42835e9f3a7567739cc6))
+* linting problems in test, now just with a TODO for next stuff ([62642ee](https://github.com/NickGhignatti/crowd-vision/commit/62642eeeec9cddae1ba6202d575be49516987b38))
+* tests and app structure, __init__ files are important ([6cb8295](https://github.com/NickGhignatti/crowd-vision/commit/6cb8295efc200018daf2aedbeddde1275c08ccc2))
+
+
+### Features
+
+* add client view ([bf78c32](https://github.com/NickGhignatti/crowd-vision/commit/bf78c326bc4a62b6057dee77076d401b36c7dd49))
+* add document ingestion pipeline ([18d8674](https://github.com/NickGhignatti/crowd-vision/commit/18d86745531d3e1d13a040b82a8a690ab77150ed))
+* add hybrid retrieval ([7a9bf01](https://github.com/NickGhignatti/crowd-vision/commit/7a9bf0146e5ed93c680f013d7c80117cad07d804))
+* add postgres schema and migrations (db dumping) ([6ef7603](https://github.com/NickGhignatti/crowd-vision/commit/6ef7603711ad5ba3f5ca8ea4b3b45e1e17c3d5a2))
+* add tool calling and agent loop ([c8b5905](https://github.com/NickGhignatti/crowd-vision/commit/c8b5905bb7e4f6a872d2c69ef5ce85314d8a91e3))
+* add unit and integration test ([9008e69](https://github.com/NickGhignatti/crowd-vision/commit/9008e69a781e9685d62e8f7e01704b155739167a))
+* scaffold python service ([3088c5b](https://github.com/NickGhignatti/crowd-vision/commit/3088c5b388b64d76e222916924ed6184099608cb))
+
 ## [2.10.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.10.1...v2.10.2) (2026-04-30)
 
 
