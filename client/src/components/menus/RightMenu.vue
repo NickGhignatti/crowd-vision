@@ -93,6 +93,7 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
 
   try {
     await buildingsStore.updateRoomConfig(props.buildingModel.id, editingRoom.value.id, updates)
+    Object.assign(editingRoom.value, updates)
     isEditModalOpen.value = false
   } catch (e) {
     console.error(e)

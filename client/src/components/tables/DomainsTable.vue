@@ -47,7 +47,9 @@ const handleSubscribe = async (index: number) => {
 
   try {
     await domainsStore.subscribeToDomain(domain)
-    emit('refresh')
+    if (domain.authStrategy !== 'oidc') {
+      emit('refresh')
+    }
   } catch (error) {
     // Revert on error
     if (domain.authStrategy === 'internal') {
