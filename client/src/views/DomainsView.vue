@@ -6,47 +6,28 @@ import type { Domain } from '@/models/domain'
 
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { makeRequest } from '@/composables/useApi.ts'
 import type { DomainToAddWithMaster } from '@/interfaces/domain.ts'
-import { useAuthStore } from '@/stores/authentication.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
 
 const { t } = useI18n()
-const authStore = useAuthStore()
 const domainsStore = useDomainsStore()
 
 const searchQuery = ref('')
 const isSubmitting = ref(false)
 const isAddDomainModalOpen = ref(false)
-const domains = ref<Domain[]>([])
+const domains = computed<Domain[]>(() => domainsStore.allDomains ?? [])
 const userMemberships = computed(() => domainsStore.memberships ?? [])
 
 const fetchAllDomains = async () => {
   await domainsStore.fetchAll()
-  domains.value = domainsStore.allDomains ?? []
 }
 
 const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
   isSubmitting.value = true
-  const accountName = authStore.accountName
 
   try {
-    const body = {
-      ...payload,
-      creatorUsername: accountName,
-    }
-
-    const response = await makeRequest(`/auth/domains`, 'POST', {
-      body: JSON.stringify(body),
-    })
-
-    if (!response.ok) {
-      const err = await response.json()
-      throw new Error(err.error || 'Failed to create domain')
-    }
-
-    domainsStore.invalidate() // bust cache after mutation
-    await Promise.all([domainsStore.fetchAll(), domainsStore.fetchMemberships()])
+    await domainsStore.createNewDomain(payload)
+    await Promise.all([domainsStore.fetchAll(true), domainsStore.fetchMemberships(true)])
     isAddDomainModalOpen.value = false
   } catch (error) {
     console.error(error)

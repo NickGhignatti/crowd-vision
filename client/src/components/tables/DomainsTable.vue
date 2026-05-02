@@ -4,11 +4,9 @@ import type { Domain, DomainMembership } from '@/models/domain'
 
 import { useI18n } from 'vue-i18n'
 import { ref, watch } from 'vue'
-import { makeRequest } from '@/composables/useApi.ts'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
 
 const { t } = useI18n()
-const authStore = useAuthStore()
 
 // Props: Items are all available domains. userMemberships is the user's current status.
 const props = defineProps<{
@@ -26,8 +24,8 @@ const headers = [
 ]
 
 const subscribedSet = ref(new Set<string>())
+const domainsStore = useDomainsStore()
 
-// Watch for changes in memberships to update the local Set
 watch(
   () => props.userMemberships,
   (newMemberships) => {
@@ -42,39 +40,16 @@ const handleSubscribe = async (index: number) => {
   const domain = props.domains[index]
   if (!domain) return
 
-  const accountName = authStore.accountName
-  if (!accountName) return
+  // Optimistic UI Update
+  if (domain.authStrategy === 'internal') {
+    subscribedSet.value.add(domain.name)
+  }
 
   try {
-    // STRATEGY A: External SSO (OIDC)
-    if (domain.authStrategy === 'oidc') {
-      const response = await makeRequest(
-        `/auth/sso/login/${domain.name}?accountName=${accountName}`,
-      )
-
-      if (!response.ok) throw new Error('Failed to initiate SSO')
-
-      const data = await response.json()
-
-      // Redirect the user away to the Identity Provider (e.g., Unibo, Google)
-      // They will come back to the app via the backend callback
-      if (data.redirectUrl) {
-        window.location.href = data.redirectUrl
-      }
-      return
-    }
-
-    // STRATEGY B: Internal (Crowd Vision Managed)
-    subscribedSet.value.add(domain.name)
-
-    const response = await makeRequest(`/auth/domains/${accountName}/subscribe`, 'POST', {
-      body: JSON.stringify({ domainName: domain.name }),
-    })
-
-    if (!response.ok) throw new Error(`Failed to subscribe to ${domain.name}`)
-
+    await domainsStore.subscribeToDomain(domain)
     emit('refresh')
   } catch (error) {
+    // Revert on error
     if (domain.authStrategy === 'internal') {
       subscribedSet.value.delete(domain.name)
     }
@@ -86,25 +61,17 @@ const handleUnsubscribe = async (index: number) => {
   const domain = props.domains[index]
   if (!domain) return
 
-  const accountName = authStore.accountName
-  if (!accountName) return
+  // Optimistic UI Update
+  subscribedSet.value.delete(domain.name)
 
   try {
-    subscribedSet.value.delete(domain.name)
-
-    const response = await makeRequest(`/auth/domains/${accountName}/unsubscribe`, 'DELETE', {
-      body: JSON.stringify({ domainName: domain.name }),
-    })
-
-    if (!response.ok) throw new Error(`Failed to unsubscribe from ${domain.name}`)
-
+    await domainsStore.unsubscribeFromDomain(domain.name)
     emit('refresh')
   } catch (error) {
     subscribedSet.value.add(domain.name)
     console.error(error)
   }
 }
-
 const hasSub = (domainName: string): boolean => {
   return subscribedSet.value.has(domainName)
 }

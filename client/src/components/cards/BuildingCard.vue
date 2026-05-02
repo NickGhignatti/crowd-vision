@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { Building } from '@/models/building'
 import FloorSelector from '@/components/buttons/FloorSelector.vue'
 import EditBuilding from '@/components/modals/EditBuilding.vue'
-import { makeRequest } from '@/composables/useApi'
+import { useBuildingsStore } from '@/stores/buildings.ts'
 
 const { t } = useI18n()
 
@@ -28,18 +28,13 @@ const emit = defineEmits<{
 const floorModel = defineModel<number | null>('activeFloor')
 
 const isEditModalOpen = ref(false)
+const buildingsStore = useBuildingsStore()
 
 const handleSaveBuilding = async (updates: Partial<Building>) => {
   try {
-    const res = await makeRequest(`/twin/building/${props.buildingId}`, 'PATCH', {
-      body: JSON.stringify(updates),
-    })
-
-    if (res.ok) {
-      emit('building-updated')
-    } else {
-      console.error('Failed to update the building')
-    }
+    await buildingsStore.updateBuildingConfig(props.buildingId, updates)
+    emit('building-updated')
+    isEditModalOpen.value = false
   } catch (error) {
     console.error('Error while updating the building:', error)
   }

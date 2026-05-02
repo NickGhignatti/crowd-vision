@@ -7,8 +7,8 @@ import { useUserPermissions } from '@/composables/useUserPermissions'
 
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { makeRequest } from '@/composables/useApi.ts'
 import { getBuildingData } from '@/composables/useSensorData'
+import { useBuildingsStore } from '@/stores/buildings.ts'
 
 export interface RoomItemBody {
   room: Room
@@ -27,6 +27,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { canEdit } = useUserPermissions()
+const buildingsStore = useBuildingsStore()
 
 const userCanEdit = computed(() =>
   props.buildingModel ? canEdit(props.buildingModel.domains) : false,
@@ -63,29 +64,21 @@ watch(
 
 const buildingId = computed(() => props.buildingModel?.id)
 
-const {
-  data: peopleData,
-} = getBuildingData(buildingId, 'peopleCount')
+const { data: peopleData } = getBuildingData(buildingId, 'peopleCount')
 
-const {
-  data: temperatures,
-} = getBuildingData(buildingId, 'temperature')
+const { data: temperatures } = getBuildingData(buildingId, 'temperature')
 
 const enrichedRooms = computed<RoomItemBody[]>(() => {
   if (!props.buildingModel) return []
 
   return filteredRooms.value.map((room) => {
-    const roomTempData = temperatures.value?.find(
-      (t: any) => t.roomId === room.id
-    )
-    const roomPeople = peopleData.value?.find(
-      (p: any) => p.roomId === room.id
-    )
+    const roomTempData = temperatures.value?.find((t: any) => t.roomId === room.id)
+    const roomPeople = peopleData.value?.find((p: any) => p.roomId === room.id)
 
     return {
       room,
       temp: roomTempData?.value,
-      people: roomPeople?.value
+      people: roomPeople?.value,
     }
   })
 })
@@ -97,35 +90,10 @@ const handleOpenEdit = (room: Room) => {
 
 const saveRoomConfig = async (updates: Partial<Room>) => {
   if (!props.buildingModel || !editingRoom.value) return
+
   try {
-    const { maxTemperature, ...geometryUpdates } = updates
-
-    const hasGeometryUpdates = Object.keys(geometryUpdates).length > 0
-    if (hasGeometryUpdates) {
-      const geometryResponse = await makeRequest(
-        `/twin/building/${props.buildingModel.id}/room/${editingRoom.value.id}`,
-        'PATCH',
-        { body: JSON.stringify(geometryUpdates) },
-      )
-      if (!geometryResponse.ok) {
-        alert(t('model.rooms.updateFailed'))
-        return
-      }
-    }
-
-    if (typeof maxTemperature === 'number') {
-      const thresholdResponse = await makeRequest(
-        `/sensor/thresholds/buildings/${props.buildingModel.id}/rooms/${editingRoom.value.id}`,
-        'PATCH',
-        { body: JSON.stringify({ maxTemperature }) },
-      )
-      if (!thresholdResponse.ok) {
-        alert(t('model.rooms.updateFailed'))
-        return
-      }
-    }
-
-    Object.assign(editingRoom.value, updates)
+    await buildingsStore.updateRoomConfig(props.buildingModel.id, editingRoom.value.id, updates)
+    isEditModalOpen.value = false
   } catch (e) {
     console.error(e)
     alert(t('model.rooms.updateFailed'))
@@ -185,8 +153,8 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
                 :room="r.room"
                 :is-selected="props.selectedRoomId === r.room.id"
                 :can-edit="userCanEdit"
-                :temp=r.temp
-                :people=r.people
+                :temp="r.temp"
+                :people="r.people"
                 @select="emit('toggle-select', $event)"
                 @edit="handleOpenEdit"
               />

@@ -8,6 +8,7 @@ import { makeRequest } from '@/composables/useApi.ts'
 import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
+import { useBuildingsStore } from '@/stores/buildings.ts'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domain.ts'
 import { useNotificationStore } from '@/stores/notification.ts'
 
@@ -25,48 +26,18 @@ const isLoadingQr = ref(false)
 const { t } = useI18n()
 const authStore = useAuthStore()
 const domainsStore = useDomainsStore()
+const buildingsStore = useBuildingsStore()
 const subdomainsStore = useSubdomainsStore()
 const notificationStore = useNotificationStore()
 
 const handleAddDomain = async (payload: DomainToAddWithVisibilityPayload) => {
   isSubmitting.value = true
-  const accountName = authStore.accountName
 
   try {
-    if (!accountName) throw new Error('Missing account name in auth store')
-
-    const masterDomain = payload.masterDomain?.trim().toLowerCase()
-    const endpoint = masterDomain
-      ? `/auth/subdomains/${encodeURIComponent(masterDomain)}`
-      : '/auth/domains'
-
-    const normalizedName = payload.name.trim().toLowerCase()
-    const domainName =
-      masterDomain && !normalizedName.endsWith(`.${masterDomain}`)
-        ? `${normalizedName}.${masterDomain}`
-        : normalizedName
-
-    const body = {
-      ...payload,
-      name: domainName,
-      creatorUsername: accountName,
-    }
-
-    delete body.masterDomain
-
-    const response = await makeRequest(endpoint, 'POST', {
-      body: JSON.stringify(body),
-    })
-
-    if (!response.ok) {
-      const err = await response.json()
-      throw new Error(err.error || 'Failed to create domain')
-    }
-
+    await domainsStore.createNewDomain(payload)
     const isSub = !!payload.masterDomain?.trim()
     if (isSub) subdomainsStore.invalidate()
     else domainsStore.invalidate()
-
     await getAllSubdomains()
     isAddDomainModalOpen.value = false
   } catch (error) {
@@ -80,12 +51,7 @@ const handleSelectDomain = async (domainName: string) => {
   selectedDomain.value = domainName
   isLoadingQr.value = true
   try {
-    const accountName = authStore.accountName
-    if (!accountName) throw new Error('Missing account name in auth store')
-    const response = await makeRequest(`/auth/domains/${domainName}/totp/qr/${accountName}`)
-    if (!response.ok) throw new Error('Failed to fetch QR codes')
-    const data = await response.json()
-    qrCodes.value = data.qrCodes
+    qrCodes.value = await domainsStore.getDomainQRs(domainName)
   } catch (e) {
     console.error(e)
   } finally {
@@ -111,43 +77,7 @@ const handleFileUpload = async (event: Event) => {
   try {
     isUploading.value = true
     const payload = JSON.parse(await file.text())
-
-    payload.name = typeof payload?.name === 'string' && payload.name.trim() ? payload.name : payload?.id
-
-    if (Array.isArray(payload.rooms)) {
-      payload.rooms = payload.rooms.map((room: any) => ({
-        ...room,
-        name: typeof room?.name === 'string' && room.name.trim() ? room.name : room?.id,
-      }))
-    }
-
-    if (targetUploadDomain.value) {
-      payload.domains = [targetUploadDomain.value]
-    }
-
-    const response = await makeRequest(`/twin/register`, 'POST', {
-      body: JSON.stringify(payload),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to register twin model')
-    }
-
-    const createdBuilding = await response.json()
-    const thresholdResponse = await makeRequest('/sensor/thresholds/buildings', 'POST', {
-      body: JSON.stringify({
-        buildingId: createdBuilding.id,
-        rooms: Array.isArray(createdBuilding.rooms)
-          ? createdBuilding.rooms.map((room: any) => ({
-              id: room.id,
-            }))
-          : [],
-      }),
-    })
-
-    if (!thresholdResponse.ok) {
-      throw new Error('Failed to initialize temperature thresholds')
-    }
+    await buildingsStore.register(payload, targetUploadDomain.value || '')
   } catch (e) {
     console.error('Upload failed', e)
     alert(t('model.controls.uploadFailed'))
