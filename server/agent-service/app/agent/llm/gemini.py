@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
-from google import genai
+import google.genai as genai
 from google.genai import types as genai_types
 
 from app.agent.llm.base import ChatTurn, Completion, CompletionUsage, ToolCall, ToolSchema
@@ -67,7 +67,7 @@ def _tools_to_genai(tools: list[ToolSchema]) -> list[genai_types.Tool]:
         genai_types.FunctionDeclaration(
             name=t.name,
             description=t.description,
-            parameters=t.parameters,
+            parameters=genai_types.Schema(**t.parameters),
         )
         for t in tools
     ]
@@ -150,7 +150,9 @@ class GeminiClient:
         config = genai_types.GenerateContentConfig(
             system_instruction=system,
             temperature=temperature,
-            tools=_tools_to_genai(tools) if tools else None,
+            tools=cast(
+                "genai_types.ToolListUnion | None", _tools_to_genai(tools) if tools else None
+            ),
         )
 
         def _call():
