@@ -1,6 +1,9 @@
 # TODO: re-enable these tests once the prompts module is stabilized.
 # Imports kept (noqa) so we don't have to re-add them when un-parking the tests below.
-from app.agent.prompts import IDK_MARKER, SYSTEM_PROMPT  # noqa: F401
+from app.agent.prompts import (  # noqa: F401
+    IDK_MARKER,  # pyright: ignore[reportUnusedImport]
+    SYSTEM_PROMPT,  # pyright: ignore[reportUnusedImport]
+)
 
 
 # def test_system_prompt_enforces_idk():
