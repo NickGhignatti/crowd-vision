@@ -1,3 +1,10 @@
+## [2.11.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.11.0...v2.11.1) (2026-05-02)
+
+
+### Bug Fixes
+
+* improve stores usage ([0acb035](https://github.com/NickGhignatti/crowd-vision/commit/0acb035e1d94bb8ce3d10fd80e8e554a98cbccce))
+
 # [2.11.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.10.2...v2.11.0) (2026-05-02)
 
 
