@@ -6,9 +6,9 @@ import hashlib
 
 # TODO: re-enable the integration test below once the ingest pipeline is stable.
 # Imports kept (noqa) so we don't have to re-add them when un-parking the test.
-import pytest  # noqa: F401
+import pytest  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
-from app.services.ingest import ingest_document  # noqa: F401
+from app.services.ingest import ingest_document  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
 
 class FakeEmbedder:

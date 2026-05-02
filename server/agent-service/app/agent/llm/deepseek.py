@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from openai import AsyncOpenAI
 
@@ -11,6 +11,8 @@ from app.config import get_settings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolUnionParam
 
 
 class DeepSeekClient:
@@ -26,7 +28,7 @@ class DeepSeekClient:
     async def complete(self, messages: list[dict], temperature: float = 0.2) -> Completion:
         resp = await self._client.chat.completions.create(
             model=self.model,
-            messages=messages,
+            messages=cast("list[ChatCompletionMessageParam]", messages),
             temperature=temperature,
         )
         text = resp.choices[0].message.content or ""
@@ -45,7 +47,7 @@ class DeepSeekClient:
     async def stream(self, messages: list[dict], temperature: float = 0.2) -> AsyncIterator[str]:
         stream = await self._client.chat.completions.create(
             model=self.model,
-            messages=messages,
+            messages=cast("list[ChatCompletionMessageParam]", messages),
             temperature=temperature,
             stream=True,
         )
@@ -82,9 +84,9 @@ class DeepSeekClient:
 
         resp = await self._client.chat.completions.create(
             model=self.model,
-            messages=oai_messages,
+            messages=cast("list[ChatCompletionMessageParam]", oai_messages),
             temperature=temperature,
-            tools=oai_tools,
+            tools=cast("list[ChatCompletionToolUnionParam] | None", oai_tools),
         )
         msg = resp.choices[0].message
         calls: list[ToolCall] = []
