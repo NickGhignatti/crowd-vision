@@ -1,3 +1,10 @@
+## [2.11.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.11.1...v2.11.2) (2026-05-04)
+
+
+### Bug Fixes
+
+* QR store + doc typo ([#172](https://github.com/NickGhignatti/crowd-vision/issues/172)) ([cf72d65](https://github.com/NickGhignatti/crowd-vision/commit/cf72d650eff77b72da1e396b403ce942d6083a26))
+
 ## [2.11.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.11.0...v2.11.1) (2026-05-02)
 
 
