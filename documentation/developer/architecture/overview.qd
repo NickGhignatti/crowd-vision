@@ -92,9 +92,9 @@ In Kubernetes mode, Caddy is replaced by an **nginx Ingress Controller**. The co
             NotifPod -->|PUBLISH| RedisPod
         end
 
-A key architectural difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it communicates with the cluster through the load balancer's public port, just like a browser would. See the [External Sensor Simulator](page-15.qd) page for the full explanation.
+A key architectural difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it communicates with the cluster through the load balancer's public port, just like a browser would. See the [External Sensor Simulator](../config/sensor-simulator.qd) page for the full explanation.
 
-For a deep dive into the Kubernetes-specific configuration — StatefulSets, Secrets, Ingress rules, and the cluster setup — see the [Kubernetes Architecture](page-14.qd) page.
+For a deep dive into the Kubernetes-specific configuration — StatefulSets, Secrets, Ingress rules, and the cluster setup — see the [Kubernetes Architecture](kubernetes.qd) page.
 
 ---
 
@@ -148,7 +148,7 @@ This is achieved using Redis Pub/Sub to decouple the data ingestion from the dat
         participant SocketSvc as Socket Service
         participant VueClient as Vue Frontend
 
-        Sensor->>NotifSvc: POST /notification/trigger (Data Payload)
+        Sensor->>NotifSvc: POST /notification/push/temperature (Data Payload)
         activate NotifSvc
         Note over NotifSvc: Evaluate limits (overcrowding / maxTemp)
         NotifSvc->>Redis: redisClient.publish('notifications', payload)

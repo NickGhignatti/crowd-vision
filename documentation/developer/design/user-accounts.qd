@@ -1,0 +1,117 @@
+.docname {Users and Account}
+.include {docs}
+
+Identity and Access Management (IAM) in CrowdVision is handled exclusively by the **Auth Service**. Because of our Database-per-Service architecture, it is critical that user identity and organizational permissions are perfectly structured so that other services can securely authorize actions without relying on cross-database queries.
+
+---
+
+## 👤 The Account Entity
+
+The `Account` is the central identity record in the system. 
+
+.code lang:{typescript} 
+    export interface IAccount extends Document {
+        name: string;
+        email: string;
+        password: string;
+        memberships: IDomainMembership[];
+        totpSecret?: string;
+    }
+
+### The "Embedded Memberships" Design Choice
+Notice that an account's organizational permissions (memberships) are embedded directly as an array of subdocuments within the Account document itself.
+* **Why we did this:** In standard SQL relational design, memberships would be a join table (e.g., `account_domains`). However, in CrowdVision, every single login or token refresh requires evaluating all of a user's permissions. By embedding them, a single `Account.findOne()` query retrieves the user's identity and their entire permission matrix instantly.
+* **The Trade-off:** We trade slight write-complexity (updating memberships requires array manipulation in Mongo) for massive read-performance. Given the low cardinality of memberships (a user rarely belongs to more than a few domains), this is the optimal design choice.
+* **Payload Ceiling:** *Note that because these memberships are later embedded into JWTs under the `accountMemberships` key, this design implies a hard ceiling on how many domains a single user can join before HTTP header size limits (usually ~8KB) are breached.*
+
+---
+
+## ⚖️ Role-Based Access Control (RBAC)
+CrowdVision utilizes a *Hierarchical Weight System* to evaluate roles. Instead of explicitly defining what every single role can do, roles are assigned a numeric weight.
+If a route requires a `business_staff` role, the system checks if the user's role weight is greater than or equal to the required weight. The weights are defined as a `const` object in `server/auth-service/src/models/role.ts` and are shared across all services.
+
+.var {headers}
+   - Role Name
+   - Internal Weight
+   - Privileges
+
+.tablebyrows {.headers}
+    - - Admin
+      - 100
+      - Full system control, can manage other domains.
+    - - Business Admin
+      - 80
+      - Organization owner, can manage buildings, sensors, and generate invite codes.
+    - - Business Staff
+      - 60
+      - Facility managers, can edit room properties (capacity, temp thresholds).
+    - - Standard Customer
+      - 10
+      - General users/viewers. By default, all new accounts are assigned this role.
+
+---
+
+## 🛡️ The Authorization Middleware
+To protect routes, developers use the `requireAuthorization(requiredLevel)` middleware, defined in `server/auth-service/src/models/role.ts`.
+
+### How the Token is Read
+CrowdVision uses **httpOnly cookies** as the primary transport for JWTs. When `requireAuthentication` runs first in the middleware chain, it reads the token from the cookie and attaches the decoded payload to `req.account`. `requireAuthorization` then reads from `req.account` directly, bypassing the need to re-parse the header.
+
+If `requireAuthentication` has not run (e.g., on a public route using `requireAuthorization` standalone), the middleware falls back to reading a `Bearer` token from the `Authorization` header.
+
+.mermaid 
+    flowchart TD
+        A[Incoming Request<br/>e.g., DELETE /twin/buildings/:domainName] --> B{req.account set<br/>by requireAuthentication?}
+        B -- Yes --> E[Use existing token payload]
+        B -- No --> B2{Has Bearer Token<br/>in Authorization header?}
+        B2 -- No --> C[401 Unauthorized]
+        B2 -- Yes --> D{Verify JWT Signature}
+        
+        D -- Invalid/Expired --> F[403 Forbidden]
+        D -- Valid --> E
+        
+        E --> G{Is domainName<br/>in params?}
+        
+        G -- Yes --> H[Filter accountMemberships to<br/>only match requested domain]
+        G -- No --> I[Evaluate all accountMemberships<br/>for Global Admin]
+        
+        H --> J{Does ANY candidate membership<br/>have Weight >= Required Weight?}
+        I --> J
+        
+        J -- No --> F
+        J -- Yes --> K[Allow Access]
+
+### Contextual Evaluation (`domainName`)
+If the Express route includes `domainName` as a parameter (e.g., `/:domainName/rooms`), the middleware filters the user's embedded `accountMemberships` and ensures their weight is sufficient only for that specific domain context.
+
+A user might be a `business_admin` in the "Main Campus" domain, but only a `standard_customer` in the "Engineering Lab" domain. The same token is valid for both — the middleware evaluates the correct membership based on the URL.
+
+> **⚠️ API Design Rule: URL Context**
+> Because the middleware is strictly stateless, it cannot query the database to find out which domain a `roomId` or `sensorId` belongs to. Therefore, **all protected API routes MUST be nested under the domain parameter.**
+> * **DO:** `PATCH /domains/:domainName/rooms/:roomId`
+> * **DON'T:** `PATCH /rooms/:roomId` (The middleware will not know which domain to check permissions for).
+
+---
+
+## 🔑 Role Elevation (The Invite System)
+When a user signs up, they default to `standard_customer`. To be elevated to `business_staff` or `business_admin` without an Admin manually intervening, CrowdVision uses **Domain TOTP Secrets** (Time-Based One-Time Passwords).
+
+1. **Domain Creation:** When an organization is created, the system generates cryptographic `totpSecrets` for roles at or above `business_staff` — meaning a separate rotating secret is created for `business_staff` and `business_admin`.
+2. **Invite Generation:** A current Business Admin opens the QR generator in the dashboard. The client calls `GET /domains/:domainName/totp/qr/:accountName`, which uses the stored `totpSecret` to produce a live, rotating 6-digit OTP code encoded as a scannable QR code.
+3. **Role Claiming at Registration:** The only way to claim an elevated role is to submit the 6-digit OTP code in the `otp` field of the **registration request body** (`POST /register`). There is currently no endpoint to claim a role on an existing account after creation.
+4. **Validation:** The Auth Service scans every domain's `totpSecrets`, validates the submitted OTP against each role's secret (with a ±1 time-step window), and — if a match is found — **replaces** the account's existing membership for that domain with the matched role via `grantTOTPRoles`.
+
+---
+
+## 🛠️ Architecture Roadmap & Suggested Fixes
+*This section outlines technical debt and planned architectural updates for the IAM system.*
+
+1. **Implement Rate-Limiting on Role Claiming:**
+   * *Issue:* The TOTP invite system relies on a 6-digit code (1,000,000 combinations) valid for a short time window. Without rate-limiting, a malicious script could brute-force the `/register` endpoint with repeated OTP guesses.
+   * *Fix Required:* Implement an IP-based and Account-based rate limiter (e.g., using Redis) on the registration endpoint for requests that include an `otp` field. Lock out or apply progressive delays after 3–5 failed OTP attempts.
+2. **Post-Registration Role Claiming:**
+   * *Issue:* Users currently can only submit an OTP invite code at registration time. There is no way for an existing account to claim an elevated role (e.g., if they receive an invite link after already having signed up).
+   * *Fix Required:* Add a dedicated authenticated endpoint (e.g., `POST /me/claim-role`) that accepts an OTP and calls `grantTOTPRoles` on the authenticated user's account.
+3. **Evaluate Horizontal Permissions:**
+   * *Issue:* The current hierarchical weight system (10, 60, 80, 100) assumes higher roles always inherit lower role abilities.
+   * *Fix Required:* If we ever introduce actions that a `standard_customer` can perform but a `business_admin` cannot (or vice versa in specific contexts), we will need to transition from a pure weight system to a hybrid system using explicit feature flags or a permissions matrix.

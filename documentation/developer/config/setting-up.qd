@@ -1,0 +1,146 @@
+.docname {Setting Up the Environment}
+.include {docs}
+
+Welcome to the CrowdVision developer setup guide. Because CrowdVision is a multi-service architecture with real-time sockets, push notifications, and AI capabilities, getting the local environment running requires setting up several databases, environment variables, and cryptographic secrets. 
+
+Don't worry—we've provided scripts to automate the hardest parts.
+
+---
+
+## 🛠️ 1. Prerequisites
+
+Before cloning the repository, ensure your local machine has the following tools installed:
+
+*   **Node.js** (v18+ recommended)
+*   **Docker & Docker Compose** (For running the isolated databases and services)
+*   **Python 3.10+** (Required for the `agent-service`)
+*   **Git**
+*   **A local Kubernetes cluster & kubectl** (If you plan to deploy via k8s)
+
+Once you have cloned the repository, install the monorepo dependencies. CrowdVision uses Lerna to manage workspace packages.
+
+.code lang:{bash}
+    git clone https://github.com/NickGhignatti/crowd-vision.git
+    cd crowd-vision
+    npm install
+
+---
+
+## 🔐 2. Environment Variables & Secrets
+
+Microservices require secrets to communicate securely, encrypt tokens, and send push notifications. **Never commit `.env` files to version control.** 
+
+Create a `.env` file in the root of your project. Below is the master template of required variables:
+
+.code lang:{bash}
+    # --- CORE SECRETS ---
+    # The master key used by Auth, Twin, and Notification services to sign/verify JWTs
+    JWT_SECRET=your_super_secure_random_string_here
+
+    # --- DATABASES ---
+    # Used by docker-compose.dbs.yml
+    AUTH_DB_URI=mongodb://localhost:27017/auth
+    TWIN_DB_URI=mongodb://localhost:27018/twin
+    SENSOR_DB_URI=mongodb://localhost:27019/sensor
+    NOTIFICATION_DB_URI=mongodb://localhost:27020/notification
+    REDIS_URI=redis://localhost:6379
+
+    # --- WEB PUSH (VAPID) ---
+    VAPID_PUBLIC_KEY=
+    VAPID_PRIVATE_KEY=
+    VAPID_SUBJECT=mailto:admin@yourdomain.com
+
+    # --- AI AGENT SERVICE ---
+    # Required for the Python LLM Agent
+    GEMINI_API_KEY=your_google_gemini_key
+    # DEEPSEEK_API_KEY=your_deepseek_key_here (if using DeepSeek)
+
+.box type:{warning}
+    **Security Note:** All microservices that share the `JWT_SECRET` must have the exact same string in their environment context, otherwise cross-service authorization (Stateless Trust) will fail with a `401 Unauthorized`.
+
+### Generating VAPID Keys
+To securely send web push notifications, you need a VAPID key pair. Do not invent these manually. We have provided a utility script to generate cryptographically sound keys.
+
+Run the following command and copy the output into your `.env` file:
+
+.code lang:{bash}
+    node scripts/vapid.js
+
+---
+
+## 🐳 3. Spinning Up via Docker Compose (Local Dev)
+
+If you are developing locally without Kubernetes, you generally want to run the databases in Docker, but keep the Node/Vue services running directly on your host machine for hot-reloading.
+
+### Start the Databases
+This command spins up the isolated MongoDB instances for Auth, Twin, Sensor, and Notifications, along with the Redis message broker.
+
+.code lang:{bash}
+    docker-compose -f docker-compose.dbs.yml up -d
+
+*Verify they are running by typing `docker ps`.*
+
+### Start the Services
+With your databases running, you can launch the application services via your local Node environment for hot-reloading across the monorepo:
+
+.code lang:{bash}
+    npx lerna run dev --parallel
+
+---
+
+## 🌱 4. Bootstrapping the System (Provisioning)
+
+With empty databases, you cannot log in. You need an initial Global Admin account and a default Domain to access the dashboard.
+
+We have provided provisioning scripts to seed your local databases safely.
+
+.code lang:{bash}
+    # Provision the initial Admin account and default Domain
+    node scripts/provision.js
+    
+    # Or, if you need to create additional admin users manually:
+    node scripts/admin.js create --email admin@local.dev --password securepass
+
+*(Note: If you are working on the Python AI Agent, you can also use `python seed.py` within the `server/agent-service/` directory to load initial RAG context).*
+
+---
+
+## ☸️ 5. Kubernetes Deployment
+
+If you are deploying CrowdVision to a local or remote Kubernetes cluster, you must apply the configurations in a specific order to ensure secrets and databases are available before the microservices spin up.
+
+### Step 1: Create the Namespace & ConfigMaps
+First, isolate the environment and apply non-sensitive configuration data.
+
+.code lang:{bash}
+    kubectl apply -f k8s/namespace.yml
+    kubectl apply -f k8s/configmaps/
+
+### Step 2: Inject Secrets
+Because we never commit secrets to the repository, you must create a Kubernetes Secret manually using the values from your `.env` file. Assuming your deployments look for a secret named `crowd-vision-secrets` in the `crowd-vision` namespace, run:
+
+.code lang:{bash}
+    kubectl create secret generic crowdvision-secrets \
+      --namespace=crowdvision \
+      --from-literal=JWT_SECRET="your_super_secure_random_string_here" \
+      --from-literal=VAPID_PUBLIC_KEY="your_vapid_public" \
+      --from-literal=VAPID_PRIVATE_KEY="your_vapid_private" \
+      --from-literal=VAPID_SUBJECT="mailto:admin@yourdomain.com" \
+      --from-literal=GEMINI_API_KEY="your_google_gemini_key"
+
+### Step 3: Start Stateful Services (Databases)
+Spin up Mongo and Redis. Wait for these pods to be fully `Running` before proceeding.
+
+.code lang:{bash}
+    kubectl apply -f k8s/stateful/
+    kubectl get pods -n crowdvision -w
+
+### Step 4: Start Microservices & Ingress
+Once the databases are ready and the secrets are injected, deploy the backend services, the frontend client, and the ingress controller routing.
+
+.code lang:{bash}
+    kubectl apply -f k8s/deployments/
+    kubectl apply -f k8s/ingress.yml
+
+### Accessing the Platform
+Depending on your cluster setup and Ingress configuration, the platform will be available at the host defined in your `k8s/ingress.yml` file (e.g., `http://crowdvision.local`). Ensure your local `/etc/hosts` file maps the ingress host to your cluster's IP.

@@ -1,18 +1,19 @@
-.docname {Analytics Graphs & Sensor Simulation}
+.docname {Dashboard: Digital Twin Analytics}
 .include {docs}
 
-The **Graph view** is the analytics command centre of CrowdVision. It presents time-series charts for occupancy and temperature across an entire building, and provides controls for managing the sensor simulator.
-
-Switch to Graph view using the **toggle in the top-left corner** of the dashboard.
+When you switch the Dashboard from the default "List" view to the "Graph" view, you access the visual analytics engine. This section provides a deeper look into historical trends and simulated data for your selected building.
 
 ---
 
-## 📈 The Charts
+## The Sensor View (Graphs)
 
-The Graph view displays two line charts side by side:
+The Sensor View transforms raw data into easy-to-read charts, helping administrators identify patterns over time. The dashboard focuses on two primary data streams:
 
-* **People Occupancy** — shows how the total headcount in the building has changed over time.
-* **Temperature** — shows how the average temperature across the building has changed over time.
+*   **Occupancy (People Count) Graph:** This graph visualizes the number of people inside the selected spaces. It helps administrators understand traffic flow, peak usage hours, and whether rooms consistently hit their maximum capacity thresholds.
+*   **Temperature Graph:** This graph tracks the climate of the selected rooms. By monitoring temperature trends against maximum thresholds, administrators can ensure student comfort and HVAC efficiency.
+
+**Historical Data Tracking:**
+The graphs don't just show real-time numbers; they aggregate historical data points over specific time ranges. The system calculates the average, maximum, and minimum values for both people count and temperature, allowing you to review past events and trends.
 
 Both charts are driven by data aggregated from the sensor database. They update automatically according to the selected time range.
 
@@ -49,7 +50,7 @@ Because a building has many rooms, the charts aggregate all room readings into a
 
 ## 🤖 Sensor Simulation
 
-The Graph view includes controls for the **Sensor Simulator** — a tool that generates synthetic occupancy and temperature readings when physical sensors are not available (during demos, development, or testing).
+CrowdVision includes a built-in Simulator feature. This is incredibly useful for testing the system, demonstrating the platform, or simulating emergency crowding scenarios without needing active, physical sensors.
 
 .box type:{note}
     The simulator is a separate service that runs independently from the main application. Before using the simulation controls, an administrator or developer must start the simulator container on their machine and provide you with its URL. See the section below for details.

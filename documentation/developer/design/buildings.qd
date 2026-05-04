@@ -1,0 +1,174 @@
+.docname {Buildings}
+.include {docs}
+
+The Building domain model is the physical core of CrowdVision's digital twin paradigm. It is entirely responsible for storing the 3D spatial layout of a facility alongside the static operational parameters of its rooms.
+
+---
+
+## 🏢 The Building Aggregate
+
+The `Building` acts as the Aggregate Root for all spatial data, managed by the Twin Service in its own isolated `twin-db`.
+
+.code lang:{typescript}
+    export interface IBuilding {
+        id: string;
+        name: string;
+        rooms: Room[];
+        domains: string[];
+    }
+
+### The Decoupled Multi-Tenancy Design
+Notice that the `domains` array contains plain strings, not MongoDB `ObjectId` references.
+- *Why we did this*: The Twin Service operates on a completely isolated database (`twin-db`). It cannot execute a join against the Auth Service's `Domain` collection. By storing the domain `name` directly as a string, the Twin Service can independently authorize requests by matching these strings against the domain names embedded in the user's JWT — with zero inter-service communication.
+
+---
+
+## 🚪 The Room Entity
+A `Building` is composed of an array of `Room` entities stored as embedded subdocuments. Embedding ensures that fetching a building returns its complete 3D geometry in a single query.
+
+.code lang:{typescript}
+    export interface Room {
+        id: string;
+        name: string;
+        capacity: number;
+        position: Coordinates;
+        dimensions: Dimensions;
+        color?: string;
+    }
+
+The Twin Service Room is intentionally **sparse**. It stores only structural and organizational data — identity, capacity, visual styling, and spatial placement. It does not store any live sensor readings or safety thresholds.
+
+Both `name` fields (`IBuilding.name` and `Room.name`) default to their respective `id` if left blank, both at schema level and via a `backfillNames` function that runs on every read, patching legacy records on the fly without a migration script.
+
+---
+
+## 📐 Spatial Value Objects
+To render the 3D Digital Twin on the frontend using TresJS, the backend must provide exact spatial coordinates. CrowdVision strictly types these as Value Objects with `_id: false` in their Mongoose schemas — they have no identity of their own and only exist as descriptors of the Room.
+
+.mermaid
+    classDiagram
+        class Room {
+            +String id
+            +String name
+            +Number capacity
+            +String color
+        }
+
+        class Coordinates {
+            <<Value Object>>
+            +Number x
+            +Number y
+            +Number z
+        }
+
+        class Dimensions {
+            <<Value Object>>
+            +Number width
+            +Number height
+            +Number depth
+        }
+
+        Room "1" *-- "1" Coordinates : position
+        Room "1" *-- "1" Dimensions : dimensions
+
+- `Coordinates` (x, y, z): The exact center-point of the room block in the 3D scene.
+- `Dimensions` (width, height, depth): The volumetric size of the room block.
+
+---
+
+## 🗂️ The Three-Layer Data Model
+A complete "room view" as seen by the frontend is assembled from three separate data sources, each living in a different service and database.
+
+.mermaid
+    graph TD
+        subgraph twin-db
+            TwinRoom["Room (Twin Service)<br/>id, name, capacity<br/>position, dimensions, color"]
+        end
+
+        subgraph sensor-db
+            Threshold["BuildingThreshold (Sensor Service)<br/>maxTemperature per room"]
+            TimeSeries["Time-Series Signals (Sensor Service)<br/>live temperature, headcount"]
+        end
+
+        Frontend["Frontend Room View<br/>(assembled by the client)"]
+
+        TwinRoom --> Frontend
+        Threshold --> Frontend
+        TimeSeries --> Frontend
+
+- *Static / Structural* (`twin-db`): The spatial layout and capacity. Changes only when a building is reconfigured.
+- *Threshold / Safety* (`sensor-db`, `BuildingThreshold` collection): Per-room and per-building `maxTemperature` limits. Changes when an admin edits room safety parameters.
+- *Live / Operational* (`sensor-db`, `Temperature` and `PeopleCount` collections): Time-series readings from the IoT sensors. Updated every ~10 seconds by the simulator or physical devices.
+
+The Twin Service owns the first layer. The Sensor Service owns both the second and third.
+
+---
+
+## 🪞 The Sensor Service's `BuildingThreshold` Shadow
+
+To evaluate whether a temperature reading exceeds a room's safety threshold, the Sensor Service needs to know each room's `maxTemperature` limit. It has two options: query the Twin Service on every incoming sensor reading, or maintain a local copy with only the fields it needs.
+
+CrowdVision uses the second approach. The Sensor Service stores a lightweight `BuildingThreshold` document in its own database — a **shadow** of the building containing only alerting-relevant data.
+
+.code lang:{typescript}
+    // sensor-service/src/models/buildingThreshold.ts
+    export interface BuildingThreshold {
+        buildingId: string;
+        maxTemperature: number;   // building-level default (default: 27°C)
+        rooms: ThresholdRoom[];
+    }
+
+    export interface ThresholdRoom {
+        id: string;
+        maxTemperature: number;   // room-level override
+    }
+
+This shadow is kept in sync automatically. The Twin Service calls `syncBuildingClone` via an internal HTTP call to `PUT /sensor/thresholds/buildings/:buildingId` after every operation that mutates a building:
+- `POST /twin/register` — creates the threshold clone with the building's rooms
+- `PATCH /twin/building/:buildingId` — updates the clone (can optionally pass a new `maxTemperature`)
+- `PATCH /twin/building/:buildingId/room/:roomId` — re-syncs the clone to reflect updated room metadata
+
+### Threshold Resolution Priority
+
+When a temperature signal arrives, `resolveThreshold` applies a three-level fallback:
+
+.mermaid
+    flowchart TD
+        A[Temperature reading arrives<br/>buildingId + roomId] --> B{Room-specific threshold<br/>in BuildingThreshold?}
+        B -- Yes --> C[Use room maxTemperature]
+        B -- No --> D{Building-level maxTemperature<br/>set in BuildingThreshold?}
+        D -- Yes --> E[Use building maxTemperature]
+        D -- No --> F[Use default: 27°C]
+
+### Building-Level Threshold Cascade
+
+When a building's `maxTemperature` is updated via `PATCH /twin/building/:buildingId`, the Sensor Service applies a **cascade rule**: any room whose current threshold exactly equals the previous building-level value is also updated to the new value. Rooms with a custom per-room override are left untouched.
+
+This means a building's `maxTemperature` acts as a template value for all rooms that have not been individually configured.
+
+---
+
+## ⚙️ The Digital Twin Lifecycle (CRUD)
+
+Managing buildings is a two-step lifecycle process.
+
+### 1. Deployment (`POST /twin/register`)
+A building cannot be created room-by-room via the UI. The entire physical structure must be defined in a JSON payload containing the full array of rooms with their coordinates and dimensions. An administrator uploads this via the Dashboard, which POSTs it to the Twin Service.
+
+On registration, the Twin Service immediately calls `syncBuildingClone` to create the corresponding `BuildingThreshold` record in the Sensor Service with the default `maxTemperature` of 27°C applied to all rooms.
+
+### 2. Runtime Mutations
+Once deployed, physical spaces often change. A lecture hall might have its capacity reduced for an exam. Instead of forcing a full re-upload, the Twin Service exposes targeted endpoints:
+
+.var {headers}
+   - Endpoint
+   - What it updates
+
+.tablebyrows {.headers}
+    - - `PATCH /twin/building/:buildingId`
+      - Building-level fields: `name`, `domains`, `maxTemperature` (forwarded to sensor clone).
+    - - `PATCH /twin/building/:buildingId/room/:roomId`
+      - Room-level fields: `id`, `name`, `color`, `capacity`. Re-syncs the threshold clone automatically.
+
+.box type:{note}
+    `maxTemperature` is not a field on the twin-service Room model and is not stored in `twin-db`. To update a room's temperature threshold, use the Sensor Service endpoints directly: `PATCH /sensor/thresholds/buildings/:buildingId` (building-level) or `PATCH /sensor/thresholds/buildings/:buildingId/rooms/:roomId` (room-level).

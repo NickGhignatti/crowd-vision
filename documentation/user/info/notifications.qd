@@ -1,0 +1,61 @@
+.docname {Notifications}
+.include {docs}
+
+CrowdVision's notification system is designed so that you never have to stare at the dashboard to stay informed. The platform watches incoming sensor data for you and delivers alerts through two independent channels — one for when you're actively using the app, and one for when you're away.
+
+---
+
+## 🔔 The Notification Bell
+
+The notification bell icon in the top navigation bar is your real-time alert feed. When a new alert arrives while you have the dashboard open, the bell turns red and displays a count of unread notifications.
+
+Clicking the bell opens a dropdown showing all recent alerts in the current session, each displaying the type of event, the affected building, and a timestamp. Alerts accumulate in the dropdown until you refresh or close the browser tab — there is no "mark as read" action required.
+
+The bell also shows a live indicator:
+* 🟢 **Live** — your browser is connected to the real-time event stream.
+* 🔴 **Offline** — the connection has been lost. Alerts arriving while disconnected will not appear in this session's list, though push notifications (if enabled) will still be delivered.
+
+---
+
+## 📲 Browser Push Notifications
+
+Push notifications allow CrowdVision to alert you even when the browser tab is closed or minimized. When an alert is triggered, your operating system will show a notification — the same way email or messaging apps do.
+
+### Enabling Push Notifications
+
+1. Navigate to the **Administrator Panel** or your domain settings.
+2. Locate the **Enable Notifications** option for a domain.
+3. Click it — your browser will display a permission prompt asking whether to allow CrowdVision to send notifications.
+4. Click **Allow**.
+
+Once allowed, CrowdVision registers your browser as a push target. This registration is per-browser — if you use CrowdVision on multiple devices or browsers, you will need to enable notifications on each one separately.
+
+.box type:{note}
+    You can revoke push notification permission at any time through your browser's site settings. If you do, the next alert sent to your device will automatically detect that the permission is gone and clean up your registration.
+
+### Opting In or Out Per Domain
+
+Your notification preferences are managed per domain. You can receive alerts for one organization while opting out of another.
+
+From the domain settings, toggle the **Temperature Alerts** switch for any domain to enable or disable that alert type. Your preference is saved immediately — no page reload required.
+
+---
+
+## ⚡ What Triggers an Alert
+
+CrowdVision monitors incoming sensor data continuously. Two types of events generate alerts:
+
+**Temperature threshold exceeded** — when a room's temperature surpasses its configured maximum, an alert is automatically dispatched. To prevent notification flooding from high-frequency sensor readings, a 5-minute cooldown is enforced per room. Once an alert fires, the same room will not trigger another alert for 5 minutes, even if the temperature remains elevated.
+
+**Manual alert** — an administrator can send an alert to all users in a domain directly from the Administrator Panel. Manual alerts bypass the cooldown and are sent immediately.
+
+---
+
+## 🔕 Not Receiving Notifications?
+
+A few things to check:
+
+* **Browser permission:** Open your browser's site settings and confirm CrowdVision is set to "Allow" for notifications — not "Block" or "Ask".
+* **Cooldown active:** Temperature alerts have a 5-minute cooldown. If an alert was sent recently for the same room, no new alert will fire until the cooldown expires.
+* **Opt-in status:** Confirm the relevant domain has temperature alerts enabled in your notification preferences.
+* **Live indicator:** Check the notification bell — if it shows 🔴 Offline, your real-time connection has dropped. Push notifications to your OS are independent of this, but in-app bell alerts require the connection to be active.

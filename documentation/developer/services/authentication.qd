@@ -1,0 +1,125 @@
+.docname {Authentication Service}
+.include {docs}
+
+The `auth-service` is the gatekeeper of CrowdVision. It is a Node.js/Express microservice responsible for Identity and Access Management (IAM). 
+
+Because CrowdVision utilizes a Stateless JWT authorization pattern, the Auth Service's primary job is to securely verify user identities, map their domain memberships, and cryptographically sign that data into tokens that the rest of the ecosystem (Twin, Sensor, Socket, Agent) can trust blindly.
+
+---
+
+## 🏗️ Architecture Overview
+
+The codebase follows a strict Controller-Service-Model separation of concerns:
+*   **Controllers (`authenticationController.ts`, `domainController.ts`, `administrationController.ts`):** Handle HTTP request parsing, input validation, and HTTP response formatting.
+*   **Services (`authenticationService.ts`, `domainService.ts`, `tokenService.ts`, `totpService.ts`):** Contain the core business logic, cryptography, and orchestration.
+*   **Models (`account.ts`, `domain.ts`, `role.ts`, `token.ts`):** Mongoose schemas defining the data structure in the Auth MongoDB database.
+
+---
+
+## 🔄 Flow 1: Standard Internal Login
+
+For domains using the `internal` auth strategy, users authenticate using an email and password managed directly by CrowdVision.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as Client (Vue)
+        participant API as API Gateway (Caddy)
+        participant AC as Auth Controller
+        participant AS as Auth Service
+        participant TS as Token Service
+        participant DB as Auth DB
+
+        C->>API: POST /api/auth/login (email, password)
+        API->>AC: Forward Request
+        AC->>AS: login(email, password)
+        AS->>DB: Account.findOne({ email })
+        DB-->>AS: Returns Account (with hashed password & memberships)
+        
+        alt Invalid Credentials
+            AS-->>AC: Throws AuthenticationError
+            AC-->>C: 401 Unauthorized
+        else Valid Credentials
+            AS->>TS: generateTokens(account)
+            TS->>DB: Store RefreshToken hash/metadata
+            TS-->>AS: { accessToken, refreshToken }
+            AS-->>AC: Return Tokens
+            AC-->>C: 200 OK + Tokens in payload/cookies
+        end
+
+**Technical Notes:**
+*   **Bcrypt:** Passwords are never stored in plaintext. `authenticationService.ts` handles hashing and comparing using bcrypt.
+*   **Embedded Memberships:** When the `Account` is retrieved from the DB, its `memberships` array is actively injected into the `accessToken` payload by the `TokenService`.
+
+---
+
+## 🔄 Flow 2: OIDC (SSO) Login with PKCE
+
+For enterprise tenants, CrowdVision acts as an OIDC Relying Party. To protect against authorization code interception and CSRF, this flow strictly enforces **PKCE (Proof Key for Code Exchange)** alongside an opaque state parameter.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as Client (Vue)
+        participant AC as Auth Controller
+        participant AS as Auth Service
+        participant Cache as Redis / Local Store
+        participant IdP as External IdP (Entra/Keycloak)
+
+        C->>AC: GET /auth/sso/login?domain=company.com
+        Note over AS: Generates PKCE Verifier & Challenge.<br/>Generates opaque `state`.
+        AS->>Cache: Encoded { state: { verifier, domain } }
+        AC-->>C: 302 Redirect to IdP Auth URL<br/>(includes challenge & state)
+        
+        C->>IdP: User authenticates
+        IdP-->>C: 302 Redirect to /auth/sso/callback?code=123&state=abc
+        C->>AC: GET /auth/sso/callback?code=123&state=abc
+        
+        AC->>Cache: Retrieve verifier using `state`
+        alt State Missing/Invalid
+            AC-->>C: 403 Forbidden (CSRF Prevention)
+        else State Valid
+            AS->>IdP: POST /token (code + PKCE verifier)
+            IdP-->>AS: Returns External ID Token & Access Token
+            AS->>AS: Map External User to Internal Account
+            AS->>AC: Generate Internal JWTs
+            AC-->>C: 200 OK + CrowdVision Tokens
+        end
+
+---
+
+## 🔄 Flow 3: Role Claiming via TOTP (Invite System)
+
+New users default to standard customer privileges. To elevate them to `business_admin` or `business_staff`, CrowdVision uses time-based codes generated from Domain-level cryptographic seeds.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant Admin as Business Admin
+        participant C as Client (New User)
+        participant AC as Auth Controller
+        participant TOTP as TOTP Service
+        participant DB as Auth DB
+
+        Admin->>Admin: Views live 6-digit code on dashboard
+        Admin->>C: Verbally/Visually shares code (e.g., "592811")
+
+        C->>AC: POST /auth/register (account-info, code)
+        Note over AC: Applies Strict Rate Limiting (Anti-Brute Force)
+        
+        AC->>DB: Get Domain `totpSecrets`
+        AC->>TOTP: verifyCode(inputCode, domainSecrets)
+        
+        alt Code Invalid
+            TOTP-->>AC: False
+            AC-->>C: 400 Bad Request
+        else Code Matches "business_staff" Secret
+            TOTP-->>AC: Match found for role "business_staff"
+            AC->>DB: Account.updateOne(...) -> push to memberships
+            AC-->>C: 200 OK (Role Granted)
+            Note over C: Client must now hit /auth/refresh<br/>to get a new JWT containing the new role.
+        end
+
+**Technical Notes (`totpService.ts`):**
+*   **Cryptographic Seeds:** The `totpSecrets` are generated securely upon Domain creation. They never leave the Auth database.
+*   **Client State Refresh:** Crucially, the backend updating the database does *not* magically update the user's current JWT. The client UI must proactively request a token refresh after a successful role claim so the new privileges are reflected in their Bearer token.

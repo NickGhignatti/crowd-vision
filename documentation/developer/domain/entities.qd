@@ -127,12 +127,13 @@ A Room only exists within the context of a Building.
 ---
 
 ## 🚨 Alerting Context
-This context is lightweight and focused entirely on message delivery.
+This context manages everything related to alert delivery. It holds two distinct aggregates that are deliberately kept in separate collections — one describing *where* to push (the device), and one describing *what* the user wants to receive (their preferences).
 
-.mermaid 
+.mermaid
     classDiagram
-        class Subscription {
+        class WebPushSubscription {
             <<Aggregate Root>>
+            +String accountName
             +String endpoint
             +Keys keys
         }
@@ -143,8 +144,30 @@ This context is lightweight and focused entirely on message delivery.
             +String auth
         }
 
-        Subscription "1" *-- "1" Keys : uses
+        class NotificationSubscription {
+            <<Aggregate Root>>
+            +String accountName
+            +String domainName
+            +SubscriptionPreference[] preferences
+        }
 
-### Aggregate: Subscription
-The Subscription model is strictly used by the Web Push protocol (VAPID).
-- It stores the unique browser endpoint and the cryptographic Keys required to encrypt and securely deliver a background push notification to an offline user's device.
+        class SubscriptionPreference {
+            <<Value Object>>
+            +NotificationType notificationType
+            +Boolean isSubscribed
+        }
+
+        WebPushSubscription "1" *-- "1" Keys : uses
+        NotificationSubscription "1" *-- "many" SubscriptionPreference : contains
+
+### Aggregate: WebPushSubscription
+Answers *"what device can I push to?"*
+- Stores the browser-issued push `endpoint` URL (unique per browser/device) and the VAPID encryption `Keys` (`p256dh` and `auth`) required to encrypt and deliver a background push notification to an offline user's device.
+- A single user can have multiple `WebPushSubscription` records if they use CrowdVision across multiple browsers or devices.
+- Records are auto-deleted when the push provider returns `410 Gone` or `403 Forbidden`, indicating the endpoint is permanently invalid.
+
+### Aggregate: NotificationSubscription
+Answers *"what does this user want to receive?"*
+- Stores per-domain, per-type opt-in preferences. The compound index `{ accountName, domainName }` is unique — there is exactly one `NotificationSubscription` per user per domain.
+- Currently `NotificationType` only has one value (`temperature`), but the enum is designed to be extended.
+- **Known interface mismatch:** The `INotificationSubscription` TypeScript interface declares the preferences array as `notificationTypes`, but the Mongoose schema field is named `preferences`. All runtime queries use `preferences`. The interface field name is stale and should be corrected.

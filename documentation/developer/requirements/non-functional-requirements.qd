@@ -18,5 +18,5 @@
 * **Why this is required:** Verifying tokens using middleware cryptography eliminates the need to query the database on every single API request. This drastically reduces latency and database load. A 3-hour expiry ensures that if a token is compromised, the window of vulnerability is short.
 
 ### 5. High-Performance Client Architecture
-* **The Requirement:** The Vue 3 frontend must avoid heavy global state managers (like Vuex or Pinia). Instead, it uses module-level reactive objects co-located in composables (e.g., `socketState`).
-* **Why this is required:** The dashboard receives potentially hundreds of WebSocket updates per minute. Heavy global stores introduce overhead and unnecessary re-renders. Using lightweight, co-located composables keeps the Javascript bundle size minimal and ensures the UI remains extremely responsive during data floods.
+* **The Requirement:** The Vue 3 frontend must be built around the performant behavior of making the less amount of API calls possible.
+* **Why this is required:** The dashboard receives potentially hundreds of WebSocket updates per minute.

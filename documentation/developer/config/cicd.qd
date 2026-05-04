@@ -1,0 +1,151 @@
+.docname {Release & CI/CD Pipeline}
+.include {docs}
+
+CrowdVision uses **Semantic Release** to fully automate versioning, `CHANGELOG.md` generation, and Docker image publishing to the GitHub Container Registry (GHCR). The pipeline is driven entirely by commit message prefixes — no manual version bumping is ever required.
+
+---
+
+## 📦 Commit Convention (Conventional Commits)
+
+Every commit message must follow the **Conventional Commits** format. The prefix before the colon determines what happens at release time.
+
+.var {headers}
+   - Prefix
+   - Example
+   - Effect
+
+.tablebyrows {.headers}
+    - - `feat:`
+      - `feat: add SSO support for Entra ID`
+      - **Minor** version bump (`1.1.0` → `1.2.0`)
+    - - `fix:`
+      - `fix: resolve JWT expiry off-by-one error`
+      - **Patch** version bump (`1.1.0` → `1.1.1`)
+    - - `docs:`
+      - `docs: update sensor service API reference`
+      - No version bump. Safe to merge freely.
+    - - `chore:`, `refactor:`, `test:`, `ci:`
+      - `chore: update dependencies`
+      - No version bump.
+    - - `BREAKING CHANGE:`
+      - `feat!: remove deprecated /auth/v1 endpoints`
+      - **Major** version bump (`1.1.0` → `2.0.0`)
+
+.box type:{warning}
+    Commits that do not follow this convention will be ignored by Semantic Release and will not appear in the `CHANGELOG.md`. Always use one of the prefixes above.
+
+---
+
+## 🚀 The Release Process
+
+Semantic Release is triggered manually via the root npm script. It is intended to be run after a feature branch is merged into `main` and all tests pass.
+
+.code lang:{bash}
+    # From the repository root — runs after merging to main
+    npm run release
+
+What the command does, in order:
+
+1. Reads all commits since the last Git tag.
+2. Calculates the next version number based on the commit prefixes found.
+3. Generates / updates `CHANGELOG.md` with categorized commit entries.
+4. Creates a new Git tag (e.g., `v1.4.0`).
+5. Publishes a GitHub Release with the changelog as the release notes.
+
+---
+
+## 🐳 Docker Image Publishing (GHCR)
+
+Docker images are built and pushed to the **GitHub Container Registry** at `ghcr.io/nickghignatti/` using the npm build scripts. This is a manual step — there is currently no automated CI pipeline that publishes images on push to `main`.
+
+### Build and push a single service
+
+.code lang:{bash}
+    # Build the image locally (uses the Dockerfile at the service root)
+    npm run k8s:build:auth        # auth-service
+    npm run k8s:build:twin        # twin-service
+    npm run k8s:build:sensor      # sensor-service
+    npm run k8s:build:notification
+    npm run k8s:build:socket
+    npm run k8s:build:agent
+    npm run k8s:build:client
+    npm run k8s:build:simulator
+
+    # Push to GHCR (requires docker login to ghcr.io)
+    docker push ghcr.io/nickghignatti/crowdvision-auth:latest
+
+### Build all images in parallel
+
+.code lang:{bash}
+    npm run k8s:build
+
+This uses `concurrently` to build all eight service images simultaneously. On a well-specced machine, the full build takes approximately 3–5 minutes.
+
+### Authenticate with GHCR
+
+.code lang:{bash}
+    # Generate a GitHub Personal Access Token with write:packages scope, then:
+    echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+
+---
+
+## 🧪 Running Tests Before a Release
+
+Always run the full test suite before triggering a release.
+
+.code lang:{bash}
+    npm test
+
+This runs all service test suites in parallel using `concurrently`:
+`test:auth`, `test:twin`, `test:notification`, `test:sensor`, `test:client`, `test:socket`.
+
+For the Python agent service specifically:
+
+.code lang:{bash}
+    # Unit tests only (no Docker required, sub-second)
+    cd server/agent-service && npm run test:unit
+
+    # Full test suite including integration tests (requires Docker for testcontainers)
+    cd server/agent-service && npm test
+
+---
+
+## 📋 Image Registry Reference
+
+.var {headers}
+   - Service
+   - GHCR Image
+
+.tablebyrows {.headers}
+    - - `auth-service`
+      - `ghcr.io/nickghignatti/crowdvision-auth:latest`
+    - - `twin-service`
+      - `ghcr.io/nickghignatti/crowdvision-twin:latest`
+    - - `sensor-service`
+      - `ghcr.io/nickghignatti/crowdvision-sensor:latest`
+    - - `notification-service`
+      - `ghcr.io/nickghignatti/crowdvision-notification:latest`
+    - - `socket-service`
+      - `ghcr.io/nickghignatti/crowdvision-socket:latest`
+    - - `agent-service`
+      - `ghcr.io/nickghignatti/crowdvision-agent:latest`
+    - - `client`
+      - `ghcr.io/nickghignatti/crowdvision-client:latest`
+    - - `sensor-simulator`
+      - `ghcr.io/nickghignatti/crowdvision-simulator:latest`
+
+All images are tagged `:latest`. Production Kubernetes deployments pull these images via the tags defined in `k8s/deployments/*.yml`.
+
+---
+
+## 🛠️ Roadmap: Automating the Pipeline
+
+Currently, both image publishing and the release step are manual. The intended next step is a GitHub Actions workflow that automates this on merge to `main`:
+
+1. Trigger: push to `main` (after PR merge).
+2. Run `npm test` across all services.
+3. If tests pass: run `npm run release` (Semantic Release tags and publishes release notes).
+4. Build all Docker images and push to GHCR.
+5. Optionally: trigger a rolling update in the staging Kubernetes cluster.
+
+The `k8s:build` and `k8s:update` npm scripts are already structured to be called from a CI runner without modification.

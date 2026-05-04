@@ -1,0 +1,153 @@
+.docname {Notifications}
+.include {docs}
+
+CrowdVision's notification system is designed around a fundamental distinction: users who are **actively watching the dashboard** need a different delivery mechanism than users who are **away from their browser**. The system addresses both with two parallel, independently-managed channels.
+
+---
+
+## 📡 Two Delivery Channels
+
+.mermaid
+    graph TD
+        Event["Alert Event<br/>(sensor threshold exceeded or manual trigger)"]
+
+        Event --> Redis["Redis pub/sub<br/>channel: 'notifications'"]
+        Event --> Push["Web Push (VAPID)<br/>pushService.ts"]
+
+        Redis --> Socket["Socket Service<br/>io.emit to all connected clients"]
+        Socket --> ActiveBrowser["Active Browser<br/>(in-app notification bell)"]
+
+        Push --> SW["Browser Service Worker<br/>(service-worker.js)"]
+        SW --> OS["OS Notification<br/>(works when tab is closed)"]
+
+**Channel 1 — WebSocket (active users):** The Notification Service publishes the alert payload to a Redis `notifications` channel. The Socket Service, which holds the persistent Socket.IO connections, subscribes to this channel and forwards every message to all connected browsers via `io.emit('notification', data)`. The client stores incoming events in a reactive `socketState.notifications` array, incrementing an unread badge counter on the notification bell.
+
+**Channel 2 — Web Push / VAPID (offline users):** The Notification Service uses the `web-push` library and VAPID keys to push an encrypted payload directly to the browser's push endpoint. A registered service worker (`/service-worker.js`) wakes up to display an OS-level notification, even if the CrowdVision tab is closed or the browser is minimized.
+
+Both channels fire on every alert. A user who is actively watching the dashboard receives both a real-time in-app update and an OS notification simultaneously.
+
+---
+
+## 🗃️ The Two-Model Design
+
+The Notification Service stores two separate documents per user in `notification-db`, deliberately kept apart.
+
+.mermaid
+    classDiagram
+        class WebPushSubscription {
+            +String accountName
+            +String endpoint
+            +String keys.p256dh
+            +String keys.auth
+        }
+
+        class NotificationSubscription {
+            +String accountName
+            +String domainName
+            +SubscriptionPreference[] preferences
+        }
+
+        class SubscriptionPreference {
+            <<Value Object>>
+            +NotificationType notificationType
+            +Boolean isSubscribed
+        }
+
+        NotificationSubscription "1" *-- "many" SubscriptionPreference
+
+**`WebPushSubscription`** answers *"what device can I push to?"* — it stores the browser-issued push endpoint URL and the VAPID encryption keys (`p256dh` and `auth`). The `endpoint` field is unique. A single user can have multiple records if they use multiple browsers or devices.
+
+**`NotificationSubscription`** answers *"what does this user want to receive?"* — it stores per-domain, per-type opt-in preferences. The compound index `{ accountName, domainName }` is unique, so there is exactly one preferences document per user per domain.
+
+The separation is intentional. A user can disable temperature alerts for a specific domain without losing their push endpoint registration. Conversely, if a user's push subscription expires, only `WebPushSubscription` needs to be rebuilt — their domain preferences are untouched.
+
+.box type:{warning}
+    **Known interface mismatch:** The `INotificationSubscription` TypeScript interface declares the field as `notificationTypes: SubscriptionPreference[]`, but the Mongoose schema defines it as `preferences`. All runtime queries and upserts use `preferences`, so the interface declaration is stale. It should be renamed to match.
+
+---
+
+## 🔔 The Subscription Setup Flow
+
+A user subscribing to push notifications follows this sequence entirely client-side before any server call is made:
+
+.mermaid
+    sequenceDiagram
+        participant U as User
+        participant Vue as Vue Frontend
+        participant SW as Browser (Service Worker)
+        participant NS as Notification Service
+
+        U->>Vue: Clicks "Enable Alerts"
+        Vue->>NS: GET /notification/public-key
+        NS-->>Vue: { publicVapidKey }
+        Vue->>SW: navigator.serviceWorker.register('/service-worker.js')
+        Vue->>SW: pushManager.getSubscription()
+
+        alt VAPID key has changed
+            SW-->>Vue: existing subscription (old key)
+            Vue->>SW: subscription.unsubscribe()
+            Vue->>SW: pushManager.subscribe({ applicationServerKey: newKey })
+        else No existing subscription
+            Vue->>SW: pushManager.subscribe({ applicationServerKey })
+        end
+
+        SW-->>Vue: PushSubscription { endpoint, keys }
+        Vue->>NS: POST /notification/subscribe<br/>{ accountName, subscription }
+        NS->>NS: Upsert WebPushSubscription
+        NS->>NS: Set default preferences (temperature: enabled)
+
+The VAPID key rotation check (`areKeysEqual`) prevents stale subscriptions from silently failing. If the server's public key has changed since the user last subscribed (e.g., after a key rotation), the old subscription is discarded and rebuilt before being sent to the server.
+
+---
+
+## 📤 Alert Dispatch: Automated vs. Manual
+
+Two distinct code paths produce alerts, with different triggering logic and throttling behaviour.
+
+### Automated: Temperature Alert (`POST /notification/push/temperature`)
+
+Called internally by the Sensor Service whenever a temperature reading exceeds a room's threshold. This path has a **5-minute Redis TTL cooldown** per `buildingId + roomId` pair, preventing notification spam from high-frequency sensor readings.
+
+The cache key format is: `temp_alert:{buildingId}:{roomId}`
+
+If the key exists in Redis, the request is silently acknowledged with `200 OK` and no push is sent. After a successful dispatch, the key is written with `EX 300`.
+
+When no `domainName` is provided in the request body, the service resolves the target domains by calling `GET /twin/domain/:buildingId` on the Twin Service through the internal gateway.
+
+### Manual: General Alert (`POST /notification/trigger`)
+
+Triggered by an administrator from the dashboard. This path has **no cooldown** — every call dispatches immediately. It:
+1. Resolves the building's domains via the Twin Service (`GET /twin/domain/:buildingName`).
+2. Publishes to the Redis `notifications` channel for live WebSocket delivery.
+3. Sends a Web Push to all opted-in users in each resolved domain.
+
+---
+
+## 🔇 Server-Side Domain Filtering: A Gap
+
+The Socket Service broadcasts all Redis messages to **every connected client** with a single `io.emit('notification', data)`:
+
+.code lang:{typescript}
+    // socket-service/src/index.ts
+    await redisSubscriber.subscribe('notifications', (message) => {
+        const data = JSON.parse(message);
+        io.emit('notification', data);  // ← no domain filter
+    });
+
+The notification payload includes a `domainName` field, but the Socket Service does not use it to route messages to specific rooms or namespaces. Every connected user receives every notification regardless of domain membership. **Domain-based filtering is the responsibility of the frontend.**
+
+.box type:{warning}
+    **Roadmap Fix:** The Socket Service should be extended to use Socket.IO rooms keyed by `domainName`. On connection, the frontend would emit `join_room(domainName)` for each of the user's memberships (the `join_room` handler already exists in the socket service). The broadcast would then become `io.to(domainName).emit('notification', data)`, eliminating cross-domain notification leakage.
+
+---
+
+## 🧹 Stale Subscription Cleanup
+
+The `webpush.sendNotification` call can fail with two meaningful HTTP status codes from the push provider:
+
+- **`410 Gone`** — the browser has permanently unregistered this endpoint (user revoked permission or cleared site data).
+- **`403 Forbidden`** — the subscription is invalid or the VAPID credentials are wrong.
+
+In both cases, `pushService.ts` automatically calls `Subscription.deleteOne({ endpoint })` to remove the stale record from `notification-db`. No manual cleanup is needed.
+
+All other push errors (network failures, server-side 500s) are logged but do not remove the subscription, since they may be transient.

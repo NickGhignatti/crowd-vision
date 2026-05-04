@@ -1,0 +1,60 @@
+.docname {Digital Twin Service}
+.include {docs}
+
+The `twin-service` is the spatial source of truth for CrowdVision. It manages the Digital Twins—the structural metadata of physical buildings, floors, and rooms.
+
+---
+
+## 🏗️ Architecture Overview
+The Twin Service is a Node.js/Express microservice utilizing MongoDB. It operates completely independently of the Auth Service, relying exclusively on Stateless JWTs to enforce multi-tenant isolation.
+
+*   **Controllers (`twinController.ts`):** Handles REST API requests, HTTP validation, and JSON responses.
+*   **Services (`twinService.ts`):** Contains the core business logic for CRUD operations.
+*   **Models (`twin.ts`):** Defines the spatial topology and multi-tenant domain mapping.
+
+---
+
+## 🗺️ The Twin Entity
+
+A `Twin` represents a physical building or campus. It is a deeply nested document containing floors, rooms, and sensor mappings.
+
+.code lang:{typescript}
+    export interface IBuilding {
+        id: string;
+        name: string;
+        rooms: Room[];
+        domains: string[];
+    }
+
+    export interface Room {
+        id: string;
+        name: string;
+        capacity: number;
+        position: Coordinates;
+        dimensions: Dimensions;
+    }
+
+### Multi-Tenancy (`domains` array)
+As established in the Auth documentation, a single Twin can be associated with one or more `domains` (e.g., `["university.edu", "facilities-corp.com"]`). This array is the cryptographic lock. The Twin Service will only return this document if the requesting user's JWT contains a matching domain in its `memberships` payload.
+
+---
+
+## Building and room configuration
+
+At the moment, building layouts are treated as **static structures**.  
+Rooms cannot yet be edited at a physical level (shape, position, topology), and only non-critical attributes such as the building name or other minor parameters can be changed.
+
+The building model is kept **in sync with the Sensor Service**, which stores a lightweight copy of each building entity.  
+This synchronization guarantees that the monitoring pipeline always works against a consistent view of the environment, even though structural editing is not available yet.
+
+Introducing **interactive editing of rooms and building layouts** is considered a key future improvement.  
+In particular, allowing operators to modify the physical configuration directly from the UI would make it easier to keep the logical model aligned with the real world, without breaking the existing integration with the Sensor Service.
+
+## 🛠️ Architecture Roadmap & Suggested Fixes
+*This section outlines technical debt and planned architectural updates for the Twin Service.*
+1. **Full Spatial Editing (Geometry & Layouts):**
+   * *Issue:* Currently, buildings are structurally static. Facility managers can only edit metadata and remap sensors on a branch.
+   * *Fix Required:* Upgrading the frontend editor and backend schemas to support full physical layout editing (e.g., resizing walls, merging rooms, changing coordinates). This is a highly anticipated feature that will maximize the utility of the branching system.
+2. **Redis Pub/Sub Synchronization:**
+   * *Issue:* The Sensor Service relies on synchronous or polled REST calls to maintain its lightweight copy of the Twin.
+   * *Fix Required:* Implement a Redis publisher in the Twin Service that emits a `TWIN_UPDATED` event whenever a branch is merged, allowing the Sensor Service to update its lightweight copy asynchronously and instantly.

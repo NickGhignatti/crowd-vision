@@ -1,28 +1,33 @@
 ###! Requirements
-
-- [Goals](page-1.qd)
-- [Functional Requirements](page-2.qd)
-- [Non-Functional Requirements](page-3.qd)
+- [Functional Requirements](./requirements/functional-requirements.qd)
+- [Non-Functional Requirements](./requirements/non-functional-requirements.qd)
 
 ###! Domain model
-- [Entities](page-4.qd)
+- [Entities](./domain/entities.qd)
 
 ###! Architecture
-- [Overview](page-5.qd)
-- [The Microservices](page-6.qd)
-- [Kubernetes Architecture](page-14.qd)
+- [Overview](./architecture/overview.qd)
+- [The Microservices](./architecture/microservices.qd)
+- [Kubernetes Architecture](./architecture/kubernetes.qd)
 
 ###! Design
-- [Communication Schema](page-7.qd)
-- [Users and Accounts](page-8.qd)
-- [Domains](page-9.qd)
-- [Buildings](page-10.qd)
+- [Communication Schema](./design/communication.qd)
+- [Users and Accounts](./design/user-accounts.qd)
+- [Domains](./design/domains.qd)
+- [Buildings](./design/buildings.qd)
+- [Notifications](./design/notifications.qd)
 
 ###! Configuration & Working on
-- [Setting Up Your Environment](page-11.qd)
-- [Running the Application](page-12.qd)
-- [The External Sensor Simulator](page-15.qd)
-- [Contributing](page-13.qd)
+- [Setting Up Your Environment](./config/setting-up.qd)
+- [Configuring Kubernetes](./config/kubernetes.qd)
+- [Running the Application](./config/running.qd)
+- [The External Sensor Simulator](./config/sensor-simulator.qd)
+- [Contributing](./config/contributing.qd)
+- [Release & CI/CD Pipeline](./config/cicd.qd)
 
 ##! Services
-- [Notification Service](services/notification.qd)
+- [Authentication Service](./services/authentication.qd)
+- [Authentication Service: Middleware](./services/middlewares.qd)
+- [Digital Twin Service](./services/digital-twin.qd)
+- [Notification Service](./services/notification.qd)
+- [Sensor Service)(./services/sensor.qd)

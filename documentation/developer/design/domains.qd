@@ -1,0 +1,143 @@
+.docname {Domains}
+.include {docs}
+
+A "Domain" represents a distinct organization, campus, or physical environment. Every piece of spatial data and every user account is scoped to one or more of these domains.
+
+---
+
+## 🌍 The Domain Entity
+
+The `Domain` model is managed by the Auth Service. It dictates not just the existence of an organization, but the rules for how users can join and authenticate against it.
+
+.code lang:{typescript}
+    export interface IDomain extends Document {
+        name: string;
+        subdomains: Types.ObjectId[];
+        authStrategy: "internal" | "oidc";
+        totpSecrets: IDomainTOTPSecrets;
+        ssoConfig?: ISSOConfig;
+        isVisibleFromOutside?: boolean;
+    }
+
+Key Field Breakdown:
+- *name*: The unique, human-readable identifier for the organization (e.g., `university.edu`). This string — not a MongoDB ObjectId — is what gets embedded in JWTs and stored in the Twin DB, making it the universal key for cross-service isolation.
+- *authStrategy*: Determines how identity is verified for this organization. Either `internal` (credentials managed by CrowdVision) or `oidc` (delegated to an external identity provider). This field fundamentally changes the entire login flow.
+- *subdomains*: An array of ObjectIds pointing to other `Domain` documents. Subdomain resolution uses MongoDB's `$graphLookup` aggregation stage, meaning the hierarchy can be arbitrarily deep (e.g., `university.edu` → `engineering.university.edu` → `robotics.engineering.university.edu`).
+- *isVisibleFromOutside*: When `true`, the domain is publicly discoverable and users can self-subscribe via `POST /domains/:accountName/subscribe`. When `false`, its existence is hidden from unauthenticated users — it cannot be joined without a direct invite.
+- *totpSecrets*: A subdocument with `select: false` in the Mongoose schema. It is never returned in API responses by default and must be explicitly re-selected with `.select("+totpSecrets")` in queries that need it.
+- *ssoConfig.clientSecret*: Similarly `select: false` — the OIDC client secret is scrubbed from all default queries and must be explicitly selected with `.select("+ssoConfig.clientSecret")`.
+
+---
+
+## 🔗 The Tripartite Relationship (Account ↔ Domain ↔ Building)
+Because CrowdVision separates the Auth and Twin databases, multi-tenancy must be enforced symmetrically across both sides of the service boundary without any cross-database joins.
+
+.mermaid
+    erDiagram
+        ACCOUNT {
+            String _id
+            String name
+            IDomainMembership[] memberships
+        }
+        DOMAIN {
+            String _id
+            String name
+            String authStrategy
+        }
+        BUILDING {
+            String id
+            String[] domains
+        }
+
+        ACCOUNT ||--o{ DOMAIN : "joins via membership (by name)"
+        BUILDING }|--|{ DOMAIN : "is assigned to (by name)"
+
+The link between all three is the **domain `name` string** — not a database reference. This is a deliberate design choice. Neither service needs to query the other's database to enforce access: the domain name is embedded directly in the JWT payload, and the Twin Service queries `Building.find({ domains: domainName })` against its own database without ever contacting the Auth Service.
+
+*How isolation is enforced end-to-end:*
+1. User logs in → Auth Service embeds their `memberships` array into the JWT.
+2. User calls `GET /twin/buildings/:domain` → Twin Service verifies the JWT locally and checks that the `domain` param matches one of the `accountMemberships` in the payload.
+3. If authorized, it queries `Building.find({ domains: domain })` — entirely within its own database.
+4. No HTTP call between services occurs at any point.
+
+---
+
+## 📋 Domain Creation Side Effects
+When a new domain is created via `POST /domains`, three things happen atomically:
+
+1. The `Domain` document is created with freshly generated `totpSecrets` for all roles at or above `business_staff` (i.e., `business_staff`, `business_admin`, and `admin`).
+2. The creator's `Account` is immediately granted a `business_admin` membership for the new domain via `$push`.
+3. The Notification Service is called to initialize default push notification preferences for the creator.
+
+OIDC domains follow the same creation flow. The `ssoConfig` subdocument is only persisted when `authStrategy` is `"oidc"` and the config is provided — it is omitted entirely for `"internal"` domains.
+
+---
+
+## 🔐 Authentication Strategies
+
+Organizations have wildly different security requirements. The `authStrategy` field dictates how CrowdVision handles sign-ins for a domain.
+
+### Strategy 1: `internal`
+The default. User credentials are hashed with bcrypt and stored in the Auth DB. Domain membership is managed via the TOTP invite system (see [Users and Accounts](page-8.qd)).
+
+One important constraint: **OIDC domains explicitly block manual subscription.** Calling `POST /domains/:accountName/subscribe` against a domain with `authStrategy: "oidc"` throws a `NotFoundError`. Membership in OIDC domains can only be granted via the SSO callback flow.
+
+### Strategy 2: `oidc` (Enterprise SSO)
+For enterprise clients using platforms like Keycloak, Auth0, or Entra ID, CrowdVision acts as an OIDC relying party. When a domain uses `oidc`, it must have its `ssoConfig` populated:
+
+.code lang:{typescript}
+    export interface ISSOConfig {
+        issuerUrl: string;   // e.g. "https://keycloak.company.com/realms/main"
+        clientId: string;
+        clientSecret: string; // select: false — never returned by default queries
+    }
+
+#### The SSO Flow Is Account-Linking, Not Signup
+
+A critical design detail: **the SSO flow requires the user to already have a CrowdVision account.** The `GET /auth/sso/login/:domainName` endpoint is protected by `requireAuthentication`. The OIDC callback does not create a new account — it updates the `memberships` array of the existing authenticated account, replacing any prior membership for that domain with the role resolved from the IdP.
+
+#### IdP Group → CrowdVision Role Mapping
+During the callback, `processSSOCallback` reads the `groups` claim from the IdP's ID token and maps it to a CrowdVision role using the following priority order:
+
+.var {headers}
+   - IdP Group Name(s)
+   - Mapped CrowdVision Role
+
+.tablebyrows {.headers}
+    - - `admin`, `platform-admin`
+      - `admin`
+    - - `business-admin`, `business_admin`
+      - `business_admin`
+    - - `staff`, `business-staff`
+      - `business_staff`
+    - - *(anything else / no group)*
+      - `standard_customer`
+
+Configure your IdP to include a `groups` claim in the ID token with one of the group names above. Any user not matching a group defaults to `standard_customer`.
+
+---
+
+## ⚠️ Known Security Issue: State Parameter Encoding
+
+The documentation intent describes storing PKCE state server-side. The **current implementation does not do this.** The `generateSSOLoginUrl` function encodes the PKCE verifier, username, and domain name directly into the OAuth `state` parameter as base64 JSON:
+
+```typescript
+// authenticationService.ts — generateSSOLoginUrl()
+// TODO: In production, store this in Redis/Session. Currently we use base64 for statelessness.
+const statePayload = JSON.stringify({
+    cv_username: accountName,
+    domain: domainName,
+    cv_verifier: code_verifier,  // ← PKCE verifier is client-side
+});
+const state = Buffer.from(statePayload).toString("base64");
+```
+
+This has two concrete problems:
+
+1. **The PKCE verifier is exposed client-side.** Because the verifier travels to the browser (inside the redirect URL's `state` query parameter) and back, it is not kept server-side. A man-in-the-middle who intercepts the redirect can extract the verifier and use the authorization code themselves, defeating the purpose of PKCE.
+
+2. **State tampering is possible.** Anyone can craft a base64-encoded state payload with an arbitrary `domain` or `cv_username` and submit a spoofed callback. The callback handler trusts whatever is in the decoded state.
+
+.box type:{warning}
+    **Roadmap Fix Required:** Replace the base64 state encoding with a short-lived Redis key. `generateSSOLoginUrl` should store `{ verifier, domainName, accountName }` under a random opaque key with a TTL of ~10 minutes and pass only that key as the `state` parameter. `processSSOCallback` should look up and immediately delete the Redis entry. This is the standard secure pattern for PKCE state management.
+

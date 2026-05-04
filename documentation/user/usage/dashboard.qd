@@ -1,0 +1,56 @@
+.docname {Dashboard: Digital Twin Overview}
+.include {docs}
+
+The Dashboard serves as your central hub for real-time monitoring and analytics. By default, it opens to the **List (Table) View**, providing a quick, scannable overview of your spaces.
+
+---
+
+## The Default Table View
+
+The default table displays live data for all monitored rooms within your currently selected building. It is designed to give administrators a comprehensive overview at a glance.
+
+The table includes the following data columns:
+* **Room:** The name or identifier of the monitored space (e.g., Physics Lab).
+* **Status:** A color-coded visual indicator showing the current occupancy level. Statuses range from **Empty** and **Normal** to **Crowded**, **Full**, and **Overcrowded**.
+* **Temperature:** The live temperature reading for the room.
+* **People:** The real-time count of individuals currently inside the space.
+* **Capacity:** The maximum safe capacity limit established for that specific room.
+
+---
+
+## 🚦 Occupancy Status Indicators
+
+CrowdVision automatically calculates an occupancy status based on the percentage of the room's capacity that is currently filled.
+
+* 🟢 **Empty** — 0% occupancy.
+* 🔵 **Normal** — 1% to 50% occupancy.
+* 🟠 **Crowded** — 51% to 95% occupancy.
+* 🔴 **Full** — 96% to 100% occupancy.
+* 🚨 **Overcrowded** — over 100% occupancy. Requires immediate attention.
+
+---
+
+## Building Selection
+
+If your organization manages multiple buildings or facilities across different domains, you can easily navigate between them.
+* Locate the **Model Selection Dropdown** at the top of the Dashboard interface.
+* Click to open the list of available buildings you have access to.
+* Selecting a new building will instantly refresh the table to display the rooms and live sensor data for that specific location.
+
+---
+
+## Switching Views
+
+While the table is perfect for detailed, row-by-row data, CrowdVision also offers visual analytics.
+* At the top of the dashboard, you will find a toggle switch featuring **List** and **Graph** buttons.
+* Click the **Graph** button to seamlessly transition from the default table to the visual sensor dashboard.
+* To return to the data table at any time, simply click the **List** button.
+
+---
+
+## Fullscreen Mode (Focus Mode)
+
+For control rooms, reception desks, or presentations, the Dashboard includes a built-in **Focus Mode**.
+* Click the **Fullscreen** button located on the dashboard interface.
+* This will expand the current view (whether Table or Graph) to fill your entire screen, hiding your browser's UI and the application's navigation bars. This provides a clean, distraction-free display that is perfect for dedicated monitoring monitors.
+* To exit Focus Mode, simply click the fullscreen toggle again or press the `Esc` key on your keyboard.
