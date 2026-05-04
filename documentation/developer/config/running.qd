@@ -120,7 +120,7 @@ This runs the following sequence automatically:
 8. Applies the Ingress routing rules from `k8s/ingress.yml`.
 
 .box type:{note}
-    The secrets in `k8s/secrets/` must be populated before running this command. See the [Environment Setup](page-11.qd) page for the required files and keys.
+    The secrets in `k8s/secrets/` must be populated before running this command. See the [Environment Setup](setting-up.qd) page for the required files and keys.
 
 ### Deploying with Locally Built Images (Dev)
 

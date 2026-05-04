@@ -1,0 +1,85 @@
+.docname {Kubernetes Configuration}
+.include {docs}
+
+CrowdVision is designed as a cloud-native, microservices-first application. While `docker-compose` is great for quick local testing, Kubernetes (K8s) is the intended environment for staging and production, providing robust scaling, self-healing, and stateful data management.
+
+Because deploying a dozen manifests manually is tedious and error-prone, **we have wrapped the standard Kubernetes commands inside our root `package.json`**. 
+
+---
+
+## 🚀 The Easy Way: NPM Scripts
+
+If you look at the root `package.json` in the monorepo, you will see a suite of `k8s:*` scripts. These act as an orchestration wrapper around `kubectl`.
+
+Assuming you have a running cluster (like k3d, k3s, Minikube, or EKS) and your `kubectl` context is set correctly, you can deploy the entire platform with a single command:
+
+.code lang:{bash}
+    # Deploy everything (Namespace, Configs, DBs, Services, Ingress)
+    npm run k8s:up
+
+    # Tear everything down
+    npm run k8s:down
+
+.box type:{note}
+    **Note on Secrets:** The NPM scripts handle manifests, but they **do not** automatically inject your local `.env` secrets into the cluster. You must manually create the Kubernetes Secret before running `npm run k8s:up`. (See the *Injecting Secrets* section below).
+
+### Granular NPM Commands
+If you only need to update or bounce a specific layer of the architecture, use the targeted scripts:
+* `npm run k8s:config` - Applies updates to the ConfigMaps.
+* `npm run k8s:stateful` - Applies updates to Redis and MongoDB StatefulSets.
+* `npm run k8s:deployments` - Rolls out updates to the Node/Python microservices and the Vue client.
+* `npm run k8s:ingress` - Updates the Nginx routing rules.
+
+---
+
+## ⚙️ Under the Hood: The Deployment Order
+
+If you prefer to run commands manually, or if you are setting up a CI/CD pipeline (like GitHub Actions), you must respect the deployment dependency tree. The `k8s/` directory is structured to enforce this order.
+
+### 1. Environment & Config
+First, create the isolated namespace and apply the shared, non-sensitive configuration maps (like database URLs or cluster-internal DNS names).
+
+.code lang:{bash}
+    kubectl apply -f k8s/namespace.yml
+    kubectl apply -f k8s/configmaps/
+
+### 2. Injecting Secrets (Manual Step)
+Kubernetes needs access to your JWT secrets, VAPID keys, and AI Agent API keys. **Never commit these to a `.yml` file.** Create the secret directly from your terminal:
+
+.code lang:{bash}
+    kubectl create secret generic crowdvision-secrets \
+      --namespace=crowdvision \
+      --from-literal=JWT_SECRET="your_secret_here" \
+      --from-literal=VAPID_PUBLIC_KEY="your_vapid_public" \
+      --from-literal=VAPID_PRIVATE_KEY="your_vapid_private" \
+      --from-literal=VAPID_SUBJECT="mailto:admin@domain.com" \
+      --from-literal=GEMINI_API_KEY="your_gemini_key"
+
+### 3. Stateful Services (Databases & Cache)
+Microservices will crash if their databases aren't ready. Apply the `stateful/` directory to spin up the Auth, Twin, Sensor, and Notification databases, as well as Redis.
+
+.code lang:{bash}
+    kubectl apply -f k8s/stateful/
+
+*Wait for these pods to reach the `Running` state before proceeding.*
+
+### 4. Deployments (Microservices)
+Once the data layer is warm, deploy the business logic. This applies the manifests for `auth-service`, `twin-service`, `sensor-service`, `notification-service`, `agent-service`, `socket-service`, and the `client`.
+
+.code lang:{bash}
+    kubectl apply -f k8s/deployments/
+
+### 5. Ingress (Routing)
+Finally, expose the platform to the outside world. The Ingress controller acts as the API Gateway, routing `/api/auth` to the Auth Service, `/api/twin` to the Twin Service, and root `/` traffic to the Vue Client.
+
+.code lang:{bash}
+    kubectl apply -f k8s/ingress.yml
+
+---
+
+## 🌐 Local DNS Resolution
+If you are running this locally (e.g., via k3d), your cluster's Ingress needs a host to map to. Open your machine's `hosts` file (`/etc/hosts` on Mac/Linux, or `C:\Windows\System32\drivers\etc\hosts` on Windows) and add the hostname defined in your `ingress.yml`:
+
+.code lang:{text}
+    127.0.0.1   crowdvision.local
+    # Or your specific cluster IP instead of 127.0.0.1

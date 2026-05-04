@@ -1,0 +1,160 @@
+.docname {Building Data & Private Domains}
+.include {docs}
+
+This page covers two topics frequently needed during the setup and administration of a CrowdVision deployment: the JSON format required to upload a building layout, and how private domains work.
+
+---
+
+## 🏢 Building JSON Format
+
+A building layout cannot be created room by room through the UI. The entire structure must be defined in a single JSON file and uploaded at once. This file provides the 3D engine with everything it needs to render your digital twin.
+
+### Required Structure
+
+.code lang:{json}
+    {
+      "id": "building-main",
+      "name": "Main Campus Building",
+      "rooms": [
+        {
+          "id": "room-101",
+          "name": "Lecture Hall A",
+          "capacity": 120,
+          "color": "#4f86c6",
+          "position": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "dimensions": {
+            "width": 20,
+            "height": 4,
+            "depth": 15
+          }
+        },
+        {
+          "id": "room-102",
+          "name": "Study Room B",
+          "capacity": 30,
+          "position": {
+            "x": 25,
+            "y": 0,
+            "z": 0
+          },
+          "dimensions": {
+            "width": 10,
+            "height": 4,
+            "depth": 8
+          }
+        }
+      ]
+    }
+
+### Field Reference
+
+**Building-level fields:**
+
+.var {headers}
+   - Field
+   - Type
+   - Required
+   - Description
+
+.tablebyrows {.headers}
+    - - `id`
+      - string
+      - Yes
+      - Unique identifier for the building. Used as the primary key in the system — choose something stable and human-readable (e.g., `main-campus`, `building-b`).
+    - - `name`
+      - string
+      - No
+      - Display name shown in the UI. Defaults to the `id` if omitted.
+    - - `rooms`
+      - array
+      - Yes
+      - Array of room objects. Must have at least one entry.
+
+**Room-level fields:**
+
+.var {headers}
+   - Field
+   - Type
+   - Required
+   - Description
+
+.tablebyrows {.headers}
+    - - `id`
+      - string
+      - Yes
+      - Unique room identifier within this building (e.g., `room-101`).
+    - - `name`
+      - string
+      - No
+      - Display name. Defaults to the `id` if omitted.
+    - - `capacity`
+      - number
+      - Yes
+      - Maximum safe occupancy. Drives the status indicators (Normal / Crowded / Overcrowded) on the dashboard.
+    - - `position`
+      - object
+      - Yes
+      - `{ x, y, z }` — the center point of the room block in the 3D scene. All values in the same arbitrary unit (e.g., meters).
+    - - `dimensions`
+      - object
+      - Yes
+      - `{ width, height, depth }` — the size of the room block. Same unit as `position`.
+    - - `color`
+      - string (hex)
+      - No
+      - Default color of the room in 3D view (e.g., `"#4f86c6"`). If omitted, a default color is applied.
+
+### Coordinate System
+
+Rooms are placed in a 3D scene using their `position` as the center point and `dimensions` as the bounding box. The coordinate origin `{ x: 0, y: 0, z: 0 }` is the center of the scene.
+
+* **x** — horizontal (left/right)
+* **y** — vertical (floor level). Rooms on the ground floor typically use `y: 0`. Upper floors use positive `y` values spaced by the floor `height`.
+* **z** — depth (front/back)
+
+To place rooms side by side without overlap, offset their `x` or `z` values by at least `width / 2 + neighbor_width / 2`.
+
+.box type:{note}
+    The temperature threshold (`maxTemperature`) is **not** part of the building JSON. It is configured separately per room or per building after upload, through the Edit Room and Edit Building controls in the Digital Twin view.
+
+### How to Upload
+
+1. Open the **Digital Twin** view.
+2. In the Left Menu, click **Upload JSON**.
+3. Select your `.json` file.
+4. The building will appear immediately in the 3D scene.
+
+Alternatively, from the **Administrator Panel**, select a domain and use the **Upload Building Data (JSON)** option to associate the building with that domain at the same time.
+
+---
+
+## 🔒 Private Domains
+
+### What is a Private Domain?
+
+Every domain in CrowdVision is either **public** or **private**:
+
+* **Public domains** are discoverable. Any logged-in user can see them in the Domains list and request to join.
+* **Private domains** are hidden. They do not appear in the public Domains list and cannot be found by searching. Only users who already know the domain name — and have received an invitation — can join.
+
+Private domains are the default. When an administrator creates a new domain, it is private unless explicitly made public.
+
+### Why Use a Private Domain?
+
+Private domains are appropriate for any organization that does not want to be discoverable by the general CrowdVision user base. Examples: internal corporate offices, research facilities, secure areas, or any domain that manages access through its own onboarding process.
+
+### How to Join a Private Domain
+
+Because private domains are not listed publicly, you join them through one of two paths:
+
+**Path 1 — OTP Invite (standard domains):** Your administrator shares an invitation QR code with you. During registration (or potentially via a future post-registration claim endpoint), you enter the 6-digit OTP generated from the QR code. This grants you membership immediately.
+
+**Path 2 — SSO (enterprise domains):** If the domain uses enterprise Single Sign-On, you join by completing the SSO linking flow. No OTP is needed. See [Enterprise Login (SSO)](./sso-login.qd) for the full steps.
+
+### Administrators: Creating a Private Domain
+
+When creating a new domain through the Administrator Panel, leave the **Visible from outside** option toggled off (the default). The domain will not appear in the public domain list. Share the invite QR code only with the users you intend to onboard.

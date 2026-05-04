@@ -1,0 +1,25 @@
+.docname {Domains Administration}
+.include {docs}
+
+The **Administrator Panel** is the operational control center for domain owners and staff. This is where the actual configuration of your domains, including building data and security tokens, takes place.
+
+---
+
+## Managing Organization Domains
+
+When you open the Administrator Panel, you will see a list of the domains you manage on the left side of the screen.
+
+From this domain list, administrators can:
+* **Add New Domain:** You can trigger the creation of a new Main Domain or Subdomain directly from here.
+* **Upload Building Data (JSON):** You can upload a valid `.json` file containing the 3D geometry and structural data for a building, linking it directly to the selected domain.
+* **Enable Notifications:** Trigger notification subscriptions for critical alerts within a specific domain.
+
+---
+
+## Managing Access (Tokens & QR Codes)
+
+CrowdVision uses secure, time-based OTPs to onboard new staff and grant them elevated permissions. This is managed entirely within the Administration Panel.
+
+1. **Select a Domain:** Click on any domain in your list to open its specific security details.
+2. **Organization Token & QR Code:** On the right side of the screen, the system will display the active token and a corresponding **QR Code** for the selected domain, there will be different QRs according to the level to grant.
+3. **Onboarding Staff:** Administrators can show or share this QR code. New staff members will scan this code using an Authenticator App (like Google Authenticator or Authy) and use the generated 6-digit OTP during the account registration process to automatically join the domain with the correct privileges.
