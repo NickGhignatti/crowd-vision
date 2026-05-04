@@ -15,11 +15,17 @@ const props = defineProps<{
 const qrDataUrls = ref<Record<string, string>>({})
 const selectedRole = ref<string | null>(null)
 
-const roles = computed(() => Object.keys(props.qrCodes))
+const roles = computed(() => Object.keys(props.qrCodes ?? {}))
 
 watch(
   () => props.qrCodes,
   async (codes) => {
+    if (!codes) {
+      qrDataUrls.value = {}
+      selectedRole.value = null
+      return
+    }
+
     const result: Record<string, string> = {}
     for (const [role, uri] of Object.entries(codes)) {
       result[role] = await QRCode.toDataURL(uri, {

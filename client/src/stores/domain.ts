@@ -134,7 +134,7 @@ export const useDomainsStore = defineStore('domains', {
       const response = await makeRequest(`/auth/domains/${domainName}/totp/qr/${accountName}`)
       if (!response.ok) throw new Error('Failed to fetch QR codes')
       const data = await response.json()
-      return data.domainQRs
+      return data.qrCodes
     },
 
     invalidate() {
