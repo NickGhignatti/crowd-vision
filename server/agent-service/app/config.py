@@ -36,6 +36,9 @@ class Settings(BaseSettings):
 
     require_auth: bool = Field(default=True, alias="REQUIRE_AUTH")
     twin_service_url: str = Field(default="http://twin-service:3000", alias="TWIN_SERVICE_URL")
+    sensor_service_url: str = Field(
+        default="http://sensor-service:3000", alias="SENSOR_SERVICE_URL"
+    )
     max_tool_hops: int = Field(default=6, alias="MAX_TOOL_HOPS")
     cors_origins: str = Field(
         default="http://localhost,http://localhost:80,http://localhost:8080,http://localhost:5173",

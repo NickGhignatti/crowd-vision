@@ -47,15 +47,19 @@ async def ask(
     session: AsyncSession = Depends(get_session),
     user: AuthUser = Depends(require_user),
 ):
+    history = [{"role": t.role, "content": t.content} for t in payload.history]
+
     if payload.stream:
 
         async def sse():
-            async for event in _agent.stream_answer(session, payload.question, user):
+            async for event in _agent.stream_answer(
+                session, payload.question, user, history=history
+            ):
                 yield f"data: {json.dumps(event)}\n\n"
 
         return StreamingResponse(sse(), media_type="text/event-stream")
 
-    result = await _agent.answer(session, payload.question, user)
+    result = await _agent.answer(session, payload.question, user, history=history)
     return AskResponse(
         answer=result.answer,
         citations=[

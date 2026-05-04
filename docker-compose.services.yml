@@ -65,6 +65,8 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
+      - TWIN_SERVICE_URL=http://twin-service:3000
+      - SENSOR_SERVICE_URL=http://sensor-service:3000
       - RERANKER=${RERANKER:-noop}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}

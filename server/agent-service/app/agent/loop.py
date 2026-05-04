@@ -57,16 +57,24 @@ class Agent:
         self._settings = get_settings()
         self._llm = llm or GeminiClient()
 
-    def _bootstrap_messages(self, user: AuthUser, question: str) -> list[dict]:
+    def _bootstrap_messages(
+        self,
+        user: AuthUser,
+        question: str,
+        history: list[dict] | None = None,
+    ) -> list[dict]:
         # Inject lightweight user context so the model knows whose data it can ask for.
         scope = (
             f"Caller domains: {user.domains or ['(none)']}. "
             f"Caller roles: {user.roles or ['(none)']}."
         )
-        return [
+        msgs: list[dict] = [
             {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + scope},
-            {"role": "user", "content": question},
         ]
+        if history:
+            msgs.extend(history)
+        msgs.append({"role": "user", "content": question})
+        return msgs
 
     async def _run_tool_calls(self, ctx: ToolContext, calls: list, trace: list[dict]) -> list[dict]:
         """Execute tool calls; return new 'tool' messages to append to history."""
@@ -136,10 +144,11 @@ class Agent:
         session: AsyncSession,
         question: str,
         user: AuthUser,
+        history: list[dict] | None = None,
     ) -> AnswerResult:
         usage = Usage()
         ctx = ToolContext(user=user, session=session)
-        messages = self._bootstrap_messages(user, question)
+        messages = self._bootstrap_messages(user, question, history)
         tool_trace: list[dict] = []
         tools = REGISTRY.schemas()
         tr = tracer()
@@ -194,12 +203,13 @@ class Agent:
         session: AsyncSession,
         question: str,
         user: AuthUser,
+        history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Run the tool loop, then stream the final answer text token by token.
 
         Tool-calling and streaming are awkward together across providers; we pay one
         non-streamed final hop's cost in exchange for a uniform implementation."""
-        result = await self.answer(session, question, user)
+        result = await self.answer(session, question, user, history=history)
 
         # Emit the answer as a single token event for now. (Real per-token streaming
         # of the *final* turn is a follow-up: re-run a no-tools `stream()` with the

@@ -66,6 +66,11 @@ const send = async () => {
   const question = input.value.trim()
   input.value = ''
 
+  const history = messages.value
+    .filter((m) => !m.pending && m.text)
+    .map((m) => ({ role: m.role, content: m.text }))
+    .slice(-40)
+
   messages.value.push({ id: nextId++, role: 'user', text: question })
   const assistantMsg: ChatMessage = { id: nextId++, role: 'assistant', text: '', pending: true }
   messages.value.push(assistantMsg)
@@ -74,7 +79,7 @@ const send = async () => {
   try {
     const res = await makeRequest('/agent/ask', 'POST', {
       headers: { Accept: 'text/event-stream' },
-      body: JSON.stringify({ question, stream: true }),
+      body: JSON.stringify({ question, stream: true, history }),
     })
 
     if (!res.ok || !res.body) {

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -36,6 +38,13 @@ class IngestResponse(BaseModel):
     )
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"] = Field(
+        ..., description="Speaker for this turn. Only user/assistant are accepted."
+    )
+    content: str = Field(..., min_length=1, max_length=8000, description="Turn text.")
+
+
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural-language question for the agent.")
     top_k: int | None = Field(
@@ -45,12 +54,24 @@ class AskRequest(BaseModel):
         default=True,
         description="If true, return Server-Sent Events. If false, return a single JSON response.",
     )
+    history: list[ChatTurn] = Field(
+        default_factory=list,
+        max_length=40,
+        description=(
+            "Prior turns of the same conversation, oldest first. The current `question` "
+            "should NOT be included. Capped at 40 turns to bound context size."
+        ),
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "question": "Which rooms are over capacity in building HQ right now?",
+                "question": "And how many rooms does it have?",
                 "stream": False,
+                "history": [
+                    {"role": "user", "content": "What buildings exist in domain acme?"},
+                    {"role": "assistant", "content": "Acme has one building: HQ (id b-42)."},
+                ],
             }
         }
     )
