@@ -1,3 +1,10 @@
+# [2.12.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.11.2...v2.12.0) (2026-05-05)
+
+
+### Features
+
+* metrics for auth service and twin service ([#173](https://github.com/NickGhignatti/crowd-vision/issues/173)) ([33624e9](https://github.com/NickGhignatti/crowd-vision/commit/33624e9f0e7c7e4f134cf8edfe7011f0d3b17635))
+
 ## [2.11.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.11.1...v2.11.2) (2026-05-04)
 
 
