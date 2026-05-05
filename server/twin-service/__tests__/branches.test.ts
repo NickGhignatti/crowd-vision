@@ -1,14 +1,14 @@
 import { jest } from "@jest/globals";
 
-import { Building } from "../src/models/twin.js";
+import { Building } from "../src/models/building.js";
 import {
   getBuildingsByDomain,
   getBuildingById,
   getDomainsByBuilding,
-  registerBuilding,
+  addBuilding,
   updateBuilding,
-  updateRoomInBuilding,
-} from "../src/services/twinService.js";
+  updateRoom,
+} from "../src/services/buildings.js";
 
 describe("Twin service branches", () => {
   const baseRoom = {
@@ -40,7 +40,7 @@ describe("Twin service branches", () => {
       text: async () => "",
     } as any);
 
-    const building = await registerBuilding(
+    const building = await addBuilding(
       baseBuilding.id,
       baseBuilding.name,
       baseBuilding.rooms,
@@ -100,7 +100,7 @@ describe("Twin service branches", () => {
     await new Building(baseBuilding).save();
 
     await expect(
-      updateRoomInBuilding(baseBuilding.id, "missing-room", {
+      updateRoom(baseBuilding.id, "missing-room", {
         capacity: 50,
       }),
     ).rejects.toMatchObject({

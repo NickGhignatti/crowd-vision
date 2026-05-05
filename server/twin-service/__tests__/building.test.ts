@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { app } from '../src/index.js';
-import { Building } from '../src/models/twin.js';
+import { Building } from '../src/models/building.js';
 
 const mockBuilding = {
     id: 'Building-Test-001',

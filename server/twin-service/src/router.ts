@@ -1,20 +1,20 @@
 import { Router } from 'express';
 import {
-  getByDomain,
-  getById,
-  getDomainByBuilding,
-  register,
-  updateBuildingById,
+  getBuildingByDomain,
+  getBuildingById,
+  getDomainsByBuilding,
+  addBuilding,
+  updateBuilding,
   updateRoom,
-} from "./controller/twinController.js";
+} from "./controller/buildings.js";
 
 const router = Router();
 
-router.post('/register', register);
-router.get('/building/:id', getById);
-router.get('/buildings/:domain', getByDomain);
-router.get('/domain/:buildingName', getDomainByBuilding);
-router.patch('/building/:buildingId', updateBuildingById);
+router.post('/register', addBuilding);
+router.get('/building/:id', getBuildingById);
+router.get('/buildings/:domain', getBuildingByDomain);
+router.get('/domain/:buildingName', getDomainsByBuilding);
+router.patch('/building/:buildingId', updateBuilding);
 router.patch('/building/:buildingId/room/:roomId', updateRoom);
 
 export default router;
