@@ -10,7 +10,7 @@ import {
   ValidationError,
 } from "../models/error.js";
 
-export const registerAccount = async (
+export const addAccount = async (
   accountName: string,
   email: string,
   password: string,

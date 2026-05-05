@@ -1,22 +1,20 @@
 import type { Request, Response } from "express";
-import * as AuthService from "../services/authenticationService.js";
-import { generateStandardToken } from "../services/tokenService.js";
+import * as AuthService from "../services/authentication.js";
+import { generateStandardToken } from "../services/token.js";
 import type { StandardTokenPayload } from "../models/token.js";
-import { grantTOTPRoles, resolveRoleFromOTP } from "../services/totpService.js";
+import { grantTOTPRoles } from "../services/totp.js";
 import { COOKIE_NAME, getCookieOptions } from "../config/config.js";
 
-export const createAccount = async (req: Request, res: Response) => {
+export const addAccount = async (req: Request, res: Response) => {
   const { accountName, email, password, otp } = req.body;
 
-  const account = await AuthService.registerAccount(
+  const account = await AuthService.addAccount(
     accountName,
     email,
     password,
   );
 
-  if (otp) {
-    await grantTOTPRoles(otp, account._id);
-  }
+  if (otp) await grantTOTPRoles(otp, account._id);
 
   const token = await generateStandardToken({
     accountId: account._id.toString(),

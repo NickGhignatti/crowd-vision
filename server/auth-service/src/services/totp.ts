@@ -29,7 +29,7 @@ export const resolveRoleFromOTP = async (otp: string) => {
   throw new NotFoundError("Invalid OTP provided");
 };
 
-export const createTOTPForAuthorizedRoles = async (minimumRole: Role) => {
+export const generateTOTPForAuthorizedRoles = async (minimumRole: Role) => {
   const roles = Object.keys(ROLE_WEIGHTS) as Role[];
 
   return Object.fromEntries(

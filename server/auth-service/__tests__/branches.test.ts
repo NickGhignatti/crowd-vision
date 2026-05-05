@@ -43,8 +43,8 @@ import {
   authenticateAccount,
   generateSSOLoginUrl,
   processSSOCallback,
-  registerAccount,
-} from "../src/services/authenticationService.js";
+  addAccount,
+} from "../src/services/authentication.js";
 import { getClientUrl } from "../src/config/config.js";
 
 type DomainSelectResult = {
@@ -90,7 +90,7 @@ describe("Authentication service branches", () => {
       memberships: [],
     });
 
-    const created = await registerAccount(
+    const created = await addAccount(
       "alice",
       "alice@example.com",
       "plain-password",
@@ -111,7 +111,7 @@ describe("Authentication service branches", () => {
     mockedAccount.findOne.mockResolvedValueOnce({ _id: "existing" });
 
     await expect(
-      registerAccount("alice", "alice@example.com", "plain-password"),
+      addAccount("alice", "alice@example.com", "plain-password"),
     ).rejects.toMatchObject({
       type: "Conflict Error",
       code: 409,

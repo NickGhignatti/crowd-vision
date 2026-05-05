@@ -10,8 +10,8 @@ Because CrowdVision utilizes a Stateless JWT authorization pattern, the Auth Ser
 ## 🏗️ Architecture Overview
 
 The codebase follows a strict Controller-Service-Model separation of concerns:
-*   **Controllers (`authenticationController.ts`, `domainController.ts`, `administrationController.ts`):** Handle HTTP request parsing, input validation, and HTTP response formatting.
-*   **Services (`authenticationService.ts`, `domainService.ts`, `tokenService.ts`, `totpService.ts`):** Contain the core business logic, cryptography, and orchestration.
+*   **Controllers (`authentication.ts`, `domain.ts`, `administration.ts`):** Handle HTTP request parsing, input validation, and HTTP response formatting.
+*   **Services (`authentication.ts`, `domain.ts`, `token.ts`, `totp.ts`):** Contain the core business logic, cryptography, and orchestration.
 *   **Models (`account.ts`, `domain.ts`, `role.ts`, `token.ts`):** Mongoose schemas defining the data structure in the Auth MongoDB database.
 
 ---
@@ -48,7 +48,7 @@ For domains using the `internal` auth strategy, users authenticate using an emai
         end
 
 **Technical Notes:**
-*   **Bcrypt:** Passwords are never stored in plaintext. `authenticationService.ts` handles hashing and comparing using bcrypt.
+*   **Bcrypt:** Passwords are never stored in plaintext. `authentication.ts` handles hashing and comparing using bcrypt.
 *   **Embedded Memberships:** When the `Account` is retrieved from the DB, its `memberships` array is actively injected into the `accessToken` payload by the `TokenService`.
 
 ---
@@ -120,6 +120,6 @@ New users default to standard customer privileges. To elevate them to `business_
             Note over C: Client must now hit /auth/refresh<br/>to get a new JWT containing the new role.
         end
 
-**Technical Notes (`totpService.ts`):**
+**Technical Notes (`totp.ts`):**
 *   **Cryptographic Seeds:** The `totpSecrets` are generated securely upon Domain creation. They never leave the Auth database.
 *   **Client State Refresh:** Crucially, the backend updating the database does *not* magically update the user's current JWT. The client UI must proactively request a token refresh after a successful role claim so the new privileges are reflected in their Bearer token.
