@@ -29,15 +29,12 @@ services:
     container_name: crowd-vision-prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--web.external-url=${DEV_URL}/metrics/'
+      - '--web.external-url=${DEV_URL}/prometheus/'
       - '--web.route-prefix=/'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       - gateway-net
-    depends_on:
-      auth-service:
-        condition: service_healthy
 
   grafana:
     image: grafana/grafana:latest

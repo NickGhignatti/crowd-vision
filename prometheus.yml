@@ -7,3 +7,7 @@ scrape_configs:
     static_configs:
       - targets: ["auth-service:3000"]
     metrics_path: /metrics
+  - job_name: "twin-service"
+    static_configs:
+      - targets: ["twin-service:3000"]
+    metrics_path: /metrics
