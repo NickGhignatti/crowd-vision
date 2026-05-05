@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import * as DomainService from "../services/domainService.js";
-import { Domain, type IDomain } from "../models/domain.js";
+import * as DomainService from "../services/domain.js";
+import { Domain } from "../models/domain.js";
 import * as OTPAuth from "otpauth";
 import { Account } from "../models/account.js";
 import { hasRequiredRole, type Role } from "../models/role.js";
@@ -18,7 +18,7 @@ export const createDomain = async (req: Request, res: Response) => {
     throw new UnauthorizedError("Invalid creator account name");
   }
 
-  const domain = await DomainService.createDomain(
+  const domain = await DomainService.addDomain(
     name,
     [],
     creatorAccountName,
@@ -30,13 +30,8 @@ export const createDomain = async (req: Request, res: Response) => {
   res.status(201).json(domain);
 };
 
-export const getAllDomains = async (req: Request, res: Response) => {
-  const domains = await DomainService.getAllDomains();
-  res.json({ domains });
-};
-
 export const getAllAllowedDomains = async (req: Request, res: Response) => {
-  const domains = await DomainService.getAllAllowedDomains();
+  const domains = await DomainService.getPublicDomains();
   res.json({ domains });
 };
 
@@ -51,7 +46,7 @@ export const getDomainsByAccount = async (req: Request, res: Response) => {
 export const subscribeAccountToDomain = async (req: Request, res: Response) => {
   const { accountName } = req.params;
   const { domainName } = req.body;
-  await DomainService.subscribeInternal(accountName as string, domainName);
+  await DomainService.subscribe(accountName as string, domainName);
   res.status(200).send();
 };
 
@@ -86,7 +81,7 @@ export const createSubdomain = async (req: Request, res: Response) => {
     throw new UnauthorizedError("Missing creator account name");
   }
 
-  const subdomain = await DomainService.createDomain(
+  const subdomain = await DomainService.addDomain(
     name,
     [],
     creatorAccountName,
@@ -95,7 +90,7 @@ export const createSubdomain = async (req: Request, res: Response) => {
     isVisibleFromOutside,
   );
 
-  await DomainService.attachSubdomainToDomain(domainName as string, subdomain);
+  await DomainService.addSubdomainToDomain(domainName as string, subdomain);
 
   res.status(200).send();
 };

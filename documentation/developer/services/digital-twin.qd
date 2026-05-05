@@ -8,9 +8,9 @@ The `twin-service` is the spatial source of truth for CrowdVision. It manages th
 ## 🏗️ Architecture Overview
 The Twin Service is a Node.js/Express microservice utilizing MongoDB. It operates completely independently of the Auth Service, relying exclusively on Stateless JWTs to enforce multi-tenant isolation.
 
-*   **Controllers (`twinController.ts`):** Handles REST API requests, HTTP validation, and JSON responses.
-*   **Services (`twinService.ts`):** Contains the core business logic for CRUD operations.
-*   **Models (`twin.ts`):** Defines the spatial topology and multi-tenant domain mapping.
+*   **Controllers (`buildings.ts`):** Handles REST API requests, HTTP validation, and JSON responses.
+*   **Services (`buildings.ts`):** Contains the core business logic for CRUD operations.
+*   **Models (`buildings.ts`):** Defines the spatial topology and multi-tenant domain mapping.
 
 ---
 

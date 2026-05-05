@@ -2,10 +2,10 @@ import {
   generateDeviceToken,
   generateStandardToken,
   verifyToken,
-} from "../src/services/tokenService.js";
+} from "../src/services/token.js";
 import jwt from "jsonwebtoken";
 import type { StandardTokenPayload } from "../src/models/token.js";
-import { registerAccount } from "../src/services/authenticationService.js";
+import { addAccount } from "../src/services/authentication.js";
 
 describe("JWT token system", () => {
   const MOCK_SECRET = "super-secret-test-key";
@@ -20,7 +20,7 @@ describe("JWT token system", () => {
   });
 
   beforeEach(async () => {
-    await registerAccount(mockAccount.accountName, "t@gmail.com", "tttttt");
+    await addAccount(mockAccount.accountName, "t@gmail.com", "tttttt");
   });
 
   afterAll(() => {

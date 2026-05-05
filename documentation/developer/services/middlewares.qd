@@ -8,7 +8,7 @@ This ensures that our API endpoints remain secure by default and return consiste
 ---
 
 ## 🛡️ 1. The Authorization Middleware
-**File:** `src/controller/authenticationMiddleware.ts`
+**File:** `src/controller/authentication.ts`
 
 Because CrowdVision uses stateless JSON Web Tokens (JWTs), the Auth Middleware does not need to query the database. It intercepts the incoming request, cryptographically verifies the token, evaluates the user's role against the requested context, and either rejects the request or passes it to the controller.
 
@@ -49,7 +49,7 @@ When a request hits a route protected by `requireAuthentication()`, the middlewa
 ---
 
 ## 🚨 2. The Global Error Middleware
-**File:** `src/middlewares/errorsMiddleware.ts`
+**File:** `src/middlewares/error.ts`
 
 In a microservices architecture, it is crucial that the frontend receives a standardized error format, regardless of whether a database query failed, a token expired, or a validation rule was broken.
 

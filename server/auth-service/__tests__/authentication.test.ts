@@ -1,7 +1,7 @@
 import {
   authenticateAccount,
-  registerAccount,
-} from "../src/services/authenticationService.js";
+  addAccount,
+} from "../src/services/authentication.js";
 
 describe("Authentication Service", () => {
   const mockAccount = {
@@ -12,7 +12,7 @@ describe("Authentication Service", () => {
 
   describe("1. Account Registration", () => {
     it("should create a new Account", async () => {
-      const createdUser = await registerAccount(
+      const createdUser = await addAccount(
         mockAccount.name,
         mockAccount.email,
         mockAccount.password,
@@ -26,7 +26,7 @@ describe("Authentication Service", () => {
 
   describe("2. Account Validation", () => {
     it("should validate an existing Account with correct password", async () => {
-      await registerAccount(mockAccount.name, mockAccount.email, mockAccount.password);
+      await addAccount(mockAccount.name, mockAccount.email, mockAccount.password);
       const loggedUser = await authenticateAccount(
         mockAccount.name,
         mockAccount.password,
@@ -37,7 +37,7 @@ describe("Authentication Service", () => {
     });
 
     it("should reject login with incorrect password", async () => {
-      await registerAccount(mockAccount.name, mockAccount.email, mockAccount.password);
+      await addAccount(mockAccount.name, mockAccount.email, mockAccount.password);
 
       await expect(
         authenticateAccount(mockAccount.name, "wrongpassword"),

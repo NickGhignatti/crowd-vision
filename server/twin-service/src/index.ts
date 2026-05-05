@@ -4,13 +4,12 @@ import swaggerUi from 'swagger-ui-express';
 import YAML from "yamljs";
 import router from "./router.js";
 import {connectMongo} from "./config/db.js";
-import {globalErrorHandler} from "./middlewares/errorsMiddleware.js";
+import {errorHandler} from "./middlewares/errors.js";
+import { metricsMiddleware } from "./middlewares/metrics.js";
+import { getClientUrl } from "./config/config.js";
 
 const PORT = 3000;
 export const app = express()
-
-export const getClientUrl = () =>
-  process.env.CLIENT_URL || "http://localhost:5173";
 
 app.use(
   cors({
@@ -20,7 +19,8 @@ app.use(
 );
 app.use(express.json());
 app.use('/', router);
-app.use(globalErrorHandler);
+app.use(errorHandler);
+app.use(metricsMiddleware);
 
 if (process.env.NODE_ENV !== 'test') {
     connectMongo().then(() => {

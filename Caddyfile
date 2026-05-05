@@ -53,4 +53,14 @@
     handle /notification-db-gui/* {
         reverse_proxy notification-db-express:8081
     }
+
+    # Prometheus metrics
+    handle_path /prometheus/* {
+        reverse_proxy prometheus:9090
+    }
+
+    # Grafana
+    handle /grafana/* {
+        reverse_proxy grafana:3000
+    }
 }

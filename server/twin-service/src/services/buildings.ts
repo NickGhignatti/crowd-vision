@@ -1,85 +1,13 @@
-import { Building, type IBuilding, type Room } from "../models/twin.js";
+import { Building, type IBuilding, type Room } from "../models/building.js";
 import {ConflictError, NotFoundError} from "../models/error.js";
-import type {HydratedDocument} from "mongoose";
+import { syncBuildingClone } from "./sensors.js";
+import {
+  backfillNames,
+  normalizeBuildingName,
+  normalizeRoomNames,
+} from "./names.js";
 
-const getSensorServiceUrl = () =>
-  process.env.SENSOR_SERVICE_URL || process.env.VITE_SERVER_URL || 'http://localhost:3000';
-
-const shouldSyncThresholds = () => process.env.NODE_ENV !== 'test';
-
-const syncThresholdClone = async (path: string, init: RequestInit) => {
-  if (!shouldSyncThresholds()) return;
-
-  const response = await fetch(`${getSensorServiceUrl()}${path}`, init);
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(
-      `Failed to sync sensor threshold clone: ${response.status} ${details}`,
-    );
-  }
-};
-
-const buildThresholdClonePayload = (
-  building: Pick<IBuilding, "id" | "name" | "rooms">,
-  maxTemperature?: number,
-) => ({
-  name: building.name,
-  ...(maxTemperature !== undefined && { maxTemperature }), // Add it to payload if provided
-  rooms: building.rooms.map((room) => ({
-    id: room.id,
-    name: room.name?.trim() || room.id,
-  })),
-});
-
-const syncBuildingClone = async (
-  building: Pick<IBuilding, "id" | "name" | "rooms">,
-  maxTemperature?: number,
-) => {
-  await syncThresholdClone(
-    `/thresholds/buildings/${encodeURIComponent(building.id)}`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        buildThresholdClonePayload(building, maxTemperature),
-      ),
-    },
-  );
-};
-
-const normalizeBuildingName = (name: string | undefined, id: string): string => {
-    return name?.trim() || id;
-};
-
-const normalizeRoomNames = (rooms: Room[]): Room[] => {
-    return rooms.map((room) => ({
-        ...room,
-        name: room.name?.trim() || room.id,
-    }));
-};
-
-const backfillNames = async (building: HydratedDocument<IBuilding>) => {
-    let changed = false;
-
-    if (!building.name || !building.name.trim()) {
-        building.name = building.id;
-        changed = true;
-    }
-
-    for (const room of building.rooms) {
-        if (!room.name || !room.name.trim()) {
-            room.name = room.id;
-            changed = true;
-        }
-    }
-
-    if (changed) {
-        await building.save();
-    }
-};
-
-
-export const registerBuilding = async (
+export const addBuilding = async (
   id: string,
   name: string | undefined,
   rooms: any,
@@ -147,7 +75,7 @@ export const getBuildingsByDomain = async (domain: string) => {
     return buildings;
 };
 
-export const updateRoomInBuilding = async (
+export const updateRoom = async (
   buildingId: string,
   roomId: string,
   updates: Partial<Room>,

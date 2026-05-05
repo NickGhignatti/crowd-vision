@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 30s      # how often Prometheus pulls /metrics
+  evaluation_interval: 30s  # how often it evaluates alerting rules
+
+scrape_configs:
+  - job_name: "auth-service"
+    static_configs:
+      - targets: ["auth-service:3000"]
+    metrics_path: /metrics
+  - job_name: "twin-service"
+    static_configs:
+      - targets: ["twin-service:3000"]
+    metrics_path: /metrics

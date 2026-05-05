@@ -1,12 +1,12 @@
 import { Router } from "express";
 import {
   authenticateAccount,
-  createAccount,
+  addAccount,
   startSSOLogin,
   handleSSOCallback,
   getMe,
   logout,
-} from "./controller/authenticationController.js";
+} from "./controller/authentication.js";
 import {
   getDomainsByAccount,
   createDomain,
@@ -15,18 +15,20 @@ import {
   getSubdomainsFromDomain,
   createSubdomain,
   getDomainTOTPQr, getAllAllowedDomains,
-} from "./controller/domainController.js";
+} from "./controller/domain.js";
 import {
   requireAuthentication,
   requireHmacSignature,
-} from "./controller/authenticationMiddleware.js";
-import { provideEnterpriseAccount } from "./controller/administrationController.js";
+} from "./middlewares/authentication.js";
+import { provideEnterpriseAccount } from "./controller/administration.js";
 import { requireAuthorization } from "./models/role.js";
+import { checkHealth } from "./controller/status.js";
+import { register } from "./config/registry.js";
 
 const router = Router();
 
 // --- Authentication ---
-router.post("/register", createAccount);
+router.post("/register", addAccount);
 router.post("/login", authenticateAccount);
 router.post(
   "/business/register",
@@ -80,5 +82,12 @@ router.get(
   requireAuthorization("business_admin"),
   getDomainTOTPQr,
 );
+
+// --- Metrics ---
+router.get("/health/", checkHealth);
+router.get("/metrics/", async (_req, res) => {
+  res.set("Content-Type", register.contentType);
+  res.send(await register.metrics()); // serializes in-memory state to text
+});
 
 export default router;

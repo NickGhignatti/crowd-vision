@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import * as TokenService from "../services/tokenService.js";
+import * as TokenService from "../services/token.js";
 import crypto from "crypto";
 import { COOKIE_NAME, getAdminSecret } from "../config/config.js";
 import {
@@ -18,7 +18,7 @@ declare global {
 
 export const requireAuthentication = (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction,
 ) => {
   const token = req.cookies?.[COOKIE_NAME];
@@ -33,7 +33,7 @@ export const requireAuthentication = (
 
 export const requireHmacSignature = (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction,
 ) => {
   const signature = req.headers["x-signature"];

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { BaseError } from "../models/error.js";
 
-export const globalErrorHandler = (
+export const errorHandler = (
   err: unknown,
   _req: Request,
   res: Response,

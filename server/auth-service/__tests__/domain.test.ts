@@ -2,16 +2,16 @@ import { Account } from "../src/models/account.js";
 import { Domain } from "../src/models/domain.js";
 import {
   authenticateAccount,
-  registerAccount,
-} from "../src/services/authenticationService.js";
+  addAccount,
+} from "../src/services/authentication.js";
 import {
-  createDomain,
-  getAllDomains,
+  addDomain,
+  getDomains,
   getAccountMemberships,
   getDomainSubdomains,
-  subscribeInternal,
+  subscribe,
   unsubscribe,
-} from "../src/services/domainService.js";
+} from "../src/services/domain.js";
 
 describe("Domain API", () => {
   const mockUser = {
@@ -33,7 +33,7 @@ describe("Domain API", () => {
   };
 
   const createMockDomainWithSubdomains = async () => {
-    return createDomain(
+    return addDomain(
       mockDomain.name,
       [],
       mockDomain.creatorUsername,
@@ -48,7 +48,7 @@ describe("Domain API", () => {
     await Domain.syncIndexes();
     await Account.syncIndexes();
 
-    await registerAccount(mockUser.username, mockUser.email, mockUser.password);
+    await addAccount(mockUser.username, mockUser.email, mockUser.password);
   });
 
   describe("1. System Domains", () => {
@@ -65,7 +65,7 @@ describe("Domain API", () => {
     it("should retrieve all system domains", async () => {
       await createMockDomainWithSubdomains();
 
-      const domains = await getAllDomains();
+      const domains = await getDomains();
 
       expect(domains.some((d) => d.name === mockDomain.name)).toBe(true);
     });
@@ -95,8 +95,8 @@ describe("Domain API", () => {
     });
 
     it("should allow a user to SUBSCRIBE to a domain", async () => {
-      const newAccount = await registerAccount("sub", "sub@gmail.com", "sub");
-      const subscribed = await subscribeInternal(newAccount.name, mockDomain.name);
+      const newAccount = await addAccount("sub", "sub@gmail.com", "sub");
+      const subscribed = await subscribe(newAccount.name, mockDomain.name);
 
       expect(subscribed).toBeUndefined();
       const userDomains = await getAccountMemberships(newAccount.name);
@@ -109,8 +109,8 @@ describe("Domain API", () => {
     });
 
     it("should allow a user to UNSUBSCRIBE", async () => {
-      const newAccount = await registerAccount("sub", "sub@gmail.com", "sub");
-      await subscribeInternal(
+      const newAccount = await addAccount("sub", "sub@gmail.com", "sub");
+      await subscribe(
         newAccount.name,
         mockDomain.name,
       );

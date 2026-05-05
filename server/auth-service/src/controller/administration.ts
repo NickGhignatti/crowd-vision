@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import * as AuthService from "../services/authenticationService.js";
-import * as DomainService from "../services/domainService.js";
-import { generateStandardToken } from "../services/tokenService.js";
+import * as AuthService from "../services/authentication.js";
+import * as DomainService from "../services/domain.js";
+import { generateStandardToken } from "../services/token.js";
 import type { StandardTokenPayload } from "../models/token.js";
 import { Account } from "../models/account.js";
 import {
@@ -14,7 +14,7 @@ export const provideEnterpriseAccount = async (req: Request, res: Response) => {
   const { companyName, companyAdminMail, companyPassword, companyDomain } =
     req.body;
 
-  const accountCreated = await AuthService.registerAccount(
+  const accountCreated = await AuthService.addAccount(
     `${companyName}-admin`,
     companyAdminMail,
     companyPassword,
@@ -31,7 +31,7 @@ export const provideEnterpriseAccount = async (req: Request, res: Response) => {
   //   { $addToSet: { totpSecret: totpSecret } },
   // );
 
-  const createdDomain = await DomainService.createDomain(
+  const createdDomain = await DomainService.addDomain(
     companyDomain as string,
     [],
     accountCreated.name,
@@ -71,7 +71,7 @@ export const provideEnterpriseAdministratorAccount = async (
   //   );
   // }
 
-  const createdAccount = await AuthService.registerAccount(
+  const createdAccount = await AuthService.addAccount(
     accountName,
     accountEmail,
     accountPassword,

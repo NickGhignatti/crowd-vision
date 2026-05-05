@@ -122,7 +122,7 @@ Configure your IdP to include a `groups` claim in the ID token with one of the g
 The documentation intent describes storing PKCE state server-side. The **current implementation does not do this.** The `generateSSOLoginUrl` function encodes the PKCE verifier, username, and domain name directly into the OAuth `state` parameter as base64 JSON:
 
 ```typescript
-// authenticationService.ts — generateSSOLoginUrl()
+// authentication.ts — generateSSOLoginUrl()
 // TODO: In production, store this in Redis/Session. Currently we use base64 for statelessness.
 const statePayload = JSON.stringify({
     cv_username: accountName,

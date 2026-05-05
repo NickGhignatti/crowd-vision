@@ -4,11 +4,11 @@ import {
   type ISSOConfig,
 } from "../models/domain.js";
 import { Account } from "../models/account.js";
-import { createTOTPForAuthorizedRoles } from "./totpService.js";
+import { generateTOTPForAuthorizedRoles } from "./totp.js";
 import { ConflictError, NotFoundError } from "../models/error.js";
 import { getServerUrl } from "../config/config.js";
 
-export const createDomain = async (
+export const addDomain = async (
   domainName: string,
   subdomains: IDomain[],
   creatorAccountName: string,
@@ -22,7 +22,7 @@ export const createDomain = async (
     throw new ConflictError(`Domain with name "${domainName}" already exists`);
   }
 
-  const totpSecrets = await createTOTPForAuthorizedRoles("business_staff");
+  const totpSecrets = await generateTOTPForAuthorizedRoles("business_staff");
 
   const createdDomain = await Domain.create({
     name: domainName,
@@ -57,11 +57,11 @@ export const createDomain = async (
   return createdDomain;
 };
 
-export const getAllDomains = async () => {
+export const getDomains = async () => {
   return Domain.find().select("-ssoConfig.clientSecret");
 };
 
-export const getAllAllowedDomains = async () => {
+export const getPublicDomains = async () => {
   return Domain.find({ isVisibleFromOutside: true }).select(
     "-ssoConfig.clientSecret",
   );
@@ -98,11 +98,11 @@ export const getDomainSubdomains = async (name: string) => {
   return result[0].names ?? [];
 };
 
-export const attachSubdomainToDomain = async (
+export const addSubdomainToDomain = async (
   domainName: string,
   subDomain: IDomain,
 ) => {
-  const parent = await Domain.findOneAndUpdate(
+  await Domain.findOneAndUpdate(
     { name: domainName },
     { $addToSet: { subdomains: subDomain._id } },
   );
@@ -119,7 +119,7 @@ export const getAccountMemberships = async (accountName: string) => {
   return account.memberships;
 };
 
-export const subscribeInternal = async (
+export const subscribe = async (
   accountName: string,
   domainName: string,
 ) => {

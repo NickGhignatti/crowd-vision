@@ -1,7 +1,7 @@
 import { jest } from "@jest/globals";
 import crypto from "crypto";
 
-jest.mock("../src/services/tokenService.js", () => ({
+jest.mock("../src/services/token.js", () => ({
   __esModule: true,
   verifyToken: jest.fn(),
 }));
@@ -16,9 +16,9 @@ import { COOKIE_NAME, getAdminSecret } from "../src/config/config.js";
 import {
   requireAuthentication,
   requireHmacSignature,
-} from "../src/controller/authenticationMiddleware.js";
+} from "../src/middlewares/authentication.js";
 import { NotFoundError, ForbiddenError, InternalError, ValidationError } from "../src/models/error.js";
-import { verifyToken } from "../src/services/tokenService.js";
+import { verifyToken } from "../src/services/token.js";
 
 const mockedVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
 const mockedGetAdminSecret = getAdminSecret as jest.MockedFunction<typeof getAdminSecret>;

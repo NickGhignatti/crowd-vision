@@ -52,7 +52,7 @@ Because CrowdVision spans both frontend Vue applications and backend Express/Fas
 
 *Backend Conventions (Express / Node.js)*
 - Controllers & Services: Use camelCase with the layer type as a suffix.
-    - ✅ Good: `twinController.ts`, `notificationService.ts`
+    - ✅ Good: `buildings.ts`, `notificationService.ts`
     - ❌ Bad: `twin_ctrl.ts`, `Notification.ts`
 - Models / Entities: Use camelCase for the filename, but PascalCase for the exported Mongoose Model and Interface. Prefix Interfaces with I.
     - ✅ Good: File: `account.ts` | Code: `export interface IAccount { ... }`, `export const Account = model(...)``
