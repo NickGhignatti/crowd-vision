@@ -24,6 +24,6 @@ app.use(metricsMiddleware);
 
 if (process.env.NODE_ENV !== 'test') {
     connectMongo().then(() => {
-        app.listen(PORT, () => console.log(`Digital twin service is running`));
+        app.listen(PORT);
     });
 }

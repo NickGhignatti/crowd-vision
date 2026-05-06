@@ -124,7 +124,7 @@ const getInitialModels = async () => {
             allBuildings.push(...domainBuildings)
           }
         } catch (err) {
-          console.warn(`Failed to fetch buildings for domain ${m.domainName}`, err)
+          console.error(`Failed to fetch buildings for domain ${m.domainName}`, err)
         }
       }),
     )

@@ -55,7 +55,6 @@ export const postTemperature = async (req: Request, res: Response) => {
 
 export const postAirQuality = async (req: Request, res: Response) => {
   try {
-    console.log("POST /air-quality body:", JSON.stringify(req.body, null, 2));
     const {
       buildingId,
       roomId,

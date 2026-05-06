@@ -25,6 +25,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 if (process.env.NODE_ENV !== 'test') {
     connectMongo().then(() => {
-        app.listen(PORT, () => console.log(`Authentication service running on localhost:${PORT}`));
+        app.listen(PORT);
     });
 }

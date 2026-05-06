@@ -64,7 +64,6 @@ export function getBuildingData(
           }
 
           const result = await response.json()
-          if (apiType == 'air-quality') console.log("response", result)
           const dataKey = apiType === 'air-quality' ? 'airQuality' : apiType
           data.value = result[dataKey] || []
         } catch (err: any) {

@@ -18,7 +18,7 @@ export const useAuthStore = defineStore('authentication', {
       })
       const data = await res.json()
       if (!res.ok) {
-        console.log(`Failed to login: ${data.type} - ${data.message}`)
+        console.error(`Failed to login: ${data.type} - ${data.message}`)
         return
       }
       this.accountName = data.account.accountName
@@ -35,7 +35,7 @@ export const useAuthStore = defineStore('authentication', {
       const data = await res.json()
 
       if (!res.ok) {
-        console.log(`Failed to register: ${data.type} - ${data.message}`)
+        console.error(`Failed to register: ${data.type} - ${data.message}`)
         return
       }
       this.accountName = data.account.accountName

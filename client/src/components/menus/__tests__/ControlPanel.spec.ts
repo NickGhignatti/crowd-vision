@@ -15,13 +15,13 @@ describe('ControlPanel.vue', () => {
     disabled: false,
   }
 
-  it('renders all 6 control buttons', () => {
+  it('renders all 7 control buttons', () => {
     const wrapper = mount(ControlPanel, {
       props: defaultProps,
       global: { stubs: { ControlButton: true } },
     })
 
-    expect(wrapper.findAllComponents(ControlButton)).toHaveLength(6)
+    expect(wrapper.findAllComponents(ControlButton)).toHaveLength(7)
   })
 
   it('handles "Reset View" button', async () => {

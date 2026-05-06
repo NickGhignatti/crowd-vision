@@ -131,12 +131,6 @@ export class Simulator {
         console.error(
           `[Simulator] Error: Something went wrong sending data to building ${building.buildingId}`,
         );
-        console.warn(
-          `[Simulator] API Result: ${responseTemperature.status} ${responseTemperature.statusText}`,
-        );
-        console.warn(
-          `[Simulator] API Result: ${responsePeopleCount.status} ${responsePeopleCount.statusText}`,
-        );
       }
     } catch (error: any) {
       console.error(
