@@ -33,7 +33,7 @@ const emit = defineEmits<{
   >
     <div v-if="isSelected" class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-600"></div>
 
-    <div class="flex justify-between items-start mb-3 border-b border-slate-200 pb-2">
+    <div class="flex justify-between items-center mb-3 border-b border-slate-200 pb-2">
       <div>
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-slate-800 leading-tight">{{ room.name }}</span>
@@ -47,6 +47,12 @@ const emit = defineEmits<{
           </button>
         </div>
       </div>
+      <span
+        ><i
+          class="ph-bold ph-wind"
+          :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }"
+        ></i
+      ></span>
       <span
         v-if="room.color"
         class="w-3 h-3 rounded-full shadow-sm border border-slate-200"
@@ -70,12 +76,12 @@ const emit = defineEmits<{
         </div>
       </div>
 
-      <div class="flex justify-between items-center text-sm">
-        <span class="text-slate-500 font-medium">{{ t('model.rooms.airQuality') }}</span>
-        <span class="font-bold" :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }">
-          {{ props.indoorAqi != null ? props.indoorAqi.toFixed(1) + '%' : '--' }}
-        </span>
-      </div>
+      <!--      <div class="flex justify-between items-center text-sm">-->
+      <!--        <span class="text-slate-500 font-medium">{{ t('model.rooms.airQuality') }}</span>-->
+      <!--        <span class="font-bold" :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }">-->
+      <!--          {{ props.indoorAqi != null ? props.indoorAqi.toFixed(1) + '%' : '&#45;&#45;' }}-->
+      <!--        </span>-->
+      <!--      </div>-->
 
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.editRoom.maxTemp') }}</span>
