@@ -12,7 +12,6 @@ services:
     depends_on:
       - auth-service
       - twin-service
-      - simulator-service
       - sensor-service
       - socket-server
 

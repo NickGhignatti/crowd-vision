@@ -1,5 +1,6 @@
 import { PeopleCount } from '../models/peopleCountSignal.js';
 import { Temperature } from '../models/temperatureSignal.js';
+import { AirQuality } from '../models/airQualitySignal.js';
 
 export const postPeopleCountSignal = async (building: string, roomId: string, timestamp: number, peopleCount: number) => {
 
@@ -18,6 +19,39 @@ export const postTemperatureSignal = async (building: string, roomId: string, ti
         timestamp,
         temperature
     });
+};
+
+export const postAirQualitySignal = async (
+    building: string,
+    roomId: string,
+    timestamp: number,
+    scenario: string | undefined,
+    pm25: number,
+    pm10: number,
+    co2: number,
+    voc: number,
+    temperature: number,
+    humidity: number,
+    aqi: number
+) => {
+    const payload = {
+        building,
+        roomId,
+        timestamp,
+        pm25,
+        pm10,
+        co2,
+        voc,
+        temperature,
+        humidity,
+        aqi
+    } as const;
+
+    await AirQuality.create(
+        scenario === undefined
+            ? payload
+            : { ...payload, scenario }
+    );
 };
 
 export const getLatestsPeopleCountSignal = async (building: string, roomId: string) => {
@@ -42,6 +76,18 @@ export const getLatestsTemperatureSignal = async (building: string, roomId: stri
     }
 
     return temperature;
+};
+
+export const getLatestsAirQualitySignal = async (building: string, roomId: string) => {
+    const airQuality = await AirQuality.findOne({ building, roomId })
+        .sort({ timestamp: -1 })
+        .exec();
+
+    if (!airQuality) {
+        throw new Error('Invalid building or roomId');
+    }
+
+    return airQuality;
 };
 
 export const getAllLatestsPeopleCountSignal = async (building: string) => {
@@ -104,4 +150,49 @@ export const getAllLatestsTemperatureSignal = async (building: string) => {
     }
 
     return temperatures;
+};
+
+export const getAllLatestsAirQualitySignal = async (building: string) => {
+    const airQuality = await AirQuality.aggregate([
+        {
+            $match: { building: building }
+        }, {
+            $sort: { timestamp: -1 }
+        }, {
+            $group: {
+                _id: "$roomId",
+                pm25: { $first: "$pm25" },
+                pm10: { $first: "$pm10" },
+                co2: { $first: "$co2" },
+                voc: { $first: "$voc" },
+                temperature: { $first: "$temperature" },
+                humidity: { $first: "$humidity" },
+                aqi: { $first: "$aqi" },
+                scenario: { $first: "$scenario" },
+                timestamp: { $first: "$timestamp" },
+                building: { $first: "$building" }
+            }
+        }, {
+            $project: {
+                _id: 0,
+                roomId: "$_id",
+                pm25: 1,
+                pm10: 1,
+                co2: 1,
+                voc: 1,
+                temperature: 1,
+                humidity: 1,
+                aqi: 1,
+                scenario: 1,
+                timestamp: 1,
+                building: 1
+            }
+        }
+    ]);
+
+    if (!airQuality) {
+        throw new Error('Invalid building or roomId');
+    }
+
+    return airQuality;
 };

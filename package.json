@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "client",
-    "server/*"
+    "server/*",
+    "simulators/*"
   ],
   "scripts": {
     "// --- ENVIRONMENT ---": "",
@@ -26,7 +27,7 @@
     "k8s:build:agent": "docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest ./server/agent-service",
     "k8s:build:notification": "docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./server/notification-service",
     "k8s:build:sensor": "docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest ./server/sensor-service",
-    "k8s:build:simulator": "docker build -t ghcr.io/nickghignatti/crowdvision-simulator:latest ./server/sensor-simulator",
+    "k8s:build:simulator": "docker build -t ghcr.io/nickghignatti/crowdvision-simulator:latest simulators/sensor-simulator",
     "k8s:build:socket": "docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest ./server/socket-service",
     "k8s:build:twin": "docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest ./server/twin-service",
     "k8s:build": "concurrently \"npm run k8s:build:client\" \"npm run k8s:build:auth\" \"npm run k8s:build:agent\" \"npm run k8s:build:notification\" \"npm run k8s:build:sensor\" \"npm run k8s:build:simulator\" \"npm run k8s:build:socket\" \"npm run k8s:build:twin\"",

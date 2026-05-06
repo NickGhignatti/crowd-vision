@@ -155,6 +155,107 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /air-quality:
+    post:
+      summary: Create an air quality signal
+      tags:
+        - Air Quality
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - buildingId
+                - roomId
+                - timestamp
+                - pm25
+                - pm10
+                - co2
+                - voc
+                - temperature
+                - humidity
+                - aqi
+              properties:
+                buildingId:
+                  type: string
+                  example: "building-123"
+                roomId:
+                  type: string
+                  example: "room-A"
+                timestamp:
+                  type: integer
+                  description: Unix timestamp in milliseconds
+                  example: 1712836800000
+                scenario:
+                  type: string
+                  example: "clean_indoor"
+                pm25:
+                  type: number
+                  example: 6.2
+                pm10:
+                  type: number
+                  example: 12.5
+                co2:
+                  type: number
+                  example: 520
+                voc:
+                  type: number
+                  example: 120
+                temperature:
+                  type: number
+                  example: 21.8
+                humidity:
+                  type: number
+                  example: 45
+                aqi:
+                  type: number
+                  example: 32
+      responses:
+        '201':
+          description: Air quality signal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Air quality signal created"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      summary: Get latest air quality signal for a specific room
+      tags:
+        - Air Quality
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  airQuality:
+                    type: object
+                    description: Latest air quality data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /peopleCount/entireBuilding:
     get:
       summary: Get all latest people count signals for an entire building
@@ -208,6 +309,34 @@ paths:
                     items:
                       type: object
                     description: Array of latest temperature signals for the building
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /air-quality/entireBuilding:
+    get:
+      summary: Get all latest air quality signals for an entire building
+      tags:
+        - Air Quality
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  airQuality:
+                    type: array
+                    items:
+                      type: object
+                    description: Array of latest air quality signals for the building
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -291,6 +420,46 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /air-quality/dashboard:
+    get:
+      summary: Get air quality dashboard data for a room
+      tags:
+        - Air Quality
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: roomId
+          schema:
+            type: string
+          required: true
+          description: Room ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  airQuality:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated air quality data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /peopleCount/dashboard/entireBuilding:
     get:
       summary: Get people count dashboard data for an entire building
@@ -356,6 +525,40 @@ paths:
                     items:
                       type: object
                     description: Aggregated temperature data for the building
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /air-quality/dashboard/entireBuilding:
+    get:
+      summary: Get air quality dashboard data for an entire building
+      tags:
+        - Air Quality
+      parameters:
+        - in: query
+          name: building
+          schema:
+            type: string
+          required: true
+          description: Building ID
+        - in: query
+          name: timeRange
+          schema:
+            type: string
+          required: true
+          description: Time range for dashboard data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  airQuality:
+                    type: array
+                    items:
+                      type: object
+                    description: Aggregated air quality data for the building
         '400':
           $ref: '#/components/responses/BadRequest'
 

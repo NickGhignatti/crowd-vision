@@ -7,7 +7,7 @@ import {
 
 export class Simulator {
   private isRunning: boolean = false;
-  private readonly delay: number = 10000; // 10 seconds
+  private readonly delay: number = 10000;
   private readonly peopleCountRange: [number, number] = [0, 50];
   private readonly temperatureRange: [number, number] = [18, 30];
   private activeBuildings = mySimulationBuildings;
@@ -21,12 +21,13 @@ export class Simulator {
     );
   }
 
-  public startOrAdd(building: IBuilding) {
+  public getIsRunningAny(): boolean {
+    return this.isRunning;
+  }
+
+  public registerBuilding(building: IBuilding) {
     if (building.targetUrl) {
       let parsedUrl = building.targetUrl.replace(/\/$/, "");
-      // Inside a Docker container, "localhost" resolves to the container itself.
-      // "host.docker.internal" is Docker Desktop's special hostname that resolves
-      // to the actual host machine — where k3d's port 80 is bound.
       if (parsedUrl.includes("localhost") || parsedUrl.includes("127.0.0.1")) {
         parsedUrl = parsedUrl
           .replace(/localhost/g, "host.docker.internal")
@@ -36,10 +37,21 @@ export class Simulator {
       building.targetUrl = parsedUrl;
     }
     this.activeBuildings.push(building);
+  }
+
+  public start() {
+    if (this.activeBuildings.activeBuildings.length === 0) {
+      throw new Error("No buildings registered for simulation");
+    }
     if (!this.isRunning) {
       this.isRunning = true;
       this.tick();
     }
+  }
+
+  public startOrAdd(building: IBuilding) {
+    this.registerBuilding(building);
+    this.start();
   }
 
   public stop(buildingId: string) {
