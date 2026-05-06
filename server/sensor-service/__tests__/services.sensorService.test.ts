@@ -44,7 +44,7 @@ describe('sensorService', () => {
     it('creates air quality signal with expected payload', async () => {
         const createSpy = jest.spyOn(AirQuality, 'create').mockResolvedValue({} as any);
 
-        await postAirQualitySignal('t1', 'r1', 1000, 'clean', 4.5, 8.2, 500, 120, 21.3, 45, 32);
+        await postAirQualitySignal('t1', 'r1', 1000, 'clean', 4.5, 8.2, 500, 120, 21.3, 45, 32, 60.5);
 
         expect(createSpy).toHaveBeenCalledWith({
             building: 't1',
@@ -57,7 +57,8 @@ describe('sensorService', () => {
             voc: 120,
             temperature: 21.3,
             humidity: 45,
-            aqi: 32
+            aqi: 32,
+            indoor_aqi: 60.5
         });
     });
 

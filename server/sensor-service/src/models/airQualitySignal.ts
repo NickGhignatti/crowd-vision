@@ -13,6 +13,7 @@ export interface IAirQuality {
     temperature: number;
     humidity: number;
     aqi: number;
+    indoor_aqi: number;
 }
 
 const airQualitySchema = new Schema<IAirQuality>({
@@ -27,6 +28,7 @@ const airQualitySchema = new Schema<IAirQuality>({
     temperature: { type: Number, required: true },
     humidity: { type: Number, required: true },
     aqi: { type: Number, required: true },
+    indoor_aqi: { type: Number, required: true },
 });
 
 airQualitySchema.index({ building: 1, timestamp: -1 });

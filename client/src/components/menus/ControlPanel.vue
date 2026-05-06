@@ -64,5 +64,12 @@ defineEmits<{
       :active="mode.currentMode.value === Mode.TemperatureSensor"
       @click="mode.changeMode(Mode.TemperatureSensor)"
     />
+    
+    <ControlButton
+      icon="ph-wind"
+      :title="t('model.controls.buttons.airQuality')"
+      :active="mode.currentMode.value === Mode.AirQualitySensor"
+      @click="mode.changeMode(Mode.AirQualitySensor)"
+    />
   </div>
 </template>

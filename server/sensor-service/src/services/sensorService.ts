@@ -32,7 +32,8 @@ export const postAirQualitySignal = async (
     voc: number,
     temperature: number,
     humidity: number,
-    aqi: number
+    aqi: number,
+    indoor_aqi: number | undefined
 ) => {
     const payload = {
         building,
@@ -44,8 +45,9 @@ export const postAirQualitySignal = async (
         voc,
         temperature,
         humidity,
-        aqi
-    } as const;
+        aqi,
+        indoor_aqi: indoor_aqi ?? 0
+    };
 
     await AirQuality.create(
         scenario === undefined
@@ -168,6 +170,7 @@ export const getAllLatestsAirQualitySignal = async (building: string) => {
                 temperature: { $first: "$temperature" },
                 humidity: { $first: "$humidity" },
                 aqi: { $first: "$aqi" },
+                indoor_aqi: { $first: "$indoor_aqi" },
                 scenario: { $first: "$scenario" },
                 timestamp: { $first: "$timestamp" },
                 building: { $first: "$building" }
@@ -183,6 +186,7 @@ export const getAllLatestsAirQualitySignal = async (building: string) => {
                 temperature: 1,
                 humidity: 1,
                 aqi: 1,
+                indoor_aqi: { $ifNull: ["$indoor_aqi", 0] },
                 scenario: 1,
                 timestamp: 1,
                 building: 1

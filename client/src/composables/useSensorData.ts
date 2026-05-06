@@ -4,13 +4,23 @@ import { makeRequest } from '@/composables/useApi'
 export interface ApiDataPoint {
   timestamp: string
   roomId: string
-  value: number
+  value?: number
   building: string
+  // Air Quality fields
+  pm25?: number
+  pm10?: number
+  co2?: number
+  voc?: number
+  temperature?: number
+  humidity?: number
+  aqi?: number
+  indoor_aqi?: number
+  indoorAqi?: number
 }
 
 export function getBuildingData(
   buildingId: Ref<string | undefined>,
-  apiType: 'peopleCount' | 'temperature',
+  apiType: 'peopleCount' | 'temperature' | 'air-quality',
   pollIntervalMs = 5000, // Configurable, defaults to 5 seconds
 ) {
   const data = ref<ApiDataPoint[]>([])
@@ -54,7 +64,9 @@ export function getBuildingData(
           }
 
           const result = await response.json()
-          data.value = result[apiType] || []
+          if (apiType == 'air-quality') console.log("response", result)
+          const dataKey = apiType === 'air-quality' ? 'airQuality' : apiType
+          data.value = result[dataKey] || []
         } catch (err: any) {
           if (err.name === 'AbortError') return
           error.value = err.message

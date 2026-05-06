@@ -60,6 +60,7 @@ class AirQualityReading(BaseModel):
 
     # Derived
     aqi: int                     # US EPA AQI computed from PM2.5
+    indoor_aqi: float            # Custom Indoor AQI weighted index
 
 
 class StatusResponse(BaseModel):

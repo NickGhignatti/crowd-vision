@@ -9,7 +9,7 @@ function useRoomAverages(sensorData: Ref<ApiDataPoint[]>) {
 
     for (let i = 0; i < sensorData.value.length; i++) {
       const pt = sensorData.value[i]
-      if (pt) {
+      if (pt && pt.value !== undefined) {
         const existing = stats.get(pt.roomId)
         if (existing) {
           existing.sum += pt.value
@@ -36,6 +36,29 @@ export function useBuildingTemperature(buildingId: Ref<string | undefined>) {
 
   return {
     temperatures: averages,
+    isLoading,
+    error,
+  }
+}
+
+export function useBuildingAirQualitySensors(buildingId: Ref<string | undefined>) {
+  const { data, isLoading, error } = getBuildingData(buildingId, 'air-quality')
+
+  const indoorAqi = computed(() => {
+    const results: Record<string, number> = {}
+    if (!data.value) return results
+
+    data.value.forEach((pt) => {
+      const val = pt.indoor_aqi ?? pt.indoorAqi
+      if (val != null) {
+        results[pt.roomId] = val
+      }
+    })
+    return results
+  })
+
+  return {
+    indoorAqi,
     isLoading,
     error,
   }

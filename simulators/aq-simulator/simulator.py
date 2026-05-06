@@ -24,7 +24,7 @@ import httpx
 from schemas import AirQualityReading, BuildingConfig
 from scenarios import EnvironmentModel, Scenario
 from errors import SensorErrorModel
-from physics import compute_all, pm25_to_aqi
+from physics import compute_all, pm25_to_aqi, compute_indoor_aqi
 
 logger = logging.getLogger("simulator")
 
@@ -65,6 +65,9 @@ class SimulationRoom:
         temp = round(reported["temperature"], 2)
         hum  = min(100.0, max(0.0, round(reported["humidity"], 1)))
         aqi  = pm25_to_aqi(pm25)
+        indoor_aqi = compute_indoor_aqi(pm25, pm10, co2, voc)
+        
+        logger.debug(f"Computed indoor_aqi for {self.room_id}: {indoor_aqi}")
 
         return AirQualityReading(
             buildingId  = self.building_id,
@@ -78,6 +81,7 @@ class SimulationRoom:
             temperature = temp,
             humidity    = hum,
             aqi         = aqi,
+            indoor_aqi  = indoor_aqi
         )
 
 @dataclass
@@ -250,6 +254,7 @@ class Simulator:
         url     = f"{building.target_url}/air-quality"
 
         try:
+            logger.info("POSTing reading to %s: %s", url, payload)
             response = await client.post(url, json=payload)
             if response.is_success:
                 logger.debug(

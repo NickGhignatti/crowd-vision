@@ -105,3 +105,64 @@ def pm25_to_aqi(pm25: float) -> int:
                 (aqi_hi - aqi_lo) / (c_hi - c_lo) * (pm25 - c_lo) + aqi_lo
             )
     return 500  # Beyond scale
+
+
+# --------------------------------------------------------------------------- #
+#  Indoor AQI helper (Custom weighted index)                                  #
+# --------------------------------------------------------------------------- #
+
+_INDOOR_AQI_LIMITS = {
+    "co2": 1000.0,
+    "pm25": 15.0,
+    "pm10": 50.0,
+    "voc": 500.0
+}
+
+_INDOOR_AQI_WEIGHTS = {
+    "co2": 1.0,
+    "pm25": 1.0,
+    "pm10": 1.0,
+    "voc": 1.0
+}
+
+def compute_indoor_aqi(pm25: float, pm10: float, co2: float, voc: float) -> float:
+    """
+    Calculate Indoor Air Quality Index (IAQI) based on user-provided formula.
+    IAQI = (sum(Ratio_i * Weight_i) / sum(Weight_i)) * 100%
+    where Ratio_i = Value_i / Limit_i
+    """
+    metrics = {
+        "pm25": pm25,
+        "pm10": pm10,
+        "co2": co2,
+        "voc": voc
+    }
+
+    total_weighted_score = 0.0
+    total_weight = 0.0
+
+    for key, value in metrics.items():
+        limit = _INDOOR_AQI_LIMITS[key]
+        weight = _INDOOR_AQI_WEIGHTS[key]
+
+        # Handle potential NaN or non-numeric values
+        try:
+            val = float(value)
+            if math.isnan(val):
+                val = 0.0
+        except (TypeError, ValueError):
+            val = 0.0
+
+        ratio = val / limit
+        total_weighted_score += ratio * weight
+        total_weight += weight
+
+    if total_weight == 0:
+        return 0.0
+
+    result = (total_weighted_score / total_weight) * 100.0
+    
+    if math.isnan(result) or math.isinf(result):
+        return 0.0
+
+    return round(result, 2)

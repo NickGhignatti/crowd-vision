@@ -104,7 +104,8 @@ describe('sensor routes and controller integration', () => {
                 voc: 120,
                 temperature: 21.1,
                 humidity: 44,
-                aqi: 25
+                aqi: 25,
+                indoor_aqi: 55.5
             });
 
         expect(res.status).toBe(201);
@@ -120,7 +121,8 @@ describe('sensor routes and controller integration', () => {
             120,
             21.1,
             44,
-            25
+            25,
+            55.5
         );
     });
 

@@ -177,6 +177,7 @@ paths:
                 - temperature
                 - humidity
                 - aqi
+                - indoor_aqi
               properties:
                 buildingId:
                   type: string
@@ -212,6 +213,9 @@ paths:
                 aqi:
                   type: number
                   example: 32
+                indoor_aqi:
+                  type: number
+                  example: 45.5
       responses:
         '201':
           description: Air quality signal created

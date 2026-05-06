@@ -55,6 +55,7 @@ export const postTemperature = async (req: Request, res: Response) => {
 
 export const postAirQuality = async (req: Request, res: Response) => {
   try {
+    console.log("POST /air-quality body:", JSON.stringify(req.body, null, 2));
     const {
       buildingId,
       roomId,
@@ -67,7 +68,10 @@ export const postAirQuality = async (req: Request, res: Response) => {
       temperature,
       humidity,
       aqi,
+      indoor_aqi,
+      indoorAqi,
     } = req.body;
+
     await postAirQualitySignal(
       buildingId,
       roomId,
@@ -80,6 +84,7 @@ export const postAirQuality = async (req: Request, res: Response) => {
       temperature,
       humidity,
       aqi,
+      indoor_aqi ?? indoorAqi,
     );
     res.status(201).json({ message: "Air quality signal created" });
   } catch (error: any) {

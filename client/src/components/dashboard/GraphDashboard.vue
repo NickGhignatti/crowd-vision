@@ -76,6 +76,12 @@ const { data: tempData, isLoading: loadingTemp } = getBuildingHistory(
   'temperature',
 )
 
+const { data: airQualityData, isLoading: loadingAQ } = getBuildingHistory(
+  buildingIdRef,
+  timeRange,
+  'air-quality',
+)
+
 const { isSimRunning, refetch } = useIsRunning(buildingIdRef)
 
 const checkSimStatus = () => {
@@ -173,6 +179,23 @@ const tempChartData = computed(() => {
         backgroundColor: 'rgba(249, 115, 22, 0.1)',
         fill: true,
         data: alignDataToTimeline(tempData.value, timeline, timeRange.value, aggMode.value),
+      },
+    ],
+  }
+})
+
+// 3. Air Quality Chart Data
+const aqChartData = computed(() => {
+  const timeline = getTimeline(timeRange.value)
+  return {
+    labels: chartLabels.value,
+    datasets: [
+      {
+        label: `Indoor AQI (${aggMode.value})`,
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: true,
+        data: alignDataToTimeline(airQualityData.value, timeline, timeRange.value, aggMode.value),
       },
     ],
   }
@@ -293,6 +316,27 @@ onMounted(() => {
           <div v-if="!buildingIdRef?.valueOf" class="animate-pulse">No data</div>
           <div v-else-if="loadingTemp" class="animate-pulse">Loading...</div>
           <Line v-else :data="tempChartData" :options="commonOptions" />
+        </div>
+      </div>
+
+      <div
+        v-if="aggMode !== 'sum'"
+        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]"
+      >
+        <h3
+          class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex justify-between"
+        >
+          <span>Air Quality (Indoor AQI)</span>
+          <span
+            class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs border border-emerald-100"
+          >
+            {{ aggMode }} / {{ timeRange }}
+          </span>
+        </h3>
+        <div class="h-[320px]">
+          <div v-if="!buildingIdRef?.valueOf" class="animate-pulse">No data</div>
+          <div v-else-if="loadingAQ" class="animate-pulse">Loading...</div>
+          <Line v-else :data="aqChartData" :options="commonOptions" />
         </div>
       </div>
     </div>

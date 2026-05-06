@@ -2,7 +2,7 @@
 import type { Room } from '@/models/building.ts'
 
 import { useI18n } from 'vue-i18n'
-import { roomColorByTemperature } from '@/helpers/colors.ts'
+import { roomColorByTemperature, roomColorByAirQuality } from '@/helpers/colors.ts'
 
 const { t } = useI18n()
 
@@ -10,8 +10,9 @@ const props = defineProps<{
   room: Room
   isSelected: boolean
   canEdit?: boolean
-  temp: number | undefined
-  people: number | undefined
+  temp?: number
+  people?: number
+  indoorAqi?: number
 }>()
 
 const emit = defineEmits<{
@@ -57,16 +58,23 @@ const emit = defineEmits<{
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.temperature') }}</span>
         <span class="font-bold" :style="{ color: roomColorByTemperature(props.temp ?? 0.0) }">
-          {{ props.temp !== undefined ? props.temp + '°C' : '--' }}
+          {{ props.temp != null ? props.temp + '°C' : '--' }}
         </span>
       </div>
 
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.occupancy') }}</span>
         <div class="flex items-center gap-1.5 text-slate-700 font-bold">
-          <span>{{ props.people }} / {{ room.capacity }}</span>
+          <span>{{ props.people != null ? props.people : '--' }} / {{ room.capacity }}</span>
           <i class="ph-bold ph-users text-slate-400"></i>
         </div>
+      </div>
+
+      <div class="flex justify-between items-center text-sm">
+        <span class="text-slate-500 font-medium">{{ t('model.rooms.airQuality') }}</span>
+        <span class="font-bold" :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }">
+          {{ props.indoorAqi != null ? props.indoorAqi.toFixed(1) + '%' : '--' }}
+        </span>
       </div>
 
       <div class="flex justify-between items-center text-sm">

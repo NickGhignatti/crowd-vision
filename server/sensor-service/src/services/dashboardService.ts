@@ -13,7 +13,7 @@ export const getTemperatureData = async (building: string, range: string, roomId
 };
 
 export const getAirQualityData = async (building: string, range: string, roomId: string | undefined) => {
-    return await getAggregatedData(AirQuality, building, roomId, getTimeRange(range), 'aqi');
+    return await getAggregatedData(AirQuality, building, roomId, getTimeRange(range), 'indoor_aqi');
 };
 
 const getGranularity = (range: TimeRange) => {

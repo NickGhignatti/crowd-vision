@@ -6,7 +6,7 @@ import RightMenu from '@/components/menus/RightMenu.vue'
 import ViewControls from '@/components/menus/ControlPanel.vue'
 import { useBuildingModel } from '@/composables/useBuildingModel'
 import { useSceneControls } from '@/composables/useSceneControls'
-import { useBuildingTemperature } from '@/composables/useRoomsData.ts'
+import { useBuildingAirQualitySensors, useBuildingTemperature } from '@/composables/useRoomsData.ts'
 import { computed, onMounted } from 'vue'
 import { TresCanvas } from '@tresjs/core'
 import type { Intersection } from 'three'
@@ -35,6 +35,7 @@ const modes = useModes()
 
 const currentBuildingId = computed(() => buildingModel.building.value?.id)
 const { temperatures: roomTemperatures } = useBuildingTemperature(currentBuildingId)
+const { indoorAqi: roomIndoorAqi } = useBuildingAirQualitySensors(currentBuildingId)
 
 const handleExplodeToggle = () => {
   const result = triggerExplodeView(
@@ -107,7 +108,10 @@ onMounted(() => {
                   :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
                 />
                 <TresMeshStandardMaterial
-                  :color="modes.getColorByMode({temperature: roomTemperatures[room.id] || 0.0})"
+                  :color="modes.getColorByMode({
+                    temperature: roomTemperatures[room.id],
+                    indoorAqi: roomIndoorAqi[room.id]
+                  })"
                   :transparent="true"
                   :opacity="roomOpacity(room.id === buildingModel.selectedRoomId.value)"
                   :depth-write="false"
