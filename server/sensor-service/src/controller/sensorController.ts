@@ -2,14 +2,18 @@ import type { Request, Response } from "express";
 import {
   postPeopleCountSignal,
   postTemperatureSignal,
+  postAirQualitySignal,
   getLatestsPeopleCountSignal,
   getLatestsTemperatureSignal,
+  getLatestsAirQualitySignal,
   getAllLatestsPeopleCountSignal,
   getAllLatestsTemperatureSignal,
+  getAllLatestsAirQualitySignal,
 } from "../services/sensorService.js";
 import {
   getTemperatureData,
   getPeopleCountData,
+  getAirQualityData,
 } from "../services/dashboardService.js";
 import type {
   PeopleCountParams,
@@ -21,6 +25,11 @@ import type {
   DashboardTemperatureParams,
   DashboardBuildingTemperatureParams,
 } from "../models/temperatureSignal.js";
+import type {
+  AirQualityParams,
+  DashboardAirQualityParams,
+  DashboardBuildingAirQualityParams,
+} from "../models/airQualitySignal.js";
 import { checkTemperature } from "../services/alertingService.js";
 
 export const postPeopleCount = async (req: Request, res: Response) => {
@@ -39,6 +48,44 @@ export const postTemperature = async (req: Request, res: Response) => {
     await postTemperatureSignal(buildingId, roomId, timestamp, temperature);
     await checkTemperature(buildingId, roomId, temperature);
     res.status(201).json({ message: "Temperature signal created" });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const postAirQuality = async (req: Request, res: Response) => {
+  try {
+    const {
+      buildingId,
+      roomId,
+      timestamp,
+      scenario,
+      pm25,
+      pm10,
+      co2,
+      voc,
+      temperature,
+      humidity,
+      aqi,
+      indoor_aqi,
+      indoorAqi,
+    } = req.body;
+
+    await postAirQualitySignal(
+      buildingId,
+      roomId,
+      timestamp,
+      scenario,
+      pm25,
+      pm10,
+      co2,
+      voc,
+      temperature,
+      humidity,
+      aqi,
+      indoor_aqi ?? indoorAqi,
+    );
+    res.status(201).json({ message: "Air quality signal created" });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -76,6 +123,22 @@ export const getSingleTemperature = async (
   }
 };
 
+export const getSingleAirQuality = async (
+  req: Request<AirQualityParams>,
+  res: Response,
+) => {
+  try {
+    const { building, roomId } = req.query;
+    const airQuality = await getLatestsAirQualitySignal(
+      building as string,
+      roomId as string,
+    );
+    res.status(200).json({ airQuality });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export const getAllPeopleCount = async (
   req: Request<PeopleCountParams>,
   res: Response,
@@ -101,6 +164,21 @@ export const getAllTemperature = async (
       building as string,
     );
     res.status(200).json({ temperature });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const getAllAirQuality = async (
+  req: Request<AirQualityParams>,
+  res: Response,
+) => {
+  try {
+    const { building } = req.query;
+    const airQuality = await getAllLatestsAirQualitySignal(
+      building as string,
+    );
+    res.status(200).json({ airQuality });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -140,6 +218,23 @@ export const getPeopleCountDashboard = async (
   }
 };
 
+export const getAirQualityDashboard = async (
+  req: Request<DashboardAirQualityParams>,
+  res: Response,
+) => {
+  try {
+    const { building, roomId, timeRange } = req.query;
+    const airQuality = await getAirQualityData(
+      building as string,
+      timeRange as string,
+      roomId as string,
+    );
+    res.status(200).json({ airQuality });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export const getEntireBuildingTemperatureDashboard = async (
   req: Request<DashboardBuildingTemperatureParams>,
   res: Response,
@@ -169,6 +264,23 @@ export const getEntireBuildingPeopleCountDashboard = async (
       undefined,
     );
     res.status(200).json({ peopleCount });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const getEntireBuildingAirQualityDashboard = async (
+  req: Request<DashboardBuildingAirQualityParams>,
+  res: Response,
+) => {
+  try {
+    const { building, timeRange } = req.query;
+    const airQuality = await getAirQualityData(
+      building as string,
+      timeRange as string,
+      undefined,
+    );
+    res.status(200).json({ airQuality });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

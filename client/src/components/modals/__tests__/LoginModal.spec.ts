@@ -116,9 +116,9 @@ describe('LoginModal.vue', () => {
       expect(wrapper.emitted('close')).toBeTruthy()
     })
 
-    it('catches the error, logs it, and does NOT emit close on failure', async () => {
-      // Suppress the expected console.log to keep test output clean
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    it('catches the error, reports it, and does NOT emit close on failure', async () => {
+      // Suppress the expected console output to keep test output clean
+      const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const expectedError = new Error('Invalid credentials')
       mockLogin.mockRejectedValueOnce(expectedError)
@@ -136,7 +136,7 @@ describe('LoginModal.vue', () => {
 
       expect(mockLogin).toHaveBeenCalledTimes(1)
 
-      // Expect the error to be logged as per the catch(e) block
+      // Expect the error to be reported as per the catch(e) block
       expect(logSpy).toHaveBeenCalledWith(expectedError)
 
       // The modal should stay open

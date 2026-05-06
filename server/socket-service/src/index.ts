@@ -39,9 +39,7 @@ async function startServer() {
         io.emit('notification', data);
     });
 
-    server.listen(PORT, () => {
-        console.log('🚀 Gateway running on port 3000');
-    });
+    server.listen(PORT);
 }
 
 io.on('connection', (socket) => {

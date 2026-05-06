@@ -59,7 +59,7 @@ const handleSignUp = async () => {
     await authStore.register(account.accountName, account.email, account.password, payload.otp)
     emit('close')
   } catch (e) {
-    console.log(e)
+    console.error(e)
   }
 }
 </script>

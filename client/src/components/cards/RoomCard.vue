@@ -2,7 +2,7 @@
 import type { Room } from '@/models/building.ts'
 
 import { useI18n } from 'vue-i18n'
-import { roomColorByTemperature } from '@/helpers/colors.ts'
+import { roomColorByTemperature, roomColorByAirQuality } from '@/helpers/colors.ts'
 
 const { t } = useI18n()
 
@@ -10,8 +10,9 @@ const props = defineProps<{
   room: Room
   isSelected: boolean
   canEdit?: boolean
-  temp: number | undefined
-  people: number | undefined
+  temp?: number
+  people?: number
+  indoorAqi?: number
 }>()
 
 const emit = defineEmits<{
@@ -32,7 +33,7 @@ const emit = defineEmits<{
   >
     <div v-if="isSelected" class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-600"></div>
 
-    <div class="flex justify-between items-start mb-3 border-b border-slate-200 pb-2">
+    <div class="flex justify-between items-center mb-3 border-b border-slate-200 pb-2">
       <div>
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-slate-800 leading-tight">{{ room.name }}</span>
@@ -47,6 +48,12 @@ const emit = defineEmits<{
         </div>
       </div>
       <span
+        ><i
+          class="ph-bold ph-wind"
+          :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }"
+        ></i
+      ></span>
+      <span
         v-if="room.color"
         class="w-3 h-3 rounded-full shadow-sm border border-slate-200"
         :style="{ backgroundColor: room.color }"
@@ -57,17 +64,24 @@ const emit = defineEmits<{
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.temperature') }}</span>
         <span class="font-bold" :style="{ color: roomColorByTemperature(props.temp ?? 0.0) }">
-          {{ props.temp !== undefined ? props.temp + '°C' : '--' }}
+          {{ props.temp != null ? props.temp + '°C' : '--' }}
         </span>
       </div>
 
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.occupancy') }}</span>
         <div class="flex items-center gap-1.5 text-slate-700 font-bold">
-          <span>{{ props.people }} / {{ room.capacity }}</span>
+          <span>{{ props.people != null ? props.people : '--' }} / {{ room.capacity }}</span>
           <i class="ph-bold ph-users text-slate-400"></i>
         </div>
       </div>
+
+      <!--      <div class="flex justify-between items-center text-sm">-->
+      <!--        <span class="text-slate-500 font-medium">{{ t('model.rooms.airQuality') }}</span>-->
+      <!--        <span class="font-bold" :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }">-->
+      <!--          {{ props.indoorAqi != null ? props.indoorAqi.toFixed(1) + '%' : '&#45;&#45;' }}-->
+      <!--        </span>-->
+      <!--      </div>-->
 
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.editRoom.maxTemp') }}</span>

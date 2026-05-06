@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => {
       include: ['three', '@tresjs/core', '@tresjs/cientos']
     },
     esbuild: {
-      // Automatically removes console.log and debugger from Production builds
+      // Automatically removes console output and debugger from Production builds
       drop: mode === 'production' ? ['console', 'debugger'] : [],
     },
     server: {

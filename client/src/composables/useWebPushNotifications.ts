@@ -35,7 +35,7 @@ export function useWebPushNotifications() {
       const data = await keyResponse.json()
 
       if (!keyResponse.ok){
-        console.log(`Failed to fetch VAPID key: ${data.type} - ${data.message}`)
+        console.error(`Failed to fetch VAPID key: ${data.type} - ${data.message}`)
         return
       }
 
@@ -70,7 +70,7 @@ export function useWebPushNotifications() {
 
         if (!response.ok) {
           const errorData = await response.json()
-          console.log(`Failed to subscribe: ${errorData.type} - ${errorData.message}`)
+          console.error(`Failed to subscribe: ${errorData.type} - ${errorData.message}`)
           return
         }
 
@@ -79,7 +79,6 @@ export function useWebPushNotifications() {
         return
       }
 
-      console.log('Push subscription created locally, but accountName is missing so it was not persisted.')
     } catch {
       permission.value = 'denied'
     }

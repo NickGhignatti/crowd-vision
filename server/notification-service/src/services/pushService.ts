@@ -45,7 +45,6 @@ const sendToSubscriptions = async (
         webpush.sendNotification(sub, notificationPayload)
             .catch(async (err: { statusCode?: number; body?: unknown }) => {
                 if (err.statusCode === 410 || err.statusCode === 403) {
-                    console.warn(`Removing invalid subscription: ${sub.endpoint.slice(0, 20)}...`);
                     await Subscription.deleteOne({ endpoint: sub.endpoint });
                 } else {
                     console.error('Push failed:', err.statusCode, err.body);

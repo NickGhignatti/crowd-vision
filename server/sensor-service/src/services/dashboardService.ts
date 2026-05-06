@@ -1,5 +1,6 @@
 import { PeopleCount } from '../models/peopleCountSignal.js';
 import { Temperature } from '../models/temperatureSignal.js';
+import { AirQuality } from '../models/airQualitySignal.js';
 import { getDateRange, getTimeRange, type TimeRange } from '../utils/dataHelpers.js';
 import { Model } from 'mongoose';
 
@@ -9,6 +10,10 @@ export const getPeopleCountData = async (building: string, range: string, roomId
 
 export const getTemperatureData = async (building: string, range: string, roomId: string | undefined) => {
     return await getAggregatedData(Temperature, building, roomId, getTimeRange(range), 'temperature');
+};
+
+export const getAirQualityData = async (building: string, range: string, roomId: string | undefined) => {
+    return await getAggregatedData(AirQuality, building, roomId, getTimeRange(range), 'indoor_aqi');
 };
 
 const getGranularity = (range: TimeRange) => {

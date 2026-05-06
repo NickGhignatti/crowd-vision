@@ -33,8 +33,6 @@ app.use(metricsMiddleware);
 
 if (process.env.NODE_ENV !== "test") {
   connectMongo().then(() => {
-    app.listen(PORT, () =>
-      console.log(`Authentication service running on localhost:${PORT}`),
-    );
+    app.listen(PORT);
   });
 }

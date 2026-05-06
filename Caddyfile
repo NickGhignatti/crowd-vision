@@ -9,9 +9,14 @@
         reverse_proxy twin-service:3000
     }
 
-    # Signal Simulator service
-    handle_path /simulator/* {
-        reverse_proxy simulator-service:3000
+    # Sensor Simulator service (TP)
+    handle_path /simulator/tp/* {
+        reverse_proxy sensor-simulator:3000
+    }
+
+    # Air Quality Simulator service (AQ)
+    handle_path /simulator/aq/* {
+        reverse_proxy aq-simulator:3000
     }
 
     # Notification service

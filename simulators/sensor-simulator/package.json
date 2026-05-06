@@ -4,12 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "node_modules/.bin/tsc",
     "start": "node dist/index.js",
     "dev": "nodemon src/index.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "lint": "eslint . --config ../eslint.config.mjs",
-    "lint:fix": "prettier --write src tsconfig.json package.json && eslint . --config ../eslint.config.mjs --fix"
+    "lint": "eslint --config ../../server/eslint.config.mjs",
+    "lint:fix": "prettier --write src tsconfig.json package.json && eslint . --config ../../server/eslint.config.mjs --fix"
   },
   "keywords": [],
   "author": "",

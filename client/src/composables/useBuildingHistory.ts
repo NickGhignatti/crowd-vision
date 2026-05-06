@@ -12,7 +12,7 @@ export interface ApiDataPoint {
 export function getBuildingHistory(
   buildingId: any,
   range: any,
-  apiType: 'peopleCount' | 'temperature',
+  apiType: 'peopleCount' | 'temperature' | 'air-quality',
 ) {
   const data = ref<ApiDataPoint[]>([])
   const isLoading = ref(false)
@@ -41,7 +41,8 @@ export function getBuildingHistory(
 
       const result = await response.json()
 
-      data.value = result[apiType] || []
+      const dataKey = apiType === 'air-quality' ? 'airQuality' : apiType
+      data.value = result[dataKey] || []
     } catch (err: any) {
       error.value = err.message
       // Fallback to empty or mock on error if strictly needed

@@ -12,7 +12,6 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import SimulatorUrl from '@/components/modals/SimulatorUrl.vue'
 import { getBuildingHistory } from '@/composables/useBuildingHistory'
 import { useIsRunning, toggleSimulator } from '@/composables/simulator'
 import { useI18n } from 'vue-i18n'
@@ -44,22 +43,12 @@ const buildingIdRef = toRef(props, 'selectedBuildingId')
 // --- State ---
 const timeRange = ref<TimeRange>('1D')
 const aggMode = ref<AggMode>('avg')
-const simulatorUrl = ref<string>('')
-const isModalOpen = ref(false)
-
-const handleSaveUrl = (newUrl: string) => {
-  simulatorUrl.value = newUrl
-  localStorage.setItem('simulatorUrl', newUrl)
-  refetch(newUrl)
-  isModalOpen.value = false
-}
 
 const toggleSimulatorButton = () => {
   if (!buildingIdRef.value) return
   toggleSimulator(
     buildingIdRef.value,
     isSimRunning.value ? 'stop' : 'start',
-    simulatorUrl.value,
     props.selectedRooms,
   )
     .then(() => {
@@ -87,12 +76,16 @@ const { data: tempData, isLoading: loadingTemp } = getBuildingHistory(
   'temperature',
 )
 
+const { data: airQualityData, isLoading: loadingAQ } = getBuildingHistory(
+  buildingIdRef,
+  timeRange,
+  'air-quality',
+)
+
 const { isSimRunning, refetch } = useIsRunning(buildingIdRef)
 
 const checkSimStatus = () => {
-  if (simulatorUrl.value.length > 0) {
-    refetch(simulatorUrl.value)
-  }
+  refetch()
 }
 
 // --- Chart Options ---
@@ -191,11 +184,25 @@ const tempChartData = computed(() => {
   }
 })
 
-onMounted(() => {
-  if (localStorage.getItem('simulatorUrl')) {
-    simulatorUrl.value = localStorage.getItem('simulatorUrl') || ''
-    checkSimStatus()
+// 3. Air Quality Chart Data
+const aqChartData = computed(() => {
+  const timeline = getTimeline(timeRange.value)
+  return {
+    labels: chartLabels.value,
+    datasets: [
+      {
+        label: `Indoor AQI (${aggMode.value})`,
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: true,
+        data: alignDataToTimeline(airQualityData.value, timeline, timeRange.value, aggMode.value),
+      },
+    ],
   }
+})
+
+onMounted(() => {
+  checkSimStatus()
 })
 </script>
 
@@ -226,21 +233,7 @@ onMounted(() => {
               : t('dashboard.table.buttons.simStart')
           }}
         </button>
-        <button
-          @click="isModalOpen = true"
-          class="flex items-center justify-center p-2 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-500"
-          title="Configure Simulator"
-        >
-          <i class="ph-bold ph-gear text-lg"></i>
-        </button>
       </div>
-
-      <SimulatorUrl
-        :is-open="isModalOpen"
-        :initial-url="simulatorUrl"
-        @close="isModalOpen = false"
-        @save="handleSaveUrl"
-      />
 
       <div class="flex flex-wrap gap-4 justify-center w-full xl:w-auto">
         <div class="flex items-center gap-2">
@@ -323,6 +316,27 @@ onMounted(() => {
           <div v-if="!buildingIdRef?.valueOf" class="animate-pulse">No data</div>
           <div v-else-if="loadingTemp" class="animate-pulse">Loading...</div>
           <Line v-else :data="tempChartData" :options="commonOptions" />
+        </div>
+      </div>
+
+      <div
+        v-if="aggMode !== 'sum'"
+        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]"
+      >
+        <h3
+          class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex justify-between"
+        >
+          <span>Air Quality (Indoor AQI)</span>
+          <span
+            class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs border border-emerald-100"
+          >
+            {{ aggMode }} / {{ timeRange }}
+          </span>
+        </h3>
+        <div class="h-[320px]">
+          <div v-if="!buildingIdRef?.valueOf" class="animate-pulse">No data</div>
+          <div v-else-if="loadingAQ" class="animate-pulse">Loading...</div>
+          <Line v-else :data="aqChartData" :options="commonOptions" />
         </div>
       </div>
     </div>

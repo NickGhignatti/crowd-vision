@@ -26,7 +26,7 @@ const handleLogin = async () => {
     await authStore.login(account.accountName, account.password)
     emit('close')
   } catch (e) {
-    console.log(e)
+    console.error(e)
   }
 }
 </script>

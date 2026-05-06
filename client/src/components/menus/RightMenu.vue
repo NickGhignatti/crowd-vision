@@ -14,6 +14,7 @@ export interface RoomItemBody {
   room: Room
   temp: number | undefined
   people: number | undefined
+  indoorAqi: number | undefined
 }
 
 const props = defineProps<{
@@ -68,17 +69,21 @@ const { data: peopleData } = getBuildingData(buildingId, 'peopleCount')
 
 const { data: temperatures } = getBuildingData(buildingId, 'temperature')
 
+const { data: airQuality } = getBuildingData(buildingId, 'air-quality')
+
 const enrichedRooms = computed<RoomItemBody[]>(() => {
   if (!props.buildingModel) return []
 
   return filteredRooms.value.map((room) => {
     const roomTempData = temperatures.value?.find((t: any) => t.roomId === room.id)
     const roomPeople = peopleData.value?.find((p: any) => p.roomId === room.id)
+    const roomAQData = airQuality.value?.find((a: any) => a.roomId === room.id)
 
     return {
       room,
       temp: roomTempData?.value,
       people: roomPeople?.value,
+      indoorAqi: roomAQData?.indoor_aqi ?? roomAQData?.indoorAqi,
     }
   })
 })
@@ -156,6 +161,7 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
                 :can-edit="userCanEdit"
                 :temp="r.temp"
                 :people="r.people"
+                :indoor-aqi="r.indoorAqi"
                 @select="emit('toggle-select', $event)"
                 @edit="handleOpenEdit"
               />
