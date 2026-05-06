@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from signal import AirQualityReading, BuildingConfig
+from schemas import AirQualityReading, BuildingConfig
 from scenarios import EnvironmentModel, Scenario
 from errors import SensorErrorModel
 from physics import compute_all, pm25_to_aqi

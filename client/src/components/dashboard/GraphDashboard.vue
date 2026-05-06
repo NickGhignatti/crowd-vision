@@ -12,7 +12,6 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import SimulatorUrl from '@/components/modals/SimulatorUrl.vue'
 import { getBuildingHistory } from '@/composables/useBuildingHistory'
 import { useIsRunning, toggleSimulator } from '@/composables/simulator'
 import { useI18n } from 'vue-i18n'
@@ -44,22 +43,12 @@ const buildingIdRef = toRef(props, 'selectedBuildingId')
 // --- State ---
 const timeRange = ref<TimeRange>('1D')
 const aggMode = ref<AggMode>('avg')
-const simulatorUrl = ref<string>('')
-const isModalOpen = ref(false)
-
-const handleSaveUrl = (newUrl: string) => {
-  simulatorUrl.value = newUrl
-  localStorage.setItem('simulatorUrl', newUrl)
-  refetch(newUrl)
-  isModalOpen.value = false
-}
 
 const toggleSimulatorButton = () => {
   if (!buildingIdRef.value) return
   toggleSimulator(
     buildingIdRef.value,
     isSimRunning.value ? 'stop' : 'start',
-    simulatorUrl.value,
     props.selectedRooms,
   )
     .then(() => {
@@ -90,9 +79,7 @@ const { data: tempData, isLoading: loadingTemp } = getBuildingHistory(
 const { isSimRunning, refetch } = useIsRunning(buildingIdRef)
 
 const checkSimStatus = () => {
-  if (simulatorUrl.value.length > 0) {
-    refetch(simulatorUrl.value)
-  }
+  refetch()
 }
 
 // --- Chart Options ---
@@ -192,10 +179,7 @@ const tempChartData = computed(() => {
 })
 
 onMounted(() => {
-  if (localStorage.getItem('simulatorUrl')) {
-    simulatorUrl.value = localStorage.getItem('simulatorUrl') || ''
-    checkSimStatus()
-  }
+  checkSimStatus()
 })
 </script>
 
@@ -226,21 +210,7 @@ onMounted(() => {
               : t('dashboard.table.buttons.simStart')
           }}
         </button>
-        <button
-          @click="isModalOpen = true"
-          class="flex items-center justify-center p-2 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-500"
-          title="Configure Simulator"
-        >
-          <i class="ph-bold ph-gear text-lg"></i>
-        </button>
       </div>
-
-      <SimulatorUrl
-        :is-open="isModalOpen"
-        :initial-url="simulatorUrl"
-        @close="isModalOpen = false"
-        @save="handleSaveUrl"
-      />
 
       <div class="flex flex-wrap gap-4 justify-center w-full xl:w-auto">
         <div class="flex items-center gap-2">

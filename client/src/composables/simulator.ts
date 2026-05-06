@@ -1,36 +1,61 @@
 import { ref, watchEffect, toValue } from 'vue'
 import { makeExternalRequest } from '@/composables/useApi'
 
-const SIMULATOR_URL_STORAGE_KEY = 'simulatorUrl'
+const normalizeSimulatorUrl = (url: string): string => {
+  const trimmed = url.trim().replace(/\/$/, '')
+  if (!trimmed) return ''
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  return `http://${trimmed}`
+}
+
+const getSimulatorUrls = (): string[] => {
+  const envUrls = Object.entries(import.meta.env)
+    .filter(([key, value]) => key.startsWith('VITE_SIMULATOR_URL') && typeof value === 'string')
+    .map(([, value]) => normalizeSimulatorUrl(value))
+    .filter((value) => value.length > 0)
+
+  return envUrls
+}
 
 export function useIsRunning(buildingIdSource: any) {
   const isSimRunning = ref(false)
   const error = ref<string | null>(null)
-  const lastSimulatorUrl = ref(
-    localStorage.getItem(SIMULATOR_URL_STORAGE_KEY) || ''
-  )
 
-  const refetch = async (simulatorUrl: string) => {
+  const refetch = async () => {
     const id = toValue(buildingIdSource)
-    if (simulatorUrl !== lastSimulatorUrl.value) {
-      lastSimulatorUrl.value = simulatorUrl
-      localStorage.setItem(SIMULATOR_URL_STORAGE_KEY, simulatorUrl)
+
+    if (!id) {
+      isSimRunning.value = false
+      return
     }
-    if (!id || !simulatorUrl) {
+
+    const simulatorUrls = getSimulatorUrls()
+    if (simulatorUrls.length === 0) {
       isSimRunning.value = false
       return
     }
 
     try {
-      const response = await makeExternalRequest(`${simulatorUrl}/control/status/?buildingId=${id}`)
-      if (!response.ok) {
-        error.value = 'Fetch failed'
-        isSimRunning.value = false
-        return
-      }
+      const results = await Promise.all(
+        simulatorUrls.map(async (url) => {
+          try {
+            const response = await makeExternalRequest(
+              `${url}/control/status?buildingId=${id}`,
+            )
+            if (response.ok) {
+              const data = await response.json()
+              return data.isRunning === true
+            }
+          } catch (e) {
+            console.error(`Failed to check status for ${url}`, e)
+          }
+          return false
+        }),
+      )
 
-      const result = await response.json()
-      isSimRunning.value = result.isRunning
+      isSimRunning.value = results.some((r) => r === true)
       error.value = null
     } catch (err: any) {
       error.value = err.message
@@ -40,7 +65,7 @@ export function useIsRunning(buildingIdSource: any) {
 
   // Auto-runs when buildingIdSource changes
   watchEffect(() => {
-    refetch(lastSimulatorUrl.value)
+    refetch()
   })
 
   return { isSimRunning, error, refetch }
@@ -49,7 +74,6 @@ export function useIsRunning(buildingIdSource: any) {
 export async function toggleSimulator(
   buildingId: string,
   action: 'start' | 'stop',
-  simulatorUrl: string,
   rooms?: string[],
 ) {
   let serverUrl = import.meta.env.VITE_SERVER_URL
@@ -59,13 +83,18 @@ export async function toggleSimulator(
 
   // Ensure no double-slashes by removing any trailing slash from serverUrl
   const cleanServerUrl = serverUrl.replace(/\/$/, '')
+  const targetUrl = cleanServerUrl + '/sensor/'
+  const simulatorUrls = getSimulatorUrls()
 
   if (action === 'start') {
-    await startSimulator(buildingId, simulatorUrl, cleanServerUrl + '/sensor/', rooms)
+    await Promise.all(
+      simulatorUrls.map((url) => startSimulator(buildingId, url, targetUrl, rooms)),
+    )
   } else {
-    await stopSimulator(buildingId, simulatorUrl)
+    await Promise.all(simulatorUrls.map((url) => stopSimulator(buildingId, url)))
   }
 }
+
 
 const startSimulator = async (
   buildingId: string,
@@ -74,7 +103,7 @@ const startSimulator = async (
   rooms?: string[],
 ) => {
   try {
-    const response = await makeExternalRequest(`${simulatorUrl}/control/start/`, 'POST', {
+    const response = await makeExternalRequest(`${simulatorUrl}/control/start`, 'POST', {
       body: JSON.stringify({
         buildingId: buildingId,
         roomIds: rooms || [],
@@ -91,7 +120,7 @@ const startSimulator = async (
 
 const stopSimulator = async (buildingId: string, simulatorUrl: string) => {
   try {
-    const response = await makeExternalRequest(`${simulatorUrl}/control/stop/`, 'POST', {
+    const response = await makeExternalRequest(`${simulatorUrl}/control/stop`, 'POST', {
       body: JSON.stringify({
         buildingId: buildingId,
       }),

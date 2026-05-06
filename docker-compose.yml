@@ -9,6 +9,7 @@ services:
       - caddy_config:/config
     networks:
       - gateway-net
+      - simulator-net
     depends_on:
       - auth-service
       - twin-service

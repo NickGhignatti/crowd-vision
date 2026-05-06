@@ -3,22 +3,21 @@ import type { Simulator } from '../services/simulatorService.js';
 
 export const start = async (simulator: Simulator, req: Request, res: Response) => {
     try {
-        simulator.start();
-        res.status(200).json({ message: 'Simulator started' });
+        simulator.startOrAdd({
+            buildingId: req.body.buildingId,
+            roomIds: req.body.roomIds,
+            targetUrl: req.body.targetUrl,
+        });
+        res.status(200).json({ message: `Simulator started for ${req.body.buildingId}` });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
     }
 };
 
-export const registerBuilding = async (simulator: Simulator, req: Request, res: Response) => {
+export const stop = async (simulator: Simulator, req: Request, res: Response) => {
     try {
-        simulator.registerBuilding({
-            buildingId: req.body.buildingId,
-            roomIds: req.body.roomIds,
-            targetUrl: req.body.targetUrl,
-        });
-        simulator.start();
-        res.status(201).json({ message: `Building registered and started for ${req.body.buildingId}` });
+        simulator.stop(req.body.buildingId);
+        res.status(200).json({ message: `Simulator stopped for ${req.body.buildingId}` });
     } catch (error: any) {
         res.status(400).json({ error: error.message });
     }

@@ -10,7 +10,7 @@ from scenarios import Scenario
 
 class BuildingConfig(BaseModel):
     """
-    Body of POST /control/building.
+    Body of POST /control/start.
     Mirrors the TypeScript { buildingId, roomIds, targetUrl } payload.
     """
     buildingId: str
@@ -32,6 +32,10 @@ class BuildingConfig(BaseModel):
         if v < 1.0:
             raise ValueError("interval_seconds must be ≥ 1")
         return v
+
+
+class StopRequest(BaseModel):
+    buildingId: str
 
 
 class AirQualityReading(BaseModel):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from signal import BuildingConfig
+from schemas import BuildingConfig
 from simulator import Simulator
 
 
