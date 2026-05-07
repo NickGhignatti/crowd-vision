@@ -257,7 +257,7 @@ describe('useUserPermissions', () => {
 
       const { composable } = mountComposable()
 
-      // Building belongs to domain-c only (no edit role), domain-b (edit role) — should be true
+      // BuildingsSelector belongs to domain-c only (no edit role), domain-b (edit role) — should be true
       expect(composable.canEdit(['domain-b', 'domain-c'])).toBe(true)
     })
   })

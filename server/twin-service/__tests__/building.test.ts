@@ -3,7 +3,7 @@ import { app } from '../src/index.js';
 import { Building } from '../src/models/building.js';
 
 const mockBuilding = {
-    id: 'Building-Test-001',
+    id: 'Buildings-Test-001',
     name: 'Engineering Block',
     domains: ['test-domain'],
     rooms: [
@@ -82,7 +82,7 @@ describe('Twin Service API', () => {
     describe('GET /buildings/:domain', () => {
         it('should retrieve buildings for a specific domain', async () => {
             await new Building(mockBuilding).save();
-            await new Building({ ...mockBuilding, id: 'Building-2' }).save();
+            await new Building({ ...mockBuilding, id: 'Buildings-2' }).save();
 
             const res = await request(app).get(`/buildings/${mockBuilding.domains[0]}`);
 

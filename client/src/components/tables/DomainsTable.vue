@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import DomainRow from '@/components/tables/components/DomainRow.vue'
+import DomainRecord from '@/components/records/DomainRecord.vue'
 import type { Domain, DomainMembership } from '@/models/domain'
 
 import { useI18n } from 'vue-i18n'
@@ -104,7 +104,7 @@ const hasSub = (domainName: string): boolean => {
           :key="index"
           class="group hover:bg-slate-50 transition-colors duration-150"
         >
-          <DomainRow
+          <DomainRecord
             :id="index"
             :name="item.name"
             :isSubscribed="hasSub(item.name)"

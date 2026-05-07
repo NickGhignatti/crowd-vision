@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import NavBar from '@/components/NavBar.vue'
+import Navbar from '@/components/layouts/Navbar.vue'
 
 import { useI18n } from 'vue-i18n'
 
@@ -8,7 +8,7 @@ const { t } = useI18n()
 
 <template>
   <div class="min-h-screen bg-slate-50 selection:bg-emerald-100 selection:text-emerald-900">
-    <NavBar />
+    <Navbar />
 
     <section class="relative pt-20 pb-32 overflow-hidden">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">

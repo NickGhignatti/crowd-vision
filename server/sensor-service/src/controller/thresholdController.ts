@@ -53,7 +53,7 @@ export const patchBuildingThreshold = async (req: Request, res: Response) => {
   const { maxTemperature } = req.body as { maxTemperature?: number };
 
   const building = await updateBuildingThreshold(buildingId as string, { maxTemperature: maxTemperature as number });
-  if (!building) return res.status(404).json({ error: 'Building threshold not found' });
+  if (!building) return res.status(404).json({ error: 'Buildings threshold not found' });
 
   return res.status(200).json(building);
 };

@@ -23,7 +23,7 @@ describe("Twin service branches", () => {
   };
 
   const baseBuilding = {
-    id: "Building-Test-001",
+    id: "Buildings-Test-001",
     name: "   ",
     domains: ["test-domain"],
     rooms: [baseRoom],

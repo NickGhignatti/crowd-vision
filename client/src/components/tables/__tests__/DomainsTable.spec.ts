@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
-import DomainTable from '@/components/tables/DomainsTable.vue'
+import DomainsTable from '@/components/tables/DomainsTable.vue'
 import { makeRequest } from '@/composables/useApi.ts'
 import type { Domain, DomainMembership } from '@/models/domain'
 
@@ -29,7 +29,7 @@ const DomainRowStub = {
 }
 
 const stubs = {
-  DomainRow: DomainRowStub,
+  DomainRecord: DomainRowStub,
 }
 
 const makeDomain = (name: string, authStrategy: 'internal' | 'oidc' = 'internal'): Domain => ({
@@ -48,7 +48,7 @@ const makeResponse = (ok: boolean, body: unknown = {}) => ({
   json: vi.fn().mockResolvedValue(body),
 })
 
-describe('DomainTable.vue', () => {
+describe('DomainsTable', () => {
   // Capture the original window.location to restore it later
   const originalLocation = window.location
 
@@ -74,7 +74,7 @@ describe('DomainTable.vue', () => {
 
   describe('rendering', () => {
     it('displays the empty state when no domains are provided', () => {
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: { domains: [], userMemberships: [] },
         global: { stubs },
       })
@@ -83,8 +83,8 @@ describe('DomainTable.vue', () => {
       expect(wrapper.findComponent(DomainRowStub).exists()).toBe(false)
     })
 
-    it('renders a DomainRow for each domain', () => {
-      const wrapper = mount(DomainTable, {
+    it('renders a DomainRecord for each domain', () => {
+      const wrapper = mount(DomainsTable, {
         props: {
           domains: [makeDomain('acme'), makeDomain('globex')],
           userMemberships: [],
@@ -99,7 +99,7 @@ describe('DomainTable.vue', () => {
     })
 
     it('maps userMemberships to the isSubscribed prop correctly', () => {
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: {
           domains: [makeDomain('acme'), makeDomain('globex')],
           userMemberships: [makeMembership('globex')], // Only subscribed to globex
@@ -117,7 +117,7 @@ describe('DomainTable.vue', () => {
     it('calls the subscribe API and emits refresh on success', async () => {
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
 
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: { domains: [makeDomain('acme', 'internal')], userMemberships: [] },
         global: { stubs },
       })
@@ -138,7 +138,7 @@ describe('DomainTable.vue', () => {
       // Force API to fail
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
 
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: { domains: [makeDomain('acme', 'internal')], userMemberships: [] },
         global: { stubs },
       })
@@ -167,7 +167,7 @@ describe('DomainTable.vue', () => {
         }) as unknown as Response,
       )
 
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: { domains: [makeDomain('unibo', 'oidc')], userMemberships: [] },
         global: { stubs },
       })
@@ -184,7 +184,7 @@ describe('DomainTable.vue', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
 
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: { domains: [makeDomain('unibo', 'oidc')], userMemberships: [] },
         global: { stubs },
       })
@@ -201,7 +201,7 @@ describe('DomainTable.vue', () => {
     it('calls the unsubscribe API and emits refresh on success', async () => {
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
 
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: {
           domains: [makeDomain('acme')],
           userMemberships: [makeMembership('acme')],
@@ -224,7 +224,7 @@ describe('DomainTable.vue', () => {
       // Force API to fail
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
 
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: {
           domains: [makeDomain('acme')],
           userMemberships: [makeMembership('acme')],
@@ -252,7 +252,7 @@ describe('DomainTable.vue', () => {
     it('aborts actions if accountName is null', async () => {
       mockAccountName.value = null
 
-      const wrapper = mount(DomainTable, {
+      const wrapper = mount(DomainsTable, {
         props: { domains: [makeDomain('acme')], userMemberships: [] },
         global: { stubs },
       })

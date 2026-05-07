@@ -83,7 +83,7 @@ export const useDomainsStore = defineStore('domains', {
 
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || 'Failed to create domain')
+        throw new Error(err.error || 'Failed to creation domain')
       }
 
       return await response.json()
@@ -132,7 +132,7 @@ export const useDomainsStore = defineStore('domains', {
     async getDomainQRs(domainName: string) {
       const accountName = this._authStore.accountName
       const response = await makeRequest(`/auth/domains/${domainName}/totp/qr/${accountName}`)
-      if (!response.ok) throw new Error('Failed to fetch QR codes')
+      if (!response.ok) throw new Error('Failed to fetch QrCodeCard codes')
       const data = await response.json()
       return data.qrCodes
     },

@@ -1,7 +1,7 @@
 import { mount, shallowMount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import BuildingCard from '../BuildingCard.vue'
-import FloorSelector from '@/components/buttons/FloorSelector.vue'
+import FloorSelector from '@/components/selectors/FloorSelector.vue'
 
 const defaultProps = {
   buildingId: 'building-1',

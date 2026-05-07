@@ -72,12 +72,12 @@ describe('useSceneControls', () => {
 
   describe('triggerExplodeView', () => {
     const mockBuilding = {
-      id: 'Building-1',
+      id: 'BuildingsSelector-1',
       name: 'Building 1',
       rooms: [
         {
-          id: 'Room-A',
-          name: 'Room A',
+          id: 'RoomCard-A',
+          name: 'RoomCard A',
           position: { x: 10, y: 0, z: 10 },
           dimensions: { width: 10, height: 10, depth: 10 },
         },
@@ -97,9 +97,9 @@ describe('useSceneControls', () => {
       const mockCamera = createMockCamera()
       cameraRef.value = mockCamera as unknown as PerspectiveCamera
 
-      const result = triggerExplodeView('Room-A', mockBuilding, false)
+      const result = triggerExplodeView('RoomCard-A', mockBuilding, false)
 
-      expect(result).toEqual({ exploded: true, roomId: 'Room-A' })
+      expect(result).toEqual({ exploded: true, roomId: 'RoomCard-A' })
       expect(mockCamera.position.x).toBe(20)
       expect(mockCamera.position.y).toBe(15)
       expect(mockCamera.position.z).toBe(25)
@@ -113,7 +113,7 @@ describe('useSceneControls', () => {
       cameraRef.value = mockCamera as unknown as PerspectiveCamera
 
       // Call with isExplodedState = true to toggle OFF
-      const result = triggerExplodeView('Room-A', mockBuilding, true)
+      const result = triggerExplodeView('RoomCard-A', mockBuilding, true)
 
       expect(result).toEqual({ exploded: false, roomId: null })
 
@@ -129,7 +129,7 @@ describe('useSceneControls', () => {
       const mockCamera = createMockCamera()
       cameraRef.value = mockCamera as unknown as PerspectiveCamera
 
-      const result = triggerExplodeView('Ghost-Room', mockBuilding, false)
+      const result = triggerExplodeView('Ghost-RoomCard', mockBuilding, false)
 
       // Should return current state (exploded: false) without changes
       expect(result).toEqual({ exploded: false, roomId: null })

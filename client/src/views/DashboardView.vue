@@ -1,24 +1,25 @@
 <script setup lang="ts">
-import NavBar from '@/components/NavBar.vue'
-import FullScreenMode from '@/components/buttons/FullScreenMode.vue'
-import type { Room, Building } from '@/models/building'
-import ModelSelectionDropdown from '@/components/menus/ModelSelectionDropdown.vue'
-import DataTable, { type TableBody, type TableHeader } from '@/components/tables/DataTable.vue'
+import Navbar from '@/components/layouts/Navbar.vue'
+import FullscreenModeButton from '@/components/buttons/FullscreenModeButton.vue'
+import type { Room } from '@/models/building'
+import ModelDropdown from '@/components/dropdowns/ModelDropdown.vue'
+import BuildingTable, { type TableBody, type TableHeader } from '@/components/tables/BuildingTable.vue'
 
 import { onMounted, onUnmounted, ref } from 'vue'
-import { makeRequest } from '@/composables/useApi.ts'
-import { useDateTime } from '@/composables/useDateTime'
 import { getStatusByOccupants, getStatusColor } from '@/helpers/status'
 import { useI18n } from 'vue-i18n'
-import GraphDashboard from '@/components/dashboard/GraphDashboard.vue'
-import type { DomainMembership } from '@/models/domain'
-import { useAuthStore } from '@/stores/authentication.ts'
+import GraphDashboard from '@/components/dashboards/GraphDashboard.vue'
 import { useBuildingsStore } from '@/stores/buildings.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
+import TableViewModeButton from '@/components/buttons/TableViewModeButton.vue'
+import GraphViewModeButton from '@/components/buttons/GraphViewModeButton.vue'
+import TimeCard from '@/components/cards/TimeCard.vue'
+import DateCard from '@/components/cards/DateCard.vue'
 
-const authStore = useAuthStore()
+const domainStore = useDomainsStore()
 const buildingStore = useBuildingsStore()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 export interface ModelOption {
   id: string
@@ -35,21 +36,19 @@ const isFullscreen = ref(false)
 // Data State
 const roomData = ref<TableBody[]>([]) // Processed data for Table
 
-const { formattedTime, formattedDate } = useDateTime(locale)
-
 const tableHeaders = ref<TableHeader[]>([
-  { key: 'room', label: 'dashboard.table.headers.room', cellClass: 'font-medium text-slate-900' },
-  { key: 'status', label: 'dashboard.table.headers.status', cellClass: 'text-sm' },
-  { key: 'teacher', label: 'dashboard.table.headers.teacher', cellClass: 'text-sm' },
+  { key: 'room', label: 'dashboards.table.headers.room', cellClass: 'font-medium text-slate-900' },
+  { key: 'status', label: 'dashboards.table.headers.status', cellClass: 'text-sm' },
+  { key: 'teacher', label: 'dashboards.table.headers.teacher', cellClass: 'text-sm' },
   {
     key: 'temp',
-    label: 'dashboard.table.headers.temperature',
+    label: 'dashboards.table.headers.temperature',
     cellClass: 'text-slate-900 font-medium',
   },
-  { key: 'people', label: 'dashboard.table.headers.people', cellClass: 'text-slate-900' },
+  { key: 'people', label: 'dashboards.table.headers.people', cellClass: 'text-slate-900' },
   {
     key: 'capacity',
-    label: 'dashboard.table.headers.capacity',
+    label: 'dashboards.table.headers.capacity',
     cellClass: 'text-slate-900 font-medium',
   },
 ])
@@ -61,7 +60,7 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
     const building = buildingStore.getById(buildingId)
 
     if (building && building.rooms) {
-        building.rooms.forEach((room: Room) => {
+      building.rooms.forEach((room: Room) => {
         const roomName = room.name?.trim() || room.id
         roomData.value.push({
           room: roomName,
@@ -101,45 +100,13 @@ const onFullscreenChange = () => {
 
 const getInitialModels = async () => {
   try {
-    const username = authStore.accountName
-    if (!username) return
+    const memberships = domainStore.memberships || []
+    await buildingStore.fetch(memberships)
 
-    const authRes = await makeRequest(`/auth/domains/${username}`)
-    if (!authRes.ok) {
-      console.error('Failed to fetch user domains')
-      return
-    }
-
-    const authData = await authRes.json()
-    const memberships = authData.domains as DomainMembership[]
-    const allBuildings: Building[] = []
-
-    // Fetch Buildings for each Domain
-    await Promise.all(
-      memberships.map(async (m) => {
-        try {
-          const buildRes = await makeRequest(`/twin/buildings/${m.domainName}`)
-          if (buildRes.ok) {
-            const domainBuildings = (await buildRes.json()) as Building[]
-            allBuildings.push(...domainBuildings)
-          }
-        } catch (err) {
-          console.error(`Failed to fetch buildings for domain ${m.domainName}`, err)
-        }
-      }),
-    )
-
-    const uniqueIds = new Set()
-    models.value = allBuildings
-      .filter((b) => {
-        if (uniqueIds.has(b.id)) return false
-        uniqueIds.add(b.id)
-        return true
-      })
-      .map((b) => ({
-        id: b.id,
-        name: b.name?.trim() || b.id,
-      }))
+    models.value = buildingStore.all.map((b) => ({
+      id: b.id,
+      name: b.name?.trim() || b.id,
+    }))
 
     if (models.value.length > 0 && models.value[0]) {
       handleModelChange(models.value[0])
@@ -161,16 +128,16 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-screen bg-slate-50">
-    <NavBar />
+    <Navbar />
 
     <div
       ref="focusSection"
       class="flex flex-col items-center pt-12 px-4 pb-20 bg-slate-50 overflow-y-auto w-full"
     >
-      <FullScreenMode
+      <FullscreenModeButton
         :is-fullscreen="isFullscreen"
         @toggleFocusMode="toggleFocusMode"
-      ></FullScreenMode>
+      ></FullscreenModeButton>
 
       <div class="mb-10 w-full max-w-5xl grid grid-cols-3 items-center">
         <div class="flex justify-start">
@@ -180,84 +147,36 @@ onUnmounted(() => {
               :class="viewMode === 'table' ? 'left-1' : 'left-[50%]'"
             ></div>
 
-            <button
-              @click="viewMode = 'table'"
-              class="relative z-10 px-6 py-1.5 text-sm font-semibold rounded-full transition-colors duration-300 flex items-center gap-2"
-              :class="
-                viewMode === 'table' ? 'text-slate-800' : 'text-slate-500 hover:text-slate-700'
-              "
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="8" y1="6" x2="21" y2="6"></line>
-                <line x1="8" y1="12" x2="21" y2="12"></line>
-                <line x1="8" y1="18" x2="21" y2="18"></line>
-                <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                <line x1="3" y1="18" x2="3.01" y2="18"></line>
-              </svg>
-              List
-            </button>
-
-            <button
-              @click="viewMode = 'graph'"
-              class="relative z-10 px-6 py-1.5 text-sm font-semibold rounded-full transition-colors duration-300 flex items-center gap-2"
-              :class="
-                viewMode === 'graph' ? 'text-slate-800' : 'text-slate-500 hover:text-slate-700'
-              "
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="18" y1="20" x2="18" y2="10"></line>
-                <line x1="12" y1="20" x2="12" y2="4"></line>
-                <line x1="6" y1="20" x2="6" y2="14"></line>
-              </svg>
-              Graph
-            </button>
+            <TableViewModeButton view-mode="viewMode" @click="viewMode = 'table'" />
+            <GraphViewModeButton view-mode="viewMode" @click="viewMode = 'graph'" />
           </div>
         </div>
 
         <div class="text-center">
-          <h2 class="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums">
-            {{ formattedTime }}
-          </h2>
+          <TimeCard
+            as="h2"
+            class-name="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums"
+          />
         </div>
 
         <div class="flex justify-end">
-          <ModelSelectionDropdown
+          <ModelDropdown
             :selectedModel="selectedModel"
             :models="models"
             @model-changed="handleModelChange"
           />
         </div>
 
-        <p class="col-span-3 text-center text-slate-500 font-medium mt-2 text-lg">
-          {{ formattedDate }}
-        </p>
+        <DateCard
+          as="p"
+          class-name="text-center text-slate-500 font-medium mt-2 text-lg"
+        />
       </div>
 
       <div class="w-full max-w-5xl relative min-h-[400px]">
         <Transition name="fade" mode="out-in">
           <div v-if="viewMode === 'table'" key="table" class="w-full">
-            <DataTable
+            <BuildingTable
               :headers="tableHeaders"
               :roomsData="roomData"
               :selectedBuildingId="selectedModel?.id"
@@ -287,7 +206,7 @@ onUnmounted(() => {
                   <span class="font-bold">{{ value }}</span>
                 </div>
               </template>
-            </DataTable>
+            </BuildingTable>
           </div>
 
           <div v-else key="graph" class="w-full">

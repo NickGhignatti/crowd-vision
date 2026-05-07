@@ -4,7 +4,7 @@ export function useNavLinks() {
   const { t } = useI18n()
 
   const links = [
-    { to: '/dashboard', label: () => t('commons.dashboard') },
+    { to: '/dashboards', label: () => t('commons.dashboards') },
     { to: '/model', label: () => t('commons.digitalTwin') },
     { to: '/domains', label: () => t('commons.domains') },
     { to: '/admin-panel', label: () => t('commons.adminPanel') },

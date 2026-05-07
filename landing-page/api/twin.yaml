@@ -20,7 +20,7 @@ paths:
               $ref: "#/components/schemas/BuildingInput"
       responses:
         "201":
-          description: Building registered successfully
+          description: Buildings registered successfully
           content:
             application/json:
               schema:
@@ -42,7 +42,7 @@ paths:
           description: The unique identifier of the building
       responses:
         "200":
-          description: Building retrieved successfully
+          description: Buildings retrieved successfully
           content:
             application/json:
               schema:
