@@ -1,40 +1,49 @@
+import { mount, shallowMount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
 import NavbarLink from '../NavbarLink.vue'
+import RouterLink from '@/components/links/RouterLink.vue'
+import RequireAuthModal from '@/components/modals/authentication/RequireAuthModal.vue'
 
-describe('NavbarLink', () => {
-  const defaultProps = {
-    to: '/dashboards',
-  }
+describe('NavbarButton', () => {
+  describe('emits', () => {
+    it('emits "click" when logged in and NavbarLink is clicked', async () => {
+      const wrapper = shallowMount(NavbarLink, {
+        props: { to: '/dashboards', isLoggedIn: true },
+      })
 
-  it('renders slot content', () => {
-    const wrapper = mount(NavbarLink, {
-      props: defaultProps,
-      slots: {
-        default: 'Dashboard',
-      },
+      await wrapper.findComponent(RouterLink).trigger('click')
+
+      expect(wrapper.emitted('click')).toHaveLength(1)
     })
 
-    expect(wrapper.text()).toContain('Dashboard')
+    it('emits "locked-click" when logged out and RequireAuthModal is clicked', async () => {
+      const wrapper = shallowMount(NavbarLink, {
+        props: { to: '/dashboards', isLoggedIn: false },
+      })
+
+      await wrapper.findComponent(RequireAuthModal).trigger('click')
+
+      expect(wrapper.emitted('locked-click')).toHaveLength(1)
+    })
   })
 
-  it('passes the "to" prop to the router-links', () => {
-    const wrapper = mount(NavbarLink, {
-      props: { to: '/settings' },
+  describe('slots', () => {
+    it('renders slot content when logged in', () => {
+      const wrapper = mount(NavbarLink, {
+        props: { to: '/dashboards', isLoggedIn: true },
+        slots: { default: '<span>My Link</span>' },
+      })
+
+      expect(wrapper.find('span').text()).toBe('My Link')
     })
 
-    const link = wrapper.find('a')
-    expect(link.attributes('to')).toBe('/settings')
-  })
+    it('renders slot content when logged out', () => {
+      const wrapper = mount(NavbarLink, {
+        props: { to: '/dashboards', isLoggedIn: false },
+        slots: { default: '<span>My Link</span>' },
+      })
 
-  it('has the correct default classes', () => {
-    const wrapper = mount(NavbarLink, {
-      props: defaultProps,
+      expect(wrapper.find('span').text()).toBe('My Link')
     })
-
-    const link = wrapper.find('a')
-    expect(link.classes()).toContain('text-slate-600')
-    expect(link.classes()).toContain('hover:text-emerald-600')
-    expect(link.classes()).toContain('transition-colors')
   })
 })

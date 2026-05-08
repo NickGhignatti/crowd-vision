@@ -1,23 +1,19 @@
 <script setup lang="ts">
-import { useUserPermissions } from '@/composables/useUserPermissions.ts'
 import { useI18n } from 'vue-i18n'
 import { computed, ref, watch } from 'vue'
+import { useBuildingsStore } from '@/stores/buildings.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
+import { useUserPermissions } from '@/composables/useUserPermissions.ts'
+import type { Building } from '@/models/building.ts'
 import BuildingCard from '@/components/cards/BuildingCard.vue'
+import CollapsiblePanel from '@/components/panels/CollapsiblePanel.vue'
+import PanelHeader from '@/components/panels/PanelHeader.vue'
+import ShortSearchInput from '@/components/inputs/search/ShortSearchInput.vue'
 
 interface BuildingOption {
   id: string
   name: string
 }
-
-import { useBuildingsStore } from '@/stores/buildings.ts'
-import { useDomainsStore } from '@/stores/domain.ts'
-import type { Building } from '@/models/building.ts'
-
-const emit = defineEmits<{
-  (e: 'json-uploaded'): void
-  (e: 'change-building', index: number): void
-  (e: 'change-floor', floorY: number | null): void
-}>()
 
 const props = defineProps<{
   buildingOptions: BuildingOption[]
@@ -26,11 +22,18 @@ const props = defineProps<{
   activeFloor: number | null
 }>()
 
+const emit = defineEmits<{
+  (e: 'json-uploaded'): void
+  (e: 'change-building', index: number): void
+  (e: 'change-floor', floorY: number | null): void
+}>()
+
 const { t } = useI18n()
 useUserPermissions()
 
 const isLeftOpen = ref(true)
 const showControls = ref(false)
+const searchQuery = ref('')
 
 watch(
   () => props.selectedId,
@@ -44,8 +47,6 @@ const toggleControls = (event: Event) => {
   showControls.value = !showControls.value
 }
 
-const toggleLeft = () => (isLeftOpen.value = !isLeftOpen.value)
-
 const availableFloors = computed(() => {
   if (!props.buildingModel?.rooms) return []
   return Array.from(new Set(props.buildingModel.rooms.map((r) => r.position.y))).sort(
@@ -58,6 +59,14 @@ const activeFloorModel = computed({
   set: (val) => emit('change-floor', val),
 })
 
+const filteredBuildings = computed(() => {
+  if (!searchQuery.value) return props.buildingOptions
+  const query = searchQuery.value.toLowerCase()
+  return props.buildingOptions.filter(
+    (b) => b.name.toLowerCase().includes(query) || b.id.toLowerCase().includes(query),
+  )
+})
+
 const buildingsStore = useBuildingsStore()
 const domainStore = useDomainsStore()
 
@@ -68,57 +77,31 @@ const handleBuildingUpdated = async () => {
 </script>
 
 <template>
-  <aside
-    class="bg-white border-r border-slate-200 transition-all duration-300 ease-in-out flex flex-col relative z-30 shadow-sm"
-    :class="isLeftOpen ? 'w-80' : 'w-0 overflow-hidden border-none'"
-  >
-    <div class="p-6 h-full overflow-y-auto w-80 custom-scrollbar">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-lg font-bold text-slate-800">{{ t('model.data') }}</h2>
-        <div class="flex items-center gap-2">
-          <button
-            @click="toggleLeft"
-            class="text-slate-400 hover:text-emerald-600 transition-colors p-1"
-          >
-            <i class="ph-bold ph-caret-left text-xl"></i>
-          </button>
-        </div>
-      </div>
+  <CollapsiblePanel v-model="isLeftOpen" side="left">
+    <PanelHeader :title="t('model.data')" side="left" @toggle="isLeftOpen = false">
+      <template #search>
+        <ShortSearchInput v-model="searchQuery" :placeholder="`${t('commons.search')}...`" />
+      </template>
+    </PanelHeader>
 
-      <div class="flex-1 overflow-y-auto p-3 space-y-1">
-        <BuildingCard
-          v-for="(item, index) in buildingOptions"
-          :key="item.id"
-          :building-id="item.id"
-          :building-name="item.name"
-          :is-selected="item.id === selectedId"
-          :building-model="buildingModel"
-          :available-floors="availableFloors"
-          :show-controls="showControls"
-          v-model:active-floor="activeFloorModel"
-          @select="emit('change-building', index)"
-          @toggle-controls="toggleControls"
-          @building-updated="handleBuildingUpdated"
-          class="mb-3"
-        />
-      </div>
+    <div class="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+      <BuildingCard
+        v-for="(item, index) in filteredBuildings"
+        :key="item.id"
+        :building-id="item.id"
+        :building-name="item.name"
+        :is-selected="item.id === selectedId"
+        :building-model="buildingModel"
+        :available-floors="availableFloors"
+        :show-controls="showControls"
+        v-model:active-floor="activeFloorModel"
+        @select="emit('change-building', index)"
+        @toggle-controls="toggleControls"
+        @building-updated="handleBuildingUpdated"
+        class="mb-3"
+      />
     </div>
-  </aside>
-
-  <Transition
-    enter-active-class="transition duration-200 ease-out"
-    enter-from-class="opacity-0 -translate-x-2"
-    enter-to-class="opacity-100 translate-x-0"
-  >
-    <button
-      v-if="!isLeftOpen"
-      @click="toggleLeft"
-      class="absolute left-6 top-4 z-40 bg-white p-2 rounded-lg shadow-lg border border-slate-200 text-slate-600 hover:text-emerald-600 hover:scale-105 transition-all"
-      :title="t('commons.open')"
-    >
-      <i class="ph-bold ph-caret-right text-xl"></i>
-    </button>
-  </Transition>
+  </CollapsiblePanel>
 </template>
 
 <style scoped>

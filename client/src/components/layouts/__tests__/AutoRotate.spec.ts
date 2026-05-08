@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { PerspectiveCamera } from 'three'
-import AutoRotate from '@/components/AutoRotate.vue'
+import AutoRotate from '@/components/layouts/AutoRotate.vue'
 
 // 1. Mock @tresjs/core to capture the render loop callback
 let renderCallback: ((args: { elapsed: number }) => void) | null = null

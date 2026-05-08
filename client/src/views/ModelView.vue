@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Navbar from '@/components/layouts/Navbar.vue'
-import AutoRotate from '@/components/AutoRotate.vue'
+import AutoRotate from '@/components/layouts/AutoRotate.vue'
 import BuildingsSelector from '@/components/selectors/BuildingsSelector.vue'
 import RoomsSelector from '@/components/selectors/RoomsSelector.vue'
 import ViewControls from '@/components/panels/ControlPanel.vue'

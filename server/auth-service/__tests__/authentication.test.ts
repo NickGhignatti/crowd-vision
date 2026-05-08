@@ -11,7 +11,7 @@ describe("Authentication Service", () => {
   };
 
   describe("1. Account Registration", () => {
-    it("should create a new Account", async () => {
+    it("should creation a new Account", async () => {
       const createdUser = await addAccount(
         mockAccount.name,
         mockAccount.email,

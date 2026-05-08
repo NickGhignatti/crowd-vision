@@ -76,13 +76,6 @@ const emit = defineEmits<{
         </div>
       </div>
 
-      <!--      <div class="flex justify-between items-center text-sm">-->
-      <!--        <span class="text-slate-500 font-medium">{{ t('model.rooms.airQuality') }}</span>-->
-      <!--        <span class="font-bold" :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }">-->
-      <!--          {{ props.indoorAqi != null ? props.indoorAqi.toFixed(1) + '%' : '&#45;&#45;' }}-->
-      <!--        </span>-->
-      <!--      </div>-->
-
       <div class="flex justify-between items-center text-sm">
         <span class="text-slate-500 font-medium">{{ t('model.rooms.editRoom.maxTemp') }}</span>
         <span class="font-bold text-slate-700">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import NavbarButton from '@/components/buttons/NavbarButton.vue'
+import NavbarLink from '@/components/links/NavbarLink.vue'
 import LogInModal from '@/components/modals/authentication/LogInModal.vue'
 import SignInModal from '@/components/modals/authentication/SignInModal.vue'
 import ProfileDropdown from '@/components/dropdowns/ProfileDropdown.vue'
@@ -55,7 +55,7 @@ const handleLockedClick = () => {
         <div
           class="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-8"
         >
-          <NavbarButton
+          <NavbarLink
             v-for="link in links"
             :key="link.to"
             :to="link.to"
@@ -63,7 +63,7 @@ const handleLockedClick = () => {
             @locked-click="openLogin"
           >
             {{ link.label() }}
-          </NavbarButton>
+          </NavbarLink>
         </div>
 
         <!-- Desktop right -->
@@ -107,7 +107,7 @@ const handleLockedClick = () => {
     <!-- Mobile menu -->
     <div v-if="isMobileMenuOpen" class="md:hidden border-t border-slate-100 bg-white">
       <div class="px-4 pt-4 pb-6 space-y-4 flex flex-col">
-        <NavbarButton
+        <NavbarLink
           v-for="link in links"
           :key="link.to"
           :to="link.to"
@@ -116,7 +116,7 @@ const handleLockedClick = () => {
           @locked-click="handleLockedClick"
         >
           {{ link.label() }}
-        </NavbarButton>
+        </NavbarLink>
 
         <div class="flex flex-col gap-3">
           <template v-if="!isLoggedIn">

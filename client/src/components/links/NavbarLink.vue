@@ -1,18 +1,23 @@
 <script setup lang="ts">
-defineProps({
-  to: {
-    type: [String, Object],
-    required: true,
-  },
-})
+import RouterLink from '@/components/links/RouterLink.vue'
+import RequireAuthModal from '@/components/modals/authentication/RequireAuthModal.vue'
+
+defineProps<{
+  to: string
+  isLoggedIn: boolean
+}>()
+
+defineEmits<{
+  click: []
+  'locked-click': []
+}>()
 </script>
 
 <template>
-  <router-link
-    :to="to"
-    class="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition-colors duration-200"
-    active-class="text-emerald-600"
-  >
+  <RouterLink v-if="isLoggedIn" :to="to" @click="$emit('click')">
     <slot />
-  </router-link>
+  </RouterLink>
+  <RequireAuthModal v-else @click="$emit('locked-click')">
+    <slot />
+  </RequireAuthModal>
 </template>

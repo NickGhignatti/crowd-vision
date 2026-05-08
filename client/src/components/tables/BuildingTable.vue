@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { getBuildingData } from '@/composables/useSensorData'
-import { ref, computed, onUnmounted, toRef } from 'vue'
+import { ref, computed, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { roomColorByTemperature } from '@/helpers/colors.ts'
 import PaginationControls from '@/components/panels/PaginationControls.vue'
+import { usePagination } from '@/composables/usePagination.ts'
+import { useAutoPlay } from '@/composables/useAutoPlay.ts'
+import StatusRecord from '@/components/records/StatusRecord.vue'
+import DataRecord from '@/components/records/DataRecord.vue'
+import EmptyRecord from '@/components/records/EmptyRecord.vue'
 
 export interface TableHeader {
   key: keyof TableBody
@@ -37,50 +41,6 @@ const buildingIdRef = toRef(props, 'selectedBuildingId')
 
 const { t } = useI18n()
 
-const currentPage = ref(1)
-const isAutoPlaying = ref(false)
-let autoPlayInterval: number | undefined
-
-const totalPages = computed(() => Math.ceil(enrichedItems.value.length / props.itemsPerPage))
-
-const paginatedItems = computed(() => {
-  const start = (currentPage.value - 1) * props.itemsPerPage
-  const end = start + props.itemsPerPage
-  return enrichedItems.value.slice(start, end)
-})
-
-const emptyRows = computed(() => {
-  const length = paginatedItems.value.length
-  if (length === 0) return 0
-  return Math.max(0, props.itemsPerPage - length)
-})
-
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++
-  } else if (isAutoPlaying.value) {
-    currentPage.value = 1
-  }
-}
-
-const prevPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--
-  }
-}
-
-const toggleAutoPlay = () => {
-  isAutoPlaying.value = !isAutoPlaying.value
-
-  if (isAutoPlaying.value) {
-    autoPlayInterval = window.setInterval(() => {
-      nextPage()
-    }, 2000)
-  } else {
-    clearInterval(autoPlayInterval)
-  }
-}
-
 const { data: peopleData, isLoading: loadingPeople } = getBuildingData(buildingIdRef, 'peopleCount')
 
 const { data: temperatures, isLoading: loadingTemperature } = getBuildingData(
@@ -103,8 +63,12 @@ const enrichedItems = computed<TableBody[]>(() => {
   })
 })
 
-onUnmounted(() => {
-  if (autoPlayInterval) clearInterval(autoPlayInterval)
+const { currentPage, totalPages, paginatedItems, emptyRows, nextPage, prevPage, goToFirst } =
+  usePagination(enrichedItems, toRef(props, 'itemsPerPage'))
+
+const { isAutoPlaying, toggleAutoPlay } = useAutoPlay(() => {
+  if (currentPage.value < totalPages.value) nextPage()
+  else goToFirst()
 })
 </script>
 
@@ -126,67 +90,37 @@ onUnmounted(() => {
           </tr>
         </thead>
 
-        <tbody v-if="!buildingIdRef">
-          <tr>
-            <td :colspan="headers.length" class="p-8 text-center text-slate-500 animate-pulse">
-              No data
-            </td>
-          </tr>
-        </tbody>
-        <tbody v-else-if="loadingTemperature || loadingPeople">
-          <tr>
-            <td :colspan="headers.length" class="p-8 text-center text-slate-500 animate-pulse">
-              Loading data...
-            </td>
-          </tr>
-        </tbody>
-        <tbody v-else class="divide-y-2 divide-slate-200">
-          <tr
-            v-for="(item, index) in paginatedItems"
-            :key="index"
-            class="hover:bg-slate-50 transition-colors duration-150"
-          >
-            <td
-              v-for="header in headers"
-              :key="header.key"
-              class="p-5 border-r border-slate-200 last:border-r-0"
-              :class="header.cellClass"
-            >
-              <slot :name="header.key" :item="item" :value="item[header.key]">
-                <span
-                  :style="{
-                    color:
-                      header.key === 'temp'
-                        ? roomColorByTemperature(parseFloat(item[header.key]))
-                        : 'inherit',
-                  }"
-                >
-                  {{ item[header.key] }}
-                </span>
-              </slot>
-            </td>
-          </tr>
+        <tbody>
+          <StatusRecord v-if="!buildingIdRef" :colspan="headers.length" pulse>
+            No data
+          </StatusRecord>
 
-          <tr
-            v-for="n in emptyRows"
-            :key="'empty-' + n"
-            class="hover:bg-slate-50 transition-colors duration-150"
+          <StatusRecord
+            v-else-if="loadingTemperature || loadingPeople"
+            :colspan="headers.length"
+            pulse
           >
-            <td
-              v-for="header in headers"
-              :key="header.key"
-              class="p-5 border-r border-slate-200 last:border-r-0"
-              :class="header.cellClass"
-            >
-              &nbsp;
-            </td>
-          </tr>
+            Loading data...
+          </StatusRecord>
 
-          <tr v-if="paginatedItems.length === 0">
-            <td :colspan="headers.length" class="p-8 text-center text-slate-500">
+          <template v-else>
+            <DataRecord
+              v-for="(item, index) in paginatedItems"
+              :key="index"
+              :item="item"
+              :headers="headers"
+            >
+              <template v-for="header in headers" #[header.key]="slotProps">
+                <slot :name="header.key" v-bind="slotProps" />
+              </template>
+            </DataRecord>
+
+            <EmptyRecord :count="emptyRows" :headers="headers" />
+
+            <StatusRecord v-if="paginatedItems.length === 0" :colspan="headers.length">
               {{ t('dashboard.table.noDataAvailable') }}
-            </td>
-          </tr>
+            </StatusRecord>
+          </template>
         </tbody>
       </table>
     </div>

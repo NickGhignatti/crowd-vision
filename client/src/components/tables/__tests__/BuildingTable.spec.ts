@@ -146,6 +146,39 @@ describe('BuildingTable', () => {
       expect(wrapper.text()).toContain('dashboard.table.noDataAvailable')
     })
 
+    it('shows "No data" message when no building is selected', () => {
+      const wrapper = createWrapper({ selectedBuildingId: undefined })
+      expect(wrapper.text()).toContain('No data')
+    })
+
+    it('passes correct props to PaginationControls', () => {
+      const wrapper = createWrapper({ roomsData: makeItems(15), itemsPerPage: 5 })
+      const pagination = wrapper.findComponent(PaginationControls)
+
+      expect(pagination.props()).toMatchObject({
+        currentPage: 1,
+        totalPages: 3,
+        isAutoPlaying: false,
+      })
+    })
+
+    it('updates PaginationControls props when page changes', async () => {
+      const wrapper = createWrapper({ roomsData: makeItems(15), itemsPerPage: 5 })
+      const pagination = wrapper.findComponent(PaginationControls)
+
+      await pagination.vm.$emit('next-page')
+      expect(pagination.props('currentPage')).toBe(2)
+    })
+
+    it('handles items fewer than itemsPerPage', () => {
+      const wrapper = createWrapper({ roomsData: makeItems(3), itemsPerPage: 5 })
+      const pagination = wrapper.findComponent(PaginationControls)
+
+      expect(pagination.props('totalPages')).toBe(1)
+      const rows = wrapper.findAll('tbody tr')
+      expect(rows).toHaveLength(5) // 3 data rows + 2 empty rows
+    })
+
     it('applies temperature color styling for temp cells', () => {
       const tempHeaders: TableHeader[] = [
         { key: 'room', label: 'Room' },
@@ -171,6 +204,8 @@ describe('BuildingTable', () => {
       await pagination.vm.$emit('toggle-auto-play')
 
       expect((wrapper.vm as any).isAutoPlaying).toBe(true)
+      await wrapper.vm.$nextTick()
+      expect(pagination.props('isAutoPlaying')).toBe(true)
       vi.useRealTimers()
     })
 

@@ -77,7 +77,7 @@ describe('Navbar', () => {
   })
 
   describe('login modal', () => {
-    it('opens when a locked NavbarButton emits locked-click', async () => {
+    it('opens when a locked NavbarLink emits locked-click', async () => {
       const wrapper = mount(Navbar, { global: { stubs } })
       await wrapper.find('.nav-links-stub').trigger('click')
       expect(wrapper.find('.login-modal-stub').attributes('data-open')).toBe('true')
