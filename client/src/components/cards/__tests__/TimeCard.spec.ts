@@ -17,7 +17,7 @@ vi.mock('@/composables/useDateTime.ts', () => ({
   })),
 }))
 
-import { useDateTime } from '@/composables/useDateTime.ts'
+import { useDateTime } from '@/composables/core/useDateTime.ts'
 
 describe('TimeCard.vue', () => {
   it('renders correctly with default props', () => {

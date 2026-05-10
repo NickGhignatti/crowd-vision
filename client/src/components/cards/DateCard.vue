@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useDateTime } from '@/composables/useDateTime.ts'
+import { useDateTime } from '@/composables/core/useDateTime.ts'
 import { useI18n } from 'vue-i18n'
 const { locale } = useI18n()
 

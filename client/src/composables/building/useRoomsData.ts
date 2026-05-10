@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import { getBuildingData, type ApiDataPoint } from './useSensorData'
+import { getBuildingData, type ApiDataPoint } from './useSensorData.ts'
 
 function useRoomAverages(sensorData: Ref<ApiDataPoint[]>) {
   return computed(() => {

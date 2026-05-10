@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domain'
 import { useAuthStore } from '@/stores/authentication'
-import { makeRequest } from '@/composables/useApi'
+import { makeRequest } from '@/composables/core/useApi.ts'
 import type { DomainMembership, Domain } from '@/models/domain'
 
 vi.mock('@/composables/useApi', () => ({

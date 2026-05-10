@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { Mode, useModes } from '@/composables/useModes'
-import { roomColorByTemperature, roomColorStandard } from '@/helpers/colors'
+import { Mode, useModes } from '@/composables/scene/useModes.ts'
+import { roomColorByTemperature, roomColorStandard } from '@/helpers/colors.ts'
 
 describe('useModes', () => {
   beforeEach(() => {

@@ -3,7 +3,7 @@ import ControlButton from '@/components/buttons/ControlButton.vue'
 
 import { useI18n } from 'vue-i18n'
 import type { BuildingControlPanelProps } from '@/interfaces/building.ts'
-import { Mode, useModes } from '@/composables/useModes.ts'
+import { Mode, useModes } from '@/composables/scene/useModes.ts'
 
 const { t } = useI18n()
 const mode = useModes()
@@ -64,7 +64,7 @@ defineEmits<{
       :active="mode.currentMode.value === Mode.TemperatureSensor"
       @click="mode.changeMode(Mode.TemperatureSensor)"
     />
-    
+
     <ControlButton
       icon="ph-wind"
       :title="t('model.controls.buttons.airQuality')"

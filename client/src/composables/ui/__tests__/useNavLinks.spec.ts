@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { useNavLinks } from '../useNavLinks'
+import { useNavLinks } from '../useNavLinks.ts'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),

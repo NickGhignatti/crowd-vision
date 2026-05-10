@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
-import { makeRequest } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/core/useApi.ts'
 import type { Domain, DomainMembership } from '@/models/domain'
 
 vi.mock('vue-i18n', () => ({

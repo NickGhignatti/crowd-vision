@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { nextTick } from 'vue'
-import { useBuildingModel } from '@/composables/useBuildingModel'
-import { useDomainsStore } from '@/stores/domain'
-import { useBuildingsStore } from '@/stores/buildings'
-import { makeRequest } from '@/composables/useApi'
-import type { Building, Room } from '@/models/building'
+import { useBuildingModel } from '@/composables/building/useBuildingModel.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
+import { useBuildingsStore } from '@/stores/buildings.ts'
+import { makeRequest } from '@/composables/core/useApi.ts'
+import type { Building, Room } from '@/models/building.ts'
 
 // ---------------------------------------------------------------------------
 // vi.hoisted() — all vi.fn() instances that need mockRejectedValue /

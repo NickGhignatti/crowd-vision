@@ -1,5 +1,5 @@
 import { ref, watchEffect, toValue } from 'vue'
-import { makeExternalRequest } from '@/composables/useApi'
+import { makeExternalRequest } from '@/composables/core/useApi.ts'
 
 const normalizeSimulatorUrl = (url: string): string => {
   const trimmed = url.trim().replace(/\/$/, '')

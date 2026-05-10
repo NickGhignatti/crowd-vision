@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 import RoomsSelector from '@/components/selectors/RoomsSelector.vue'
-import { makeRequest } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/core/useApi.ts'
 import type { Building, Room } from '@/models/building.ts'
 
 vi.mock('vue-i18n', () => ({

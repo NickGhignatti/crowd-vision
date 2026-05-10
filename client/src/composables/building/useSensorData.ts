@@ -1,5 +1,5 @@
 import { ref, watch, type Ref } from 'vue'
-import { makeRequest } from '@/composables/useApi'
+import { makeRequest } from '@/composables/core/useApi.ts'
 
 export interface ApiDataPoint {
   timestamp: string

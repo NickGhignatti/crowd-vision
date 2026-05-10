@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { defineComponent, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { useUserPermissions } from '@/composables/useUserPermissions'
-import { useDomainsStore } from '@/stores/domain'
+import { useUserPermissions } from '@/composables/auth/useUserPermissions.ts'
+import { useDomainsStore } from '@/stores/domain.ts'
 
 // ---------------------------------------------------------------------------
 // Helper: mounts the composable inside a minimal host component so that Vue

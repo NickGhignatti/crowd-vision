@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { getBuildingData } from '@/composables/useSensorData'
+import { getBuildingData } from '@/composables/building/useSensorData.ts'
 import { ref, computed, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PaginationControls from '@/components/panels/PaginationControls.vue'
-import { usePagination } from '@/composables/usePagination.ts'
-import { useAutoPlay } from '@/composables/useAutoPlay.ts'
+import { usePagination } from '@/composables/ui/usePagination.ts'
+import { useAutoPlay } from '@/composables/scene/useAutoPlay.ts'
 import StatusRecord from '@/components/records/StatusRecord.vue'
 import DataRecord from '@/components/records/DataRecord.vue'
 import EmptyRecord from '@/components/records/EmptyRecord.vue'

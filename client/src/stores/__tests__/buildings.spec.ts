@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useBuildingsStore } from '@/stores/buildings'
-import { makeRequest } from '@/composables/useApi'
+import { makeRequest } from '@/composables/core/useApi.ts'
 import type { Building } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
 

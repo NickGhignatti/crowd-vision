@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ControlPanel from '../ControlPanel.vue'
 import ControlButton from '@/components/buttons/ControlButton.vue'
-import { Mode, useModes } from '@/composables/useModes.ts'
+import { Mode, useModes } from '@/composables/scene/useModes.ts'
 
 describe('ControlPanel', () => {
   beforeEach(() => {

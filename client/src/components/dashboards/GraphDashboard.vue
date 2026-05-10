@@ -12,8 +12,8 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import { getBuildingHistory } from '@/composables/useBuildingHistory'
-import { useIsRunning, toggleSimulator } from '@/composables/simulator'
+import { getBuildingHistory } from '@/composables/building/useBuildingHistory.ts'
+import { useIsRunning, toggleSimulator } from '@/composables/core/simulator.ts'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 

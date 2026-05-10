@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { makeExternalRequest, makeRequest } from '@/composables/useApi'
+import { makeExternalRequest, makeRequest } from '@/composables/core/useApi.ts'
 
 const fetchSpy = vi.spyOn(global, 'fetch')
 

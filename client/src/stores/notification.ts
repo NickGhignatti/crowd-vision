@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { makeRequest } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/core/useApi.ts'
 import { type NotificationSubscription, NotificationType } from '@/models/notification.ts'
 
 export const useNotificationStore = defineStore('notification', {

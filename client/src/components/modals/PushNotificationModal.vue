@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useWebPushNotifications } from '@/composables/useWebPushNotifications.ts'
+import { useWebPushNotifications } from '@/composables/notification/useWebPushNotifications.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
 
 import { useI18n } from 'vue-i18n'

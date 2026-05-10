@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { makeRequest } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/core/useApi.ts'
 
 export function useWebPushNotifications() {
   // Detects if the browser supports both Service Workers and the Push API

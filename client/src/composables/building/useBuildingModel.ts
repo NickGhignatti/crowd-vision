@@ -1,8 +1,8 @@
 import { ref, computed, watch } from 'vue'
-import type { Building } from '@/models/building'
+import type { Building } from '@/models/building.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
-import { makeRequest } from '@/composables/useApi.ts'
+import { makeRequest } from '@/composables/core/useApi.ts'
 
 const DEFAULT_MAX_TEMPERATURE = 27
 

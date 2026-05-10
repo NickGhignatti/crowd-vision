@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { makeRequest } from '@/composables/useApi'
+import { makeRequest } from '@/composables/core/useApi.ts'
 import { useAuthStore } from './authentication'
 import type { DomainMembership, Domain } from '@/models/domain'
 

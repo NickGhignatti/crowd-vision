@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick, computed, watch } from 'vue'
-import { makeRequest } from '@/composables/useApi.ts'
-import { useAuth } from '@/composables/useAuth.ts'
+import { makeRequest } from '@/composables/core/useApi.ts'
+import { useAuth } from '@/composables/auth/useAuth.ts'
 
 interface Citation {
   chunk_id: string
