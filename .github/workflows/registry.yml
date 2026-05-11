@@ -35,9 +35,9 @@ jobs:
             image: crowdvision-agent
           - context: ./server/sensor-service
             image: crowdvision-sensor
-          - context: ./simulator/sensor-simulator
+          - context: ./simulators/sensor-simulator
             image: crowdvision-simulator
-          - context: ./simulator/aq-simulator
+          - context: ./simulators/aq-simulator
             image: crowdvision-aq-simulator
           - context: ./client
             image: crowdvision-client
