@@ -3,9 +3,9 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/authentication'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domain'
 import { useBuildingsStore } from '@/stores/buildings'
-import { makeRequest } from '@/composables/useApi'
+import { makeRequest } from '@/composables/core/useApi.ts'
 
-vi.mock('@/composables/useApi', () => ({
+vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn(),
 }))
 

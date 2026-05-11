@@ -9,7 +9,7 @@ self.addEventListener('push', (event) => {
     tag: 'crowdvision-alert', // Prevents stacking multiple alerts
     renotify: true,
     data: {
-      url: self.location.origin, // Click opens the dashboard
+      url: self.location.origin, // Click opens the dashboards
     },
   }
 

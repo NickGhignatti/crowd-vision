@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { PropType } from 'vue'
-import SubdomainCard from '@/components/cards/SubDomainCard.vue'
-import UploadButton from '@/components/buttons/UploadButton.vue'
+import SubdomainCard from '@/components/cards/SubdomainCard.vue'
+import UploadModelButton from '@/components/buttons/UploadModelButton.vue'
 import { useI18n } from 'vue-i18n'
 import type { UnifiedDomainGroup } from '@/interfaces/domain.ts'
 import { getRoleMeta } from '@/helpers/roles.ts'
@@ -74,7 +74,7 @@ const roleBadgeClass = computed(() => {
           ></i>
         </button>
 
-        <UploadButton
+        <UploadModelButton
           v-if="domainGroup.canUpload"
           :is-uploading="isUploading"
           @click.stop="$emit('upload', domainGroup.name)"

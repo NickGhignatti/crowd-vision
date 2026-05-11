@@ -2,8 +2,8 @@
 import { onMounted, onUnmounted } from 'vue'
 import { socket } from '@/services/socket'
 import { useAuthStore } from '@/stores/authentication'
-import PushNotificationToast from '@/components/PushNotificationToast.vue'
-import ChatWidget from '@/components/ChatWidget.vue'
+import PushNotificationModal from '@/components/modals/PushNotificationModal.vue'
+import ChatWidget from '@/components/layouts/ChatWidget.vue'
 
 const authStore = useAuthStore()
 
@@ -21,7 +21,7 @@ onUnmounted(() => {
   <div class="relative min-h-screen">
     <router-view />
 
-    <PushNotificationToast />
+    <PushNotificationModal />
     <ChatWidget />
   </div>
 </template>

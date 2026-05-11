@@ -2,8 +2,8 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Building } from '@/models/building'
-import FloorSelector from '@/components/buttons/FloorSelector.vue'
-import EditBuilding from '@/components/modals/EditBuilding.vue'
+import FloorSelector from '@/components/selectors/FloorSelector.vue'
+import EditBuildingModal from '@/components/modals/editing/EditBuildingModal.vue'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 
 const { t } = useI18n()
@@ -69,7 +69,7 @@ const handleSaveBuilding = async (updates: Partial<Building>) => {
         <button
           @click.stop="isEditModalOpen = true"
           class="p-1.5 rounded-lg transition-all text-emerald-600/70 hover:bg-emerald-200/50 hover:text-emerald-700"
-          :title="t('commons.edit') || 'Edit Building'"
+          :title="t('commons.edit') || 'Edit BuildingsSelector'"
         >
           <i class="ph-bold ph-pencil-simple text-xl"></i>
         </button>
@@ -108,7 +108,7 @@ const handleSaveBuilding = async (updates: Partial<Building>) => {
       </div>
     </Transition>
 
-    <EditBuilding
+    <EditBuildingModal
       :is-open="isEditModalOpen"
       :building="buildingModel"
       @close="isEditModalOpen = false"

@@ -170,7 +170,7 @@ describe('socket service', () => {
       expect(socketState.notifications[0]?.id.length).toBeGreaterThan(0)
     })
 
-    it('derives the id from Date.now()', () => {
+    it('derives the id from DateCard.now()', () => {
       const before = Date.now()
       fireEvent('notification', makeIncoming())
       const after = Date.now()
@@ -185,7 +185,7 @@ describe('socket service', () => {
       expect(socketState.notifications[0]?.read).toBe(false)
     })
 
-    it('stores a Date instance as the timestamp', () => {
+    it('stores a DateCard instance as the timestamp', () => {
       fireEvent('notification', makeIncoming())
       expect(socketState.notifications[0]?.timestamp).toBeInstanceOf(Date)
     })

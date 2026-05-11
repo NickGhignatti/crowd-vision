@@ -1,31 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import DomainCard from '@/components/cards/DomainCard.vue'
+import UploadModelButton from '@/components/buttons/UploadModelButton.vue'
+import SubdomainCard from '@/components/cards/SubdomainCard.vue'
 import type { SubdomainItem, UnifiedDomainGroup } from '@/interfaces/domain'
+import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/helpers/role.ts', () => ({
+vi.mock('@/helpers/roles.ts', () => ({
   getRoleMeta: vi.fn((role: string) => ({ i18nKey: `domains.roles.${role}` })),
 }))
 
-const UploadButtonStub = {
-  props: ['isUploading'],
-  emits: ['click'],
-  template: '<button class="upload-button-stub" @click="$emit(\'click\')"></button>',
-}
-
-const SubdomainCardStub = {
-  props: ['name', 'displayName', 'parentDomainName', 'canUpload', 'isUploading'],
-  emits: ['select', 'upload'],
-  template: '<div class="subdomain-card-stub"></div>',
-}
-
 const stubs = {
-  UploadButton: UploadButtonStub,
-  SubdomainCard: SubdomainCardStub,
+  UploadModelButton: true,
+  SubdomainCard: true,
   Transition: true,
 }
 
@@ -38,8 +29,9 @@ const makeDomainGroup = (overrides: Partial<UnifiedDomainGroup> = {}): UnifiedDo
     ...overrides,
   }) as unknown as UnifiedDomainGroup
 
-describe('DomainCard.vue', () => {
+describe('DomainCard', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
   })
 
@@ -51,7 +43,7 @@ describe('DomainCard.vue', () => {
       })
 
       expect(wrapper.text()).toContain('globex')
-      expect(wrapper.text()).toContain('domains.roles.businessStaff')
+      expect(wrapper.text()).toContain('domains.roles.business_staff')
     })
 
     it('renders the upload button only when canUpload is true', () => {
@@ -59,13 +51,13 @@ describe('DomainCard.vue', () => {
         props: { domainGroup: makeDomainGroup({ canUpload: false }) },
         global: { stubs },
       })
-      expect(withoutUpload.findComponent(UploadButtonStub).exists()).toBe(false)
+      expect(withoutUpload.findComponent(UploadModelButton).exists()).toBe(false)
 
       const withUpload = mount(DomainCard, {
         props: { domainGroup: makeDomainGroup({ canUpload: true }) },
         global: { stubs },
       })
-      expect(withUpload.findComponent(UploadButtonStub).exists()).toBe(true)
+      expect(withUpload.findComponent(UploadModelButton).exists()).toBe(true)
     })
 
     it('passes the isUploading prop down to the upload button and subdomain cards', () => {
@@ -76,11 +68,23 @@ describe('DomainCard.vue', () => {
 
       const wrapper = mount(DomainCard, {
         props: { domainGroup, isUploading: true },
-        global: { stubs },
+        global: {
+          stubs: {
+            UploadModelButton: {
+              props: ['isUploading'],
+              template: '<div></div>',
+            },
+            SubdomainCard: {
+              props: ['isUploading'],
+              template: '<div></div>',
+            },
+            Transition: true,
+          },
+        },
       })
 
-      expect(wrapper.findComponent(UploadButtonStub).props('isUploading')).toBe(true)
-      expect(wrapper.findComponent(SubdomainCardStub).props('isUploading')).toBe(true)
+      expect(wrapper.findComponent(UploadModelButton).props('isUploading')).toBe(true)
+      expect(wrapper.findComponent(SubdomainCard).props('isUploading')).toBe(true)
     })
   })
 
@@ -99,15 +103,13 @@ describe('DomainCard.vue', () => {
       expect(wrapper.emitted('select-domain')?.[0]).toEqual(['acme'])
     })
 
-    it('emits "upload" when the UploadButton is clicked', async () => {
+    it('emits "upload" when the UploadModelButton is clicked', async () => {
       const wrapper = mount(DomainCard, {
         props: { domainGroup: makeDomainGroup({ name: 'acme', canUpload: true }) },
         global: { stubs },
       })
 
-      await wrapper.findComponent(UploadButtonStub).vm.$emit('click', {
-        stopPropagation: vi.fn(),
-      })
+      await wrapper.findComponent(UploadModelButton).trigger('click')
 
       expect(wrapper.emitted('upload')).toBeTruthy()
       expect(wrapper.emitted('upload')?.[0]).toEqual(['acme'])
@@ -124,7 +126,7 @@ describe('DomainCard.vue', () => {
         global: { stubs },
       })
 
-      const subdomainCard = wrapper.findComponent(SubdomainCardStub)
+      const subdomainCard = wrapper.findComponent(SubdomainCard)
       await subdomainCard.vm.$emit('select', 'sub1')
 
       expect(wrapper.emitted('select-domain')).toBeTruthy()
@@ -140,7 +142,7 @@ describe('DomainCard.vue', () => {
         global: { stubs },
       })
 
-      const subdomainCard = wrapper.findComponent(SubdomainCardStub)
+      const subdomainCard = wrapper.findComponent(SubdomainCard)
       await subdomainCard.vm.$emit('upload', 'sub1')
 
       expect(wrapper.emitted('upload')).toBeTruthy()

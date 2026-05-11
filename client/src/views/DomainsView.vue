@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import NavBar from '@/components/NavBar.vue'
-import AddDomainModal from '@/components/modals/AddDomain.vue'
+import NavBar from '@/components/layouts/NavBar.vue'
+import AddDomainModalModal from '@/components/modals/creation/AddDomainModal.vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
 import type { Domain } from '@/models/domain'
 
@@ -8,6 +8,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithMaster } from '@/interfaces/domain.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
+import LongSearchInput from '@/components/inputs/search/LongSearchInput.vue'
 
 const { t } = useI18n()
 const domainsStore = useDomainsStore()
@@ -43,7 +44,7 @@ const filteredDomains = computed(() => {
 })
 
 const handlePrivateDomain = () => {
-  console.log('Open Private Domain Modal - To Be Implemented')
+  console.log('Open Private DomainInput Modal - To Be Implemented')
 }
 
 onMounted(() => {
@@ -63,17 +64,7 @@ onMounted(() => {
       </h1>
 
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div class="relative group">
-          <i
-            class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors"
-          ></i>
-          <input
-            v-model="searchQuery"
-            type="text"
-            :placeholder="t('domains.inputs.search')"
-            class="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent shadow-sm transition-all"
-          />
-        </div>
+        <LongSearchInput v-model="searchQuery" :placeholder="t('domains.inputs.search')" />
 
         <div class="h-6 w-px bg-slate-300 hidden sm:block mx-1"></div>
 
@@ -109,7 +100,7 @@ onMounted(() => {
       />
     </div>
 
-    <AddDomainModal
+    <AddDomainModalModal
       :is-open="isAddDomainModalOpen"
       :is-submitting="isSubmitting"
       @close="isAddDomainModalOpen = false"

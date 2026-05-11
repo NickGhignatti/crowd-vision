@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import NotificationCard from '../NotificationCard.vue'
 
-describe('NotificationItem', () => {
+describe('NotificationCard', () => {
   it('renders a red dot for alert notifications', () => {
     const wrapper = mount(NotificationCard, {
       props: {

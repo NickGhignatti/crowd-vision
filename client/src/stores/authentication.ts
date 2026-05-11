@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { makeRequest } from '@/composables/useApi'
+import { makeRequest } from '@/composables/core/useApi.ts'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domain.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 

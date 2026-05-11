@@ -52,7 +52,7 @@ describe("Domain API", () => {
   });
 
   describe("1. System Domains", () => {
-    it("should create a new domain", async () => {
+    it("should creation a new domain", async () => {
       const domain = await createMockDomainWithSubdomains();
 
       expect(domain.name).toBe(mockDomain.name);
@@ -70,7 +70,7 @@ describe("Domain API", () => {
       expect(domains.some((d) => d.name === mockDomain.name)).toBe(true);
     });
 
-    it("should fail to create a duplicate domain", async () => {
+    it("should fail to creation a duplicate domain", async () => {
       await createMockDomainWithSubdomains();
 
       await expect(

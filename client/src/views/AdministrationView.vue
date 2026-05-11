@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import DomainList from '@/components/menus/DomainList.vue'
-import QR from '@/components/cards/QR.vue'
-import NavBar from '@/components/NavBar.vue'
-import AddDomainModal from '@/components/modals/AddDomain.vue'
-import { makeRequest } from '@/composables/useApi.ts'
+import DomainsList from '@/components/lists/DomainsList.vue'
+import QrCodeCard from '@/components/cards/QrCodeCard.vue'
+import NavBar from '@/components/layouts/NavBar.vue'
+import AddDomainModalModal from '@/components/modals/creation/AddDomainModal.vue'
 import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
@@ -140,7 +139,7 @@ onMounted(async () => {
     <input ref="fileInput" type="file" accept=".json" class="hidden" @change="handleFileUpload" />
 
     <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <DomainList
+      <DomainsList
         :domains="unifiedDomains"
         :is-uploading="isUploading"
         @add-domain="isAddDomainModalOpen = true"
@@ -149,10 +148,10 @@ onMounted(async () => {
         @notification-trigger="handleNotificationSubscription"
       />
 
-      <QR :domain="selectedDomain" :qr-codes="qrCodes" :is-loading="isLoadingQr" />
+      <QrCodeCard :domain="selectedDomain" :qr-codes="qrCodes" :is-loading="isLoadingQr" />
     </div>
 
-    <AddDomainModal
+    <AddDomainModalModal
       :is-open="isAddDomainModalOpen"
       :is-submitting="isSubmitting"
       :master-domain-choices="domains"

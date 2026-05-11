@@ -124,11 +124,13 @@ const messages = {
       },
       mode: {
         focusMode: 'Focus Mode',
+        graphs: 'Graphs',
+        table: 'Table',
       },
     },
     domains: {
       table: {
-        title: 'Domains Management',
+        title: 'Domains',
         headers: {
           name: 'Name',
           action: 'Action',
@@ -136,13 +138,13 @@ const messages = {
       },
       administration: {
         organizationDomains: 'Organization Domains',
-        addNewDomain: 'Add New Domain',
+        addNewDomain: 'Add New DomainInput',
         organizationToken: 'Organization Token',
         activeToken: 'Active Token',
         generateNewToken: 'Generate New Token',
         scanQRCode: 'Scan with Google Authenticator or Authy',
-        QRCodeTitle: 'Your organization QR Code',
-        selectDomainToSeeQRCode: 'Select a domain to see its QR codes',
+        QRCodeTitle: 'Your organization Qr Codes',
+        selectDomainToSeeQRCode: 'Select a domain to see its Qr codes',
       },
       inputs: {
         search: 'Search domain...',
@@ -152,7 +154,7 @@ const messages = {
         modal: {
           step: 'step',
           of: 'of 2',
-          main: 'Main Domain',
+          main: 'Main DomainInput',
           desc: 'The main domain represents the primary organizational unit. It can have multiple subdomains under it.',
           mainPlaceholder: 'e.g. unibo.it',
           none: '-- None --',
@@ -172,7 +174,7 @@ const messages = {
         clientID: 'Client ID',
         clientSecret: 'Client Secret',
         invalid: 'Invalid subdomain format.',
-        alreadyPresent: 'Domain already exists.',
+        alreadyPresent: 'DomainInput already exists.',
         visibleFromOutside: 'Visible from outside',
         visibleFromOutsideDesc: 'Allow users outside the organization to see this domain.',
       },
@@ -221,7 +223,7 @@ const messages = {
           zoomOut: 'Zoom Out',
           panorama: 'Panorama Mode',
           temperature: 'Temperature Mode',
-          airQuality: 'Air Quality Mode'
+          airQuality: 'Air Quality Mode',
         },
         uploadJson: 'Upload JSON',
         invalidJsonUpload: 'Please upload a valid JSON file',
@@ -229,16 +231,17 @@ const messages = {
         toggleControls: 'Toggle Controls',
         floor: 'Floor',
         allFloors: 'All Floors',
-        floorSelection: 'Floor Selection',
+        floorSelection: 'Floor selection',
       },
       selection: 'Select building',
       noBuildings: 'No buildings found',
-      roomList: 'Room List',
+      roomList: 'Rooms List',
       searchRoom: 'Search Room',
       noRooms: 'No rooms found',
       subName: 'Structure Name',
-      data: 'Buildings Data',
+      data: 'Buildings',
       name: 'Domain name',
+      loading: 'Loading data...'
     },
   },
   it: {
@@ -283,9 +286,9 @@ const messages = {
       input: {
         username: 'Nome utente',
         usernamePlaceholder: 'Inserisci il tuo nome utente',
-        password: 'Password',
+        password: 'PasswordInput',
         passwordPlaceholder: '••••••••',
-        forgotPassword: 'Password dimenticata?',
+        forgotPassword: 'PasswordInput dimenticata?',
         email: 'Email',
         emailPlaceholder: 'nome@scuola.it',
       },
@@ -364,11 +367,13 @@ const messages = {
       },
       mode: {
         focusMode: 'Modalità Focus',
+        graphs: 'Grafici',
+        table: 'Tabella',
       },
     },
     domains: {
       table: {
-        title: 'Gestione Domini',
+        title: 'Domini',
         headers: {
           name: 'Nome',
           action: 'Azione',
@@ -381,8 +386,8 @@ const messages = {
         activeToken: 'Token Attivo',
         generateNewToken: 'Genera Nuovo Token',
         scanQRCode: 'Scansiona con Google Authenticator o Authy',
-        QRCodeTitle: 'Il QR Code della tua organizzazione',
-        selectDomainToSeeQRCode: 'Seleziona un dominio per vedere i suoi QR code',
+        QRCodeTitle: 'Il Qr Code della tua organizzazione',
+        selectDomainToSeeQRCode: 'Seleziona un dominio per vedere i suoi Qr code',
       },
       inputs: {
         search: 'Cerca dominio...',
@@ -462,7 +467,7 @@ const messages = {
           zoomOut: 'Zoom Indietro',
           panorama: 'Modalità Panorama',
           temperature: 'Modalità Temperatura',
-          airQuality: 'Modalità Qualità Aria'
+          airQuality: 'Modalità Qualità Aria',
         },
         uploadJson: 'Carica JSON',
         invalidJsonUpload: 'Carica un file JSON valido',
@@ -478,8 +483,9 @@ const messages = {
       searchRoom: 'Cerca Stanza',
       noRooms: 'Nessuna stanza trovata',
       subName: 'Nome Struttura',
-      data: 'Dati delle Strutture',
+      data: 'Strutture',
       name: 'Nome dominio',
+      loading: 'Caricamento dati...',
     },
   },
 }

@@ -80,11 +80,11 @@ components:
             $ref: '#/components/schemas/Error'
           examples:
             buildingNotFound:
-              summary: Building Not Found
+              summary: Buildings Not Found
               value:
                 type: "ResourceNotFoundError"
                 code: "NOT_FOUND"
-                message: "Building with ID {id} not found"
+                message: "Buildings with ID {id} not found"
 
     InternalServerError:
       description: "Internal Server Error (500) - An unexpected condition was encountered on the server."

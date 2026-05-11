@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import NavBar from '@/components/NavBar.vue'
-import AutoRotate from '@/components/AutoRotate.vue'
-import LeftMenu from '@/components/menus/LeftMenu.vue'
-import RightMenu from '@/components/menus/RightMenu.vue'
-import ViewControls from '@/components/menus/ControlPanel.vue'
-import { useBuildingModel } from '@/composables/useBuildingModel'
-import { useSceneControls } from '@/composables/useSceneControls'
-import { useBuildingAirQualitySensors, useBuildingTemperature } from '@/composables/useRoomsData.ts'
+import NavBar from '@/components/layouts/NavBar.vue'
+import AutoRotate from '@/components/layouts/AutoRotate.vue'
+import BuildingsSelector from '@/components/selectors/BuildingsSelector.vue'
+import RoomsSelector from '@/components/selectors/RoomsSelector.vue'
+import ViewControls from '@/components/panels/ControlPanel.vue'
+import { useBuildingModel } from '@/composables/building/useBuildingModel.ts'
+import { useSceneControls } from '@/composables/scene/useSceneControls.ts'
+import { useBuildingAirQualitySensors, useBuildingTemperature } from '@/composables/building/useRoomsData.ts'
 import { computed, onMounted } from 'vue'
 import { TresCanvas } from '@tresjs/core'
 import type { Intersection } from 'three'
 import { OrbitControls } from '@tresjs/cientos'
 import { roomColorByTemperature, roomOpacity } from '@/helpers/colors.ts'
-import { useModes } from '@/composables/useModes.ts'
+import { useModes } from '@/composables/scene/useModes.ts'
 
 interface TresEvent extends Intersection {
   stopPropagation: () => void
@@ -67,7 +67,7 @@ onMounted(() => {
     <NavBar />
 
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
-      <LeftMenu
+      <BuildingsSelector
         :buildingOptions="buildingModel.availableBuildingsNames.value"
         :selectedId="buildingModel.building.value?.id || null"
         :buildingModel="buildingModel.building.value"
@@ -144,7 +144,7 @@ onMounted(() => {
         />
       </main>
 
-      <RightMenu
+      <RoomsSelector
         :buildingModel="buildingModel.displayedBuilding.value"
         :selectedRoomId="buildingModel.selectedRoomId.value"
         @toggle-select="buildingModel.toggleRoom"

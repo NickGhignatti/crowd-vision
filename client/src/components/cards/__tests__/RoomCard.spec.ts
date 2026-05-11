@@ -18,7 +18,7 @@ const makeRoom = (overrides: Partial<Room> = {}): Room =>
     ...overrides,
   }) as unknown as Room
 
-describe('RoomCard.vue', () => {
+describe('RoomCard', () => {
   describe('rendering', () => {
     it('displays room name and capacity correctly without showing the ID', () => {
       const room = makeRoom({ name: 'Conference A', id: 'conference-a', capacity: 12 })
