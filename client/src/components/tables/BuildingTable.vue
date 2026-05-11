@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getBuildingData } from '@/composables/building/useSensorData.ts'
 import { computed, toRef } from 'vue'
+import { getStatusByOccupants } from '@/helpers/status'
 import { useI18n } from 'vue-i18n'
 import PaginationControls from '@/components/panels/PaginationControls.vue'
 import { usePagination } from '@/composables/ui/usePagination.ts'
@@ -55,10 +56,15 @@ const enrichedItems = computed<TableBody[]>(() => {
     const roomTempData = temperatures.value?.find((t: any) => t.roomId === item.roomId)
     const roomPeople = peopleData.value?.find((p: any) => p.roomId === item.roomId)
 
+    const peopleCount = roomPeople ? Number(roomPeople.value) : Number(item.people) || 0
+    const capacityNum = Number(item.capacity) || 0
+
     return {
       ...item,
       temp: roomTempData ? `${roomTempData.value}°C` : item.temp,
       people: roomPeople ? `${roomPeople.value}` : item.people,
+      // compute status dynamically based on current people and capacity
+      status: getStatusByOccupants(peopleCount, capacityNum),
     }
   })
 })
