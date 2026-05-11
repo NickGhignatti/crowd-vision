@@ -1,3 +1,10 @@
+# [2.13.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.12.2...v2.13.0) (2026-05-11)
+
+
+### Features
+
+* workflow to delete old packages ([#178](https://github.com/NickGhignatti/crowd-vision/issues/178)) ([540abb4](https://github.com/NickGhignatti/crowd-vision/commit/540abb401391401f3c8032fcbe957f42cb7934fe))
+
 ## [2.12.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.12.1...v2.12.2) (2026-05-11)
 
 
