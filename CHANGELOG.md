@@ -1,3 +1,10 @@
+## [2.12.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.12.0...v2.12.1) (2026-05-11)
+
+
+### Bug Fixes
+
+* made components more granular + fix i18n ([#175](https://github.com/NickGhignatti/crowd-vision/issues/175)) ([512787a](https://github.com/NickGhignatti/crowd-vision/commit/512787a118f941392893beee97950225fa7a3491))
+
 # [2.12.0](https://github.com/NickGhignatti/crowd-vision/compare/v2.11.2...v2.12.0) (2026-05-05)
 
 
