@@ -1,3 +1,10 @@
+## [2.12.2](https://github.com/NickGhignatti/crowd-vision/compare/v2.12.1...v2.12.2) (2026-05-11)
+
+
+### Bug Fixes
+
+* ci ([#177](https://github.com/NickGhignatti/crowd-vision/issues/177)) ([36e7fec](https://github.com/NickGhignatti/crowd-vision/commit/36e7fec4709e3446b0b69312518137b61ea21279))
+
 ## [2.12.1](https://github.com/NickGhignatti/crowd-vision/compare/v2.12.0...v2.12.1) (2026-05-11)
 
 
