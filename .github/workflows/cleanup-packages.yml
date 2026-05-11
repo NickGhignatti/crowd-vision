@@ -1,0 +1,36 @@
+name: Cleanup Packages
+
+on:
+  workflow_dispatch:  # Allow manual triggering
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly at 2AM UTC on Sunday
+
+permissions:
+  packages: write  # Required to delete packages
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package-name:
+          - crowdvision-auth
+          - crowdvision-twin
+          - crowdvision-notification
+          - crowdvision-socket
+          - crowdvision-agent
+          - crowdvision-sensor
+          - crowdvision-simulator
+          - crowdvision-aq-simulator
+          - crowdvision-client
+
+    steps:
+      - name: Delete old package versions for ${{ matrix.package-name }}
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ matrix.package-name }}
+          package-type: 'container'
+          min-versions-to-keep: 3
+          # Optional: You can explicitly protect the 'latest' tag from deletion
+          ignore-versions: 'latest'
