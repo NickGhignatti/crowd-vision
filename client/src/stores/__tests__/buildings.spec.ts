@@ -5,7 +5,7 @@ import { makeRequest } from '@/composables/core/useApi.ts'
 import type { Building } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
 
-vi.mock('@/composables/useApi', () => ({
+vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn(),
 }))
 

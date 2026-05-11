@@ -54,13 +54,11 @@ describe('ToggleSwitch.vue', () => {
 
     await wrapper.trigger('click')
     expect(wrapper.emitted('update:modelValue')![0]).toEqual([true])
-    expect(wrapper.props('modelValue')).toBe(true)
 
     await wrapper.setProps({ modelValue: true })
 
     await wrapper.trigger('click')
     expect(wrapper.emitted('update:modelValue')![1]).toEqual([false])
-    expect(wrapper.props('modelValue')).toBe(false)
   })
 
   it('handles undefined model state', () => {

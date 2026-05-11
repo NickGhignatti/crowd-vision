@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/authentication'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import type { DomainMembership, Domain } from '@/models/domain'
 
-vi.mock('@/composables/useApi', () => ({
+vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn(),
 }))
 

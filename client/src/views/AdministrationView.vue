@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import DomainsList from '@/components/lists/DomainsList.vue'
 import QrCodeCard from '@/components/cards/QrCodeCard.vue'
-import Navbar from '@/components/layouts/Navbar.vue'
+import NavBar from '@/components/layouts/NavBar.vue'
 import AddDomainModalModal from '@/components/modals/creation/AddDomainModal.vue'
 import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
@@ -134,7 +134,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <Navbar></Navbar>
+  <NavBar></NavBar>
   <div class="min-h-screen bg-gray-50 p-6 md:p-10 flex justify-center items-start font-sans">
     <input ref="fileInput" type="file" accept=".json" class="hidden" @change="handleFileUpload" />
 

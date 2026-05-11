@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Navbar from '@/components/layouts/Navbar.vue'
+import NavBar from '@/components/layouts/NavBar.vue'
 import AutoRotate from '@/components/layouts/AutoRotate.vue'
 import BuildingsSelector from '@/components/selectors/BuildingsSelector.vue'
 import RoomsSelector from '@/components/selectors/RoomsSelector.vue'
@@ -64,7 +64,7 @@ onMounted(() => {
 
 <template>
   <div class="h-screen flex flex-col bg-slate-50 overflow-hidden">
-    <Navbar />
+    <NavBar />
 
     <div class="flex flex-1 relative h-[calc(100vh-64px)] w-full overflow-hidden">
       <BuildingsSelector

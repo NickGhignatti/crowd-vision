@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Navbar from '@/components/layouts/Navbar.vue'
+import NavBar from '@/components/layouts/NavBar.vue'
 import FullscreenModeButton from '@/components/buttons/FullscreenModeButton.vue'
 import type { Room } from '@/models/building'
 import ModelDropdown from '@/components/dropdowns/ModelDropdown.vue'
@@ -128,7 +128,7 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-screen bg-slate-50">
-    <Navbar />
+    <NavBar />
 
     <div
       ref="focusSection"

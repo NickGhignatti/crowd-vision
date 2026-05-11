@@ -28,7 +28,7 @@ vi.mock('@/stores/buildings', () => ({
   useBuildingsStore: vi.fn(),
 }))
 
-vi.mock('@/composables/useApi', () => ({
+vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn(),
 }))
 

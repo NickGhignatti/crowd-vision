@@ -98,7 +98,7 @@ const { isAutoPlaying, toggleAutoPlay } = useAutoPlay(() => {
 
         <tbody>
           <StatusRecord v-if="!buildingIdRef" :colspan="headers.length" pulse>
-            {{ t('dashboard.table.noDataAvailable') }}
+            No data
           </StatusRecord>
 
           <StatusRecord

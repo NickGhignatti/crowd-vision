@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi } from 'vitest'
 import BuildingsSelector from '../BuildingsSelector.vue'
 
-vi.mock('@/composables/useUserPermissions', () => ({
+vi.mock('@/composables/auth/useUserPermissions', () => ({
   useUserPermissions: () => ({
     memberships: { value: [] },
     fetchPermissions: vi.fn(),
@@ -51,6 +51,11 @@ describe('BuildingsSelector', () => {
         buildingModel,
         activeFloor: null,
       },
+      global: {
+        stubs: {
+          Transition: false,
+        },
+      },
     })
 
   it('renders left panel title and one building card per building id', () => {
@@ -86,14 +91,18 @@ describe('BuildingsSelector', () => {
   it('shows reopen button after collapsing and reopens when clicked', async () => {
     const wrapper = createWrapper()
 
-    // First header button is the collapse control.
-    await wrapper.find('.p-1').trigger('click')
+    const collapse = wrapper.find('.ph-caret-left')
+    expect(collapse.exists()).toBe(true)
 
-    const reopen = wrapper.find('button[title="commons.open"]')
+    await collapse.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const reopen = wrapper.find('.ph-caret-right')
     expect(reopen.exists()).toBe(true)
 
     await reopen.trigger('click')
+    await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('button[title="commons.open"]').exists()).toBe(false)
+    expect(wrapper.find('aside').classes()).toContain('w-80')
   })
 })

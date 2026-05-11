@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Navbar from '@/components/layouts/Navbar.vue'
+import NavBar from '@/components/layouts/NavBar.vue'
 import AddDomainModalModal from '@/components/modals/creation/AddDomainModal.vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
 import type { Domain } from '@/models/domain'
@@ -53,7 +53,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <Navbar></Navbar>
+  <NavBar></NavBar>
   <div class="flex flex-col h-full p-6 gap-6 bg-slate-50/50">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <h1

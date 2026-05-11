@@ -9,7 +9,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/composables/useApi.ts', () => ({
+vi.mock('@/composables/core/useApi.ts', () => ({
   makeRequest: vi.fn(),
 }))
 

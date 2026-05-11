@@ -10,15 +10,15 @@ vi.mock('vue-i18n', () => ({
 }))
 
 const mockCanEdit = vi.fn().mockReturnValue(true)
-vi.mock('@/composables/useUserPermissions', () => ({
+vi.mock('@/composables/auth/useUserPermissions', () => ({
   useUserPermissions: () => ({ canEdit: mockCanEdit }),
 }))
 
-vi.mock('@/composables/useApi', () => ({
+vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn(),
 }))
 
-vi.mock('@/composables/useSensorData', () => ({
+vi.mock('@/composables/building/useSensorData', () => ({
   getBuildingData: vi.fn(() => ({
     data: ref([]),
     isLoading: ref(false),
@@ -51,7 +51,7 @@ const SearchBarStub = {
 const stubs = {
   EditRoomModal: EditRoomStub,
   RoomCard: RoomCardStub,
-  RoomShortSearchInput: SearchBarStub,
+  ShortSearchInput: SearchBarStub,
   Transition: false, // Disable async animations for instant DOM updates
 }
 
@@ -185,6 +185,7 @@ describe('RoomsSelector', () => {
 
       // Emit a search query from the SearchBar
       await wrapper.findComponent(SearchBarStub).vm.$emit('update:modelValue', 'Office')
+      await wrapper.vm.$nextTick()
 
       const cards = wrapper.findAllComponents(RoomCardStub)
       expect(cards).toHaveLength(2) // Should only show the offices
@@ -198,6 +199,7 @@ describe('RoomsSelector', () => {
       })
 
       await wrapper.findComponent(SearchBarStub).vm.$emit('update:modelValue', 'non-existent')
+      await wrapper.vm.$nextTick()
 
       expect(wrapper.findAllComponents(RoomCardStub)).toHaveLength(0)
       expect(wrapper.text()).toContain('model.noRooms')

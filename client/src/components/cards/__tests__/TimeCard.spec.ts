@@ -11,7 +11,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 // Mocking useDateTime
-vi.mock('@/composables/useDateTime.ts', () => ({
+vi.mock('@/composables/core/useDateTime.ts', () => ({
   useDateTime: vi.fn(() => ({
     formattedTime: ref('12:00:00'),
   })),
