@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getBuildingData } from '@/composables/building/useSensorData.ts'
-import { ref, computed, toRef } from 'vue'
+import { computed, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PaginationControls from '@/components/panels/PaginationControls.vue'
 import { usePagination } from '@/composables/ui/usePagination.ts'
@@ -92,7 +92,7 @@ const { isAutoPlaying, toggleAutoPlay } = useAutoPlay(() => {
 
         <tbody>
           <StatusRecord v-if="!buildingIdRef" :colspan="headers.length" pulse>
-            No data
+            {{ t('dashboard.table.noDataAvailable') }}
           </StatusRecord>
 
           <StatusRecord
@@ -100,7 +100,7 @@ const { isAutoPlaying, toggleAutoPlay } = useAutoPlay(() => {
             :colspan="headers.length"
             pulse
           >
-            Loading data...
+            {{ t('model.loading') }}
           </StatusRecord>
 
           <template v-else>

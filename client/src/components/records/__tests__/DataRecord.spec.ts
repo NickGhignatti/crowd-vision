@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import DataRecord from '../DataRecord.vue'
+import type { TableHeader } from '../../tables/BuildingTable.vue'
 
 // Mock the colors helper
 vi.mock('@/helpers/colors.ts', () => ({
@@ -10,7 +11,7 @@ vi.mock('@/helpers/colors.ts', () => ({
 import { roomColorByTemperature } from '@/helpers/colors.ts'
 
 describe('DataRecord.vue', () => {
-  const headers = [
+  const headers: TableHeader[] = [
     { key: 'room', label: 'Room', cellClass: 'font-bold' },
     { key: 'temp', label: 'Temperature' },
     { key: 'status', label: 'Status' }

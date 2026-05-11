@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-const model = defineModel<'internal' | 'oidc'>()
+const model = defineModel<'internal' | 'oidc'>({ default: 'internal' })
 
 const options = [
   {
@@ -38,10 +38,10 @@ const options = [
           name="authStrategy"
           class="w-4 h-4 text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
         />
-        <div class="text-sm">
+        <span class="text-sm">
           <span class="font-semibold block text-slate-800">{{ t(option.label) }}</span>
           <span class="text-xs text-slate-500">{{ t(option.description) }}</span>
-        </div>
+        </span>
       </label>
     </div>
   </div>

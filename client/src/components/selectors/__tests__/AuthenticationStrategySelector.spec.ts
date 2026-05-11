@@ -13,8 +13,7 @@ describe('AuthenticationStrategySelector.vue', () => {
   it('renders the main strategy label', () => {
     const wrapper = mount(AuthenticationStrategySelector, {
       props: {
-        modelValue: 'internal',
-        'onUpdate:modelValue': (e: any) => wrapper.setProps({ modelValue: e })
+        modelValue: 'internal' as const
       }
     })
     expect(wrapper.find('label.block').text()).toBe('domains.inputs.strategy')
@@ -42,7 +41,7 @@ describe('AuthenticationStrategySelector.vue', () => {
   it('reflects the modelValue by checking the correct radio button', async () => {
     const wrapper = mount(AuthenticationStrategySelector, {
       props: {
-        modelValue: 'oidc'
+        modelValue: 'oidc' as const
       }
     })
 
@@ -58,7 +57,7 @@ describe('AuthenticationStrategySelector.vue', () => {
   it('emits update:modelValue when an option is selected', async () => {
     const wrapper = mount(AuthenticationStrategySelector, {
       props: {
-        modelValue: 'internal'
+        modelValue: 'internal' as const
       }
     })
 
@@ -76,7 +75,7 @@ describe('AuthenticationStrategySelector.vue', () => {
       components: { AuthenticationStrategySelector },
       template: '<AuthenticationStrategySelector v-model="strategy" />',
       setup() {
-        const strategy = ref('internal')
+        const strategy = ref<'internal' | 'oidc'>('internal')
         return { strategy }
       }
     })
@@ -97,7 +96,7 @@ describe('AuthenticationStrategySelector.vue', () => {
 
   it('assigns the same name attribute to both radio buttons', () => {
     const wrapper = mount(AuthenticationStrategySelector, {
-      props: { modelValue: 'internal' }
+      props: { modelValue: 'internal' as const }
     })
 
     const radios = wrapper.findAll('input[type="radio"]')

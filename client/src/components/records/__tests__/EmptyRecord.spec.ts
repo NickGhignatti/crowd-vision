@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import EmptyRecord from '../EmptyRecord.vue'
+import type { TableHeader } from '../../tables/BuildingTable.vue'
 
 describe('EmptyRecord.vue', () => {
-  const headers = [
-    { key: 'col1', label: 'Col 1', cellClass: 'custom-class-1' },
-    { key: 'col2', label: 'Col 2' },
-    { key: 'col3', label: 'Col 3', cellClass: 'custom-class-3' },
+  const headers: TableHeader[] = [
+    { key: 'room', label: 'Col 1', cellClass: 'custom-class-1' },
+    { key: 'temp', label: 'Col 2' },
+    { key: 'status', label: 'Col 3', cellClass: 'custom-class-3' },
   ]
 
   it('renders the correct number of rows based on count', () => {

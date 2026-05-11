@@ -15,6 +15,24 @@ const emit = defineEmits<{
   (e: 'update:clientSecret', value: string): void
 }>()
 
+type FieldKey = 'issuerUrl' | 'clientId' | 'clientSecret'
+
+const updateField = (key: FieldKey, value: string): void => {
+  switch (key) {
+    case 'issuerUrl':
+      emit('update:issuerUrl', value)
+      break
+    case 'clientId':
+      emit('update:clientId', value)
+      break
+    case 'clientSecret':
+      emit('update:clientSecret', value)
+      break
+  }
+}
+
+const getFieldValue = (key: FieldKey): string => props[key]
+
 const fields = [
   {
     key: 'issuerUrl' as const,
@@ -46,8 +64,8 @@ const fields = [
         {{ t(field.label) }}
       </label>
       <input
-        :value="props[field.key]"
-        @input="emit(`update:${field.key}`, ($event.target as HTMLInputElement).value)"
+        :value="getFieldValue(field.key)"
+        @input="updateField(field.key, ($event.target as HTMLInputElement).value)"
         :type="field.type"
         :placeholder="field.placeholder"
         class="w-full text-sm px-3 py-2 border border-slate-300 rounded focus:border-emerald-500 outline-none"

@@ -48,14 +48,15 @@ describe('ToggleSwitch.vue', () => {
   it('toggles value when clicked multiple times', async () => {
     const wrapper = mount(ToggleSwitch, {
       props: {
-        modelValue: false,
-        'onUpdate:modelValue': (e: boolean) => wrapper.setProps({ modelValue: e })
+        modelValue: false
       }
     })
 
     await wrapper.trigger('click')
     expect(wrapper.emitted('update:modelValue')![0]).toEqual([true])
     expect(wrapper.props('modelValue')).toBe(true)
+
+    await wrapper.setProps({ modelValue: true })
 
     await wrapper.trigger('click')
     expect(wrapper.emitted('update:modelValue')![1]).toEqual([false])

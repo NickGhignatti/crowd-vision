@@ -24,7 +24,7 @@ describe('useNavLinks', () => {
   it('labels call t() with correct keys', () => {
     const { links } = useNavLinks()
 
-    expect(links[0]?.label()).toBe('commons.dashboards')
+    expect(links[0]?.label()).toBe('commons.dashboard')
     expect(links[1]?.label()).toBe('commons.digitalTwin')
     expect(links[2]?.label()).toBe('commons.domains')
     expect(links[3]?.label()).toBe('commons.adminPanel')

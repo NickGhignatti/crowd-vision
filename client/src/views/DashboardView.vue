@@ -37,18 +37,18 @@ const isFullscreen = ref(false)
 const roomData = ref<TableBody[]>([]) // Processed data for Table
 
 const tableHeaders = ref<TableHeader[]>([
-  { key: 'room', label: 'dashboards.table.headers.room', cellClass: 'font-medium text-slate-900' },
-  { key: 'status', label: 'dashboards.table.headers.status', cellClass: 'text-sm' },
-  { key: 'teacher', label: 'dashboards.table.headers.teacher', cellClass: 'text-sm' },
+  { key: 'room', label: 'dashboard.table.headers.room', cellClass: 'font-medium text-slate-900' },
+  { key: 'status', label: 'dashboard.table.headers.status', cellClass: 'text-sm' },
+  { key: 'teacher', label: 'dashboard.table.headers.teacher', cellClass: 'text-sm' },
   {
     key: 'temp',
-    label: 'dashboards.table.headers.temperature',
+    label: 'dashboard.table.headers.temperature',
     cellClass: 'text-slate-900 font-medium',
   },
-  { key: 'people', label: 'dashboards.table.headers.people', cellClass: 'text-slate-900' },
+  { key: 'people', label: 'dashboard.table.headers.people', cellClass: 'text-slate-900' },
   {
     key: 'capacity',
-    label: 'dashboards.table.headers.capacity',
+    label: 'dashboard.table.headers.capacity',
     cellClass: 'text-slate-900 font-medium',
   },
 ])
@@ -157,6 +157,10 @@ onUnmounted(() => {
             as="h2"
             class-name="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums"
           />
+          <DateCard
+            as="p"
+            class-name="text-center text-slate-500 font-medium mt-2 text-lg"
+          />
         </div>
 
         <div class="flex justify-end">
@@ -166,11 +170,6 @@ onUnmounted(() => {
             @model-changed="handleModelChange"
           />
         </div>
-
-        <DateCard
-          as="p"
-          class-name="text-center text-slate-500 font-medium mt-2 text-lg"
-        />
       </div>
 
       <div class="w-full max-w-5xl relative min-h-[400px]">

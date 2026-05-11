@@ -6,7 +6,7 @@ const messages = {
     commons: {
       dashboard: 'Dashboard',
       digitalTwin: 'Digital Twin',
-      domains: 'DomainsTable',
+      domains: 'Domains',
       adminPanel: 'Administrator Panel',
       app: {
         crowd: 'Crowd',
@@ -28,24 +28,24 @@ const messages = {
       open: 'Open',
       search: 'Search',
       languageSelector: {
-        changeLanguage: 'Change LanguageDropdown',
+        changeLanguage: 'Change Language',
         english: 'English',
         italian: 'Italian',
       },
     },
     authentication: {
-      login: 'LogInModal',
+      login: 'Login',
       register: 'Register',
       logout: 'Logout',
       profile: 'Profile',
       getStarted: 'Get Started',
       signedInAs: 'Signed in as',
       input: {
-        username: 'UsernameInput',
+        username: 'Username',
         usernamePlaceholder: 'Enter your username',
-        password: 'PasswordInput',
+        password: 'Password',
         passwordPlaceholder: '••••••••',
-        forgotPassword: 'Forgot PasswordInput?',
+        forgotPassword: 'Forgot Password?',
         email: 'Email',
         emailPlaceholder: 'name@school.edu',
       },
@@ -130,21 +130,21 @@ const messages = {
     },
     domains: {
       table: {
-        title: 'DomainsTable Management',
+        title: 'Domains',
         headers: {
           name: 'Name',
           action: 'Action',
         },
       },
       administration: {
-        organizationDomains: 'Organization DomainsTable',
+        organizationDomains: 'Organization Domains',
         addNewDomain: 'Add New DomainInput',
         organizationToken: 'Organization Token',
         activeToken: 'Active Token',
         generateNewToken: 'Generate New Token',
         scanQRCode: 'Scan with Google Authenticator or Authy',
-        QRCodeTitle: 'Your organization QrCodeCard Code',
-        selectDomainToSeeQRCode: 'Select a domain to see its QrCodeCard codes',
+        QRCodeTitle: 'Your organization Qr Codes',
+        selectDomainToSeeQRCode: 'Select a domain to see its Qr codes',
       },
       inputs: {
         search: 'Search domain...',
@@ -201,12 +201,12 @@ const messages = {
     model: {
       rooms: {
         editRoom: {
-          title: 'Edit RoomCard',
+          title: 'Edit Room',
           subtitle: 'Configure parameters and thresholds',
-          name: 'RoomCard Name',
+          name: 'Room Name',
           namePlaceholder: 'e.g. Physics Lab',
-          identifier: 'RoomCard Identifier',
-          identifierPlaceholder: 'RoomCard ID',
+          identifier: 'Room Identifier',
+          identifierPlaceholder: 'Room ID',
           capacity: 'Capacity',
           maxTemp: 'Max Temp (°C)',
           themeColor: 'Theme Color',
@@ -218,7 +218,7 @@ const messages = {
       controls: {
         buttons: {
           reset: 'Reset View',
-          focus: 'Focus on RoomCard',
+          focus: 'Focus on Room',
           zoomIn: 'Zoom In',
           zoomOut: 'Zoom Out',
           panorama: 'Panorama Mode',
@@ -229,18 +229,19 @@ const messages = {
         invalidJsonUpload: 'Please upload a valid JSON file',
         uploadFailed: 'Failed to upload building data',
         toggleControls: 'Toggle Controls',
-        floor: 'FloorSelector',
+        floor: 'Floor',
         allFloors: 'All Floors',
-        floorSelection: 'FloorSelector Selection',
+        floorSelection: 'Floor selection',
       },
       selection: 'Select building',
       noBuildings: 'No buildings found',
-      roomList: 'RoomCard List',
-      searchRoom: 'Search RoomCard',
+      roomList: 'Rooms List',
+      searchRoom: 'Search Room',
       noRooms: 'No rooms found',
       subName: 'Structure Name',
-      data: 'BuildingsSelector Data',
-      name: 'DomainInput name',
+      data: 'Buildings',
+      name: 'Domain name',
+      loading: 'Loading data...'
     },
   },
   it: {
@@ -372,7 +373,7 @@ const messages = {
     },
     domains: {
       table: {
-        title: 'Gestione Domini',
+        title: 'Domini',
         headers: {
           name: 'Nome',
           action: 'Azione',
@@ -385,8 +386,8 @@ const messages = {
         activeToken: 'Token Attivo',
         generateNewToken: 'Genera Nuovo Token',
         scanQRCode: 'Scansiona con Google Authenticator o Authy',
-        QRCodeTitle: 'Il QrCodeCard Code della tua organizzazione',
-        selectDomainToSeeQRCode: 'Seleziona un dominio per vedere i suoi QrCodeCard code',
+        QRCodeTitle: 'Il Qr Code della tua organizzazione',
+        selectDomainToSeeQRCode: 'Seleziona un dominio per vedere i suoi Qr code',
       },
       inputs: {
         search: 'Cerca dominio...',
@@ -482,8 +483,9 @@ const messages = {
       searchRoom: 'Cerca Stanza',
       noRooms: 'Nessuna stanza trovata',
       subName: 'Nome Struttura',
-      data: 'Dati delle Strutture',
+      data: 'Strutture',
       name: 'Nome dominio',
+      loading: 'Caricamento dati...',
     },
   },
 }
