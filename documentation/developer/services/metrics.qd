@@ -1,0 +1,44 @@
+# Metrics Servic
+
+The Metrics Service acts as an intelligent intermediary between the Sensor Service firehose and the Client. It utilizes a "receive all, filter locally" strategy to maintain strict separation of concerns, ensuring the Sensor Service remains agnostic of client-specific presentation schemas.
+
+## Caching Strategy
+
+To achieve the lowest possible latency during high-frequency telemetry streams, user preferences are cached in memory using a highly concurrent, lock-free hash map (`DashMap`).
+
+* **Hot Path:** Telemetry routing and filtering occur entirely in memory with O(1) read access.
+* **Cold Path:** The database is queried strictly during service initialization (cache hydration) or when a specific user explicitly alters their dashboard schema.
+* **Write-Through:** Updates to preferences are persisted to the database and immediately synchronized with the `DashMap` to maintain consistency.
+
+### Data Flow Sequence
+
+.mermaid
+    sequenceDiagram
+        participant C as Client
+        participant M as Metrics Service (DashMap)
+        participant DB as Database
+        participant S as Sensor Service
+
+        rect rgb(240, 240, 240)
+            note over M,DB: 1. Service Startup & Hydration
+            M->>DB: SELECT * FROM user_metric_preferences
+            DB-->>M: Return all preferences
+            note over M: Populate DashMap<UserId, AllowedColumns>
+        end
+
+        rect rgb(230, 240, 255)
+            note over C,S: 2. The Hot Path (Data Streaming)
+            C->>M: Subscribe to Metrics (User ID: 123)
+            M->>S: Listen to generic Sensor Firehose
+            S-->>M: Emit full dataset (Columns X, Y, Z, W)
+            note over M: Concurrent Read on DashMap (O(1))<br/>Allowed for 123: [X, Y, Z]
+            note over M: Filter out W
+            M-->>C: Deliver filtered payload: {X, Y, Z}
+        end
+
+        rect rgb(255, 240, 230)
+            note over C,DB: 3. Preference Mutation
+            C->>M: POST /preferences { W }
+            M->>DB: UPDATE user_metric_preferences
+            M->>M: Update DashMap entry for User 123
+        end

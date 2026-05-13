@@ -1,0 +1,43 @@
+# Telemetry Tunnel: Intra-Service Data Flow
+
+To ensure high throughput and low latency, the system utilizes a unidirectional data tunnel orchestrated via **Redis Pub/Sub**. The architecture strictly separates concerns: production, filtering, and distribution.
+
+## Core Components
+
+1. **Sensor Service (The Producer)** - Blindly emits the absolute truth of the physical world.
+   - Publishes massive firehose payloads to `telemetry:raw`.
+2. **Metrics Service (The Filter)**
+   - Subscribes to `telemetry:raw`.
+   - Maintains an O(1) in-memory `DashMap` of active clients and their specific column preferences.
+   - Concurrently processes the firehose, stripping unauthorized or unrequested data.
+   - Publishes the tailored payload to `telemetry:filtered:<building_id>`.
+3. **Socket Service (The Distributor)**
+   - When a client connects via WebSocket, it subscribes to `telemetry:filtered:<building_id>`.
+   - Pushes data directly down the TCP socket.
+
+## Sequence Diagram
+
+.mermaid
+    sequenceDiagram
+        participant S as Sensor Service
+        participant R1 as Redis (telemetry:raw)
+        participant M as Metrics Service (Rust)
+        participant R2 as Redis (telemetry:filtered:*)
+        participant W as Socket Service
+        participant C as Client App
+
+        Note over C, W: 1. Connection & Subscription
+        C->>W: Connect WebSocket (clientId: 123)
+        W->>R2: SUBSCRIBE telemetry:filtered:123
+        W->>M: POST /metrics/preferences (Register client 123 rules)
+        Note over M: Updates DashMap in O(1) time
+
+        Note over S, C: 2. High-Frequency Telemetry Loop
+        loop Every Sensor Tick
+            S->>R1: PUBLISH {temp: 22, co2: 400, humidity: 45}
+            R1-->>M: Message Received
+            Note over M: In-memory filter for Client 123 (wants only temp)
+            M->>R2: PUBLISH telemetry:filtered:123 {temp: 22}
+            R2-->>W: Message Received
+            W->>C: WebSocket Push {temp: 22}
+        end

@@ -14,7 +14,8 @@ import {
     getAirQualityDashboard,
     getEntireBuildingPeopleCountDashboard,
     getEntireBuildingTemperatureDashboard,
-    getEntireBuildingAirQualityDashboard
+    getEntireBuildingAirQualityDashboard,
+    getMetricsContract
 } from "./controller/sensorController.js";
 import {
     createBuildingThreshold,
@@ -46,5 +47,6 @@ router.post('/thresholds/buildings', createBuildingThreshold);
 router.put('/thresholds/buildings/:buildingId', syncBuilding);
 router.patch('/thresholds/buildings/:buildingId', patchBuildingThreshold);
 router.patch('/thresholds/buildings/:buildingId/rooms/:roomId', patchRoomThreshold);
+router.get('/metrics', getMetricsContract);
 
 export default router;

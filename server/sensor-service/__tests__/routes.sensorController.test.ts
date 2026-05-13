@@ -51,6 +51,29 @@ describe('sensor routes and controller integration', () => {
         jest.clearAllMocks();
     });
 
+    it('returns metrics contract for all exposed sensor metrics', async () => {
+        const res = await request(app).get('/metrics');
+
+        expect(res.status).toBe(200);
+        expect(res.body.service).toBe('sensor-service');
+        expect(res.body.metrics).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    metricKey: 'temperature',
+                    interfaceName: 'ITemperature'
+                }),
+                expect.objectContaining({
+                    metricKey: 'peopleCount',
+                    interfaceName: 'IPeopleCount'
+                }),
+                expect.objectContaining({
+                    metricKey: 'airQuality',
+                    interfaceName: 'IAirQuality'
+                })
+            ])
+        );
+    });
+
     it('creates people count signal', async () => {
         sensorServiceMocks.postPeopleCountSignal.mockResolvedValue(undefined);
 

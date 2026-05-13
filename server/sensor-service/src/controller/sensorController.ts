@@ -31,6 +31,7 @@ import type {
   DashboardBuildingAirQualityParams,
 } from "../models/airQualitySignal.js";
 import { checkTemperature } from "../services/alertingService.js";
+import { SENSOR_METRICS_CONTRACT } from "../models/metrics.js";
 
 export const postPeopleCount = async (req: Request, res: Response) => {
   try {
@@ -284,4 +285,8 @@ export const getEntireBuildingAirQualityDashboard = async (
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
+};
+
+export const getMetricsContract = (_req: Request, res: Response) => {
+  res.status(200).json(SENSOR_METRICS_CONTRACT);
 };

@@ -1,0 +1,16 @@
+[package]
+name = "metrics-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.9"
+dashmap = "6.1.0"
+env_logger = "0.11.10"
+futures = "0.3.32"
+log = "0.4.29"
+redis = { version = "1.2.1", features = ["tokio-comp"] }
+reqwest = { version = "0.13.3", features = ["json"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+tokio = { version = "1.52.3", features = ["full"] }
