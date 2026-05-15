@@ -9,7 +9,7 @@ cd "$PROJECT_ROOT"
 
 echo ""
 echo "==> Starting services..."
-docker compose -f docker-compose.integration.yml up -d --build
+docker compose -f docker/docker-compose.integration.yml up -d --build
 
 echo ""
 echo "==> Installing test dependencies..."
@@ -24,7 +24,7 @@ set -e
 
 echo ""
 echo "==> Stopping services..."
-docker compose -f docker-compose.integration.yml down -v
+docker compose -f docker/docker-compose.integration.yml down -v
 
 echo ""
 if [ $TEST_EXIT -eq 0 ]; then
