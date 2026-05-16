@@ -20,7 +20,7 @@ export interface ApiDataPoint {
 
 export function getBuildingData(
   buildingId: Ref<string | undefined>,
-  apiType: 'peopleCount' | 'temperature' | 'air-quality',
+  apiType: 'peopleCount' | 'temperature' | 'airQuality',
   pollIntervalMs = 5000, // Configurable, defaults to 5 seconds
 ) {
   const data = ref<ApiDataPoint[]>([])
@@ -50,7 +50,7 @@ export function getBuildingData(
 
         try {
           const response = await makeRequest(
-            `/sensor/${apiType}/entireBuilding/?building=${newId}`,
+            `/sensor/${apiType}/entireBuilding?building=${newId}`,
             'GET',
             {
               signal: abortController.signal,
@@ -64,8 +64,7 @@ export function getBuildingData(
           }
 
           const result = await response.json()
-          const dataKey = apiType === 'air-quality' ? 'airQuality' : apiType
-          data.value = result[dataKey] || []
+          data.value = result.data || []
         } catch (err: any) {
           if (err.name === 'AbortError') return
           error.value = err.message

@@ -1,6 +1,6 @@
 services:
   socket-server:
-    build: ./server/socket-service
+    build: server/socket-service
     container_name: crowd-vision-socket
     environment:
       - PORT=3000
@@ -12,7 +12,7 @@ services:
       - gateway-net
 
   auth-service:
-    build: ./server/auth-service
+    build: server/auth-service
     environment:
       - MONGO_URI=mongodb://auth-db:27017/authdb
       - JWT_SECRET=${JWT_SECRET}
@@ -24,7 +24,7 @@ services:
       - auth-net
 
   twin-service:
-    build: ./server/twin-service
+    build: server/twin-service
     environment:
       - MONGO_URI=mongodb://twin-db:27017/twindb
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
@@ -34,7 +34,7 @@ services:
       - twin-net
 
   sensor-service:
-    build: ./server/sensor-service
+    build: server/sensor-service
     environment:
       - MONGO_URI=mongodb://sensor-db:27017/sensordb
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
@@ -44,7 +44,7 @@ services:
       - sensor-net
 
   notification-service:
-    build: ./server/notification-service
+    build: server/notification-service
     environment:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017/notificationdb
@@ -59,7 +59,7 @@ services:
       - notification-net
 
   agent-service:
-    build: ./server/agent-service
+    build: server/agent-service
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}

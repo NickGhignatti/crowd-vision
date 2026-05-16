@@ -17,10 +17,8 @@ defineEmits<{
 </script>
 
 <template>
-  <div
-    class="bg-slate-50 p-4 border-t border-slate-300 flex flex-col sm:flex-row justify-between items-center gap-4"
-  >
-    <span class="text-sm text-slate-600 font-medium">
+  <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto justify-end">
+    <span class="text-sm text-slate-600 font-medium whitespace-nowrap">
       {{ t('dashboard.table.startIndex') }}
       <span class="text-emerald-700 font-bold">{{ currentPage }}</span>
       {{ t('dashboard.table.ofIndex') }}
@@ -30,7 +28,7 @@ defineEmits<{
     <div class="flex items-center gap-2">
       <button
         @click="$emit('toggle-auto-play')"
-        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 mr-2"
+        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
         :class="
           isAutoPlaying
             ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'

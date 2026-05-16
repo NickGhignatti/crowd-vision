@@ -196,7 +196,7 @@ services:
       start_period: 15s
 
   metrics-service:
-    build: ./server/metrics-service
+    build: server/metrics-service
     environment:
       - PORT=3000
       - SENSOR_METRICS_URL=http://sensor-service:3000

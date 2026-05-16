@@ -46,11 +46,7 @@ const aggMode = ref<AggMode>('avg')
 
 const toggleSimulatorButton = () => {
   if (!buildingIdRef.value) return
-  toggleSimulator(
-    buildingIdRef.value,
-    isSimRunning.value ? 'stop' : 'start',
-    props.selectedRooms,
-  )
+  toggleSimulator(buildingIdRef.value, isSimRunning.value ? 'stop' : 'start', props.selectedRooms)
     .then(() => {
       isSimRunning.value = !isSimRunning.value
 
@@ -79,7 +75,7 @@ const { data: tempData, isLoading: loadingTemp } = getBuildingHistory(
 const { data: airQualityData, isLoading: loadingAQ } = getBuildingHistory(
   buildingIdRef,
   timeRange,
-  'air-quality',
+  'airQuality',
 )
 
 const { isSimRunning, refetch } = useIsRunning(buildingIdRef)
@@ -126,17 +122,45 @@ const getTimeline = (range: TimeRange): Date[] => {
 }
 
 const alignDataToTimeline = (apiData: any[], timeline: Date[], range: TimeRange, mode: AggMode) => {
+  // TODO: Have to restore this, but currently the sensor service doesn't pre-aggregate data
+  // return timeline.map((timeObj) => {
+  //   const match = apiData.find((d) => {
+  //     const dTime = new Date(d.timestamp)
+  //     if (range === '1D') {
+  //       return dTime.setMinutes(0, 0, 0) === timeObj.getTime()
+  //     } else {
+  //       return dTime.setHours(0, 0, 0, 0) === timeObj.getTime()
+  //     }
+  //   })
+  //
+  //   return match ? match[mode] : 0
+  // })
   return timeline.map((timeObj) => {
-    const match = apiData.find((d) => {
-      const dTime = new Date(d.timestamp)
-      if (range === '1D') {
-        return dTime.setMinutes(0, 0, 0) === timeObj.getTime()
-      } else {
-        return dTime.setHours(0, 0, 0, 0) === timeObj.getTime()
-      }
+    // Collect ALL records that fall inside this time bucket
+    const bucket = apiData.filter((d) => {
+      const floored =
+        range === '1D'
+          ? new Date(d.timestamp).setMinutes(0, 0, 0)
+          : new Date(d.timestamp).setHours(0, 0, 0, 0)
+      return floored === timeObj.getTime()
     })
 
-    return match ? match[mode] : 0
+    if (bucket.length === 0) return 0
+
+    const values = bucket.map((d) => d.value ?? 0)
+
+    switch (mode) {
+      case 'avg':
+        return +(values.reduce((s, v) => s + v, 0) / values.length).toFixed(2)
+      case 'sum':
+        return values.reduce((s, v) => s + v, 0)
+      case 'min':
+        return Math.min(...values)
+      case 'max':
+        return Math.max(...values)
+      default:
+        return 0
+    }
   })
 }
 

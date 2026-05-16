@@ -12,7 +12,7 @@ export interface ApiDataPoint {
 export function getBuildingHistory(
   buildingId: any,
   range: any,
-  apiType: 'peopleCount' | 'temperature' | 'air-quality',
+  apiType: 'peopleCount' | 'temperature' | 'airQuality',
 ) {
   const data = ref<ApiDataPoint[]>([])
   const isLoading = ref(false)
@@ -27,7 +27,7 @@ export function getBuildingHistory(
 
     try {
       const response = await makeRequest(
-        `/sensor/${apiType}/dashboard/entireBuilding/?building=${buildingId.value}&timeRange=${range.value}`,
+        `/sensor/${apiType}/dashboard?building=${buildingId.value}&timeRange=${range.value}`,
         'GET',
         {
           credentials: 'omit',
@@ -41,8 +41,17 @@ export function getBuildingHistory(
 
       const result = await response.json()
 
-      const dataKey = apiType === 'air-quality' ? 'airQuality' : apiType
-      data.value = result[dataKey] || []
+      const valueKey =
+        apiType === 'temperature'
+          ? 'temperature'
+          : apiType === 'peopleCount'
+            ? 'peopleCount'
+            : 'indoor_aqi'
+
+      data.value = (result.data || []).map((d: any) => ({
+        timestamp: d.timestamp,
+        value: d[valueKey] ?? 0,
+      }))
     } catch (err: any) {
       error.value = err.message
       // Fallback to empty or mock on error if strictly needed

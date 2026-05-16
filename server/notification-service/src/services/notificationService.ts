@@ -40,3 +40,12 @@ export const startNotificationLoop = () => {
         }
     }, 10000);
 };
+
+export const sendTemperatureAlert = async (message: string, timestamp: Date, dangerLevel: string = 'info') => {
+  await redisClient.publish("notifications", JSON.stringify({
+    id: Date.now().toString(),
+    message,
+    type: dangerLevel,
+    timestamp
+  }))
+}
