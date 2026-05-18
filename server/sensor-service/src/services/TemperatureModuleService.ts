@@ -17,6 +17,13 @@ export class TemperatureService {
       timestamp,
       temperature,
     });
+    redisClient.publish('telemetry:raw', JSON.stringify({
+      type: 'temperature',
+      buildingId,
+      roomId,
+      timestamp,
+      value: temperature,
+    }));
     await this.evaluateThresholds(buildingId, roomId, temperature);
   }
 
@@ -139,11 +146,11 @@ export class TemperatureService {
           buildingId,
           roomId,
           temperature,
-          type: temperature,
+          type: 'temperature',
           timestamp: Date.now(),
         });
 
-        await redisClient.publish('alters:temperature', eventPayload);
+        await redisClient.publish('alerts:temperature', eventPayload);
       }
       if (
         activeThreshold.minTemp !== undefined &&

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import EmptyRecord from '../EmptyRecord.vue'
-import type { TableHeader } from '../../tables/BuildingTable.vue'
+import type { TableHeader } from '@/models/table.ts'
 
 describe('EmptyRecord.vue', () => {
   const headers: TableHeader[] = [

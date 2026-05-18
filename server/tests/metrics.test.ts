@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "@jest/globals";
 
-const METRICS_URL = process.env.METRICS_SERVICE_URL ?? "http://localhost:3100";
+const METRICS_URL = process.env.CONTRACTS_SERVICE_URL ?? "http://localhost:3100";
 
-// Poll until metrics-service is up (it starts after sensor-service)
+// Poll until contracts-service is up (it starts after sensor-service)
 async function waitForService(url: string, retries = 20, delayMs = 2000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -11,25 +11,25 @@ async function waitForService(url: string, retries = 20, delayMs = 2000) {
     } catch (_e) {
       // Service is not ready, retry
     }
-    console.log(`Waiting for metrics-service… (${i + 1}/${retries})`);
+    console.log(`Waiting for contracts-service… (${i + 1}/${retries})`);
     await new Promise((r) => setTimeout(r, delayMs));
   }
   throw new Error(
-    `metrics-service not reachable at ${url} after ${retries} attempts`,
+    `contracts-service not reachable at ${url} after ${retries} attempts`,
   );
 }
 
-describe("Metrics Service — GET /metrics", () => {
+describe("Contracts Service — GET /contracts", () => {
   let body: { metrics: any[] };
 
   beforeAll(async () => {
-    await waitForService(`${METRICS_URL}/metrics`);
-    const res = await fetch(`${METRICS_URL}/metrics`);
+    await waitForService(`${METRICS_URL}/contracts`);
+    const res = await fetch(`${METRICS_URL}/contracts`);
     body = await res.json();
   }, 60_000);
 
   it("returns 200", async () => {
-    const res = await fetch(`${METRICS_URL}/metrics`);
+    const res = await fetch(`${METRICS_URL}/contracts`);
     expect(res.status).toBe(200);
   });
 

@@ -29,6 +29,7 @@ services:
       - MONGO_URI=mongodb://twin-db:27017/twindb
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
       - SENSOR_SERVICE_URL=http://sensor-service:3000
+      - CONTRACTS_SERVICE_URL=http://contracts-service:3000
     networks:
       - gateway-net
       - twin-net
@@ -39,9 +40,22 @@ services:
       - MONGO_URI=mongodb://sensor-db:27017/sensordb
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
       - VITE_SERVER_URL=http://gateway
+      - REDIS_URL=redis://redis:6379
     networks:
       - gateway-net
       - sensor-net
+
+  contracts-service:
+    build: server/contracts-service
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - SENSOR_METRICS_URL=http://sensor-service:3000
+      - TWIN_METRICS_URL=http://twin-service:3000
+    depends_on:
+      - redis
+    networks:
+      - gateway-net
 
   notification-service:
     build: server/notification-service

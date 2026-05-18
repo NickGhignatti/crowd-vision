@@ -113,6 +113,7 @@ const messages = {
           capacity: 'Capacity',
           temperature: 'Temperature',
           people: 'People',
+          indoorAqi: 'Indoor Air Quality',
         },
         rooms: {
           status: {
@@ -369,6 +370,7 @@ const messages = {
           capacity: 'Capacità',
           temperature: 'Temperatura',
           people: 'Persone',
+          indoorAqi: 'Qualità dell\'aria interna',
         },
         rooms: {
           status: {

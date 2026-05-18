@@ -37,7 +37,7 @@ export function createRouter(
     thresholds.patchRoomThreshold,
   );
 
-  router.get("/metrics", (_req, res) =>
+  router.get("/contracts", (_req, res) =>
     res.status(200).json(SENSOR_METRICS_CONTRACT),
   );
 

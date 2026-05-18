@@ -3,25 +3,28 @@ import TableEditControls from './TableEditControls.vue'
 import PaginationControls from './PaginationControls.vue'
 
 defineProps<{
-  // Pagination Props
+  // Pagination
   currentPage: number
   totalPages: number
   isAutoPlaying: boolean
 
-  // Edit Props
+  // Edit
   canEdit?: boolean
   isEditMode?: boolean
+  isSaving?: boolean
 }>()
 
 defineEmits<{
-  // Pagination Emits
+  // Pagination
   'toggle-auto-play': []
   'prev-page': []
   'next-page': []
 
-  // Edit Emits
+  // Edit
   'toggle-edit': []
   'add-new': []
+  'save': []
+  'cancel': []
 }>()
 </script>
 
@@ -32,8 +35,11 @@ defineEmits<{
     <TableEditControls
       :can-edit="canEdit"
       :is-edit-mode="isEditMode"
+      :is-saving="isSaving"
       @toggle-edit="$emit('toggle-edit')"
       @add-new="$emit('add-new')"
+      @save="$emit('save')"
+      @cancel="$emit('cancel')"
     />
 
     <PaginationControls

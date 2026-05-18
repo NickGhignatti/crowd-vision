@@ -11,7 +11,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/target/release/metrics-service /usr/local/bin/metrics-service
+COPY --from=builder /app/target/release/contracts-service /usr/local/bin/contracts-service
 
 EXPOSE 3000
-CMD ["metrics-service"]
+CMD ["contracts-service"]

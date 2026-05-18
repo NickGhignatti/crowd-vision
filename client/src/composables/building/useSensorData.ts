@@ -1,5 +1,6 @@
 import { ref, watch, type Ref } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
+import { socket } from '@/services/socket'
 
 export interface ApiDataPoint {
   timestamp: string
@@ -34,6 +35,8 @@ export function getBuildingData(
         data.value = []
         return
       }
+
+      socket.emit('subscribe_building' as any, newId)
 
       let abortController: AbortController | null = null
       let intervalId: ReturnType<typeof setInterval>
@@ -77,15 +80,36 @@ export function getBuildingData(
       // 1. Fetch immediately on mount or ID change
       fetchData()
 
-      // 2. Start the 5-second polling loop
-      intervalId = setInterval(() => {
-        fetchData(true) // 'true' means it's a background poll, so don't show loading spinner
-      }, pollIntervalMs)
+      // [OLD WAY]
+      // // 2. Start the 5-second polling loop
+      // intervalId = setInterval(() => {
+      //   fetchData(true) // 'true' means it's a background poll, so don't show loading spinner
+      // }, pollIntervalMs)
+
+      socket.on(`telemetry` as any, (event: any) => {
+        console.log('Received telemetry event:', event)
+        if (event?.buildingId === buildingId.value && event?.type === apiType) {
+          const newData = [...data.value]
+
+          const idx = newData.findIndex(d => d.roomId === event.roomId)
+
+          if (idx >= 0) {
+            newData[idx] = { ...newData[idx], ...event }
+          } else {
+            newData.push(event)
+          }
+
+          data.value = newData
+        }
+      })
+
 
       // 3. Clean up interval and abort pending requests when component unmounts or ID changes
       onCleanup(() => {
         if (abortController) abortController.abort()
-        clearInterval(intervalId)
+        socket.emit('unsubscribe_building' as any, newId)
+        socket.off(`telemetry:filtered:${buildingId.value}` as any)
+        // clearInterval(intervalId)
       })
     },
     { immediate: true },

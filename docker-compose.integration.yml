@@ -195,12 +195,14 @@ services:
       retries: 20
       start_period: 15s
 
-  metrics-service:
-    build: server/metrics-service
+  contracts-service:
+    build: server/contracts-service
     environment:
       - PORT=3000
-      - SENSOR_METRICS_URL=http://sensor-service:3000
+      - REDIS_URL=redis://redis:6379
     depends_on:
+      redis:
+        condition: service_healthy
       sensor-service:
         condition: service_healthy
     networks:
@@ -225,7 +227,7 @@ services:
         condition: service_healthy
       agent-service:
         condition: service_healthy
-      metrics-service:
+      contracts-service:
         condition: service_started
       gateway:
         condition: service_started

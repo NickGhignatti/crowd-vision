@@ -1,6 +1,7 @@
 use crate::state::AppState;
 use futures::StreamExt;
-use log::{debug, error};
+use log::{debug};
+use log::{info};
 use redis::aio::MultiplexedConnection;
 use serde_json::Value;
 use tokio::task;
@@ -12,7 +13,7 @@ pub async fn start_telemetry_tunnel(redis_url: &str, state: AppState) {
     let client = match redis::Client::open(redis_url) {
         Ok(c) => c,
         Err(e) => {
-            error!("Failed to create Redis client: {}", e);
+            info!("Failed to create Redis client: {}", e);
             return;
         }
     };
@@ -21,7 +22,7 @@ pub async fn start_telemetry_tunnel(redis_url: &str, state: AppState) {
     let pubsub_conn = match client.get_async_pubsub().await {
         Ok(conn) => conn,
         Err(e) => {
-            error!("Failed to get Redis pubsub connection: {}", e);
+            info!("Failed to get Redis pubsub connection: {}", e);
             return;
         }
     };
@@ -30,7 +31,7 @@ pub async fn start_telemetry_tunnel(redis_url: &str, state: AppState) {
     let publish_conn = match client.get_multiplexed_async_connection().await {
         Ok(conn) => conn,
         Err(e) => {
-            error!("Failed to get Redis multiplexed connection: {}", e);
+            info!("Failed to get Redis multiplexed connection: {}", e);
             return;
         }
     };
@@ -47,23 +48,31 @@ async fn listen_and_fanout(
     state: AppState,
 ) {
     if let Err(e) = pubsub.subscribe(RAW_CHANNEL).await {
-        error!("Failed to subscribe to {}: {}", RAW_CHANNEL, e);
+        info!("Failed to subscribe to {}: {}", RAW_CHANNEL, e);
         return;
     }
 
-    debug!("Subscribed to Redis channel: {}", RAW_CHANNEL);
+    info!("Subscribed to Redis channel: {}", RAW_CHANNEL);
     let mut stream = pubsub.on_message();
 
     // Hot loop: Awaits raw telemetry
     while let Some(msg) = stream.next().await {
         let payload: String = match msg.get_payload() {
             Ok(p) => p,
-            Err(_) => continue,
+            Err(_) => {
+                info!("FAIL");
+                continue;
+            },
         };
+
+        info!("Received raw telemetry: {}", payload.clone());
 
         let raw_data: Value = match serde_json::from_str(&payload) {
             Ok(v) => v,
-            Err(_) => continue,
+            Err(_) => {
+                info!("FAIL");
+                continue;
+            },
         };
 
         // Clone Arc pointers for the spawn task
@@ -83,27 +92,28 @@ async fn process_and_publish(
     state: AppState,
     mut publish_conn: MultiplexedConnection,
 ) {
-    // Iterate over all active users in the DashMap
+    let metric_type = match raw_data.get("type").and_then(|v| v.as_str()) {
+        Some(t) => t,
+        None => {
+            info!("Raw telemetry missing 'type' field, skipping");
+            return;
+        }
+    };
+
     for entry in state.building_preferences.iter() {
         let building_id = entry.key();
         let allowed_columns = entry.value();
 
-        // Clone the raw data to mutate it for this specific client
-        let mut payload = raw_data.clone();
-
-        // Filter out unwanted keys
-        if let Value::Object(ref mut map) = payload {
-            map.retain(|key, _| allowed_columns.contains(key));
+        if !allowed_columns.iter().any(|col| col == metric_type) {
+            continue;
         }
 
-        // Fast serialize and publish
-        if let Ok(filtered_str) = serde_json::to_string(&payload) {
+        if let Ok(payload_str) = serde_json::to_string(&raw_data) {
+            info!("Publishing to channel telemetry:filtered:{}: {}", building_id, payload_str);
             let channel = format!("telemetry:filtered:{}", building_id);
-
-            // Fire and forget using the multiplexed connection
             let _: redis::RedisResult<()> = redis::cmd("PUBLISH")
                 .arg(&channel)
-                .arg(filtered_str)
+                .arg(payload_str)
                 .query_async(&mut publish_conn)
                 .await;
         }

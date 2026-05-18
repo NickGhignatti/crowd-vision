@@ -251,6 +251,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "contracts-service"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "dashmap",
+ "env_logger",
+ "futures",
+ "log",
+ "redis",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -932,22 +948,6 @@ name = "memchr"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
-
-[[package]]
-name = "metrics-service"
-version = "0.1.0"
-dependencies = [
- "axum",
- "dashmap",
- "env_logger",
- "futures",
- "log",
- "redis",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
-]
 
 [[package]]
 name = "mime"
@@ -1771,9 +1771,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.6.10"
+version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68d6fdd9f81c2819c9a8b0e0cd91660e7746a8e6ea2ba7c6b2b057985f6bcb51"
+checksum = "4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840"
 dependencies = [
  "bitflags",
  "bytes",

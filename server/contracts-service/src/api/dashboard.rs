@@ -10,7 +10,7 @@ pub async fn get_dashboard_tables() -> impl IntoResponse {
     let mut possible_metrics: Vec<MetricContract> = Vec::new();
 
     for service in services {
-        let url = format!("{}/metrics", service);
+        let url = format!("{}/contracts", service);
         match reqwest::get(&url).await {
             Ok(res) => match res.json::<MetricsDiscoveryResponse>().await {
                 Ok(MetricsDiscoveryResponse::ServiceContract(service_metrics)) => {

@@ -6,17 +6,14 @@ use axum::{
 };
 use log::info;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::state::AppState;
 
-// The payload sent by the client containing the columns they want to subscribe to.
 #[derive(Deserialize)]
 pub struct UpdatePreferencesRequest {
     pub allowed_columns: Vec<String>,
 }
 
-// The response confirming the rules have been updated.
 #[derive(Serialize)]
 pub struct UpdatePreferencesResponse {
     pub status: String,
@@ -24,13 +21,40 @@ pub struct UpdatePreferencesResponse {
     pub active_columns: usize,
 }
 
-// POST /metrics/preferences/:building_id
+#[derive(Serialize)]
+pub struct GetPreferencesResponse {
+    pub building_id: String,
+    pub allowed_columns: Vec<String>,
+}
+
+// GET /preferences/:building_id
+pub async fn get_preferences(
+    Path(building_id): Path<String>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    match state.building_preferences.get(&building_id) {
+        Some(columns) => (
+            StatusCode::OK,
+            Json(GetPreferencesResponse {
+                building_id,
+                allowed_columns: columns.clone(),
+            }),
+        ).into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+// POST /preferences/:building_id
 pub async fn update_preferences(
     State(state): State<AppState>,
     Path(building_id): Path<String>,
     Json(payload): Json<UpdatePreferencesRequest>,
 ) -> impl IntoResponse {
     let column_count = payload.allowed_columns.len();
+    info!(
+        "Received update for building_id: {}, allowed_columns: {:?}",
+        building_id, payload.allowed_columns
+    );
 
     // Instant Cache Mutation (The Hot Path)
     // DashMap shards its internal locks, meaning this write operation will virtually

@@ -1,6 +1,7 @@
 import { PeopleCount } from "../models/peopleCountSignal.js";
 import { BuildingThresholdModel } from "../models/buildingThreshold.js";
 import { getTimeRange, getDateRange } from "../utils/dataHelpers.js";
+import redisClient from "../config/redis.js";
 
 export class PeopleCountService {
   async persistSignal(
@@ -15,6 +16,9 @@ export class PeopleCountService {
       timestamp,
       peopleCount,
     });
+    redisClient.publish('telemetry:raw', JSON.stringify({
+      type: 'peopleCount', buildingId, roomId, timestamp, value: peopleCount,
+    }));
     await this.evaluateThresholds(buildingId, roomId, peopleCount);
   }
 

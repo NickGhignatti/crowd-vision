@@ -1,6 +1,7 @@
 import { AirQuality } from "../models/airQualitySignal.js";
 import { BuildingThresholdModel } from "../models/buildingThreshold.js";
 import { getTimeRange, getDateRange } from "../utils/dataHelpers.js";
+import redisClient from "../config/redis.js";
 
 export class AirQualityService {
   async persistSignal(payload: any): Promise<void> {
@@ -22,6 +23,10 @@ export class AirQualityService {
     if (payload.scenario !== undefined) document.scenario = payload.scenario;
 
     await AirQuality.create(document);
+
+    redisClient.publish('telemetry:raw', JSON.stringify({
+      type: 'airQuality', buildingId: payload.buildingId, roomId: payload.roomId, timestamp: payload.timestamp, value: indoorAqi,
+    }));
     await this.evaluateThresholds(
       payload.buildingId,
       payload.roomId,

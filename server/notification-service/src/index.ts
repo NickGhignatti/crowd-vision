@@ -1,6 +1,5 @@
 import express from "express";
 import dotenv from "dotenv";
-import cors from "cors";
 import router from "./router.js";
 import { connectRedis } from "./config/redis.js";
 import { connectMongo } from "./config/db.js";
@@ -15,12 +14,6 @@ const PORT = process.env.PORT || 3000;
 export const getClientUrl = () =>
   process.env.CLIENT_URL || "http://localhost:5173";
 
-app.use(
-  cors({
-    origin: getClientUrl(),
-    credentials: true,
-  }),
-);
 app.use(express.json());
 app.use(globalErrorHandler);
 app.use("/", router);

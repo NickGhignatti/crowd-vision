@@ -6,7 +6,7 @@ const app = express();
 const PORT = 3000;
 
 
-app.use(cors());
+// app.use(cors());
 app.use(express.json());
 app.use('/', router)
 
@@ -16,5 +16,5 @@ app.get('/', (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-    app.listen(PORT);
+  app.listen(PORT);
 }
