@@ -14,22 +14,15 @@ export function useColumnManager(
   selectedBuildingId: Ref<string | undefined>,
   onSaved: (headers: TableHeader[]) => void,
 ) {
-  // ── Local header state ──────────────────────────────────────────────────────
-
   const localHeaders = ref<TableHeader[]>(headers.value.map(enrichHeader))
 
   watch(headers, (incoming) => {
     if (!isEditMode.value) localHeaders.value = incoming.map(enrichHeader)
   }, { deep: true })
 
-  // ── Edit mode ───────────────────────────────────────────────────────────────
-
-  const isEditMode          = ref(false)
+  const isEditMode = ref(false)
   const isSavingPreferences = ref(false)
-
-  // ── Metric catalog ──────────────────────────────────────────────────────────
-
-  const availableMetrics  = ref<MetricContract[]>([])
+  const availableMetrics = ref<MetricContract[]>([])
   const isFetchingMetrics = ref(false)
 
   const fetchAvailableMetrics = async () => {
@@ -53,8 +46,6 @@ export function useColumnManager(
     else closeAllPanels()
   })
 
-  // ── Preferences fetch (drives headers on building select / page load) ────────
-
   watch(selectedBuildingId, async (buildingId) => {
     if (!buildingId) return
     try {
@@ -74,18 +65,14 @@ export function useColumnManager(
     localHeaders.value = headers.value.map(enrichHeader)
   }, { immediate: true })
 
-  // ── Panel state ─────────────────────────────────────────────────────────────
-
   const activeHeaderKey = ref<string | null>(null)
-  const dropdownPos     = ref({ top: 0, left: 0 })
-  const showAddPanel    = ref(false)
+  const dropdownPos = ref({ top: 0, left: 0 })
+  const showAddPanel = ref(false)
 
   const closeAllPanels = () => {
     activeHeaderKey.value = null
-    showAddPanel.value    = false
+    showAddPanel.value = false
   }
-
-  // ── Column operations ───────────────────────────────────────────────────────
 
   const handleColumnClick = (header: TableHeader, event: MouseEvent) => {
     if (!isEditMode.value) return
@@ -96,7 +83,7 @@ export function useColumnManager(
 
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     dropdownPos.value = {
-      top:  rect.bottom + 4,
+      top: rect.bottom + 4,
       left: Math.min(rect.left, window.innerWidth - 276),
     }
     activeHeaderKey.value = id
@@ -128,11 +115,16 @@ export function useColumnManager(
   }
 
   const handleAddNew = () => {
-    showAddPanel.value    = !showAddPanel.value
+    showAddPanel.value = !showAddPanel.value
     activeHeaderKey.value = null
   }
 
-  // ── Save / Cancel ───────────────────────────────────────────────────────────
+  const handleReorderColumns = (from: number, to: number) => {
+    const reordered = [...localHeaders.value]
+    const [moved] = reordered.splice(from, 1) as [TableHeader]
+    reordered.splice(to, 0, moved)
+    localHeaders.value = reordered
+  }
 
   const savePreferences = async () => {
     isSavingPreferences.value = true
@@ -169,8 +161,6 @@ export function useColumnManager(
     }
     localHeaders.value = headers.value.map(enrichHeader)
   }
-
-  // ── Computed ────────────────────────────────────────────────────────────────
 
   const addableMetrics = computed(() =>
     availableMetrics.value.filter(
@@ -210,6 +200,7 @@ export function useColumnManager(
     handleSwapColumn,
     handleAddColumn,
     handleAddNew,
+    handleReorderColumns,
     closeAllPanels,
     savePreferences,
     cancelEdit,

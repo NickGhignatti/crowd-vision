@@ -1,12 +1,21 @@
 use crate::state::AppState;
 use futures::StreamExt;
-use log::{debug};
-use log::{info};
+use log::info;
 use redis::aio::MultiplexedConnection;
 use serde_json::Value;
 use tokio::task;
 
 const RAW_CHANNEL: &str = "telemetry:raw";
+
+/// Returns the `type` field of a telemetry JSON payload if it is present and a string.
+fn extract_metric_type(raw: &Value) -> Option<&str> {
+    raw.get("type").and_then(|v| v.as_str())
+}
+
+/// Returns true if `metric_type` appears in the building's list of allowed columns.
+fn metric_is_allowed(allowed_columns: &[String], metric_type: &str) -> bool {
+    allowed_columns.iter().any(|col| col == metric_type)
+}
 
 /// Initializes the telemetry processing tunnel.
 pub async fn start_telemetry_tunnel(redis_url: &str, state: AppState) {
@@ -92,7 +101,7 @@ async fn process_and_publish(
     state: AppState,
     mut publish_conn: MultiplexedConnection,
 ) {
-    let metric_type = match raw_data.get("type").and_then(|v| v.as_str()) {
+    let metric_type = match extract_metric_type(&raw_data) {
         Some(t) => t,
         None => {
             info!("Raw telemetry missing 'type' field, skipping");
@@ -104,7 +113,7 @@ async fn process_and_publish(
         let building_id = entry.key();
         let allowed_columns = entry.value();
 
-        if !allowed_columns.iter().any(|col| col == metric_type) {
+        if !metric_is_allowed(allowed_columns, metric_type) {
             continue;
         }
 
@@ -117,5 +126,62 @@ async fn process_and_publish(
                 .query_async(&mut publish_conn)
                 .await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{extract_metric_type, metric_is_allowed};
+    use serde_json::json;
+
+    // ── metric_is_allowed ─────────────────────────────────────────────────────
+
+    #[test]
+    fn allowed_when_type_matches_a_column() {
+        let cols = vec!["temperature".to_string()];
+        assert!(metric_is_allowed(&cols, "temperature"));
+    }
+
+    #[test]
+    fn not_allowed_when_type_absent_from_columns() {
+        let cols = vec!["temperature".to_string()];
+        assert!(!metric_is_allowed(&cols, "air_quality"));
+    }
+
+    #[test]
+    fn not_allowed_when_column_list_is_empty() {
+        assert!(!metric_is_allowed(&[], "temperature"));
+    }
+
+    #[test]
+    fn allowed_when_type_is_one_of_multiple_columns() {
+        let cols = vec!["temperature".to_string(), "people_count".to_string()];
+        assert!(metric_is_allowed(&cols, "people_count"));
+    }
+
+    // ── extract_metric_type ───────────────────────────────────────────────────
+
+    #[test]
+    fn extracts_string_type_field() {
+        let raw = json!({ "type": "temperature", "value": 22 });
+        assert_eq!(extract_metric_type(&raw), Some("temperature"));
+    }
+
+    #[test]
+    fn returns_none_when_type_field_missing() {
+        let raw = json!({ "value": 22 });
+        assert_eq!(extract_metric_type(&raw), None);
+    }
+
+    #[test]
+    fn returns_none_when_type_field_is_not_a_string() {
+        let raw = json!({ "type": 42 });
+        assert_eq!(extract_metric_type(&raw), None);
+    }
+
+    #[test]
+    fn returns_none_for_empty_json_object() {
+        let raw = json!({});
+        assert_eq!(extract_metric_type(&raw), None);
     }
 }

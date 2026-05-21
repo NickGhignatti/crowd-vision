@@ -1,19 +1,27 @@
-# Telemetry Tunnel: Intra-Service Data Flow
+.docname {Sensor Data Communication}
+.include {docs}
 
-To ensure high throughput and low latency, the system utilizes a unidirectional data tunnel orchestrated via **Redis Pub/Sub**. The architecture strictly separates concerns: production, filtering, and distribution.
+To ensure high throughput and low latency, the system utilizes a unidirectional data tunnel orchestrated via **Redis Pub/Sub**. The architecture strictly separates concerns: production, filtering, and distribution are handled by three independent services that never call each other directly.
+
+---
 
 ## Core Components
 
-1. **Sensor Service (The Producer)** - Blindly emits the absolute truth of the physical world.
-   - Publishes massive firehose payloads to `telemetry:raw`.
-2. **Metrics Service (The Filter)**
+1. **Sensor Service (The Producer)** — Blindly emits the absolute truth of the physical world.
+   - Publishes full telemetry payloads to `telemetry:raw`.
+   - Each message includes a `type` field identifying the metric (`"temperature"`, `"peopleCount"`, `"airQuality"`).
+
+2. **Contracts Service (The Filter)** — A Rust/Axum microservice that acts as the intelligent gatekeeper.
    - Subscribes to `telemetry:raw`.
-   - Maintains an O(1) in-memory `DashMap` of active clients and their specific column preferences.
-   - Concurrently processes the firehose, stripping unauthorized or unrequested data.
+   - Maintains an O(1) in-memory `DashMap` mapping each Building ID to its list of allowed metric types.
+   - For each incoming message, looks up which buildings have subscribed to that metric type and republishes the payload to their dedicated channel.
    - Publishes the tailored payload to `telemetry:filtered:<building_id>`.
-3. **Socket Service (The Distributor)**
+
+3. **Socket Service (The Distributor)** — Stateless WebSocket relay.
    - When a client connects via WebSocket, it subscribes to `telemetry:filtered:<building_id>`.
-   - Pushes data directly down the TCP socket.
+   - Pushes data directly down the TCP socket to the browser.
+
+---
 
 ## Sequence Diagram
 
@@ -21,23 +29,67 @@ To ensure high throughput and low latency, the system utilizes a unidirectional 
     sequenceDiagram
         participant S as Sensor Service
         participant R1 as Redis (telemetry:raw)
-        participant M as Metrics Service (Rust)
+        participant C as Contracts Service (Rust)
         participant R2 as Redis (telemetry:filtered:*)
         participant W as Socket Service
-        participant C as Client App
+        participant FE as Vue Frontend
 
-        Note over C, W: 1. Connection & Subscription
-        C->>W: Connect WebSocket (clientId: 123)
-        W->>R2: SUBSCRIBE telemetry:filtered:123
-        W->>M: POST /metrics/preferences (Register client 123 rules)
-        Note over M: Updates DashMap in O(1) time
+        Note over FE, W: 1. Connection & Subscription
+        FE->>W: Connect WebSocket (buildingId: alpha)
+        W->>R2: SUBSCRIBE telemetry:filtered:alpha
+        FE->>C: GET /preferences/alpha
+        Note over C: Returns DashMap entry for "alpha"
+        Note over FE: Renders table columns from allowed_columns
 
-        Note over S, C: 2. High-Frequency Telemetry Loop
+        Note over S, FE: 2. High-Frequency Telemetry Loop
         loop Every Sensor Tick
-            S->>R1: PUBLISH {temp: 22, co2: 400, humidity: 45}
-            R1-->>M: Message Received
-            Note over M: In-memory filter for Client 123 (wants only temp)
-            M->>R2: PUBLISH telemetry:filtered:123 {temp: 22}
-            R2-->>W: Message Received
-            W->>C: WebSocket Push {temp: 22}
+            S->>R1: PUBLISH { type:"temperature", buildingId:"alpha", roomId:"r1", value:22 }
+            R1-->>C: Message received
+            Note over C: Extract type = "temperature"<br/>DashMap lookup: "temperature" ∈ allowed_columns["alpha"]? ✓
+            C->>R2: PUBLISH telemetry:filtered:alpha { type:"temperature", ... }
+            R2-->>W: Message received
+            W->>FE: WebSocket push { type:"temperature", roomId:"r1", value:22 }
+            Note over FE: telemetryHandler mutates data in-place<br/>triggerRef() batched to next animation frame
         end
+
+        Note over FE, C: 3. Preference Update (User Saves Column Changes)
+        FE->>C: POST /preferences/alpha { allowed_columns: ["roomName","temperature","airQuality"] }
+        Note over C: DashMap.insert — O(1) shard lock<br/>Tunnel picks up new filter on next iteration
+        C-->>FE: 200 OK
+
+---
+
+## Why Type-Based Filtering?
+
+The raw telemetry payload is a flat JSON object with a `type` discriminator field:
+
+.code lang:{json}
+    { "type": "temperature", "buildingId": "alpha", "roomId": "r1", "timestamp": 1718000000, "value": 22.4 }
+
+The Contracts Service checks whether `payload["type"]` is in the building's `allowed_columns` list. If it is, the **entire payload is forwarded unchanged**. This approach:
+
+*   **Preserves context**: Downstream consumers always receive `roomId`, `timestamp`, and `buildingId` — they never need to re-fetch spatial context.
+*   **Keeps the filter O(1)**: A `Vec::contains` on a short list of metric keys is faster than any field-by-field JSON manipulation.
+*   **Scales to N buildings**: Because fan-out is performed by iterating the `DashMap`, a single `telemetry:raw` message can be simultaneously forwarded to multiple buildings that share the same metric subscription — with no duplicate Redis subscriptions.
+
+---
+
+## Frontend Subscription Pattern
+
+The Vue client listens for telemetry on a single `"telemetry"` Socket.IO event (not per-channel). The socket-service emits this event only to the `building:<id>` room, so each client only receives data for buildings it has joined.
+
+**Lifecycle rules enforced in `useSensorData`:**
+1. On `buildingId` change: `emit('subscribe_building', id)` to join the Socket.IO room.
+2. Register handler via `socket.on('telemetry', telemetryHandler)` — always capturing the exact function reference.
+3. On cleanup: `socket.off('telemetry', telemetryHandler)` — must match the same reference to prevent listener accumulation.
+4. Data mutations are batched to the next `requestAnimationFrame` via `triggerRef()`, decoupling Vue's scheduler from the Three.js render loop. This is critical for the digital twin view's 60fps camera animation.
+
+---
+
+## Channel Naming Convention
+
+| Channel | Publisher | Subscriber | Content |
+| :--- | :--- | :--- | :--- |
+| `telemetry:raw` | sensor-service | contracts-service | Full sensor payload for all buildings |
+| `telemetry:filtered:<building_id>` | contracts-service | socket-service | Filtered payload for one specific building |
+| `alerts:temperature` | sensor-service | notification-service | Threshold violation events |

@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { nextTick } from 'vue'
-import { useBuildingModel } from '@/composables/building/useBuildingModel.ts'
+import {
+  useBuildingModel,
+  __resetThresholdCacheForTests,
+} from '@/composables/building/useBuildingModel.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 import { makeRequest } from '@/composables/core/useApi.ts'
@@ -84,6 +87,11 @@ describe('useBuildingModel', () => {
   let buildingsStoreMock: ReturnType<typeof makeBuildingsStoreMock>
 
   beforeEach(() => {
+    // The threshold cache is module-level and shared across tests; clear it so
+    // each test sees fresh threshold fetches and isn't polluted by a previous
+    // test's `hq`/`annex` results.
+    __resetThresholdCacheForTests()
+
     mockFetchMemberships.mockReset()
     mockFetchMemberships.mockResolvedValue(undefined)
     mockFetchBuildings.mockReset()

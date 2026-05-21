@@ -40,19 +40,42 @@ const mergeThresholdClone = (building: Building, threshold: ThresholdClone | nul
   }
 }
 
+// Module-level threshold cache with a 5-minute TTL. Thresholds change rarely
+// (admin action), so re-fetching on every page navigation wastes N parallel
+// requests at dashboard open time.
+const thresholdCache = new Map<string, { data: ThresholdClone | null; expiresAt: number }>()
+const THRESHOLD_CACHE_TTL_MS = 5 * 60 * 1000
+
+/**
+ * Test-only helper. Clears the module-level threshold cache so that
+ * `fetchBuildings()` re-requests thresholds from scratch. Production code
+ * must not depend on this — relying on the 5-minute TTL is the contract.
+ */
+export const __resetThresholdCacheForTests = () => {
+  thresholdCache.clear()
+}
+
 const hydrateBuildingThresholds = async (buildings: Building[]) => {
+  const now = Date.now()
   return Promise.all(
     buildings.map(async (candidate) => {
+      const cached = thresholdCache.get(candidate.id)
+      if (cached && cached.expiresAt > now) {
+        return mergeThresholdClone(candidate, cached.data)
+      }
+
       try {
         const response = await makeRequest(
           `/sensor/thresholds/buildings/${encodeURIComponent(candidate.id)}`,
         )
 
         if (!response.ok) {
+          thresholdCache.set(candidate.id, { data: null, expiresAt: now + THRESHOLD_CACHE_TTL_MS })
           return mergeThresholdClone(candidate, null)
         }
 
         const threshold = (await response.json()) as ThresholdClone | null
+        thresholdCache.set(candidate.id, { data: threshold, expiresAt: now + THRESHOLD_CACHE_TTL_MS })
         return mergeThresholdClone(candidate, threshold)
       } catch {
         return mergeThresholdClone(candidate, null)

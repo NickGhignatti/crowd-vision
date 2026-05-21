@@ -1,6 +1,6 @@
 import { AirQuality } from "../models/airQualitySignal.js";
 import { BuildingThresholdModel } from "../models/buildingThreshold.js";
-import { getTimeRange, getDateRange } from "../utils/dataHelpers.js";
+import { getTimeRange, getDateRange, getAggMode, getBucketMs, buildAccumulator } from "../utils/dataHelpers.js";
 import redisClient from "../config/redis.js";
 
 export class AirQualityService {
@@ -24,9 +24,6 @@ export class AirQualityService {
 
     await AirQuality.create(document);
 
-    redisClient.publish('telemetry:raw', JSON.stringify({
-      type: 'airQuality', buildingId: payload.buildingId, roomId: payload.roomId, timestamp: payload.timestamp, value: indoorAqi,
-    }));
     await this.evaluateThresholds(
       payload.buildingId,
       payload.roomId,
@@ -45,7 +42,11 @@ export class AirQualityService {
   }
 
   async getAllLatest(buildingId: string): Promise<unknown[]> {
-    return AirQuality.aggregate([
+    const cacheKey = `sensor:latest:airQuality:${buildingId}`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
+    const result = await AirQuality.aggregate([
       { $match: { building: buildingId } },
       { $sort: { timestamp: -1 } },
       {
@@ -70,14 +71,20 @@ export class AirQualityService {
         },
       },
     ]).exec();
+
+    await redisClient.setEx(cacheKey, 10, JSON.stringify(result));
+    return result;
   }
 
   async getDashboardData(
     buildingId: string,
     timeRangeInput: string,
     roomId?: string,
+    aggModeInput?: string,
   ): Promise<unknown[]> {
     const validRange = getTimeRange(timeRangeInput);
+    const mode = getAggMode(aggModeInput);
+    const bucketMs = getBucketMs(validRange);
     const { start, end } = getDateRange(validRange);
 
     const matchStage: any = {
@@ -88,7 +95,14 @@ export class AirQualityService {
 
     return AirQuality.aggregate([
       { $match: matchStage },
-      { $sort: { timestamp: 1 } },
+      {
+        $group: {
+          _id: { $subtract: ['$timestamp', { $mod: ['$timestamp', bucketMs] }] },
+          value: buildAccumulator(mode, '$indoor_aqi'),
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, timestamp: '$_id', value: 1 } },
     ]).exec();
   }
 

@@ -1,6 +1,6 @@
 import { PeopleCount } from "../models/peopleCountSignal.js";
 import { BuildingThresholdModel } from "../models/buildingThreshold.js";
-import { getTimeRange, getDateRange } from "../utils/dataHelpers.js";
+import { getTimeRange, getDateRange, getAggMode, getBucketMs, buildAccumulator } from "../utils/dataHelpers.js";
 import redisClient from "../config/redis.js";
 
 export class PeopleCountService {
@@ -16,9 +16,6 @@ export class PeopleCountService {
       timestamp,
       peopleCount,
     });
-    redisClient.publish('telemetry:raw', JSON.stringify({
-      type: 'peopleCount', buildingId, roomId, timestamp, value: peopleCount,
-    }));
     await this.evaluateThresholds(buildingId, roomId, peopleCount);
   }
 
@@ -32,7 +29,11 @@ export class PeopleCountService {
   }
 
   async getAllLatest(buildingId: string): Promise<unknown[]> {
-    return PeopleCount.aggregate([
+    const cacheKey = `sensor:latest:peopleCount:${buildingId}`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
+    const result = await PeopleCount.aggregate([
       { $match: { building: buildingId } },
       { $sort: { timestamp: -1 } },
       {
@@ -53,14 +54,20 @@ export class PeopleCountService {
         },
       },
     ]).exec();
+
+    await redisClient.setEx(cacheKey, 10, JSON.stringify(result));
+    return result;
   }
 
   async getDashboardData(
     buildingId: string,
     timeRangeInput: string,
     roomId?: string,
+    aggModeInput?: string,
   ): Promise<unknown[]> {
     const validRange = getTimeRange(timeRangeInput);
+    const mode = getAggMode(aggModeInput);
+    const bucketMs = getBucketMs(validRange);
     const { start, end } = getDateRange(validRange);
 
     const matchStage: any = {
@@ -71,7 +78,14 @@ export class PeopleCountService {
 
     return PeopleCount.aggregate([
       { $match: matchStage },
-      { $sort: { timestamp: 1 } },
+      {
+        $group: {
+          _id: { $subtract: ['$timestamp', { $mod: ['$timestamp', bucketMs] }] },
+          value: buildAccumulator(mode, '$peopleCount'),
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, timestamp: '$_id', value: 1 } },
     ]).exec();
   }
 

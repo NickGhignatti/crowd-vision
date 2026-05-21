@@ -16,6 +16,8 @@ const peopleCountSchema = new Schema<IPeopleCount>({
 });
 
 peopleCountSchema.index({ building: 1, timestamp: -1 });
+// Compound index for per-room point queries (getLatest, dashboard per-room range scans).
+peopleCountSchema.index({ building: 1, roomId: 1, timestamp: -1 });
 
 export const PeopleCount = mongoose.model<IPeopleCount>('PeopleCount', peopleCountSchema);
 

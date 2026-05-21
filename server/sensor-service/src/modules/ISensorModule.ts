@@ -75,11 +75,15 @@ export interface ISensorModule {
   /** Fetch the latest record for EVERY room in a building */
   getAllLatest(buildingId: string): Promise<unknown[]>;
 
-  /** Fetch time-series data for the dashboards */
+  /**
+   * Fetch time-series data for the dashboards, pre-aggregated into time buckets.
+   * Returns `{ timestamp: number, value: number }[]` — one entry per bucket.
+   */
   getDashboardData(
     buildingId: string,
     timeRange: string,
     roomId?: string,
+    aggMode?: string,
   ): Promise<unknown[]>;
 
   getThresholds(buildingId: string): Promise<unknown>;

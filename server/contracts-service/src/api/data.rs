@@ -92,3 +92,106 @@ pub async fn update_preferences(
 
     (StatusCode::OK, Json(response))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{get_preferences, update_preferences, UpdatePreferencesRequest};
+    use crate::state::AppState;
+    use axum::extract::{Path, State};
+    use axum::http::StatusCode;
+    use axum::response::IntoResponse;
+    use axum::Json;
+
+    // ── get_preferences ───────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn get_returns_404_for_unknown_building() {
+        let state = AppState::new();
+        let response = get_preferences(Path("unknown".to_string()), State(state))
+            .await
+            .into_response();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn get_returns_200_after_insert() {
+        let state = AppState::new();
+        state
+            .building_preferences
+            .insert("bldg-1".to_string(), vec!["temperature".to_string()]);
+
+        let response = get_preferences(Path("bldg-1".to_string()), State(state))
+            .await
+            .into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    // ── update_preferences ────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn update_stores_new_columns_in_dashmap() {
+        let state = AppState::new();
+        update_preferences(
+            State(state.clone()),
+            Path("bldg-1".to_string()),
+            Json(UpdatePreferencesRequest {
+                allowed_columns: vec!["temperature".to_string()],
+            }),
+        )
+        .await;
+
+        let cols = state.building_preferences.get("bldg-1").unwrap();
+        assert_eq!(*cols, vec!["temperature"]);
+    }
+
+    #[tokio::test]
+    async fn update_overwrites_previous_columns() {
+        let state = AppState::new();
+        state
+            .building_preferences
+            .insert("bldg-1".to_string(), vec!["old-col".to_string()]);
+
+        update_preferences(
+            State(state.clone()),
+            Path("bldg-1".to_string()),
+            Json(UpdatePreferencesRequest {
+                allowed_columns: vec!["new-col".to_string()],
+            }),
+        )
+        .await;
+
+        let cols = state.building_preferences.get("bldg-1").unwrap();
+        assert_eq!(*cols, vec!["new-col"]);
+    }
+
+    #[tokio::test]
+    async fn update_stores_empty_column_list() {
+        let state = AppState::new();
+        update_preferences(
+            State(state.clone()),
+            Path("bldg-1".to_string()),
+            Json(UpdatePreferencesRequest {
+                allowed_columns: vec![],
+            }),
+        )
+        .await;
+
+        let cols = state.building_preferences.get("bldg-1").unwrap();
+        assert!(cols.is_empty());
+    }
+
+    #[tokio::test]
+    async fn update_returns_200_ok() {
+        let state = AppState::new();
+        let response = update_preferences(
+            State(state),
+            Path("bldg-1".to_string()),
+            Json(UpdatePreferencesRequest {
+                allowed_columns: vec!["temperature".to_string()],
+            }),
+        )
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+}

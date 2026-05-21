@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { Room } from '@/models/building.ts'
-
 import { useI18n } from 'vue-i18n'
+import type { Room } from '@/models/building.ts'
 import { roomColorByTemperature, roomColorByAirQuality } from '@/helpers/colors.ts'
 
 const { t } = useI18n()
@@ -22,42 +21,29 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div
-    @click="emit('select', props.room.id)"
+  <div @click="emit('select', props.room.id)"
     class="group p-4 bg-slate-50 rounded-xl border transition-all duration-200 cursor-pointer relative overflow-hidden"
     :class="[
       isSelected
         ? 'border-emerald-600 shadow-md ring-1 ring-emerald-600 bg-white'
         : 'border-slate-100 hover:border-emerald-200 hover:shadow-sm',
-    ]"
-  >
+    ]">
     <div v-if="isSelected" class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-600"></div>
 
     <div class="flex justify-between items-center mb-3 border-b border-slate-200 pb-2">
       <div>
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-slate-800 leading-tight">{{ room.name }}</span>
-          <button
-            v-if="canEdit"
-            @click.stop="emit('edit', props.room)"
+          <button v-if="canEdit" @click.stop="emit('edit', props.room)"
             class="p-1 text-slate-300 hover:text-emerald-600 transition-colors rounded hover:bg-emerald-50"
-            :title="t('model.rooms.editRoom.title')"
-          >
+            :title="t('model.rooms.editRoom.title')">
             <i class="ph-bold ph-pencil-simple text-sm"></i>
           </button>
         </div>
       </div>
-      <span
-        ><i
-          class="ph-bold ph-wind"
-          :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }"
-        ></i
-      ></span>
-      <span
-        v-if="room.color"
-        class="w-3 h-3 rounded-full shadow-sm border border-slate-200"
-        :style="{ backgroundColor: room.color }"
-      ></span>
+      <span><i class="ph-bold ph-wind" :style="{ color: roomColorByAirQuality(props.indoorAqi ?? 0.0) }"></i></span>
+      <span v-if="room.color" class="w-3 h-3 rounded-full shadow-sm border border-slate-200"
+        :style="{ backgroundColor: room.color }"></span>
     </div>
 
     <div class="space-y-2">

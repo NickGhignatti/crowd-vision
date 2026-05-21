@@ -1,15 +1,19 @@
-import { type ISensorModule, ValidationResult } from "./ISensorModule.js";
+import { ValidationResult } from "./ISensorModule.js";
+import { BaseSensorModule, type TelemetryEvent } from "./BaseSensorModule.js";
+import { Temperature, type ITemperature } from "../models/temperatureSignal.js";
 import { TemperatureService } from "../services/TemperatureModuleService.js";
 
-export class TemperatureModule implements ISensorModule {
+export class TemperatureModule extends BaseSensorModule<ITemperature> {
   public readonly type = "temperature" as const;
+  protected readonly model = Temperature;
   private readonly service = new TemperatureService();
 
   validate(payload: any): ValidationResult {
     const errors: string[] = [];
     if (!payload.buildingId)
       errors.push("buildingId: must be a non-empty string.");
-    if (!payload.roomId) errors.push("roomId: must be a non-empty string.");
+    if (!payload.roomId)
+      errors.push("roomId: must be a non-empty string.");
     if (typeof payload.timestamp !== "number")
       errors.push("timestamp: must be a finite number.");
     if (typeof payload.temperature !== "number")
@@ -20,7 +24,7 @@ export class TemperatureModule implements ISensorModule {
       : ValidationResult.fail(errors);
   }
 
-  async process(payload: any): Promise<void> {
+  protected async persist(payload: any): Promise<void> {
     await this.service.persistSignal(
       payload.buildingId,
       payload.roomId,
@@ -29,8 +33,14 @@ export class TemperatureModule implements ISensorModule {
     );
   }
 
-  async getLatest(buildingId: string, roomId: string): Promise<unknown> {
-    return this.service.getLatest(buildingId, roomId);
+  protected buildTelemetryEvent(payload: any): TelemetryEvent {
+    return {
+      type: this.type,
+      buildingId: payload.buildingId,
+      roomId: payload.roomId,
+      timestamp: payload.timestamp,
+      value: payload.temperature,
+    };
   }
 
   async getAllLatest(buildingId: string): Promise<unknown[]> {
@@ -41,8 +51,9 @@ export class TemperatureModule implements ISensorModule {
     buildingId: string,
     timeRange: string,
     roomId?: string,
+    aggMode?: string,
   ): Promise<unknown[]> {
-    return this.service.getDashboardData(buildingId, timeRange, roomId);
+    return this.service.getDashboardData(buildingId, timeRange, roomId, aggMode);
   }
 
   async getThresholds(buildingId: string): Promise<unknown> {

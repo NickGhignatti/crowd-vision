@@ -1,39 +1,81 @@
-import { Model, Document } from "mongoose";
+import { Model } from "mongoose";
 import { type ISensorModule, ValidationResult } from "./ISensorModule.js";
+import redisClient from "../config/redis.js";
+
+export interface TelemetryEvent {
+  readonly type: string;
+  readonly buildingId: string;
+  readonly roomId: string;
+  readonly timestamp: number;
+  readonly value: number;
+  readonly [key: string]: unknown;
+}
 
 /**
- * Abstract base class that provides shared functionality for all sensor modules.
- * Individual sensor modules extend this class and provide their specific Mongoose model.
+ * Abstract base class shared by all sensor modules.
+ *
+ * Implements the **Template Method** pattern for the ingestion hot-path:
+ *   `process()` is sealed here — it always calls `persist()` then
+ *   `publishTelemetry()` in that order, so child classes can never accidentally
+ *   skip the Redis fanout or publish before the data is safely on disk.
  */
-export abstract class BaseSensorModule<T extends Document>
-  implements ISensorModule
-{
+export abstract class BaseSensorModule<T> implements ISensorModule {
   public abstract readonly type: string;
-
-  // The implementing class MUST provide its Mongoose model
   protected abstract readonly model: Model<T>;
 
-  // ── Abstract Methods (Must be implemented by the child) ─────────────────
   abstract validate(payload: unknown): ValidationResult;
-  abstract process(payload: unknown): Promise<void>;
 
-  // Aggregations and Dashboards are usually highly specific to the sensor schema,
-  // so we force the child module to implement them.
+  /**
+   * Persist the validated payload to MongoDB and run any domain-specific
+   * side-effects (threshold evaluation, alerting). Must NOT publish to Redis —
+   * that step is owned by this base class.
+   */
+  protected abstract persist(payload: unknown): Promise<void>;
+
+  /**
+   * Map the validated payload to the `TelemetryEvent` shape that will be
+   * published on `telemetry:raw`. Called immediately after `persist()` succeeds.
+   */
+  protected abstract buildTelemetryEvent(payload: unknown): TelemetryEvent;
+
   abstract getAllLatest(buildingId: string): Promise<unknown[]>;
   abstract getDashboardData(
     buildingId: string,
     timeRange: string,
     roomId?: string,
+    aggMode?: string,
   ): Promise<unknown[]>;
 
-  // ── Concrete Methods (Shared by all children) ───────────────────────────
+  /**
+   * Sealed ingestion pipeline. Not overridable by subclasses.
+   * Publishing after a confirmed DB write ensures the contracts-service never
+   * distributes a telemetry event that is not yet queryable from the read path.
+   */
+  async process(payload: unknown): Promise<void> {
+    await this.persist(payload);
+    this.publishTelemetry(this.buildTelemetryEvent(payload));
+  }
+
 
   /**
-   * Generic implementation to get the latest signal for a single room.
-   * If a module needs different logic, it can simply override this method.
+   * Publishes a telemetry event to the `telemetry:raw` Redis channel.
+   * Fire-and-forget: failures are logged but never bubble up to the caller,
+   * keeping the ingestion response time independent of Redis latency.
    */
+  protected publishTelemetry(event: TelemetryEvent): void {
+    try {
+      Promise.resolve(
+        redisClient.publish("telemetry:raw", JSON.stringify(event)),
+      ).catch((err) =>
+        console.error(`[${this.type}] Failed to publish telemetry:`, err),
+      );
+    } catch (err) {
+      console.error(`[${this.type}] Failed to publish telemetry:`, err);
+    }
+  }
+
   async getLatest(buildingId: string, roomId: string): Promise<unknown> {
-    const result = await this.model
+    const result = await (this.model as any)
       .findOne({ building: buildingId, roomId })
       .sort({ timestamp: -1 })
       .exec();
@@ -47,15 +89,24 @@ export abstract class BaseSensorModule<T extends Document>
     return result;
   }
 
-  getThresholds(buildingId: string): Promise<unknown> {
+  // Default no-op implementations for threshold management.
+  // Modules that support thresholds override these.
+  getThresholds(_buildingId: string): Promise<unknown> {
     return Promise.resolve(undefined);
   }
 
-  updateBuildingThreshold(buildingId: string, payload: unknown): Promise<unknown> {
+  updateBuildingThreshold(
+    _buildingId: string,
+    _payload: unknown,
+  ): Promise<unknown> {
     return Promise.resolve(undefined);
   }
 
-  updateRoomThreshold(buildingId: string, roomId: string, payload: unknown): Promise<unknown> {
+  updateRoomThreshold(
+    _buildingId: string,
+    _roomId: string,
+    _payload: unknown,
+  ): Promise<unknown> {
     return Promise.resolve(undefined);
   }
 }

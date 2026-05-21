@@ -1,10 +1,9 @@
 import { Temperature } from "../models/temperatureSignal.js";
 import { BuildingThresholdModel } from "../models/buildingThreshold.js";
-import { getTimeRange, getDateRange } from "../utils/dataHelpers.js";
+import { getTimeRange, getDateRange, getAggMode, getBucketMs, buildAccumulator } from "../utils/dataHelpers.js";
 import redisClient from "../config/redis.js";
 
 export class TemperatureService {
-  // ── Write Path ────────────────────────────────────────────────────────────
   async persistSignal(
     buildingId: string,
     roomId: string,
@@ -17,17 +16,9 @@ export class TemperatureService {
       timestamp,
       temperature,
     });
-    redisClient.publish('telemetry:raw', JSON.stringify({
-      type: 'temperature',
-      buildingId,
-      roomId,
-      timestamp,
-      value: temperature,
-    }));
     await this.evaluateThresholds(buildingId, roomId, temperature);
   }
 
-  // ── Read Path ─────────────────────────────────────────────────────────────
   async getLatest(buildingId: string, roomId: string): Promise<unknown> {
     const result = await Temperature.findOne({ building: buildingId, roomId })
       .sort({ timestamp: -1 })
@@ -38,7 +29,11 @@ export class TemperatureService {
   }
 
   async getAllLatest(buildingId: string): Promise<unknown[]> {
-    return Temperature.aggregate([
+    const cacheKey = `sensor:latest:temperature:${buildingId}`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
+    const result = await Temperature.aggregate([
       { $match: { building: buildingId } },
       { $sort: { timestamp: -1 } },
       {
@@ -59,14 +54,20 @@ export class TemperatureService {
         },
       },
     ]).exec();
+
+    await redisClient.setEx(cacheKey, 10, JSON.stringify(result));
+    return result;
   }
 
   async getDashboardData(
     buildingId: string,
     timeRangeInput: string,
     roomId?: string,
+    aggModeInput?: string,
   ): Promise<unknown[]> {
     const validRange = getTimeRange(timeRangeInput);
+    const mode = getAggMode(aggModeInput);
+    const bucketMs = getBucketMs(validRange);
     const { start, end } = getDateRange(validRange);
 
     const matchStage: any = {
@@ -75,13 +76,22 @@ export class TemperatureService {
     };
     if (roomId) matchStage.roomId = roomId;
 
+    // Floor each timestamp to the nearest bucket boundary using pure arithmetic:
+    //   bucket_start = timestamp - (timestamp % bucketMs)
+    // This works for any MongoDB version without requiring $dateTrunc (5.0+).
     return Temperature.aggregate([
       { $match: matchStage },
-      { $sort: { timestamp: 1 } },
+      {
+        $group: {
+          _id: { $subtract: ['$timestamp', { $mod: ['$timestamp', bucketMs] }] },
+          value: buildAccumulator(mode, '$temperature'),
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, timestamp: '$_id', value: 1 } },
     ]).exec();
   }
 
-  // ── Threshold Logic ───────────────────────────────────────────────────────
   async getBuildingThresholds(buildingId: string): Promise<unknown> {
     const doc = await BuildingThresholdModel.findOne({ buildingId }).exec();
     return doc?.temperature || null;

@@ -8,7 +8,6 @@ import { useDomainsStore } from '@/stores/domain.ts'
 
 const { t } = useI18n()
 
-// Props: Items are all available domains. userMemberships is the user's current status.
 const props = defineProps<{
   domains: Domain[]
   userMemberships: DomainMembership[]
@@ -84,33 +83,22 @@ const hasSub = (domainName: string): boolean => {
     <table class="w-full text-left border-collapse">
       <thead class="sticky top-0 z-10 bg-emerald-600 text-white shadow-md">
         <tr>
-          <th
-            v-for="header in headers"
-            :key="header.key"
+          <th v-for="header in headers" :key="header.key"
             class="p-4 font-semibold text-sm uppercase tracking-wide border-r border-emerald-500 last:border-r-0 whitespace-nowrap"
             :class="{
               'w-full': header.key === 'name',
               'w-1/12 text-center': header.key === 'actions',
-            }"
-          >
+            }">
             {{ t(header.label) }}
           </th>
         </tr>
       </thead>
 
       <tbody class="divide-y divide-slate-100 bg-white">
-        <tr
-          v-for="(item, index) in domains"
-          :key="index"
-          class="group hover:bg-slate-50 transition-colors duration-150"
-        >
-          <DomainRecord
-            :id="index"
-            :name="item.name"
-            :isSubscribed="hasSub(item.name)"
-            @subscribe="handleSubscribe"
-            @unsubscribe="handleUnsubscribe"
-          />
+        <tr v-for="(item, index) in domains" :key="index"
+          class="group hover:bg-slate-50 transition-colors duration-150">
+          <DomainRecord :id="index" :name="item.name" :isSubscribed="hasSub(item.name)" @subscribe="handleSubscribe"
+            @unsubscribe="handleUnsubscribe" />
         </tr>
 
         <tr v-if="domains.length === 0">
@@ -131,14 +119,19 @@ const hasSub = (domainName: string): boolean => {
   width: 8px;
   height: 8px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1; /* slate-300 */
+  background-color: #cbd5e1;
+  /* slate-300 */
   border-radius: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8; /* slate-400 */
+  background-color: #94a3b8;
+  /* slate-400 */
 }
 </style>

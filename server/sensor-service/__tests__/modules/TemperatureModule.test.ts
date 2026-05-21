@@ -6,6 +6,17 @@ jest.unstable_mockModule("src/models/temperatureSignal.ts", () => ({
 jest.unstable_mockModule("src/models/buildingThreshold.ts", () => ({
   BuildingThresholdModel: { findOne: jest.fn(), findOneAndUpdate: jest.fn() },
 }));
+// Redis is touched by:
+//   - BaseSensorModule.publishTelemetry (publish)
+//   - getAllLatest read-path cache (get + setEx)
+// All are stubbed so tests don't try to open a real socket.
+jest.unstable_mockModule("src/config/redis.ts", () => ({
+  default: {
+    publish: jest.fn().mockResolvedValue(0 as never),
+    get: jest.fn().mockResolvedValue(null as never),
+    setEx: jest.fn().mockResolvedValue("OK" as never),
+  },
+}));
 
 const { TemperatureModule } = await import(
   "src/modules/TemperatureModule.ts"
@@ -27,6 +38,100 @@ describe("Temperature Domain (Module + Service)", () => {
     module = new TemperatureModule();
     jest.clearAllMocks();
   });
+
+  // ── validate() ─────────────────────────────────────────────────────────────
+
+  describe("validate()", () => {
+    const validPayload = {
+      buildingId: "bldg_1",
+      roomId: "room_a",
+      timestamp: 1600000000,
+      temperature: 22.5,
+    };
+
+    it("accepts a fully valid payload", () => {
+      const result = module.validate(validPayload);
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("rejects a payload with missing buildingId", () => {
+      const result = module.validate({ ...validPayload, buildingId: undefined });
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e: string) => e.startsWith("buildingId:"))).toBe(true);
+    });
+
+    it("rejects a payload with an empty-string buildingId", () => {
+      const result = module.validate({ ...validPayload, buildingId: "" });
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e: string) => e.startsWith("buildingId:"))).toBe(true);
+    });
+
+    it("rejects a payload with missing roomId", () => {
+      const result = module.validate({ ...validPayload, roomId: undefined });
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e: string) => e.startsWith("roomId:"))).toBe(true);
+    });
+
+    it("rejects a payload with an empty-string roomId", () => {
+      const result = module.validate({ ...validPayload, roomId: "" });
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e: string) => e.startsWith("roomId:"))).toBe(true);
+    });
+
+    it("rejects a payload where timestamp is not a number", () => {
+      const result = module.validate({ ...validPayload, timestamp: "1600000000" });
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e: string) => e.startsWith("timestamp:"))).toBe(true);
+    });
+
+    it("rejects a payload with missing timestamp", () => {
+      const result = module.validate({ ...validPayload, timestamp: undefined });
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e: string) => e.startsWith("timestamp:"))).toBe(true);
+    });
+
+    it("rejects a payload where temperature is a string", () => {
+      const result = module.validate({ ...validPayload, temperature: "warm" });
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e: string) => e.startsWith("temperature:"))).toBe(true);
+    });
+
+    it("rejects a payload with missing temperature", () => {
+      const result = module.validate({ ...validPayload, temperature: undefined });
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e: string) => e.startsWith("temperature:"))).toBe(true);
+    });
+
+    it("collects all errors when the payload is completely empty", () => {
+      const result = module.validate({});
+      expect(result.isValid).toBe(false);
+      // Expects errors for buildingId, roomId, timestamp, temperature
+      expect(result.errors.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it("accepts numeric zero as a valid temperature (typeof 0 === 'number')", () => {
+      const result = module.validate({ ...validPayload, temperature: 0 });
+      expect(result.isValid).toBe(true);
+    });
+
+    it("accepts negative temperatures (type-valid even if physically unusual)", () => {
+      const result = module.validate({ ...validPayload, temperature: -40 });
+      expect(result.isValid).toBe(true);
+    });
+
+    it("accepts a high temperature like 100°C (type-valid, no range enforcement)", () => {
+      const result = module.validate({ ...validPayload, temperature: 100 });
+      expect(result.isValid).toBe(true);
+    });
+
+    it("accepts extra unknown fields without failing", () => {
+      const result = module.validate({ ...validPayload, humidity: 65 });
+      expect(result.isValid).toBe(true);
+    });
+  });
+
+  // ── Write Path ──────────────────────────────────────────────────────────────
 
   describe("Write Path", () => {
     it("persists data and triggers threshold evaluation safely", async () => {
@@ -52,6 +157,8 @@ describe("Temperature Domain (Module + Service)", () => {
     });
   });
 
+  // ── Read Path ───────────────────────────────────────────────────────────────
+
   describe("Read Path", () => {
     it("getLatest() fetches and sorts correctly", async () => {
       (Temperature.findOne as any).mockReturnValue(
@@ -65,6 +172,8 @@ describe("Temperature Domain (Module + Service)", () => {
       expect(result).toEqual({ temperature: 22 });
     });
   });
+
+  // ── Thresholds ──────────────────────────────────────────────────────────────
 
   describe("Thresholds", () => {
     it("updateBuildingThreshold() updates only the temperature slice", async () => {

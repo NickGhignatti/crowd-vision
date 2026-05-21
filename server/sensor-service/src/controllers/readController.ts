@@ -49,12 +49,13 @@ export function createReadHandlers(kernel: SensorKernel) {
         const module = resolveModule(req.params.sensorType as string, res);
         if (!module) return;
 
-        const { building, timeRange, roomId } = req.query as {
+        const { building, timeRange, roomId, aggMode } = req.query as {
           building: string;
           timeRange: string;
           roomId?: string;
+          aggMode?: string;
         };
-        const data = await module.getDashboardData(building, timeRange, roomId);
+        const data = await module.getDashboardData(building, timeRange, roomId, aggMode);
         res.status(200).json({ data });
       } catch (error: any) {
         res.status(400).json({ error: error.message });

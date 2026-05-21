@@ -32,6 +32,8 @@ const airQualitySchema = new Schema<IAirQuality>({
 });
 
 airQualitySchema.index({ building: 1, timestamp: -1 });
+// Compound index for per-room point queries (getLatest, dashboard per-room range scans).
+airQualitySchema.index({ building: 1, roomId: 1, timestamp: -1 });
 
 export const AirQuality = mongoose.model<IAirQuality>('AirQuality', airQualitySchema);
 

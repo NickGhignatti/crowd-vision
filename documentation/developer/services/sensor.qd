@@ -74,6 +74,11 @@ The `ISensorModule` contract enforces a strict functional programming boundary.
 
 The service is built on a **Microkernel** with pluggable **Strategy** modules. The kernel's registry is populated once at startup; all subsequent request handling is a pure lookup-and-dispatch with no branching on sensor type inside the core infrastructure.
 
+Concrete modules do **not** implement `ISensorModule` directly. They extend `BaseSensorModule<T>`, which:
+1. Seals the `process()` ingestion pipeline as a **Template Method**: `persist()` → `publishTelemetry()`.
+2. Provides a shared `getLatest()` implementation via the child's injected Mongoose model.
+3. Owns the Redis `telemetry:raw` publish so no module can forget it.
+
 .mermaid
     classDiagram
         class SensorKernel {
@@ -89,21 +94,42 @@ The service is built on a **Microkernel** with pluggable **Strategy** modules. T
             +process(payload): Promise~void~
         }
 
+        class BaseSensorModule {
+            <<abstract>>
+            #abstract model: Model~T~
+            +process(payload) sealed
+            #abstract persist(payload)
+            #abstract buildTelemetryEvent(payload): TelemetryEvent
+            #publishTelemetry(event) fire-and-forget
+            +getLatest() shared impl
+        }
+
         class TemperatureModule {
             +type = 'temperature'
             +validate()
-            +process()
+            #persist()
+            #buildTelemetryEvent()
         }
 
         class PeopleCountModule {
             +type = 'peopleCount'
             +validate()
-            +process()
+            #persist()
+            #buildTelemetryEvent()
+        }
+
+        class AirQualityModule {
+            +type = 'airQuality'
+            +validate()
+            #persist()
+            #buildTelemetryEvent()
         }
 
         SensorKernel o-- ISensorModule : Aggregates
-        TemperatureModule ..|> ISensorModule : Implements
-        PeopleCountModule ..|> ISensorModule : Implements
+        BaseSensorModule ..|> ISensorModule : Implements
+        TemperatureModule --|> BaseSensorModule : Extends
+        PeopleCountModule --|> BaseSensorModule : Extends
+        AirQualityModule  --|> BaseSensorModule : Extends
 
 .mermaid
     graph TD
@@ -193,31 +219,42 @@ The architecture is open for extension but closed for modification. Adding suppo
 
 ### Step 1: Create the Module (`src/modules/LightLevelModule.ts`)
 
-Implement the `ISensorModule` interface. The `validate()` method must be purely synchronous and return a `ValidationResult`.
+Extend `BaseSensorModule<T>` and implement the three required abstract members. The Redis publish and the shared `getLatest()` query are handled automatically by the base class — you only write what is unique to this sensor type.
 
 .code lang:{typescript}
-    import { ISensorModule, ValidationResult } from './ISensorModule.js';
-    import { LightLevelModel } from '../models/lightLevel.js';
+    import { ValidationResult } from './ISensorModule.js';
+    import { BaseSensorModule, type TelemetryEvent } from './BaseSensorModule.js';
+    import { LightLevel, type ILightLevel } from '../models/lightLevel.js';
+    import { LightLevelService } from '../services/LightLevelService.js';
 
-    export class LightLevelModule implements ISensorModule {
+    export class LightLevelModule extends BaseSensorModule<ILightLevel> {
         public readonly type = 'lightLevel' as const;
+        protected readonly model = LightLevel;
+        private readonly service = new LightLevelService();
 
         validate(payload: any): ValidationResult {
-            const errors = [];
-            if (typeof payload.lux !== 'number') {
-                errors.push("lux must be a number");
-            }
-
+            const errors: string[] = [];
+            if (typeof payload.lux !== 'number')
+                errors.push('lux: must be a finite number.');
             return errors.length === 0
                 ? ValidationResult.ok()
                 : ValidationResult.fail(errors);
         }
 
-        async process(payload: any): Promise<void> {
-            await LightLevelModel.create({
-                buildingId: payload.buildingId,
-                lux: payload.lux
-            });
+        protected async persist(payload: any): Promise<void> {
+            await this.service.persistSignal(payload.buildingId, payload.roomId, payload.timestamp, payload.lux);
+        }
+
+        protected buildTelemetryEvent(payload: any): TelemetryEvent {
+            return { type: this.type, buildingId: payload.buildingId, roomId: payload.roomId, timestamp: payload.timestamp, value: payload.lux };
+        }
+
+        async getAllLatest(buildingId: string): Promise<unknown[]> {
+            return this.service.getAllLatest(buildingId);
+        }
+
+        async getDashboardData(buildingId: string, timeRange: string, roomId?: string): Promise<unknown[]> {
+            return this.service.getDashboardData(buildingId, timeRange, roomId);
         }
     }
 
@@ -245,7 +282,9 @@ Register the new module during the Kernel bootstrapping phase.
 | `timestamp` | Number | ✓ | Unix epoch in milliseconds |
 | `temperature` | Number | ✓ | Degrees Celsius |
 
-**Indexes:** `{ building: 1, timestamp: -1 }` — supports range queries per building, descending time.
+**Indexes:**
+- `{ building: 1, timestamp: -1 }` — range queries across all rooms in a building, descending time.
+- `{ building: 1, roomId: 1, timestamp: -1 }` — per-room point and range queries (e.g., `getLatest`, dashboard per-room history).
 
 ---
 
@@ -258,7 +297,9 @@ Register the new module during the Kernel bootstrapping phase.
 | `timestamp` | Number | ✓ | Unix epoch in milliseconds |
 | `peopleCount` | Number | ✓ | Non-negative integer |
 
-**Indexes:** `{ building: 1, timestamp: -1 }`
+**Indexes:**
+- `{ building: 1, timestamp: -1 }` — range queries across all rooms in a building.
+- `{ building: 1, roomId: 1, timestamp: -1 }` — per-room point and range queries.
 
 ---
 
@@ -279,7 +320,9 @@ Register the new module during the Kernel bootstrapping phase.
 | `aqi` | Number | ✓ | Outdoor Air Quality Index |
 | `indoor_aqi` | Number | ✓ | Indoor AQI; defaults to 0 if omitted |
 
-**Indexes:** `{ building: 1, timestamp: -1 }`
+**Indexes:**
+- `{ building: 1, timestamp: -1 }` — range queries across all rooms in a building.
+- `{ building: 1, roomId: 1, timestamp: -1 }` — per-room point and range queries.
 
 ---
 
@@ -316,3 +359,15 @@ This central document contains nested "slices" for each domain:
 
 When a domain service updates its configuration, it utilizes strictly scoped MongoDB dot-notation (e.g., `$set: { 'temperature.maxTemp': 25 }`)
 to ensure it does not corrupt the configurations of neighboring modules.
+
+---
+
+## 7. Read-Path Caching
+
+The `getAllLatest(buildingId)` method — which drives the initial dashboard table load — executes a MongoDB aggregation pipeline on every request. To prevent redundant DB round-trips when multiple users open the same building simultaneously, results are cached in Redis with a **10-second TTL** under the key pattern `sensor:latest:<type>:<buildingId>`.
+
+The live telemetry path (socket events) bypasses this cache entirely: the `persistSignal` method publishes directly to `telemetry:raw` on every write, so the frontend receives real-time updates via the socket without waiting for the cache to expire.
+
+**Cache key pattern:** `sensor:latest:{type}:{buildingId}`
+**TTL:** 10 seconds
+**Invalidation:** none (TTL-based self-expiry is sufficient given continuous sensor writes)

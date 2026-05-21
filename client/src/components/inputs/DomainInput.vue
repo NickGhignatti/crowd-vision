@@ -5,6 +5,8 @@ import AuthStrategySelector from '@/components/selectors/AuthenticationStrategyS
 import OidcFields from '@/components/inputs/authentication/OidcInput.vue'
 import { computed } from 'vue'
 
+const { t } = useI18n()
+
 const props = defineProps<{
   mainDomain: string
   masterDomainChoices?: string[]
@@ -27,7 +29,6 @@ const emit = defineEmits<{
   (e: 'next'): void
 }>()
 
-const { t } = useI18n()
 const tr = (key: string, fallback: string) => {
   const translated = t(key)
   return translated === key ? fallback : translated
@@ -54,27 +55,18 @@ const authStrategyModel = computed({
       <div class="flex items-center gap-2">
         <div class="relative group flex-1">
           <i
-            class="ph-bold ph-globe absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors"
-          ></i>
-          <input
-            :value="mainDomain"
-            @input="emit('update-main-domain', ($event.target as HTMLInputElement).value)"
-            @keydown.enter="emit('next')"
-            type="text"
+            class="ph-bold ph-globe absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors"></i>
+          <input :value="mainDomain" @input="emit('update-main-domain', ($event.target as HTMLInputElement).value)"
+            @keydown.enter="emit('next')" type="text"
             :placeholder="tr('domains.inputs.modal.mainPlaceholder', 'e.g. unibo.it')"
             class="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
-            autofocus
-          />
+            autofocus />
         </div>
 
-        <select
-          v-if="masterDomainChoices?.length"
-          :value="selectedMasterDomain"
-          @change="
-            emit('update-selected-master-domain', ($event.target as HTMLSelectElement).value)
+        <select v-if="masterDomainChoices?.length" :value="selectedMasterDomain" @change="
+          emit('update-selected-master-domain', ($event.target as HTMLSelectElement).value)
           "
-          class="block w-1/3 px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all cursor-pointer"
-        >
+          class="block w-1/3 px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all cursor-pointer">
           <option value="">{{ tr('domains.inputs.modal.none', '-- None --') }}</option>
           <option v-for="domain in masterDomainChoices" :key="domain" :value="domain">
             .{{ domain }}
@@ -87,19 +79,12 @@ const authStrategyModel = computed({
 
     <AuthStrategySelector v-model="authStrategyModel" />
 
-    <OidcFields
-      v-if="authStrategy === 'oidc'"
-      :issuer-url="issuerUrl"
-      :client-id="clientId"
-      :client-secret="clientSecret"
-      @update:issuer-url="emit('update-issuer-url', $event)"
+    <OidcFields v-if="authStrategy === 'oidc'" :issuer-url="issuerUrl" :client-id="clientId"
+      :client-secret="clientSecret" @update:issuer-url="emit('update-issuer-url', $event)"
       @update:client-id="emit('update-client-id', $event)"
-      @update:client-secret="emit('update-client-secret', $event)"
-    />
+      @update:client-secret="emit('update-client-secret', $event)" />
 
-    <div
-      class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200"
-    >
+    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
       <div class="flex items-center gap-3">
         <i class="ph-bold ph-globe-hemisphere-west text-slate-500 text-lg"></i>
         <div>

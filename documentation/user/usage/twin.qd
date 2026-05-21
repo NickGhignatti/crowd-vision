@@ -12,7 +12,7 @@ Located within the 3D viewer, the Control Panel provides the tools you need to n
 You can perform the following actions directly from the control panel:
 * **Reset View:** Instantly returns the camera to its default starting position and angle, centering the entire building on your screen.
 * **Zoom In & Zoom Out:** Move the camera closer to or further away from the 3D model for a better look at specific areas.
-* **Panorama Mode:** Toggles an auto-rotation feature that slowly spins the camera around the building, providing a hands-free 360-degree overview.
+* **Panorama Mode:** Toggles an auto-rotation feature that smoothly spins the camera around the building at 60fps, providing a hands-free 360-degree overview. Live sensor updates are synchronized to each animation frame so the rotation remains fluid even when telemetry is arriving.
 * **Focus on Room:** When a specific room is selected, this action "explodes" or isolates the room from the rest of the building, moving the camera to focus directly on it for detailed inspection.
 * **Temperature Mode:** Toggles the visual coloring of the rooms to reflect real-time temperature data instead of standard colors. Rooms will shift from cool blues to warm reds based on live climate readings.
 

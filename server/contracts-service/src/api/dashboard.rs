@@ -53,30 +53,32 @@ fn push_unique_metric(possible_metrics: &mut Vec<MetricContract>, metric: Metric
 #[cfg(test)]
 mod tests {
     use super::push_unique_metric;
-    use crate::models::{MetricContract, MetricFieldContract};
+    use crate::models::MetricContract;
 
+    /// Creates a metric with a fixed metric_key and interface_name, varying only source_service.
     fn metric(source_service: &str) -> MetricContract {
+        metric_with("temperature", "ITemperature", source_service)
+    }
+
+    /// Creates a fully customisable metric with no fields (sufficient for deduplication tests).
+    fn metric_with(metric_key: &str, interface_name: &str, source_service: &str) -> MetricContract {
         MetricContract {
-            metric_key: "temperature".to_string(),
-            label: "Temperature".to_string(),
-            interface_name: "ITemperature".to_string(),
-            unit: Some("C".to_string()),
-            fields: vec![
-                MetricFieldContract {
-                    name: "building".to_string(),
-                    field_type: "string".to_string(),
-                    required: true,
-                    description: None,
-                },
-                MetricFieldContract {
-                    name: "temperature".to_string(),
-                    field_type: "number".to_string(),
-                    required: true,
-                    description: None,
-                },
-            ],
+            metric_key: metric_key.to_string(),
+            label: format!("Label {}", metric_key),
+            interface_name: interface_name.to_string(),
+            unit: None,
+            fields: vec![],
             source_service: Some(source_service.to_string()),
         }
+    }
+
+    // ── Deduplication ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn push_unique_metric_adds_first_entry_to_empty_vec() {
+        let mut metrics = Vec::new();
+        push_unique_metric(&mut metrics, metric("sensor-service"));
+        assert_eq!(metrics.len(), 1);
     }
 
     #[test]
@@ -91,12 +93,45 @@ mod tests {
     }
 
     #[test]
+    fn push_unique_metric_keeps_same_metric_key_with_different_interface_name() {
+        // Same metric_key but different interface_name → not a duplicate.
+        let mut metrics = Vec::new();
+        push_unique_metric(&mut metrics, metric_with("temperature", "ITemperatureV1", "svc"));
+        push_unique_metric(&mut metrics, metric_with("temperature", "ITemperatureV2", "svc"));
+        assert_eq!(metrics.len(), 2);
+    }
+
+    #[test]
     fn push_unique_metric_keeps_same_metric_from_different_services() {
+        // Same metric_key + interface_name but different source_service → not a duplicate.
         let mut possible_metrics = Vec::new();
 
         push_unique_metric(&mut possible_metrics, metric("sensor-service"));
         push_unique_metric(&mut possible_metrics, metric("air-service"));
 
         assert_eq!(possible_metrics.len(), 2);
+    }
+
+    #[test]
+    fn push_unique_metric_retains_three_fully_distinct_metrics() {
+        let mut metrics = Vec::new();
+        push_unique_metric(&mut metrics, metric_with("temperature", "ITemp", "svc-a"));
+        push_unique_metric(&mut metrics, metric_with("people_count", "IPeople", "svc-b"));
+        push_unique_metric(&mut metrics, metric_with("air_quality", "IAQ", "svc-c"));
+        assert_eq!(metrics.len(), 3);
+    }
+
+    #[test]
+    fn push_unique_metric_six_entries_with_two_duplicates_yields_four() {
+        let mut metrics = Vec::new();
+        // Four unique metrics
+        push_unique_metric(&mut metrics, metric_with("temperature", "ITemp", "svc-a"));
+        push_unique_metric(&mut metrics, metric_with("people_count", "IPeople", "svc-b"));
+        push_unique_metric(&mut metrics, metric_with("air_quality", "IAQ", "svc-c"));
+        push_unique_metric(&mut metrics, metric_with("humidity", "IHumidity", "svc-d"));
+        // Two exact duplicates of already-added entries
+        push_unique_metric(&mut metrics, metric_with("temperature", "ITemp", "svc-a"));
+        push_unique_metric(&mut metrics, metric_with("people_count", "IPeople", "svc-b"));
+        assert_eq!(metrics.len(), 4);
     }
 }

@@ -1,0 +1,248 @@
+.docname {Contracts Service}
+.include {docs}
+
+The `contracts-service` is the **telemetry intelligence layer** of CrowdVision. It acts as a stateful filter between the raw sensor firehose and the Socket Service distributor, maintaining per-building column preferences so that each building's WebSocket stream contains only the metric types it has subscribed to.
+
+It is the only service in the stack written in **Rust**, chosen for its zero-cost abstractions and lock-free concurrency guarantees—properties that matter when it must inspect and re-route thousands of telemetry events per second without introducing latency.
+
+---
+
+## 🏗️ Architecture Overview
+
+The service is built on the **Axum** async web framework and runs two concurrent logical components inside a single Tokio runtime:
+
+*   **REST API** — An Axum router that exposes preference read, write, and initialization endpoints.
+*   **Telemetry Tunnel** — A `tokio::spawn`ed background task that subscribes to Redis `telemetry:raw`, applies per-building filters from the in-memory cache, and republishes filtered payloads to per-building Redis channels.
+
+.mermaid
+    graph TD
+        subgraph contracts-service process
+            API[Axum REST API]
+            TUNNEL[Tokio Background Task\nTelemetry Tunnel]
+            DASH[(DashMap\nBuilding ID → allowed_columns)]
+        end
+
+        subgraph Redis
+            RAW[telemetry:raw]
+            FILTERED["telemetry:filtered:{building_id}"]
+        end
+
+        TWIN[twin-service] -- "POST /preferences/init/:id" --> API
+        CLIENT[Vue Frontend] -- "GET/POST /preferences/:id" --> API
+        API -- "read / write" --> DASH
+        TUNNEL -- "read" --> DASH
+        RAW -- "SUBSCRIBE" --> TUNNEL
+        TUNNEL -- "PUBLISH" --> FILTERED
+
+---
+
+## ⚡ The In-Memory Preference Cache
+
+The cornerstone of the service's performance is the `DashMap<String, Vec<String>>` held inside `AppState`:
+
+.code lang:{rust}
+    pub struct AppState {
+        pub building_preferences: Arc<DashMap<String, Vec<String>>>,
+    }
+
+`DashMap` is a concurrent hash map that shards its internal `RwLock`s across CPU cores. Because the telemetry tunnel performs millions of **reads** and preferences are updated rarely, this means:
+
+*   **Hot Path (reads):** O(1) lock-free shard lookup. The tunnel thread running at full speed never blocks on a preference update.
+*   **Cold Path (writes):** A single shard lock is acquired for the duration of the `insert`. Other shards—and therefore most reads—remain uncontested.
+
+The key type is `String` (the Building ID) and the value is `Vec<String>` — the ordered list of metric keys that building is subscribed to (e.g. `["roomName", "roomMaxOccupancy", "temperature"]`).
+
+.box {No Database Persistence} type:{warning}
+    Preferences are currently held **in-memory only**. They are lost on service restart. The `update_preferences` handler contains a commented-out `tokio::spawn` block reserved for a future database write (see `api/data.rs`). Until persistence is implemented, defaults are re-seeded on every building creation via the `twin-service` HTTP call described below.
+
+---
+
+## 🔌 REST API
+
+### `GET /preferences/:building_id`
+
+Returns the current allowed column list for a building.
+
+**Response `200 OK`:**
+.code lang:{json}
+    {
+      "building_id": "building_alpha",
+      "allowed_columns": ["roomName", "roomMaxOccupancy", "temperature"]
+    }
+
+Returns `404 Not Found` if no preferences have been registered for this building yet.
+
+---
+
+### `POST /preferences/:building_id`
+
+Replaces the allowed column list for a building. This is called by the frontend when the user saves a custom column configuration.
+
+**Request body:**
+.code lang:{json}
+    {
+      "allowed_columns": ["roomName", "peopleCount", "airQuality"]
+    }
+
+The handler performs an **instant cache mutation** on the hot path: `DashMap::insert` acquires a single shard lock for microseconds, then returns. The telemetry tunnel picks up the new filter on its very next iteration—there is no propagation delay.
+
+**Response `200 OK`:**
+.code lang:{json}
+    {
+      "status": "success",
+      "building_id": "building_alpha",
+      "active_columns": 3
+    }
+
+---
+
+### `POST /preferences/init/:building_id`
+
+Seeds **default preferences** for a newly created building. Called exclusively by the `twin-service` immediately after a building document is persisted to MongoDB.
+
+The handler uses `DashMap::entry(...).or_insert_with(...)` which is the idempotent write pattern: it only inserts if no entry exists yet. A subsequent call for the same building (e.g. a retry or a duplicate creation event) is a safe no-op.
+
+**Default columns seeded:**
+.code lang:{json}
+    ["roomName", "roomMaxOccupancy"]
+
+These are the two metrics owned by the `twin-service` itself — the room name and its maximum occupancy — forming the structural baseline every building starts with.
+
+---
+
+### `GET /`
+
+Metric discovery endpoint. Scans environment variables for keys ending in `_METRICS_URL`, calls `GET /contracts` on each registered service, and aggregates the full catalog of available `MetricContract` objects. This catalog is used by the frontend to populate the Add Column and Swap Column panels.
+
+.code lang:{json}
+    {
+      "metrics": [
+        { "metricKey": "temperature", "label": "Temperature", "unit": "°C", "sourceService": "sensor-service" },
+        { "metricKey": "peopleCount", "label": "People Count", "sourceService": "sensor-service" },
+        { "metricKey": "roomName",    "label": "Room Name",    "sourceService": "twin-service" }
+      ]
+    }
+
+---
+
+## 🚇 The Telemetry Tunnel
+
+The tunnel is a `tokio::spawn`ed background task started at service boot (`main.rs → tunnel::start_telemetry_tunnel`). It opens a **dedicated Redis PubSub connection** separate from the multiplexed connection used for publishing, and subscribes to `telemetry:raw`.
+
+### Filtering Logic
+
+Every raw telemetry message has the shape:
+.code lang:{json}
+    { "type": "temperature", "buildingId": "building_alpha", "roomId": "room_01", "timestamp": 1718000000, "value": 22.4 }
+
+The tunnel extracts the `type` field and iterates over all entries in the `DashMap`. For each building whose `allowed_columns` **contains** the metric type string, it publishes the full raw payload to `telemetry:filtered:<building_id>`.
+
+.code lang:{rust}
+    let metric_type = raw_data.get("type").and_then(|v| v.as_str());
+
+    for entry in state.building_preferences.iter() {
+        if allowed_columns.iter().any(|col| col == metric_type) {
+            // PUBLISH telemetry:filtered:<building_id> <payload>
+        }
+    }
+
+This is a **type-based gate** rather than a field-name filter. The raw payload is forwarded intact; no fields are stripped. This preserves the full sensor context (`roomId`, `timestamp`, `value`) downstream.
+
+### Fan-out Semantics
+
+A single `telemetry:raw` message can be published to **multiple** `telemetry:filtered:*` channels if multiple buildings have subscribed to the same metric type. The Tokio task is spawned per message (`task::spawn`) so the ingestion loop is never blocked by processing time.
+
+---
+
+## 🏗️ Building Lifecycle: Default Preferences Flow
+
+When a building is first created, the following cross-service sequence runs synchronously inside `twin-service/addBuilding`:
+
+.mermaid
+    sequenceDiagram
+        participant U as User / API Client
+        participant T as twin-service
+        participant M as MongoDB
+        participant S as sensor-service
+        participant C as contracts-service
+
+        U->>T: POST /register { id, name, rooms, domains }
+        T->>M: Building.save()
+        M-->>T: OK
+        T->>S: PUT /thresholds/buildings/:id (syncBuildingClone)
+        S-->>T: OK
+        T->>C: POST /preferences/init/:id
+        Note over C: DashMap.entry(id).or_insert_with(["roomName","roomMaxOccupancy"])
+        C-->>T: 200 OK
+        T-->>U: Building object
+
+The call to `contracts-service` is **fire-and-forget** from the caller's perspective: if it fails (e.g. contracts-service is temporarily down), the error is logged and building creation still succeeds. Preferences can always be re-seeded through the frontend's Save action.
+
+---
+
+## 📊 Dashboard Column Preferences Flow
+
+The full sequence from page load to live telemetry display:
+
+.mermaid
+    sequenceDiagram
+        participant U as User (Browser)
+        participant FE as Vue Frontend
+        participant C as contracts-service
+        participant R as Redis
+        participant W as socket-service
+
+        Note over U,FE: 1. Page Load / Building Select
+        U->>FE: Select building
+        FE->>C: GET /preferences/:building_id
+        C-->>FE: { allowed_columns: ["roomName","roomMaxOccupancy","temperature"] }
+        Note over FE: useColumnManager converts metric keys → TableHeader[]<br/>localHeaders drives the rendered table columns
+
+        Note over FE,W: 2. Live Telemetry
+        FE->>W: WebSocket connect, subscribe to building
+        loop Every sensor tick
+            R-->>C: telemetry:raw { type:"temperature", buildingId, roomId, value }
+            Note over C: DashMap lookup: "temperature" ∈ allowed_columns? ✓
+            C->>R: PUBLISH telemetry:filtered:building_alpha { ... }
+            R-->>W: Message received
+            W->>FE: WebSocket push
+            Note over FE: enrichedItems computed merges sensor reading into TableBody row
+        end
+
+        Note over U,C: 3. User Edits Columns
+        U->>FE: Enter edit mode, reorder/add/remove columns, Save
+        FE->>C: POST /preferences/:building_id { allowed_columns: [...new order...] }
+        Note over C: DashMap.insert — instant, O(1) shard lock
+        C-->>FE: 200 OK
+        Note over FE: onSaved callback → emit headers-updated → parent tableHeaders updated
+
+---
+
+## 🔑 Metric Key Mapping (Frontend)
+
+The frontend maintains three lookup tables in `client/src/utils/metrics.ts` that translate between the contracts-service's string keys and the Vue table's internal representation:
+
+| Constant | Maps | Example |
+| :--- | :--- | :--- |
+| `METRIC_DATA_KEY` | `metricKey → TableBody field` | `"temperature" → "temp"` |
+| `METRIC_I18N_KEY` | `metricKey → i18n translation key` | `"peopleCount" → "model.rooms.occupancy"` |
+| `METRIC_CELL_CLASS` | `metricKey → Tailwind cell class` | `"roomName" → "font-medium text-slate-900"` |
+
+`DATA_METRIC_KEY` is the reverse of `METRIC_DATA_KEY`, derived automatically via `Object.fromEntries(Object.entries(METRIC_DATA_KEY).map(([mk, dk]) => [dk, mk]))` — keeping the mapping DRY.
+
+The `metricKeyToHeader(metricKey: string): TableHeader` helper (used when reconstructing headers from the API response) consults all three tables to produce a fully-resolved header object in a single call.
+
+---
+
+## 🛠️ Architecture Roadmap
+
+1.  **Database Persistence for Preferences:**
+    *   *Issue:* Preferences are lost on service restart. The commented-out `tokio::spawn` in `update_preferences` is the designated insertion point.
+    *   *Fix:* Add a PostgreSQL (or Redis HSET) write inside that block. On service startup, hydrate the `DashMap` from the database before the tunnel begins listening.
+
+2.  **Building Deletion Cleanup:**
+    *   *Issue:* When a building is deleted from `twin-service`, its entry remains in the `DashMap` indefinitely and the tunnel continues to fan-out filtered telemetry for it.
+    *   *Fix:* Expose a `DELETE /preferences/:building_id` endpoint and call it from `twin-service` on building removal.
+
+3.  **Ordered Column Persistence:**
+    *   *Issue:* Column order (drag-and-drop result) is saved to the contracts-service as an ordered `Vec<String>`, but the meaning of the order is implicit. Documenting this contract explicitly will prevent future bugs if the serialization format changes.
