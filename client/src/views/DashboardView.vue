@@ -3,7 +3,8 @@ import NavBar from '@/components/layouts/NavBar.vue'
 import FullscreenModeButton from '@/components/buttons/FullscreenModeButton.vue'
 import type { Room } from '@/models/building'
 import ModelDropdown from '@/components/dropdowns/ModelDropdown.vue'
-import BuildingTable, { type TableBody, type TableHeader } from '@/components/tables/BuildingTable.vue'
+import BuildingTable from '@/components/tables/BuildingTable.vue'
+import type { TableBody, TableHeader } from '@/models/table.ts'
 
 import { onMounted, onUnmounted, ref } from 'vue'
 import { getStatusByOccupants, getStatusColor } from '@/helpers/status'
@@ -37,20 +38,8 @@ const isFullscreen = ref(false)
 const roomData = ref<TableBody[]>([]) // Processed data for Table
 
 const tableHeaders = ref<TableHeader[]>([
-  { key: 'room', label: 'dashboard.table.headers.room', cellClass: 'font-medium text-slate-900' },
-  { key: 'status', label: 'dashboard.table.headers.status', cellClass: 'text-sm' },
-  { key: 'teacher', label: 'dashboard.table.headers.teacher', cellClass: 'text-sm' },
-  {
-    key: 'temp',
-    label: 'dashboard.table.headers.temperature',
-    cellClass: 'text-slate-900 font-medium',
-  },
-  { key: 'people', label: 'dashboard.table.headers.people', cellClass: 'text-slate-900' },
-  {
-    key: 'capacity',
-    label: 'dashboard.table.headers.capacity',
-    cellClass: 'text-slate-900 font-medium',
-  },
+  { key: 'room',     metricKey: 'roomName',         label: 'model.rooms.editRoom.name',        cellClass: 'font-medium text-slate-900' },
+  { key: 'capacity', metricKey: 'roomMaxOccupancy',  label: 'dashboard.table.headers.capacity', cellClass: 'text-slate-900 font-medium' },
 ])
 
 const fetchRoomsByBuilding = async (buildingId: string) => {
@@ -180,6 +169,7 @@ onUnmounted(() => {
               :roomsData="roomData"
               :selectedBuildingId="selectedModel?.id"
               class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top"
+              @headers-updated="tableHeaders = $event"
             >
               <template #status="{ value }">
                 <span :class="getStatusColor(value)">{{ t(value) }}</span>

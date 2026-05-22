@@ -12,7 +12,7 @@ import {
   Filler,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import { getBuildingHistory } from '@/composables/building/useBuildingHistory.ts'
+import { getBuildingHistory, type ApiDataPoint } from '@/composables/building/useBuildingHistory.ts'
 import { useIsRunning, toggleSimulator } from '@/composables/core/simulator.ts'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
@@ -46,11 +46,7 @@ const aggMode = ref<AggMode>('avg')
 
 const toggleSimulatorButton = () => {
   if (!buildingIdRef.value) return
-  toggleSimulator(
-    buildingIdRef.value,
-    isSimRunning.value ? 'stop' : 'start',
-    props.selectedRooms,
-  )
+  toggleSimulator(buildingIdRef.value, isSimRunning.value ? 'stop' : 'start', props.selectedRooms)
     .then(() => {
       isSimRunning.value = !isSimRunning.value
 
@@ -68,18 +64,21 @@ const { data: peopleData, isLoading: loadingPeople } = getBuildingHistory(
   buildingIdRef,
   timeRange,
   'peopleCount',
+  aggMode,
 )
 
 const { data: tempData, isLoading: loadingTemp } = getBuildingHistory(
   buildingIdRef,
   timeRange,
   'temperature',
+  aggMode,
 )
 
 const { data: airQualityData, isLoading: loadingAQ } = getBuildingHistory(
   buildingIdRef,
   timeRange,
-  'air-quality',
+  'airQuality',
+  aggMode,
 )
 
 const { isSimRunning, refetch } = useIsRunning(buildingIdRef)
@@ -125,20 +124,8 @@ const getTimeline = (range: TimeRange): Date[] => {
   return timeline
 }
 
-const alignDataToTimeline = (apiData: any[], timeline: Date[], range: TimeRange, mode: AggMode) => {
-  return timeline.map((timeObj) => {
-    const match = apiData.find((d) => {
-      const dTime = new Date(d.timestamp)
-      if (range === '1D') {
-        return dTime.setMinutes(0, 0, 0) === timeObj.getTime()
-      } else {
-        return dTime.setHours(0, 0, 0, 0) === timeObj.getTime()
-      }
-    })
-
-    return match ? match[mode] : 0
-  })
-}
+const alignDataToTimeline = (apiData: ApiDataPoint[], timeline: Date[]) =>
+  timeline.map((timeObj) => apiData.find((d) => d.timestamp === timeObj.getTime())?.value ?? 0)
 
 const chartLabels = computed(() => {
   const timeline = getTimeline(timeRange.value)
@@ -150,7 +137,6 @@ const chartLabels = computed(() => {
   })
 })
 
-// 1. People Chart Data
 const peopleChartData = computed(() => {
   const timeline = getTimeline(timeRange.value)
   return {
@@ -158,7 +144,7 @@ const peopleChartData = computed(() => {
     datasets: [
       {
         label: `Occupancy (${aggMode.value})`,
-        data: alignDataToTimeline(peopleData.value, timeline, timeRange.value, aggMode.value),
+        data: alignDataToTimeline(peopleData.value, timeline),
         borderColor: '#4f46e5',
         backgroundColor: 'rgba(79, 70, 229, 0.1)',
         fill: true,
@@ -167,7 +153,6 @@ const peopleChartData = computed(() => {
   }
 })
 
-// 2. Temperature Chart Data
 const tempChartData = computed(() => {
   const timeline = getTimeline(timeRange.value)
   return {
@@ -178,13 +163,12 @@ const tempChartData = computed(() => {
         borderColor: '#f97316',
         backgroundColor: 'rgba(249, 115, 22, 0.1)',
         fill: true,
-        data: alignDataToTimeline(tempData.value, timeline, timeRange.value, aggMode.value),
+        data: alignDataToTimeline(tempData.value, timeline),
       },
     ],
   }
 })
 
-// 3. Air Quality Chart Data
 const aqChartData = computed(() => {
   const timeline = getTimeline(timeRange.value)
   return {
@@ -195,7 +179,7 @@ const aqChartData = computed(() => {
         borderColor: '#10b981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         fill: true,
-        data: alignDataToTimeline(airQualityData.value, timeline, timeRange.value, aggMode.value),
+        data: alignDataToTimeline(airQualityData.value, timeline),
       },
     ],
   }
@@ -209,22 +193,16 @@ onMounted(() => {
 <template>
   <div class="flex flex-col gap-6">
     <div
-      class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col xl:flex-row items-center justify-between gap-4"
-    >
+      class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col xl:flex-row items-center justify-between gap-4">
       <div class="relative w-full xl:w-auto flex items-center gap-2">
-        <button
-          @click="toggleSimulatorButton"
+        <button @click="toggleSimulatorButton"
           class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 mr-2"
-          :class="
-            isSimRunning
-              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-              : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'
-          "
-        >
+          :class="isSimRunning
+            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+            : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'
+            ">
           <span v-if="isSimRunning" class="relative flex h-2 w-2">
-            <span
-              class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
-            ></span>
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
           {{
@@ -239,17 +217,11 @@ onMounted(() => {
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold text-slate-400 uppercase mr-1">Data:</span>
           <div class="flex bg-slate-100 p-1 rounded-lg">
-            <button
-              v-for="mode in ['sum', 'avg', 'min', 'max']"
-              :key="mode"
-              @click="aggMode = mode as AggMode"
-              class="px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all duration-200"
-              :class="
-                aggMode === mode
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              "
-            >
+            <button v-for="mode in ['sum', 'avg', 'min', 'max']" :key="mode" @click="aggMode = mode as AggMode"
+              class="px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all duration-200" :class="aggMode === mode
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+                ">
               {{ mode }}
             </button>
           </div>
@@ -258,17 +230,11 @@ onMounted(() => {
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold text-slate-400 uppercase mr-1">Range:</span>
           <div class="flex bg-slate-100 p-1 rounded-lg">
-            <button
-              v-for="range in ['1D', '1W', '1M']"
-              :key="range"
-              @click="timeRange = range as TimeRange"
-              class="px-3 py-1.5 text-xs font-bold rounded-md transition-all duration-200"
-              :class="
-                timeRange === range
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              "
-            >
+            <button v-for="range in ['1D', '1W', '1M']" :key="range" @click="timeRange = range as TimeRange"
+              class="px-3 py-1.5 text-xs font-bold rounded-md transition-all duration-200" :class="timeRange === range
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+                ">
               {{ range }}
             </button>
           </div>
@@ -277,17 +243,11 @@ onMounted(() => {
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 transition-all duration-500">
-      <div
-        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px] transition-all duration-500"
-        :class="aggMode === 'sum' ? 'lg:col-span-2' : ''"
-      >
-        <h3
-          class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex justify-between"
-        >
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px] transition-all duration-500"
+        :class="aggMode === 'sum' ? 'lg:col-span-2' : ''">
+        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex justify-between">
           <span>People Occupancy</span>
-          <span
-            class="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100"
-          >
+          <span class="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100">
             {{ aggMode }} / {{ timeRange }}
           </span>
         </h3>
@@ -298,17 +258,10 @@ onMounted(() => {
         </div>
       </div>
 
-      <div
-        v-if="aggMode !== 'sum'"
-        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]"
-      >
-        <h3
-          class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex justify-between"
-        >
+      <div v-if="aggMode !== 'sum'" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]">
+        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex justify-between">
           <span>Temperature</span>
-          <span
-            class="text-orange-600 bg-orange-50 px-2 py-0.5 rounded text-xs border border-orange-100"
-          >
+          <span class="text-orange-600 bg-orange-50 px-2 py-0.5 rounded text-xs border border-orange-100">
             {{ aggMode }} / {{ timeRange }}
           </span>
         </h3>
@@ -319,17 +272,10 @@ onMounted(() => {
         </div>
       </div>
 
-      <div
-        v-if="aggMode !== 'sum'"
-        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]"
-      >
-        <h3
-          class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex justify-between"
-        >
+      <div v-if="aggMode !== 'sum'" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[400px]">
+        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex justify-between">
           <span>Air Quality (Indoor AQI)</span>
-          <span
-            class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs border border-emerald-100"
-          >
+          <span class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs border border-emerald-100">
             {{ aggMode }} / {{ timeRange }}
           </span>
         </h3>

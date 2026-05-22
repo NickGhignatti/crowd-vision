@@ -2,15 +2,8 @@ name: Docker Build
 
 on:
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
     paths:
-      - "docker-compose.yml"
-      - "docker-compose.dbs.yml"
-      - "docker-compose.services.yml"
-      - "docker-compose.simulators.yml"
-      - "docker-compose.client.yml"
-      - "docker-compose.interfaces.yml"
-      - "docker-compose.dev.yml"
       - "server/**"
       - "client/**"
       - ".github/workflows/docker.yml"

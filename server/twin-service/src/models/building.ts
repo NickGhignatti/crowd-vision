@@ -74,4 +74,8 @@ export const buildingSchema = new Schema<IBuilding>({
     timestamps: true
 });
 
+// Index for multi-tenant lookups: Building.find({ domains: domainName }) — without
+// this, every domain query does a full collection scan.
+buildingSchema.index({ domains: 1 });
+
 export const Building = mongoose.model<IBuilding>('Building', buildingSchema);

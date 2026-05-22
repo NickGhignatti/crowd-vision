@@ -1,5 +1,6 @@
-import { ref, watch, type Ref } from 'vue'
+import { shallowRef, triggerRef, ref, watch, type Ref } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
+import { socket } from '@/services/socket'
 
 export interface ApiDataPoint {
   timestamp: string
@@ -20,37 +21,37 @@ export interface ApiDataPoint {
 
 export function getBuildingData(
   buildingId: Ref<string | undefined>,
-  apiType: 'peopleCount' | 'temperature' | 'air-quality',
-  pollIntervalMs = 5000, // Configurable, defaults to 5 seconds
+  apiType: 'peopleCount' | 'temperature' | 'airQuality',
 ) {
-  const data = ref<ApiDataPoint[]>([])
+  // shallowRef avoids deep reactivity on array contents — mutations are surfaced
+  // manually via triggerRef, keeping Vue's scheduler out of the Three.js RAF loop.
+  const data = shallowRef<ApiDataPoint[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
   watch(
     buildingId,
-    (newId, oldId, onCleanup) => {
+    (newId, _oldId, onCleanup) => {
       if (!newId) {
         data.value = []
         return
       }
 
-      let abortController: AbortController | null = null
-      let intervalId: ReturnType<typeof setInterval>
+      socket.emit('subscribe_building' as any, newId)
 
-      // Extracted fetch logic so we can call it immediately AND in the interval
+      let abortController: AbortController | null = null
+      let rafPending = false
+
       const fetchData = async (isBackgroundPoll = false) => {
-        // Only show the loading state on the very first fetch
         if (!isBackgroundPoll) isLoading.value = true
         error.value = null
 
-        // If a previous fetch is still running, kill it before starting a new one
         if (abortController) abortController.abort()
         abortController = new AbortController()
 
         try {
           const response = await makeRequest(
-            `/sensor/${apiType}/entireBuilding/?building=${newId}`,
+            `/sensor/${apiType}/entireBuilding?building=${newId}`,
             'GET',
             {
               signal: abortController.signal,
@@ -64,8 +65,7 @@ export function getBuildingData(
           }
 
           const result = await response.json()
-          const dataKey = apiType === 'air-quality' ? 'airQuality' : apiType
-          data.value = result[dataKey] || []
+          data.value = result.data || []
         } catch (err: any) {
           if (err.name === 'AbortError') return
           error.value = err.message
@@ -75,18 +75,38 @@ export function getBuildingData(
         }
       }
 
-      // 1. Fetch immediately on mount or ID change
       fetchData()
 
-      // 2. Start the 5-second polling loop
-      intervalId = setInterval(() => {
-        fetchData(true) // 'true' means it's a background poll, so don't show loading spinner
-      }, pollIntervalMs)
+      // Captured reference ensures socket.off() removes exactly this handler,
+      // not a different listener registered by another composable instance.
+      const telemetryHandler = (event: any) => {
+        if (event?.buildingId !== buildingId.value || event?.type !== apiType) return
 
-      // 3. Clean up interval and abort pending requests when component unmounts or ID changes
+        const arr = data.value
+        const idx = arr.findIndex(d => d.roomId === event.roomId)
+        if (idx >= 0) {
+          arr[idx] = { ...arr[idx], ...event }
+        } else {
+          arr.push(event)
+        }
+
+        // Batch DOM/VNode updates to the next animation frame so Vue's scheduler
+        // does not interrupt the Three.js render loop mid-frame.
+        if (!rafPending) {
+          rafPending = true
+          requestAnimationFrame(() => {
+            triggerRef(data)
+            rafPending = false
+          })
+        }
+      }
+
+      socket.on('telemetry' as any, telemetryHandler)
+
       onCleanup(() => {
         if (abortController) abortController.abort()
-        clearInterval(intervalId)
+        socket.emit('unsubscribe_building' as any, newId)
+        socket.off('telemetry' as any, telemetryHandler)
       })
     },
     { immediate: true },

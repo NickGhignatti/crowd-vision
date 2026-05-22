@@ -243,31 +243,33 @@ class Simulator:
             await self._send_single_signal(client, building, room, dt_hours)
 
     async def _send_single_signal(
-        self,
-        client: httpx.AsyncClient,
-        building: SimulationBuilding,
-        room: SimulationRoom,
-        dt_hours: float,
-    ) -> None:
-        reading = room.read(dt_hours)
-        payload = reading.model_dump()
-        url     = f"{building.target_url}/air-quality"
+            self,
+            client: httpx.AsyncClient,
+            building: SimulationBuilding,
+            room: SimulationRoom,
+            dt_hours: float,
+        ) -> None:
+            reading = room.read(dt_hours)
 
-        try:
-            logger.info("POSTing reading to %s: %s", url, payload)
-            response = await client.post(url, json=payload)
-            if response.is_success:
-                logger.debug(
-                    "Sent reading building=%s room=%s aqi=%s pm25=%.1f co2=%.0f",
-                    room.building_id, room.room_id,
-                    reading.aqi, reading.pm25, reading.co2,
+            payload = reading.model_dump()
+
+            url     = f"{building.target_url}/ingest"
+
+            try:
+                logger.info("POSTing reading to %s: %s", url, payload)
+                response = await client.post(url, json=payload)
+                if response.is_success or response.status_code == 202:
+                    logger.debug(
+                        "Sent reading building=%s room=%s aqi=%s pm25=%.1f co2=%.0f",
+                        room.building_id, room.room_id,
+                        reading.aqi, reading.pm25, reading.co2,
+                    )
+                else:
+                    logger.warning(
+                        "[Simulator] POST %s → %s %s",
+                        url, response.status_code, response.reason_phrase,
+                    )
+            except httpx.RequestError as exc:
+                logger.error(
+                    "[Simulator] Network error connecting to %s: %s", url, exc
                 )
-            else:
-                logger.warning(
-                    "[Simulator] POST %s → %s %s",
-                    url, response.status_code, response.reason_phrase,
-                )
-        except httpx.RequestError as exc:
-            logger.error(
-                "[Simulator] Network error connecting to %s: %s", url, exc
-            )

@@ -85,6 +85,8 @@ export class Simulator {
 
   private async sendSingleSignal(roomId: string, building: IBuilding) {
     try {
+      const url = `${building.targetUrl}/ingest`;
+      
       const payloadPeople: ISignalPeopleCount = {
         buildingId: building.buildingId,
         roomId: roomId,
@@ -109,23 +111,27 @@ export class Simulator {
         ),
       };
 
-      const responseTemperature = await fetch(
-        `${building.targetUrl}/temperature`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payloadTemp),
-        },
-      );
+      const microkernelTempPayload = {
+        ...payloadTemp,
+        type: "temperature",
+      };
 
-      const responsePeopleCount = await fetch(
-        `${building.targetUrl}/peopleCount`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payloadPeople),
-        },
-      );
+      const microkernelPeopPayload = {
+        ...payloadPeople,
+        type: "peopleCount",
+      };
+
+      const responseTemperature = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(microkernelTempPayload),
+      });
+
+      const responsePeopleCount = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(microkernelPeopPayload),
+      });
 
       if (!responseTemperature.ok || !responsePeopleCount.ok) {
         console.error(

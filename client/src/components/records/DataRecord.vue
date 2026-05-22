@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { roomColorByTemperature } from '@/helpers/colors.ts'
-import type { TableHeader, TableBody } from '@/components/tables/BuildingTable.vue'
+import type { TableHeader, TableBody } from '@/models/table.ts'
 
 defineProps<{
   item: TableBody

@@ -2,9 +2,9 @@ name: push images to ghcr
 on:
   workflow_dispatch:
   push:
-    branches: [ "master"]
+    branches: ["master"]
     paths:
-      - "docker-compose.yml"
+      - "docker/**"
       - "server/**"
       - "client/**"
       - "k8s/**"

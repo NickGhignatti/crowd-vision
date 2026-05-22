@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
 import BuildingTable from '../BuildingTable.vue'
 import PaginationControls from '@/components/panels/PaginationControls.vue'
+import { makeRequest } from '@/composables/core/useApi'
 
 interface TableHeader {
   key: keyof TableBody
@@ -29,6 +30,16 @@ vi.mock('@/composables/building/useSensorData', () => ({
     data: ref([]),
     isLoading: ref(false),
     error: ref(null),
+  }),
+}))
+
+// BuildingTable transitively pulls in stores/composables (domain store,
+// useColumnManager) that call the network. Stub the central HTTP helper so
+// none of those calls explode with "Cannot read properties of undefined".
+vi.mock('@/composables/core/useApi', () => ({
+  makeRequest: vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({}),
   }),
 }))
 
@@ -70,6 +81,16 @@ const createWrapper = (props = {}, options = {}) =>
   })
 
 describe('BuildingTable', () => {
+  // vitest is configured with `mockReset: true`, which wipes implementations
+  // between tests. Re-install the makeRequest stub before each one so
+  // composables/stores that fire on mount don't crash on undefined responses.
+  beforeEach(() => {
+    vi.mocked(makeRequest).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    } as unknown as Response)
+  })
+
   describe('pagination', () => {
     it('shows only the first page items initially', () => {
       const wrapper = createWrapper()
@@ -147,8 +168,10 @@ describe('BuildingTable', () => {
     })
 
     it('shows "No data" message when no building is selected', () => {
+      // The component renders `t('dashboard.table.noData')`; the i18n mock above
+      // is identity, so the rendered text is the translation key itself.
       const wrapper = createWrapper({ selectedBuildingId: undefined })
-      expect(wrapper.text()).toContain('No data')
+      expect(wrapper.text()).toContain('dashboard.table.noData')
     })
 
     it('passes correct props to PaginationControls', () => {

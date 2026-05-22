@@ -1,6 +1,7 @@
 import { Building, type IBuilding, type Room } from "../models/building.js";
 import {ConflictError, NotFoundError} from "../models/error.js";
 import { syncBuildingClone } from "./sensors.js";
+import { initBuildingPreferences } from "./contractsService.js";
 import {
   backfillNames,
   normalizeBuildingName,
@@ -27,6 +28,7 @@ export const addBuilding = async (
     });
     await building.save();
     await syncBuildingClone(building.toObject());
+    await initBuildingPreferences(id);
     return building;
 };
 

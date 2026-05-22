@@ -1,70 +1,101 @@
 :80 {
-    # Auth Service
+    # ── CORS ─────────────────────────────────────────────────────────────────
+    # Handle CORS once here at the gateway so no individual service needs it.
+    # {http.request.header.Origin} echoes the browser's own origin back,
+    # which satisfies the same-origin check for credentialed requests without
+    # hardcoding a port that can change via CLIENT_PORT in .env.
+
+    @cors_preflight {
+        method OPTIONS
+        header Origin *
+    }
+
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "{http.request.header.Origin}"
+        header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, Accept, Cookie"
+        header Access-Control-Allow-Credentials "true"
+        header Access-Control-Max-Age "86400"
+        respond "" 204
+    }
+
+    header Access-Control-Allow-Origin "{http.request.header.Origin}"
+    header Access-Control-Allow-Credentials "true"
+
+    # ── Auth Service ──────────────────────────────────────────────────────────
     handle_path /auth/* {
         reverse_proxy auth-service:3000
     }
 
-    # Digital Twin service
+    # ── Digital Twin service ──────────────────────────────────────────────────
     handle_path /twin/* {
         reverse_proxy twin-service:3000
     }
 
-    # Sensor Simulator service (TP)
+    # ── Sensor Simulator (TP) ─────────────────────────────────────────────────
     handle_path /simulator/tp/* {
         reverse_proxy sensor-simulator:3000
     }
 
-    # Air Quality Simulator service (AQ)
+    # ── Air Quality Simulator (AQ) ────────────────────────────────────────────
     handle_path /simulator/aq/* {
         reverse_proxy aq-simulator:3000
     }
 
-    # Notification service
+    # ── Notification service ──────────────────────────────────────────────────
     handle_path /notification/* {
         reverse_proxy notification-service:3000
     }
 
-    # Agent service
+    # ── Agent service ─────────────────────────────────────────────────────────
     handle_path /agent/* {
         reverse_proxy agent-service:3000
     }
 
-    # Socket.IO server
+    # ── Contracts Service ───────────────────────────────────────────────────────
+    # Using `handle` (not `handle_path`) so the full path is forwarded to the
+    # service unchanged. This means Axum receives /contracts and
+    # /contracts/preferences/:id exactly as declared in its route table.
+    # Two matchers are needed because /contracts/* does not match /contracts itself.
+    handle_path /contracts {
+        reverse_proxy contracts-service:3000
+    }
+    handle_path /contracts/* {
+        reverse_proxy contracts-service:3000
+    }
+
+    # ── Socket.IO server ──────────────────────────────────────────────────────
     handle /socket.io/* {
         reverse_proxy socket-server:3000
     }
 
-    # Signal sensor service
+    # ── Signal sensor service ─────────────────────────────────────────────────
     handle_path /sensor/* {
         reverse_proxy sensor-service:3000
     }
 
-    # Mongo Express - Auth DB
+    # ── Mongo Express GUIs ────────────────────────────────────────────────────
     handle /auth-db-gui/* {
         reverse_proxy auth-db-express:8081
     }
 
-    # Mongo Express - Twin DB
     handle /twin-db-gui/* {
         reverse_proxy twin-db-express:8081
     }
 
-    # Mongo Express - Twin DB
     handle /sensor-db-gui/* {
         reverse_proxy sensor-db-express:8081
     }
 
-    # Mongo Express - Notification DB
     handle /notification-db-gui/* {
         reverse_proxy notification-db-express:8081
     }
 
-    # Prometheus metrics
+    # ── Observability ─────────────────────────────────────────────────────────
     handle_path /prometheus/* {
         reverse_proxy prometheus:9090
     }
 
-    # Grafana
     handle /grafana/* {
         reverse_proxy grafana:3000
     }

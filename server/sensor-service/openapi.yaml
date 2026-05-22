@@ -7,6 +7,19 @@ servers:
   - url: http://localhost:80/sensor/
     description: Local development server
 paths:
+  /metrics:
+    get:
+      summary: Get metric contracts exposed by sensor service
+      tags:
+        - Metrics
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceMetricsContract'
+
   /peopleCount:
     post:
       summary: Create a people count signal
@@ -567,6 +580,64 @@ paths:
           $ref: '#/components/responses/BadRequest'
 
 components:
+  schemas:
+    MetricFieldContract:
+      type: object
+      required:
+        - name
+        - type
+        - required
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - string
+            - number
+            - boolean
+            - integer
+        required:
+          type: boolean
+        description:
+          type: string
+    MetricContract:
+      type: object
+      required:
+        - metricKey
+        - label
+        - interfaceName
+        - fields
+      properties:
+        metricKey:
+          type: string
+          example: temperature
+        label:
+          type: string
+          example: Temperature
+        interfaceName:
+          type: string
+          example: ITemperature
+        unit:
+          type: string
+          example: C
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricFieldContract'
+    ServiceMetricsContract:
+      type: object
+      required:
+        - service
+        - metrics
+      properties:
+        service:
+          type: string
+          example: sensor-service
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricContract'
   responses:
     BadRequest:
       description: Bad request

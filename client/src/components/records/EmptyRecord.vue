@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TableHeader } from '@/components/tables/BuildingTable.vue'
+import type { TableHeader } from '@/models/table.ts'
 
 defineProps<{
   count: number

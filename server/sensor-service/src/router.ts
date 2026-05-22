@@ -1,50 +1,45 @@
-import { Router } from 'express';
-import { 
-    postPeopleCount, 
-    postTemperature, 
-    postAirQuality,
-    getSinglePeopleCount,
-    getSingleTemperature,
-    getSingleAirQuality,
-    getAllPeopleCount,
-    getAllTemperature,
-    getAllAirQuality,
-    getPeopleCountDashboard,
-    getTemperatureDashboard,
-    getAirQualityDashboard,
-    getEntireBuildingPeopleCountDashboard,
-    getEntireBuildingTemperatureDashboard,
-    getEntireBuildingAirQualityDashboard
-} from "./controller/sensorController.js";
+import { Router } from "express";
+import type { RequestHandler } from "express";
+import type { SensorKernel } from "./kernel/sensorKernel.js";
+import { createReadHandlers } from "./controllers/readController.js";
+import { SENSOR_METRICS_CONTRACT } from "./models/metrics.js";
 import {
-    createBuildingThreshold,
-    getBuildingThreshold,
-    patchBuildingThreshold,
-    patchRoomThreshold,
-    syncBuilding,
-} from "./controller/thresholdController.js";
+  createThresholdHandlers
+} from "./controllers/thresholdController.js";
 
-const router = Router();
+export function createRouter(
+  ingestionHandler: RequestHandler,
+  kernel: SensorKernel,
+): Router {
+  const router = Router();
+  const reader = createReadHandlers(kernel);
+  const thresholds = createThresholdHandlers(kernel);
 
-router.post('/peopleCount', postPeopleCount);
-router.post('/temperature', postTemperature);
-router.post('/air-quality', postAirQuality);
-router.get('/peopleCount', getSinglePeopleCount);
-router.get('/temperature', getSingleTemperature);
-router.get('/air-quality', getSingleAirQuality);
-router.get('/peopleCount/entireBuilding', getAllPeopleCount);
-router.get('/temperature/entireBuilding', getAllTemperature);
-router.get('/air-quality/entireBuilding', getAllAirQuality);
-router.get('/peopleCount/dashboard', getPeopleCountDashboard);
-router.get('/temperature/dashboard', getTemperatureDashboard);
-router.get('/air-quality/dashboard', getAirQualityDashboard);
-router.get('/peopleCount/dashboard/entireBuilding', getEntireBuildingPeopleCountDashboard);
-router.get('/temperature/dashboard/entireBuilding', getEntireBuildingTemperatureDashboard);
-router.get('/air-quality/dashboard/entireBuilding', getEntireBuildingAirQualityDashboard);
-router.get('/thresholds/buildings/:buildingId', getBuildingThreshold);
-router.post('/thresholds/buildings', createBuildingThreshold);
-router.put('/thresholds/buildings/:buildingId', syncBuilding);
-router.patch('/thresholds/buildings/:buildingId', patchBuildingThreshold);
-router.patch('/thresholds/buildings/:buildingId/rooms/:roomId', patchRoomThreshold);
+  router.post("/ingest", ingestionHandler);
 
-export default router;
+  router.get("/:sensorType/latest", reader.getLatestSingle);
+  router.get(
+    "/:sensorType/entireBuilding",
+    reader.getAllLatestBuilding,
+  );
+  router.get("/:sensorType/dashboard", reader.getDashboard);
+
+  router.get(
+    "/thresholds/:sensorType/buildings/:buildingId",
+    thresholds.getBuildingThreshold,
+  );
+  router.patch(
+    "/thresholds/:sensorType/buildings/:buildingId",
+    thresholds.patchBuildingThreshold,
+  );
+  router.patch(
+    "/thresholds/:sensorType/buildings/:buildingId/rooms/:roomId",
+    thresholds.patchRoomThreshold,
+  );
+
+  router.get("/contracts", (_req, res) =>
+    res.status(200).json(SENSOR_METRICS_CONTRACT),
+  );
+
+  return router;
+}

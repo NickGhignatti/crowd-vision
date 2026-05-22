@@ -6,7 +6,7 @@ services:
     networks:
       - simulator-net
   aq-simulator:
-    build: ./simulators/aq-simulator
+    build: simulators/aq-simulator
     ports:
       - "3002:3000"
     networks:

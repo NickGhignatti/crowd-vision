@@ -42,7 +42,7 @@ export function useBuildingTemperature(buildingId: Ref<string | undefined>) {
 }
 
 export function useBuildingAirQualitySensors(buildingId: Ref<string | undefined>) {
-  const { data, isLoading, error } = getBuildingData(buildingId, 'air-quality')
+  const { data, isLoading, error } = getBuildingData(buildingId, 'airQuality')
 
   const indoorAqi = computed(() => {
     const results: Record<string, number> = {}

@@ -2,7 +2,7 @@ services:
   client:
     container_name: vue-client
     build:
-      context: ./client
+      context: client
       args:
         VITE_SERVER_URL: ${DEV_URL}:${SERVER_PORT}
         VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}

@@ -72,22 +72,35 @@ const messages = {
         why: 'Why CrowdVision?',
         motivation: 'Built for administrators who need clarity, not complexity.',
         feature1: {
-          title: 'Real-time Occupancy Tracking',
+          title: 'Interactive Digital Twin',
           description:
-            'Monitor student density across multiple rooms instantly. Visual indicators update via\n' +
-            '              our optimized 3D engine.',
+            'Navigate your buildings, floors, and rooms intuitively. ' +
+            'Visualize complex spatial hierarchies and pinpoint precise sensor locations within' +
+            'a centralized digital model.',
         },
         feature2: {
-          title: 'Capacity Alerts',
+          title: 'Real-Time IoT Analytics',
           description:
-            'Set thresholds for specific zones. Receive visual cues when hallways or classrooms\n' +
-            ' exceed safe capacity limits.',
+            'Powered by a high-performance metrics engine, seamlessly track live temperature, ' +
+            'air quality, and occupancy data to understand space utilization instantly.',
         },
         feature3: {
-          title: 'Privacy First',
+          title: 'AI Smart Assistant',
           description:
-            'We analyze movement data without storing biometric information. Compliant with\n' +
-            '              standard safety regulations.',
+            'Chat directly with your building. Our integrated AI agent understands your spatial data, ' +
+            'allowing you to ask natural language questions and receive intelligent insights.',
+        },
+        feature4: {
+          title: 'Proactive alterting system',
+          description:
+            'Never miss a critical event. Set custom thresholds for specific zones and receive instant' +
+            ' web-push notifications across your devices the moment anomalies occur.',
+        },
+        feature5: {
+          title: 'Secure Multi-Tenancy',
+          description:
+            'Built for enterprise scale. Robust Role-Based Access Control (RBAC) ensures ' +
+            'administrators can securely partition data across multiple domains and user hierarchies.',
         },
       },
     },
@@ -100,6 +113,7 @@ const messages = {
           capacity: 'Capacity',
           temperature: 'Temperature',
           people: 'People',
+          indoorAqi: 'Indoor Air Quality',
         },
         rooms: {
           status: {
@@ -241,7 +255,7 @@ const messages = {
       subName: 'Structure Name',
       data: 'Buildings',
       name: 'Domain name',
-      loading: 'Loading data...'
+      loading: 'Loading data...',
     },
   },
   it: {
@@ -315,22 +329,35 @@ const messages = {
         why: 'Perché CrowdVision?',
         motivation: 'Costruito per amministratori che necessitano di chiarezza, non complessità.',
         feature1: {
-          title: 'Tracciamento Occupazione Live',
+          title: 'Gemello Digitale Interattivo',
           description:
-            'Monitora la densità degli studenti in più stanze istantaneamente. Indicatori visivi aggiornati tramite\n' +
-            '              il nostro motore 3D ottimizzato.',
+            'Naviga i tuoi edifici, piani e stanze in modo intuitivo. \n' +
+            "Visualizza complesse gerarchie spaziali e individua con precisione la posizione dei sensori all'interno \n" +
+            'di un modello digitale centralizzato.\n',
         },
         feature2: {
-          title: 'Avvisi di Capacità',
+          title: 'Analisi IoT in Tempo Reale',
           description:
-            'Imposta soglie per zone specifiche. Ricevi segnali visivi quando corridoi o aule\n' +
-            ' superano i limiti di capacità di sicurezza.',
+            'Alimentato da un motore di metriche ad alte prestazioni, monitora fluidamente i dati in tempo reale di temperatura, \n' +
+            "qualità dell'aria e occupazione per comprendere istantaneamente l'utilizzo degli spazi.",
         },
         feature3: {
-          title: 'Privacy al Primo Posto',
+          title: 'Assistente Intelligente AI',
           description:
-            'Analizziamo i dati di movimento senza memorizzare informazioni biometriche. Conforme alle\n' +
-            '              normative di sicurezza standard.',
+            'Chatta direttamente con il tuo edificio. Il nostro agente AI integrato comprende i tuoi dati spaziali,\n ' +
+            'permettendoti di fare domande in linguaggio naturale e ricevere analisi intelligenti.',
+        },
+        feature4: {
+          title: 'Sistema di allerta proattivo',
+          description:
+            'Non perdere mai un evento critico. Imposta soglie personalizzate per zone specifiche e ' +
+            'ricevi notifiche web-push istantanee su tutti i tuoi dispositivi nel momento stesso in cui si verificano anomalie.',
+        },
+        feature5: {
+          title: 'Multi-Tenancy Sicura',
+          description:
+            'Progettato per le aziende. Un robusto Controllo degli Accessi Basato sui Ruoli (RBAC) assicura \n' +
+            'che gli amministratori possano separare in modo sicuro i dati tra molteplici domini e gerarchie di utenti.',
         },
       },
     },
@@ -343,6 +370,7 @@ const messages = {
           capacity: 'Capacità',
           temperature: 'Temperatura',
           people: 'Persone',
+          indoorAqi: 'Qualità dell\'aria interna',
         },
         rooms: {
           status: {

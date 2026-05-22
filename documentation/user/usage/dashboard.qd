@@ -9,12 +9,7 @@ The Dashboard serves as your central hub for real-time monitoring and analytics.
 
 The default table displays live data for all monitored rooms within your currently selected building. It is designed to give administrators a comprehensive overview at a glance.
 
-The table includes the following data columns:
-* **Room:** The name or identifier of the monitored space (e.g., Physics Lab).
-* **Status:** A color-coded visual indicator showing the current occupancy level. Statuses range from **Empty** and **Normal** to **Crowded**, **Full**, and **Overcrowded**.
-* **Temperature:** The live temperature reading for the room.
-* **People:** The real-time count of individuals currently inside the space.
-* **Capacity:** The maximum safe capacity limit established for that specific room.
+The columns shown depend on the saved configuration for that building. By default, a newly registered building starts with the room name and capacity columns. As an administrator you can add any sensor metric as a column, remove columns you don't need, change their order, and save the layout so it persists across sessions. See [Customizing the Data Table](./building-table.qd) for a complete guide.
 
 ---
 

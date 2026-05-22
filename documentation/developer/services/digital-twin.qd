@@ -37,6 +37,8 @@ A `Twin` represents a physical building or campus. It is a deeply nested documen
 ### Multi-Tenancy (`domains` array)
 As established in the Auth documentation, a single Twin can be associated with one or more `domains` (e.g., `["university.edu", "facilities-corp.com"]`). This array is the cryptographic lock. The Twin Service will only return this document if the requesting user's JWT contains a matching domain in its `memberships` payload.
 
+The `domains` field carries a dedicated MongoDB index (`{ domains: 1 }`) so that `Building.find({ domains: domainName })` resolves via an index seek rather than a full collection scan.
+
 ---
 
 ## Building and room configuration

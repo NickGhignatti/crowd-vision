@@ -64,7 +64,7 @@ watch(
 const buildingId = computed(() => props.buildingModel?.id)
 const { data: peopleData } = getBuildingData(buildingId, 'peopleCount')
 const { data: temperatures } = getBuildingData(buildingId, 'temperature')
-const { data: airQuality } = getBuildingData(buildingId, 'air-quality')
+const { data: airQuality } = getBuildingData(buildingId, 'airQuality')
 
 const enrichedRooms = computed<RoomItemBody[]>(() => {
   if (!props.buildingModel) return []

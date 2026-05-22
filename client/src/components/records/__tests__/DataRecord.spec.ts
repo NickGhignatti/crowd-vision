@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import DataRecord from '../DataRecord.vue'
-import type { TableHeader } from '../../tables/BuildingTable.vue'
+import type { TableHeader } from '@/models/table.ts'
 
 // Mock the colors helper
 vi.mock('@/helpers/colors.ts', () => ({

@@ -1,203 +1,373 @@
 .docname {Sensor Service}
 .include {docs}
 
-The `sensor-service` is the time-series backbone of CrowdVision. It is the only service whose database grows continuously during normal operation — every sensor tick from every room in every building appends new records. It owns three distinct responsibilities: ingesting raw signals, serving aggregated analytics to the dashboard, and evaluating temperature thresholds to trigger alerts.
+## 1. Executive Summary
+
+The `sensor-service` operates as the primary ingestion gateway for all physical IoT hardware telemetry within the Digital Twin ecosystem.
+It is a Node.js/Express application written in strict TypeScript.
+
+The system architecture is explicitly designed to resolve two primary engineering bottlenecks:
+1. **Hardware Connection Constraints:** IoT sensors operate with restricted memory and battery life. The backend must not hold TCP connections open while resolving slow asynchronous operations (e.g., database writes or alerting triggers).
+2. **Controller Bloat:** Standard MVC monoliths degrade into brittle codebases when handling dozens of disparate hardware payloads. The service must adhere to the Open/Closed Principle to allow for safe, predictable horizontal expansion.
+
+To satisfy these constraints, the service utilizes a **Modular Microkernel Architecture** executing via a **Fast Path / Slow Path** data flow.
 
 ---
 
-## 🏗️ Architecture Overview
+## 2. Architectural Design
 
-The service follows the standard Controller → Service → Model layered architecture.
+### 2.1 Execution Model: Fast Path vs. Slow Path
+To prevent hardware connection timeouts, the ingestion pipeline strictly bifurcates payload validation from data persistence.
 
-*   **Controllers (`sensorController.ts`, `thresholdController.ts`):** Two controllers with no overlap. `sensorController` handles all time-series signal reads and writes. `thresholdController` handles the `BuildingThreshold` shadow model that stores per-room safety limits.
-*   **Services (`sensorService.ts`, `dashboardService.ts`, `alertingService.ts`, `buildingThresholdService.ts`):** Four focused services. Signal storage, analytics aggregation, alert dispatch, and threshold management are kept completely separate.
-*   **Models (`temperatureSignal.ts`, `peopleCountSignal.ts`, `buildingThreshold.ts`):** Two append-only time-series collections and one mutable configuration collection.
+.mermaid
+    graph TD
+        subgraph 1. HTTP Layer
+            Router[Express Router]
+            IC[Ingestion Controller]
+            RC[Read Controller]
+            TC[Threshold Controller]
+        end
+
+        subgraph 2. Kernel Layer
+            K[SensorKernel]
+        end
+
+        subgraph 3. Module Layer Facades
+            TM[TemperatureModule]
+            AQ[AirQualityModule]
+            PC[PeopleCountModule]
+        end
+
+        subgraph 4. Domain Service Layer
+            TS[TemperatureService]
+            AQS[AirQualityService]
+            PCS[PeopleCountService]
+        end
+
+        subgraph 5. Data Layer
+            DB[(MongoDB)]
+        end
+
+        Router --> IC & RC & TC
+        IC & RC & TC -- "Resolve :sensorType" --> K
+        K -- "Dispatch" --> TM & AQ & PC
+
+        TM --> TS
+        AQ --> AQS
+        PC --> PCS
+
+        TS & AQS & PCS --> DB
+
+**Technical Implementation:** By invoking Node.js's `setImmediate()`, the controller explicitly instructs the event loop to flush the `HTTP 202 Accepted` response down the network socket
+before beginning the `module.process()` execution block. This guarantees O(1) network latency for the physical sensors regardless of database load.
+
+The `ISensorModule` contract enforces a strict functional programming boundary.
+- `validate()` is mathematically Pure. It performs synchronous, CPU-bound shape checking. It cannot make network calls.
+- `process()` is Impure. It handles side effects (Database persistence, triggering Alerts). This segregation makes unit testing trivial and guarantees that bad data is rejected during the Fast Path, preventing database corruption.
+
+1. Controllers (Generic): Controllers do not contain domain logic. They extract the :sensorType parameter from the HTTP request and ask the Kernel for the corresponding module.
+2. Kernel (Registry): Maintains a dictionary of registered modules and resolves them dynamically.
+3. Module (Facade): Implements the strict ISensorModule contract. It provides synchronous validation and acts as a router to the underlying Domain Service.
+4. Service (Business Logic): Completely decoupled from HTTP. Owns all Mongoose database queries, aggregation pipelines, and threshold evaluations.
+
+### 2.2 The Microkernel
+
+The service is built on a **Microkernel** with pluggable **Strategy** modules. The kernel's registry is populated once at startup; all subsequent request handling is a pure lookup-and-dispatch with no branching on sensor type inside the core infrastructure.
+
+Concrete modules do **not** implement `ISensorModule` directly. They extend `BaseSensorModule<T>`, which:
+1. Seals the `process()` ingestion pipeline as a **Template Method**: `persist()` → `publishTelemetry()`.
+2. Provides a shared `getLatest()` implementation via the child's injected Mongoose model.
+3. Owns the Redis `telemetry:raw` publish so no module can forget it.
+
+.mermaid
+    classDiagram
+        class SensorKernel {
+            -Map registry
+            +register(ISensorModule)
+            +resolve(type): ISensorModule
+        }
+
+        class ISensorModule {
+            <<interface>>
+            +String type
+            +validate(payload): ValidationResult
+            +process(payload): Promise~void~
+        }
+
+        class BaseSensorModule {
+            <<abstract>>
+            #abstract model: Model~T~
+            +process(payload) sealed
+            #abstract persist(payload)
+            #abstract buildTelemetryEvent(payload): TelemetryEvent
+            #publishTelemetry(event) fire-and-forget
+            +getLatest() shared impl
+        }
+
+        class TemperatureModule {
+            +type = 'temperature'
+            +validate()
+            #persist()
+            #buildTelemetryEvent()
+        }
+
+        class PeopleCountModule {
+            +type = 'peopleCount'
+            +validate()
+            #persist()
+            #buildTelemetryEvent()
+        }
+
+        class AirQualityModule {
+            +type = 'airQuality'
+            +validate()
+            #persist()
+            #buildTelemetryEvent()
+        }
+
+        SensorKernel o-- ISensorModule : Aggregates
+        BaseSensorModule ..|> ISensorModule : Implements
+        TemperatureModule --|> BaseSensorModule : Extends
+        PeopleCountModule --|> BaseSensorModule : Extends
+        AirQualityModule  --|> BaseSensorModule : Extends
+
+.mermaid
+    graph TD
+        subgraph HTTP Layer
+            A[Express Router] -->|POST /ingest| B[IngestionController]
+            A                 -->|GET /...| C[ReadController]
+            A                 -->|CRUD /thresholds/...| D[ThresholdController]
+        end
+
+        subgraph Kernel
+            B --> E{SensorKernel\nRegistry}
+            E -->|type = temperature| F[TemperatureModule]
+            E -->|type = peopleCount| G[PeopleCountModule]
+            E -->|type = airQuality|  H[AirQualityModule]
+            E -->|type = ???|         I[Future Modules...]
+        end
+
+        subgraph Persistence
+            F --> J[(MongoDB\nTemperature)]
+            G --> K[(MongoDB\nPeopleCount)]
+            H --> L[(MongoDB\nAirQuality)]
+            F -->|side-effect| M[alertingService]
+            M -->|POST| N[notification-service]
+        end
+
+        subgraph Read Path
+            C --> O[sensorService\nread queries]
+            C --> P[dashboardService\naggregations]
+            O --> J
+            O --> K
+            O --> L
+            P --> J
+            P --> K
+            P --> L
+        end
 
 ---
 
-## 🗃️ The Data Models
+## 3. Request Lifecycle — Ingestion
 
-### Time-Series Signals
-
-Both signal types share the same document shape. Every incoming reading is stored as an independent document — there is no update or upsert, only inserts.
-
-.code lang:{typescript}
-    // Both collections share this shape
-    export interface ITemperature {
-        building: string;   // building id (string, not ObjectId)
-        roomId: string;
-        timestamp: number;  // Unix ms — provided by the sensor/simulator
-        temperature: number;
-    }
-
-    export interface IPeopleCount {
-        building: string;
-        roomId: string;
-        timestamp: number;
-        peopleCount: number;
-    }
-
-Both schemas carry a compound index on `{ building: 1, timestamp: -1 }` — the primary read pattern is always "latest N readings for a specific building", so the index is ordered to serve that query without a collection scan.
-
-.box type:{note}
-    **Timestamp ownership:** The `timestamp` field is provided by the sender (simulator or physical device), not stamped by the service. This allows accurate historical reconstruction from out-of-order sensor bursts, but means the service trusts the sender's clock. A future hardening step would be to validate that `timestamp` is within a reasonable window of server time before accepting the write.
-
-### BuildingThreshold (Shadow Model)
-
-See [Buildings](../design/buildings.qd) for the full design rationale. The short version: the sensor service cannot query the Twin database, so it maintains a local copy of per-room `maxTemperature` limits. The Twin service is responsible for keeping it in sync.
-
-.code lang:{typescript}
-    export interface BuildingThreshold {
-        buildingId: string;
-        maxTemperature: number;   // building-level default
-        rooms: ThresholdRoom[];
-    }
-
-    export interface ThresholdRoom {
-        id: string;
-        maxTemperature: number;
-    }
-
----
-
-## 📡 Signal Ingestion Flow
-
-When a temperature reading arrives at `POST /sensor/temperature`, two things happen synchronously within the same request:
+The critical design constraint is that **hardware clients must be released immediately**. A sensor posting at high frequency cannot afford to wait for MongoDB writes or notification dispatches. The sequence below illustrates how the 202 response is decoupled from all downstream I/O.
 
 .mermaid
     sequenceDiagram
-        participant Sensor as IoT Sensor / Simulator
-        participant SC as Sensor Controller
-        participant SS as Sensor Service
-        participant AS as Alerting Service
-        participant BTS as Threshold Service
-        participant NS as Notification Service
+        autonumber
+        participant HW  as Hardware Sensor
+        participant IC  as IngestionController
+        participant SK  as SensorKernel
+        participant MOD as ISensorModule
+        participant DB  as MongoDB
+        participant NS  as notification-service
 
-        Sensor->>SC: POST /sensor/temperature<br/>{ buildingId, roomId, timestamp, temperature }
-        SC->>SS: postTemperatureSignal(...)
-        SS->>SS: Temperature.create({ building, roomId, timestamp, temperature })
-        SC->>AS: checkTemperature(buildingId, roomId, temperature)
-        AS->>BTS: resolveThreshold(buildingId, roomId)
-        BTS-->>AS: maxTemperature (room-level → building-level → 27°C)
-        alt temperature > maxTemperature
-            AS->>NS: POST /notification/push/temperature<br/>{ buildingId, roomId, temperature, type: "temperature" }
-            NS-->>AS: 200 OK (sent or throttled)
+        HW  ->> IC  : POST /ingest { type, ...data }
+        IC  ->> IC  : Extract type discriminant
+        IC  ->> SK  : resolve(type)
+        SK  -->> IC : ISensorModule instance
+
+        IC  ->> MOD : validate(data)
+        Note over MOD: Pure, synchronous — no I/O
+        MOD -->> IC : ValidationResult { isValid, errors }
+
+        alt Validation failed
+            IC -->> HW : 422 Unprocessable Entity + error details
+        else Validation passed
+            IC -->> HW : 202 Accepted
+            Note over IC,HW: Connection is CLOSED here
+
+            IC  ->> IC  : setImmediate(background task)
+            Note over IC: Event loop resumes; 202 is flushed
+
+            IC  ->> MOD : process(data)
+            MOD ->> DB  : Model.create(document)
+            DB  -->> MOD: Ack
+
+            opt Temperature module only
+            MOD ->> NS  : POST /push/temperature
+            NS  -->> MOD: 200 OK
+            end
         end
-        SC-->>Sensor: 201 Created
-
-People count signals follow the same ingestion path but skip the alerting step entirely — `postPeopleCount` only calls `postPeopleCountSignal`, with no threshold check.
 
 ---
 
-## 📊 Dashboard Aggregation Pipeline
 
-The dashboard reads use a single generic aggregation function (`getAggregatedData` in `dashboardService.ts`) shared by both signal types. It runs a 3-stage MongoDB aggregation pipeline:
+## 4. Extension Guide
 
-1. **Filter** — matches documents by `building`, optionally `roomId`, and `timestamp` within the requested time window.
-2. **Group by time bucket** — uses `$dateTrunc` to collapse all readings in a time slot into one bucket. Granularity is `hour` for the `1D` range and `day` for `1W` / `1M`.
-3. **Project** — emits `{ timestamp, avg, sum, max, min }` per bucket, with numeric values rounded to 1 decimal place.
+The architecture is open for extension but closed for modification. Adding support for new IoT hardware requires zero changes to the core controller or Kernel.
 
-The four aggregation variants (`avg`, `sum`, `max`, `min`) are computed in a single pipeline pass — the query runs once and the frontend selects which field to display.
+### Step 1: Create the Module (`src/modules/LightLevelModule.ts`)
 
-### Time Ranges
+Extend `BaseSensorModule<T>` and implement the three required abstract members. The Redis publish and the shared `getLatest()` query are handled automatically by the base class — you only write what is unique to this sensor type.
 
-.var {headers}
-   - Range Parameter
-   - Window
-   - Bucket Size
+.code lang:{typescript}
+    import { ValidationResult } from './ISensorModule.js';
+    import { BaseSensorModule, type TelemetryEvent } from './BaseSensorModule.js';
+    import { LightLevel, type ILightLevel } from '../models/lightLevel.js';
+    import { LightLevelService } from '../services/LightLevelService.js';
 
-.tablebyrows {.headers}
-    - - `1D`
-      - Last 24 hours from now
-      - 1 hour
-    - - `1W`
-      - Last 7 days from now
-      - 1 day
-    - - `1M`
-      - Last 30 days from now
-      - 1 day
-    - - `custom`
-      - Requires `customStart` parameter
-      - 1 day
+    export class LightLevelModule extends BaseSensorModule<ILightLevel> {
+        public readonly type = 'lightLevel' as const;
+        protected readonly model = LightLevel;
+        private readonly service = new LightLevelService();
+
+        validate(payload: any): ValidationResult {
+            const errors: string[] = [];
+            if (typeof payload.lux !== 'number')
+                errors.push('lux: must be a finite number.');
+            return errors.length === 0
+                ? ValidationResult.ok()
+                : ValidationResult.fail(errors);
+        }
+
+        protected async persist(payload: any): Promise<void> {
+            await this.service.persistSignal(payload.buildingId, payload.roomId, payload.timestamp, payload.lux);
+        }
+
+        protected buildTelemetryEvent(payload: any): TelemetryEvent {
+            return { type: this.type, buildingId: payload.buildingId, roomId: payload.roomId, timestamp: payload.timestamp, value: payload.lux };
+        }
+
+        async getAllLatest(buildingId: string): Promise<unknown[]> {
+            return this.service.getAllLatest(buildingId);
+        }
+
+        async getDashboardData(buildingId: string, timeRange: string, roomId?: string): Promise<unknown[]> {
+            return this.service.getDashboardData(buildingId, timeRange, roomId);
+        }
+    }
+
+### Step 2: Register the Module (`src/index.ts`)
+
+Register the new module during the Kernel bootstrapping phase.
+
+.code lang:{typescript}
+    const kernel = new SensorKernel()
+        .register(new TemperatureModule())
+        .register(new PeopleCountModule())
+        .register(new AirQualityModule())
+        .register(new LightLevelModule());
 
 ---
 
-## 🌡️ Alerting Service
+## 5. Data models
 
-`alertingService.ts` is intentionally thin. Its only job is to call `resolveThreshold`, compare the reading to the limit, and — if exceeded — fire a POST to the Notification Service. It has no knowledge of Redis, WebSockets, or push subscriptions; those concerns belong entirely to the Notification Service.
+### 5.1 Temperature Reading
 
-The cross-service call target is resolved via `VITE_SERVER_URL` (the gateway URL), not a direct container address. This means the call passes through the Caddy/nginx gateway, exactly as an external sensor would.
+| Field | BSON Type | Required | Notes |
+|---|---|---|---|
+| `building` | String | ✓ | Building identifier |
+| `roomId` | String | ✓ | Room within the building |
+| `timestamp` | Number | ✓ | Unix epoch in milliseconds |
+| `temperature` | Number | ✓ | Degrees Celsius |
 
-If the Notification Service returns a non-2xx response or if the network call throws, the alerting service logs the error and returns silently. **A failed alert dispatch does not fail the original sensor write** — the `201 Created` response to the sensor has already been sent before the alert check completes.
+**Indexes:**
+- `{ building: 1, timestamp: -1 }` — range queries across all rooms in a building, descending time.
+- `{ building: 1, roomId: 1, timestamp: -1 }` — per-room point and range queries (e.g., `getLatest`, dashboard per-room history).
 
 ---
 
-## 📋 Full API Reference
+### 5.2 People Count Reading
 
-.var {headers}
-   - Method
-   - Endpoint
-   - Query Params / Body
-   - Description
+| Field | BSON Type | Required | Notes |
+|---|---|---|---|
+| `building` | String | ✓ | |
+| `roomId` | String | ✓ | |
+| `timestamp` | Number | ✓ | Unix epoch in milliseconds |
+| `peopleCount` | Number | ✓ | Non-negative integer |
 
-.tablebyrows {.headers}
-    - - `POST`
-      - `/sensor/temperature`
-      - Body: `{ buildingId, roomId, timestamp, temperature }`
-      - Ingest a temperature reading. Triggers threshold check and alert if exceeded.
-    - - `POST`
-      - `/sensor/peopleCount`
-      - Body: `{ buildingId, roomId, timestamp, peopleCount }`
-      - Ingest a people count reading. No threshold check.
-    - - `GET`
-      - `/sensor/temperature`
-      - Query: `building`, `roomId`
-      - Latest temperature reading for one room.
-    - - `GET`
-      - `/sensor/peopleCount`
-      - Query: `building`, `roomId`
-      - Latest people count reading for one room.
-    - - `GET`
-      - `/sensor/temperature/entireBuilding`
-      - Query: `building`
-      - Latest temperature reading per room for all rooms in a building.
-    - - `GET`
-      - `/sensor/peopleCount/entireBuilding`
-      - Query: `building`
-      - Latest people count per room for all rooms in a building.
-    - - `GET`
-      - `/sensor/temperature/dashboard`
-      - Query: `building`, `roomId`, `timeRange`
-      - Aggregated temperature history (avg/sum/max/min per bucket) for one room.
-    - - `GET`
-      - `/sensor/peopleCount/dashboard`
-      - Query: `building`, `roomId`, `timeRange`
-      - Aggregated people count history for one room.
-    - - `GET`
-      - `/sensor/temperature/dashboard/entireBuilding`
-      - Query: `building`, `timeRange`
-      - Aggregated temperature history across all rooms in a building.
-    - - `GET`
-      - `/sensor/peopleCount/dashboard/entireBuilding`
-      - Query: `building`, `timeRange`
-      - Aggregated people count history across all rooms in a building.
-    - - `GET`
-      - `/sensor/thresholds/buildings/:buildingId`
-      - —
-      - Read the BuildingThreshold clone for a building.
-    - - `POST`
-      - `/sensor/thresholds/buildings`
-      - Body: `{ buildingId, maxTemperature?, rooms? }`
-      - Create a new BuildingThreshold record (called by Twin on `register`).
-    - - `PUT`
-      - `/sensor/thresholds/buildings/:buildingId`
-      - Body: `{ name, maxTemperature?, rooms? }`
-      - Full sync / upsert of the BuildingThreshold clone (called by Twin on every mutation).
-    - - `PATCH`
-      - `/sensor/thresholds/buildings/:buildingId`
-      - Body: `{ maxTemperature }`
-      - Update the building-level default threshold. Applies cascade rule to rooms.
-    - - `PATCH`
-      - `/sensor/thresholds/buildings/:buildingId/rooms/:roomId`
-      - Body: `{ maxTemperature }`
-      - Update the threshold for a single room, overriding the building default.
+**Indexes:**
+- `{ building: 1, timestamp: -1 }` — range queries across all rooms in a building.
+- `{ building: 1, roomId: 1, timestamp: -1 }` — per-room point and range queries.
+
+---
+
+### 5.3 Air Quality Reading
+
+| Field | BSON Type | Required | Notes |
+|---|---|---|---|
+| `building` | String | ✓ | |
+| `roomId` | String | ✓ | |
+| `timestamp` | Number | ✓ | Unix epoch in milliseconds |
+| `scenario` | String | — | Simulation scenario identifier |
+| `pm25` | Number | ✓ | μg/m³ |
+| `pm10` | Number | ✓ | μg/m³ |
+| `co2` | Number | ✓ | ppm |
+| `voc` | Number | ✓ | Index |
+| `temperature` | Number | ✓ | Degrees Celsius |
+| `humidity` | Number | ✓ | % relative humidity |
+| `aqi` | Number | ✓ | Outdoor Air Quality Index |
+| `indoor_aqi` | Number | ✓ | Indoor AQI; defaults to 0 if omitted |
+
+**Indexes:**
+- `{ building: 1, timestamp: -1 }` — range queries across all rooms in a building.
+- `{ building: 1, roomId: 1, timestamp: -1 }` — per-room point and range queries.
+
+---
+
+## 6. Threshold & Configuration Management
+
+Thresholds represent static, human-defined configurations (e.g., "Max Temperature is 24°C").
+Rather than fracturing threshold configurations across multiple database collections, the system utilizes a Shared Infrastructure Data Model `(BuildingThresholdModel)`.
+
+This central document contains nested "slices" for each domain:
+
+.code lang:{json}
+    {
+      "buildingId": "HQ_01",
+      "temperature": { "maxTemp": 24, "minTemp": 18 },
+      "peopleCount": { "maxPeople": 50 }
+    }
+
+.mermaid
+    sequenceDiagram
+        participant Admin as Frontend Dashboard
+        participant TC as Threshold Controller
+        participant Module as Domain Module (Facade)
+        participant Service as Domain Service
+        participant DB as MongoDB
+
+        Admin->>TC: PATCH /thresholds/temperature/buildings/HQ
+        TC->>Module: updateBuildingThreshold()
+        Module->>Service: updateBuildingThresholds()
+
+        Note over Service, DB: Service uses dot-notation to isolate its domain
+        Service->>DB: findOneAndUpdate({ $set: { "temperature.maxTemp": 25 } })
+        DB-->>Service: Updated Document
+        Service-->>Admin: HTTP 200 OK
+
+When a domain service updates its configuration, it utilizes strictly scoped MongoDB dot-notation (e.g., `$set: { 'temperature.maxTemp': 25 }`)
+to ensure it does not corrupt the configurations of neighboring modules.
+
+---
+
+## 7. Read-Path Caching
+
+The `getAllLatest(buildingId)` method — which drives the initial dashboard table load — executes a MongoDB aggregation pipeline on every request. To prevent redundant DB round-trips when multiple users open the same building simultaneously, results are cached in Redis with a **10-second TTL** under the key pattern `sensor:latest:<type>:<buildingId>`.
+
+The live telemetry path (socket events) bypasses this cache entirely: the `persistSignal` method publishes directly to `telemetry:raw` on every write, so the frontend receives real-time updates via the socket without waiting for the cache to expire.
+
+**Cache key pattern:** `sensor:latest:{type}:{buildingId}`
+**TTL:** 10 seconds
+**Invalidation:** none (TTL-based self-expiry is sufficient given continuous sensor writes)

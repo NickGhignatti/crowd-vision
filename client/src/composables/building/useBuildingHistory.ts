@@ -2,17 +2,15 @@ import { ref, watchEffect } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
 
 export interface ApiDataPoint {
-  timestamp: string
-  avg: number
-  max: number
-  min: number
-  sum: number
+  timestamp: number
+  value: number
 }
 
 export function getBuildingHistory(
   buildingId: any,
   range: any,
-  apiType: 'peopleCount' | 'temperature' | 'air-quality',
+  apiType: 'peopleCount' | 'temperature' | 'airQuality',
+  aggMode: any,
 ) {
   const data = ref<ApiDataPoint[]>([])
   const isLoading = ref(false)
@@ -27,7 +25,7 @@ export function getBuildingHistory(
 
     try {
       const response = await makeRequest(
-        `/sensor/${apiType}/dashboard/entireBuilding/?building=${buildingId.value}&timeRange=${range.value}`,
+        `/sensor/${apiType}/dashboard?building=${buildingId.value}&timeRange=${range.value}&aggMode=${aggMode.value}`,
         'GET',
         {
           credentials: 'omit',
@@ -41,11 +39,12 @@ export function getBuildingHistory(
 
       const result = await response.json()
 
-      const dataKey = apiType === 'air-quality' ? 'airQuality' : apiType
-      data.value = result[dataKey] || []
+      data.value = (result.data || []).map((d: any) => ({
+        timestamp: d.timestamp,
+        value: d.value ?? 0,
+      }))
     } catch (err: any) {
       error.value = err.message
-      // Fallback to empty or mock on error if strictly needed
       console.error(err)
     } finally {
       isLoading.value = false
