@@ -4,7 +4,6 @@ on:
   pull_request:
     branches: ["master"]
     paths:
-      - "docker/**"
       - "server/**"
       - "client/**"
       - ".github/workflows/docker.yml"
@@ -28,4 +27,4 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: "dummy_key"
           VAPID_PUBLIC_KEY: "dummy_key"
           VAPID_PRIVATE_KEY: "dummy_key"
-        run: docker compose -f docker/docker-compose.yml -f docker/docker-compose.dbs.yml -f docker/docker-compose.services.yml -f docker/docker-compose.simulators.yml -f docker/docker-compose.client.yml -f docker/docker-compose.interfaces.yml build
+        run: docker compose -f docker-compose.yml -f docker-compose.dbs.yml -f docker-compose.services.yml -f docker-compose.simulators.yml -f docker-compose.client.yml -f docker-compose.interfaces.yml build
