@@ -1,3 +1,8 @@
+# Shared infrastructure only.
+# Service compose files are assembled dynamically by scripts/compose-run.mjs
+# (invoked via the Justfile) — they are NOT pulled in via `include:` here.
+#
+# This file is always passed first as `-f docker-compose.yml`.
 services:
   gateway:
     image: caddy:latest
@@ -7,22 +12,27 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    networks:
-      - gateway-net
-      - simulator-net
+    # required: false ⇒ if a service is excluded from the run, gateway still
+    # starts (Caddy will retry connections when the service eventually appears).
     depends_on:
-      - auth-service
-      - twin-service
-      - sensor-service
-      - socket-server
+      auth-service:
+        condition: service_started
+        required: false
+      twin-service:
+        condition: service_started
+        required: false
+      sensor-service:
+        condition: service_started
+        required: false
+      socket-server:
+        condition: service_started
+        required: false
 
   redis:
     image: redis:alpine
     container_name: crowd-vision-broker
     ports:
       - "6379:6379"
-    networks:
-      - gateway-net
 
   prometheus:
     image: prom/prometheus:latest
@@ -33,8 +43,6 @@ services:
       - '--web.route-prefix=/'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    networks:
-      - gateway-net
 
   grafana:
     image: grafana/grafana:latest
@@ -44,23 +52,10 @@ services:
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - grafana_data:/var/lib/grafana
-    networks:
-      - gateway-net
     depends_on:
       - prometheus
-
-networks:
-  gateway-net:
-    driver: bridge
-  auth-net:
-  twin-net:
-  simulator-net:
-  sensor-net:
-  notification-net:
-  agent-net:
 
 volumes:
   caddy_data:
   caddy_config:
   grafana_data:
-

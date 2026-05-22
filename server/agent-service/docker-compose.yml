@@ -1,0 +1,47 @@
+services:
+  agent-service:
+    build:
+      context: .
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
+      - RERANKER=${RERANKER:-noop}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      - agent-db
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:3000/health',timeout=2).status==200 else 1)\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+  agent-db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: agent
+      POSTGRES_DB: agentdb
+    volumes:
+      - agent-data:/var/lib/postgresql/data
+
+  agent-ingester:
+    image: node:20-alpine
+    working_dir: /workspace
+    environment:
+      - AGENT_URL=http://agent-service:3000
+    volumes:
+      - ../../scripts:/workspace/scripts:ro
+      - ../../documentation:/workspace/documentation:ro
+      - ../../.env:/workspace/.env:ro
+    command: ["node", "scripts/ingest-docs.js"]
+    depends_on:
+      agent-service:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  agent-data:

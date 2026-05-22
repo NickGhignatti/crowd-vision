@@ -1,0 +1,6 @@
+services:
+  aq-simulator:
+    develop:
+      watch:
+        - action: rebuild
+          path: ./requirements.txt

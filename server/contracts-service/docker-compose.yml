@@ -1,0 +1,11 @@
+services:
+  contracts-service:
+    build:
+      context: .
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - SENSOR_METRICS_URL=http://sensor-service:3000
+      - TWIN_METRICS_URL=http://twin-service:3000
+    depends_on:
+      - redis

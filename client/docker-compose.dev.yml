@@ -1,0 +1,14 @@
+services:
+  client:
+    build:
+      target: build-stage
+    command: npm run dev -- --host --port 8080
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: ./package.json

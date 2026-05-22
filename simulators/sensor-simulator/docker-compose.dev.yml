@@ -1,0 +1,6 @@
+services:
+  sensor-simulator:
+    develop:
+      watch:
+        - action: rebuild
+          path: ./package.json
