@@ -45,13 +45,39 @@ logs service="":
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 
-# Run all unit tests across all services
+# Run all unit tests across all services (sequential)
 test:
-    npm run test
+    node scripts/test-run.mjs all
 
-# Run agent Python unit tests only
+# Run all unit tests in parallel (faster, but interleaved-looking output is buffered per suite)
+test-all-parallel:
+    node scripts/test-run.mjs all --parallel
+
+# Per-service unit tests
+test-auth:
+    node scripts/test-run.mjs auth
+
+test-twin:
+    node scripts/test-run.mjs twin
+
+test-notification:
+    node scripts/test-run.mjs notification
+
+test-sensor:
+    node scripts/test-run.mjs sensor
+
+test-socket:
+    node scripts/test-run.mjs socket
+
+test-client:
+    node scripts/test-run.mjs client
+
 test-agent:
-    uv run --directory server/agent-service pytest tests/unit
+    node scripts/test-run.mjs agent
+
+# Agent Python integration tests (separate suite from the docker-compose one)
+test-agent-integration:
+    uv run --directory server/agent-service pytest tests/integration
 
 # Run backend integration tests against a composed stack (full stack, no exclusion)
 test-integration:
