@@ -5,7 +5,8 @@ on:
     branches: [master]
     paths:
       - "client/**"
-      - ".github/workflows/client.yml"
+      - ".github/workflows/ci-client.yml"
+  workflow_call:
 
 jobs:
   client-tests:
@@ -29,8 +30,8 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      #      - name: 🔍 Lint
-      #        run: npm run lint
+      - name: 🔍 Lint
+        run: npm run lint
 
       - name: 🏗️ Type Check
         # Runs vue-tsc to check for TypeScript errors

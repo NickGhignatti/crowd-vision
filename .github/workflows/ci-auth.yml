@@ -5,7 +5,8 @@ on:
     branches: [master]
     paths:
       - "server/auth-service/**"
-      - ".github/workflows/auth.yml"
+      - ".github/workflows/ci-auth.yml"
+  workflow_call:
 
 jobs:
   auth-service:

@@ -1,0 +1,36 @@
+name: socket-service-ci
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "server/socket-service/**"
+      - ".github/workflows/ci-socket.yml"
+  workflow_call:
+
+jobs:
+  socket-service:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./server/socket-service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Build
+        run: npm run build
+
+      - name: 🧪 Run Server Tests
+        run: npm run test
+        continue-on-error: false

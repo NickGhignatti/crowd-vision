@@ -1,4 +1,5 @@
 name: push images to ghcr
+
 on:
   workflow_dispatch:
   push:
@@ -8,10 +9,14 @@ on:
       - "server/**"
       - "client/**"
       - "k8s/**"
-      - ".github/workflows/registry.yml"
+      - ".github/workflows/cd-registry.yml"
 
 env:
   REGISTRY: ghcr.io
+
+concurrency:
+  group: registry-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-and-push:
@@ -19,6 +24,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +41,8 @@ jobs:
             image: crowdvision-agent
           - context: ./server/sensor-service
             image: crowdvision-sensor
+          - context: ./server/contracts-service
+            image: crowdvision-contracts
           - context: ./simulators/sensor-simulator
             image: crowdvision-simulator
           - context: ./simulators/aq-simulator
@@ -76,6 +84,22 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: 🔍 Scan image for vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+          format: sarif
+          output: trivy-results-${{ matrix.image }}.sarif
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+      - name: Upload Trivy scan results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
 
       - name: Print image tag
         run: |

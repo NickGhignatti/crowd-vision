@@ -1,25 +1,26 @@
-name: notification-service-ci
+name: sensor-service-ci
 
 on:
   pull_request:
     branches: [master]
     paths:
-      - "server/notification-service/**"
-      - ".github/workflows/notification.yml"
+      - "server/sensor-service/**"
+      - ".github/workflows/ci-sensor.yml"
+  workflow_call:
 
 jobs:
-  auth-service:
+  sensor-service:
     runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: ./server/notification-service
+        working-directory: ./server/sensor-service
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24.x

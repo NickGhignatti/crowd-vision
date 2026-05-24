@@ -1,19 +1,20 @@
-name: twin-service-ci
+name: notification-service-ci
 
 on:
   pull_request:
     branches: [master]
     paths:
-      - "server/twin-service/**"
-      - ".github/workflows/twin.yml"
+      - "server/notification-service/**"
+      - ".github/workflows/ci-notification.yml"
+  workflow_call:
 
 jobs:
-  twin-service:
+  notification-service:
     runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: ./server/twin-service
+        working-directory: ./server/notification-service
 
     steps:
       - name: Checkout repository

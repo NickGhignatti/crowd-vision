@@ -1,7 +1,7 @@
 .docname {Run the Application}
 .include {docs}
 
-CrowdVision can be run in two distinct modes: **Docker Compose** for everyday local development, and **Kubernetes** for production-like environments. Both modes are managed via npm scripts from the root of the monorepo.
+CrowdVision can be run in two distinct modes: **Docker Compose** for everyday local development, and **Kubernetes** for production-like environments. Both modes are managed via `just` recipes from the monorepo root.
 
 ---
 
@@ -12,13 +12,30 @@ CrowdVision can be run in two distinct modes: **Docker Compose** for everyday lo
 For active development with live code reloading, use:
 
 .code lang:{bash}
-    npm run docker:dev
+    just dev
 
 **What happens:**
-1. The setup scripts run to verify your `.env` and regenerate any missing keys.
-2. Docker Compose launches with both `docker-compose.yml` and `docker-compose.dev.yml` merged.
-3. All services start: Caddy proxy, Redis, all MongoDB instances, all backend microservices, and the Vue client.
-4. Docker Watch binds your local `./src` directories into the running containers — saving a file triggers an instant hot-reload.
+1. `just env` runs first to verify your `.env` and generate any missing keys.
+2. A runtime compose file is generated that includes all service compose files.
+3. Docker Compose launches with `--watch` — saving a file triggers an instant hot-reload inside the running container.
+4. All services start: Caddy proxy, Redis, all MongoDB instances, all backend microservices, and the Vue client.
+
+### Excluding Services
+
+The `agent-service` is the heaviest service (Python + model loading). Skip it when you are not working on AI features:
+
+.code lang:{bash}
+    # Exclude by substring of folder name:
+    just dev exclude="agent"
+
+    # Exclude multiple services (space-separated):
+    just dev exclude="agent simulator"
+
+    # Exclude the client (useful when running it separately with Vite):
+    just dev exclude="client"
+
+.box type:{note}
+    Exclusion matches by **folder name substring**. `"agent"` will skip `server/agent-service`, `agent-db`, and any folder containing "agent". Use a more specific substring if needed.
 
 ### Accessing the Application (Docker mode)
 
@@ -40,33 +57,59 @@ For active development with live code reloading, use:
     - - Twin DB GUI
       - `http://localhost/twin-db-gui/`
       - Mongo Express for the twin database. Dev mode only.
+    - - Grafana
+      - `http://localhost/grafana/`
+      - Metrics dashboards. Dev mode only.
+    - - Prometheus
+      - `http://localhost/prometheus/`
+      - Raw metrics scraper. Dev mode only.
 
 ### Production / Detached Mode
 
 .code lang:{bash}
-    npm run docker:start
+    just start
 
-Runs the stack using only the base `docker-compose.yml` in detached mode (`-d`). No hot-reloading, no database GUIs.
+Runs the stack using the base compose configuration in detached mode (`-d`). No hot-reloading, no database GUIs. Same `exclude=` syntax works here too.
 
 ### Stopping & Resetting
 
 .code lang:{bash}
-    # Graceful shutdown
-    npm run docker:down
+    # Graceful shutdown — stops all containers and removes orphans:
+    just down
 
-    # Wipe all database volumes (destructive)
-    npm run db:clear
+    # Follow logs for all services:
+    just logs
+
+    # Follow logs for one service:
+    just logs auth-service
+
+    # Wipe all databases (destructive — you will need to re-provision):
+    just db-clear
+
+    # Wipe only the sensor database:
+    just db-clear-sensor
 
 .box type:{warning}
-    `npm run db:clear` permanently deletes the persistent Docker volumes. You will need to run `npm run provision:admin` again after a clear to recreate the admin account.
+    `just db-clear` permanently deletes all persistent Docker volumes. You will need to run `node scripts/ops/provision.js` again after a clear to recreate the admin account.
+
+---
+
+## 🌱 Bootstrapping (First-Time Provisioning)
+
+With empty databases you cannot log in. Use the provisioning script to seed the initial Global Admin account and default Domain:
+
+.code lang:{bash}
+    node scripts/ops/provision.js
+
+Run this once after your services are healthy. The script prompts you for the admin email, password, and domain name, then calls the running auth-service to register them.
 
 ---
 
 ## ☸️ Kubernetes Mode
 
-### First Time: Creating the Cluster
+See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Quick summary:
 
-Before deploying for the first time on a machine, create the k3d cluster with explicit API server binding. The `--api-port 127.0.0.1:6550` flag is critical on Windows — it prevents a known issue where `kubectl` resolves `host.docker.internal` to a non-loopback IP and fails to connect.
+### First Time: Creating the Cluster
 
 .code lang:{bash}
     k3d cluster create crowdvision \
@@ -77,184 +120,226 @@ Before deploying for the first time on a machine, create the k3d cluster with ex
       -p "443:443@loadbalancer" \
       --k3s-arg "--disable=traefik@server:*"
 
-**Flag explanation:**
-
-.var {headers}
-   - Flag
-   - Purpose
-
-.tablebyrows {.headers}
-    - - `--servers 1`
-      - One control plane node.
-    - - `--agents 3`
-      - Three worker nodes — pods are distributed across them.
-    - - `--api-port 127.0.0.1:6550`
-      - Binds the K8s API server explicitly to localhost. Prevents `kubectl` connection failures on Windows when `host.docker.internal` resolves incorrectly.
-    - - `-p "80:80@loadbalancer"`
-      - Maps host port 80 to the k3d load balancer, so `http://localhost/` reaches the nginx Ingress controller.
-    - - `--k3s-arg "--disable=traefik@server:*"`
-      - Disables the default Traefik ingress controller. CrowdVision uses nginx instead.
-
-Verify the cluster is reachable:
+### Deploying (Production images from GHCR)
 
 .code lang:{bash}
-    kubectl cluster-info
-    kubectl get nodes
-    # All nodes should show STATUS: Ready
+    # First-time full setup (ingress controller → namespace → secrets → manifests):
+    just k8s-setup
 
-### Deploying the Full Stack (Production Images from GHCR)
+    # Subsequent deploys — re-apply manifests:
+    just k8s-apply
 
-Once the cluster is running, deploy using the pre-built images from GitHub Container Registry:
-
-.code lang:{bash}
-    npm run k8s:up:prod
-
-This runs the following sequence automatically:
-1. Installs the nginx Ingress controller into the `ingress-nginx` namespace.
-2. Waits until the Ingress controller pod is fully `Running`.
-3. Creates the `crowdvision` namespace and sets it as the kubectl default.
-4. Applies all ConfigMaps from `k8s/configmaps/`.
-5. Applies all Secrets from `k8s/secrets/`.
-6. Deploys all StatefulSets (MongoDB × 4 + Redis) from `k8s/stateful/`.
-7. Deploys all application Deployments from `k8s/deployments/`.
-8. Applies the Ingress routing rules from `k8s/ingress.yml`.
-
-.box type:{note}
-    The secrets in `k8s/secrets/` must be populated before running this command. See the [Environment Setup](setting-up.qd) page for the required files and keys.
-
-### Deploying with Locally Built Images (Dev)
-
-To test local code changes in the cluster without pushing to GHCR:
+### Deploying with Locally Built Images (k3d dev)
 
 .code lang:{bash}
-    npm run k8s:up:dev
-
-This is identical to `k8s:up:prod` but adds a build step first — it builds all Docker images locally using your current source code and loads them into the k3d cluster.
+    just k8s-build      # build all images locally
+    just k8s-load       # import into k3d — no GHCR needed
+    just k8s-apply      # apply manifests
 
 ### Updating a Single Service
 
-After making code changes to one service, rebuild and roll it out without redeploying the entire stack:
-
 .code lang:{bash}
-    # Build updated image
-    npm run k8s:build:auth       # or :twin, :sensor, :client, :agent, etc.
+    # After code changes — rebuild the image, then rolling restart:
+    docker build -t ghcr.io/nickghignatti/crowdvision-auth:latest ./server/auth-service
+    just k8s-load
+    just k8s-restart auth-service
 
-    # Roll out the new image (zero-downtime rolling update)
-    kubectl rollout restart deployment/auth-service -n crowdvision
-
-    # Watch the update progress
-    kubectl rollout status deployment/auth-service -n crowdvision
-
-Or rebuild and restart everything at once:
-
-.code lang:{bash}
-    npm run k8s:update
-
-### Accessing the Application (Kubernetes mode)
-
-All traffic enters through the nginx Ingress controller on port 80.
-
-.var {headers}
-   - Interface
-   - URL
-   - Description
-
-.tablebyrows {.headers}
-    - - Vue Frontend
-      - `http://localhost/`
-      - The main CrowdVision user interface.
-    - - Auth API
-      - `http://localhost/auth/`
-      - Routes to `auth-service` (prefix stripped by Ingress rewrite).
-    - - Twin API
-      - `http://localhost/twin/`
-      - Routes to `twin-service`.
-    - - Sensor API
-      - `http://localhost/sensor/`
-      - Routes to `sensor-service`.
-    - - Socket.IO
-      - `http://localhost/socket.io/`
-      - Routes to `socket-service` (sticky sessions enabled).
+    # Watch the rollout:
+    just k8s-rollout auth-service
 
 ### Managing Cluster Lifecycle
 
 .code lang:{bash}
-    # Pause the cluster (preserves all pods, volumes, and secrets)
-    k3d cluster stop crowdvision
+    # Pause the cluster (preserves all pods, volumes, and secrets):
+    just k8s-stop
 
-    # Resume from exactly where you left off (~30 seconds)
-    k3d cluster start crowdvision
+    # Resume from exactly where you left off (~30 seconds):
+    just k8s-start
 
-    # Verify everything came back up
-    kubectl get pods -n crowdvision
+    # Verify everything came back up:
+    just k8s-status
 
-    # Destroy the cluster completely (data is lost)
-    k3d cluster delete crowdvision
+    # Destroy the cluster completely (data is permanently lost):
+    just k8s-delete
 
 .box type:{note}
-    Use `k3d cluster stop` at the end of your working day. All pod state and persistent volume data survives the stop/start cycle — your databases are intact.
+    Use `just k8s-stop` at the end of your working day. All pod state and persistent volume data survives the stop/start cycle — your databases are intact.
 
 ### Verifying Cluster Health
 
 .code lang:{bash}
-    # All pods should show 1/1 Running
-    kubectl get pods -n crowdvision
+    # All pods should show 1/1 Running:
+    just k8s-status
 
-    # Check persistent volumes are Bound
+    # Check persistent volumes are Bound:
     kubectl get pvc -n crowdvision
 
-    # Check Ingress has an ADDRESS
+    # Check Ingress has an ADDRESS:
     kubectl get ingress -n crowdvision
 
-    # Check a specific service's logs
-    kubectl logs deployment/auth-service -n crowdvision
+    # Tail logs for a service:
+    just k8s-logs auth-service
 
-    # Describe a pod for detailed events (useful for debugging)
+    # Describe a pod for detailed events (useful for debugging):
     kubectl describe pod <pod-name> -n crowdvision
 
 ---
 
-## 📋 Full Script Reference
+## 🧪 Testing
+
+.code lang:{bash}
+    # Run all unit tests across all services (sequential):
+    just test
+
+    # Run all unit tests in parallel (faster, interleaved output):
+    just test-all-parallel
+
+    # Per-service unit tests:
+    just test-auth
+    just test-twin
+    just test-sensor
+    just test-notification
+    just test-socket
+    just test-client
+    just test-agent
+
+    # Full backend integration tests (spins up a composed stack, then tears it down):
+    just test-integration
+
+---
+
+## 📋 Full Just Reference — Docker Compose
 
 .var {headers}
-   - Script
-   - Mode
+   - Recipe
    - What it does
 
 .tablebyrows {.headers}
-    - - `npm run docker:dev`
-      - Docker
-      - Full stack with hot-reloading and DB GUIs.
-    - - `npm run docker:start`
-      - Docker
+    - - `just dev [exclude="..."]`
+      - Full stack with hot-reloading. Optionally exclude services.
+    - - `just start [exclude="..."]`
       - Full stack in detached/production mode.
-    - - `npm run docker:down`
-      - Docker
+    - - `just down`
       - Graceful shutdown, removes orphan containers.
-    - - `npm run docker:logs`
-      - Docker
-      - Follow logs for all containers.
-    - - `npm run db:clear`
-      - Docker
+    - - `just logs [service]`
+      - Follow logs. Omit service to tail all.
+    - - `just db-clear`
       - Drop all databases (destructive).
-    - - `npm run k8s:up:prod`
-      - Kubernetes
-      - Install ingress + deploy everything from GHCR images.
-    - - `npm run k8s:up:dev`
-      - Kubernetes
-      - Build images locally + install ingress + deploy.
-    - - `npm run k8s:deploy`
-      - Kubernetes
-      - Apply all manifests (namespace, configmaps, secrets, stateful, deployments, ingress).
-    - - `npm run k8s:update`
-      - Kubernetes
-      - Rebuild all images and restart all deployments.
-    - - `npm run k8s:build`
-      - Kubernetes
-      - Build all Docker images in parallel.
-    - - `npm run provision:admin`
-      - Both
-      - Bootstrap the first admin account (run after services are healthy).
-    - - `npm test`
-      - Both
-      - Run all service test suites in parallel.
+    - - `just db-clear-sensor`
+      - Drop only the sensor database.
+    - - `just test`
+      - Run all unit tests (sequential).
+    - - `just test-all-parallel`
+      - Run all unit tests in parallel.
+    - - `just test-<service>`
+      - Run unit tests for one service.
+    - - `just test-integration`
+      - Run backend integration tests.
+    - - `just lint`
+      - Lint all workspaces.
+    - - `just lint-fix`
+      - Auto-fix linting issues.
+    - - `just agent-ingest`
+      - Re-ingest documentation into the AI agent knowledge base.
+
+---
+
+## 🔍 Debugging Tips
+
+### A service is responding with 502 Bad Gateway
+
+The Caddy proxy forwards to the service container but nothing is listening. Most common causes:
+
+**1. The `dev` script in `package.json` points to a non-existent file.**
+Every Node.js/TypeScript service must reference `src/index.ts` via `ts-node/esm`, not a compiled `.js` file. Check the service's `package.json`:
+
+.code lang:{bash}
+    # Correct pattern (all TypeScript services):
+    "dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts"
+
+If it says `src/index.js` and that file does not exist, nodemon exits silently and the service never starts — manifesting as 502.
+
+**2. Environment variable is empty or wrong.**
+Open the service logs: `just logs <service-name>`. Look for connection errors to MongoDB or Redis at startup.
+
+**3. Missing `.env` variable.**
+Run `just env` to fill any gaps. The script skips variables already present, so it is safe to re-run.
+
+---
+
+### `just dev exclude="..."` is not excluding the service
+
+Exclusion works by matching the **folder name substring**. Examples:
+
+.code lang:{bash}
+    just dev exclude="agent"          # skips server/agent-service, agent-db, agent-ingester
+    just dev exclude="agent simulator"  # also skips aq-simulator, sensor-simulator
+
+If exclusion suddenly stops working after editing the Justfile: verify that `dev` still takes only ONE parameter (`exclude=""`). Adding a second parameter before `exclude` in the recipe definition breaks named-argument resolution in `just`.
+
+---
+
+### Windows: `kubectl` fails to connect after `just k8s-start`
+
+After a cluster restart the kubeconfig may point to a stale port. Fix it:
+
+.code lang:{bash}
+    # Find the actual port the k3d load balancer is using:
+    docker ps --filter name=k3d-crowdvision-serverlb
+    # Look for the port mapped to 6443 in the PORTS column, e.g. 0.0.0.0:32774->6443/tcp
+
+    # Update the kubeconfig to use the correct port:
+    kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<PORT>
+
+---
+
+### `just k8s-secrets` fails: "namespaces not found"
+
+Secrets are scoped to the `crowdvision` namespace — it must exist first. Create it manually:
+
+.code lang:{bash}
+    kubectl apply -f k8s/namespace.yml
+    just k8s-secrets
+
+Or use `just k8s-setup` which handles the ordering automatically.
+
+---
+
+### k3d image pull fails (ImagePullBackOff)
+
+If pods are stuck in `ImagePullBackOff`, Kubernetes is trying to pull from GHCR instead of using the locally loaded image.
+
+.code lang:{bash}
+    # Load images from your local Docker daemon into k3d:
+    just k8s-build
+    just k8s-load
+
+Also check that the deployment manifest sets `imagePullPolicy: IfNotPresent`, not `Always` — `Always` forces a remote pull even when the image exists locally.
+
+---
+
+### agent-service fails to start (database migration error)
+
+The agent-service reads its Postgres connection string from `POSTGRES_URL` (not `DATABASE_URL`). Verify the secret was created correctly:
+
+.code lang:{bash}
+    kubectl get secret agent-service-secret -n crowdvision \
+      -o jsonpath='{.data.POSTGRES_URL}' | base64 -d
+
+If it is empty or missing, check your `.env` for `POSTGRES_URL` and re-run `just k8s-secrets`.
+
+---
+
+### nginx Ingress rejects `configuration-snippet` annotation
+
+Newer versions of the nginx Ingress Controller disable snippet annotations by default. If you see:
+
+.code lang:{text}
+    annotation nginx.ingress.kubernetes.io/configuration-snippet is not allowed
+
+Re-install the ingress controller with snippets enabled:
+
+.code lang:{bash}
+    helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
+      --namespace ingress-nginx \
+      --set controller.allowSnippetAnnotations=true

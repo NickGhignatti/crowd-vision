@@ -1,0 +1,50 @@
+name: Kubernetes Manifests
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "k8s/**"
+      - ".github/workflows/ci-k8s.yml"
+  workflow_call:
+
+jobs:
+  validate:
+    name: Validate K8s manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform.tar.gz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: 📐 Validate manifests (kubeconform)
+        run: |
+          find k8s/ -name '*.yml' | xargs kubeconform \
+            -strict \
+            -summary \
+            -kubernetes-version 1.32.0
+
+      - name: Install pluto
+        uses: FairwindsOps/pluto@master
+
+      - name: 🕰️ Check for deprecated API versions (pluto)
+        run: pluto detect-files -d k8s/
+
+      - name: Install kube-score
+        run: |
+          curl -sSLo kube-score https://github.com/zegl/kube-score/releases/latest/download/kube-score_linux_amd64
+          chmod +x kube-score
+          sudo mv kube-score /usr/local/bin/
+
+      - name: 📊 Score manifests (kube-score)
+        run: |
+          find k8s/ -name '*.yml' | xargs kube-score score \
+            --ignore-test pod-networkpolicy \
+            --ignore-test pod-disruption-budget \
+            --ignore-test container-security-context-user-group-id \
+            --ignore-test container-security-context-read-only-root-filesystem

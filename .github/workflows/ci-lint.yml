@@ -12,7 +12,7 @@ on:
       - '.prettierignore'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/lint.yml'
+      - '.github/workflows/ci-lint.yml'
   pull_request:
     branches:
       - master
@@ -24,8 +24,9 @@ on:
       - '.prettierignore'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/lint.yml'
+      - '.github/workflows/ci-lint.yml'
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   lint:
@@ -50,7 +51,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.12.0'
+          node-version: '24.x'
           cache: npm
 
       - name: Install dependencies

@@ -1,0 +1,116 @@
+version: 2
+updates:
+  # Root workspace
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+
+  # Frontend
+  - package-ecosystem: npm
+    directory: "/client"
+    schedule:
+      interval: weekly
+      day: monday
+
+  # Node.js services
+  - package-ecosystem: npm
+    directory: "/server/auth-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: npm
+    directory: "/server/twin-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: npm
+    directory: "/server/notification-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: npm
+    directory: "/server/sensor-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: npm
+    directory: "/server/socket-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  # Python service
+  - package-ecosystem: pip
+    directory: "/server/agent-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  # Rust service
+  - package-ecosystem: cargo
+    directory: "/server/contracts-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  # Docker base images
+  - package-ecosystem: docker
+    directory: "/server/auth-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: docker
+    directory: "/server/twin-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: docker
+    directory: "/server/notification-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: docker
+    directory: "/server/sensor-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: docker
+    directory: "/server/socket-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: docker
+    directory: "/server/agent-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: docker
+    directory: "/server/contracts-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: docker
+    directory: "/client"
+    schedule:
+      interval: weekly
+      day: monday
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
