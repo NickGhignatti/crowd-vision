@@ -1,3 +1,4 @@
+# ── Deployment ────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,9 +14,9 @@ spec:
       labels:
         app: auth-service
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret   # credentials for ghcr.io private registry
       initContainers:
-        # Waits until auth-db is actually accepting connections
-        # before the main container starts. Replaces depends_on.
         - name: wait-for-db
           image: busybox:1.36
           command:
@@ -29,39 +30,29 @@ spec:
       containers:
         - name: auth-service
           image: ghcr.io/nickghignatti/crowdvision-auth:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent   # local k3d: use imported image. VPS: change to Always
           ports:
             - containerPort: 3000
           envFrom:
-            # Injects all keys from auth-secret as env vars
             - secretRef:
-                name: authentication-service-secret
-            # Injects CLIENT_URL, PORT, etc. from the ConfigMap
+                name: authentication-service-secret   # JWT_SECRET, INTERNAL_ADMIN_SECRET, MONGO_URI
             - configMapRef:
-                name: common-config
-#          readinessProbe:
-#            httpGet:
-#              path: /auth/health
-#              port: 3000
-#            initialDelaySeconds: 10
-#            periodSeconds: 10
-#            failureThreshold: 3
+                name: common-config                   # PORT, CLIENT_URL, service URLs
+          # Readiness: removes pod from Service endpoints until app is ready to serve.
+          # Liveness:  restarts the pod if it becomes unresponsive (deadlock, hung process).
+          # Using TCP probes — upgrade to httpGet /auth/health once the endpoint is stable.
           readinessProbe:
             tcpSocket:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
-#          livenessProbe:
-#            httpGet:
-#              path: /auth/health
-#              port: 3000
-#            initialDelaySeconds: 20
-#            periodSeconds: 20
+            failureThreshold: 3
           livenessProbe:
             tcpSocket:
               port: 3000
             initialDelaySeconds: 20
             periodSeconds: 20
+            failureThreshold: 3
           resources:
             requests:
               cpu: "100m"
@@ -69,7 +60,10 @@ spec:
             limits:
               cpu: "500m"
               memory: "256Mi"
+
 ---
+# ── Service ───────────────────────────────────────────────────────────────────
+# ClusterIP (default) — internal only. Ingress is the only external entry point.
 apiVersion: v1
 kind: Service
 metadata:
@@ -77,9 +71,7 @@ metadata:
   namespace: crowdvision
 spec:
   selector:
-    app: auth-service           # matches the pod label above
+    app: auth-service
   ports:
     - port: 3000
       targetPort: 3000
-  # ClusterIP (default) — internal only, not exposed outside the cluster
-  # The Ingress in Phase 5 will be the only external entry point

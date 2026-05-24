@@ -3,7 +3,7 @@
  * Ingest documentation into the agent-service knowledge base.
  *
  * Usage:
- *   node scripts/ingest-docs.js [dir1 dir2 ...]
+ *   node scripts/ops/ingest-docs.js [dir1 dir2 ...]
  *
  * Defaults to documentation/user and documentation/developer if no dirs are
  * passed. Reads JWT_SECRET from .env, mints a short-lived HS256 token, and
@@ -13,7 +13,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
-const ROOT = path.resolve(__dirname, "..");
+const ROOT = path.resolve(__dirname, "../..");
 const ENV_PATH = path.join(ROOT, ".env");
 // AGENT_URL points at the agent-service base. From the host (default), Caddy
 // fronts it at /agent. Inside the docker network, set AGENT_URL=http://agent-service:3000.

@@ -6,9 +6,9 @@
 // Justfile so the user-facing command is always `just test*`, not `npm`.
 //
 // Usage:
-//   node scripts/test-run.mjs all          # run every service sequentially
-//   node scripts/test-run.mjs all --parallel
-//   node scripts/test-run.mjs <name>       # one service (auth, twin, ...)
+//   node scripts/test/test-run.mjs all          # run every service sequentially
+//   node scripts/test/test-run.mjs all --parallel
+//   node scripts/test/test-run.mjs <name>       # one service (auth, twin, ...)
 //
 
 import { spawn, spawnSync } from 'node:child_process';

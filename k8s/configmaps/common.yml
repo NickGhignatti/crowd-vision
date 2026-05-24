@@ -4,17 +4,26 @@ metadata:
   name: common-config
   namespace: crowdvision
 data:
+  # ── Shared port all Node.js / Python services listen on ───────────────────
+  PORT: "3000"
+
+  # ── Internal service URLs (cluster-DNS, service-to-service) ───────────────
+  # Kubernetes DNS resolves <service-name> within the same namespace automatically.
+  # Full form is <service>.<namespace>.svc.cluster.local — the short form works
+  # because all our services are in the same namespace.
   REDIS_URL: "redis://redis:6379"
-
-  # Public base URL used by backend services to call each other through the ingress.
-  # In the k3d/local setup this resolves to the host ingress endpoint.
-  VITE_SERVER_URL: "http://host.docker.internal"
-
-  # Internal service DNS used by twin-service when syncing sensor thresholds.
   SENSOR_SERVICE_URL: "http://sensor-service:3000"
   TWIN_SERVICE_URL: "http://twin-service:3000"
   AUTH_SERVICE_URL: "http://auth-service:3000"
+  CONTRACTS_SERVICE_URL: "http://contracts-service:3000"
 
-  CLIENT_URL: "http://localhost"
+  # ── Public-facing URL (seen by browsers, used in generated links & CORS) ───
+  # Local k3d:  http://crowdvision.local  (add to /etc/hosts → cluster ingress IP)
+  # VPS:        https://your-domain.com
+  # Note: the VITE_ prefix is historical — backend services also read this value
+  # to construct public-facing links (e.g. push notification deep links).
+  VITE_SERVER_URL: "http://crowdvision.local"
 
-  PORT: "3000"
+  # URL of the frontend — used by backend services for CORS allowed origins.
+  # In a single-domain setup this equals VITE_SERVER_URL.
+  CLIENT_URL: "http://crowdvision.local"

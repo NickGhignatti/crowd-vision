@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline");
 
-const envPath = path.join(__dirname, "..", ".env");
+const envPath = path.join(__dirname, "../..", ".env");
 
 function parseEnv() {
     const envVars = {};

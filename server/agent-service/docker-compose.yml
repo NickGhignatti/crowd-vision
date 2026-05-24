@@ -37,7 +37,7 @@ services:
       - ../../scripts:/workspace/scripts:ro
       - ../../documentation:/workspace/documentation:ro
       - ../../.env:/workspace/.env:ro
-    command: ["node", "scripts/ingest-docs.js"]
+    command: ["node", "scripts/ops/ingest-docs.js"]
     depends_on:
       agent-service:
         condition: service_healthy

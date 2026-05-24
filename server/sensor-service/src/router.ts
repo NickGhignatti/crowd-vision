@@ -24,6 +24,8 @@ export function createRouter(
   );
   router.get("/:sensorType/dashboard", reader.getDashboard);
 
+  router.put("/thresholds/buildings/:buildingId", thresholds.registerBuilding);
+
   router.get(
     "/thresholds/:sensorType/buildings/:buildingId",
     thresholds.getBuildingThreshold,

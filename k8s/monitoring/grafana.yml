@@ -1,0 +1,105 @@
+# ── PersistentVolumeClaim ─────────────────────────────────────────────────────
+# Persists Grafana's database: dashboards, data sources, users, alert rules.
+# Without this, every pod restart wipes your dashboards.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: crowdvision
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+  # Local k3d:        omit storageClassName — uses default "local-path"
+  # Hetzner VPS:      storageClassName: hcloud-volumes
+  # DigitalOcean VPS: storageClassName: do-block-storage
+
+---
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: crowdvision
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      imagePullSecrets: []   # grafana/grafana is public — no pull secret needed
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.0.0
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: crowdvision   # change this in production
+
+            # Subpath config — Grafana serves all assets under /grafana
+            # so the Ingress can route /grafana → grafana:3000 without rewriting.
+            - name: GF_SERVER_ROOT_URL
+              value: "http://crowdvision.local/grafana"
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
+
+            # Pre-configure the Prometheus data source automatically.
+            # Grafana reads this on first boot and creates the data source.
+            - name: GF_DATASOURCES_DEFAULT_NAME
+              value: Prometheus
+            - name: GF_DATASOURCES_DEFAULT_TYPE
+              value: prometheus
+            - name: GF_DATASOURCES_DEFAULT_URL
+              value: http://prometheus:9090
+            - name: GF_DATASOURCES_DEFAULT_IS_DEFAULT
+              value: "true"
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+          readinessProbe:
+            httpGet:
+              path: /grafana/api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /grafana/api/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+      volumes:
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-data
+
+---
+# ── Service ───────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: crowdvision
+spec:
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000

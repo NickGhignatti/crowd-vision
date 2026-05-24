@@ -2,52 +2,59 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: notification-db
+  name: agent-db
   namespace: crowdvision
 spec:
   clusterIP: None
   selector:
-    app: notification-db
+    app: agent-db
   ports:
-    - port: 27017
-      targetPort: 27017
+    - port: 5432
+      targetPort: 5432
 
 ---
 # ── StatefulSet ───────────────────────────────────────────────────────────────
+# PostgreSQL with the pgvector extension — required by agent-service for
+# storing and querying document embeddings in the knowledge base.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: notification-db
+  name: agent-db
   namespace: crowdvision
 spec:
-  serviceName: notification-db
+  serviceName: agent-db
   replicas: 1
   selector:
     matchLabels:
-      app: notification-db
+      app: agent-db
   template:
     metadata:
       labels:
-        app: notification-db
+        app: agent-db
     spec:
       containers:
-        - name: mongodb
-          image: mongo:8
+        - name: postgres
+          image: pgvector/pgvector:pg17   # pg17 base + pgvector extension pre-installed
           ports:
-            - containerPort: 27017
+            - containerPort: 5432
+          envFrom:
+            # Injects POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+            # Created by: just k8s-secrets
+            - secretRef:
+                name: agent-db-secret
           volumeMounts:
-            - name: notification-data
-              mountPath: /data/db
+            - name: agent-data
+              mountPath: /var/lib/postgresql/data
           readinessProbe:
             exec:
-              command: [mongosh, --eval, "db.adminCommand('ping')"]
+              command: [pg_isready, -U, agent, -d, agentdb]
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5
           livenessProbe:
             exec:
-              command: [mongosh, --eval, "db.adminCommand('ping')"]
+              command: [pg_isready, -U, agent, -d, agentdb]
             initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 3
@@ -62,12 +69,12 @@ spec:
 
   volumeClaimTemplates:
     - metadata:
-        name: notification-data
+        name: agent-data
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 1Gi
+            storage: 2Gi   # larger than MongoDB — pgvector stores dense embedding vectors
         # Local k3d:           omit storageClassName — uses default "local-path"
         # Hetzner VPS:         storageClassName: hcloud-volumes
         # DigitalOcean VPS:    storageClassName: do-block-storage

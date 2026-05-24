@@ -3,7 +3,7 @@ const readline = require("node:readline");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const envPath = path.join(__dirname, "..", ".env");
+const envPath = path.join(__dirname, "../..", ".env");
 
 function parseEnv() {
     const envVars = {};
@@ -48,20 +48,9 @@ const askQuestion = (query, defaultVal) => {
 async function provisionEnterprise() {
     console.log("🚀 Interactive Enterprise Provisioning\n");
 
-    let devUrl = existingEnv["DEV_URL"];
-    if (devUrl) {
-        console.log(`⏩ Skipping DEV_URL prompt (Found in .env: ${devUrl})`);
-    } else {
-        devUrl = await askQuestion("Enter DEV_URL", "http://localhost");
-    }
-
-    let serverPort = existingEnv["SERVER_PORT"];
-    if (serverPort) {
-        console.log(`⏩ Skipping SERVER_PORT prompt (Found in .env: ${serverPort})\n`);
-    } else {
-        serverPort = await askQuestion("Enter SERVER_PORT", "80");
-        console.log("");
-    }
+    const devUrl = await askQuestion("Enter DEV_URL", "http://crowdvision.local");
+    const serverPort = await askQuestion("Enter SERVER_PORT", "80");
+    console.log("");
 
     const companyName = await askQuestion("Enter Company Name", "someRandomCompanyName");
     const companyAdminMail = await askQuestion("Enter Admin Email", "some.random.company@name.com");

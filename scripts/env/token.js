@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
-const envPath = path.join(__dirname, "..", ".env");
+const envPath = path.join(__dirname, "../..", ".env");
 
 const currentEnv = fs.readFileSync(envPath, "utf8");
 

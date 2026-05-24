@@ -1,3 +1,7 @@
+# ── Deployment ────────────────────────────────────────────────────────────────
+# The client is a pre-built static Vue SPA served by a lightweight web server.
+# No init containers needed — it has no runtime dependencies.
+# No secrets needed — it's all static files baked in at build time.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,24 +17,29 @@ spec:
       labels:
         app: client
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: client
           image: ghcr.io/nickghignatti/crowdvision-client:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent   # local k3d: use imported image. VPS: change to Always
           ports:
             - containerPort: 8080
+          # HTTP probes are appropriate here — the static server either returns 200 or it doesn't.
           readinessProbe:
             httpGet:
               path: /
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 20
+            failureThreshold: 3
           resources:
             requests:
               cpu: "50m"
@@ -38,7 +47,9 @@ spec:
             limits:
               cpu: "200m"
               memory: "128Mi"
+
 ---
+# ── Service ───────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:
