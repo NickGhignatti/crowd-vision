@@ -13,6 +13,7 @@ pub async fn get_dashboard_tables() -> impl IntoResponse {
         let url = format!("{}/contracts", service);
         match reqwest::get(&url).await {
             Ok(res) => match res.json::<MetricsDiscoveryResponse>().await {
+                // Response of a service which offers a list of contracts
                 Ok(MetricsDiscoveryResponse::ServiceContract(service_metrics)) => {
                     for mut metric in service_metrics.metrics {
                         if metric.source_service.is_none() {
@@ -21,6 +22,7 @@ pub async fn get_dashboard_tables() -> impl IntoResponse {
                         push_unique_metric(&mut possible_metrics, metric);
                     }
                 }
+                // response which is doesn't have the service name
                 Ok(MetricsDiscoveryResponse::Metrics(metrics)) => {
                     for mut metric in metrics {
                         if metric.source_service.is_none() {

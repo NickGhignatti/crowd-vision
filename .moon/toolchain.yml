@@ -1,12 +1,9 @@
-# .moon/toolchain.yml — moon language/toolchain settings
-# https://moonrepo.dev/docs/config/toolchain
-#
 # Actual tool versions are pinned in .mise.toml at the repo root.
 # This file tells moon which package manager the Node projects use
 # so it can wire up dep installation correctly.
 
-$schema: 'https://moonrepo.dev/schemas/toolchain.json'
+$schema: "https://moonrepo.dev/schemas/toolchain.json"
 
 node:
   # Let mise manage the Node version; moon uses whatever `node` is on PATH.
-  packageManager: 'npm'
+  packageManager: "npm"

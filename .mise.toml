@@ -1,5 +1,4 @@
 # .mise.toml — single source of truth for toolchain versions across Node, Python, Rust, and moon.
-# https://mise.jdx.dev/
 #
 # Install all managed tools in one step:
 #   mise install
@@ -9,8 +8,8 @@
 # this file is for local development parity.
 
 [tools]
-node    = "24"
-python  = "3.12"
-rust    = "stable"
-moon    = "latest"
-uv      = "latest"
+node = "24"
+python = "3.12"
+rust = "stable"
+moon = "latest"
+uv = "latest"

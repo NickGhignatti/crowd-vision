@@ -1,8 +1,6 @@
 # Shared infrastructure only.
 # Service compose files are assembled dynamically by scripts/compose-run.mjs
-# (invoked via the Justfile) — they are NOT pulled in via `include:` here.
-#
-# This file is always passed first as `-f docker-compose.yml`.
+# (invoked via the Justfile).
 services:
   gateway:
     image: caddy:latest

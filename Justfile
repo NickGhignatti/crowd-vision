@@ -140,7 +140,7 @@ k8s-hosts:
     @echo "Add this to your hosts file:"
     @echo "  127.0.0.1   crowdvision.local"
 
-# Stop the cluster (pause all containers, data is preserved). Resume with k8s-start.
+# Stop the cluster (pause all containers, data is preserved).
 k8s-stop:
     k3d cluster stop crowdvision
 
@@ -183,8 +183,6 @@ k8s-setup: k8s-ingress
     just k8s-secrets
     just k8s-apply
 
-# ── Image management ──────────────────────────────────────────────────────────
-
 # Build all Docker images locally, tagged for GHCR
 k8s-build:
     docker build -t ghcr.io/nickghignatti/crowdvision-client:latest ./client
@@ -214,8 +212,6 @@ k8s-build-push: k8s-build k8s-push
 # Requires k3d. Pass cluster= to target a different cluster name: just k8s-load cluster=mycluster
 k8s-load cluster="crowdvision":
     k3d image import ghcr.io/nickghignatti/crowdvision-client:latest ghcr.io/nickghignatti/crowdvision-auth:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest -c {{cluster}}
-
-# ── Day-to-day operations ─────────────────────────────────────────────────────
 
 # Show all pods, deployments, services and StatefulSets in the namespace
 k8s-status:

@@ -14,18 +14,6 @@
 //   - `include:` instead resolves paths relative to each included file, so
 //     `build.context: .` in server/twin-service/docker-compose.yml correctly
 //     points at server/twin-service/.
-//
-// Always included:  docker-compose.yml (shared infra)  +  client
-// Iterates:         server folders (skipping `tests`)  +  simulator folders
-//
-// Usage:
-//   node scripts/compose/compose-run.mjs <mode> [pattern1 pattern2 ...]
-//
-//   mode = dev          -> compose up --watch --build
-//          start        -> compose up --build -d
-//          down         -> compose down --remove-orphans (no exclusion)
-//          integration  -> compose up --abort-on-container-exit (no exclusion)
-//
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -43,9 +31,9 @@ const excludePatterns = rawExcludes
   .flatMap((arg) => arg.replace(/^exclude=/, '').split(/\s+/))
   .filter(Boolean);
 
-const isDev         = mode === 'dev';
-const isStart       = mode === 'start';
-const isDown        = mode === 'down';
+const isDev = mode === 'dev';
+const isStart = mode === 'start';
+const isDown = mode === 'down';
 const isIntegration = mode === 'integration';
 
 if (!isDev && !isStart && !isDown && !isIntegration) {
@@ -66,7 +54,7 @@ const addInclude = (path) => includes.push(norm(path));
 
 const addService = (folderPath, withDev) => {
   const base = join(folderPath, 'docker-compose.yml');
-  const dev  = join(folderPath, 'docker-compose.dev.yml');
+  const dev = join(folderPath, 'docker-compose.dev.yml');
   if (existsSync(base)) addInclude(base);
   if (withDev && existsSync(dev)) addInclude(dev);
 };
@@ -85,21 +73,13 @@ const iterate = (parent, { skip = [] } = {}) => {
   }
 };
 
-// Step 1: shared infra (always)
 addInclude('docker-compose.yml');
-
-// Step 2: server services (skip the `tests` folder)
 iterate('server', { skip: ['tests'] });
-
-// Step 3: simulators
 iterate('simulators');
 
-// Step 4: client (always, unless explicitly excluded by name)
 if (!isExcluded('client')) {
   addService('client', isDev);
 }
-
-// Step 5: integration override file (last, only in integration mode)
 if (isIntegration) {
   addInclude('server/tests/docker-compose.integration.yml');
 }

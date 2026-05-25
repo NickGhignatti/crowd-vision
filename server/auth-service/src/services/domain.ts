@@ -108,7 +108,6 @@ export const addSubdomainToDomain = async (
   );
 };
 
-// --- Memberships ---
 export const getAccountMemberships = async (accountName: string) => {
   const account = await Account.findOne({ name: accountName });
 
