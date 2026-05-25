@@ -10,7 +10,7 @@ import { getServerUrl } from "../config/config.js";
 
 export const addDomain = async (
   domainName: string,
-  subdomains: IDomain[],
+  subdomains: IDomain["subdomains"],
   creatorAccountName: string,
   authenticationStrategy: "internal" | "oidc",
   ssoConfig?: ISSOConfig,
