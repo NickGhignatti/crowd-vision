@@ -7,11 +7,10 @@ on:
     paths:
       - 'client/**'
       - 'server/**'
+      - 'simulators/**'
+      - 'tooling/**'
       - 'scripts/**'
-      - '.husky/**'
       - '.prettierignore'
-      - 'package.json'
-      - 'package-lock.json'
       - '.github/workflows/ci-lint.yml'
   pull_request:
     branches:
@@ -19,31 +18,30 @@ on:
     paths:
       - 'client/**'
       - 'server/**'
+      - 'simulators/**'
+      - 'tooling/**'
       - 'scripts/**'
-      - '.husky/**'
       - '.prettierignore'
-      - 'package.json'
-      - 'package-lock.json'
       - '.github/workflows/ci-lint.yml'
   workflow_dispatch:
   workflow_call:
 
 jobs:
   lint:
-    name: lint (${{ matrix.workspace }})
+    name: lint (${{ matrix.workspace.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         workspace:
-          - client
-          - auth-service
-          - notification-service
-          - sensor-service
-          - socket-service
-          - twin-service
-          - agent-service
+          - { name: client,               dir: client }
+          - { name: auth-service,         dir: server/auth-service }
+          - { name: notification-service, dir: server/notification-service }
+          - { name: sensor-service,       dir: server/sensor-service }
+          - { name: socket-service,       dir: server/socket-service }
+          - { name: twin-service,         dir: server/twin-service }
+          - { name: sensor-simulator,     dir: simulators/sensor-simulator }
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,27 +51,42 @@ jobs:
         with:
           node-version: '24.x'
           cache: npm
+          cache-dependency-path: ${{ matrix.workspace.dir }}/package-lock.json
 
-      - name: Install dependencies
+      - name: Install shared tooling
+        working-directory: tooling
         run: npm ci
 
-      - name: Setup Python (agent-service only)
-        if: matrix.workspace == 'agent-service'
+      - name: Install service deps
+        working-directory: ${{ matrix.workspace.dir }}
+        run: npm ci
+
+      - name: Lint
+        working-directory: ${{ matrix.workspace.dir }}
+        run: npm run lint
+
+  agent-lint:
+    name: lint (agent-service)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Setup uv (agent-service only)
-        if: matrix.workspace == 'agent-service'
+      - name: Setup uv
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
 
-      - name: Install Python deps (agent-service only)
-        if: matrix.workspace == 'agent-service'
+      - name: Install Python deps
         working-directory: ./server/agent-service
         run: uv sync --all-extras --dev
 
-      - name: Run lint for workspace
-        run: npm run lint --workspace ${{ matrix.workspace }}
-
+      - name: Lint
+        working-directory: ./server/agent-service
+        run: uv run ruff check . && uv run ruff format --check . && uv run pyright

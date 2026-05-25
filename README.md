@@ -26,8 +26,10 @@ Whether you are a user learning how to navigate the dashboard, or a developer lo
 
 ## 🚀 Quick Start
 
+CrowdVision is a polyglot monorepo (JavaScript, Python, Rust) orchestrated by [`just`](https://just.systems/). There is no root `package.json` — each service manages its own dependencies; shared JS dev tooling lives in `tooling/`.
+
 ```bash
-just install    # install all dependencies (npm + Python uv + Rust cargo)
+just install    # install all dependencies (npm per-service + Python uv + Rust cargo)
 just env        # generate .env (prompts for secrets, skips existing values)
 just dev        # start the full dev stack with hot-reload
 ```

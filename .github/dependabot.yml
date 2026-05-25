@@ -1,8 +1,8 @@
 version: 2
 updates:
-  # Root workspace
+  # Shared dev tooling (semantic-release, lerna, commitlint, shared ESLint config)
   - package-ecosystem: npm
-    directory: "/"
+    directory: "/tooling"
     schedule:
       interval: weekly
       day: monday
@@ -41,6 +41,13 @@ updates:
 
   - package-ecosystem: npm
     directory: "/server/socket-service"
+    schedule:
+      interval: weekly
+      day: monday
+
+  # Simulators
+  - package-ecosystem: npm
+    directory: "/simulators/sensor-simulator"
     schedule:
       interval: weekly
       day: monday

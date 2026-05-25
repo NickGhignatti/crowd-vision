@@ -105,7 +105,7 @@ async function main() {
   const env = loadEnv();
   const secret = env.JWT_SECRET;
   if (!secret) {
-    console.error("JWT_SECRET not found in .env — run `npm run env:setup` first.");
+    console.error("JWT_SECRET not found in .env — run `just env` first.");
     process.exit(1);
   }
 

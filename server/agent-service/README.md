@@ -114,7 +114,7 @@ This is the existing "output guardrail" referenced under Safety — it prevents 
 
 ## Linting & type-checking
 
-Two tools, both configured in [pyproject.toml](pyproject.toml) and exposed as workspace scripts in [package.json](package.json):
+Two tools, both configured in [pyproject.toml](pyproject.toml) and exposed as scripts in [package.json](package.json) so they can be invoked uniformly from `just lint`:
 
 - **ruff** — linter + formatter. Rule families: `E/W/F` (pycodestyle/pyflakes), `I` (isort), `B` (bugbear), `UP` (pyupgrade), `N` (naming), `S` (bandit/security), `ASYNC`, `SIM`, `PTH`, `TID`, `TCH`, `RUF`, `C4`, `PIE`, `RET`. Tests/evals/alembic have relaxed rules via `per-file-ignores`.
 - **pyright** — type-checker in `basic` mode (catches imports, undefined names, obvious type errors; lenient on argument types). Bump to `standard` in `[tool.pyright]` once the codebase is clean.
@@ -126,7 +126,7 @@ Two tools, both configured in [pyproject.toml](pyproject.toml) and exposed as wo
 | `npm run format`         | `ruff format` only                            |
 | `npm run typecheck`      | pyright only                                  |
 
-Picked up by the root `npm run lint --workspaces` along with the JS services.
+Picked up by `just lint` along with every JS service (each leg invokes `npm --prefix <dir> run lint`).
 
 ## OpenAPI
 

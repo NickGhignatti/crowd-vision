@@ -10,14 +10,14 @@ jobs:
     strategy:
       matrix:
         directory:
-          - "."
+          - "tooling"
           - "client"
           - "server/auth-service"
           - "server/notification-service"
           - "server/sensor-service"
           - "server/socket-service"
           - "server/twin-service"
-          - "server/agent-service"
+          - "simulators/sensor-simulator"
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6

@@ -30,11 +30,14 @@ jobs:
         with:
           node-version: 24.x
           cache: "npm"
+          cache-dependency-path: tooling/package-lock.json
 
-      - name: Install Dependencies
+      - name: Install Tooling Dependencies
+        working-directory: tooling
         run: npm ci
 
       - name: Run Semantic Release
+        working-directory: tooling
         env:
           GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
         run: npx semantic-release

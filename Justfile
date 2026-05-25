@@ -9,7 +9,15 @@ default:
 
 # Install all dependencies across all languages
 install:
-    npm install
+    npm --prefix tooling install
+    npm --prefix client install
+    npm --prefix server/auth-service install
+    npm --prefix server/twin-service install
+    npm --prefix server/notification-service install
+    npm --prefix server/sensor-service install
+    npm --prefix server/socket-service install
+    npm --prefix server/tests install
+    npm --prefix simulators/sensor-simulator install
     uv sync --project server/agent-service
     cargo fetch --manifest-path server/contracts-service/Cargo.toml
 
@@ -17,7 +25,11 @@ install:
 
 # Generate .env (VAPID keys, JWT tokens, admin credentials)
 env:
-    npm run env:setup
+    node scripts/env/create.js
+    node scripts/env/vapid.js
+    node scripts/env/token.js
+    node scripts/env/config.js
+    node scripts/env/admin.js
 
 # ── Development ───────────────────────────────────────────────────────────────
 
@@ -25,14 +37,12 @@ env:
 #   just dev exclude="agent"            → skip agent-service, agent-db, agent-ingester
 #   just dev exclude="agent simulator"  → also skip aq-simulator, sensor-simulator
 [doc("Start dev stack. Use exclude= with space-separated substrings of folder names.")]
-dev exclude="":
-    npm run env:setup
+dev exclude="": env
     node scripts/compose/compose-run.mjs dev {{exclude}}
 
 # Start production stack in background. Same exclusion syntax as `dev`.
 [doc("Start production stack (background). Use exclude= with space-separated substrings.")]
-start exclude="":
-    npm run env:setup
+start exclude="": env
     node scripts/compose/compose-run.mjs start {{exclude}}
 
 # Stop all containers and remove orphans (always tears down everything)
@@ -105,13 +115,27 @@ agent-ingest:
 
 # ── Linting ───────────────────────────────────────────────────────────────────
 
-# Lint all workspaces
+# Lint every service
 lint:
-    npm run lint
+    npm --prefix client run lint
+    npm --prefix server/auth-service run lint
+    npm --prefix server/twin-service run lint
+    npm --prefix server/notification-service run lint
+    npm --prefix server/sensor-service run lint
+    npm --prefix server/socket-service run lint
+    npm --prefix simulators/sensor-simulator run lint
+    npm --prefix server/agent-service run lint
 
-# Fix linting issues across all workspaces
+# Fix linting issues across every service
 lint-fix:
-    npm run lint:fix
+    npm --prefix client run lint:fix
+    npm --prefix server/auth-service run lint:fix
+    npm --prefix server/twin-service run lint:fix
+    npm --prefix server/notification-service run lint:fix
+    npm --prefix server/sensor-service run lint:fix
+    npm --prefix server/socket-service run lint:fix
+    npm --prefix simulators/sensor-simulator run lint:fix
+    npm --prefix server/agent-service run lint:fix
 
 # ── Kubernetes ────────────────────────────────────────────────────────────────
 

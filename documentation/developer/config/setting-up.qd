@@ -30,7 +30,7 @@ Clone the repository and install all language-specific dependencies in one step:
     cd crowd-vision
     just install
 
-`just install` runs `npm install` (Node), `uv sync` (Python), and `cargo fetch` (Rust) across all workspaces simultaneously.
+`just install` installs Node deps for `tooling/`, the client, every server service, and the sensor simulator; then runs `uv sync` for the agent-service Python deps and `cargo fetch` for the Rust contracts-service. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint, the shared ESLint config) lives in `tooling/`.
 
 ---
 
