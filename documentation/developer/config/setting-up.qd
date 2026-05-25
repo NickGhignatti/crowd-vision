@@ -9,14 +9,17 @@ Don't worry — we have provided scripts to automate the hardest parts.
 
 ## 🛠️ 1. Prerequisites
 
-Before cloning the repository, ensure your local machine has the following tools installed:
+**Install these two tools first — everything else depends on them:**
 
-*   **Node.js v24**, **Python 3.12**, **Rust (stable)** — install manually or let **mise** manage them (see below).
-*   **Docker & Docker Compose** (for running the isolated databases and services)
-*   **uv** (Python package manager for `agent-service` — install at <https://docs.astral.sh/uv/>)
-*   **Git**
 *   **`just`** (cross-platform task runner — install at <https://just.systems/>)
-*   **`mise`** *(recommended)* — multi-language toolchain manager. The repo root contains a `.mise.toml` that pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning and all tools are at the correct versions on any OS. Install at <https://mise.jdx.dev/>.
+*   **`mise`** — multi-language toolchain manager. The repo root contains a `.mise.toml` that pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning and all tools are at the correct versions on any OS. Install at <https://mise.jdx.dev/>.
+
+Once `just` and `mise` are available, the remaining tools can be managed by `mise` automatically or installed manually:
+
+*   **Node.js v24**, **Python 3.12**, **Rust (stable)** — handled by `mise install`.
+*   **uv** — handled by `mise install` (or manually at <https://docs.astral.sh/uv/>).
+*   **Docker & Docker Compose** (for running the isolated databases and services)
+*   **Git**
 *   **A local Kubernetes cluster + kubectl** (only if you plan to deploy via k8s)
 
 ---
