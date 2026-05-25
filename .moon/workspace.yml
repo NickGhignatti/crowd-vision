@@ -4,6 +4,10 @@
 
 $schema: "https://moonrepo.dev/schemas/workspace.json"
 
+vcs:
+  manager: git
+  defaultBranch: master
+
 projects:
   client: "client"
   auth-service: "server/auth-service"
@@ -15,6 +19,10 @@ projects:
   contracts-service: "server/contracts-service"
   sensor-simulator: "simulators/sensor-simulator"
 
-# Inputs that, when changed, invalidate ALL tasks across ALL projects.
-# (Changes to the ESLint config or moon config itself bust every cache.)
+# Changes to the shared ESLint config or moon config itself bust every service cache.
+hasher:
+  globalInputs:
+    - "/tooling/eslint-config/**/*"
+    - "/.moon/**/*"
+
 telemetry: false

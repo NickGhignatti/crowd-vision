@@ -24,6 +24,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
       - name: Build Docker Images
         env:
           DEV_URL: "http://localhost"
@@ -33,4 +38,4 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: "dummy_key"
           VAPID_PUBLIC_KEY: "dummy_key"
           VAPID_PRIVATE_KEY: "dummy_key"
-        run: docker compose -f docker-compose.yml -f docker-compose.dbs.yml -f docker-compose.services.yml -f docker-compose.simulators.yml -f docker-compose.client.yml -f docker-compose.interfaces.yml build
+        run: node scripts/compose/compose-run.mjs build

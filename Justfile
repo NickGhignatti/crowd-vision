@@ -55,7 +55,7 @@ down:
 
 # Follow logs for all services, or one: just logs auth-service
 logs service="":
-    docker compose -f docker-compose.yml logs -f {{service}}
+    docker compose -f compose.runtime.yml logs -f {{service}}
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 

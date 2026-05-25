@@ -2,20 +2,20 @@ language: 'python'
 
 tasks:
   test:
-    script: 'npm test'
+    command: 'npm test'
     inputs:
       - 'app/**/*'
       - 'tests/**/*'
       - 'pyproject.toml'
 
   lint:
-    script: 'npm run lint'
+    command: 'npm run lint'
     inputs:
       - 'app/**/*'
       - 'tests/**/*'
       - 'pyproject.toml'
 
   lint-fix:
-    script: 'npm run lint:fix'
+    command: 'npm run lint:fix'
     options:
       cache: false

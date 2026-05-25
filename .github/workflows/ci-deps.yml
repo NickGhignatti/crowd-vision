@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 24.x
           cache: "npm"
-          cache-dependency-path: '**/package-lock.json'
+          cache-dependency-path: ${{ matrix.directory }}/package-lock.json
 
       - name: Check Dependencies
         run: cd ${{ matrix.directory }} && npm ci

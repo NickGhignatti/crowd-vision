@@ -140,7 +140,7 @@ These workflows validate properties that span the whole codebase rather than a s
 
 **`ci-deps`** — Verifies that all lockfiles are consistent with their manifests: `npm ci`, `uv sync --locked`, and `cargo check`.
 
-**`ci-docker`** — Lints every Dockerfile in the repository with **hadolint** before attempting a full `docker compose build` of the entire stack. The hadolint step runs first; a lint failure skips the build.
+**`ci-docker`** — Lints every Dockerfile in the repository with **hadolint**, then builds the entire stack via `node scripts/compose/compose-run.mjs build`. The orchestrator generates a `compose.runtime.yml` (using the same `include:` mechanism as `just dev`) and runs `docker compose build` against it, so path resolution is identical to local development. The hadolint step runs first; a lint failure skips the build.
 
 **`ci-commitlint`** — Validates every commit message in the pull request against the Conventional Commits specification using `wagoid/commitlint-github-action`.
 

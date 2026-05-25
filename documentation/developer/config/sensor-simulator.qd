@@ -1,31 +1,56 @@
-.docname {The External Sensor Simulator}
+.docname {External Simulators}
 .include {docs}
 
-The **Sensor Simulator** is a standalone service designed to generate synthetic IoT sensor data (people count and temperature) and send it to CrowdVision's sensor ingestion API. It is architecturally separate from the main application cluster — it runs as a plain Docker container on your local machine, not as a Kubernetes workload.
+CrowdVision ships two simulators that exist **outside the main application cluster**. They are not microservices — they are test stand-ins for systems that in production would be real external hardware or third-party services.
+
+.var {headers}
+   - Simulator
+   - Location
+   - What it replaces
+
+.tablebyrows {.headers}
+    - - **Sensor Simulator**
+      - `simulators/sensor-simulator/`
+      - Physical IoT sensors installed in buildings (people count + temperature)
+    - - **Air Quality Simulator**
+      - `simulators/aq-simulator/`
+      - External AQ monitoring stations sending air-quality readings
 
 ---
 
-## 🏗️ Why External?
+## 🏗️ Architectural Decision: Keep Simulators External
 
-In a real production deployment, CrowdVision receives data from physical IoT sensors installed in buildings. Those sensors are external systems — they are not part of the cluster; they simply fire HTTP POST requests at the public API.
+**Decision:** Simulators are never included in Kubernetes manifests and are not part of the production system definition.
 
-The simulator is designed to model exactly this reality. It is a **stand-in for a real sensor vendor**. Running it outside Kubernetes means:
-- The K8s manifests describe only the actual system — no test tooling in the cluster.
-- The simulator connects to the cluster the same way a real sensor would: via the public-facing Ingress URL.
-- Deploying to production requires zero changes to the simulator's architecture.
+**Why:** In production, CrowdVision receives data from physical IoT sensors and third-party AQ stations. Those devices are external — they know nothing about the cluster; they just POST to public API endpoints. The simulators are designed to model exactly this reality.
+
+Running simulators outside Kubernetes enforces that boundary at the architecture level:
+- The K8s manifests describe only the real system — no test tooling bleeds into production configs.
+- Each simulator connects to the cluster the same way real hardware would: via the public-facing Ingress URL (`http://crowdvision.local/sensor/`).
+- Deploying to production requires zero changes — the simulators simply point at a different URL.
+
+This is the same reasoning behind not running load-test tooling inside a production cluster: the test tool is not the system under test.
 
 ---
 
-## 📦 Running the Simulator
+## 📦 Running the Simulators
 
-The simulator image is built and pushed to GHCR by the CI workflow. To run it locally:
+Both simulator images are built and pushed to GHCR as part of the CD pipeline. To run them locally:
 
 .code lang:{bash}
+    # Sensor simulator (people count + temperature):
     docker run -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest
 
-This exposes the simulator's control API on `http://localhost:3001`. The simulator itself has no UI — it is controlled via HTTP endpoints called by the Vue frontend.
+    # Air quality simulator:
+    docker run -p 3002:3000 ghcr.io/nickghignatti/crowdvision-aq-simulator:latest
 
-To stop it:
+Alternatively, both simulators are included in the Docker Compose stack and start automatically with `just dev` (unless excluded):
+
+.code lang:{bash}
+    just dev exclude="simulator"   # skip both simulators
+    just dev exclude="aq"          # skip only the AQ simulator
+
+To stop a standalone container:
 
 .code lang:{bash}
     docker stop <container-id>

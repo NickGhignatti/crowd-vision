@@ -35,14 +35,15 @@ const isDev = mode === 'dev';
 const isStart = mode === 'start';
 const isDown = mode === 'down';
 const isIntegration = mode === 'integration';
+const isBuild = mode === 'build';
 
-if (!isDev && !isStart && !isDown && !isIntegration) {
-  console.error(`Unknown mode: ${mode}. Use: dev | start | down | integration`);
+if (!isDev && !isStart && !isDown && !isIntegration && !isBuild) {
+  console.error(`Unknown mode: ${mode}. Use: dev | start | down | integration | build`);
   process.exit(1);
 }
 
-// down/integration always include everything — ignore any patterns passed
-const effectiveExcludes = (isDown || isIntegration) ? [] : excludePatterns;
+// down/integration/build always include everything — ignore any patterns passed
+const effectiveExcludes = (isDown || isIntegration || isBuild) ? [] : excludePatterns;
 const isExcluded = (name) => effectiveExcludes.some((pat) => name.includes(pat));
 
 // ── Build the include list ───────────────────────────────────────────────────
@@ -101,6 +102,8 @@ writeFileSync(RUNTIME_FILE, runtimeYaml);
 let dockerArgs;
 if (isDown) {
   dockerArgs = ['compose', '-f', RUNTIME_FILE, 'down', '--remove-orphans'];
+} else if (isBuild) {
+  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'build'];
 } else if (isIntegration) {
   dockerArgs = [
     'compose', '-f', RUNTIME_FILE,
