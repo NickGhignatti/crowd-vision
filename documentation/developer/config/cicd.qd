@@ -154,7 +154,7 @@ These workflows validate properties that span the whole codebase rather than a s
 
 ### CD Workflows
 
-**`cd-release`** — Triggered automatically on every push to `master`. Installs `tooling/` and runs `npx semantic-release` from there: reads commits since the last tag, calculates the next version, generates the root `CHANGELOG.md`, creates a GitHub Release, and bumps the `version` field in every service's `package.json` (via `tooling/bump-versions.mjs`). A concurrency guard prevents duplicate runs.
+**`cd-release`** — Triggered automatically on every push to `master`. Installs `tooling/` and runs `npx semantic-release` from there: reads commits since the last tag, calculates the next version, generates the root `CHANGELOG.md`, creates a GitHub Release, and bumps the `version` field in every service's `package.json` (via `tooling/bump-versions.mjs` — a plain Node `fs` script used in place of Lerna, because Lerna 9 requires npm workspaces and npm workspaces cannot reference paths outside their own directory tree). A concurrency guard prevents duplicate runs.
 
 **`cd-registry`** — Also triggered on push to `master` when source files change. Builds and pushes all Docker images to GHCR tagged both `:latest` and `:<git-sha>`. After each image is pushed, **Trivy** scans it for HIGH and CRITICAL CVEs — the job fails if any are found. A concurrency guard ensures only one registry push runs at a time.
 

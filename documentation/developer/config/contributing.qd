@@ -11,6 +11,9 @@ CrowdVision is a **polyglot monorepo** — JavaScript/TypeScript (Vue client + 5
 - *Shared ESLint config*: each service's `lint` script points at `../../tooling/eslint.config.mjs`. ESLint resolves shared plugins (`typescript-eslint`, etc.) from `tooling/node_modules`; the `eslint` binary itself is a devDep of every service.
 - *Release flow*: semantic-release drives versioning from `tooling/` (`cd-release.yml`). Version bumps across every service `package.json` are applied by `tooling/bump-versions.mjs`.
 
+.box type:{note}
+    **Why `bump-versions.mjs` instead of Lerna?** Lerna 9 dropped its own package-discovery field and now delegates entirely to npm workspaces (`"workspaces"` in `package.json`). npm workspaces cannot point *upward* with `../` — workspace paths must be strict descendants of the directory that owns the `package.json`. Since `tooling/` sits inside the repo rather than above the services, a `tooling/package.json` declaring `"workspaces": ["../client", "../server/*"]` is rejected by npm outright. `tooling/bump-versions.mjs` sidesteps the constraint entirely: it is a plain Node `fs` script that opens each service `package.json` by relative path and writes the new version — no workspaces, no Lerna discovery, no tooling needed beyond Node itself.
+
 ---
 
 ## 🚀 Commits & Semantic Release
