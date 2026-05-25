@@ -8,8 +8,8 @@
     "start": "node dist/index.js",
     "dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
-    "lint": "eslint . --config ../../tooling/eslint.config.mjs",
-    "lint:fix": "prettier --write src __tests__ tsconfig.json tsconfig.build.json openapi.yaml package.json && eslint . --config ../../tooling/eslint.config.mjs --fix"
+    "lint": "eslint .",
+    "lint:fix": "prettier --write src __tests__ tsconfig.json tsconfig.build.json openapi.yaml package.json && eslint . --fix"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +25,7 @@
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
+    "@crowdvision/eslint-config": "file:../../tooling/eslint-config",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
     "@types/jest": "^29.5.14",

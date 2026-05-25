@@ -1,0 +1,23 @@
+# .moon/workspace.yml — moon workspace configuration
+# https://moonrepo.dev/docs/config/workspace
+#
+# Tool versions are managed by mise (.mise.toml at repo root): run `mise install` first.
+# Moon handles task orchestration, caching, and affected detection.
+# Docker / Kubernetes orchestration remains in the Justfile.
+
+$schema: 'https://moonrepo.dev/schemas/workspace.json'
+
+projects:
+  client:               'client'
+  auth-service:         'server/auth-service'
+  twin-service:         'server/twin-service'
+  sensor-service:       'server/sensor-service'
+  notification-service: 'server/notification-service'
+  socket-service:       'server/socket-service'
+  agent-service:        'server/agent-service'
+  contracts-service:    'server/contracts-service'
+  sensor-simulator:     'simulators/sensor-simulator'
+
+# Inputs that, when changed, invalidate ALL tasks across ALL projects.
+# (Changes to the ESLint config or moon config itself bust every cache.)
+telemetry: false

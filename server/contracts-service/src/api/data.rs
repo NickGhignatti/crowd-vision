@@ -86,7 +86,7 @@ pub async fn update_preferences(
     // Acknowledge the update instantly
     let response = UpdatePreferencesResponse {
         status: "success".to_string(),
-        building_id: building_id,
+        building_id,
         active_columns: column_count,
     };
 

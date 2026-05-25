@@ -7,9 +7,13 @@ default:
 
 # ── Installation ──────────────────────────────────────────────────────────────
 
-# Install all dependencies across all languages
+# Install all dependencies across all languages.
+# Requires mise (https://mise.jdx.dev/) for tool version management:
+#   mise install          → installs Node 24, Python 3.12, Rust stable, moon
+#   npm install -g @moonrepo/cli   → alternative if mise is not available
 install:
     npm --prefix tooling install
+    npm --prefix tooling/eslint-config install
     npm --prefix client install
     npm --prefix server/auth-service install
     npm --prefix server/twin-service install
@@ -55,35 +59,35 @@ logs service="":
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 
-# Run all unit tests across all services (sequential)
+# Run all unit tests across all services (moon handles caching + task graph)
 test:
-    node scripts/test/test-run.mjs all
+    moon run :test
 
-# Run all unit tests in parallel (faster, but interleaved-looking output is buffered per suite)
-test-all-parallel:
-    node scripts/test/test-run.mjs all --parallel
+# Run only tests for services affected by changes on the current branch
+test-affected:
+    moon run :test --affected
 
 # Per-service unit tests
 test-auth:
-    node scripts/test/test-run.mjs auth
+    moon run auth-service:test
 
 test-twin:
-    node scripts/test/test-run.mjs twin
+    moon run twin-service:test
 
 test-notification:
-    node scripts/test/test-run.mjs notification
+    moon run notification-service:test
 
 test-sensor:
-    node scripts/test/test-run.mjs sensor
+    moon run sensor-service:test
 
 test-socket:
-    node scripts/test/test-run.mjs socket
+    moon run socket-service:test
 
 test-client:
-    node scripts/test/test-run.mjs client
+    moon run client:test
 
 test-agent:
-    node scripts/test/test-run.mjs agent
+    moon run agent-service:test
 
 # Agent Python integration tests (separate suite from the docker-compose one)
 test-agent-integration:
@@ -115,27 +119,17 @@ agent-ingest:
 
 # ── Linting ───────────────────────────────────────────────────────────────────
 
-# Lint every service
+# Lint every service (moon caches results; unchanged services are instant)
 lint:
-    npm --prefix client run lint
-    npm --prefix server/auth-service run lint
-    npm --prefix server/twin-service run lint
-    npm --prefix server/notification-service run lint
-    npm --prefix server/sensor-service run lint
-    npm --prefix server/socket-service run lint
-    npm --prefix simulators/sensor-simulator run lint
-    npm --prefix server/agent-service run lint
+    moon run :lint
 
-# Fix linting issues across every service
+# Lint only services affected by changes on the current branch
+lint-affected:
+    moon run :lint --affected
+
+# Fix linting issues across every service (always runs; not cached)
 lint-fix:
-    npm --prefix client run lint:fix
-    npm --prefix server/auth-service run lint:fix
-    npm --prefix server/twin-service run lint:fix
-    npm --prefix server/notification-service run lint:fix
-    npm --prefix server/sensor-service run lint:fix
-    npm --prefix server/socket-service run lint:fix
-    npm --prefix simulators/sensor-simulator run lint:fix
-    npm --prefix server/agent-service run lint:fix
+    moon run :lint-fix
 
 # ── Kubernetes ────────────────────────────────────────────────────────────────
 

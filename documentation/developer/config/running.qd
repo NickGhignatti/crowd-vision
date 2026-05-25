@@ -188,11 +188,11 @@ See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Q
 ## 🧪 Testing
 
 .code lang:{bash}
-    # Run all unit tests across all services (sequential):
+    # Run all unit tests across all services (moon caches results — unchanged services are instant):
     just test
 
-    # Run all unit tests in parallel (faster, interleaved output):
-    just test-all-parallel
+    # Run only tests for services touched by your current branch:
+    just test-affected
 
     # Per-service unit tests:
     just test-auth
@@ -205,6 +205,9 @@ See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Q
 
     # Full backend integration tests (spins up a composed stack, then tears it down):
     just test-integration
+
+.box type:{note}
+    `just test` and `just lint` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test-affected` / `just lint-affected` on a feature branch to only process the services your changes actually touch.
 
 ---
 
@@ -228,17 +231,19 @@ See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Q
     - - `just db-clear-sensor`
       - Drop only the sensor database.
     - - `just test`
-      - Run all unit tests (sequential).
-    - - `just test-all-parallel`
-      - Run all unit tests in parallel.
+      - Run all unit tests (moon-cached; unchanged services are instant).
+    - - `just test-affected`
+      - Run unit tests only for services changed on the current branch.
     - - `just test-<service>`
       - Run unit tests for one service.
     - - `just test-integration`
       - Run backend integration tests.
     - - `just lint`
-      - Lint every service.
+      - Lint every service (moon-cached).
+    - - `just lint-affected`
+      - Lint only services changed on the current branch.
     - - `just lint-fix`
-      - Auto-fix linting issues.
+      - Auto-fix linting issues across every service.
     - - `just agent-ingest`
       - Re-ingest documentation into the AI agent knowledge base.
 

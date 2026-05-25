@@ -1,0 +1,16 @@
+# .mise.toml — single source of truth for toolchain versions across Node, Python, Rust, and moon.
+# https://mise.jdx.dev/
+#
+# Install all managed tools in one step:
+#   mise install
+#
+# After adding a new tool or changing a version, re-run `mise install`.
+# CI manages its own toolchain versions via setup-node / setup-python / setup-rust-toolchain;
+# this file is for local development parity.
+
+[tools]
+node    = "24"
+python  = "3.12"
+rust    = "stable"
+moon    = "latest"
+uv      = "latest"

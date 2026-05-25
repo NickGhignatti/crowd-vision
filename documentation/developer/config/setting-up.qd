@@ -11,26 +11,27 @@ Don't worry — we have provided scripts to automate the hardest parts.
 
 Before cloning the repository, ensure your local machine has the following tools installed:
 
-*   **Node.js** (v18+ recommended)
+*   **Node.js v24**, **Python 3.12**, **Rust (stable)** — install manually or let **mise** manage them (see below).
 *   **Docker & Docker Compose** (for running the isolated databases and services)
-*   **Python 3.10+** with **uv** (required for `agent-service` — install uv at <https://docs.astral.sh/uv/>)
-*   **Rust / Cargo** (required for `contracts-service` — install at <https://rustup.rs/>)
+*   **uv** (Python package manager for `agent-service` — install at <https://docs.astral.sh/uv/>)
 *   **Git**
 *   **`just`** (cross-platform task runner — install at <https://just.systems/>)
+*   **`mise`** *(recommended)* — multi-language toolchain manager. The repo root contains a `.mise.toml` that pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning and all tools are at the correct versions on any OS. Install at <https://mise.jdx.dev/>.
 *   **A local Kubernetes cluster + kubectl** (only if you plan to deploy via k8s)
 
 ---
 
 ## 📦 2. Installation
 
-Clone the repository and install all language-specific dependencies in one step:
+Clone the repository, then install toolchain versions and all language-specific dependencies:
 
 .code lang:{bash}
     git clone https://github.com/NickGhignatti/crowd-vision.git
     cd crowd-vision
+    mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires mise)
     just install
 
-`just install` installs Node deps for `tooling/`, the client, every server service, and the sensor simulator; then runs `uv sync` for the agent-service Python deps and `cargo fetch` for the Rust contracts-service. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint, the shared ESLint config) lives in `tooling/`.
+`just install` installs Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; then runs `uv sync` for the agent-service Python deps and `cargo fetch` for the Rust contracts-service. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
 
 ---
 

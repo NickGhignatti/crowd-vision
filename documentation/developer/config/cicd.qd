@@ -131,7 +131,7 @@ The contracts service workflow also runs `cargo fmt --check` and `cargo clippy -
 
 These workflows validate properties that span the whole codebase rather than a single service.
 
-**`ci-lint`** — Runs ESLint per service (`client`, every `server/*` Node service, `simulators/sensor-simulator`) and Ruff/pyright for the Python `agent-service`. Each matrix leg installs `tooling/` (for the shared flat config + plugins) and the service's own deps. Node.js 24 is used consistently.
+**`ci-lint`** — Runs ESLint per service (`client`, every `server/*` Node service, `simulators/sensor-simulator`) and Ruff/pyright for the Python `agent-service`. Each matrix leg installs `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared flat config package) and the service's own deps. Node.js 24 is used consistently. The workflow also triggers on changes to `.moon/**` so that tooling config changes are always re-validated.
 
 **`ci-audit`** — Runs security audits for all three language ecosystems:
 - `npm audit --audit-level=high` for every Node.js package
@@ -154,7 +154,7 @@ These workflows validate properties that span the whole codebase rather than a s
 
 ### CD Workflows
 
-**`cd-release`** — Triggered automatically on every push to `master`. Installs `tooling/` and runs `npx semantic-release` from there: reads commits since the last tag, calculates the next version, generates the root `CHANGELOG.md`, creates a GitHub Release, and bumps the `version` field in every service's `package.json` (via `tooling/bump-versions.mjs` — a plain Node `fs` script used in place of Lerna, because Lerna 9 requires npm workspaces and npm workspaces cannot reference paths outside their own directory tree). A concurrency guard prevents duplicate runs.
+**`cd-release`** — Triggered automatically on every push to `master`. Installs `tooling/` and runs `npx semantic-release` from there: reads commits since the last tag, calculates the next version, generates the root `CHANGELOG.md`, creates a GitHub Release, and bumps the `version` field in every service's `package.json` (`client`, all `server/*` Node services), `server/contracts-service/Cargo.toml` (Rust), and `server/agent-service/pyproject.toml` (Python), via `tooling/bump-versions.mjs` — a plain Node `fs` script used in place of Lerna, because Lerna 9 requires npm workspaces and npm workspaces cannot reference paths outside their own directory tree. A concurrency guard prevents duplicate runs.
 
 **`cd-registry`** — Also triggered on push to `master` when source files change. Builds and pushes all Docker images to GHCR tagged both `:latest` and `:<git-sha>`. After each image is pushed, **Trivy** scans it for HIGH and CRITICAL CVEs — the job fails if any are found. A concurrency guard ensures only one registry push runs at a time.
 
@@ -177,7 +177,7 @@ When a pull request is merged, `cd-release` runs Semantic Release, which:
 1. Reads all commits since the last Git tag.
 2. Calculates the next version number based on the commit prefixes found.
 3. Generates / updates `CHANGELOG.md` with categorized commit entries.
-4. Bumps `version` in every service `package.json` (`client`, all `server/*` Node services) and the matching `package-lock.json`, via `tooling/bump-versions.mjs`.
+4. Bumps `version` in every service `package.json` (`client`, all `server/*` Node services), `server/contracts-service/Cargo.toml`, and `server/agent-service/pyproject.toml`, via `tooling/bump-versions.mjs`.
 5. Creates a new Git tag (e.g., `v1.4.0`).
 6. Publishes a GitHub Release with the changelog as the release notes.
 
@@ -227,10 +227,10 @@ Before pushing, run the full test suite locally to catch failures before CI does
 .code lang:{bash}
     just test
 
-This runs all service test suites sequentially. For faster feedback, run them in parallel:
+This delegates to **moon**, which caches task results by input hash — if nothing in a service has changed since the last run, the cached result is replayed in milliseconds. To run only the services your branch actually changed:
 
 .code lang:{bash}
-    just test-all-parallel
+    just test-affected
 
 For per-service tests:
 

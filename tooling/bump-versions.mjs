@@ -53,6 +53,23 @@ function bumpJson(path, mutate) {
   return true
 }
 
+// Bump the first `version = "x.y.z"` line in a TOML file (Cargo.toml or pyproject.toml).
+// Targets only the package/project-level version, not dependency version strings (which use
+// different key names like `dep = "..."` or `dep.version = "..."`).
+function bumpToml(path, label) {
+  let raw
+  try {
+    raw = readFileSync(path, 'utf8')
+  } catch {
+    return false
+  }
+  const updated = raw.replace(/^(version\s*=\s*)"[^"]*"/m, `$1"${version}"`)
+  if (updated === raw) return false
+  writeFileSync(path, updated)
+  console.log(`  bumped ${path} (${label}) → ${version}`)
+  return true
+}
+
 let bumped = 0
 for (const path of targets) {
   const ok = bumpJson(path, (pkg) => {
@@ -80,5 +97,9 @@ for (const path of targets) {
   })
   if (lockOk) console.log(`    + lockfile: ${lockPath}`)
 }
+
+// Bump Rust and Python packages so the full monorepo stays in version sync.
+bumpToml(join(REPO_ROOT, 'server', 'contracts-service', 'Cargo.toml'), 'Rust')
+bumpToml(join(REPO_ROOT, 'server', 'agent-service', 'pyproject.toml'), 'Python')
 
 console.log(`\nDone. Bumped ${bumped} package.json file(s) to ${version}.`)
