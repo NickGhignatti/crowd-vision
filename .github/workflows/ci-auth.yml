@@ -1,11 +1,6 @@
 name: auth-service-ci
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - "server/auth-service/**"
-      - ".github/workflows/ci-auth.yml"
   workflow_call:
 
 jobs:

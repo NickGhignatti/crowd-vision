@@ -1,11 +1,6 @@
 name: sensor-service-ci
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - "server/sensor-service/**"
-      - ".github/workflows/ci-sensor.yml"
   workflow_call:
 
 jobs:

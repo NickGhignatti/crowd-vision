@@ -8,6 +8,10 @@ concurrency:
   group: ci-gate-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   # ── Detect which paths changed ─────────────────────────────────────────────
   changes:
@@ -71,7 +75,7 @@ jobs:
 
   lint:
     needs: changes
-    if: needs.changes.outputs.source == 'true'
+    if: needs.changes.outputs.source == 'true' && github.actor != 'dependabot[bot]'
     uses: ./.github/workflows/ci-lint.yml
 
   dependencies:
@@ -81,7 +85,7 @@ jobs:
 
   docker:
     needs: changes
-    if: needs.changes.outputs.source == 'true'
+    if: needs.changes.outputs.source == 'true' && github.actor != 'dependabot[bot]'
     uses: ./.github/workflows/ci-docker.yml
 
   auth:
@@ -147,7 +151,6 @@ jobs:
       - socket
       - contracts
       - docker
-      - commitlint
       - k8s
     if: always()
     steps:

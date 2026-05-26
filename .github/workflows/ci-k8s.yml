@@ -1,11 +1,6 @@
 name: Kubernetes Manifests
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - "k8s/**"
-      - ".github/workflows/ci-k8s.yml"
   workflow_call:
 
 jobs:

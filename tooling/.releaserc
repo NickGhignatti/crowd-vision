@@ -23,7 +23,9 @@
           "../client/package.json",
           "../client/package-lock.json",
           "../server/*/package.json",
-          "../server/*/package-lock.json"
+          "../server/*/package-lock.json",
+          "../server/contracts-service/Cargo.toml",
+          "../server/agent-service/pyproject.toml"
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }

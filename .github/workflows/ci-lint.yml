@@ -13,18 +13,6 @@ on:
       - 'scripts/**'
       - '.prettierignore'
       - '.github/workflows/ci-lint.yml'
-  pull_request:
-    branches:
-      - master
-    paths:
-      - 'client/**'
-      - 'server/**'
-      - 'simulators/**'
-      - 'tooling/**'
-      - '.moon/**'
-      - 'scripts/**'
-      - '.prettierignore'
-      - '.github/workflows/ci-lint.yml'
   workflow_dispatch:
   workflow_call:
 

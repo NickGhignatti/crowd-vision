@@ -1,12 +1,6 @@
 name: Docker Build
 
 on:
-  pull_request:
-    branches: ["master"]
-    paths:
-      - "server/**"
-      - "client/**"
-      - ".github/workflows/ci-docker.yml"
   workflow_call:
 
 jobs:

@@ -2,18 +2,25 @@ name: documentation
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'documentation/**'
   pull_request:
     branches:
       - master
     types:
       - closed
+    paths:
+      - 'documentation/**'
 
 permissions:
   contents: write
 
 jobs:
   build-documentation:
-    if: (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'docs')) || github.event_name == 'workflow_dispatch'
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
