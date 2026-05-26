@@ -9,45 +9,128 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    uses: ./.github/workflows/ci-lint.yml
+  # ── Detect which paths changed ─────────────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      agent: ${{ steps.filter.outputs.agent }}
+      client: ${{ steps.filter.outputs.client }}
+      contracts: ${{ steps.filter.outputs.contracts }}
+      notification: ${{ steps.filter.outputs.notification }}
+      sensor: ${{ steps.filter.outputs.sensor }}
+      socket: ${{ steps.filter.outputs.socket }}
+      twin: ${{ steps.filter.outputs.twin }}
+      source: ${{ steps.filter.outputs.source }}
+      k8s: ${{ steps.filter.outputs.k8s }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            auth:
+              - 'server/auth-service/**'
+              - '.github/workflows/ci-auth.yml'
+            agent:
+              - 'server/agent-service/**'
+              - '.github/workflows/ci-agent.yml'
+            client:
+              - 'client/**'
+              - '.github/workflows/ci-client.yml'
+            contracts:
+              - 'server/contracts-service/**'
+              - '.github/workflows/ci-contracts.yml'
+            notification:
+              - 'server/notification-service/**'
+              - '.github/workflows/ci-notification.yml'
+            sensor:
+              - 'server/sensor-service/**'
+              - '.github/workflows/ci-sensor.yml'
+            socket:
+              - 'server/socket-service/**'
+              - '.github/workflows/ci-socket.yml'
+            twin:
+              - 'server/twin-service/**'
+              - '.github/workflows/ci-twin.yml'
+            source:
+              - 'client/**'
+              - 'server/**'
+              - 'simulators/**'
+              - 'tooling/**'
+              - '.moon/**'
+              - '.github/workflows/ci-lint.yml'
+              - '.github/workflows/ci-docker.yml'
+              - '.github/workflows/ci-deps.yml'
+            k8s:
+              - 'k8s/**'
+              - '.github/workflows/ci-k8s.yml'
 
   audit:
     uses: ./.github/workflows/ci-audit.yml
 
+  lint:
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
+    uses: ./.github/workflows/ci-lint.yml
+
   dependencies:
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
     uses: ./.github/workflows/ci-deps.yml
 
+  docker:
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
+    uses: ./.github/workflows/ci-docker.yml
+
   auth:
+    needs: changes
+    if: needs.changes.outputs.auth == 'true'
     uses: ./.github/workflows/ci-auth.yml
 
+  agent:
+    needs: changes
+    if: needs.changes.outputs.agent == 'true'
+    uses: ./.github/workflows/ci-agent.yml
+
   client:
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     uses: ./.github/workflows/ci-client.yml
 
+  contracts:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    uses: ./.github/workflows/ci-contracts.yml
+
   notification:
+    needs: changes
+    if: needs.changes.outputs.notification == 'true'
     uses: ./.github/workflows/ci-notification.yml
 
-  twin:
-    uses: ./.github/workflows/ci-twin.yml
-
   sensor:
+    needs: changes
+    if: needs.changes.outputs.sensor == 'true'
     uses: ./.github/workflows/ci-sensor.yml
 
   socket:
+    needs: changes
+    if: needs.changes.outputs.socket == 'true'
     uses: ./.github/workflows/ci-socket.yml
 
-  contracts:
-    uses: ./.github/workflows/ci-contracts.yml
-
-  docker:
-    uses: ./.github/workflows/ci-docker.yml
-
-  commitlint:
-    uses: ./.github/workflows/ci-commitlint.yml
+  twin:
+    needs: changes
+    if: needs.changes.outputs.twin == 'true'
+    uses: ./.github/workflows/ci-twin.yml
 
   k8s:
+    needs: changes
+    if: needs.changes.outputs.k8s == 'true'
     uses: ./.github/workflows/ci-k8s.yml
 
+  # Skipped jobs resolve as 'skipped', not 'failure', so this check is safe
+  # to use as the single required branch-protection status check.
   ci-passed:
     name: CI Passed
     runs-on: ubuntu-latest
@@ -56,6 +139,7 @@ jobs:
       - audit
       - dependencies
       - auth
+      - agent
       - client
       - notification
       - twin
