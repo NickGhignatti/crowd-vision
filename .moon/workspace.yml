@@ -5,7 +5,7 @@
 $schema: "https://moonrepo.dev/schemas/workspace.json"
 
 vcs:
-  manager: git
+  client: git
   defaultBranch: master
 
 projects:
@@ -18,11 +18,5 @@ projects:
   agent-service: "server/agent-service"
   contracts-service: "server/contracts-service"
   sensor-simulator: "simulators/sensor-simulator"
-
-# Changes to the shared ESLint config or moon config itself bust every service cache.
-hasher:
-  globalInputs:
-    - "/tooling/eslint-config/**/*"
-    - "/.moon/**/*"
 
 telemetry: false

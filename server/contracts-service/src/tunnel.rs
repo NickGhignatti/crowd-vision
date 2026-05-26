@@ -71,7 +71,7 @@ async fn listen_and_fanout(
             Err(_) => {
                 info!("FAIL");
                 continue;
-            },
+            }
         };
 
         info!("Received raw telemetry: {}", payload.clone());
@@ -81,7 +81,7 @@ async fn listen_and_fanout(
             Err(_) => {
                 info!("FAIL");
                 continue;
-            },
+            }
         };
 
         // Clone Arc pointers for the spawn task
@@ -118,7 +118,10 @@ async fn process_and_publish(
         }
 
         if let Ok(payload_str) = serde_json::to_string(&raw_data) {
-            info!("Publishing to channel telemetry:filtered:{}: {}", building_id, payload_str);
+            info!(
+                "Publishing to channel telemetry:filtered:{}: {}",
+                building_id, payload_str
+            );
             let channel = format!("telemetry:filtered:{}", building_id);
             let _: redis::RedisResult<()> = redis::cmd("PUBLISH")
                 .arg(&channel)

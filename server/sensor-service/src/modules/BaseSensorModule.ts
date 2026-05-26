@@ -56,7 +56,6 @@ export abstract class BaseSensorModule<T> implements ISensorModule {
     this.publishTelemetry(this.buildTelemetryEvent(payload));
   }
 
-
   /**
    * Publishes a telemetry event to the `telemetry:raw` Redis channel.
    * Fire-and-forget: failures are logged but never bubble up to the caller,

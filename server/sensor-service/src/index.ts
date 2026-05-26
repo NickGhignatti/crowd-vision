@@ -19,7 +19,6 @@ const kernel = new SensorKernel()
   .register(new PeopleCountModule())
   .register(new AirQualityModule());
 
-
 export const getClientUrl = () =>
   process.env.CLIENT_URL ?? "http://localhost:8080";
 

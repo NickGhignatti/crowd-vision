@@ -12,8 +12,7 @@ export class AirQualityModule extends BaseSensorModule<IAirQuality> {
     const errors: string[] = [];
     if (!payload.buildingId)
       errors.push("buildingId: must be a non-empty string.");
-    if (!payload.roomId)
-      errors.push("roomId: must be a non-empty string.");
+    if (!payload.roomId) errors.push("roomId: must be a non-empty string.");
     if (typeof payload.timestamp !== "number")
       errors.push("timestamp: must be a finite number.");
     if (typeof payload.pm25 !== "number")
@@ -62,7 +61,12 @@ export class AirQualityModule extends BaseSensorModule<IAirQuality> {
     roomId?: string,
     aggMode?: string,
   ): Promise<unknown[]> {
-    return this.service.getDashboardData(buildingId, timeRange, roomId, aggMode);
+    return this.service.getDashboardData(
+      buildingId,
+      timeRange,
+      roomId,
+      aggMode,
+    );
   }
 
   async getThresholds(buildingId: string): Promise<unknown> {

@@ -149,6 +149,10 @@ spec:
       containers:
         - name: prometheus
           image: prom/prometheus:v3
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus
@@ -161,6 +165,8 @@ spec:
               mountPath: /etc/prometheus
             - name: prometheus-data
               mountPath: /prometheus
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             httpGet:
               path: /-/ready
@@ -179,9 +185,11 @@ spec:
             requests:
               cpu: "100m"
               memory: "256Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
+              ephemeral-storage: "500Mi"
       volumes:
         - name: config
           configMap:
@@ -189,6 +197,8 @@ spec:
         - name: prometheus-data
           persistentVolumeClaim:
             claimName: prometheus-data
+        - name: tmp
+          emptyDir: {}
 
 ---
 # ── PersistentVolumeClaim ─────────────────────────────────────────────────────

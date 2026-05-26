@@ -1,5 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
-import { httpRequestsTotal, httpRequestDuration, httpRequestsError } from "../config/registry.js"
+import {
+  httpRequestsTotal,
+  httpRequestDuration,
+  httpRequestsError,
+} from "../config/registry.js";
 
 export const metricsMiddleware = (
   req: Request,
@@ -23,7 +27,7 @@ export const metricsMiddleware = (
 
     httpRequestsTotal.inc(labels);
     httpRequestDuration.observe(labels, duration);
-    if (req.statusCode || 0 >= 400) httpRequestsError.inc(labels)
+    if (req.statusCode || 0 >= 400) httpRequestsError.inc(labels);
   });
 
   next();

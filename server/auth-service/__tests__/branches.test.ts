@@ -49,13 +49,11 @@ import { getClientUrl } from "../src/config/config.js";
 
 type DomainSelectResult = {
   authStrategy: "oidc" | "internal";
-  ssoConfig:
-    | {
-        issuerUrl: string;
-        clientId: string;
-        clientSecret: string;
-      }
-    | null;
+  ssoConfig: {
+    issuerUrl: string;
+    clientId: string;
+    clientSecret: string;
+  } | null;
 };
 
 const mockedAccount: any = Account;
@@ -97,7 +95,10 @@ describe("Authentication service branches", () => {
     );
 
     expect(mockedBcrypt.genSalt).toHaveBeenCalledWith(10);
-    expect(mockedBcrypt.hash).toHaveBeenCalledWith("plain-password", "salt-value");
+    expect(mockedBcrypt.hash).toHaveBeenCalledWith(
+      "plain-password",
+      "salt-value",
+    );
     expect(mockedAccount.create).toHaveBeenCalledWith({
       name: "alice",
       email: "alice@example.com",
@@ -122,12 +123,12 @@ describe("Authentication service branches", () => {
   it("rejects authentication when the account does not exist", async () => {
     mockedAccount.findOne.mockResolvedValueOnce(null);
 
-    await expect(authenticateAccount("missing-user", "password")).rejects.toMatchObject(
-      {
-        type: "Not Found Error",
-        code: 404,
-      },
-    );
+    await expect(
+      authenticateAccount("missing-user", "password"),
+    ).rejects.toMatchObject({
+      type: "Not Found Error",
+      code: 404,
+    });
   });
 
   it("rejects authentication when the password does not match", async () => {
@@ -137,13 +138,13 @@ describe("Authentication service branches", () => {
     });
     mockedBcrypt.compare.mockResolvedValueOnce(false);
 
-    await expect(authenticateAccount("alice", "wrong-password")).rejects.toMatchObject(
-      {
-        type: "Validation Error",
-        code: 400,
-        message: "Invalid password",
-      },
-    );
+    await expect(
+      authenticateAccount("alice", "wrong-password"),
+    ).rejects.toMatchObject({
+      type: "Validation Error",
+      code: 400,
+      message: "Invalid password",
+    });
   });
 
   it("builds an SSO login URL with encoded state", async () => {
@@ -154,20 +155,26 @@ describe("Authentication service branches", () => {
     mockedOpenId.discovery.mockResolvedValue({ issuer: "issuer" });
     mockedOpenId.randomPKCECodeVerifier.mockReturnValue("verifier-123");
     mockedOpenId.calculatePKCECodeChallenge.mockResolvedValue("challenge-123");
-    mockedOpenId.buildAuthorizationUrl.mockImplementation((_config: any, options: any) =>
-      new URL(
-        `https://idp.example/authorize?state=${encodeURIComponent(options.state)}&redirect_uri=${encodeURIComponent(options.redirect_uri)}&scope=${encodeURIComponent(options.scope)}`,
-      ),
+    mockedOpenId.buildAuthorizationUrl.mockImplementation(
+      (_config: any, options: any) =>
+        new URL(
+          `https://idp.example/authorize?state=${encodeURIComponent(options.state)}&redirect_uri=${encodeURIComponent(options.redirect_uri)}&scope=${encodeURIComponent(options.scope)}`,
+        ),
     );
 
-    const redirectUrl = await generateSSOLoginUrl("engineering.example", "alice");
+    const redirectUrl = await generateSSOLoginUrl(
+      "engineering.example",
+      "alice",
+    );
 
     const parsedUrl = new URL(redirectUrl);
     const state = parsedUrl.searchParams.get("state");
     expect(parsedUrl.searchParams.get("redirect_uri")).toBe(
       "http://auth.example/auth/sso/callback",
     );
-    expect(parsedUrl.searchParams.get("scope")).toBe("openid email profile groups");
+    expect(parsedUrl.searchParams.get("scope")).toBe(
+      "openid email profile groups",
+    );
     expect(state).toBeTruthy();
 
     const decodedState = JSON.parse(Buffer.from(state!, "base64").toString());
@@ -187,13 +194,13 @@ describe("Authentication service branches", () => {
       });
     mockedDomain.findOne.mockReturnValue({ select: selectMock });
 
-    await expect(generateSSOLoginUrl("engineering.example", "alice")).rejects.toMatchObject(
-      {
-        type: "Not Found Error",
-        code: 404,
-        message: "SSO not configured for this domain",
-      },
-    );
+    await expect(
+      generateSSOLoginUrl("engineering.example", "alice"),
+    ).rejects.toMatchObject({
+      type: "Not Found Error",
+      code: 404,
+      message: "SSO not configured for this domain",
+    });
   });
 
   it("processes the SSO callback and updates the account membership", async () => {
@@ -223,26 +230,34 @@ describe("Authentication service branches", () => {
     );
 
     expect(redirectUrl).toBe("http://client.example/domains?refresh=true");
-    expect(mockedAccount.findOneAndUpdate).toHaveBeenNthCalledWith(1, {
-      name: "alice",
-    }, {
-      $pull: {
-        memberships: {
-          domainName: "engineering.example",
+    expect(mockedAccount.findOneAndUpdate).toHaveBeenNthCalledWith(
+      1,
+      {
+        name: "alice",
+      },
+      {
+        $pull: {
+          memberships: {
+            domainName: "engineering.example",
+          },
         },
       },
-    });
-    expect(mockedAccount.findOneAndUpdate).toHaveBeenNthCalledWith(2, {
-      name: "alice",
-    }, {
-      $push: {
-        memberships: {
-          domainName: "engineering.example",
-          role: "business_admin",
-          externalId: "external-user-42",
+    );
+    expect(mockedAccount.findOneAndUpdate).toHaveBeenNthCalledWith(
+      2,
+      {
+        name: "alice",
+      },
+      {
+        $push: {
+          memberships: {
+            domainName: "engineering.example",
+            role: "business_admin",
+            externalId: "external-user-42",
+          },
         },
       },
-    });
+    );
   });
 
   it("rejects the SSO callback when state is missing", async () => {
@@ -255,5 +270,3 @@ describe("Authentication service branches", () => {
     });
   });
 });
-
-

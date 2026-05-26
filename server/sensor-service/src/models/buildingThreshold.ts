@@ -1,4 +1,4 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema } from "mongoose";
 
 export interface ThresholdRoom {
   id: string;
@@ -69,6 +69,6 @@ const BuildingThresholdSchema = new Schema<BuildingThreshold>(
 );
 
 export const BuildingThresholdModel = mongoose.model<BuildingThreshold>(
-  'BuildingThreshold',
+  "BuildingThreshold",
   BuildingThresholdSchema,
 );

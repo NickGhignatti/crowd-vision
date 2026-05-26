@@ -39,7 +39,8 @@ pub async fn get_preferences(
                 building_id,
                 allowed_columns: columns.clone(),
             }),
-        ).into_response(),
+        )
+            .into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -95,12 +96,12 @@ pub async fn update_preferences(
 
 #[cfg(test)]
 mod tests {
-    use super::{get_preferences, update_preferences, UpdatePreferencesRequest};
+    use super::{UpdatePreferencesRequest, get_preferences, update_preferences};
     use crate::state::AppState;
+    use axum::Json;
     use axum::extract::{Path, State};
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
-    use axum::Json;
 
     // ── get_preferences ───────────────────────────────────────────────────────
 

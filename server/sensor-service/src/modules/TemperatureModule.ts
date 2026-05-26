@@ -12,8 +12,7 @@ export class TemperatureModule extends BaseSensorModule<ITemperature> {
     const errors: string[] = [];
     if (!payload.buildingId)
       errors.push("buildingId: must be a non-empty string.");
-    if (!payload.roomId)
-      errors.push("roomId: must be a non-empty string.");
+    if (!payload.roomId) errors.push("roomId: must be a non-empty string.");
     if (typeof payload.timestamp !== "number")
       errors.push("timestamp: must be a finite number.");
     if (typeof payload.temperature !== "number")
@@ -53,7 +52,12 @@ export class TemperatureModule extends BaseSensorModule<ITemperature> {
     roomId?: string,
     aggMode?: string,
   ): Promise<unknown[]> {
-    return this.service.getDashboardData(buildingId, timeRange, roomId, aggMode);
+    return this.service.getDashboardData(
+      buildingId,
+      timeRange,
+      roomId,
+      aggMode,
+    );
   }
 
   async getThresholds(buildingId: string): Promise<unknown> {

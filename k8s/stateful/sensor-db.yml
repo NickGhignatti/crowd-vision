@@ -34,11 +34,17 @@ spec:
       containers:
         - name: mongodb
           image: mongo:8
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 27017
           volumeMounts:
             - name: sensor-data
               mountPath: /data/db
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             exec:
               command: [mongosh, --eval, "db.adminCommand('ping')"]
@@ -57,9 +63,14 @@ spec:
             requests:
               cpu: "100m"
               memory: "256Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
   volumeClaimTemplates:
     - metadata:

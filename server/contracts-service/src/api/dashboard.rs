@@ -98,8 +98,14 @@ mod tests {
     fn push_unique_metric_keeps_same_metric_key_with_different_interface_name() {
         // Same metric_key but different interface_name → not a duplicate.
         let mut metrics = Vec::new();
-        push_unique_metric(&mut metrics, metric_with("temperature", "ITemperatureV1", "svc"));
-        push_unique_metric(&mut metrics, metric_with("temperature", "ITemperatureV2", "svc"));
+        push_unique_metric(
+            &mut metrics,
+            metric_with("temperature", "ITemperatureV1", "svc"),
+        );
+        push_unique_metric(
+            &mut metrics,
+            metric_with("temperature", "ITemperatureV2", "svc"),
+        );
         assert_eq!(metrics.len(), 2);
     }
 
@@ -118,7 +124,10 @@ mod tests {
     fn push_unique_metric_retains_three_fully_distinct_metrics() {
         let mut metrics = Vec::new();
         push_unique_metric(&mut metrics, metric_with("temperature", "ITemp", "svc-a"));
-        push_unique_metric(&mut metrics, metric_with("people_count", "IPeople", "svc-b"));
+        push_unique_metric(
+            &mut metrics,
+            metric_with("people_count", "IPeople", "svc-b"),
+        );
         push_unique_metric(&mut metrics, metric_with("air_quality", "IAQ", "svc-c"));
         assert_eq!(metrics.len(), 3);
     }
@@ -128,12 +137,18 @@ mod tests {
         let mut metrics = Vec::new();
         // Four unique metrics
         push_unique_metric(&mut metrics, metric_with("temperature", "ITemp", "svc-a"));
-        push_unique_metric(&mut metrics, metric_with("people_count", "IPeople", "svc-b"));
+        push_unique_metric(
+            &mut metrics,
+            metric_with("people_count", "IPeople", "svc-b"),
+        );
         push_unique_metric(&mut metrics, metric_with("air_quality", "IAQ", "svc-c"));
         push_unique_metric(&mut metrics, metric_with("humidity", "IHumidity", "svc-d"));
         // Two exact duplicates of already-added entries
         push_unique_metric(&mut metrics, metric_with("temperature", "ITemp", "svc-a"));
-        push_unique_metric(&mut metrics, metric_with("people_count", "IPeople", "svc-b"));
+        push_unique_metric(
+            &mut metrics,
+            metric_with("people_count", "IPeople", "svc-b"),
+        );
         assert_eq!(metrics.len(), 4);
     }
 }

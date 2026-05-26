@@ -9,11 +9,9 @@ export function createIngestionHandler(kernel: SensorKernel) {
     const { type, ...sensorData } = req.body;
 
     if (typeof type !== "string" || type.trim().length === 0) {
-      res
-        .status(400)
-        .json({
-          error: "Missing or invalid field: `type` must be a non-empty string.",
-        });
+      res.status(400).json({
+        error: "Missing or invalid field: `type` must be a non-empty string.",
+      });
       return;
     }
 
@@ -27,12 +25,10 @@ export function createIngestionHandler(kernel: SensorKernel) {
 
     const validation = module.validate(sensorData);
     if (!validation.isValid) {
-      res
-        .status(422)
-        .json({
-          error: "Payload validation failed.",
-          details: validation.errors,
-        });
+      res.status(422).json({
+        error: "Payload validation failed.",
+        details: validation.errors,
+      });
       return;
     }
 

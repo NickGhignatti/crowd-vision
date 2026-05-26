@@ -20,7 +20,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "mongoose": "^9.1.5"
+    "mongoose": "^9.2.0"
   },
   "devDependencies": {
     "@crowdvision/eslint-config": "file:../../tooling/eslint-config",
@@ -40,6 +40,14 @@
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "path-to-regexp": ">=8.3.1",
+    "brace-expansion": ">=1.1.13",
+    "qs": ">=6.15.2",
+    "handlebars": ">=4.7.9",
+    "follow-redirects": ">1.15.11",
+    "yauzl": ">=3.2.1"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",

@@ -26,7 +26,11 @@ describe("Authentication Service", () => {
 
   describe("2. Account Validation", () => {
     it("should validate an existing Account with correct password", async () => {
-      await addAccount(mockAccount.name, mockAccount.email, mockAccount.password);
+      await addAccount(
+        mockAccount.name,
+        mockAccount.email,
+        mockAccount.password,
+      );
       const loggedUser = await authenticateAccount(
         mockAccount.name,
         mockAccount.password,
@@ -37,7 +41,11 @@ describe("Authentication Service", () => {
     });
 
     it("should reject login with incorrect password", async () => {
-      await addAccount(mockAccount.name, mockAccount.email, mockAccount.password);
+      await addAccount(
+        mockAccount.name,
+        mockAccount.email,
+        mockAccount.password,
+      );
 
       await expect(
         authenticateAccount(mockAccount.name, "wrongpassword"),

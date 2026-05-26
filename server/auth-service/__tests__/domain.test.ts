@@ -73,9 +73,7 @@ describe("Domain API", () => {
     it("should fail to creation a duplicate domain", async () => {
       await createMockDomainWithSubdomains();
 
-      await expect(
-        createMockDomainWithSubdomains(),
-      ).rejects.toThrow();
+      await expect(createMockDomainWithSubdomains()).rejects.toThrow();
     });
   });
 
@@ -110,11 +108,10 @@ describe("Domain API", () => {
 
     it("should allow a user to UNSUBSCRIBE", async () => {
       const newAccount = await addAccount("sub", "sub@gmail.com", "sub");
-      await subscribe(
-        newAccount.name,
-        mockDomain.name,
-      );
-      await expect(unsubscribe(newAccount.name, mockDomain.name)).resolves.not.toThrow();
+      await subscribe(newAccount.name, mockDomain.name);
+      await expect(
+        unsubscribe(newAccount.name, mockDomain.name),
+      ).resolves.not.toThrow();
 
       const memberships = await getAccountMemberships(newAccount.name);
       const membership = memberships.find(

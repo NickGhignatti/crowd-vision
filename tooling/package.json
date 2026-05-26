@@ -6,6 +6,11 @@
   "dependencies": {
     "@crowdvision/eslint-config": "file:./eslint-config"
   },
+  "overrides": {
+    "brace-expansion": ">=2.0.3",
+    "picomatch": ">=4.0.4",
+    "ip-address": ">10.1.0"
+  },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",

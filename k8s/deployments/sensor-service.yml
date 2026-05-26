@@ -19,6 +19,10 @@ spec:
       initContainers:
         - name: wait-for-db
           image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - sh
             - -c
@@ -27,10 +31,22 @@ spec:
                 echo "waiting for sensor-db..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
       containers:
         - name: sensor-service
           image: ghcr.io/nickghignatti/crowdvision-sensor:latest
-          imagePullPolicy: IfNotPresent   # local k3d: use imported image. VPS: change to Always
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
           envFrom:
@@ -39,6 +55,9 @@ spec:
                 name: sensor-service-secret   # MONGO_URI
             - configMapRef:
                 name: common-config           # PORT, REDIS_URL, TWIN_SERVICE_URL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             tcpSocket:
               port: 3000
@@ -55,9 +74,14 @@ spec:
             requests:
               cpu: "100m"
               memory: "128Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "256Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
 ---
 # ── Service ───────────────────────────────────────────────────────────────────

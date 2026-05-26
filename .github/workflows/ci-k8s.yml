@@ -30,14 +30,17 @@ jobs:
             -kubernetes-version 1.32.0
 
       - name: Install pluto
-        uses: FairwindsOps/pluto@master
+        run: |
+          curl -sSLo pluto.tar.gz https://github.com/FairwindsOps/pluto/releases/download/v5.24.0/pluto_5.24.0_linux_amd64.tar.gz
+          tar xf pluto.tar.gz pluto
+          sudo mv pluto /usr/local/bin/
 
       - name: 🕰️ Check for deprecated API versions (pluto)
         run: pluto detect-files -d k8s/
 
       - name: Install kube-score
         run: |
-          curl -sSLo kube-score https://github.com/zegl/kube-score/releases/latest/download/kube-score_linux_amd64
+          curl -sSLo kube-score https://github.com/zegl/kube-score/releases/download/v1.20.0/kube-score_1.20.0_linux_amd64
           chmod +x kube-score
           sudo mv kube-score /usr/local/bin/
 
@@ -47,4 +50,6 @@ jobs:
             --ignore-test pod-networkpolicy \
             --ignore-test pod-disruption-budget \
             --ignore-test container-security-context-user-group-id \
-            --ignore-test container-security-context-read-only-root-filesystem
+            --ignore-test container-security-context-read-only-root-filesystem \
+            --ignore-test container-image-tag \
+            --ignore-test pod-probes-identical

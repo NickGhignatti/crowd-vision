@@ -21,7 +21,7 @@ export const resolveRoleFromOTP = async (otp: string) => {
         return {
           domainName: domain.name,
           role: role as Role,
-        } as IDomainMembership
+        } as IDomainMembership;
       }
     }
   }
@@ -37,9 +37,12 @@ export const generateTOTPForAuthorizedRoles = async (minimumRole: Role) => {
       .filter((role) => hasRequiredRole(role, minimumRole))
       .map((role) => [role, new OTPAuth.Secret().base32]),
   );
-}
+};
 
-export const grantTOTPRoles = async (otp: string, accountId: Types.ObjectId) => {
+export const grantTOTPRoles = async (
+  otp: string,
+  accountId: Types.ObjectId,
+) => {
   const grantedRole = await resolveRoleFromOTP(otp);
 
   if (grantedRole) {

@@ -110,6 +110,3 @@ describe("Twin service branches", () => {
     });
   });
 });
-
-
-

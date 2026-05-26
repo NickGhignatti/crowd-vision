@@ -19,6 +19,10 @@ spec:
       initContainers:
         - name: wait-for-db
           image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - sh
             - -c
@@ -27,8 +31,21 @@ spec:
                 echo "waiting for notification-db..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
         - name: wait-for-redis
           image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - sh
             - -c
@@ -37,10 +54,22 @@ spec:
                 echo "waiting for redis..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
       containers:
         - name: notification-service
           image: ghcr.io/nickghignatti/crowdvision-notification:latest
-          imagePullPolicy: IfNotPresent   # local k3d: use imported image. VPS: change to Always
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
           envFrom:
@@ -48,6 +77,9 @@ spec:
                 name: notification-service-secret   # MONGO_URI, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
             - configMapRef:
                 name: common-config                 # PORT, REDIS_URL, CLIENT_URL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             tcpSocket:
               port: 3000
@@ -64,9 +96,14 @@ spec:
             requests:
               cpu: "100m"
               memory: "128Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "256Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
 ---
 # ── Service ───────────────────────────────────────────────────────────────────

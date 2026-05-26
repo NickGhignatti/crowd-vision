@@ -19,6 +19,10 @@ spec:
       initContainers:
         - name: wait-for-db
           image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - sh
             - -c
@@ -27,10 +31,22 @@ spec:
                 echo "waiting for auth-db..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
       containers:
         - name: auth-service
           image: ghcr.io/nickghignatti/crowdvision-auth:latest
-          imagePullPolicy: IfNotPresent   # local k3d: use imported image. VPS: change to Always
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
           envFrom:
@@ -38,6 +54,9 @@ spec:
                 name: authentication-service-secret   # JWT_SECRET, INTERNAL_ADMIN_SECRET, MONGO_URI
             - configMapRef:
                 name: common-config                   # PORT, CLIENT_URL, service URLs
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           # Readiness: removes pod from Service endpoints until app is ready to serve.
           # Liveness:  restarts the pod if it becomes unresponsive (deadlock, hung process).
           # Using TCP probes — upgrade to httpGet /auth/health once the endpoint is stable.
@@ -57,9 +76,14 @@ spec:
             requests:
               cpu: "100m"
               memory: "128Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "256Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
 ---
 # ── Service ───────────────────────────────────────────────────────────────────

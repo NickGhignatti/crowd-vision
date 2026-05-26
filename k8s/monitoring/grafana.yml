@@ -36,6 +36,10 @@ spec:
       containers:
         - name: grafana
           image: grafana/grafana:11.0.0
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
           env:
@@ -64,6 +68,8 @@ spec:
           volumeMounts:
             - name: grafana-data
               mountPath: /var/lib/grafana
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             httpGet:
               path: /grafana/api/health
@@ -82,13 +88,17 @@ spec:
             requests:
               cpu: "100m"
               memory: "128Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "300m"
               memory: "256Mi"
+              ephemeral-storage: "500Mi"
       volumes:
         - name: grafana-data
           persistentVolumeClaim:
             claimName: grafana-data
+        - name: tmp
+          emptyDir: {}
 
 ---
 # ── Service ───────────────────────────────────────────────────────────────────

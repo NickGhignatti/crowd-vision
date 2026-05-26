@@ -3,9 +3,7 @@ import type { RequestHandler } from "express";
 import type { SensorKernel } from "./kernel/sensorKernel.js";
 import { createReadHandlers } from "./controllers/readController.js";
 import { SENSOR_METRICS_CONTRACT } from "./models/metrics.js";
-import {
-  createThresholdHandlers
-} from "./controllers/thresholdController.js";
+import { createThresholdHandlers } from "./controllers/thresholdController.js";
 
 export function createRouter(
   ingestionHandler: RequestHandler,
@@ -18,10 +16,7 @@ export function createRouter(
   router.post("/ingest", ingestionHandler);
 
   router.get("/:sensorType/latest", reader.getLatestSingle);
-  router.get(
-    "/:sensorType/entireBuilding",
-    reader.getAllLatestBuilding,
-  );
+  router.get("/:sensorType/entireBuilding", reader.getAllLatestBuilding);
   router.get("/:sensorType/dashboard", reader.getDashboard);
 
   router.put("/thresholds/buildings/:buildingId", thresholds.registerBuilding);

@@ -93,15 +93,21 @@ describe("hasRequiredRole", () => {
     });
 
     it("does NOT satisfy business_admin requirement (10 < 80)", () => {
-      expect(hasRequiredRole("standard_customer", "business_admin")).toBe(false);
+      expect(hasRequiredRole("standard_customer", "business_admin")).toBe(
+        false,
+      );
     });
 
     it("does NOT satisfy business_staff requirement (10 < 60)", () => {
-      expect(hasRequiredRole("standard_customer", "business_staff")).toBe(false);
+      expect(hasRequiredRole("standard_customer", "business_staff")).toBe(
+        false,
+      );
     });
 
     it("satisfies standard_customer requirement (same level)", () => {
-      expect(hasRequiredRole("standard_customer", "standard_customer")).toBe(true);
+      expect(hasRequiredRole("standard_customer", "standard_customer")).toBe(
+        true,
+      );
     });
   });
 
@@ -110,7 +116,9 @@ describe("hasRequiredRole", () => {
   describe("unknown roles", () => {
     it("returns false when the user role is unknown — weight defaults to 0", () => {
       // 0 (unknown user) < 10 (standard_customer) → false
-      expect(hasRequiredRole("unknown_role" as any, "standard_customer")).toBe(false);
+      expect(hasRequiredRole("unknown_role" as any, "standard_customer")).toBe(
+        false,
+      );
     });
 
     it("returns false when the required role is unknown — required weight defaults to Infinity", () => {
@@ -119,7 +127,9 @@ describe("hasRequiredRole", () => {
     });
 
     it("returns false when both roles are unknown (0 < Infinity)", () => {
-      expect(hasRequiredRole("unknown_user" as any, "unknown_req" as any)).toBe(false);
+      expect(hasRequiredRole("unknown_user" as any, "unknown_req" as any)).toBe(
+        false,
+      );
     });
   });
 });

@@ -22,9 +22,15 @@ spec:
       containers:
         - name: client
           image: ghcr.io/nickghignatti/crowdvision-client:latest
-          imagePullPolicy: IfNotPresent   # local k3d: use imported image. VPS: change to Always
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           # HTTP probes are appropriate here — the static server either returns 200 or it doesn't.
           readinessProbe:
             httpGet:
@@ -44,9 +50,14 @@ spec:
             requests:
               cpu: "50m"
               memory: "64Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "200m"
               memory: "128Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
 ---
 # ── Service ───────────────────────────────────────────────────────────────────

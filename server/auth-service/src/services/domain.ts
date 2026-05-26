@@ -1,8 +1,4 @@
-import {
-  Domain,
-  type IDomain,
-  type ISSOConfig,
-} from "../models/domain.js";
+import { Domain, type IDomain, type ISSOConfig } from "../models/domain.js";
 import { Account } from "../models/account.js";
 import { generateTOTPForAuthorizedRoles } from "./totp.js";
 import { ConflictError, NotFoundError } from "../models/error.js";
@@ -118,10 +114,7 @@ export const getAccountMemberships = async (accountName: string) => {
   return account.memberships;
 };
 
-export const subscribe = async (
-  accountName: string,
-  domainName: string,
-) => {
+export const subscribe = async (accountName: string, domainName: string) => {
   const domain = await Domain.findOne({ name: domainName });
 
   if (!domain) {
@@ -147,7 +140,7 @@ export const subscribe = async (
     body: JSON.stringify({
       userId: accountName,
       domainId: domainName,
-      enabled: true
+      enabled: true,
     }),
   });
 };

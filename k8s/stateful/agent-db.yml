@@ -35,6 +35,10 @@ spec:
       containers:
         - name: postgres
           image: pgvector/pgvector:pg17   # pg17 base + pgvector extension pre-installed
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 5432
           envFrom:
@@ -45,6 +49,11 @@ spec:
           volumeMounts:
             - name: agent-data
               mountPath: /var/lib/postgresql/data
+            # postgres writes its unix socket here; required when readOnlyRootFilesystem: true
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             exec:
               command: [pg_isready, -U, agent, -d, agentdb]
@@ -63,9 +72,16 @@ spec:
             requests:
               cpu: "100m"
               memory: "256Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
 
   volumeClaimTemplates:
     - metadata:

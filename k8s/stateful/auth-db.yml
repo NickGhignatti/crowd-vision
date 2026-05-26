@@ -36,11 +36,17 @@ spec:
       containers:
         - name: mongodb
           image: mongo:8   # pinned to major version — avoids silent breaking upgrades
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 27017
           volumeMounts:
             - name: auth-data
               mountPath: /data/db   # standard MongoDB data directory
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             exec:
               command: [mongosh, --eval, "db.adminCommand('ping')"]
@@ -59,9 +65,14 @@ spec:
             requests:
               cpu: "100m"
               memory: "256Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
   # One PVC is created per pod: auth-data-auth-db-0
   # The PVC survives pod deletion — data persists across restarts and rescheduling.

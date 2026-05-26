@@ -8,9 +8,7 @@ import { getTokenSecret } from "../config/config.js";
 import { Account } from "../models/account.js";
 import { InternalError, NotFoundError } from "../models/error.js";
 
-export const generateStandardToken = async (
-  payload: StandardTokenPayload,
-) => {
+export const generateStandardToken = async (payload: StandardTokenPayload) => {
   const secret = getTokenSecret();
 
   if (!secret) {
@@ -20,7 +18,9 @@ export const generateStandardToken = async (
   const account = await Account.findOne({ name: payload.accountName });
 
   if (!account) {
-    throw new NotFoundError(`Account with name "${payload.accountName}" does not exist`);
+    throw new NotFoundError(
+      `Account with name "${payload.accountName}" does not exist`,
+    );
   }
 
   return jwt.sign(

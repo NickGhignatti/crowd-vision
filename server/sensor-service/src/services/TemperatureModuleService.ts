@@ -1,6 +1,12 @@
 import { Temperature } from "../models/temperatureSignal.js";
 import { BuildingThresholdModel } from "../models/buildingThreshold.js";
-import { getTimeRange, getDateRange, getAggMode, getBucketMs, buildAccumulator } from "../utils/dataHelpers.js";
+import {
+  getTimeRange,
+  getDateRange,
+  getAggMode,
+  getBucketMs,
+  buildAccumulator,
+} from "../utils/dataHelpers.js";
 import redisClient from "../config/redis.js";
 
 export class TemperatureService {
@@ -83,12 +89,14 @@ export class TemperatureService {
       { $match: matchStage },
       {
         $group: {
-          _id: { $subtract: ['$timestamp', { $mod: ['$timestamp', bucketMs] }] },
-          value: buildAccumulator(mode, '$temperature'),
+          _id: {
+            $subtract: ["$timestamp", { $mod: ["$timestamp", bucketMs] }],
+          },
+          value: buildAccumulator(mode, "$temperature"),
         },
       },
       { $sort: { _id: 1 } },
-      { $project: { _id: 0, timestamp: '$_id', value: 1 } },
+      { $project: { _id: 0, timestamp: "$_id", value: 1 } },
     ]).exec();
   }
 
@@ -156,11 +164,11 @@ export class TemperatureService {
           buildingId,
           roomId,
           temperature,
-          type: 'temperature',
+          type: "temperature",
           timestamp: Date.now(),
         });
 
-        await redisClient.publish('alerts:temperature', eventPayload);
+        await redisClient.publish("alerts:temperature", eventPayload);
       }
       if (
         activeThreshold.minTemp !== undefined &&

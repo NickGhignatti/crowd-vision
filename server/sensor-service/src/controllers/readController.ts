@@ -55,7 +55,12 @@ export function createReadHandlers(kernel: SensorKernel) {
           roomId?: string;
           aggMode?: string;
         };
-        const data = await module.getDashboardData(building, timeRange, roomId, aggMode);
+        const data = await module.getDashboardData(
+          building,
+          timeRange,
+          roomId,
+          aggMode,
+        );
         res.status(200).json({ data });
       } catch (error: any) {
         res.status(400).json({ error: error.message });

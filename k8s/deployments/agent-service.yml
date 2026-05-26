@@ -20,6 +20,10 @@ spec:
         # agent-service runs Alembic migrations on startup — DB must be ready first.
         - name: wait-for-db
           image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - sh
             - -c
@@ -28,9 +32,22 @@ spec:
                 echo "waiting for agent-db..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
         # agent-service calls twin-service and auth-service internally.
         - name: wait-for-twin
           image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - sh
             - -c
@@ -39,8 +56,21 @@ spec:
                 echo "waiting for twin-service..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
         - name: wait-for-auth
           image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - sh
             - -c
@@ -49,10 +79,22 @@ spec:
                 echo "waiting for auth-service..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
       containers:
         - name: agent-service
           image: ghcr.io/nickghignatti/crowdvision-agent:latest
-          imagePullPolicy: IfNotPresent   # local k3d: use imported image. VPS: change to Always
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
           envFrom:
@@ -60,6 +102,9 @@ spec:
                 name: agent-service-secret   # GOOGLE_API_KEY, DEEPSEEK_API_KEY, POSTGRES_URL, JWT_SECRET
             - configMapRef:
                 name: common-config          # TWIN_SERVICE_URL, AUTH_SERVICE_URL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           # HTTP probe — agent-service has a confirmed /health endpoint.
           # Probes talk directly to the pod, bypassing the ingress, so the path
           # is /health (not /agent/health which is the ingress-level route).
@@ -81,9 +126,14 @@ spec:
             requests:
               cpu: "100m"
               memory: "256Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
 ---
 # ── Service ───────────────────────────────────────────────────────────────────
