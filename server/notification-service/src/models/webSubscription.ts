@@ -18,7 +18,10 @@ const WebPushSubscriptionSchema: Schema = new Schema({
   },
 });
 
-WebPushSubscriptionSchema.index({ accountName: 1, endpoint: 1 }, { unique: true });
+WebPushSubscriptionSchema.index(
+  { accountName: 1, endpoint: 1 },
+  { unique: true },
+);
 
 export default mongoose.model<IWebPushSubscription>(
   "WebPushSubscription",

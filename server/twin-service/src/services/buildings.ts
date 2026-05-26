@@ -1,5 +1,5 @@
 import { Building, type IBuilding, type Room } from "../models/building.js";
-import {ConflictError, NotFoundError} from "../models/error.js";
+import { ConflictError, NotFoundError } from "../models/error.js";
 import { syncBuildingClone } from "./sensors.js";
 import { initBuildingPreferences } from "./contractsService.js";
 import {
@@ -14,22 +14,22 @@ export const addBuilding = async (
   rooms: any,
   domains: string[],
 ) => {
-    if (await Building.findOne({ id })) {
-        throw new ConflictError(`Building with id: "${id}" already exists`);
-    }
+  if (await Building.findOne({ id })) {
+    throw new ConflictError(`Building with id: "${id}" already exists`);
+  }
 
-    const normalizedBuildingName = normalizeBuildingName(name, id);
-    const normalizedRooms = normalizeRoomNames(rooms as Room[]);
-    const building = new Building({
-      id,
-      name: normalizedBuildingName,
-      rooms: normalizedRooms,
-      domains,
-    });
-    await building.save();
-    await syncBuildingClone(building.toObject());
-    await initBuildingPreferences(id);
-    return building;
+  const normalizedBuildingName = normalizeBuildingName(name, id);
+  const normalizedRooms = normalizeRoomNames(rooms as Room[]);
+  const building = new Building({
+    id,
+    name: normalizedBuildingName,
+    rooms: normalizedRooms,
+    domains,
+  });
+  await building.save();
+  await syncBuildingClone(building.toObject());
+  await initBuildingPreferences(id);
+  return building;
 };
 
 export const updateBuilding = async (
@@ -56,25 +56,25 @@ export const updateBuilding = async (
 };
 
 export const getBuildingById = async (id: string) => {
-    const building = await Building.findOne({ id });
+  const building = await Building.findOne({ id });
 
-    if (!building) {
-        throw new NotFoundError(`Building with id: "${id}" not found`);
-    }
+  if (!building) {
+    throw new NotFoundError(`Building with id: "${id}" not found`);
+  }
 
-    await backfillNames(building);
-    return building;
+  await backfillNames(building);
+  return building;
 };
 
 export const getBuildingsByDomain = async (domain: string) => {
-    const buildings = await Building.find({ domains: domain });
+  const buildings = await Building.find({ domains: domain });
 
-    if (buildings.length === 0) {
-        return [];
-    }
+  if (buildings.length === 0) {
+    return [];
+  }
 
-    await Promise.all(buildings.map((building) => backfillNames(building)));
-    return buildings;
+  await Promise.all(buildings.map((building) => backfillNames(building)));
+  return buildings;
 };
 
 export const updateRoom = async (

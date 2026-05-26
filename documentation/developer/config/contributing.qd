@@ -1,21 +1,20 @@
 .docname {Contributing}
 .include {docs}
 
-## 📦 The Lerna Monorepo
+## 📦 The Polyglot Monorepo
 
-CrowdVision is structured as a **Lerna Monorepo** using npm workspaces. 
-
-.code lang:{json} 
-    {
-        "workspaces": [
-            "client",
-            "server/*"
-        ]
-    }
+CrowdVision is a **polyglot monorepo** — JavaScript/TypeScript (Vue client + 5 Node services), Python (`agent-service`), and Rust (`contracts-service`) — orchestrated by **moon** for task caching and affected detection, with a root `Justfile` for Docker Compose and Kubernetes tasks. There is **no root `package.json`** and no npm workspaces; each Node service installs its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
 
 *What this means for you:*
-- *Run scripts from the root*: You rarely need to `cd` into `server/auth-service` to run a test or start a server. Use the root `package.json` scripts (e.g., `npm run test:auth` or `npm run dev`).
-- *Shared Dependencies*: Lerna hoists shared dependencies to the root `node_modules` where possible, keeping the installation footprint small.
+- *Run everything via `just`*: `just install` bootstraps every language. `just dev` starts the stack. `just lint` / `just test` delegate to **moon** — task results are cached by input hash and unchanged services are skipped automatically. Run `just test-affected` or `just lint-affected` to process only services touched by your branch. See `just --list` for the full menu.
+- *No hoisting*: when you add a dep to a service, install it in that service's directory: `cd server/auth-service && npm install <pkg>`.
+- *Build orchestration*: **moon** provides per-service `moon.yml` files that define `build`, `test`, `lint`, and `lint-fix` tasks with input tracking and caching. Each `moon.yml` lives alongside its service and travels with it if the service is ever extracted to its own repository.
+- *Toolchain pinning*: **mise** (`.mise.toml` at repo root) pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning to get every tool at the correct version on any OS.
+- *Shared ESLint config*: each TypeScript service declares `@crowdvision/eslint-config` as a devDependency (via `"file:../../tooling/eslint-config"`) and re-exports it in its own `eslint.config.mjs`. The scoped package at `tooling/eslint-config/` owns all shared plugins (`typescript-eslint`, etc.); the `eslint` binary is a devDep of every service. Using a proper npm package — rather than a raw `--config` path — means the config can be installed from a registry if a service is extracted to its own repo.
+- *Release flow*: semantic-release drives versioning from `tooling/` (`cd-release.yml`). Version bumps across every service `package.json`, `server/contracts-service/Cargo.toml` (Rust), and `server/agent-service/pyproject.toml` (Python) are applied by `tooling/bump-versions.mjs`.
+
+.box type:{note}
+    **Why `bump-versions.mjs` instead of Lerna?** Lerna 9 dropped its own package-discovery field and now delegates entirely to npm workspaces (`"workspaces"` in `package.json`). npm workspaces cannot point *upward* with `../` — workspace paths must be strict descendants of the directory that owns the `package.json`. Since `tooling/` sits inside the repo rather than above the services, a `tooling/package.json` declaring `"workspaces": ["../client", "../server/*"]` is rejected by npm outright. `tooling/bump-versions.mjs` sidesteps the constraint entirely: it is a plain Node `fs` script that opens each service `package.json` by relative path and writes the new version — no workspaces, no Lerna discovery, no tooling needed beyond Node itself.
 
 ---
 
@@ -42,8 +41,8 @@ When you write a commit message, the prefix dictates how the version number will
       - `BREAKING CHANGE: remove deprecated user profile fields`
       - Major release (e.g., `1.1.0` -> `2.0.0` ).
 
-.box type:{note} 
-    ⚙️ The Release Pipeline: When a pull request is merged into the `main` branch, the GitHub Action triggers `npm run release`. Semantic Release reads your commit history since the last tag, calculates the new version, updates the `CHANGELOG.md`, tags the repository, and publishes the release automatically
+.box type:{note}
+    ⚙️ The Release Pipeline: When a pull request is merged into the `master` branch, the GitHub Action runs `npx semantic-release` from `tooling/`. Semantic Release reads your commit history since the last tag, calculates the new version, updates the root `CHANGELOG.md`, tags the repository, and publishes the release automatically.
 
 ---
 
@@ -73,7 +72,7 @@ Because CrowdVision spans both frontend Vue applications and backend Express/Fas
 When adding new features, please respect the architectural boundaries we have put in place:
 - *Never breach the Database-per-Service boundary*: If the Twin Service needs to know something about a User, it must read it from the embedded JWT payload or use a Redis event. Do not configure cross-database Mongoose connections.
 - *Keep the Frontend Lightweight*: Avoid adding Vuex or Pinia unless absolutely necessary.
-- *Test Your Code*: Every backend service has its own `__tests__` directory. Ensure your changes are covered by running `npm test` from the root before submitting a pull request.
+- *Test Your Code*: Every backend service has its own `__tests__` directory. Ensure your changes are covered by running `just test` from the root before submitting a pull request.
 
 
 

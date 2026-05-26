@@ -1,146 +1,232 @@
 .docname {Setting Up the Environment}
 .include {docs}
 
-Welcome to the CrowdVision developer setup guide. Because CrowdVision is a multi-service architecture with real-time sockets, push notifications, and AI capabilities, getting the local environment running requires setting up several databases, environment variables, and cryptographic secrets. 
+Welcome to the CrowdVision developer setup guide. Because CrowdVision is a multi-service architecture with real-time sockets, push notifications, and AI capabilities, getting the local environment running requires setting up several databases, environment variables, and cryptographic secrets.
 
-Don't worry—we've provided scripts to automate the hardest parts.
+Don't worry — we have provided scripts to automate the hardest parts.
 
 ---
 
 ## 🛠️ 1. Prerequisites
 
-Before cloning the repository, ensure your local machine has the following tools installed:
+**Install these two tools first — everything else depends on them:**
 
-*   **Node.js** (v18+ recommended)
-*   **Docker & Docker Compose** (For running the isolated databases and services)
-*   **Python 3.10+** (Required for the `agent-service`)
+*   **`just`** (cross-platform task runner — install at <https://just.systems/>)
+*   **`mise`** — multi-language toolchain manager. The repo root contains a `.mise.toml` that pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning and all tools are at the correct versions on any OS. Install at <https://mise.jdx.dev/>.
+
+Once `just` and `mise` are available, the remaining tools can be managed by `mise` automatically or installed manually:
+
+*   **Node.js v24**, **Python 3.12**, **Rust (stable)** — handled by `mise install`.
+*   **uv** — handled by `mise install` (or manually at <https://docs.astral.sh/uv/>).
+*   **Docker & Docker Compose** (for running the isolated databases and services)
 *   **Git**
-*   **A local Kubernetes cluster & kubectl** (If you plan to deploy via k8s)
+*   **A local Kubernetes cluster + kubectl** (only if you plan to deploy via k8s)
 
-Once you have cloned the repository, install the monorepo dependencies. CrowdVision uses Lerna to manage workspace packages.
+---
+
+## 📦 2. Installation
+
+Clone the repository, then install toolchain versions and all language-specific dependencies:
 
 .code lang:{bash}
     git clone https://github.com/NickGhignatti/crowd-vision.git
     cd crowd-vision
-    npm install
+    mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires mise)
+    just install
+
+`just install` installs Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; then runs `uv sync` for the agent-service Python deps and `cargo fetch` for the Rust contracts-service. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
 
 ---
 
-## 🔐 2. Environment Variables & Secrets
+## 🔐 3. Environment Variables & Secrets
 
-Microservices require secrets to communicate securely, encrypt tokens, and send push notifications. **Never commit `.env` files to version control.** 
+Microservices require secrets to communicate securely, encrypt tokens, and send push notifications. **Never commit `.env` files to version control.**
 
-Create a `.env` file in the root of your project. Below is the master template of required variables:
+### Automatic Setup (Recommended)
+
+Run the interactive setup script. It skips any variable already present in `.env`, so it is safe to re-run at any time:
 
 .code lang:{bash}
-    # --- CORE SECRETS ---
-    # The master key used by Auth, Twin, and Notification services to sign/verify JWTs
-    JWT_SECRET=your_super_secure_random_string_here
+    just env
 
-    # --- DATABASES ---
-    # Used by docker-compose.dbs.yml
-    AUTH_DB_URI=mongodb://localhost:27017/auth
-    TWIN_DB_URI=mongodb://localhost:27018/twin
-    SENSOR_DB_URI=mongodb://localhost:27019/sensor
-    NOTIFICATION_DB_URI=mongodb://localhost:27020/notification
-    REDIS_URI=redis://localhost:6379
+You will be prompted for the following:
 
-    # --- WEB PUSH (VAPID) ---
-    VAPID_PUBLIC_KEY=
-    VAPID_PRIVATE_KEY=
-    VAPID_SUBJECT=mailto:admin@yourdomain.com
+.var {headers}
+   - Variable
+   - Default
+   - Description
 
-    # --- AI AGENT SERVICE ---
-    # Required for the Python LLM Agent
-    GEMINI_API_KEY=your_google_gemini_key
-    # DEEPSEEK_API_KEY=your_deepseek_key_here (if using DeepSeek)
+.tablebyrows {.headers}
+    - - `MONGO_PORT`
+      - `27017`
+      - Exposed port for MongoDB containers (local Docker only).
+    - - `CLIENT_PORT`
+      - `8080`
+      - Port the Vue client is served on.
+    - - `BACKEND_URL`
+      - `http://localhost`
+      - URL of the API gateway. Use `http://localhost` for Docker dev, `http://crowdvision.local` for k8s dev.
+    - - `CLIENT_URL`
+      - `http://localhost:8080`
+      - Browser origin used for CORS. Must match where you open the app.
+    - - `VITE_SIMULATOR_URL_AQ`
+      - `http://localhost/simulator/aq`
+      - Air quality simulator endpoint (external service).
+    - - `VITE_SIMULATOR_URL_TP`
+      - `http://localhost/simulator/tp`
+      - Temperature/presence simulator endpoint (external service).
+    - - `GOOGLE_API_KEY`
+      - *(empty)*
+      - Gemini API key for the AI agent. Optional — service boots without it.
+    - - `DEEPSEEK_API_KEY`
+      - *(empty)*
+      - DeepSeek API key. Optional — service boots without it.
+
+The following secrets are **generated automatically** by `just env` and written to `.env` — you do not need to supply them manually:
+
+*   `JWT_SECRET` — used by Auth, Twin, and Notification services to sign/verify JWTs.
+*   `INTERNAL_ADMIN_SECRET` — internal service-to-service credential.
+*   `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — web push notification keys.
 
 .box type:{warning}
-    **Security Note:** All microservices that share the `JWT_SECRET` must have the exact same string in their environment context, otherwise cross-service authorization (Stateless Trust) will fail with a `401 Unauthorized`.
+    **Security Note:** All microservices that share `JWT_SECRET` must have the exact same value. If they differ, cross-service authorization will fail with `401 Unauthorized`.
 
-### Generating VAPID Keys
-To securely send web push notifications, you need a VAPID key pair. Do not invent these manually. We have provided a utility script to generate cryptographically sound keys.
+### Manual VAPID Key Generation
 
-Run the following command and copy the output into your `.env` file:
+If you need to regenerate VAPID keys separately:
 
 .code lang:{bash}
     node scripts/vapid.js
 
----
-
-## 🐳 3. Spinning Up via Docker Compose (Local Dev)
-
-If you are developing locally without Kubernetes, you generally want to run the databases in Docker, but keep the Node/Vue services running directly on your host machine for hot-reloading.
-
-### Start the Databases
-This command spins up the isolated MongoDB instances for Auth, Twin, Sensor, and Notifications, along with the Redis message broker.
-
-.code lang:{bash}
-    docker-compose -f docker-compose.dbs.yml up -d
-
-*Verify they are running by typing `docker ps`.*
-
-### Start the Services
-With your databases running, you can launch the application services via your local Node environment for hot-reloading across the monorepo:
-
-.code lang:{bash}
-    npx lerna run dev --parallel
+Copy the output into your `.env` file.
 
 ---
 
-## 🌱 4. Bootstrapping the System (Provisioning)
+## 🐳 4. Running Locally with Docker Compose
 
-With empty databases, you cannot log in. You need an initial Global Admin account and a default Domain to access the dashboard.
-
-We have provided provisioning scripts to seed your local databases safely.
+With your `.env` set up, start the full development stack:
 
 .code lang:{bash}
-    # Provision the initial Admin account and default Domain
-    node scripts/provision.js
-    
-    # Or, if you need to create additional admin users manually:
-    node scripts/admin.js create --email admin@local.dev --password securepass
+    just dev
 
-*(Note: If you are working on the Python AI Agent, you can also use `python seed.py` within the `server/agent-service/` directory to load initial RAG context).*
+This starts all services with hot-reloading. When you save a source file, the change is reflected inside the running container instantly — no manual restart needed.
+
+**Skip heavy services you are not actively working on:**
+
+.code lang:{bash}
+    just dev exclude="agent"            # skip the Python AI service
+    just dev exclude="agent simulator"  # also skip simulator containers
+
+See the [Running the Application](running.qd) page for the full Docker Compose reference.
 
 ---
 
-## ☸️ 5. Kubernetes Deployment
+## 🌱 5. Bootstrapping the System (Provisioning)
 
-If you are deploying CrowdVision to a local or remote Kubernetes cluster, you must apply the configurations in a specific order to ensure secrets and databases are available before the microservices spin up.
-
-### Step 1: Create the Namespace & ConfigMaps
-First, isolate the environment and apply non-sensitive configuration data.
+With empty databases you cannot log in. Run the provisioning script to create the initial Global Admin account and default Domain:
 
 .code lang:{bash}
-    kubectl apply -f k8s/namespace.yml
-    kubectl apply -f k8s/configmaps/
+    node scripts/ops/provision.js
 
-### Step 2: Inject Secrets
-Because we never commit secrets to the repository, you must create a Kubernetes Secret manually using the values from your `.env` file. Assuming your deployments look for a secret named `crowd-vision-secrets` in the `crowd-vision` namespace, run:
+Run this once after `just dev` reports all services as healthy. The script prompts you for the admin email, password, and domain name, then calls the live auth-service to register them.
 
-.code lang:{bash}
-    kubectl create secret generic crowdvision-secrets \
-      --namespace=crowdvision \
-      --from-literal=JWT_SECRET="your_super_secure_random_string_here" \
-      --from-literal=VAPID_PUBLIC_KEY="your_vapid_public" \
-      --from-literal=VAPID_PRIVATE_KEY="your_vapid_private" \
-      --from-literal=VAPID_SUBJECT="mailto:admin@yourdomain.com" \
-      --from-literal=GEMINI_API_KEY="your_google_gemini_key"
+*(If you are working on the Python AI Agent, you can also re-ingest documentation into the knowledge base at any time with `just agent-ingest`.)*
 
-### Step 3: Start Stateful Services (Databases)
-Spin up Mongo and Redis. Wait for these pods to be fully `Running` before proceeding.
+---
+
+## ☸️ 6. Kubernetes Deployment
+
+If you are deploying CrowdVision to a local or remote Kubernetes cluster, follow the steps below. For ongoing day-to-day k8s operations, see the [Kubernetes Configuration](kubernetes.qd) page.
+
+### Step 1: Create the k3d Cluster (run once per machine)
 
 .code lang:{bash}
-    kubectl apply -f k8s/stateful/
-    kubectl get pods -n crowdvision -w
+    k3d cluster create crowdvision \
+      --servers 1 \
+      --agents 3 \
+      --api-port 127.0.0.1:6550 \
+      -p "80:80@loadbalancer" \
+      -p "443:443@loadbalancer" \
+      --k3s-arg "--disable=traefik@server:*"
 
-### Step 4: Start Microservices & Ingress
-Once the databases are ready and the secrets are injected, deploy the backend services, the frontend client, and the ingress controller routing.
+.var {headers}
+   - Flag
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `--servers 1`
+      - One control plane node.
+    - - `--agents 3`
+      - Three worker nodes.
+    - - `--api-port 127.0.0.1:6550`
+      - Binds the K8s API server explicitly to localhost. **Required on Windows** — prevents `kubectl` connection failures when `host.docker.internal` resolves to a non-loopback IP.
+    - - `-p "80:80@loadbalancer"`
+      - Maps host port 80 to the k3d load balancer so `http://localhost/` reaches the nginx Ingress controller.
+    - - `--k3s-arg "--disable=traefik@server:*"`
+      - Disables the default Traefik ingress. CrowdVision uses nginx instead.
+
+Verify the cluster is reachable:
 
 .code lang:{bash}
-    kubectl apply -f k8s/deployments/
-    kubectl apply -f k8s/ingress.yml
+    kubectl cluster-info
+    kubectl get nodes
+    # All nodes should show STATUS: Ready
+
+### Step 2: Configure Local DNS
+
+.code lang:{bash}
+    just k8s-hosts
+    # Prints: 127.0.0.1   crowdvision.local
+
+Open your hosts file as Administrator and add that line:
+*   Windows: `C:\Windows\System32\drivers\etc\hosts`
+*   Linux/Mac: `/etc/hosts`
+
+### Step 3: Add GHCR Credentials to `.env`
+
+The cluster needs credentials to pull images from GitHub Container Registry. Add to your `.env`:
+
+.code lang:{bash}
+    GHCR_USERNAME=nickghignatti
+    GHCR_TOKEN=<your GitHub PAT with read:packages scope>
+
+Create a PAT at <https://github.com/settings/tokens> with `read:packages` scope.
+
+### Step 4: Full Bootstrap
+
+.code lang:{bash}
+    just k8s-setup
+
+This single command runs in order:
+1. Installs the nginx Ingress Controller into `ingress-nginx` namespace.
+2. Waits until the Ingress controller pod is `Running`.
+3. Creates the `crowdvision` namespace.
+4. Runs `just k8s-secrets` — creates all Kubernetes Secret objects from your `.env`.
+5. Applies ConfigMaps, StatefulSets (databases), Deployments, Ingress, and monitoring.
+
+.box type:{warning}
+    `just k8s-secrets` must run after the namespace exists. `just k8s-setup` handles this ordering automatically. If you run `just k8s-secrets` manually before creating the namespace, it will fail with "namespaces not found".
 
 ### Accessing the Platform
-Depending on your cluster setup and Ingress configuration, the platform will be available at the host defined in your `k8s/ingress.yml` file (e.g., `http://crowdvision.local`). Ensure your local `/etc/hosts` file maps the ingress host to your cluster's IP.
+
+After `just k8s-setup` completes, the platform is available at `http://crowdvision.local`. All services route through the nginx Ingress controller on port 80.
+
+.var {headers}
+   - Interface
+   - URL
+
+.tablebyrows {.headers}
+    - - Vue Frontend
+      - `http://crowdvision.local/`
+    - - Auth API
+      - `http://crowdvision.local/auth/`
+    - - Twin API
+      - `http://crowdvision.local/twin/`
+    - - Sensor API
+      - `http://crowdvision.local/sensor/`
+    - - Socket.IO
+      - `http://crowdvision.local/socket.io/`
+    - - Grafana
+      - `http://crowdvision.local/grafana/`
+    - - Prometheus
+      - `http://crowdvision.local/prometheus/`

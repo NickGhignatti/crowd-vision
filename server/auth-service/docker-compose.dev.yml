@@ -1,0 +1,33 @@
+services:
+  auth-service:
+    build:
+      target: builder
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: ./package.json
+
+  auth-db:
+    ports:
+      - "27016:27017"
+
+  auth-db-express:
+    image: mongo-express:latest
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://auth-db:27017/
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass
+      - ME_CONFIG_SITE_BASEURL=/auth-db-gui/
+    depends_on:
+      - auth-db

@@ -1,0 +1,23 @@
+language: 'rust'
+
+tasks:
+  build:
+    command: 'cargo build'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+    outputs:
+      - 'target/debug'
+
+  test:
+    command: 'cargo test'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+
+  lint:
+    command: 'cargo clippy -- -D warnings'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'

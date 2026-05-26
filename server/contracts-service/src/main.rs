@@ -26,8 +26,14 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(api::dashboard::get_dashboard_tables))
-        .route("/preferences/{building_id}", get(api::data::get_preferences).post(api::data::update_preferences))
-        .route("/preferences/init/{building_id}", post(api::init::init_building_preferences))
+        .route(
+            "/preferences/{building_id}",
+            get(api::data::get_preferences).post(api::data::update_preferences),
+        )
+        .route(
+            "/preferences/init/{building_id}",
+            post(api::init::init_building_preferences),
+        )
         .with_state(state);
 
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());

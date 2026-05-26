@@ -80,6 +80,8 @@ export const provideEnterpriseAdministratorAccount = async (
   const enterpriseDomain = await DomainService.getDomainByName(companyName);
 
   if (!enterpriseDomain) {
-    throw new NotFoundError(`Enterprise domain with name "${companyName}" not found`);
+    throw new NotFoundError(
+      `Enterprise domain with name "${companyName}" not found`,
+    );
   }
 };

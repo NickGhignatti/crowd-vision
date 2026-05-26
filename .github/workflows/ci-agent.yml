@@ -1,0 +1,36 @@
+name: agent-service-ci
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "server/agent-service/**"
+      - ".github/workflows/agent.yml"
+
+jobs:
+  agent-service:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./server/agent-service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: 📦 Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: 🧪 Run tests (unit + integration)
+        run: uv run pytest

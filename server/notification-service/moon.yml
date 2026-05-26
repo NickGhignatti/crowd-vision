@@ -1,0 +1,31 @@
+language: 'typescript'
+
+tasks:
+  build:
+    command: 'npm run build'
+    inputs:
+      - 'src/**/*'
+      - 'tsconfig*.json'
+      - 'package.json'
+    outputs:
+      - 'dist'
+
+  test:
+    command: 'npm test'
+    inputs:
+      - 'src/**/*'
+      - '__tests__/**/*'
+      - 'package.json'
+
+  lint:
+    command: 'npm run lint'
+    inputs:
+      - 'src/**/*'
+      - '__tests__/**/*'
+      - 'eslint.config.mjs'
+      - '/tooling/eslint-config/index.mjs'
+
+  lint-fix:
+    command: 'npm run lint:fix'
+    options:
+      cache: false

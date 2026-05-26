@@ -61,7 +61,9 @@ describe("JWT token system", () => {
 
   describe("2. Token validation", () => {
     it("should successfully verify and decode a valid token", async () => {
-      const generatedToken = await generateStandardToken(mockAccount as StandardTokenPayload);
+      const generatedToken = await generateStandardToken(
+        mockAccount as StandardTokenPayload,
+      );
 
       const decoded = verifyToken(generatedToken) as any;
       expect(decoded.accountId).toBe(mockAccount.accountId);

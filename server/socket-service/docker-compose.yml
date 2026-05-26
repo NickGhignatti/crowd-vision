@@ -1,0 +1,11 @@
+services:
+  socket-server:
+    build:
+      context: .
+    container_name: crowd-vision-socket
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
+    depends_on:
+      - redis

@@ -8,11 +8,7 @@ import { COOKIE_NAME, getCookieOptions } from "../config/config.js";
 export const addAccount = async (req: Request, res: Response) => {
   const { accountName, email, password, otp } = req.body;
 
-  const account = await AuthService.addAccount(
-    accountName,
-    email,
-    password,
-  );
+  const account = await AuthService.addAccount(accountName, email, password);
 
   if (otp) await grantTOTPRoles(otp, account._id);
 

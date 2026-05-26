@@ -1,4 +1,4 @@
-import express from 'express';
+import express from "express";
 import * as http from "node:http";
 import { Server } from "socket.io";
 import { createClient } from "redis";
@@ -20,30 +20,30 @@ const io = new Server(server, {
   },
 });
 
-const redisSubscriber = createClient({ url: process.env.REDIS_URL || '' });
-redisSubscriber.on('error', (err) => console.error('Redis Client Error', err));
+const redisSubscriber = createClient({ url: process.env.REDIS_URL || "" });
+redisSubscriber.on("error", (err) => console.error("Redis Client Error", err));
 
 await redisSubscriber.connect();
 
-await redisSubscriber.subscribe('notifications', (message) => {
-  io.emit('notification', JSON.parse(message))
+await redisSubscriber.subscribe("notifications", (message) => {
+  io.emit("notification", JSON.parse(message));
 });
 
-await redisSubscriber.pSubscribe('telemetry:filtered:*', (message, channel) => {
-  const buildingId = channel.replace('telemetry:filtered:', '')
-  io.to(`building:${buildingId}`).emit('telemetry', JSON.parse(message))
+await redisSubscriber.pSubscribe("telemetry:filtered:*", (message, channel) => {
+  const buildingId = channel.replace("telemetry:filtered:", "");
+  io.to(`building:${buildingId}`).emit("telemetry", JSON.parse(message));
 });
 
-io.on('connection', (socket) => {
-  socket.on('join_room', (userId) => {
+io.on("connection", (socket) => {
+  socket.on("join_room", (userId) => {
     socket.join(userId);
   });
 
-  socket.on('subscribe_building', (buildingId) => {
+  socket.on("subscribe_building", (buildingId) => {
     socket.join(`building:${buildingId}`);
   });
 
-  socket.on('unsubscribe_building', (buildingId) => {
+  socket.on("unsubscribe_building", (buildingId) => {
     socket.leave(`building:${buildingId}`);
   });
 });

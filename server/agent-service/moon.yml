@@ -1,0 +1,21 @@
+language: 'python'
+
+tasks:
+  test:
+    command: 'npm test'
+    inputs:
+      - 'app/**/*'
+      - 'tests/**/*'
+      - 'pyproject.toml'
+
+  lint:
+    command: 'npm run lint'
+    inputs:
+      - 'app/**/*'
+      - 'tests/**/*'
+      - 'pyproject.toml'
+
+  lint-fix:
+    command: 'npm run lint:fix'
+    options:
+      cache: false

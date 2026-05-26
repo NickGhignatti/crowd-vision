@@ -19,10 +19,14 @@ jest.mock("../src/services/notificationService.js", () => ({
 }));
 
 jest.mock("../src/services/pushService.js", () => {
-  const actual = jest.requireActual("../src/services/pushService.js") as typeof import("../src/services/pushService.js");
+  const actual = jest.requireActual(
+    "../src/services/pushService.js",
+  ) as typeof import("../src/services/pushService.js");
   return {
     ...actual,
-    sendPushToDomain: jest.fn<typeof actual.sendPushToDomain>().mockResolvedValue(undefined),
+    sendPushToDomain: jest
+      .fn<typeof actual.sendPushToDomain>()
+      .mockResolvedValue(undefined),
   };
 });
 
@@ -32,8 +36,12 @@ import NotificationSubscription from "../src/models/notificationSubscription.js"
 import { publishNotification } from "../src/services/notificationService.js";
 import { sendPushToDomain } from "../src/services/pushService.js";
 
-const mockedPublishNotification = publishNotification as jest.MockedFunction<typeof publishNotification>;
-const mockedSendPushToDomain = sendPushToDomain as jest.MockedFunction<typeof sendPushToDomain>;
+const mockedPublishNotification = publishNotification as jest.MockedFunction<
+  typeof publishNotification
+>;
+const mockedSendPushToDomain = sendPushToDomain as jest.MockedFunction<
+  typeof sendPushToDomain
+>;
 const mockedRedisClient = redisClient as any;
 
 describe("Notification controller branches", () => {
@@ -104,7 +112,9 @@ describe("Notification controller branches", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.type).toBe("Validation Error");
-    expect(res.body.message).toBe("enabled boolean is required when passing a types array");
+    expect(res.body.message).toBe(
+      "enabled boolean is required when passing a types array",
+    );
   });
 
   it("fans out alerts to multiple domains", async () => {
@@ -113,19 +123,27 @@ describe("Notification controller branches", () => {
       json: async () => ["domain-a", "domain-b"],
     } as any);
 
-    const res = await request(app)
-      .post("/trigger")
-      .send({
-        message: "Multi-domain alert",
-        type: "danger",
-        buildingName: "building-1",
-        notificationType: "temperature",
-      });
+    const res = await request(app).post("/trigger").send({
+      message: "Multi-domain alert",
+      type: "danger",
+      buildingName: "building-1",
+      notificationType: "temperature",
+    });
 
     expect(res.status).toBe(200);
     expect(mockedPublishNotification).toHaveBeenCalledTimes(2);
-    expect(mockedPublishNotification).toHaveBeenNthCalledWith(1, "Multi-domain alert", "danger", "domain-a");
-    expect(mockedPublishNotification).toHaveBeenNthCalledWith(2, "Multi-domain alert", "danger", "domain-b");
+    expect(mockedPublishNotification).toHaveBeenNthCalledWith(
+      1,
+      "Multi-domain alert",
+      "danger",
+      "domain-a",
+    );
+    expect(mockedPublishNotification).toHaveBeenNthCalledWith(
+      2,
+      "Multi-domain alert",
+      "danger",
+      "domain-b",
+    );
     expect(mockedSendPushToDomain).toHaveBeenCalledTimes(2);
   });
 
@@ -136,14 +154,12 @@ describe("Notification controller branches", () => {
       text: async () => "bad gateway",
     } as any);
 
-    const res = await request(app)
-      .post("/trigger")
-      .send({
-        message: "Alert",
-        type: "danger",
-        buildingName: "building-1",
-        notificationType: "temperature",
-      });
+    const res = await request(app).post("/trigger").send({
+      message: "Alert",
+      type: "danger",
+      buildingName: "building-1",
+      notificationType: "temperature",
+    });
 
     expect(res.status).toBe(500);
     expect(res.body.type).toBe("Internal Server Error");
@@ -154,14 +170,12 @@ describe("Notification controller branches", () => {
   it("skips push delivery while cooldown is active", async () => {
     mockedRedisClient.get.mockResolvedValueOnce("1");
 
-    const res = await request(app)
-      .post("/push/temperature")
-      .send({
-        roomId: "A-01",
-        buildingId: "building-1",
-        domainId: "domain-1",
-        temperature: 38,
-      });
+    const res = await request(app).post("/push/temperature").send({
+      roomId: "A-01",
+      buildingId: "building-1",
+      domainId: "domain-1",
+      temperature: 38,
+    });
 
     expect(res.status).toBe(200);
     expect(mockedPublishNotification).not.toHaveBeenCalled();
@@ -175,12 +189,10 @@ describe("Notification controller branches", () => {
       json: async () => ["domain-a", "domain-a", "domain-b"],
     } as any);
 
-    const res = await request(app)
-      .post("/push/temperature")
-      .send({
-        buildingId: "building-2",
-        temperature: 35,
-      });
+    const res = await request(app).post("/push/temperature").send({
+      buildingId: "building-2",
+      temperature: 35,
+    });
 
     expect(res.status).toBe(200);
     expect(mockedPublishNotification).toHaveBeenCalledTimes(2);
@@ -192,6 +204,3 @@ describe("Notification controller branches", () => {
     );
   });
 });
-
-
-

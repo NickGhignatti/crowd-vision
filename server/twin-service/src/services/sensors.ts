@@ -34,9 +34,7 @@ export const syncBuildingClone = async (
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        createPayload(building, maxTemperature),
-      ),
+      body: JSON.stringify(createPayload(building, maxTemperature)),
     },
   );
 };

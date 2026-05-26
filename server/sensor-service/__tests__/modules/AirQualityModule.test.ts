@@ -18,9 +18,7 @@ jest.unstable_mockModule("src/config/redis.ts", () => ({
   },
 }));
 
-const { AirQualityModule } = await import(
-  "src/modules/AirQualityModule.ts"
-);
+const { AirQualityModule } = await import("src/modules/AirQualityModule.ts");
 const { AirQuality } = await import("src/models/airQualitySignal.ts");
 const { BuildingThresholdModel } = await import(
   "src/models/buildingThreshold.ts"
@@ -52,63 +50,89 @@ describe("Air Quality Domain (Module + Service)", () => {
     });
 
     it("rejects a payload with missing buildingId", () => {
-      const result = module.validate({ ...validPayload, buildingId: undefined });
+      const result = module.validate({
+        ...validPayload,
+        buildingId: undefined,
+      });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("buildingId:"))).toBe(true);
+      expect(
+        result.errors.some((e: string) => e.startsWith("buildingId:")),
+      ).toBe(true);
     });
 
     it("rejects a payload with an empty-string buildingId", () => {
       const result = module.validate({ ...validPayload, buildingId: "" });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("buildingId:"))).toBe(true);
+      expect(
+        result.errors.some((e: string) => e.startsWith("buildingId:")),
+      ).toBe(true);
     });
 
     it("rejects a payload with missing roomId", () => {
       const result = module.validate({ ...validPayload, roomId: undefined });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("roomId:"))).toBe(true);
+      expect(result.errors.some((e: string) => e.startsWith("roomId:"))).toBe(
+        true,
+      );
     });
 
     it("rejects a payload with an empty-string roomId", () => {
       const result = module.validate({ ...validPayload, roomId: "" });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("roomId:"))).toBe(true);
+      expect(result.errors.some((e: string) => e.startsWith("roomId:"))).toBe(
+        true,
+      );
     });
 
     it("rejects a payload where timestamp is not a number", () => {
-      const result = module.validate({ ...validPayload, timestamp: "not-a-number" });
+      const result = module.validate({
+        ...validPayload,
+        timestamp: "not-a-number",
+      });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("timestamp:"))).toBe(true);
+      expect(
+        result.errors.some((e: string) => e.startsWith("timestamp:")),
+      ).toBe(true);
     });
 
     it("rejects a payload with missing timestamp", () => {
       const result = module.validate({ ...validPayload, timestamp: undefined });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("timestamp:"))).toBe(true);
+      expect(
+        result.errors.some((e: string) => e.startsWith("timestamp:")),
+      ).toBe(true);
     });
 
     it("rejects a payload where pm25 is not a number", () => {
       const result = module.validate({ ...validPayload, pm25: "high" });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("pm25:"))).toBe(true);
+      expect(result.errors.some((e: string) => e.startsWith("pm25:"))).toBe(
+        true,
+      );
     });
 
     it("rejects a payload with missing pm25", () => {
       const result = module.validate({ ...validPayload, pm25: undefined });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("pm25:"))).toBe(true);
+      expect(result.errors.some((e: string) => e.startsWith("pm25:"))).toBe(
+        true,
+      );
     });
 
     it("rejects a payload where co2 is not a number", () => {
       const result = module.validate({ ...validPayload, co2: "400ppm" });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("co2:"))).toBe(true);
+      expect(result.errors.some((e: string) => e.startsWith("co2:"))).toBe(
+        true,
+      );
     });
 
     it("rejects a payload with missing co2", () => {
       const result = module.validate({ ...validPayload, co2: undefined });
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e: string) => e.startsWith("co2:"))).toBe(true);
+      expect(result.errors.some((e: string) => e.startsWith("co2:"))).toBe(
+        true,
+      );
     });
 
     it("collects all errors when multiple required fields are absent", () => {
@@ -136,7 +160,10 @@ describe("Air Quality Domain (Module + Service)", () => {
     });
 
     it("accepts extra unknown fields without failing", () => {
-      const result = module.validate({ ...validPayload, extraField: "ignored" });
+      const result = module.validate({
+        ...validPayload,
+        extraField: "ignored",
+      });
       expect(result.isValid).toBe(true);
     });
   });

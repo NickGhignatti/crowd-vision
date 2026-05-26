@@ -14,7 +14,8 @@ import {
   unsubscribeAccountFromDomain,
   getSubdomainsFromDomain,
   createSubdomain,
-  getDomainTOTPQr, getAllAllowedDomains,
+  getDomainTOTPQr,
+  getAllAllowedDomains,
 } from "./controller/domain.js";
 import {
   requireAuthentication,
@@ -36,7 +37,7 @@ router.post(
   provideEnterpriseAccount,
 );
 router.get("/me", requireAuthentication, getMe);
-router.post('/logout', logout)
+router.post("/logout", logout);
 
 // --- Domains ---
 router.get("/domains", requireAuthentication, getAllAllowedDomains);

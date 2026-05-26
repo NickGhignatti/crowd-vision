@@ -12,8 +12,7 @@ export class PeopleCountModule extends BaseSensorModule<IPeopleCount> {
     const errors: string[] = [];
     if (!payload.buildingId)
       errors.push("buildingId: must be a non-empty string.");
-    if (!payload.roomId)
-      errors.push("roomId: must be a non-empty string.");
+    if (!payload.roomId) errors.push("roomId: must be a non-empty string.");
     if (typeof payload.timestamp !== "number")
       errors.push("timestamp: must be a finite number.");
     if (typeof payload.peopleCount !== "number" || payload.peopleCount < 0)
@@ -53,7 +52,12 @@ export class PeopleCountModule extends BaseSensorModule<IPeopleCount> {
     roomId?: string,
     aggMode?: string,
   ): Promise<unknown[]> {
-    return this.service.getDashboardData(buildingId, timeRange, roomId, aggMode);
+    return this.service.getDashboardData(
+      buildingId,
+      timeRange,
+      roomId,
+      aggMode,
+    );
   }
 
   async getThresholds(buildingId: string): Promise<unknown> {
@@ -72,6 +76,10 @@ export class PeopleCountModule extends BaseSensorModule<IPeopleCount> {
     roomId: string,
     payload: any,
   ): Promise<unknown> {
-    return this.service.updateRoomThresholds(buildingId, roomId, payload.maxPeople);
+    return this.service.updateRoomThresholds(
+      buildingId,
+      roomId,
+      payload.maxPeople,
+    );
   }
 }

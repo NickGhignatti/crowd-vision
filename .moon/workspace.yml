@@ -1,0 +1,22 @@
+# Tool versions are managed by mise (.mise.toml at repo root): run `mise install` first.
+# Moon handles task orchestration, caching, and affected detection.
+# Docker / Kubernetes orchestration remains in the Justfile.
+
+$schema: "https://moonrepo.dev/schemas/workspace.json"
+
+vcs:
+  client: git
+  defaultBranch: master
+
+projects:
+  client: "client"
+  auth-service: "server/auth-service"
+  twin-service: "server/twin-service"
+  sensor-service: "server/sensor-service"
+  notification-service: "server/notification-service"
+  socket-service: "server/socket-service"
+  agent-service: "server/agent-service"
+  contracts-service: "server/contracts-service"
+  sensor-simulator: "simulators/sensor-simulator"
+
+telemetry: false

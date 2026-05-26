@@ -13,7 +13,7 @@ export class BaseError extends Error {
 
 export class ValidationError extends BaseError {
   constructor(message: string) {
-    super("Validation Error", 400 , message);
+    super("Validation Error", 400, message);
   }
 }
 

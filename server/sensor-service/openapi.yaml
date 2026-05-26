@@ -13,12 +13,12 @@ paths:
       tags:
         - Metrics
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServiceMetricsContract'
+                $ref: "#/components/schemas/ServiceMetricsContract"
 
   /peopleCount:
     post:
@@ -51,7 +51,7 @@ paths:
                   type: integer
                   example: 42
       responses:
-        '201':
+        "201":
           description: People count signal created
           content:
             application/json:
@@ -61,8 +61,8 @@ paths:
                   message:
                     type: string
                     example: "People count signal created"
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
     get:
       summary: Get latest people count signal for a specific room
       tags:
@@ -81,7 +81,7 @@ paths:
           required: true
           description: Room ID
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -91,8 +91,8 @@ paths:
                   peopleCount:
                     type: object
                     description: Latest people count data
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /temperature:
     post:
@@ -125,7 +125,7 @@ paths:
                   type: number
                   example: 22.5
       responses:
-        '201':
+        "201":
           description: Temperature signal created
           content:
             application/json:
@@ -135,8 +135,8 @@ paths:
                   message:
                     type: string
                     example: "Temperature signal created"
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
     get:
       summary: Get latest temperature signal for a specific room
       tags:
@@ -155,7 +155,7 @@ paths:
           required: true
           description: Room ID
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -165,8 +165,8 @@ paths:
                   temperature:
                     type: object
                     description: Latest temperature data
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /air-quality:
     post:
@@ -230,7 +230,7 @@ paths:
                   type: number
                   example: 45.5
       responses:
-        '201':
+        "201":
           description: Air quality signal created
           content:
             application/json:
@@ -240,8 +240,8 @@ paths:
                   message:
                     type: string
                     example: "Air quality signal created"
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
     get:
       summary: Get latest air quality signal for a specific room
       tags:
@@ -260,7 +260,7 @@ paths:
           required: true
           description: Room ID
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -270,8 +270,8 @@ paths:
                   airQuality:
                     type: object
                     description: Latest air quality data
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /peopleCount/entireBuilding:
     get:
@@ -286,7 +286,7 @@ paths:
           required: true
           description: Buildings ID
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -298,8 +298,8 @@ paths:
                     items:
                       type: object
                     description: Array of latest people count signals for the building
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /temperature/entireBuilding:
     get:
@@ -314,7 +314,7 @@ paths:
           required: true
           description: Buildings ID
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -326,8 +326,8 @@ paths:
                     items:
                       type: object
                     description: Array of latest temperature signals for the building
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /air-quality/entireBuilding:
     get:
@@ -342,7 +342,7 @@ paths:
           required: true
           description: Buildings ID
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -354,8 +354,8 @@ paths:
                     items:
                       type: object
                     description: Array of latest air quality signals for the building
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /peopleCount/dashboard:
     get:
@@ -382,7 +382,7 @@ paths:
           required: true
           description: Time range for dashboard data
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -394,8 +394,8 @@ paths:
                     items:
                       type: object
                     description: Aggregated people count data
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /temperature/dashboard:
     get:
@@ -422,7 +422,7 @@ paths:
           required: true
           description: Time range for dashboard data
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -434,8 +434,8 @@ paths:
                     items:
                       type: object
                     description: Aggregated temperature data
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /air-quality/dashboard:
     get:
@@ -462,7 +462,7 @@ paths:
           required: true
           description: Time range for dashboard data
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -474,8 +474,8 @@ paths:
                     items:
                       type: object
                     description: Aggregated air quality data
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /peopleCount/dashboard/entireBuilding:
     get:
@@ -496,7 +496,7 @@ paths:
           required: true
           description: Time range for dashboard data
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -508,8 +508,8 @@ paths:
                     items:
                       type: object
                     description: Aggregated people count data for the building
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /temperature/dashboard/entireBuilding:
     get:
@@ -530,7 +530,7 @@ paths:
           required: true
           description: Time range for dashboard data
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -542,8 +542,8 @@ paths:
                     items:
                       type: object
                     description: Aggregated temperature data for the building
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /air-quality/dashboard/entireBuilding:
     get:
@@ -564,7 +564,7 @@ paths:
           required: true
           description: Time range for dashboard data
       responses:
-        '200':
+        "200":
           description: Successful response
           content:
             application/json:
@@ -576,8 +576,8 @@ paths:
                     items:
                       type: object
                     description: Aggregated air quality data for the building
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
 components:
   schemas:
@@ -624,7 +624,7 @@ components:
         fields:
           type: array
           items:
-            $ref: '#/components/schemas/MetricFieldContract'
+            $ref: "#/components/schemas/MetricFieldContract"
     ServiceMetricsContract:
       type: object
       required:
@@ -637,7 +637,7 @@ components:
         metrics:
           type: array
           items:
-            $ref: '#/components/schemas/MetricContract'
+            $ref: "#/components/schemas/MetricContract"
   responses:
     BadRequest:
       description: Bad request

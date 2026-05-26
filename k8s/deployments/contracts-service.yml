@@ -1,0 +1,148 @@
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contracts-service
+  namespace: crowdvision
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: contracts-service
+  template:
+    metadata:
+      labels:
+        app: contracts-service
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      initContainers:
+        - name: wait-for-redis
+          image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z redis 6379; do
+                echo "waiting for redis..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
+        - name: wait-for-sensor
+          image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z sensor-service 3000; do
+                echo "waiting for sensor-service..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
+        - name: wait-for-twin
+          image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z twin-service 3000; do
+                echo "waiting for twin-service..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
+      containers:
+        - name: contracts-service
+          image: ghcr.io/nickghignatti/crowdvision-contracts:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: common-config   # PORT, REDIS_URL
+          env:
+            # contracts-service uses these names instead of the ConfigMap keys.
+            # Inline here to avoid adding contracts-specific vars to the shared ConfigMap.
+            - name: SENSOR_METRICS_URL
+              value: "http://sensor-service:3000"
+            - name: TWIN_METRICS_URL
+              value: "http://twin-service:3000"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+              ephemeral-storage: "100Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+# ── Service ───────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: contracts-service
+  namespace: crowdvision
+spec:
+  selector:
+    app: contracts-service
+  ports:
+    - port: 3000
+      targetPort: 3000

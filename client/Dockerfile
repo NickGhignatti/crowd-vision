@@ -8,7 +8,7 @@ ENV VITE_SERVER_URL=$VITE_SERVER_URL
 RUN npm run build
 
 FROM node:lts-alpine AS production-stage
-RUN npm install -g serve
+RUN npm install -g serve@14.2.6
 WORKDIR /app
 COPY package*.json ./
 COPY --from=build-stage /app/dist ./dist

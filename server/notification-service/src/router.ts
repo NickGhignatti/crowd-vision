@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router } from "express";
 import {
   getPreferences,
   publicKey,
@@ -10,11 +10,11 @@ import {
 
 const router = Router();
 
-router.get('/public-key', publicKey);
-router.post('/subscribe', subscribe);
-router.get('/preferences/:accountName', getPreferences);
-router.post('/preferences', updatePreference);
-router.post('/trigger', triggerAlert);
-router.post('/push/temperature', pushTemperatureAlert);
+router.get("/public-key", publicKey);
+router.post("/subscribe", subscribe);
+router.get("/preferences/:accountName", getPreferences);
+router.post("/preferences", updatePreference);
+router.post("/trigger", triggerAlert);
+router.post("/push/temperature", pushTemperatureAlert);
 
 export default router;

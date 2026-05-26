@@ -1,6 +1,12 @@
 import { PeopleCount } from "../models/peopleCountSignal.js";
 import { BuildingThresholdModel } from "../models/buildingThreshold.js";
-import { getTimeRange, getDateRange, getAggMode, getBucketMs, buildAccumulator } from "../utils/dataHelpers.js";
+import {
+  getTimeRange,
+  getDateRange,
+  getAggMode,
+  getBucketMs,
+  buildAccumulator,
+} from "../utils/dataHelpers.js";
 import redisClient from "../config/redis.js";
 
 export class PeopleCountService {
@@ -80,12 +86,14 @@ export class PeopleCountService {
       { $match: matchStage },
       {
         $group: {
-          _id: { $subtract: ['$timestamp', { $mod: ['$timestamp', bucketMs] }] },
-          value: buildAccumulator(mode, '$peopleCount'),
+          _id: {
+            $subtract: ["$timestamp", { $mod: ["$timestamp", bucketMs] }],
+          },
+          value: buildAccumulator(mode, "$peopleCount"),
         },
       },
       { $sort: { _id: 1 } },
-      { $project: { _id: 0, timestamp: '$_id', value: 1 } },
+      { $project: { _id: 0, timestamp: "$_id", value: 1 } },
     ]).exec();
   }
 

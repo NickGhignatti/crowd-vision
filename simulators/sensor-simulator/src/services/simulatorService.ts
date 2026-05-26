@@ -86,7 +86,7 @@ export class Simulator {
   private async sendSingleSignal(roomId: string, building: IBuilding) {
     try {
       const url = `${building.targetUrl}/ingest`;
-      
+
       const payloadPeople: ISignalPeopleCount = {
         buildingId: building.buildingId,
         roomId: roomId,

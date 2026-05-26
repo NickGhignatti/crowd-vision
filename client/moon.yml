@@ -1,0 +1,32 @@
+language: 'typescript'
+
+tasks:
+  build:
+    command: 'npm run build'
+    inputs:
+      - 'src/**/*'
+      - 'public/**/*'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
+      - 'env.d.ts'
+      - 'package.json'
+    outputs:
+      - 'dist'
+
+  test:
+    command: 'npm run test:unit'
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+
+  lint:
+    command: 'npm run lint'
+    inputs:
+      - 'src/**/*'
+      - 'eslint.config.ts'
+
+  lint-fix:
+    command: 'npm run lint:fix'
+    options:
+      cache: false

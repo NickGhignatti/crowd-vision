@@ -1,7 +1,7 @@
 .docname {Release & CI/CD Pipeline}
 .include {docs}
 
-CrowdVision uses **Semantic Release** to fully automate versioning, `CHANGELOG.md` generation, and Docker image publishing to the GitHub Container Registry (GHCR). The pipeline is driven entirely by commit message prefixes — no manual version bumping is ever required.
+CrowdVision uses a fully automated CI/CD pipeline built on **GitHub Actions**. Every pull request to `master` is gated by a suite of checks spanning builds, tests, linting, security audits, and Kubernetes manifest validation. Merging to `master` automatically triggers versioned releases via **Semantic Release** and pushes Docker images to GHCR.
 
 ---
 
@@ -32,85 +32,165 @@ Every commit message must follow the **Conventional Commits** format. The prefix
       - **Major** version bump (`1.1.0` → `2.0.0`)
 
 .box type:{warning}
-    Commits that do not follow this convention will be ignored by Semantic Release and will not appear in the `CHANGELOG.md`. Always use one of the prefixes above.
+    The `ci-commitlint` workflow **enforces** this convention on every pull request. Commits that do not follow the format will block the PR. This is required because Semantic Release derives version numbers and changelog entries directly from commit messages — a malformed message would silently skip a release or produce the wrong version bump.
+
+---
+
+## ⚙️ GitHub Actions Workflows
+
+All workflow files live in `.github/workflows/` and follow a three-prefix naming convention that mirrors their purpose.
+
+.var {headers}
+   - Prefix
+   - Category
+   - When it runs
+
+.tablebyrows {.headers}
+    - - `ci-*`
+      - Continuous Integration checks
+      - On every pull request to `master`
+    - - `cd-*`
+      - Continuous Delivery
+      - On every push to `master`
+    - - `maint-*`
+      - Maintenance
+      - Weekly schedule or manual dispatch
+
+### The CI Gate
+
+Every pull request must pass a single required status check: **`ci-gate / ci-passed`**. This is the only check that branch protection needs to require. The gate (`ci-gate.yml`) calls every CI workflow in parallel as reusable workflows and reports a single aggregated result — if any job fails or is cancelled, the gate fails.
+
+.mermaid
+    graph LR
+        PR[Pull Request] --> GATE[ci-gate]
+        GATE --> LINT[ci-lint]
+        GATE --> AUDIT[ci-audit]
+        GATE --> DEPS[ci-deps]
+        GATE --> DOCKER[ci-docker]
+        GATE --> COMMITLINT[ci-commitlint]
+        GATE --> K8S[ci-k8s]
+        GATE --> AUTH[ci-auth]
+        GATE --> CLIENT[ci-client]
+        GATE --> TWIN[ci-twin]
+        GATE --> SENSOR[ci-sensor]
+        GATE --> SOCKET[ci-socket]
+        GATE --> NOTIFICATION[ci-notification]
+        GATE --> CONTRACTS[ci-contracts]
+        LINT --> PASSED[ci-passed ✅]
+        AUDIT --> PASSED
+        DEPS --> PASSED
+        DOCKER --> PASSED
+        COMMITLINT --> PASSED
+        K8S --> PASSED
+        AUTH --> PASSED
+        CLIENT --> PASSED
+        TWIN --> PASSED
+        SENSOR --> PASSED
+        SOCKET --> PASSED
+        NOTIFICATION --> PASSED
+        CONTRACTS --> PASSED
+
+.box type:{note}
+    The agent service (`agent.yml`) is not called from the gate because it predates the reusable-workflow refactor and is managed separately. Branch protection requires its status check (`agent-service-ci / agent-service`) independently.
+
+### Service CI Workflows
+
+Each microservice has a dedicated workflow that runs on pull requests touching its directory. The workflow performs three steps: install dependencies, compile, run tests.
+
+.var {headers}
+   - Workflow file
+   - Service
+   - Language / test runner
+
+.tablebyrows {.headers}
+    - - `ci-auth.yml`
+      - `server/auth-service`
+      - Node.js 24 / Jest
+    - - `ci-twin.yml`
+      - `server/twin-service`
+      - Node.js 24 / Jest
+    - - `ci-sensor.yml`
+      - `server/sensor-service`
+      - Node.js 24 / Jest
+    - - `ci-socket.yml`
+      - `server/socket-service`
+      - Node.js 24 / Jest
+    - - `ci-notification.yml`
+      - `server/notification-service`
+      - Node.js 24 / Jest
+    - - `ci-contracts.yml`
+      - `server/contracts-service`
+      - Rust stable / cargo test
+    - - `ci-client.yml`
+      - `client`
+      - Node.js 24 / Vitest
+
+The contracts service workflow also runs `cargo fmt --check` and `cargo clippy -- -D warnings` before building, catching formatting and lint issues at compile time.
+
+### Cross-Cutting Checks
+
+These workflows validate properties that span the whole codebase rather than a single service.
+
+**`ci-lint`** — Runs ESLint per service (`client`, every `server/*` Node service, `simulators/sensor-simulator`) and Ruff/pyright for the Python `agent-service`. Each matrix leg installs `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared flat config package) and the service's own deps. Node.js 24 is used consistently. The workflow also triggers on changes to `.moon/**` so that tooling config changes are always re-validated.
+
+**`ci-audit`** — Runs security audits for all three language ecosystems:
+- `npm audit --audit-level=high` for every Node.js package
+- `uv audit` for `server/agent-service` (Python lockfile)
+- `cargo audit` via the rustsec advisory database for `server/contracts-service`
+
+**`ci-deps`** — Verifies that all lockfiles are consistent with their manifests: `npm ci`, `uv sync --locked`, and `cargo check`.
+
+**`ci-docker`** — Lints every Dockerfile in the repository with **hadolint**, then builds the entire stack via `node scripts/compose/compose-run.mjs build`. The orchestrator generates a `compose.runtime.yml` (using the same `include:` mechanism as `just dev`) and runs `docker compose build` against it, so path resolution is identical to local development. The hadolint step runs first; a lint failure skips the build.
+
+**`ci-commitlint`** — Validates every commit message in the pull request against the Conventional Commits specification using `wagoid/commitlint-github-action`.
+
+**`ci-k8s`** — Validates all manifests in `k8s/` using three tools in sequence:
+
+1. **kubeconform** — schema validation against the Kubernetes 1.32 API. Catches invalid field names, wrong types, and missing required fields.
+2. **pluto** — detects deprecated or removed Kubernetes API versions that would silently break on cluster upgrades.
+3. **kube-score** — static best-practice analysis (resource limits, health probes, security context).
+
+**`ci-codeql`** — GitHub's own static security analysis (SAST). Runs on every pull request and push to `master`, plus a weekly scheduled scan. Covers both `javascript-typescript` and `python` language families.
+
+### CD Workflows
+
+**`cd-release`** — Triggered automatically on every push to `master`. Installs `tooling/` and runs `npx semantic-release` from there: reads commits since the last tag, calculates the next version, generates the root `CHANGELOG.md`, creates a GitHub Release, and bumps the `version` field in every service's `package.json` (`client`, all `server/*` Node services), `server/contracts-service/Cargo.toml` (Rust), and `server/agent-service/pyproject.toml` (Python), via `tooling/bump-versions.mjs` — a plain Node `fs` script used in place of Lerna, because Lerna 9 requires npm workspaces and npm workspaces cannot reference paths outside their own directory tree. A concurrency guard prevents duplicate runs.
+
+**`cd-registry`** — Also triggered on push to `master` when source files change. Builds and pushes all Docker images to GHCR tagged both `:latest` and `:<git-sha>`. After each image is pushed, **Trivy** scans it for HIGH and CRITICAL CVEs — the job fails if any are found. A concurrency guard ensures only one registry push runs at a time.
+
+### Maintenance
+
+**`maint-cleanup`** — Runs every Sunday at 2 AM UTC (or on manual dispatch). Removes old package versions from GHCR, keeping a minimum of 3 versions per image. Prevents the registry from growing unbounded over time.
+
+### Dependabot
+
+A `.github/dependabot.yml` configuration automatically opens weekly pull requests for dependency updates across all ecosystems: npm (`tooling`, `client`, every Node.js service, `simulators/sensor-simulator`), pip (agent-service), cargo (contracts-service), Docker base images, and GitHub Actions versions themselves.
 
 ---
 
 ## 🚀 The Release Process
 
-Semantic Release is triggered manually via the root npm script. It is intended to be run after a feature branch is merged into `main` and all tests pass.
+Releases are **fully automated** and triggered by merging to `master`. No manual steps are required.
 
-.code lang:{bash}
-    # From the repository root — runs after merging to main
-    npm run release
-
-What the command does, in order:
+When a pull request is merged, `cd-release` runs Semantic Release, which:
 
 1. Reads all commits since the last Git tag.
 2. Calculates the next version number based on the commit prefixes found.
 3. Generates / updates `CHANGELOG.md` with categorized commit entries.
-4. Creates a new Git tag (e.g., `v1.4.0`).
-5. Publishes a GitHub Release with the changelog as the release notes.
+4. Bumps `version` in every service `package.json` (`client`, all `server/*` Node services), `server/contracts-service/Cargo.toml`, and `server/agent-service/pyproject.toml`, via `tooling/bump-versions.mjs`.
+5. Creates a new Git tag (e.g., `v1.4.0`).
+6. Publishes a GitHub Release with the changelog as the release notes.
+
+In the same push event, `cd-registry` builds and pushes all Docker images tagged with the new SHA.
+
+.box type:{note}
+    Commits with no recognized prefix (`chore:`, `docs:`, `ci:`, `test:`, `refactor:`) do not produce a release. Only `feat:` (minor) and `fix:` (patch) trigger version bumps. A `BREAKING CHANGE` footer or `!` suffix triggers a major bump.
 
 ---
 
-## 🐳 Docker Image Publishing (GHCR)
+## 🐳 Docker Image Registry Reference
 
-Docker images are built and pushed to the **GitHub Container Registry** at `ghcr.io/nickghignatti/` using the npm build scripts. This is a manual step — there is currently no automated CI pipeline that publishes images on push to `main`.
-
-### Build and push a single service
-
-.code lang:{bash}
-    # Build the image locally (uses the Dockerfile at the service root)
-    npm run k8s:build:auth        # auth-service
-    npm run k8s:build:twin        # twin-service
-    npm run k8s:build:sensor      # sensor-service
-    npm run k8s:build:notification
-    npm run k8s:build:socket
-    npm run k8s:build:agent
-    npm run k8s:build:client
-    npm run k8s:build:simulator
-
-    # Push to GHCR (requires docker login to ghcr.io)
-    docker push ghcr.io/nickghignatti/crowdvision-auth:latest
-
-### Build all images in parallel
-
-.code lang:{bash}
-    npm run k8s:build
-
-This uses `concurrently` to build all eight service images simultaneously. On a well-specced machine, the full build takes approximately 3–5 minutes.
-
-### Authenticate with GHCR
-
-.code lang:{bash}
-    # Generate a GitHub Personal Access Token with write:packages scope, then:
-    echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-
----
-
-## 🧪 Running Tests Before a Release
-
-Always run the full test suite before triggering a release.
-
-.code lang:{bash}
-    npm test
-
-This runs all service test suites in parallel using `concurrently`:
-`test:auth`, `test:twin`, `test:notification`, `test:sensor`, `test:client`, `test:socket`.
-
-For the Python agent service specifically:
-
-.code lang:{bash}
-    # Unit tests only (no Docker required, sub-second)
-    cd server/agent-service && npm run test:unit
-
-    # Full test suite including integration tests (requires Docker for testcontainers)
-    cd server/agent-service && npm test
-
----
-
-## 📋 Image Registry Reference
+All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and `:<git-sha>`. The Kubernetes deployment manifests in `k8s/deployments/` reference `:latest`.
 
 .var {headers}
    - Service
@@ -118,34 +198,52 @@ For the Python agent service specifically:
 
 .tablebyrows {.headers}
     - - `auth-service`
-      - `ghcr.io/nickghignatti/crowdvision-auth:latest`
+      - `ghcr.io/nickghignatti/crowdvision-auth`
     - - `twin-service`
-      - `ghcr.io/nickghignatti/crowdvision-twin:latest`
+      - `ghcr.io/nickghignatti/crowdvision-twin`
     - - `sensor-service`
-      - `ghcr.io/nickghignatti/crowdvision-sensor:latest`
+      - `ghcr.io/nickghignatti/crowdvision-sensor`
     - - `notification-service`
-      - `ghcr.io/nickghignatti/crowdvision-notification:latest`
+      - `ghcr.io/nickghignatti/crowdvision-notification`
     - - `socket-service`
-      - `ghcr.io/nickghignatti/crowdvision-socket:latest`
+      - `ghcr.io/nickghignatti/crowdvision-socket`
+    - - `contracts-service`
+      - `ghcr.io/nickghignatti/crowdvision-contracts`
     - - `agent-service`
-      - `ghcr.io/nickghignatti/crowdvision-agent:latest`
+      - `ghcr.io/nickghignatti/crowdvision-agent`
     - - `client`
-      - `ghcr.io/nickghignatti/crowdvision-client:latest`
+      - `ghcr.io/nickghignatti/crowdvision-client`
     - - `sensor-simulator`
-      - `ghcr.io/nickghignatti/crowdvision-simulator:latest`
-
-All images are tagged `:latest`. Production Kubernetes deployments pull these images via the tags defined in `k8s/deployments/*.yml`.
+      - `ghcr.io/nickghignatti/crowdvision-simulator`
+    - - `aq-simulator`
+      - `ghcr.io/nickghignatti/crowdvision-aq-simulator`
 
 ---
 
-## 🛠️ Roadmap: Automating the Pipeline
+## 🧪 Running Tests Locally
 
-Currently, both image publishing and the release step are manual. The intended next step is a GitHub Actions workflow that automates this on merge to `main`:
+Before pushing, run the full test suite locally to catch failures before CI does.
 
-1. Trigger: push to `main` (after PR merge).
-2. Run `npm test` across all services.
-3. If tests pass: run `npm run release` (Semantic Release tags and publishes release notes).
-4. Build all Docker images and push to GHCR.
-5. Optionally: trigger a rolling update in the staging Kubernetes cluster.
+.code lang:{bash}
+    just test
 
-The `k8s:build` and `k8s:update` npm scripts are already structured to be called from a CI runner without modification.
+This delegates to **moon**, which caches task results by input hash — if nothing in a service has changed since the last run, the cached result is replayed in milliseconds. To run only the services your branch actually changed:
+
+.code lang:{bash}
+    just test-affected
+
+For per-service tests:
+
+.code lang:{bash}
+    just test-auth
+    just test-twin
+    just test-sensor
+    just test-notification
+    just test-socket
+    just test-client
+    just test-agent
+
+For full backend integration tests (spins up a composed stack):
+
+.code lang:{bash}
+    just test-integration

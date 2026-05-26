@@ -1,0 +1,96 @@
+# ── Headless Service ──────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-db
+  namespace: crowdvision
+spec:
+  clusterIP: None
+  selector:
+    app: agent-db
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+# ── StatefulSet ───────────────────────────────────────────────────────────────
+# PostgreSQL with the pgvector extension — required by agent-service for
+# storing and querying document embeddings in the knowledge base.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: agent-db
+  namespace: crowdvision
+spec:
+  serviceName: agent-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-db
+  template:
+    metadata:
+      labels:
+        app: agent-db
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg17   # pg17 base + pgvector extension pre-installed
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          ports:
+            - containerPort: 5432
+          envFrom:
+            # Injects POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+            # Created by: just k8s-secrets
+            - secretRef:
+                name: agent-db-secret
+          volumeMounts:
+            - name: agent-data
+              mountPath: /var/lib/postgresql/data
+            # postgres writes its unix socket here; required when readOnlyRootFilesystem: true
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, agent, -d, agentdb]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: [pg_isready, -U, agent, -d, agentdb]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+              ephemeral-storage: "100Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: agent-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi   # larger than MongoDB — pgvector stores dense embedding vectors
+        # Local k3d:           omit storageClassName — uses default "local-path"
+        # Hetzner VPS:         storageClassName: hcloud-volumes
+        # DigitalOcean VPS:    storageClassName: do-block-storage

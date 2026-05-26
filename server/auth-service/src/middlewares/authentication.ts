@@ -5,7 +5,8 @@ import { COOKIE_NAME, getAdminSecret } from "../config/config.js";
 import {
   ForbiddenError,
   InternalError,
-  NotFoundError, ValidationError,
+  NotFoundError,
+  ValidationError,
 } from "../models/error.js";
 
 declare global {
@@ -40,7 +41,9 @@ export const requireHmacSignature = (
   const secret = getAdminSecret();
 
   if (!secret) {
-    throw new InternalError("Server configuration error, missing administration secrets");
+    throw new InternalError(
+      "Server configuration error, missing administration secrets",
+    );
   }
 
   if (!signature || typeof signature !== "string") {

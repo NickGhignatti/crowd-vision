@@ -8,7 +8,7 @@
     "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     // "baseUrl": ".",
     // "paths": {
     //   "src/*": [
@@ -17,10 +17,7 @@
     // },
     // Required when using allowImportingTsExtensions
     "noEmit": true,
-    "types": [
-      "node",
-      "jest"
-    ],
+    "types": ["node", "jest"],
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
@@ -50,8 +47,5 @@
     "esModuleInterop": true,
     "allowImportingTsExtensions": true
   },
-  "include": [
-    "src/**/*",
-    "__tests__/**/*"
-  ],
+  "include": ["src/**/*", "__tests__/**/*"]
 }

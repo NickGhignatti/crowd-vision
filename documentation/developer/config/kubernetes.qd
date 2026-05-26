@@ -1,85 +1,189 @@
 .docname {Kubernetes Configuration}
 .include {docs}
 
-CrowdVision is designed as a cloud-native, microservices-first application. While `docker-compose` is great for quick local testing, Kubernetes (K8s) is the intended environment for staging and production, providing robust scaling, self-healing, and stateful data management.
+CrowdVision is designed as a cloud-native, microservices-first application. While Docker Compose is great for quick local testing, Kubernetes (K8s) is the intended environment for staging and production, providing robust scaling, self-healing, and stateful data management.
 
-Because deploying a dozen manifests manually is tedious and error-prone, **we have wrapped the standard Kubernetes commands inside our root `package.json`**. 
+All Kubernetes operations are managed via `just` recipes from the monorepo root. You do not need to memorise long `kubectl` invocations.
 
 ---
 
-## 🚀 The Easy Way: NPM Scripts
+## 🚀 The Easy Way: Just Recipes
 
-If you look at the root `package.json` in the monorepo, you will see a suite of `k8s:*` scripts. These act as an orchestration wrapper around `kubectl`.
-
-Assuming you have a running cluster (like k3d, k3s, Minikube, or EKS) and your `kubectl` context is set correctly, you can deploy the entire platform with a single command:
+Assuming you have a running cluster (k3d, k3s, Minikube, or EKS) and your `kubectl` context is set correctly:
 
 .code lang:{bash}
-    # Deploy everything (Namespace, Configs, DBs, Services, Ingress)
-    npm run k8s:up
+    # First time on a new machine — installs ingress controller, creates namespace,
+    # injects secrets from .env, then applies all manifests:
+    just k8s-setup
 
-    # Tear everything down
-    npm run k8s:down
+    # Re-apply all manifests after a change (idempotent — safe to run repeatedly):
+    just k8s-apply
 
-.box type:{note}
-    **Note on Secrets:** The NPM scripts handle manifests, but they **do not** automatically inject your local `.env` secrets into the cluster. You must manually create the Kubernetes Secret before running `npm run k8s:up`. (See the *Injecting Secrets* section below).
+    # Tear everything down (deletes the namespace and ALL data inside it):
+    just k8s-delete
 
-### Granular NPM Commands
-If you only need to update or bounce a specific layer of the architecture, use the targeted scripts:
-* `npm run k8s:config` - Applies updates to the ConfigMaps.
-* `npm run k8s:stateful` - Applies updates to Redis and MongoDB StatefulSets.
-* `npm run k8s:deployments` - Rolls out updates to the Node/Python microservices and the Vue client.
-* `npm run k8s:ingress` - Updates the Nginx routing rules.
+.box type:{warning}
+    **`just k8s-delete` is destructive.** All persistent volume data (databases) is permanently deleted. There is no undo. Use `just k8s-stop` instead to pause the cluster without losing data.
+
+### Day-to-Day Operations
+
+.code lang:{bash}
+    # Create or rotate all secrets from your .env (idempotent):
+    just k8s-secrets
+
+    # Show pods, deployments, services and StatefulSets:
+    just k8s-status
+
+    # Tail logs for a service (supports both Deployments and StatefulSets):
+    just k8s-logs auth-service
+
+    # Rolling restart for one service (picks up a new :latest image):
+    just k8s-restart auth-service
+
+    # Restart all deployments at once (e.g. after rotating secrets):
+    just k8s-restart-all
+
+    # Watch a rolling update until completion:
+    just k8s-rollout auth-service
 
 ---
 
-## ⚙️ Under the Hood: The Deployment Order
+## ⚙️ Under the Hood: Deployment Order
 
-If you prefer to run commands manually, or if you are setting up a CI/CD pipeline (like GitHub Actions), you must respect the deployment dependency tree. The `k8s/` directory is structured to enforce this order.
+If you prefer to run commands manually, respect the dependency tree — `k8s-apply` applies them in this exact order:
 
-### 1. Environment & Config
-First, create the isolated namespace and apply the shared, non-sensitive configuration maps (like database URLs or cluster-internal DNS names).
+### 1. Namespace & Config
+First, create the isolated namespace and apply shared, non-sensitive configuration.
 
 .code lang:{bash}
     kubectl apply -f k8s/namespace.yml
     kubectl apply -f k8s/configmaps/
 
-### 2. Injecting Secrets (Manual Step)
-Kubernetes needs access to your JWT secrets, VAPID keys, and AI Agent API keys. **Never commit these to a `.yml` file.** Create the secret directly from your terminal:
+### 2. Injecting Secrets
+Secrets are created directly from your `.env` file — never committed to the repository.
 
 .code lang:{bash}
-    kubectl create secret generic crowdvision-secrets \
-      --namespace=crowdvision \
-      --from-literal=JWT_SECRET="your_secret_here" \
-      --from-literal=VAPID_PUBLIC_KEY="your_vapid_public" \
-      --from-literal=VAPID_PRIVATE_KEY="your_vapid_private" \
-      --from-literal=VAPID_SUBJECT="mailto:admin@domain.com" \
-      --from-literal=GEMINI_API_KEY="your_gemini_key"
+    just k8s-secrets
+
+This reads `JWT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `GOOGLE_API_KEY`, `DEEPSEEK_API_KEY`, `GHCR_USERNAME`, `GHCR_TOKEN` and other keys from `.env` and creates the corresponding Kubernetes Secret objects. It is idempotent — safe to run again after rotating keys.
+
+.box type:{warning}
+    The namespace must exist before secrets can be created. Always run `kubectl apply -f k8s/namespace.yml` (or `just k8s-setup`) before `just k8s-secrets` in isolation.
 
 ### 3. Stateful Services (Databases & Cache)
-Microservices will crash if their databases aren't ready. Apply the `stateful/` directory to spin up the Auth, Twin, Sensor, and Notification databases, as well as Redis.
+Microservices crash if their databases are not ready. Apply the `stateful/` directory to spin up MongoDB and Redis.
 
 .code lang:{bash}
     kubectl apply -f k8s/stateful/
 
-*Wait for these pods to reach the `Running` state before proceeding.*
+*Wait for these pods to reach `Running` state before proceeding.*
 
 ### 4. Deployments (Microservices)
-Once the data layer is warm, deploy the business logic. This applies the manifests for `auth-service`, `twin-service`, `sensor-service`, `notification-service`, `agent-service`, `socket-service`, and the `client`.
+Once the data layer is warm, deploy the business logic.
 
 .code lang:{bash}
     kubectl apply -f k8s/deployments/
 
-### 5. Ingress (Routing)
-Finally, expose the platform to the outside world. The Ingress controller acts as the API Gateway, routing `/api/auth` to the Auth Service, `/api/twin` to the Twin Service, and root `/` traffic to the Vue Client.
+### 5. Ingress (Routing) & Monitoring
 
 .code lang:{bash}
     kubectl apply -f k8s/ingress.yml
+    kubectl apply -f k8s/monitoring/
+
+---
+
+## 🏗️ Image Management
+
+### Building for Production (GHCR)
+
+.code lang:{bash}
+    # Build all images tagged for GHCR:
+    just k8s-build
+
+    # Push to GHCR (requires: docker login ghcr.io first):
+    just k8s-push
+
+    # Build and push in one step:
+    just k8s-build-push
+
+### Local k3d Development (No GHCR required)
+
+Build images locally and import them directly into the k3d cluster — no registry needed:
+
+.code lang:{bash}
+    just k8s-build          # build all images locally
+    just k8s-load           # import into k3d (replaces GHCR pull)
+    just k8s-apply          # apply manifests
+
+.box type:{note}
+    When using locally loaded images, set `imagePullPolicy: IfNotPresent` in the deployment manifests. With `Always`, Kubernetes will attempt a GHCR pull and ignore the locally loaded image.
+
+### Updating a Single Service
+
+.code lang:{bash}
+    # Rebuild (or pull latest), then rolling restart:
+    just k8s-restart auth-service
+
+    # Watch the rollout:
+    just k8s-rollout auth-service
+
+    # Something broke — instant rollback to the previous version:
+    kubectl rollout undo deployment/auth-service -n crowdvision
 
 ---
 
 ## 🌐 Local DNS Resolution
-If you are running this locally (e.g., via k3d), your cluster's Ingress needs a host to map to. Open your machine's `hosts` file (`/etc/hosts` on Mac/Linux, or `C:\Windows\System32\drivers\etc\hosts` on Windows) and add the hostname defined in your `ingress.yml`:
 
-.code lang:{text}
-    127.0.0.1   crowdvision.local
-    # Or your specific cluster IP instead of 127.0.0.1
+If running locally via k3d, add the hostname from `k8s/ingress.yml` to your machine's hosts file. Run:
+
+.code lang:{bash}
+    just k8s-hosts
+    # Prints: 127.0.0.1   crowdvision.local
+
+Open your hosts file as Administrator (Windows: `C:\Windows\System32\drivers\etc\hosts`, Linux/Mac: `/etc/hosts`) and add that line.
+
+---
+
+## 📋 Full Just Reference — Kubernetes
+
+.var {headers}
+   - Recipe
+   - What it does
+
+.tablebyrows {.headers}
+    - - `just k8s-setup`
+      - Install nginx ingress + namespace + secrets + all manifests (first-time)
+    - - `just k8s-apply`
+      - Apply all manifests in dependency order (idempotent)
+    - - `just k8s-secrets`
+      - Create/update secrets from `.env`
+    - - `just k8s-build`
+      - Build all Docker images locally, tagged for GHCR
+    - - `just k8s-push`
+      - Push all images to GHCR
+    - - `just k8s-build-push`
+      - Build and push in one step
+    - - `just k8s-load`
+      - Import locally built images into k3d cluster
+    - - `just k8s-status`
+      - Show all pods/deployments/services in the namespace
+    - - `just k8s-logs <service>`
+      - Tail live logs for a service
+    - - `just k8s-restart <service>`
+      - Trigger rolling restart for one service
+    - - `just k8s-restart-all`
+      - Restart all deployments
+    - - `just k8s-rollout <service>`
+      - Watch a rolling update until completion
+    - - `just k8s-ingress`
+      - Install/reinstall the nginx Ingress Controller
+    - - `just k8s-validate`
+      - Dry-run all manifests without touching the cluster
+    - - `just k8s-stop`
+      - Pause the cluster (data preserved)
+    - - `just k8s-start`
+      - Resume a paused cluster
+    - - `just k8s-delete`
+      - **Destructive** — delete namespace and all data
+    - - `just k8s-hosts`
+      - Print the line to add to your hosts file

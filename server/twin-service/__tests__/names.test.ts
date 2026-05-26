@@ -29,7 +29,9 @@ describe("normalizeBuildingName", () => {
   });
 
   it("returns the trimmed name when it is a valid string", () => {
-    expect(normalizeBuildingName("Science Block", "bldg-001")).toBe("Science Block");
+    expect(normalizeBuildingName("Science Block", "bldg-001")).toBe(
+      "Science Block",
+    );
   });
 
   it("trims surrounding whitespace from a valid name", () => {

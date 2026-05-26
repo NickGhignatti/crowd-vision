@@ -51,7 +51,7 @@ Kubernetes separates configuration into two object types based on sensitivity.
       CLIENT_URL: "http://localhost"
       PORT: "3000"
 
-**Secrets (`k8s/secrets/*.yml`)** — store sensitive values (database URIs, JWT keys, API keys). Values written under `stringData` are plain text in the manifest file but are base64-encoded automatically by Kubernetes before storage in etcd. Secrets are gitignored and must be created locally before deploying.
+**Secrets** — store sensitive values (database URIs, JWT keys, API keys). The `k8s/secrets/` directory is intentionally empty and gitignored. Secrets are created directly on the cluster from your local `.env` file using `just k8s-secrets` — they never touch the git repository. Kubernetes base64-encodes them automatically before storing in etcd.
 
 .box type:{warning}
     `stringData` is not encryption — it is base64 encoding. Real security comes from RBAC controlling who can `kubectl get secret`. For production, consider integrating an external secrets manager (HashiCorp Vault, AWS Secrets Manager) that injects values at runtime.
@@ -133,7 +133,10 @@ The `initContainer` runs before the main container. It polls `auth-db:27017` eve
 
 ## 🔄 Rolling Updates & Rollbacks
 
-Every application Deployment uses `imagePullPolicy: Always`. When you run `kubectl rollout restart deployment/auth-service`, Kubernetes creates a new pod with the fresh image, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down.
+Every application Deployment uses `imagePullPolicy: Always` in VPS production — every rollout restart pulls the freshest `:latest` image from GHCR. When you run `kubectl rollout restart deployment/auth-service`, Kubernetes creates a new pod with the fresh image, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down.
+
+.box type:{note}
+    **Local k3d development:** Set `imagePullPolicy: IfNotPresent` instead of `Always`. When you load images with `just k8s-load`, Kubernetes must use the locally-imported image — `Always` would cause it to attempt a GHCR pull and either fail (if unauthenticated) or silently use a stale remote image.
 
 .code lang:{bash}
     # Roll out a single service
@@ -172,4 +175,12 @@ Every application Deployment uses `imagePullPolicy: Always`. When you run `kubec
 
     # Recent cluster events sorted by time
     kubectl get events -n crowdvision --sort-by='.lastTimestamp' | tail -20
+
+    # Verify which image is actually running in a pod (useful when debugging stale image issues):
+    kubectl get pod <pod-name> -n crowdvision -o jsonpath='{.spec.containers[0].image}'
+
+    # After k3d cluster restart, if kubectl fails with "connection refused":
+    docker ps --filter name=k3d-crowdvision-serverlb
+    # Note the host port mapped to 6443 in the PORTS column, then:
+    kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<PORT>
 ```

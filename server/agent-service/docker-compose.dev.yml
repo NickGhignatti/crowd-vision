@@ -1,0 +1,16 @@
+services:
+  agent-service:
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload"]
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app/app
+        - action: rebuild
+          path: ./pyproject.toml
+
+  agent-db:
+    ports:
+      - "5432:5432"

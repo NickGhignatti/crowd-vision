@@ -1,6 +1,17 @@
-# ==========================================
-# INGRESS 1: API Microservices (Rewrites URLs)
-# ==========================================
+# ── Ingress 1: API Microservices ──────────────────────────────────────────────
+# Handles all /service-name/* routes. Strips the path prefix before forwarding
+# so services receive requests at their own root (e.g. /login, not /auth/login).
+#
+# How rewriting works:
+#   path: /auth(/|$)(.*)  with rewrite-target: /$2
+#   /auth        → /
+#   /auth/login  → /login
+#   /auth/u/x    → /u/x
+#
+# CORS note: in production all requests are same-origin (client and API share
+# the same domain through this ingress), so CORS headers are only needed for
+# external clients or local npm dev servers hitting the k8s cluster.
+# Change cors-allow-origin to match your VPS domain when deploying.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,16 +21,18 @@ metadata:
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 
-    # Optional CORS blocks (if needed)
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "http://localhost"
+    # Local k3d:  http://crowdvision.local
+    # VPS:        https://your-domain.com
+    nginx.ingress.kubernetes.io/cors-allow-origin: "http://crowdvision.local"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
     nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
 spec:
   ingressClassName: nginx
   rules:
-    - http:
+    - host: crowdvision.local   # change to your VPS domain for production
+      http:
         paths:
           - path: /auth(/|$)(.*)
             pathType: ImplementationSpecific
@@ -56,35 +69,57 @@ spec:
                 name: sensor-service
                 port:
                   number: 3000
+          - path: /contracts(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: contracts-service
+                port:
+                  number: 3000
 
 ---
-# ==========================================
-# INGRESS 2: WebSockets & Client (No Rewriting)
-# ==========================================
+# ── Ingress 2: WebSocket & Client ─────────────────────────────────────────────
+# No URL rewriting here — socket.io needs its full path intact, and the client
+# serves a SPA that handles its own internal routing at /.
+#
+# Sticky sessions: Socket.IO's polling transport does the initial handshake on
+# one request and then expects subsequent requests to hit the same pod.
+# The cookie affinity annotation ensures this even if you scale socket-service.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: crowdvision-ingress-root
   namespace: crowdvision
   annotations:
-    # Keeps WebSocket connections alive
+    # Keep WebSocket connections alive for up to 1 hour.
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 
-    # Sticky Sessions for Socket.io Polling handshake
+    # Sticky sessions via cookie — required for Socket.IO polling transport.
+    # Note: NGINX Ingress handles WebSocket Upgrade/Connection headers automatically
+    # since v0.21 — no configuration-snippet needed (and snippets are disabled by
+    # default in newer NGINX Ingress installs for security).
     nginx.ingress.kubernetes.io/affinity: "cookie"
     nginx.ingress.kubernetes.io/session-cookie-name: "route"
     nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
 spec:
   ingressClassName: nginx
   rules:
-    - http:
+    - host: crowdvision.local   # change to your VPS domain for production
+      http:
         paths:
           - path: /socket.io
             pathType: ImplementationSpecific
             backend:
               service:
                 name: socket-service
+                port:
+                  number: 3000
+          - path: /grafana
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: grafana
                 port:
                   number: 3000
           - path: /

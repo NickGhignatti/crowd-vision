@@ -1,7 +1,8 @@
-# If we ever scale to multiple replicas, Socket.IO connections are stateful
-# (a client is connected to a specific pod), so load balancing needs to use sticky sessions.
-# With 1 replica it's a non-issue, and your Redis adapter already handles the pub/sub
-# across instances if we scale later.
+# ── Deployment ────────────────────────────────────────────────────────────────
+# Socket.IO connections are stateful — a client handshakes with a specific pod.
+# With 1 replica this is not an issue. If you scale to multiple replicas:
+#   1. The Ingress sticky session (cookie affinity) is already configured.
+#   2. The Redis adapter broadcasts events across replicas via pub/sub.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,9 +18,15 @@ spec:
       labels:
         app: socket-service
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       initContainers:
         - name: wait-for-redis
           image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - sh
             - -c
@@ -28,33 +35,57 @@ spec:
                 echo "waiting for redis..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
       containers:
         - name: socket-service
           image: ghcr.io/nickghignatti/crowdvision-socket:latest
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
           envFrom:
             - configMapRef:
-                name: common-config    # PORT, REDIS_URL, CLIENT_URL
+                name: common-config   # PORT, REDIS_URL, CLIENT_URL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             tcpSocket:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             tcpSocket:
               port: 3000
             initialDelaySeconds: 20
             periodSeconds: 20
+            failureThreshold: 3
           resources:
             requests:
               cpu: "100m"
               memory: "128Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "256Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
 ---
+# ── Service ───────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:

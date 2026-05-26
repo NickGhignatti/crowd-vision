@@ -98,9 +98,7 @@ export const generateSSOLoginUrl = async (
   return redirectUrl.href;
 };
 
-export const processSSOCallback = async (
-  fullUrl: string,
-) => {
+export const processSSOCallback = async (fullUrl: string) => {
   const currentUrl = new URL(fullUrl, getServerUrl());
   const stateParam = currentUrl.searchParams.get("state");
 

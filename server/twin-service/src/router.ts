@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router } from "express";
 import {
   getBuildingByDomain,
   getBuildingById,
@@ -9,15 +9,15 @@ import {
 } from "./controller/buildings.js";
 import { checkHealth } from "./controller/status.js";
 import { register } from "./config/registry.js";
-import { DIGITAL_TWIN_METRICS_CONTRACT } from './models/metrics.js';
+import { DIGITAL_TWIN_METRICS_CONTRACT } from "./models/metrics.js";
 
 const router = Router();
 
-router.post('/register', addBuilding);
-router.get('/building/:id', getBuildingById);
-router.get('/buildings/:domain', getBuildingByDomain);
-router.get('/domain/:buildingName', getDomainsByBuilding);
-router.patch('/building/:buildingId', updateBuilding);
+router.post("/register", addBuilding);
+router.get("/building/:id", getBuildingById);
+router.get("/buildings/:domain", getBuildingByDomain);
+router.get("/domain/:buildingName", getDomainsByBuilding);
+router.patch("/building/:buildingId", updateBuilding);
 router.patch("/building/:buildingId/room/:roomId", updateRoom);
 
 // --- Metrics ---

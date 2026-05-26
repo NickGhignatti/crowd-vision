@@ -17,11 +17,20 @@ import {
   requireAuthentication,
   requireHmacSignature,
 } from "../src/middlewares/authentication.js";
-import { NotFoundError, ForbiddenError, InternalError, ValidationError } from "../src/models/error.js";
+import {
+  NotFoundError,
+  ForbiddenError,
+  InternalError,
+  ValidationError,
+} from "../src/models/error.js";
 import { verifyToken } from "../src/services/token.js";
 
-const mockedVerifyToken = verifyToken as jest.MockedFunction<typeof verifyToken>;
-const mockedGetAdminSecret = getAdminSecret as jest.MockedFunction<typeof getAdminSecret>;
+const mockedVerifyToken = verifyToken as jest.MockedFunction<
+  typeof verifyToken
+>;
+const mockedGetAdminSecret = getAdminSecret as jest.MockedFunction<
+  typeof getAdminSecret
+>;
 
 describe("Authentication middleware", () => {
   beforeEach(() => {
@@ -31,11 +40,7 @@ describe("Authentication middleware", () => {
 
   it("rejects requests without an authentication cookie", () => {
     expect(() =>
-      requireAuthentication(
-        { cookies: {} } as any,
-        {} as any,
-        jest.fn(),
-      ),
+      requireAuthentication({ cookies: {} } as any, {} as any, jest.fn()),
     ).toThrow(NotFoundError);
   });
 
@@ -130,4 +135,3 @@ describe("Authentication middleware", () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 });
-

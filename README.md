@@ -24,6 +24,18 @@ Whether you are a user learning how to navigate the dashboard, or a developer lo
 
 ---
 
+## 🚀 Quick Start
+
+CrowdVision is a polyglot monorepo (JavaScript, Python, Rust) orchestrated by [`just`](https://just.systems/). There is no root `package.json` — each service manages its own dependencies; shared JS dev tooling lives in `tooling/`.
+
+```bash
+just install    # install all dependencies (npm per-service + Python uv + Rust cargo)
+just env        # generate .env (prompts for secrets, skips existing values)
+just dev        # start the full dev stack with hot-reload
+```
+
+See the [Developer Setup Guide](documentation/developer/config/setting-up.qd) for full instructions.
+
 ## 🔑 AI Agent API Keys
 
 The agent-service uses two LLM providers and needs an API key for each:
@@ -31,7 +43,7 @@ The agent-service uses two LLM providers and needs an API key for each:
 - `GOOGLE_API_KEY` — Gemini (chat + embeddings). Create one at <https://aistudio.google.com/apikey>.
 - `DEEPSEEK_API_KEY` — DeepSeek (alternative chat backend). Create one at <https://platform.deepseek.com/api_keys>.
 
-The `npm run setup` script (run automatically by `npm run docker:dev` / `npm run docker:start`) will prompt you for both and write them to your local `.env`. You can leave them empty if you don't plan to use the agent — the service will boot, but `/ask` will fail on the first LLM call.
+Running `just env` (called automatically by `just dev` / `just start`) will prompt you for both and write them to your local `.env`. You can leave them empty if you don't plan to use the agent — the service will boot, but `/ask` will fail on the first LLM call.
 
-For the full env layout (Docker Compose **and** Kubernetes secret manifests under `k8s/secrets/agent.yml`), see [Environment Setup in the developer docs](documentation/developer/page-11.qd).
+For the full environment variable reference and Kubernetes setup, see the [Developer Setup Guide](documentation/developer/config/setting-up.qd).
 

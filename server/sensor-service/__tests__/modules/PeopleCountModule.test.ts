@@ -18,9 +18,7 @@ jest.unstable_mockModule("src/config/redis.ts", () => ({
   },
 }));
 
-const { PeopleCountModule } = await import(
-  "src/modules/PeopleCountModule.ts"
-);
+const { PeopleCountModule } = await import("src/modules/PeopleCountModule.ts");
 const { PeopleCount } = await import("src/models/peopleCountSignal.ts");
 
 describe("People Count Domain (Module + Service)", () => {

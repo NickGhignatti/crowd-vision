@@ -7,7 +7,7 @@ RUN cargo build --release
 
 FROM debian:bookworm-slim AS production
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates=20230311+deb12u1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

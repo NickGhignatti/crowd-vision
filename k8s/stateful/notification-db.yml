@@ -1,10 +1,9 @@
+# ── Headless Service ──────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:
   name: notification-db
   namespace: crowdvision
-  labels:
-    app: notification-db
 spec:
   clusterIP: None
   selector:
@@ -14,6 +13,7 @@ spec:
       targetPort: 27017
 
 ---
+# ── StatefulSet ───────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -32,29 +32,45 @@ spec:
     spec:
       containers:
         - name: mongodb
-          image: mongo:latest
+          image: mongo:8
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 27017
           volumeMounts:
             - name: notification-data
               mountPath: /data/db
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             exec:
-              command:
-                - mongosh
-                - --eval
-                - "db.adminCommand('ping')"
+              command: [mongosh, --eval, "db.adminCommand('ping')"]
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
             timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: [mongosh, --eval, "db.adminCommand('ping')"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 10
           resources:
             requests:
               cpu: "100m"
               memory: "256Mi"
+              ephemeral-storage: "100Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
   volumeClaimTemplates:
     - metadata:
         name: notification-data
@@ -63,3 +79,6 @@ spec:
         resources:
           requests:
             storage: 1Gi
+        # Local k3d:           omit storageClassName — uses default "local-path"
+        # Hetzner VPS:         storageClassName: hcloud-volumes
+        # DigitalOcean VPS:    storageClassName: do-block-storage

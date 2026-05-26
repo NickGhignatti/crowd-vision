@@ -1,8 +1,8 @@
+use crate::state::AppState;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use crate::state::AppState;
 
 const DEFAULT_COLUMNS: &[&str] = &["roomName", "roomMaxOccupancy"];
 
@@ -10,7 +10,8 @@ pub async fn init_building_preferences(
     Path(building_id): Path<String>,
     State(state): State<AppState>,
 ) -> StatusCode {
-    state.building_preferences
+    state
+        .building_preferences
         .entry(building_id)
         .or_insert_with(|| DEFAULT_COLUMNS.iter().map(|s| s.to_string()).collect());
     StatusCode::OK
@@ -18,7 +19,7 @@ pub async fn init_building_preferences(
 
 #[cfg(test)]
 mod tests {
-    use super::{init_building_preferences, DEFAULT_COLUMNS};
+    use super::{DEFAULT_COLUMNS, init_building_preferences};
     use crate::state::AppState;
     use axum::extract::{Path, State};
     use axum::http::StatusCode;
@@ -26,11 +27,8 @@ mod tests {
     #[tokio::test]
     async fn new_building_receives_default_columns() {
         let state = AppState::new();
-        let status = init_building_preferences(
-            Path("bldg-1".to_string()),
-            State(state.clone()),
-        )
-        .await;
+        let status =
+            init_building_preferences(Path("bldg-1".to_string()), State(state.clone())).await;
 
         assert_eq!(status, StatusCode::OK);
         let cols = state.building_preferences.get("bldg-1").unwrap();

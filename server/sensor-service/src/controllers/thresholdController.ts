@@ -12,6 +12,26 @@ export function createThresholdHandlers(kernel: SensorKernel) {
   };
 
   return {
+    // PUT /thresholds/buildings/:buildingId
+    // Called by twin-service when a building is registered or updated.
+    // Forwards the payload to every sensor module so each type can initialise
+    // its own threshold records (modules that don't support thresholds are no-ops).
+    registerBuilding: async (req: Request, res: Response): Promise<void> => {
+      try {
+        const buildingId = req.params.buildingId as string;
+        const payload = req.body;
+        await Promise.all(
+          kernel.getRegisteredTypes().map((type) => {
+            const module = kernel.resolve(type);
+            return module?.updateBuildingThreshold(buildingId, payload);
+          }),
+        );
+        res.status(200).json({ message: "Building registered" });
+      } catch (error: any) {
+        res.status(400).json({ error: error.message });
+      }
+    },
+
     // GET /api/thresholds/:sensorType/buildings/:buildingId
     getBuildingThreshold: async (
       req: Request,

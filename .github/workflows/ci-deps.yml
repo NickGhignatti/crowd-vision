@@ -1,0 +1,68 @@
+name: Dependencies
+
+on:
+  pull_request:
+  workflow_call:
+
+jobs:
+  npm-deps:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        directory:
+          - "tooling"
+          - "client"
+          - "server/auth-service"
+          - "server/notification-service"
+          - "server/sensor-service"
+          - "server/socket-service"
+          - "server/twin-service"
+          - "simulators/sensor-simulator"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: "npm"
+          cache-dependency-path: ${{ matrix.directory }}/package-lock.json
+
+      - name: Check Dependencies
+        run: cd ${{ matrix.directory }} && npm ci
+
+  python-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: 📦 Verify agent-service lockfile
+        working-directory: ./server/agent-service
+        run: uv sync --locked
+
+  rust-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: 📦 Check contracts-service dependencies
+        working-directory: ./server/contracts-service
+        run: cargo check

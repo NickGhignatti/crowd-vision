@@ -5,7 +5,7 @@
  *  - No race condition between parallel test files fighting over the lock file.
  *  - The URI is forwarded to every worker via process.env.
  */
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryServer } = require("mongodb-memory-server");
 
 module.exports = async () => {
   const mongoServer = await MongoMemoryServer.create();
