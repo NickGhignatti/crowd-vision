@@ -1,11 +1,7 @@
 name: agent-service-ci
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - "server/agent-service/**"
-      - ".github/workflows/agent.yml"
+  workflow_call:
 
 jobs:
   agent-service:

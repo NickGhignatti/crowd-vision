@@ -1,11 +1,6 @@
 name: twin-service-ci
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - "server/twin-service/**"
-      - ".github/workflows/ci-twin.yml"
   workflow_call:
 
 jobs:

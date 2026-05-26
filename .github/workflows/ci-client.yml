@@ -1,11 +1,6 @@
 name: client
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - "client/**"
-      - ".github/workflows/ci-client.yml"
   workflow_call:
 
 jobs:

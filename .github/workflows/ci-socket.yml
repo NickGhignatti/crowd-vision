@@ -1,11 +1,6 @@
 name: socket-service-ci
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - "server/socket-service/**"
-      - ".github/workflows/ci-socket.yml"
   workflow_call:
 
 jobs:

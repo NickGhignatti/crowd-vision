@@ -1,11 +1,6 @@
 name: contracts-service-ci
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - "server/contracts-service/**"
-      - ".github/workflows/ci-contracts.yml"
   workflow_call:
 
 jobs:
