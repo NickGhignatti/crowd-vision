@@ -61,7 +61,6 @@ def _to_contents(messages: list[dict]) -> list[genai_types.Content]:
         contents.append(genai_types.Content(role=gemini_role, parts=parts))
     return contents
 
-
 def _tools_to_genai(tools: list[ToolSchema]) -> list[genai_types.Tool]:
     decls = [
         genai_types.FunctionDeclaration(
