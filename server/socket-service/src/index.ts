@@ -26,6 +26,7 @@ redisSubscriber.on("error", (err) => console.error("Redis Client Error", err));
 await redisSubscriber.connect();
 
 await redisSubscriber.subscribe("notifications", (message) => {
+  console.info("[Event] New notification received:", message);
   io.emit("notification", JSON.parse(message));
 });
 

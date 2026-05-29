@@ -10,10 +10,7 @@ export const initializeEventListeners = async () => {
   await redisSubscriber.subscribe("alerts:temperature", async (message) => {
     try {
       const payload = JSON.parse(message);
-      console.info(
-        `[Event] 🌡️ Temperature anomaly received for ${payload.roomId}`,
-      );
-      const alertMessage = `${payload.buildingId} : ${payload.roomId} excedeed ${payload.temperature}°C`;
+      const alertMessage = `${payload.buildingId} : ${payload.roomId} is ${payload.temperature}°C`;
       await sendTemperatureAlert(alertMessage, payload.timestamp);
     } catch (error) {
       console.error("[Event] Failed to process temperature alert:", error);

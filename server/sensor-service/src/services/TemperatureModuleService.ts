@@ -155,11 +155,8 @@ export class TemperatureService {
 
       if (
         activeThreshold.maxTemp !== undefined &&
-        temperature > activeThreshold.maxTemp
+        (temperature > activeThreshold.maxTemp || temperature < activeThreshold.minTemp)
       ) {
-        console.warn(
-          `[ALERT] High Temperature anomaly in ${buildingId} ${roomId}: ${temperature}°C`,
-        );
         const eventPayload = JSON.stringify({
           buildingId,
           roomId,
@@ -169,14 +166,6 @@ export class TemperatureService {
         });
 
         await redisClient.publish("alerts:temperature", eventPayload);
-      }
-      if (
-        activeThreshold.minTemp !== undefined &&
-        temperature < activeThreshold.minTemp
-      ) {
-        console.warn(
-          `[ALERT] Low Temperature anomaly in ${buildingId} ${roomId}: ${temperature}°C`,
-        );
       }
     } catch (err) {
       console.error(`[TemperatureService] Threshold evaluation failed:`, err);

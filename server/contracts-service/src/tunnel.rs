@@ -60,8 +60,6 @@ async fn listen_and_fanout(
         info!("Failed to subscribe to {}: {}", RAW_CHANNEL, e);
         return;
     }
-
-    info!("Subscribed to Redis channel: {}", RAW_CHANNEL);
     let mut stream = pubsub.on_message();
 
     // Hot loop: Awaits raw telemetry
@@ -69,17 +67,13 @@ async fn listen_and_fanout(
         let payload: String = match msg.get_payload() {
             Ok(p) => p,
             Err(_) => {
-                info!("FAIL");
                 continue;
             }
         };
 
-        info!("Received raw telemetry: {}", payload.clone());
-
         let raw_data: Value = match serde_json::from_str(&payload) {
             Ok(v) => v,
             Err(_) => {
-                info!("FAIL");
                 continue;
             }
         };
@@ -118,10 +112,6 @@ async fn process_and_publish(
         }
 
         if let Ok(payload_str) = serde_json::to_string(&raw_data) {
-            info!(
-                "Publishing to channel telemetry:filtered:{}: {}",
-                building_id, payload_str
-            );
             let channel = format!("telemetry:filtered:{}", building_id);
             let _: redis::RedisResult<()> = redis::cmd("PUBLISH")
                 .arg(&channel)
