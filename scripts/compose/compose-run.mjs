@@ -132,10 +132,10 @@ if (isDown) {
     "--abort-on-container-exit",
   ];
 } else if (isStart) {
-  dockerArgs = ["compose", "-f", RUNTIME_FILE, "up", "--build", "-d"];
+  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--build', '-d', '--remove-orphans'];
 } else {
   // dev
-  dockerArgs = ["compose", "-f", RUNTIME_FILE, "up", "--watch", "--build"];
+  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--watch', '--build', '--remove-orphans'];
 }
 
 if (effectiveExcludes.length > 0) {
