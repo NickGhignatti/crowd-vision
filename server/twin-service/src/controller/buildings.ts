@@ -2,8 +2,8 @@ import type { Request, Response } from "express";
 import * as BuildingService from "../services/buildings.js";
 
 export const addBuilding = async (req: Request, res: Response) => {
-  const { id, name, rooms, domains } = req.body;
-  const building = await BuildingService.addBuilding(id, name, rooms, domains);
+  const { name, rooms, domains } = req.body;
+  const building = await BuildingService.addBuilding(name, rooms, domains);
   res.status(201).json(building);
 };
 

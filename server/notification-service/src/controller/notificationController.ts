@@ -15,8 +15,10 @@ import { NotificationType } from "../models/notificationSubscription.js";
 
 type SubscriptionRequestBody = {
   accountName?: string;
+  /** @deprecated Use `accountName` instead. */
   userId?: string;
   domainName?: string;
+  /** @deprecated Use `domainName` instead. */
   domainId?: string;
   // Legacy / single updates
   enabled?: boolean;
@@ -48,8 +50,8 @@ type IncomingSubscription = {
 const isValidSubscription = (subscription: IncomingSubscription) =>
   Boolean(
     subscription.endpoint &&
-      subscription.keys?.p256dh &&
-      subscription.keys?.auth,
+    subscription.keys?.p256dh &&
+    subscription.keys?.auth,
   );
 
 const getAccountName = (body: { accountName?: string; userId?: string }) =>
@@ -57,6 +59,24 @@ const getAccountName = (body: { accountName?: string; userId?: string }) =>
 
 const getDomainName = (body: { domainName?: string; domainId?: string }) =>
   body.domainName || body.domainId;
+
+/** Resolves accountName (or its deprecated alias userId) and throws if absent. */
+const requireAccountName = (
+  body: { accountName?: string; userId?: string },
+): string => {
+  const name = body.accountName || body.userId;
+  if (!name) throw new ValidationError("accountName is required");
+  return name;
+};
+
+/** Resolves domainName (or its deprecated alias domainId) and throws if absent. */
+const requireDomainName = (
+  body: { domainName?: string; domainId?: string },
+): string => {
+  const domain = body.domainName || body.domainId;
+  if (!domain) throw new ValidationError("domainName is required");
+  return domain;
+};
 
 const getDomainsForBuilding = async (buildingName: string) => {
   const response = await fetch(
@@ -114,9 +134,9 @@ export const subscribe = async (req: Request, res: Response) => {
   const subscription: IncomingSubscription = body.subscription?.endpoint
     ? body.subscription
     : {
-        ...(body.endpoint ? { endpoint: body.endpoint } : {}),
-        ...(body.keys ? { keys: body.keys } : {}),
-      };
+      ...(body.endpoint ? { endpoint: body.endpoint } : {}),
+      ...(body.keys ? { keys: body.keys } : {}),
+    };
 
   if (!accountName) {
     throw new ValidationError("Missing required field: accountName");
@@ -189,14 +209,8 @@ export const getPreferences = async (req: Request, res: Response) => {
 export const updatePreference = async (req: Request, res: Response) => {
   const body = req.body as SubscriptionRequestBody;
 
-  const accountName = getAccountName(body);
-  const domainName = getDomainName(body);
-
-  if (!accountName || !domainName) {
-    throw new ValidationError(
-      "accountName/userId and domainName/domainId are required",
-    );
-  }
+  const accountName = requireAccountName(body);
+  const domainName = requireDomainName(body);
 
   if (body.preferences && body.preferences.length > 0) {
     await Promise.all(

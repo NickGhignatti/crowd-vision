@@ -4,7 +4,6 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
@@ -52,10 +51,6 @@ pub async fn update_preferences(
     Json(payload): Json<UpdatePreferencesRequest>,
 ) -> impl IntoResponse {
     let column_count = payload.allowed_columns.len();
-    info!(
-        "Received update for building_id: {}, allowed_columns: {:?}",
-        building_id, payload.allowed_columns
-    );
 
     // Instant Cache Mutation (The Hot Path)
     // DashMap shards its internal locks, meaning this write operation will virtually
@@ -64,11 +59,6 @@ pub async fn update_preferences(
     state
         .building_preferences
         .insert(building_id.clone(), payload.allowed_columns.clone());
-
-    info!(
-        "Updated telemetry routing bounds for client: {}",
-        building_id
-    );
 
     // Asynchronous Database Persistence (The Cold Path)
     // Spawn a fire-and-forget Tokio task to handle the I/O bottleneck of database writes.

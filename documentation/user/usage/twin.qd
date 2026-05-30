@@ -24,7 +24,7 @@ The Left Menu acts as your primary navigation tool for switching between differe
 
 * **Select Building:** Use the dropdown menu to choose which building you want to view. The list populates based on the domains your account has access to.
 * **Floor Selection:** If a building has multiple levels, you can filter the 3D view to show only a specific floor or choose **"All Floors"** to see the entire structure.
-* **Upload JSON (Data Import):** For administrators setting up a new space, this option allows you to upload a valid JSON file containing the architectural and spatial data (geometry) of a building to render it in the 3D engine.
+* **Register Building:** For administrators setting up a new space, clicking this button opens the **Register Building** modal. From there you can upload a valid JSON file containing the architectural and spatial data (geometry) of the building, review and adjust its name, temperature thresholds, indoor AQI thresholds, and per-room capacity before saving. The system automatically assigns a unique identifier to the building — the JSON file does not need to include one.
 
 ---
 
@@ -44,10 +44,12 @@ Users with elevated permissions (such as Organization Administrators or Staff) h
 
 By selecting a room and choosing to **Edit Room**, authorized users can configure:
 * **Room Name:** The display name of the room (e.g., "Physics Lab").
-* **Room Identifier:** The unique system ID for the room.
+* **Room Identifier:** The unique system ID for the room (read-only, assigned from the original model file).
 * **Capacity:** The maximum safe number of people allowed in the room, which drives the dashboard occupancy statuses (Normal, Crowded, Overcrowded).
 * **Max Temp (°C):** The upper temperature threshold for the room. If the live temperature exceeds this limit, the system can trigger critical alerts.
 * **Theme Color:** The default visual color of the room when viewed in the standard 3D mode.
+
+Temperature and AQI thresholds for all rooms can also be configured in bulk at registration time through the **Register Building** modal.
 
 ---
 

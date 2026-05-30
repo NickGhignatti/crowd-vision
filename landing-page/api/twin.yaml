@@ -1,190 +1,352 @@
 openapi: 3.1.0
 info:
   title: Twin Service API
-  description: API for managing digital twins of buildings and rooms.
+  description: |
+    Manages the Digital Twins — the spatial source of truth for CrowdVision.
+    Each building is identified by a **server-generated UUID**; clients must not
+    supply an `id` when registering a building.
   version: 1.0.0
 servers:
-  - url: http://localhost/twin
-    description: Local gateway endpoint for Twin Service
+  - url: http://localhost:80/twin/
+    description: Local development server
+
+tags:
+  - name: Buildings
+    description: Building registration and retrieval
+  - name: Rooms
+    description: Room-level updates within a building
+  - name: Observability
+    description: Health, metrics, and contracts endpoints
+
 paths:
   /register:
     post:
       summary: Register a new building
+      description: |
+        Creates a new Digital Twin for a physical building. The service
+        auto-generates a UUID for the building — do **not** include an `id`
+        field in the request body. The generated `id` is returned in the
+        response and must be used for all subsequent operations.
+
+        After registration the twin-service synchronises a lightweight copy
+        of the building to the Sensor Service.
       tags:
-        - Twin
+        - Buildings
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/BuildingInput"
+            example:
+              name: "Engineering Block"
+              domains: ["university.edu"]
+              rooms:
+                - id: "G-Room-001"
+                  name: "Ground Floor Lab"
+                  capacity: 30
+                  position: { x: 0, y: 0, z: 0 }
+                  dimensions: { width: 10, height: 3, depth: 8 }
+                  color: "#4ade80"
       responses:
         "201":
-          description: Buildings registered successfully
+          description: Building created successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Building"
         "400":
-          $ref: "error.yaml#/components/responses/BadRequest"
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: A building with a conflicting unique constraint already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /building/{id}:
     get:
       summary: Get a building by ID
+      description: Returns a single building document including all its rooms. Blank names are backfilled from the room/building ID on read.
       tags:
-        - Twin
+        - Buildings
       parameters:
-        - in: path
-          name: id
-          schema:
-            type: string
-          required: true
-          description: The unique identifier of the building
+        - $ref: "#/components/parameters/BuildingId"
       responses:
         "200":
-          description: Buildings retrieved successfully
+          description: Building found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Building"
         "404":
-          $ref: "error.yaml#/components/responses/NotFound"
+          $ref: "#/components/responses/NotFound"
 
   /buildings/{domain}:
     get:
-      summary: Get buildings by domain
+      summary: Get all buildings for a domain
+      description: Returns all buildings whose `domains` array contains the specified domain. Returns an empty array if no buildings are found.
       tags:
-        - Twin
+        - Buildings
       parameters:
         - in: path
           name: domain
+          required: true
           schema:
             type: string
-          required: true
-          description: The domain associated with the buildings
+          description: Domain name (e.g. `university.edu`)
+          example: "university.edu"
       responses:
         "200":
-          description: List of buildings retrieved successfully
+          description: List of buildings (may be empty)
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/Building"
-        "404":
-          $ref: "error.yaml#/components/responses/NotFound"
 
-  /building/{buildingId}/room/{roomId}:
-    patch:
-      summary: Update a room within a building
+  /domain/{buildingName}:
+    get:
+      summary: Get all domains associated with a building name
+      description: Returns the flat list of domain strings across all buildings whose `name` matches the provided value.
       tags:
-        - Twin
+        - Buildings
       parameters:
         - in: path
-          name: buildingId
+          name: buildingName
+          required: true
           schema:
             type: string
-          required: true
-          description: The ID of the building
-        - in: path
-          name: roomId
-          schema:
-            type: string
-          required: true
-          description: The ID of the room to update
+          description: Display name of the building
+          example: "Engineering Block"
+      responses:
+        "200":
+          description: Array of domain strings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: ["university.edu", "facilities-corp.com"]
+
+  /building/{buildingId}:
+    patch:
+      summary: Update building properties
+      description: Updates top-level building fields such as `name` or `domains`. Structural fields (rooms geometry) cannot be changed through this endpoint.
+      tags:
+        - Buildings
+      parameters:
+        - $ref: "#/components/parameters/BuildingIdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              description: Fields to update in the room (e.g., name, temperature, maxTemperature, no_person, color)
-              example:
-                name: "Physics Lab"
-                temperature: 24.5
-                maxTemperature: 30.0
-                no_person: 5
-                color: "#ff0000"
+              properties:
+                name:
+                  type: string
+                  example: "New Block Name"
+                domains:
+                  type: array
+                  items:
+                    type: string
+                  example: ["university.edu"]
       responses:
         "200":
-          description: Room updated successfully
+          description: Building updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Building"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /building/{buildingId}/room/{roomId}:
+    patch:
+      summary: Update a room within a building
+      description: Updates editable room attributes — `name`, `capacity`, and `color`. Geometry fields (`position`, `dimensions`) and `id` cannot be changed.
+      tags:
+        - Rooms
+      parameters:
+        - $ref: "#/components/parameters/BuildingIdPath"
+        - in: path
+          name: roomId
+          required: true
+          schema:
+            type: string
+          description: The room's `id` as it appears in the building document
+          example: "G-Room-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Physics Lab"
+                capacity:
+                  type: integer
+                  minimum: 0
+                  example: 35
+                color:
+                  type: string
+                  pattern: "^#[0-9a-fA-F]{6}$"
+                  example: "#f43f5e"
+      responses:
+        "200":
+          description: Room updated
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Room"
         "400":
-          $ref: "error.yaml#/components/responses/BadRequest"
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /health/:
+    get:
+      summary: Health check
+      tags:
+        - Observability
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /metrics/:
+    get:
+      summary: Prometheus metrics
+      description: Returns Prometheus-formatted scrape metrics for this service instance.
+      tags:
+        - Observability
+      responses:
+        "200":
+          description: Prometheus text format
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /contracts:
+    get:
+      summary: Get metric contracts
+      description: Returns the list of metric types exposed by this service for use by the contracts-service dashboard column configuration.
+      tags:
+        - Observability
+      responses:
+        "200":
+          description: Metric contracts for the twin service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceMetricsContract"
 
 components:
+  parameters:
+    BuildingId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Server-generated UUID of the building
+      example: "42bc920a-8c39-48ae-b033-376739c8ebf0"
+
+    BuildingIdPath:
+      in: path
+      name: buildingId
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Server-generated UUID of the building
+      example: "42bc920a-8c39-48ae-b033-376739c8ebf0"
+
   schemas:
     Coordinates:
       type: object
-      required:
-        - x
-        - y
-        - z
+      required: [x, y, z]
       properties:
         x:
           type: number
+          example: 0
         y:
           type: number
+          example: 0
         z:
           type: number
+          example: 0
 
     Dimensions:
       type: object
-      required:
-        - width
-        - height
-        - depth
+      required: [width, height, depth]
       properties:
         width:
           type: number
+          example: 10
         height:
           type: number
+          example: 3
         depth:
           type: number
+          example: 8
 
     Room:
       type: object
-      required:
-        - id
-        - name
-        - capacity
-        - position
-        - dimensions
+      required: [id, name, capacity, position, dimensions]
       properties:
         id:
           type: string
+          description: Room identifier from the original JSON model file. Immutable after registration.
+          example: "G-Room-001"
         name:
           type: string
+          description: Display name. Falls back to `id` if blank.
+          example: "Ground Floor Lab"
         capacity:
-          type: number
+          type: integer
+          minimum: 0
+          description: Maximum safe occupancy in people.
+          example: 30
         position:
           $ref: "#/components/schemas/Coordinates"
         dimensions:
           $ref: "#/components/schemas/Dimensions"
         color:
           type: string
-        temperature:
-          type: number
-        maxTemperature:
-          type: number
-        no_person:
-          type: number
+          pattern: "^#[0-9a-fA-F]{6}$"
+          description: Optional theme color for the 3D viewer.
+          example: "#4ade80"
 
-    BuildingInput:
+    Building:
       type: object
-      required:
-        - id
-        - rooms
-        - domains
+      required: [id, name, rooms, domains]
       properties:
         id:
           type: string
+          format: uuid
+          description: Server-generated UUID. Never supplied by the client.
+          example: "42bc920a-8c39-48ae-b033-376739c8ebf0"
         name:
           type: string
-          description: Human-readable building name. If omitted, defaults to id.
+          description: Display name. Falls back to `"Building"` if blank and no ID fallback is available.
+          example: "Engineering Block"
         rooms:
           type: array
           items:
@@ -193,15 +355,106 @@ components:
           type: array
           items:
             type: string
+          description: Multi-tenancy access list. The building is visible only to users whose JWT memberships include at least one of these domain strings.
+          example: ["university.edu"]
 
-    Building:
-      allOf:
-        - $ref: "#/components/schemas/BuildingInput"
-        - type: object
-          properties:
-            createdAt:
-              type: string
-              format: date-time
-            updatedAt:
-              type: string
-              format: date-time
+    BuildingInput:
+      type: object
+      required: [rooms, domains]
+      description: Payload for registering a new building. Do not include `id` — it is assigned by the server.
+      properties:
+        name:
+          type: string
+          description: Optional display name. Defaults to `"Building"` if omitted.
+          example: "Engineering Block"
+        rooms:
+          type: array
+          items:
+            $ref: "#/components/schemas/Room"
+        domains:
+          type: array
+          items:
+            type: string
+          example: ["university.edu"]
+
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "Conflict Error"
+        message:
+          type: string
+          example: "Building with id already exists"
+        code:
+          type: integer
+          example: 409
+
+    MetricFieldContract:
+      type: object
+      required: [name, type, required]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [string, number, boolean, integer]
+        required:
+          type: boolean
+        description:
+          type: string
+
+    MetricContract:
+      type: object
+      required: [metricKey, label, interfaceName, fields]
+      properties:
+        metricKey:
+          type: string
+          example: "roomName"
+        label:
+          type: string
+          example: "Room"
+        interfaceName:
+          type: string
+          example: "IRoom"
+        unit:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricFieldContract"
+
+    ServiceMetricsContract:
+      type: object
+      required: [service, metrics]
+      properties:
+        service:
+          type: string
+          example: "twin-service"
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricContract"
+
+  responses:
+    BadRequest:
+      description: Bad request — invalid input
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            type: "Validation Error"
+            message: "Invalid input provided"
+            code: 400
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            type: "Not Found Error"
+            message: "Building with id not found"
+            code: 404

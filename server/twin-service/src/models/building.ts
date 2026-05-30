@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { randomUUID } from "crypto";
 
 interface Coordinates {
   x: number;
@@ -16,8 +17,6 @@ export interface Room {
   id: string;
   name: string;
   capacity: number;
-  temperature: number;
-  no_person: number;
   position: Coordinates;
   dimensions: Dimensions;
   color?: string;
@@ -54,9 +53,6 @@ const RoomSchema = new Schema<Room>(
     name: {
       type: String,
       required: true,
-      default: function (this: Room) {
-        return this.id;
-      },
     },
     capacity: { type: Number, required: true },
     position: { type: CoordinatesSchema, required: true },
@@ -70,13 +66,10 @@ const RoomSchema = new Schema<Room>(
 
 export const buildingSchema = new Schema<IBuilding>(
   {
-    id: { type: String, required: true, unique: true },
+    id: { type: String, default: () => randomUUID(), unique: true },
     name: {
       type: String,
-      required: true,
-      default: function (this: IBuilding) {
-        return this.id;
-      },
+      required: true
     },
     rooms: { type: [RoomSchema], required: true },
     domains: { type: [String], required: true },

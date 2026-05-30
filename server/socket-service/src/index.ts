@@ -4,10 +4,10 @@ import { Server } from "socket.io";
 import { createClient } from "redis";
 
 const PORT = 3000;
-export const app = express();
+const app = express();
 const server = http.createServer(app);
 
-export const getClientUrl = () =>
+const getClientUrl = () =>
   process.env.CLIENT_URL || "http://localhost:5173";
 
 app.use(express.json());
@@ -26,6 +26,7 @@ redisSubscriber.on("error", (err) => console.error("Redis Client Error", err));
 await redisSubscriber.connect();
 
 await redisSubscriber.subscribe("notifications", (message) => {
+  console.info("[Event] New notification received:", message);
   io.emit("notification", JSON.parse(message));
 });
 
