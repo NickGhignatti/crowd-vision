@@ -34,7 +34,7 @@ describe('RangeSlider', () => {
     await minInput!.setValue(20)
 
     expect(wrapper.emitted('update:minValue')).toHaveLength(1)
-    expect(wrapper.emitted('update:minValue')![0][0]).toBe(20)
+    expect(wrapper.emitted('update:minValue')![0]![0]).toBe(20)
   })
 
   it('emits update:maxValue when the max thumb changes', async () => {
@@ -44,7 +44,7 @@ describe('RangeSlider', () => {
     await maxInput!.setValue(45)
 
     expect(wrapper.emitted('update:maxValue')).toHaveLength(1)
-    expect(wrapper.emitted('update:maxValue')![0][0]).toBe(45)
+    expect(wrapper.emitted('update:maxValue')![0]![0]).toBe(45)
   })
 
   it('clamps min so it does not exceed max', async () => {
@@ -53,7 +53,7 @@ describe('RangeSlider', () => {
 
     await minInput!.setValue(35)
 
-    const emitted = wrapper.emitted('update:minValue')![0][0] as number
+    const emitted = wrapper.emitted('update:minValue')![0]![0] as number
     expect(emitted).toBeLessThan(30)
   })
 
@@ -63,7 +63,7 @@ describe('RangeSlider', () => {
 
     await maxInput!.setValue(5)
 
-    const emitted = wrapper.emitted('update:maxValue')![0][0] as number
+    const emitted = wrapper.emitted('update:maxValue')![0]![0] as number
     expect(emitted).toBeGreaterThan(20)
   })
 })

@@ -39,7 +39,7 @@ describe('BuildingRoomCard', () => {
     await wrapper.find('input[type="text"]').setValue('Updated Name')
 
     expect(wrapper.emitted('update')).toHaveLength(1)
-    expect((wrapper.emitted('update')![0][0] as any).name).toBe('Updated Name')
+    expect((wrapper.emitted('update')![0]![0] as any).name).toBe('Updated Name')
   })
 
   it('renders capacity input with the current value', () => {
@@ -52,7 +52,7 @@ describe('BuildingRoomCard', () => {
     const wrapper = mountCard()
     await wrapper.find('input[type="number"]').setValue(50)
 
-    const emitted = wrapper.emitted('update')![0][0] as any
+    const emitted = wrapper.emitted('update')![0]![0] as any
     expect(emitted.capacity).toBe(50)
     expect(emitted.thresholds.maxPeople).toBe(50)
   })

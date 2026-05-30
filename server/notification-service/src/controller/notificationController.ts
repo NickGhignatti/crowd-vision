@@ -50,8 +50,8 @@ type IncomingSubscription = {
 const isValidSubscription = (subscription: IncomingSubscription) =>
   Boolean(
     subscription.endpoint &&
-      subscription.keys?.p256dh &&
-      subscription.keys?.auth,
+    subscription.keys?.p256dh &&
+    subscription.keys?.auth,
   );
 
 const getAccountName = (body: { accountName?: string; userId?: string }) =>
@@ -134,9 +134,9 @@ export const subscribe = async (req: Request, res: Response) => {
   const subscription: IncomingSubscription = body.subscription?.endpoint
     ? body.subscription
     : {
-        ...(body.endpoint ? { endpoint: body.endpoint } : {}),
-        ...(body.keys ? { keys: body.keys } : {}),
-      };
+      ...(body.endpoint ? { endpoint: body.endpoint } : {}),
+      ...(body.keys ? { keys: body.keys } : {}),
+    };
 
   if (!accountName) {
     throw new ValidationError("Missing required field: accountName");
