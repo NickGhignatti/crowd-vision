@@ -1,5 +1,8 @@
 FROM python:3.12-slim
 LABEL authors="nickg"
+# Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
+# hadolint ignore=DL3005
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1

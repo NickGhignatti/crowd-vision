@@ -156,7 +156,15 @@ These workflows validate properties that span the whole codebase rather than a s
 
 **`cd-release`** — Triggered automatically on every push to `master`. Installs `tooling/` and runs `npx semantic-release` from there: reads commits since the last tag, calculates the next version, generates the root `CHANGELOG.md`, creates a GitHub Release, and bumps the `version` field in every service's `package.json` (`client`, all `server/*` Node services), `server/contracts-service/Cargo.toml` (Rust), and `server/agent-service/pyproject.toml` (Python), via `tooling/bump-versions.mjs` — a plain Node `fs` script used in place of Lerna, because Lerna 9 requires npm workspaces and npm workspaces cannot reference paths outside their own directory tree. A concurrency guard prevents duplicate runs.
 
-**`cd-registry`** — Also triggered on push to `master` when source files change. Builds and pushes all Docker images to GHCR tagged both `:latest` and `:<git-sha>`. After each image is pushed, **Trivy** scans it for HIGH and CRITICAL CVEs — the job fails if any are found. A concurrency guard ensures only one registry push runs at a time.
+**`cd-registry`** — Also triggered on push to `master` when source files change. Builds and pushes all Docker images to GHCR tagged both `:latest` and `:<git-sha>`. After each image is pushed, **Trivy** scans it for HIGH and CRITICAL CVEs. Only vulnerabilities with an available fix (`ignore-unfixed: true`) fail the job — unfixed CVEs are reported but do not block the push. Scan results are uploaded as SARIF to the GitHub Security tab via `codeql-action/upload-sarif`. A concurrency guard ensures only one registry push runs at a time.
+
+The Trivy scan is deliberately scoped to **OS packages only** (`vuln-type: os`). Application dependencies are *not* re-scanned here because they are already gated **pre-merge** by `ci-audit` — `npm audit --audit-level=high --omit=dev` for every Node service, `uv audit` for `agent-service`, and `cargo audit` for `contracts-service`. Letting Trivy also scan libraries would duplicate that gate with a differently-tuned database and flag bundled/vendored JS (e.g. `swagger-ui-dist`) that `package.json` `overrides` cannot patch, producing unactionable failures. So the division of labour is: **`ci-audit` owns language dependencies (at PR time); `cd-registry` Trivy owns the base-OS layer (at push time)** — the part the dependency audits cannot see.
+
+To keep this OS scan green, every production image **upgrades its base-OS packages at build time** — `apk upgrade --no-cache` on the Alpine-based Node images, `apt-get upgrade -y` on the Debian-based images (`contracts`, `agent`, `aq-simulator`). This patches the fixable CVEs that accumulate in base images between upstream rebuilds, which `ignore-unfixed` alone does not suppress. The Debian `upgrade` lines carry a `# hadolint ignore=DL3005` because hadolint discourages `apt-get upgrade` by default.
+
+For any residual fixable OS CVE that cannot be patched in-build (e.g. a fix not yet on the Debian mirror), the repo-root **`.trivyignore`** file is the single auditable place to waive specific CVE IDs — each entry must carry a comment justifying why it is safe. The Trivy step is wired to it via `trivyignores: .trivyignore`.
+
+All Node.js production images (`auth`, `twin`, `sensor`, `socket`, `notification`, `sensor-simulator`, `client`) also clean the npm download cache after install (`npm cache clean --force`), so `/root/.npm/` is never present in the pushed image. This reduces image size and limits Trivy's scan surface to the actual production dependencies in `node_modules/`.
 
 ### Maintenance
 
@@ -181,7 +189,7 @@ When a pull request is merged, `cd-release` runs Semantic Release, which:
 5. Creates a new Git tag (e.g., `v1.4.0`).
 6. Publishes a GitHub Release with the changelog as the release notes.
 
-In the same push event, `cd-registry` builds and pushes all Docker images tagged with the new SHA.
+In the same push event, `cd-registry` builds and pushes all Docker images tagged with the new SHA, then Trivy scans each image for patchable HIGH/CRITICAL CVEs.
 
 .box type:{note}
     Commits with no recognized prefix (`chore:`, `docs:`, `ci:`, `test:`, `refactor:`) do not produce a release. Only `feat:` (minor) and `fix:` (patch) trigger version bumps. A `BREAKING CHANGE` footer or `!` suffix triggers a major bump.
