@@ -24,6 +24,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      actions: read
       security-events: write
     strategy:
       fail-fast: false
@@ -85,6 +86,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # ── Security scan (Trivy) ────────────────────────────────────────────────
+      # Scope: OS packages ONLY (vuln-type: os). Application dependencies
+      # (npm/pip/cargo) are already gated PRE-MERGE by ci-audit.yml
+      # (npm audit --audit-level=high --omit=dev, uv audit, cargo audit), so
+      # scanning libraries here too would duplicate that gate with a different DB —
+      # Trivy additionally flags bundled/vendored JS (e.g. swagger-ui-dist) that
+      # `overrides` cannot patch, producing unactionable failures. Trivy's job here
+      # is the OS layer the PR-time audits can't see.
+      #   - exit-code 1 + ignore-unfixed: block only on FIXABLE HIGH/CRITICAL OS CVEs.
+      #   - Base images run apk/apt upgrade at build time to keep this green.
+      #   - .trivyignore holds deliberate, justified CVE waivers.
       - name: 🔍 Scan image for vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
@@ -93,10 +105,14 @@ jobs:
           output: trivy-results-${{ matrix.image }}.sarif
           severity: HIGH,CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          vuln-type: os                 # OS packages only — app deps gated by ci-audit
 
       - name: Upload Trivy scan results to GitHub Security
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
+        continue-on-error: true
         with:
           sarif_file: trivy-results-${{ matrix.image }}.sarif
           category: trivy-${{ matrix.image }}

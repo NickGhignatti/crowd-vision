@@ -6,6 +6,9 @@ COPY app ./app
 RUN uv pip install --system --no-cache .
 
 FROM python:3.12-slim AS production
+# Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
+# hadolint ignore=DL3005
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
