@@ -61,12 +61,13 @@ export const useBuildingsStore = defineStore('buildings', {
     },
 
     async register(payload: any, targetUploadDomain: string): Promise<string> {
-      if (Array.isArray(payload.rooms)) {
-        payload.rooms = payload.rooms.map((room: any) => ({
-          ...room,
-          name: typeof room?.name === 'string' && room.name.trim() ? room.name : room?.id,
-        }))
-      }
+      // ALready normalizing in the loadFromJson function
+      // if (Array.isArray(payload.rooms)) {
+      //   payload.rooms = payload.rooms.map((room: any) => ({
+      //     ...room,
+      //     name: typeof room?.name === 'string' && room.name.trim() ? room.name : room?.id,
+      //   }))
+      // }
 
       if (targetUploadDomain && targetUploadDomain !== '') {
         payload.domains = [targetUploadDomain]

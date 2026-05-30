@@ -3,7 +3,7 @@ import { sendPushToDomain } from "./pushService.js";
 import { NotificationType } from "../models/notificationSubscription.js";
 
 export const getServerUrl = () =>
-  process.env.VITE_SERVER_URL || "http://localhost:3000";
+  process.env.SERVER_URL || "http://localhost:3000";
 
 export const publishNotification = async (
   message: string,

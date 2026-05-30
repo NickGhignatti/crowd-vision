@@ -18,14 +18,16 @@ export const normalizeRoomNames = (rooms: Room[]): Room[] => {
 export const backfillNames = async (building: HydratedDocument<IBuilding>) => {
   let changed = false;
 
-  if (!building.name || !building.name.trim()) {
-    building.name = building.id;
+  const normalizedBuildingName = normalizeBuildingName(building.name, building.id);
+  if (normalizedBuildingName !== building.name) {
+    building.name = normalizedBuildingName;
     changed = true;
   }
 
   for (const room of building.rooms) {
-    if (!room.name || !room.name.trim()) {
-      room.name = room.id;
+    const normalizedRoomName = room.name?.trim() || room.id;
+    if (normalizedRoomName !== room.name) {
+      room.name = normalizedRoomName;
       changed = true;
     }
   }

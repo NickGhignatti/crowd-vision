@@ -74,7 +74,7 @@ export const getBuildingsByDomain = async (domain: string) => {
 export const updateRoom = async (
   buildingId: string,
   roomId: string,
-  updates: Partial<Room>,
+  updates: Partial<Pick<Room, "name" | "color" | "capacity">>,
 ) => {
   const building = await getBuildingById(buildingId);
 
@@ -85,7 +85,6 @@ export const updateRoom = async (
     );
   }
 
-  if (updates.id !== undefined) room.id = updates.id;
   if (updates.name !== undefined) room.name = updates.name;
   if (updates.color !== undefined) room.color = updates.color;
   if (updates.capacity !== undefined) room.capacity = updates.capacity;

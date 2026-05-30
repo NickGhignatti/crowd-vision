@@ -11,9 +11,6 @@ dotenv.config();
 export const app = express();
 const PORT = process.env.PORT || 3000;
 
-export const getClientUrl = () =>
-  process.env.CLIENT_URL || "http://localhost:5173";
-
 app.use(express.json());
 app.use("/", router);
 // Express error-handling middleware must be registered AFTER the routes so it
