@@ -4,6 +4,7 @@ import DomainsList from '@/components/lists/DomainsList.vue'
 import QrCodeCard from '@/components/cards/QrCodeCard.vue'
 import NavBar from '@/components/layouts/NavBar.vue'
 import AddDomainModalModal from '@/components/modals/creation/AddDomainModal.vue'
+import RegisterBuildingModal from '@/components/modals/creation/RegisterBuildingModal.vue'
 import { useI18n } from 'vue-i18n'
 import type { DomainToAddWithVisibilityPayload, UnifiedDomainGroup } from '@/interfaces/domain.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
@@ -16,8 +17,7 @@ const domains = ref<string[]>([])
 const unifiedDomains = ref<UnifiedDomainGroup[]>([])
 const isSubmitting = ref(false)
 const isAddDomainModalOpen = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
-const isUploading = ref(false)
+const isRegisterModalOpen = ref(false)
 const targetUploadDomain = ref<string | null>(null)
 const qrCodes = ref<Record<string, string>>({})
 const isLoadingQr = ref(false)
@@ -60,31 +60,7 @@ const handleSelectDomain = async (domainName: string) => {
 
 const triggerUpload = (domainName: string) => {
   targetUploadDomain.value = domainName
-  fileInput.value?.click()
-}
-
-const handleFileUpload = async (event: Event) => {
-  const target = event.target as HTMLInputElement
-  if (!target.files?.length) return
-
-  const file = target.files[0]
-  if (!file || (file.type !== 'application/json' && !file.name.endsWith('.json'))) {
-    alert(t('model.controls.invalidJsonUpload'))
-    return
-  }
-
-  try {
-    isUploading.value = true
-    const payload = JSON.parse(await file.text())
-    await buildingsStore.register(payload, targetUploadDomain.value || '')
-  } catch (e) {
-    console.error('Upload failed', e)
-    alert(t('model.controls.uploadFailed'))
-  } finally {
-    isUploading.value = false
-    if (fileInput.value) fileInput.value.value = ''
-    targetUploadDomain.value = null
-  }
+  isRegisterModalOpen.value = true
 }
 
 const getAllSubdomains = async () => {
@@ -136,12 +112,9 @@ onMounted(async () => {
 <template>
   <NavBar></NavBar>
   <div class="min-h-screen bg-gray-50 p-6 md:p-10 flex justify-center items-start font-sans">
-    <input ref="fileInput" type="file" accept=".json" class="hidden" @change="handleFileUpload" />
-
     <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
       <DomainsList
         :domains="unifiedDomains"
-        :is-uploading="isUploading"
         @add-domain="isAddDomainModalOpen = true"
         @select-domain="handleSelectDomain"
         @upload="triggerUpload"
@@ -157,6 +130,12 @@ onMounted(async () => {
       :master-domain-choices="domains"
       @close="isAddDomainModalOpen = false"
       @add="handleAddDomain"
+    />
+
+    <RegisterBuildingModal
+      :is-open="isRegisterModalOpen"
+      :domain-name="targetUploadDomain ?? ''"
+      @close="isRegisterModalOpen = false; targetUploadDomain = null"
     />
   </div>
 </template>

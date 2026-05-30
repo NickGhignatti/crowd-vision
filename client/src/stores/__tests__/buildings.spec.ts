@@ -244,6 +244,89 @@ describe('useBuildingsStore', () => {
     })
   })
 
+  describe('register', () => {
+    const makeRoom = (id: string) => ({
+      id,
+      name: id,
+      capacity: 20,
+      position: { x: 0, y: 0, z: 0 },
+      dimensions: { width: 5, height: 3, depth: 5 },
+    })
+
+    const makeDraftPayload = () => ({
+      name: 'Test Building',
+      rooms: [makeRoom('room-1')],
+    })
+
+    it('returns the id from the created building', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(
+          makeResponse(true, { id: 'generated-uuid', name: 'Test Building', rooms: [] }) as unknown as Response,
+        )
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+
+      const store = useBuildingsStore()
+      const id = await store.register(makeDraftPayload(), 'acme')
+
+      expect(id).toBe('generated-uuid')
+    })
+
+    it('calls PUT /sensor/thresholds/buildings/:id to initialise threshold doc', async () => {
+      const buildingId = 'auto-uuid-123'
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(
+          makeResponse(true, { id: buildingId, name: 'Test Building', rooms: [] }) as unknown as Response,
+        )
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+
+      const store = useBuildingsStore()
+      await store.register(makeDraftPayload(), 'acme')
+
+      const calls = vi.mocked(makeRequest).mock.calls
+      const thresholdCall = calls.find(
+        (c) => c[0] === `/sensor/thresholds/buildings/${buildingId}` && c[1] === 'PUT',
+      )
+      expect(thresholdCall).toBeDefined()
+    })
+
+    it('injects the domain into the payload', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(
+          makeResponse(true, { id: 'x', name: 'Test Building', rooms: [] }) as unknown as Response,
+        )
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+
+      const store = useBuildingsStore()
+      await store.register(makeDraftPayload(), 'my-domain')
+
+      const twinCall = vi.mocked(makeRequest).mock.calls[0]!
+      const body = JSON.parse(twinCall[2]!.body as string)
+      expect(body.domains).toEqual(['my-domain'])
+    })
+
+    it('throws when the twin registration fails', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(
+        makeResponse(false) as unknown as Response,
+      )
+
+      await expect(
+        useBuildingsStore().register(makeDraftPayload(), 'acme'),
+      ).rejects.toThrow('Failed to register twin model')
+    })
+
+    it('throws when threshold initialisation fails', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(
+          makeResponse(true, { id: 'x', rooms: [] }) as unknown as Response,
+        )
+        .mockResolvedValueOnce(makeResponse(false) as unknown as Response)
+
+      await expect(
+        useBuildingsStore().register(makeDraftPayload(), 'acme'),
+      ).rejects.toThrow('Failed to initialize temperature thresholds')
+    })
+  })
+
   describe('invalidate', () => {
     it('clears all cached domains', () => {
       const store = useBuildingsStore()

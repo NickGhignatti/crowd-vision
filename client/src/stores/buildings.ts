@@ -60,10 +60,7 @@ export const useBuildingsStore = defineStore('buildings', {
       return this._fetchPromise
     },
 
-    async register(payload: any, targetUploadDomain: string) {
-      payload.name =
-        typeof payload?.name === 'string' && payload.name.trim() ? payload.name : payload?.id
-
+    async register(payload: any, targetUploadDomain: string): Promise<string> {
       if (Array.isArray(payload.rooms)) {
         payload.rooms = payload.rooms.map((room: any) => ({
           ...room,
@@ -71,7 +68,7 @@ export const useBuildingsStore = defineStore('buildings', {
         }))
       }
 
-      if (targetUploadDomain && targetUploadDomain != '') {
+      if (targetUploadDomain && targetUploadDomain !== '') {
         payload.domains = [targetUploadDomain]
       }
 
@@ -85,20 +82,24 @@ export const useBuildingsStore = defineStore('buildings', {
 
       const createdBuilding = await response.json()
 
-      const thresholdResponse = await makeRequest('/sensor/thresholds/buildings', 'POST', {
-        body: JSON.stringify({
-          buildingId: createdBuilding.id,
-          rooms: Array.isArray(createdBuilding.rooms)
-            ? createdBuilding.rooms.map((room: any) => ({
-                id: room.id,
-              }))
-            : [],
-        }),
-      })
+      const thresholdResponse = await makeRequest(
+        `/sensor/thresholds/buildings/${createdBuilding.id}`,
+        'PUT',
+        {
+          body: JSON.stringify({
+            buildingId: createdBuilding.id,
+            rooms: Array.isArray(createdBuilding.rooms)
+              ? createdBuilding.rooms.map((room: any) => ({ id: room.id }))
+              : [],
+          }),
+        },
+      )
 
       if (!thresholdResponse.ok) {
         throw new Error('Failed to initialize temperature thresholds')
       }
+
+      return createdBuilding.id
     },
 
     async updateRoomConfig(buildingId: string, roomId: string, updates: any) {
