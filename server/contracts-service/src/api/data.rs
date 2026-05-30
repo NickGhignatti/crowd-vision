@@ -4,7 +4,6 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
