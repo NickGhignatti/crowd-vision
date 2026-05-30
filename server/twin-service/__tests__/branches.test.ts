@@ -41,13 +41,13 @@ describe("Twin service branches", () => {
     } as any);
 
     const building = await addBuilding(
-      baseBuilding.id,
       baseBuilding.name,
       baseBuilding.rooms,
       baseBuilding.domains,
     );
 
-    expect(building.name).toBe(baseBuilding.id);
+    expect(building.name).toBe("Building");
+    expect(building.id).toBeTruthy();
     expect(building.rooms[0]).toBeDefined();
     expect(building.rooms[0]?.name).toBe(baseRoom.id);
     expect(fetchSpy).not.toHaveBeenCalled();

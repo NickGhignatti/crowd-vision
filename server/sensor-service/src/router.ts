@@ -20,6 +20,7 @@ export function createRouter(
   router.get("/:sensorType/dashboard", reader.getDashboard);
 
   router.put("/thresholds/buildings/:buildingId", thresholds.registerBuilding);
+  router.get("/thresholds/buildings/:buildingId", thresholds.getBuildingThresholdClone);
 
   router.get(
     "/thresholds/:sensorType/buildings/:buildingId",

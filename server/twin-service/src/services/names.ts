@@ -3,9 +3,9 @@ import type { HydratedDocument } from "mongoose";
 
 export const normalizeBuildingName = (
   name: string | undefined,
-  id: string,
+  id: string | undefined,
 ): string => {
-  return name?.trim() || id;
+  return name?.trim() || id || "Building";
 };
 
 export const normalizeRoomNames = (rooms: Room[]): Room[] => {

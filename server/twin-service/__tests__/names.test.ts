@@ -43,6 +43,22 @@ describe("normalizeBuildingName", () => {
   it("preserves a name that is already trimmed", () => {
     expect(normalizeBuildingName("A", "bldg-001")).toBe("A");
   });
+
+  it("returns 'Building' when both name and id are undefined", () => {
+    expect(normalizeBuildingName(undefined, undefined)).toBe("Building");
+  });
+
+  it("returns 'Building' when name is empty and id is undefined", () => {
+    expect(normalizeBuildingName("", undefined)).toBe("Building");
+  });
+
+  it("returns 'Building' when name is whitespace and id is undefined", () => {
+    expect(normalizeBuildingName("  ", undefined)).toBe("Building");
+  });
+
+  it("still prefers a valid name over the id even when id is provided", () => {
+    expect(normalizeBuildingName("Main Hall", undefined)).toBe("Main Hall");
+  });
 });
 
 // ── normalizeRoomNames ───────────────────────────────────────────────────────

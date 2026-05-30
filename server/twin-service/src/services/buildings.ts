@@ -9,26 +9,20 @@ import {
 } from "./names.js";
 
 export const addBuilding = async (
-  id: string,
   name: string | undefined,
   rooms: any,
   domains: string[],
 ) => {
-  if (await Building.findOne({ id })) {
-    throw new ConflictError(`Building with id: "${id}" already exists`);
-  }
-
-  const normalizedBuildingName = normalizeBuildingName(name, id);
+  const normalizedBuildingName = normalizeBuildingName(name, undefined);
   const normalizedRooms = normalizeRoomNames(rooms as Room[]);
   const building = new Building({
-    id,
     name: normalizedBuildingName,
     rooms: normalizedRooms,
     domains,
   });
   await building.save();
   await syncBuildingClone(building.toObject());
-  await initBuildingPreferences(id);
+  await initBuildingPreferences(building.id);
   return building;
 };
 

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { SensorKernel } from "../kernel/sensorKernel.js";
+import { BuildingThresholdModel } from "../models/buildingThreshold.js";
 
 export function createThresholdHandlers(kernel: SensorKernel) {
   const resolveModule = (sensorType: string, res: Response) => {
@@ -64,6 +65,35 @@ export function createThresholdHandlers(kernel: SensorKernel) {
           req.body,
         );
         res.status(200).json({ data });
+      } catch (error: any) {
+        res.status(400).json({ error: error.message });
+      }
+    },
+
+    // GET /thresholds/buildings/:buildingId
+    // Returns a ThresholdClone for the digital-twin view: building-level maxTemperature
+    // plus per-room overrides, mapped from the internal maxTemp field name.
+    getBuildingThresholdClone: async (
+      req: Request,
+      res: Response,
+    ): Promise<void> => {
+      try {
+        const buildingId = req.params.buildingId as string;
+        const doc = await BuildingThresholdModel.findOne({ buildingId }).exec();
+
+        if (!doc) {
+          res.status(200).json(null);
+          return;
+        }
+
+        res.status(200).json({
+          buildingId: doc.buildingId,
+          maxTemperature: doc.temperature?.maxTemp,
+          rooms: doc.rooms.map((r) => ({
+            id: r.id,
+            maxTemperature: r.temperature?.maxTemp,
+          })),
+        });
       } catch (error: any) {
         res.status(400).json({ error: error.message });
       }

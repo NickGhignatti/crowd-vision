@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { randomUUID } from "crypto";
 
 interface Coordinates {
   x: number;
@@ -70,7 +71,7 @@ const RoomSchema = new Schema<Room>(
 
 export const buildingSchema = new Schema<IBuilding>(
   {
-    id: { type: String, required: true, unique: true },
+    id: { type: String, default: () => randomUUID(), unique: true },
     name: {
       type: String,
       required: true,
