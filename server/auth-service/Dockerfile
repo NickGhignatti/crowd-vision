@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 # @crowdvision/eslint-config is a lint-only dep that resolves via file:../../tooling/eslint-config,
@@ -10,7 +10,7 @@ RUN node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json',
 COPY . .
 RUN npm run build
 
-FROM node:24-alpine AS production
+FROM node:26-alpine AS production
 WORKDIR /app
 # Patch base-image OS CVEs so the cd-registry Trivy scan (OS-scoped) stays green.
 RUN apk upgrade --no-cache
