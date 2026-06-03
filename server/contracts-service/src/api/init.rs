@@ -1,3 +1,4 @@
+use crate::db;
 use crate::state::AppState;
 use axum::{
     extract::{Path, State},
@@ -10,23 +11,53 @@ pub async fn init_building_preferences(
     Path(building_id): Path<String>,
     State(state): State<AppState>,
 ) -> StatusCode {
+    // Use or_insert_with to atomically detect whether the entry is new.
+    // The closure runs only on a Vacant entry (under the shard lock), so
+    // `is_new` is set without any TOCTOU window.
+    let mut is_new = false;
     state
         .building_preferences
-        .entry(building_id)
-        .or_insert_with(|| DEFAULT_COLUMNS.iter().map(|s| s.to_string()).collect());
+        .entry(building_id.clone())
+        .or_insert_with(|| {
+            is_new = true;
+            DEFAULT_COLUMNS.iter().map(|s| s.to_string()).collect()
+        });
+
+    if is_new {
+        let defaults: Vec<String> = DEFAULT_COLUMNS.iter().map(|s| s.to_string()).collect();
+        let col = state.mongo_col.clone();
+        tokio::spawn(async move {
+            if let Err(e) = db::upsert_preference(&col, &building_id, &defaults).await {
+                log::error!("Failed to persist init preference for {building_id}: {e}");
+            }
+        });
+    }
+
     StatusCode::OK
 }
 
 #[cfg(test)]
 mod tests {
     use super::{DEFAULT_COLUMNS, init_building_preferences};
+    use crate::models::PreferenceDocument;
     use crate::state::AppState;
     use axum::extract::{Path, State};
     use axum::http::StatusCode;
 
+    async fn make_state() -> AppState {
+        let opts = mongodb::options::ClientOptions::parse("mongodb://localhost:27017")
+            .await
+            .unwrap();
+        let client = mongodb::Client::with_options(opts).unwrap();
+        let col = client
+            .database("_unit_test")
+            .collection::<PreferenceDocument>("_prefs");
+        AppState::new(col)
+    }
+
     #[tokio::test]
     async fn new_building_receives_default_columns() {
-        let state = AppState::new();
+        let state = make_state().await;
         let status =
             init_building_preferences(Path("bldg-1".to_string()), State(state.clone())).await;
 
@@ -39,7 +70,7 @@ mod tests {
 
     #[tokio::test]
     async fn second_init_for_same_building_is_idempotent() {
-        let state = AppState::new();
+        let state = make_state().await;
         // Pre-populate with a custom column set.
         state
             .building_preferences
@@ -54,7 +85,7 @@ mod tests {
 
     #[tokio::test]
     async fn two_buildings_are_initialised_independently() {
-        let state = AppState::new();
+        let state = make_state().await;
         init_building_preferences(Path("bldg-a".to_string()), State(state.clone())).await;
         init_building_preferences(Path("bldg-b".to_string()), State(state.clone())).await;
 

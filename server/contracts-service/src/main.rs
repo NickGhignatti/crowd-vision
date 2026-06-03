@@ -8,6 +8,7 @@ use std::env;
 use tokio::net::TcpListener;
 
 mod api;
+mod db;
 mod discovery;
 mod models;
 mod state;
@@ -18,7 +19,24 @@ use state::AppState;
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-    let state = AppState::new();
+
+    let mongo_uri =
+        env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+
+    let col = db::connect(&mongo_uri)
+        .await
+        .expect("Failed to connect to MongoDB");
+
+    // One-time read at startup: seed the in-memory map from persistent storage.
+    // All subsequent reads are served from the DashMap without touching MongoDB.
+    let state = AppState::new(col.clone());
+    for doc in db::load_all(&col)
+        .await
+        .expect("Failed to load preferences from MongoDB")
+    {
+        state.building_preferences.insert(doc.building_id, doc.allowed_columns);
+    }
+
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
 
     // Start the background telemetry tunnel

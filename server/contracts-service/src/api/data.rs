@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::db;
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -63,15 +64,12 @@ pub async fn update_preferences(
     // Asynchronous Database Persistence (The Cold Path)
     // Spawn a fire-and-forget Tokio task to handle the I/O bottleneck of database writes.
     // This allows the HTTP request to terminate and return 200 OK immediately.
+    let col = state.mongo_col.clone();
+    let bid = building_id.clone();
     tokio::spawn(async move {
-        // TODO: Insert your actual database execution block here.
-        // let result = db::upsert_client_schema(&building_id, &payload.allowed_columns).await;
-        //
-        // if let Err(e) = result {
-        //     error!("CRITICAL: Failed to persist schema bounds for {}: {}", client_id, e);
-        // } else {
-        //     info!("Successfully persisted schema bounds to database for {}", client_id);
-        // }
+        if let Err(e) = db::upsert_preference(&col, &bid, &payload.allowed_columns).await {
+            log::error!("Failed to persist preference for {bid}: {e}");
+        }
     });
 
     // Acknowledge the update instantly
@@ -87,17 +85,29 @@ pub async fn update_preferences(
 #[cfg(test)]
 mod tests {
     use super::{UpdatePreferencesRequest, get_preferences, update_preferences};
+    use crate::models::PreferenceDocument;
     use crate::state::AppState;
     use axum::Json;
     use axum::extract::{Path, State};
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
 
+    async fn make_state() -> AppState {
+        let opts = mongodb::options::ClientOptions::parse("mongodb://localhost:27017")
+            .await
+            .unwrap();
+        let client = mongodb::Client::with_options(opts).unwrap();
+        let col = client
+            .database("_unit_test")
+            .collection::<PreferenceDocument>("_prefs");
+        AppState::new(col)
+    }
+
     // ── get_preferences ───────────────────────────────────────────────────────
 
     #[tokio::test]
     async fn get_returns_404_for_unknown_building() {
-        let state = AppState::new();
+        let state = make_state().await;
         let response = get_preferences(Path("unknown".to_string()), State(state))
             .await
             .into_response();
@@ -106,7 +116,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_returns_200_after_insert() {
-        let state = AppState::new();
+        let state = make_state().await;
         state
             .building_preferences
             .insert("bldg-1".to_string(), vec!["temperature".to_string()]);
@@ -121,7 +131,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_stores_new_columns_in_dashmap() {
-        let state = AppState::new();
+        let state = make_state().await;
         update_preferences(
             State(state.clone()),
             Path("bldg-1".to_string()),
@@ -137,7 +147,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_overwrites_previous_columns() {
-        let state = AppState::new();
+        let state = make_state().await;
         state
             .building_preferences
             .insert("bldg-1".to_string(), vec!["old-col".to_string()]);
@@ -157,7 +167,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_stores_empty_column_list() {
-        let state = AppState::new();
+        let state = make_state().await;
         update_preferences(
             State(state.clone()),
             Path("bldg-1".to_string()),
@@ -173,7 +183,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_returns_200_ok() {
-        let state = AppState::new();
+        let state = make_state().await;
         let response = update_preferences(
             State(state),
             Path("bldg-1".to_string()),

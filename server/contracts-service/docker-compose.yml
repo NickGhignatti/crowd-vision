@@ -5,7 +5,17 @@ services:
     environment:
       - PORT=3000
       - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb://contracts-service-db:27017/contractsdb
       - SENSOR_METRICS_URL=http://sensor-service:3000
       - TWIN_METRICS_URL=http://twin-service:3000
     depends_on:
       - redis
+      - contracts-service-db
+
+  contracts-service-db:
+    image: mongo:latest
+    volumes:
+      - contracts-data:/data/db
+
+volumes:
+  contracts-data:
