@@ -91,6 +91,10 @@
         reverse_proxy notification-db-express:8081
     }
 
+    handle /contracts-db-gui/* {
+        reverse_proxy contracts-service-db-express:8081
+    }
+
     # ── Observability ─────────────────────────────────────────────────────────
     handle_path /prometheus/* {
         reverse_proxy prometheus:9090
