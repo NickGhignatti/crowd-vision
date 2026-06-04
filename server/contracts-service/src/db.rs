@@ -1,8 +1,8 @@
 use futures::TryStreamExt;
 use mongodb::{
+    Client, Collection, IndexModel,
     bson::doc,
     options::{ClientOptions, IndexOptions},
-    Client, Collection, IndexModel,
 };
 
 use crate::models::PreferenceDocument;
@@ -51,7 +51,9 @@ pub async fn upsert_preference(
         allowed_columns: allowed_columns.to_vec(),
     };
     let filter = doc! { "building_id": building_id };
-    col.find_one_and_replace(filter, document).upsert(true).await?;
+    col.find_one_and_replace(filter, document)
+        .upsert(true)
+        .await?;
     Ok(())
 }
 
@@ -63,8 +65,8 @@ mod tests {
     /// MongoDB at MONGO_URI (defaults to localhost:27017).
     /// Run with: `MONGO_URI=mongodb://localhost:27017 cargo test`
     async fn test_col() -> Collection<PreferenceDocument> {
-        let uri = std::env::var("MONGO_URI")
-            .unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        let uri =
+            std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
         let opts = ClientOptions::parse(&uri).await.unwrap();
         let client = Client::with_options(opts).unwrap();
         client

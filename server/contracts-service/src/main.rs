@@ -34,7 +34,9 @@ async fn main() {
         .await
         .expect("Failed to load preferences from MongoDB")
     {
-        state.building_preferences.insert(doc.building_id, doc.allowed_columns);
+        state
+            .building_preferences
+            .insert(doc.building_id, doc.allowed_columns);
     }
 
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
