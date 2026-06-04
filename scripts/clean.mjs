@@ -6,23 +6,11 @@ import { rmSync, existsSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { JS_WORKSPACES } from './lib/workspaces.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-const workspaces = [
-  'tooling',
-  'tooling/eslint-config',
-  'client',
-  'server/auth-service',
-  'server/twin-service',
-  'server/notification-service',
-  'server/sensor-service',
-  'server/socket-service',
-  'server/tests',
-  'simulators/sensor-simulator',
-];
-
-for (const ws of workspaces) {
+for (const ws of JS_WORKSPACES) {
   const modules = join(root, ws, 'node_modules');
   const lockfile = join(root, ws, 'package-lock.json');
 

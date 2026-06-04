@@ -34,7 +34,28 @@ Clone the repository, then install toolchain versions and all language-specific 
     mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires mise)
     just install
 
-`just install` installs Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; then runs `uv sync` for the agent-service Python deps and `cargo fetch` for the Rust contracts-service. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+`just install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; the agent-service Python deps; and the Rust contracts-service. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+
+The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked` and Rust uses `cargo fetch`. Set `JOBS=N` to cap parallelism (default 4): `JOBS=2 just install`.
+
+### Lockfiles & Cross-Platform Regeneration
+
+CrowdVision's CI runs on **Linux**, so every committed `package-lock.json` must contain the Linux-specific optional native packages (e.g. `@emnapi/*`, `@unrs/resolver-binding-*`) that some dev tools pull in. A plain `npm install` run on Windows or macOS resolves the lock for *your* platform and **strips those Linux entries** — which makes `npm ci` fail in CI with errors like `Missing: @emnapi/core@… from lock file`.
+
+To avoid this, **never let a plain `npm install` rewrite a committed lockfile**. Regenerate locks only through the dedicated recipe, which forces Linux resolution:
+
+.code lang:{bash}
+    just clean-install   # wipes every node_modules + lock, regenerates for Linux, reinstalls
+
+To regenerate just one service's lockfile (e.g. after adding a dependency) without the full wipe:
+
+.code lang:{bash}
+    npm install --prefix server/twin-service --package-lock-only --cpu=x64 --os=linux
+
+The `--cpu=x64 --os=linux` flags make npm record the Linux optional tree even when you run the command on another OS; `--package-lock-only` updates the lock without touching `node_modules`.
+
+.box type:{warning}
+    **Never commit a Windows- or macOS-resolved lockfile.** If `git diff` shows optional `@emnapi/*` / `@unrs/*` entries being *removed* from a `package-lock.json`, you ran a plain `npm install` — discard it and regenerate with `just clean-install` (or the per-service command above). Run `just deps-check` before pushing to confirm every lockfile still passes `npm ci`.
 
 ---
 
@@ -96,7 +117,7 @@ The following secrets are **generated automatically** by `just env` and written 
 If you need to regenerate VAPID keys separately:
 
 .code lang:{bash}
-    node scripts/vapid.js
+    node scripts/env/vapid.js
 
 Copy the output into your `.env` file.
 
