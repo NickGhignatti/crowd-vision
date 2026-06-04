@@ -25,6 +25,27 @@ install:
     uv sync --project server/agent-service
     cargo fetch --manifest-path server/contracts-service/Cargo.toml
 
+# Wipe every node_modules + package-lock.json, then reinstall from scratch.
+# Cross-platform: safe to run on Windows, macOS, or Linux.
+#
+# Lock files are regenerated with --cpu=x64 --os=linux so that
+# platform-specific optional packages (e.g. @emnapi/* pulled in by
+# mongodb-memory-server) are resolved for Linux — matching the CI runner —
+# even when running locally on Windows or macOS.
+clean-install:
+    node scripts/clean.mjs
+    npm --prefix tooling install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix tooling/eslint-config install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix client install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/auth-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/twin-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/notification-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/sensor-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/socket-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/tests install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix simulators/sensor-simulator install --package-lock-only --cpu=x64 --os=linux
+    just install
+
 # ── Environment ───────────────────────────────────────────────────────────────
 
 # Generate .env (VAPID keys, JWT tokens, admin credentials)
