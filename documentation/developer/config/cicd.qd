@@ -76,6 +76,7 @@ Every pull request must pass a single required status check: **`ci-gate / ci-pas
         GATE --> SOCKET[ci-socket]
         GATE --> NOTIFICATION[ci-notification]
         GATE --> CONTRACTS[ci-contracts]
+        GATE --> AGENT[ci-agent]
         LINT --> PASSED[ci-passed ✅]
         AUDIT --> PASSED
         DEPS --> PASSED
@@ -89,9 +90,10 @@ Every pull request must pass a single required status check: **`ci-gate / ci-pas
         SOCKET --> PASSED
         NOTIFICATION --> PASSED
         CONTRACTS --> PASSED
+        AGENT --> PASSED
 
 .box type:{note}
-    The agent service (`agent.yml`) is not called from the gate because it predates the reusable-workflow refactor and is managed separately. Branch protection requires its status check (`agent-service-ci / agent-service`) independently.
+    All service workflows — including the Python agent (`ci-agent.yml`) — are called by the gate as reusable workflows and feed into the single `ci-passed` aggregate. Each service leg only runs when `dorny/paths-filter` detects a change under its directory, so unaffected services resolve as `skipped` (which counts as a pass).
 
 ### Service CI Workflows
 
@@ -170,9 +172,15 @@ All Node.js production images (`auth`, `twin`, `sensor`, `socket`, `notification
 
 **`maint-cleanup`** — Runs every Sunday at 2 AM UTC (or on manual dispatch). Removes old package versions from GHCR, keeping a minimum of 3 versions per image. Prevents the registry from growing unbounded over time.
 
-### Dependabot
+### Dependency Updates
 
-A `.github/dependabot.yml` configuration automatically opens weekly pull requests for dependency updates across all ecosystems: npm (`tooling`, `client`, every Node.js service, `simulators/sensor-simulator`), pip (agent-service), cargo (contracts-service), Docker base images, and GitHub Actions versions themselves.
+Dependency upgrades are made **manually** (there is no longer a `.github/dependabot.yml` — automated Dependabot PRs were removed). Bump versions in the relevant manifest, then verify and regenerate locks locally before opening a PR:
+
+.code lang:{bash}
+    just deps-check   # mirrors ci-deps  — every lockfile in sync (npm ci / uv sync --locked / cargo check)
+    just audit        # mirrors ci-audit — no known vulnerabilities (npm / uv / cargo audit)
+
+Both gates also run on every pull request as `ci-deps` and `ci-audit`, so a drifted or vulnerable dependency blocks the merge regardless.
 
 ---
 
@@ -255,3 +263,9 @@ For full backend integration tests (spins up a composed stack):
 
 .code lang:{bash}
     just test-integration
+
+To reproduce the security and dependency gates (`ci-audit` / `ci-deps`) before pushing:
+
+.code lang:{bash}
+    just audit        # npm audit + uv audit + cargo audit
+    just deps-check   # npm ci + uv sync --locked + cargo check (lockfile sync)

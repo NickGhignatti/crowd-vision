@@ -211,6 +211,22 @@ See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Q
 
 ---
 
+## 🔒 Auditing & Dependency Checks
+
+Two recipes reproduce CI's dependency gates locally so you can catch failures before pushing. Both run every ecosystem in parallel (override with `JOBS=N`).
+
+.code lang:{bash}
+    # Mirror ci-audit: npm audit (--audit-level=high --omit=dev) + uv audit + cargo audit:
+    just audit
+
+    # Mirror ci-deps: npm ci + uv sync --locked + cargo check (verifies every lockfile is in sync):
+    just deps-check
+
+.box type:{note}
+    `just deps-check` is the fastest way to reproduce the CI `dependencies` job that fails with `npm ci can only install packages when your package.json and package-lock.json are in sync`. If it fails, regenerate the offending lockfile with `just clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). `just audit` skips `cargo audit` with a hint if `cargo-audit` is not installed (`cargo install cargo-audit`).
+
+---
+
 ## 📋 Full Just Reference — Docker Compose
 
 .var {headers}
@@ -246,6 +262,12 @@ See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Q
       - Auto-fix linting issues across every service.
     - - `just agent-ingest`
       - Re-ingest documentation into the AI agent knowledge base.
+    - - `just audit`
+      - Run all security audits locally (npm + uv + cargo), mirroring `ci-audit`.
+    - - `just deps-check`
+      - Verify every lockfile is in sync (npm ci + uv sync --locked + cargo check), mirroring `ci-deps`.
+    - - `just clean-install`
+      - Wipe all node_modules + lockfiles and regenerate them for Linux, then reinstall.
 
 ---
 

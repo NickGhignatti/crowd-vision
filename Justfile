@@ -7,23 +7,52 @@ default:
 
 # ── Installation ──────────────────────────────────────────────────────────────
 
-# Install all dependencies across all languages.
+# Install all dependencies across all languages, in parallel.
 # Requires mise (https://mise.jdx.dev/) for tool version management:
 #   mise install          → installs Node 24, Python 3.12, Rust stable, moon
 #   npm install -g @moonrepo/cli   → alternative if mise is not available
+#
+# Uses `npm ci` (reproducible, never rewrites a lockfile) so installing on
+# Windows/macOS can't strip the Linux optional packages from the locks — see
+# `clean-install` below for regenerating them. Override parallelism with JOBS=N.
 install:
-    npm --prefix tooling install
-    npm --prefix tooling/eslint-config install
-    npm --prefix client install
-    npm --prefix server/auth-service install
-    npm --prefix server/twin-service install
-    npm --prefix server/notification-service install
-    npm --prefix server/sensor-service install
-    npm --prefix server/socket-service install
-    npm --prefix server/tests install
-    npm --prefix simulators/sensor-simulator install
-    uv sync --project server/agent-service
-    cargo fetch --manifest-path server/contracts-service/Cargo.toml
+    node scripts/install.mjs
+
+# Wipe every node_modules + package-lock.json, then reinstall from scratch.
+# Cross-platform: safe to run on Windows, macOS, or Linux.
+#
+# Lock files are regenerated with --cpu=x64 --os=linux so that
+# platform-specific optional packages (e.g. @emnapi/* pulled in by
+# mongodb-memory-server) are resolved for Linux — matching the CI runner —
+# even when running locally on Windows or macOS.
+clean-install:
+    node scripts/clean.mjs
+    npm --prefix tooling install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix tooling/eslint-config install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix client install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/auth-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/twin-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/notification-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/sensor-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/socket-service install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix server/tests install --package-lock-only --cpu=x64 --os=linux
+    npm --prefix simulators/sensor-simulator install --package-lock-only --cpu=x64 --os=linux
+    uv lock --project server/agent-service
+    just install
+
+# ── Dependency Verification ───────────────────────────────────────────────────
+
+# Mirror CI's security audit locally (npm audit + uv audit + cargo audit), in
+# parallel. Run before pushing to catch vulnerabilities the `ci-audit` gate would.
+# cargo-audit is optional — skipped with a hint if not installed.
+audit:
+    node scripts/audit.mjs
+
+# Mirror CI's dependency check locally (npm ci + uv sync --locked + cargo check),
+# in parallel. Verifies every lockfile is in sync with its manifest, matching the
+# `ci-deps` gate. Override parallelism with JOBS=N.
+deps-check:
+    node scripts/deps-check.mjs
 
 # ── Environment ───────────────────────────────────────────────────────────────
 

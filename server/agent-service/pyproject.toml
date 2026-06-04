@@ -45,6 +45,7 @@ constraint-dependencies = [
     "python-multipart>=0.0.27",
     "starlette>=1.0.1",
     "urllib3>=2.7.0",
+    "aiohttp>=3.14.0",
 ]
 
 [tool.pytest.ini_options]
@@ -58,28 +59,28 @@ extend-exclude = ["alembic/versions", "**/__pycache__"]
 
 [tool.ruff.lint]
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # pyflakes
-    "I",      # isort
-    "B",      # flake8-bugbear
-    "UP",     # pyupgrade
-    "N",      # pep8-naming
-    "S",      # flake8-bandit (security)
-    "ASYNC",  # flake8-async
-    "SIM",    # flake8-simplify
-    "PTH",    # flake8-use-pathlib
-    "TID",    # flake8-tidy-imports
-    "TCH",    # flake8-type-checking
-    "RUF",    # ruff-specific
-    "C4",     # flake8-comprehensions
-    "PIE",    # flake8-pie
-    "RET",    # flake8-return
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "UP",    # pyupgrade
+    "N",     # pep8-naming
+    "S",     # flake8-bandit (security)
+    "ASYNC", # flake8-async
+    "SIM",   # flake8-simplify
+    "PTH",   # flake8-use-pathlib
+    "TID",   # flake8-tidy-imports
+    "TCH",   # flake8-type-checking
+    "RUF",   # ruff-specific
+    "C4",    # flake8-comprehensions
+    "PIE",   # flake8-pie
+    "RET",   # flake8-return
 ]
 ignore = [
-    "E501",   # line too long (formatter handles it)
-    "B008",   # function calls in defaults (FastAPI Depends)
-    "S101",   # assert (fine in tests)
+    "E501", # line too long (formatter handles it)
+    "B008", # function calls in defaults (FastAPI Depends)
+    "S101", # assert (fine in tests)
 ]
 
 [tool.ruff.lint.per-file-ignores]
