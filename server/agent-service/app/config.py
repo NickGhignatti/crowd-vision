@@ -48,6 +48,9 @@ class Settings(BaseSettings):
 
     otel_endpoint: str = Field(default="", alias="OTEL_EXPORTER_OTLP_ENDPOINT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # auto = pretty console when no OTLP endpoint (dev), JSON otherwise (prod).
+    # Force with "console" or "json".
+    log_format: str = Field(default="auto", alias="LOG_FORMAT")
 
     require_auth: bool = Field(default=True, alias="REQUIRE_AUTH")
     twin_service_url: str = Field(default="http://twin-service:3000", alias="TWIN_SERVICE_URL")
