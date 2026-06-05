@@ -1,8 +1,22 @@
-FROM rust:1.96-bookworm AS builder
+FROM rust:1.96-bookworm AS chef
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends mold \
+    && rm -rf /var/lib/apt/lists/* \
+    && cargo install cargo-chef --locked
 WORKDIR /app
+# Use the faster mold linker for every cargo invocation in the build stages.
+ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
-COPY Cargo.toml Cargo.lock ./
-COPY src ./src
+# ── capture the dependency graph ────────────────────────────────────────
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+COPY . .
 RUN cargo build --release
 
 FROM debian:bookworm-slim AS production

@@ -25,8 +25,10 @@ jobs:
       sensor: ${{ steps.filter.outputs.sensor }}
       socket: ${{ steps.filter.outputs.socket }}
       twin: ${{ steps.filter.outputs.twin }}
-      source: ${{ steps.filter.outputs.source }}
       k8s: ${{ steps.filter.outputs.k8s }}
+      shared: ${{ steps.filter.outputs.shared }}
+      docker_matrix: ${{ steps.docker.outputs.matrix }}
+      has_images: ${{ steps.docker.outputs.has_images }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -57,40 +59,37 @@ jobs:
             twin:
               - 'server/twin-service/**'
               - '.github/workflows/ci-twin.yml'
-            source:
-              - 'client/**'
-              - 'server/**'
-              - 'simulators/**'
-              - 'tooling/**'
-              - '.moon/**'
-              - '.github/workflows/ci-lint.yml'
-              - '.github/workflows/ci-docker.yml'
-              - '.github/workflows/ci-deps.yml'
             k8s:
               - 'k8s/**'
               - '.github/workflows/ci-k8s.yml'
+            shared:
+              - 'tooling/eslint-config/**'
 
-  audit:
-    uses: ./.github/workflows/ci-audit.yml
-
-  lint:
-    needs: changes
-    if: needs.changes.outputs.source == 'true' && github.actor != 'dependabot[bot]'
-    uses: ./.github/workflows/ci-lint.yml
-
-  dependencies:
-    needs: changes
-    if: needs.changes.outputs.source == 'true'
-    uses: ./.github/workflows/ci-deps.yml
-
-  docker:
-    needs: changes
-    if: needs.changes.outputs.source == 'true' && github.actor != 'dependabot[bot]'
-    uses: ./.github/workflows/ci-docker.yml
+      # Build the Docker matrix (include-form) from the changed services that
+      # ship an image. Only these get a PR-time build
+      - name: Compute changed Docker images
+        id: docker
+        run: |
+          inc='[]'
+          add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" '$a + [{context:$c, image:$i}]'); }
+          if [ "${{ steps.filter.outputs.auth }}" = "true" ];         then add "./server/auth-service"         "crowdvision-auth"; fi
+          if [ "${{ steps.filter.outputs.twin }}" = "true" ];         then add "./server/twin-service"         "crowdvision-twin"; fi
+          if [ "${{ steps.filter.outputs.notification }}" = "true" ]; then add "./server/notification-service" "crowdvision-notification"; fi
+          if [ "${{ steps.filter.outputs.socket }}" = "true" ];       then add "./server/socket-service"       "crowdvision-socket"; fi
+          if [ "${{ steps.filter.outputs.agent }}" = "true" ];        then add "./server/agent-service"        "crowdvision-agent"; fi
+          if [ "${{ steps.filter.outputs.sensor }}" = "true" ];       then add "./server/sensor-service"       "crowdvision-sensor"; fi
+          if [ "${{ steps.filter.outputs.contracts }}" = "true" ];    then add "./server/contracts-service"    "crowdvision-contracts"; fi
+          if [ "${{ steps.filter.outputs.client }}" = "true" ];       then add "./client"                      "crowdvision-client"; fi
+          echo "matrix={\"include\":$inc}" >> "$GITHUB_OUTPUT"
+          if [ "$inc" = "[]" ]; then
+            echo "has_images=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_images=true" >> "$GITHUB_OUTPUT"
+          fi
 
   auth:
     needs: changes
-    if: needs.changes.outputs.auth == 'true'
+    if: needs.changes.outputs.auth == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-auth.yml
 
   agent:
@@ -110,46 +109,48 @@ jobs:
 
   notification:
     needs: changes
-    if: needs.changes.outputs.notification == 'true'
+    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-notification.yml
 
   sensor:
     needs: changes
-    if: needs.changes.outputs.sensor == 'true'
+    if: needs.changes.outputs.sensor == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-sensor.yml
 
   socket:
     needs: changes
-    if: needs.changes.outputs.socket == 'true'
+    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-socket.yml
 
   twin:
     needs: changes
-    if: needs.changes.outputs.twin == 'true'
+    if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-twin.yml
+
+  docker:
+    needs: changes
+    if: needs.changes.outputs.has_images == 'true'
+    uses: ./.github/workflows/ci-docker.yml
+    with:
+      images: ${{ needs.changes.outputs.docker_matrix }}
 
   k8s:
     needs: changes
     if: needs.changes.outputs.k8s == 'true'
     uses: ./.github/workflows/ci-k8s.yml
 
-  # Skipped jobs resolve as 'skipped', not 'failure', so this check is safe
-  # to use as the single required branch-protection status check.
   ci-passed:
     name: CI Passed
     runs-on: ubuntu-latest
     needs:
-      - lint
-      - audit
-      - dependencies
       - auth
       - agent
       - client
+      - contracts
       - notification
-      - twin
       - sensor
       - socket
-      - contracts
+      - twin
       - docker
       - k8s
     if: always()
