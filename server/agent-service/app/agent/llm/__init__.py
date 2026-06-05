@@ -1,5 +1,4 @@
 from app.agent.llm.base import CompletionUsage, LLMClient
-from app.agent.llm.deepseek import DeepSeekClient
-from app.agent.llm.gemini import GeminiClient
+from app.agent.llm.openai_compat import OpenAICompatClient
 
-__all__ = ["CompletionUsage", "DeepSeekClient", "GeminiClient", "LLMClient"]
+__all__ = ["CompletionUsage", "LLMClient", "OpenAICompatClient"]

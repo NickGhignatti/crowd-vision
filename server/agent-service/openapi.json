@@ -37,7 +37,7 @@
           "ingest"
         ],
         "summary": "Ingest a document into the knowledge base",
-        "description": "Chunks the markdown content, embeds each chunk with Gemini, and upserts into pgvector + tsvector. Idempotent on content hash \u2014 re-ingesting the same `source` + `content` returns `skipped=true` without re-embedding.",
+        "description": "Chunks the markdown content, embeds each chunk, and upserts into pgvector + tsvector. Idempotent on content hash \u2014 re-ingesting the same `source` + `content` returns `skipped=true` without re-embedding.",
         "operationId": "ingest_ingest_post",
         "requestBody": {
           "content": {
@@ -360,7 +360,7 @@
     },
     {
       "name": "ingest",
-      "description": "Add documents to the knowledge base. Admin-only \u2014 content is chunked, embedded with Gemini, and stored in pgvector + tsvector."
+      "description": "Add documents to the knowledge base. Admin-only \u2014 content is chunked, embedded, and stored in pgvector + tsvector."
     },
     {
       "name": "ask",

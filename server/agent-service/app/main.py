@@ -29,7 +29,7 @@ OPENAPI_TAGS = [
     {
         "name": "ingest",
         "description": "Add documents to the knowledge base. Admin-only — content "
-        "is chunked, embedded with Gemini, and stored in pgvector + tsvector.",
+        "is chunked, embedded, and stored in pgvector + tsvector.",
     },
     {
         "name": "ask",

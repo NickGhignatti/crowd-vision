@@ -3,8 +3,13 @@ services:
     build:
       context: .
     environment:
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      # Single OpenAI-compatible provider (OpenRouter by default) drives chat + embeddings.
+      # Falls back to the legacy DEEPSEEK_API_KEY/GOOGLE_API_KEY names if OPENROUTER_API_KEY is unset.
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-${DEEPSEEK_API_KEY:-${GOOGLE_API_KEY:-}}}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      - ANSWER_MODEL=${ANSWER_MODEL:-openai/gpt-4o-mini}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      - EMBEDDING_DIM=${EMBEDDING_DIM:-768}
       - JWT_SECRET=${JWT_SECRET}
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=${RERANKER:-noop}

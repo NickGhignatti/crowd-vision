@@ -1,8 +1,8 @@
 from app.embeddings.base import Embedder
-from app.embeddings.gemini import GeminiEmbedder
+from app.embeddings.openai import OpenAIEmbedder
 
-__all__ = ["Embedder", "GeminiEmbedder", "get_embedder"]
+__all__ = ["Embedder", "OpenAIEmbedder", "get_embedder"]
 
 
 def get_embedder() -> Embedder:
-    return GeminiEmbedder()
+    return OpenAIEmbedder()

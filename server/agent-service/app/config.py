@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,16 +11,31 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://agent:agent@agent-db:5432/agentdb",
         alias="POSTGRES_URL",
     )
-    google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
-    deepseek_api_key: str = Field(default="", alias="DEEPSEEK_API_KEY")
+
+    # ── LLM provider (any OpenAI-compatible endpoint: OpenRouter, OpenAI, etc.) ──
+    # A single key/base-url drives both chat and embeddings. The legacy
+    # GOOGLE_API_KEY / DEEPSEEK_API_KEY names are accepted as fallbacks so existing
+    # deployments keep working without an env rename.
+    llm_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "OPENROUTER_API_KEY", "LLM_API_KEY", "DEEPSEEK_API_KEY", "GOOGLE_API_KEY"
+        ),
+    )
+    llm_base_url: str = Field(
+        default="https://openrouter.ai/api/v1",
+        validation_alias=AliasChoices("LLM_BASE_URL", "OPENROUTER_BASE_URL"),
+    )
+
     jwt_secret: str = Field(default="", alias="JWT_SECRET")
     jwt_cookie_name: str = Field(default="authentication_token", alias="JWT_COOKIE_NAME")
 
-    embedding_model: str = Field(default="gemini-embedding-001", alias="EMBEDDING_MODEL")
+    embedding_model: str = Field(default="openai/text-embedding-3-small", alias="EMBEDDING_MODEL")
     embedding_dim: int = Field(default=768, alias="EMBEDDING_DIM")
-    answer_model: str = Field(default="gemini-2.5-flash", alias="ANSWER_MODEL")
-    router_model: str = Field(default="deepseek-chat", alias="ROUTER_MODEL")
-    deepseek_base_url: str = Field(default="https://api.deepseek.com", alias="DEEPSEEK_BASE_URL")
+    answer_model: str = Field(
+        default="openai/gpt-4o-mini",
+        validation_alias=AliasChoices("ANSWER_MODEL", "CHAT_MODEL"),
+    )
 
     reranker: str = Field(default="noop", alias="RERANKER")
     top_k_vector: int = Field(default=20, alias="TOP_K_VECTOR")
