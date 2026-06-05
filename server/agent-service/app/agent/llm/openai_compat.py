@@ -15,20 +15,70 @@ if TYPE_CHECKING:
     from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolUnionParam
 
 
-class DeepSeekClient:
+def _to_openai_messages(messages: list[dict]) -> list[dict]:
+    """Translate our internal message list to the OpenAI Chat Completions schema.
+
+    Internal format keeps tool calls flat — assistant turns carry
+    `tool_calls: [{id, name, arguments(dict)}]` and tool results use the `tool`
+    role with `tool_call_id`. OpenAI instead nests each call under
+    `function: {name, arguments(JSON string)}`, so we convert here rather than
+    leaking provider shapes into the agent loop.
+    """
+    out: list[dict] = []
+    for m in messages:
+        role = m.get("role")
+        if role == "assistant" and m.get("tool_calls"):
+            out.append(
+                {
+                    "role": "assistant",
+                    # OpenAI wants null (not "") content when tool calls are present.
+                    "content": m.get("content") or None,
+                    "tool_calls": [
+                        {
+                            "id": c["id"],
+                            "type": "function",
+                            "function": {
+                                "name": c["name"],
+                                "arguments": json.dumps(c.get("arguments") or {}),
+                            },
+                        }
+                        for c in m["tool_calls"]
+                    ],
+                }
+            )
+        elif role == "tool":
+            out.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": m["tool_call_id"],
+                    "content": m.get("content", ""),
+                }
+            )
+        else:
+            out.append({"role": role, "content": m.get("content", "")})
+    return out
+
+
+class OpenAICompatClient:
+    """Chat client for any OpenAI-compatible endpoint (OpenRouter, OpenAI, …).
+
+    Provider- and model-agnostic: the concrete model is whatever `ANSWER_MODEL`
+    points at, routed through `LLM_BASE_URL` with `llm_api_key`.
+    """
+
     def __init__(self, model: str | None = None) -> None:
         settings = get_settings()
         self._client = AsyncOpenAI(
-            api_key=settings.deepseek_api_key,
-            base_url=settings.deepseek_base_url,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url,
             timeout=settings.llm_timeout_seconds,
         )
-        self.model = model or settings.router_model
+        self.model = model or settings.answer_model
 
     async def complete(self, messages: list[dict], temperature: float = 0.2) -> Completion:
         resp = await self._client.chat.completions.create(
             model=self.model,
-            messages=cast("list[ChatCompletionMessageParam]", messages),
+            messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
             temperature=temperature,
         )
         text = resp.choices[0].message.content or ""
@@ -47,7 +97,7 @@ class DeepSeekClient:
     async def stream(self, messages: list[dict], temperature: float = 0.2) -> AsyncIterator[str]:
         stream = await self._client.chat.completions.create(
             model=self.model,
-            messages=cast("list[ChatCompletionMessageParam]", messages),
+            messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
             temperature=temperature,
             stream=True,
         )
@@ -78,13 +128,9 @@ class DeepSeekClient:
             else None
         )
 
-        # DeepSeek/OpenAI expect `tool_calls` on assistant turns and a `tool` role
-        # with `tool_call_id`. Our internal format already matches, so pass through.
-        oai_messages = list(messages)
-
         resp = await self._client.chat.completions.create(
             model=self.model,
-            messages=cast("list[ChatCompletionMessageParam]", oai_messages),
+            messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
             temperature=temperature,
             tools=cast("list[ChatCompletionToolUnionParam]", oai_tools) if oai_tools else omit,
         )

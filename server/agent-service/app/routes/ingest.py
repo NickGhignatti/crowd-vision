@@ -15,7 +15,7 @@ router = APIRouter(tags=["ingest"])
     response_model=IngestResponse,
     summary="Ingest a document into the knowledge base",
     description=(
-        "Chunks the markdown content, embeds each chunk with Gemini, and upserts "
+        "Chunks the markdown content, embeds each chunk, and upserts "
         "into pgvector + tsvector. Idempotent on content hash — re-ingesting the "
         "same `source` + `content` returns `skipped=true` without re-embedding."
     ),

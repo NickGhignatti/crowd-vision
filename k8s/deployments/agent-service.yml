@@ -99,7 +99,7 @@ spec:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: agent-service-secret   # GOOGLE_API_KEY, DEEPSEEK_API_KEY, POSTGRES_URL, JWT_SECRET
+                name: agent-service-secret   # OPENROUTER_API_KEY, POSTGRES_URL, JWT_SECRET
             - configMapRef:
                 name: common-config          # TWIN_SERVICE_URL, AUTH_SERVICE_URL
           volumeMounts:

@@ -8,15 +8,15 @@ if TYPE_CHECKING:
     from app.agent.tools.base import Tool
 
 
-def _strip_for_gemini(schema: dict) -> dict:
-    """Gemini's FunctionDeclaration parameters reject some JSON-Schema keys
-    (e.g. ``$defs``, ``title``). Strip them recursively so the same Pydantic
-    schema works across providers."""
+def _sanitize_tool_schema(schema: dict) -> dict:
+    """Strip Pydantic-emitted JSON-Schema keys that function-calling APIs don't
+    need (``title``, ``$defs``, ``additionalProperties``). Harmless for OpenAI-
+    compatible providers and keeps the parameter schema minimal."""
     drop = {"title", "$defs", "definitions", "additionalProperties"}
     if isinstance(schema, dict):
-        return {k: _strip_for_gemini(v) for k, v in schema.items() if k not in drop}
+        return {k: _sanitize_tool_schema(v) for k, v in schema.items() if k not in drop}
     if isinstance(schema, list):
-        return [_strip_for_gemini(v) for v in schema]
+        return [_sanitize_tool_schema(v) for v in schema]
     return schema
 
 
@@ -38,7 +38,7 @@ class ToolRegistry:
     def schemas(self) -> list[ToolSchema]:
         out: list[ToolSchema] = []
         for t in self._tools.values():
-            params = _strip_for_gemini(t.Args.model_json_schema())
+            params = _sanitize_tool_schema(t.Args.model_json_schema())
             out.append(ToolSchema(name=t.name, description=t.description, parameters=params))
         return out
 

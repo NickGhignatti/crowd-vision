@@ -1,14 +1,19 @@
-"""Per-million-token pricing (USD). Keep rough; log is advisory not billing."""
+"""Per-million-token pricing (USD). Keep rough; log is advisory not billing.
 
-# Approximate public prices as of 2026-04; update as needed.
+Model ids are provider-agnostic (OpenRouter-style "vendor/model"). Anything not
+listed falls back to $0 — the cost figure is informational, not billing.
+"""
+
+# Approximate public prices as of 2026-06; update as needed.
 PRICING: dict[str, tuple[float, float]] = {
     # (input $/M, output $/M)
-    "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-2.5-flash-lite": (0.04, 0.15),
-    "gemini-2.5-pro": (1.25, 5.00),
-    "text-embedding-004": (0.0, 0.0),
-    "deepseek-chat": (0.27, 1.10),
-    "deepseek-reasoner": (0.55, 2.19),
+    "openai/gpt-4o-mini": (0.15, 0.60),
+    "openai/gpt-4o": (2.50, 10.00),
+    "openai/text-embedding-3-small": (0.02, 0.0),
+    "openai/text-embedding-3-large": (0.13, 0.0),
+    "google/gemini-2.5-flash": (0.075, 0.30),
+    "google/gemini-2.5-pro": (1.25, 5.00),
+    "deepseek/deepseek-chat": (0.27, 1.10),
 }
 
 

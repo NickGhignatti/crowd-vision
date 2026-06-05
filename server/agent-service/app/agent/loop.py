@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from app.agent.llm import GeminiClient
+from app.agent.llm import OpenAICompatClient
 from app.agent.prompts import IDK_MARKER, SYSTEM_PROMPT
 from app.agent.tools import REGISTRY, ToolContext, ToolResult
 from app.citations import Citation, extract_citations, strip_hallucinated
@@ -55,7 +55,7 @@ class Agent:
 
     def __init__(self, llm: LLMClient | None = None) -> None:
         self._settings = get_settings()
-        self._llm = llm or GeminiClient()
+        self._llm = llm or OpenAICompatClient()
 
     def _bootstrap_messages(self, user: AuthUser, question: str) -> list[dict]:
         # Inject lightweight user context so the model knows whose data it can ask for.
