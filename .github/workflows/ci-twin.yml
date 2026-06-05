@@ -20,9 +20,18 @@ jobs:
         with:
           node-version: 24.x
           cache: npm
-          cache-dependency-path: server/twin-service/package-lock.json
+          cache-dependency-path: |
+            server/twin-service/package-lock.json
+            tooling/eslint-config/package-lock.json
 
       - name: 📦 Install dependencies
+        run: npm ci
+
+      # The shared @crowdvision/eslint-config is a file: dependency; its own
+      # deps (@eslint/js, typescript-eslint, …) only resolve when installed
+      # next to its index.mjs, so install them in-place before linting.
+      - name: 🔧 Install shared ESLint config
+        working-directory: tooling/eslint-config
         run: npm ci
 
       - name: 🔍 Lint
