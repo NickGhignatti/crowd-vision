@@ -27,7 +27,9 @@ async def main() -> None:
     print(f"  base_url       : {s.llm_base_url}")
     print(f"  answer_model   : {s.answer_model}")
     print(f"  embedding_model: {s.embedding_model} (dim={s.embedding_dim})")
-    print(f"  api_key set    : {bool(s.llm_api_key)} (…{s.llm_api_key[-4:] if s.llm_api_key else ''})")
+    print(
+        f"  api_key set    : {bool(s.llm_api_key)} (…{s.llm_api_key[-4:] if s.llm_api_key else ''})"
+    )
     print()
 
     # 1) Chat + tool-calling round-trip
