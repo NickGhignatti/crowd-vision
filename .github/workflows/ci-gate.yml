@@ -26,6 +26,7 @@ jobs:
       socket: ${{ steps.filter.outputs.socket }}
       twin: ${{ steps.filter.outputs.twin }}
       k8s: ${{ steps.filter.outputs.k8s }}
+      shared: ${{ steps.filter.outputs.shared }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
@@ -61,6 +62,8 @@ jobs:
             k8s:
               - 'k8s/**'
               - '.github/workflows/ci-k8s.yml'
+            shared:
+              - 'tooling/eslint-config/**'
 
       # Build the Docker matrix (include-form) from the changed services that
       # ship an image. Only these get a PR-time build
@@ -86,7 +89,7 @@ jobs:
 
   auth:
     needs: changes
-    if: needs.changes.outputs.auth == 'true'
+    if: needs.changes.outputs.auth == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-auth.yml
 
   agent:
@@ -106,22 +109,22 @@ jobs:
 
   notification:
     needs: changes
-    if: needs.changes.outputs.notification == 'true'
+    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-notification.yml
 
   sensor:
     needs: changes
-    if: needs.changes.outputs.sensor == 'true'
+    if: needs.changes.outputs.sensor == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-sensor.yml
 
   socket:
     needs: changes
-    if: needs.changes.outputs.socket == 'true'
+    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-socket.yml
 
   twin:
     needs: changes
-    if: needs.changes.outputs.twin == 'true'
+    if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-twin.yml
 
   docker:
