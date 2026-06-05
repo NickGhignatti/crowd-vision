@@ -90,7 +90,8 @@ app.openapi = _custom_openapi  # type: ignore[method-assign]
 _origins = [o.strip() for o in get_settings().cors_origins.split(",") if o.strip()]
 _allow_all = _origins == ["*"]
 
-FastAPIInstrumentor.instrument_app(app)
+# Skip the /health heartbeat so it doesn't generate a span on every check.
+FastAPIInstrumentor.instrument_app(app, excluded_urls="health")
 
 app.include_router(health.router)
 app.include_router(ingest.router)
