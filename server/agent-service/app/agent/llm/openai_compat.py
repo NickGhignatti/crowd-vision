@@ -74,25 +74,44 @@ class OpenAICompatClient:
             timeout=settings.llm_timeout_seconds,
         )
         self.model = model or settings.answer_model
+        # OpenRouter returns the *actual* charged cost in `usage.cost` when usage
+        # accounting is enabled. Other OpenAI-compatible endpoints (e.g. OpenAI
+        # itself) reject the extra body field, so gate it on the provider.
+        self._report_cost = "openrouter" in settings.llm_base_url.lower()
+
+    @property
+    def _usage_extra_body(self) -> dict | None:
+        return {"usage": {"include": True}} if self._report_cost else None
+
+    def _usage(self, resp: object) -> CompletionUsage:
+        """Build usage from a response, preferring the provider's real cost.
+
+        OpenRouter reports the charged amount in `usage.cost`; when that's absent
+        (plain OpenAI, self-hosted, …) we fall back to the static pricing table.
+        """
+        u = getattr(resp, "usage", None)
+        input_tokens = getattr(u, "prompt_tokens", 0) or 0
+        output_tokens = getattr(u, "completion_tokens", 0) or 0
+        cost = getattr(u, "cost", None)
+        if cost is None and u is not None:
+            cost = (getattr(u, "model_extra", None) or {}).get("cost")
+        if cost is None:
+            cost = estimate_cost(self.model, input_tokens, output_tokens)
+        return CompletionUsage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_usd=float(cost),
+        )
 
     async def complete(self, messages: list[dict], temperature: float = 0.2) -> Completion:
         resp = await self._client.chat.completions.create(
             model=self.model,
             messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
             temperature=temperature,
+            extra_body=self._usage_extra_body,
         )
         text = resp.choices[0].message.content or ""
-        input_tokens = resp.usage.prompt_tokens if resp.usage else 0
-        output_tokens = resp.usage.completion_tokens if resp.usage else 0
-        return Completion(
-            text=text,
-            usage=CompletionUsage(
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                cost_usd=estimate_cost(self.model, input_tokens, output_tokens),
-            ),
-            model=self.model,
-        )
+        return Completion(text=text, usage=self._usage(resp), model=self.model)
 
     async def stream(self, messages: list[dict], temperature: float = 0.2) -> AsyncIterator[str]:
         stream = await self._client.chat.completions.create(
@@ -133,6 +152,7 @@ class OpenAICompatClient:
             messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
             temperature=temperature,
             tools=cast("list[ChatCompletionToolUnionParam]", oai_tools) if oai_tools else omit,
+            extra_body=self._usage_extra_body,
         )
         msg = resp.choices[0].message
         calls: list[ToolCall] = []
@@ -143,15 +163,9 @@ class OpenAICompatClient:
                 args = {}
             calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
 
-        input_tokens = resp.usage.prompt_tokens if resp.usage else 0
-        output_tokens = resp.usage.completion_tokens if resp.usage else 0
         return ChatTurn(
             text=msg.content or "",
             tool_calls=calls,
-            usage=CompletionUsage(
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                cost_usd=estimate_cost(self.model, input_tokens, output_tokens),
-            ),
+            usage=self._usage(resp),
             model=self.model,
         )

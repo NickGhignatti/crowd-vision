@@ -1,7 +1,9 @@
-"""Per-million-token pricing (USD). Keep rough; log is advisory not billing.
+"""Per-million-token pricing (USD) — a *fallback* cost estimate.
 
-Model ids are provider-agnostic (OpenRouter-style "vendor/model"). Anything not
-listed falls back to $0 — the cost figure is informational, not billing.
+OpenRouter reports the real charged amount in `usage.cost`, which the client
+prefers. This table only kicks in for endpoints that don't return a cost (plain
+OpenAI, self-hosted, …). Model ids are provider-agnostic (OpenRouter-style
+"vendor/model"); anything not listed falls back to $0 — informational, not billing.
 """
 
 # Approximate public prices as of 2026-06; update as needed.
