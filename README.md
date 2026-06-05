@@ -47,3 +47,17 @@ Running `just env` (called automatically by `just dev` / `just start`) will prom
 
 For the full environment variable reference and Kubernetes setup, see the [Developer Setup Guide](documentation/developer/config/setting-up.qd).
 
+---
+
+## 📄 License
+
+Copyright © 2026 Ghignatti Nicolò. All rights reserved.
+
+CrowdVision is proprietary software. This repository is public so you can view
+the code — it is not open source. You're welcome to read and explore it for
+personal, non-commercial evaluation, but copying, forking, modifying, running,
+distributing, or using it commercially isn't permitted.
+
+See the full [LICENSE](LICENSE) for the details. For commercial use or any
+permission not covered there, just reach out: **nick.ghignatti@gmail.com**.
+
