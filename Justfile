@@ -73,6 +73,10 @@ env:
 dev exclude="": env
     node scripts/compose/compose-run.mjs dev {{exclude}}
 
+[doc("Rebuild then start dev stack. Same exclude= syntax as dev.")]
+dev-build exclude="": env
+    node scripts/compose/compose-run.mjs dev-build {{exclude}}
+
 # Start production stack in background. Same exclusion syntax as `dev`.
 [doc("Start production stack (background). Use exclude= with space-separated substrings.")]
 start exclude="": env

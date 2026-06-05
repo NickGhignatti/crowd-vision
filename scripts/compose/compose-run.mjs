@@ -31,15 +31,16 @@ const excludePatterns = rawExcludes
   .flatMap((arg) => arg.replace(/^exclude=/, "").split(/\s+/))
   .filter(Boolean);
 
-const isDev = mode === "dev";
+const isDev = mode === "dev" || mode === "dev-build";
 const isStart = mode === "start";
 const isDown = mode === "down";
 const isIntegration = mode === "integration";
 const isBuild = mode === "build";
+const isDevBuild = mode === "dev-build";
 
-if (!isDev && !isStart && !isDown && !isIntegration && !isBuild) {
+if (!isDev && !isStart && !isDown && !isIntegration && !isBuild && !isDevBuild) {
   console.error(
-    `Unknown mode: ${mode}. Use: dev | start | down | integration | build`,
+    `Unknown mode: ${mode}. Use: dev | start | down | integration | build | dev-build`,
   );
   process.exit(1);
 }
@@ -135,7 +136,8 @@ if (isDown) {
   dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--build', '-d', '--remove-orphans'];
 } else {
   // dev
-  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--watch', '--build', '--remove-orphans'];
+  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--watch', '--remove-orphans'];
+  if (isDevBuild) dockerArgs.push("--build");
 }
 
 if (effectiveExcludes.length > 0) {
@@ -147,6 +149,7 @@ console.log(`\n$ docker ${dockerArgs.join(" ")}\n`);
 const result = spawnSync("docker", dockerArgs, {
   stdio: "inherit",
   shell: false,
+  env: { ...process.env, COMPOSE_BAKE: "true" },
 });
 
 process.exit(result.status ?? 1);
