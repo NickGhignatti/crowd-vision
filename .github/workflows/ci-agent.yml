@@ -4,13 +4,12 @@ on:
   workflow_call:
 
 jobs:
-  agent-service:
+  quality:
+    name: lint + type-check + audit
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: ./server/agent-service
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -26,7 +25,42 @@ jobs:
           enable-cache: true
 
       - name: 📦 Install dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync --locked --all-extras --dev
+
+      - name: 🔍 Ruff lint
+        run: uv run ruff check .
+
+      - name: 🎨 Ruff format check
+        run: uv run ruff format --check .
+
+      - name: 🏗️ Type check (pyright)
+        run: uv run pyright
+
+      - name: 🔒 Audit dependencies
+        run: uv audit
+
+  tests:
+    name: tests (unit + integration)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server/agent-service
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: 📦 Install dependencies
+        run: uv sync --locked --all-extras --dev
 
       - name: 🧪 Run tests (unit + integration)
         run: uv run pytest

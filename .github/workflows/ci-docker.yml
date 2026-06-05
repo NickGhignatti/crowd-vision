@@ -2,34 +2,42 @@ name: Docker Build
 
 on:
   workflow_call:
+    inputs:
+      images:
+        description: >-
+          JSON matrix (include-form) of { context, image } objects to build.
+          The gate populates this with only the services that changed.
+        required: true
+        type: string
 
 jobs:
-  build-images:
+  # One job per changed image. The gate skips calling this workflow entirely
+  # when nothing relevant changed, so the matrix is never empty here.
+  build:
+    name: docker (${{ matrix.image }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.images) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: 🐳 Lint Dockerfiles (hadolint)
+      - name: 🐳 Lint Dockerfile (hadolint)
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          recursive: true
+          dockerfile: ${{ matrix.context }}/Dockerfile
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      # push: false — this is a PR build check, not a publish (cd-registry
+      # publishes on master). The gha cache is scoped per image so each
+      # service reuses its own layers across runs without evicting the others.
+      - name: 🏗️ Build ${{ matrix.image }}
+        uses: docker/build-push-action@v6
         with:
-          node-version: '24.x'
-
-      - name: Build Docker Images
-        env:
-          DEV_URL: "http://localhost"
-          SERVER_PORT: "80"
-          CLIENT_PORT: "8080"
-          MONGO_PORT: "27017"
-          VITE_VAPID_PUBLIC_KEY: "dummy_key"
-          VAPID_PUBLIC_KEY: "dummy_key"
-          VAPID_PRIVATE_KEY: "dummy_key"
-        run: node scripts/compose/compose-run.mjs build
+          context: ${{ matrix.context }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
