@@ -45,6 +45,12 @@ class AskRequest(BaseModel):
         default=True,
         description="If true, return Server-Sent Events. If false, return a single JSON response.",
     )
+    model: str | None = Field(
+        default=None,
+        description="Override the chat model for this request (any OpenRouter model id, "
+        "e.g. 'anthropic/claude-sonnet-4-6'). Defaults to the server's ANSWER_MODEL. "
+        "Embeddings/retrieval are unaffected — useful for A/B evaluating generators.",
+    )
 
     model_config = ConfigDict(
         json_schema_extra={

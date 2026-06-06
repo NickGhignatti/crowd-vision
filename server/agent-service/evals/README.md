@@ -44,6 +44,24 @@ uv run python evals/run_evals.py
 (`passed/total`, total cost, avg latency). Exit code is non-zero if any row fails,
 so it can gate CI.
 
+## Comparing models (A/B)
+
+The `/ask` endpoint takes an optional `model` (any OpenRouter id) that overrides the
+chat model for that request only — embeddings and retrieval are unchanged, so you're
+comparing generators on identical context. `run_evals.py --models a,b,c` runs the
+whole dataset once per model and prints a comparison table:
+
+```bash
+AGENT_URL=http://localhost/agent AUTH_COOKIE="authentication_token=<jwt>" \
+uv run python evals/run_evals.py \
+  --models openai/gpt-4o-mini,google/gemini-2.5-flash,deepseek/deepseek-chat
+# ⇒ per-model PASS/FAIL, then: model | pass | pass% | cost $ | avg ms
+```
+
+No `--models` ⇒ a single run against the server's default `ANSWER_MODEL`. Each run
+also tags its Langfuse traces `model:<id>`, so you can filter/group by model in the UI
+to compare cost, tokens, and latency on the same questions.
+
 ## Growing the set
 
 - Add a row for each major doc section and each tool path you care about.
