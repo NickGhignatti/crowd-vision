@@ -44,9 +44,9 @@ class LLMClient(Protocol):
 
     async def complete(self, messages: list[dict], temperature: float = 0.2) -> Completion: ...
 
-    async def stream(
-        self, messages: list[dict], temperature: float = 0.2
-    ) -> AsyncIterator[str]: ...
+    # Async generator: calling it returns the iterator directly (not a coroutine),
+    # so this is a plain `def` returning AsyncIterator — not `async def`.
+    def stream(self, messages: list[dict], temperature: float = 0.2) -> AsyncIterator[str]: ...
 
     async def chat(
         self,

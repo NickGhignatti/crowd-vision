@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     confidence_threshold: float = Field(default=0.15, alias="CONFIDENCE_THRESHOLD")
 
     llm_timeout_seconds: float = Field(default=30.0, alias="LLM_TIMEOUT_SECONDS")
+    # Cap on generated tokens per LLM call. Besides bounding cost, sending an
+    # explicit max_tokens keeps OpenRouter's credit/affordability pre-check happy:
+    # models that advertise a huge default max output (e.g. Gemini's 65k) otherwise
+    # get a 402 "requires more credits" on low-balance accounts.
+    max_output_tokens: int = Field(default=2048, alias="MAX_OUTPUT_TOKENS")
     embed_timeout_seconds: float = Field(default=15.0, alias="EMBED_TIMEOUT_SECONDS")
 
     otel_endpoint: str = Field(default="", alias="OTEL_EXPORTER_OTLP_ENDPOINT")

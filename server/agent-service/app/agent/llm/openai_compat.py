@@ -75,6 +75,7 @@ class OpenAICompatClient:
             timeout=settings.llm_timeout_seconds,
         )
         self.model = model or settings.answer_model
+        self._max_tokens = settings.max_output_tokens
         # OpenRouter returns the *actual* charged cost in `usage.cost` when usage
         # accounting is enabled. Other OpenAI-compatible endpoints (e.g. OpenAI
         # itself) reject the extra body field, so gate it on the provider.
@@ -106,6 +107,17 @@ class OpenAICompatClient:
             cost_usd=float(cost),
         )
 
+    @staticmethod
+    def _first_message(resp: object) -> object | None:
+        """First choice's message, or None.
+
+        Providers occasionally return an empty/absent `choices` array (content
+        filtered, upstream error, etc.); guarding here avoids a 500 from
+        `resp.choices[0]` when swapping across providers.
+        """
+        choices = getattr(resp, "choices", None) or []
+        return choices[0].message if choices else None
+
     async def complete(self, messages: list[dict], temperature: float = 0.2) -> Completion:
         with tracer().start_as_current_span(f"gen_ai.chat {self.model}") as span:
             span.set_attribute("gen_ai.system", self._system)
@@ -114,6 +126,7 @@ class OpenAICompatClient:
                 model=self.model,
                 messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
                 temperature=temperature,
+                max_tokens=self._max_tokens,
                 extra_body=self._usage_extra_body,
             )
             usage = self._usage(resp)
@@ -124,7 +137,8 @@ class OpenAICompatClient:
                 output_tokens=usage.output_tokens,
                 cost_usd=usage.cost_usd,
             )
-        text = resp.choices[0].message.content or ""
+        msg = self._first_message(resp)
+        text = (getattr(msg, "content", None) or "") if msg else ""
         return Completion(text=text, usage=usage, model=self.model)
 
     async def stream(self, messages: list[dict], temperature: float = 0.2) -> AsyncIterator[str]:
@@ -132,6 +146,7 @@ class OpenAICompatClient:
             model=self.model,
             messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
             temperature=temperature,
+            max_tokens=self._max_tokens,
             stream=True,
         )
         async for chunk in stream:
@@ -170,6 +185,7 @@ class OpenAICompatClient:
                 model=self.model,
                 messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
                 temperature=temperature,
+                max_tokens=self._max_tokens,
                 tools=cast("list[ChatCompletionToolUnionParam]", oai_tools) if oai_tools else omit,
                 extra_body=self._usage_extra_body,
             )
@@ -181,9 +197,9 @@ class OpenAICompatClient:
                 output_tokens=usage.output_tokens,
                 cost_usd=usage.cost_usd,
             )
-            msg = resp.choices[0].message
+            msg = self._first_message(resp)
             calls: list[ToolCall] = []
-            for tc in getattr(msg, "tool_calls", None) or []:
+            for tc in (getattr(msg, "tool_calls", None) or []) if msg else []:
                 try:
                     args = json.loads(tc.function.arguments or "{}")
                 except json.JSONDecodeError:
@@ -192,7 +208,7 @@ class OpenAICompatClient:
             span.set_attribute("gen_ai.response.tool_call_count", len(calls))
 
         return ChatTurn(
-            text=msg.content or "",
+            text=(getattr(msg, "content", None) or "") if msg else "",
             tool_calls=calls,
             usage=usage,
             model=self.model,

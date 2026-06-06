@@ -138,7 +138,11 @@ class Agent:
         session: AsyncSession,
         question: str,
         user: AuthUser,
+        llm: LLMClient | None = None,
     ) -> AnswerResult:
+        # `llm` lets a caller pick a model per request (multi-model eval); defaults
+        # to the agent's configured client.
+        llm = llm or self._llm
         usage = Usage()
         ctx = ToolContext(user=user, session=session)
         messages = self._bootstrap_messages(user, question)
@@ -150,11 +154,14 @@ class Agent:
             # Trace-level IO so the run is readable at a glance in the backend.
             root.set_attribute("langfuse.trace.input", question)
             root.set_attribute("langfuse.user.id", user.user_id)
+            root.set_attribute("gen_ai.request.model", llm.model)
+            # Tag the trace with the model so eval sweeps can filter/group by it.
+            root.set_attribute("langfuse.trace.tags", json.dumps([f"model:{llm.model}"]))
 
             for hop in range(self._settings.max_tool_hops):
                 with tr.start_as_current_span(f"agent.hop.{hop}") as hop_span:
                     hop_span.set_attribute("agent.hop", hop)
-                    turn = await self._llm.chat(messages, tools=tools)
+                    turn = await llm.chat(messages, tools=tools)
                     usage.add(
                         turn.usage.input_tokens, turn.usage.output_tokens, turn.usage.cost_usd
                     )
@@ -218,12 +225,13 @@ class Agent:
         session: AsyncSession,
         question: str,
         user: AuthUser,
+        llm: LLMClient | None = None,
     ) -> AsyncIterator[dict]:
         """Run the tool loop, then stream the final answer text token by token.
 
         Tool-calling and streaming are awkward together across providers; we pay one
         non-streamed final hop's cost in exchange for a uniform implementation."""
-        result = await self.answer(session, question, user)
+        result = await self.answer(session, question, user, llm=llm)
 
         # Emit the answer as a single token event for now. (Real per-token streaming
         # of the *final* turn is a follow-up: re-run a no-tools `stream()` with the

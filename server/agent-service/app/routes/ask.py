@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.llm import get_llm
 from app.agent.loop import Agent
 from app.auth import AuthUser, require_user
 from app.db import get_session
@@ -47,15 +48,18 @@ async def ask(
     session: AsyncSession = Depends(get_session),
     user: AuthUser = Depends(require_user),
 ):
+    # Per-request model override (None ⇒ server default); client cached per model.
+    llm = get_llm(payload.model) if payload.model else None
+
     if payload.stream:
 
         async def sse():
-            async for event in _agent.stream_answer(session, payload.question, user):
+            async for event in _agent.stream_answer(session, payload.question, user, llm=llm):
                 yield f"data: {json.dumps(event)}\n\n"
 
         return StreamingResponse(sse(), media_type="text/event-stream")
 
-    result = await _agent.answer(session, payload.question, user)
+    result = await _agent.answer(session, payload.question, user, llm=llm)
     return AskResponse(
         answer=result.answer,
         citations=[
