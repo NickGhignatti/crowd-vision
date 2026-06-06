@@ -101,7 +101,8 @@ class Agent:
                 continue
 
             tr = tracer()
-            with tr.start_as_current_span(f"tool.{call.name}"):
+            with tr.start_as_current_span(f"tool.{call.name}") as span:
+                span.set_attribute("tool.name", call.name)
                 try:
                     result = await tool.run(args, ctx)
                 except Exception as e:
@@ -110,6 +111,7 @@ class Agent:
                         content=f"tool {call.name} failed: {type(e).__name__}: {e}",
                         is_error=True,
                     )
+                span.set_attribute("tool.is_error", bool(result.is_error))
 
             ctx.citations.extend(result.citations or [])
             trace.append(
@@ -144,50 +146,72 @@ class Agent:
         tools = REGISTRY.schemas()
         tr = tracer()
 
-        for hop in range(self._settings.max_tool_hops):
-            with tr.start_as_current_span(f"agent.hop.{hop}"):
-                turn = await self._llm.chat(messages, tools=tools)
-                usage.add(turn.usage.input_tokens, turn.usage.output_tokens, turn.usage.cost_usd)
+        with tr.start_as_current_span("agent.answer") as root:
+            # Trace-level IO so the run is readable at a glance in the backend.
+            root.set_attribute("langfuse.trace.input", question)
+            root.set_attribute("langfuse.user.id", user.user_id)
 
-            if not turn.tool_calls:
-                full_text = turn.text or ""
-                doc_citations = [c for c in ctx.citations if isinstance(c, RetrievedChunk)]
-                valid, hallucinated = extract_citations(full_text, doc_citations)
-                cleaned = strip_hallucinated(full_text, hallucinated)
-                return AnswerResult(
-                    answer=cleaned,
-                    citations=valid,
-                    retrieved=doc_citations,
-                    usage=usage,
-                    idk=cleaned.strip() == IDK_MARKER,
-                    hallucinated_citations=hallucinated,
-                    tool_calls=tool_trace,
+            for hop in range(self._settings.max_tool_hops):
+                with tr.start_as_current_span(f"agent.hop.{hop}") as hop_span:
+                    hop_span.set_attribute("agent.hop", hop)
+                    turn = await self._llm.chat(messages, tools=tools)
+                    usage.add(
+                        turn.usage.input_tokens, turn.usage.output_tokens, turn.usage.cost_usd
+                    )
+                    hop_span.set_attribute("agent.hop.input_tokens", turn.usage.input_tokens)
+                    hop_span.set_attribute("agent.hop.output_tokens", turn.usage.output_tokens)
+                    hop_span.set_attribute("agent.hop.tool_calls", len(turn.tool_calls))
+
+                if not turn.tool_calls:
+                    full_text = turn.text or ""
+                    doc_citations = [c for c in ctx.citations if isinstance(c, RetrievedChunk)]
+                    valid, hallucinated = extract_citations(full_text, doc_citations)
+                    cleaned = strip_hallucinated(full_text, hallucinated)
+                    self._tag_run(root, answer=cleaned, usage=usage, decision="answered")
+                    return AnswerResult(
+                        answer=cleaned,
+                        citations=valid,
+                        retrieved=doc_citations,
+                        usage=usage,
+                        idk=cleaned.strip() == IDK_MARKER,
+                        hallucinated_citations=hallucinated,
+                        tool_calls=tool_trace,
+                    )
+
+                # Append the assistant turn (with its tool_calls) and the tool results.
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": turn.text,
+                        "tool_calls": [
+                            {"id": c.id, "name": c.name, "arguments": c.arguments}
+                            for c in turn.tool_calls
+                        ],
+                    }
                 )
+                tool_messages = await self._run_tool_calls(ctx, turn.tool_calls, tool_trace)
+                messages.extend(tool_messages)
 
-            # Append the assistant turn (with its tool_calls) and the tool results.
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": turn.text,
-                    "tool_calls": [
-                        {"id": c.id, "name": c.name, "arguments": c.arguments}
-                        for c in turn.tool_calls
-                    ],
-                }
+            log.warning("agent.tool_loop_exhausted", hops=self._settings.max_tool_hops)
+            self._tag_run(root, answer=IDK_MARKER, usage=usage, decision="tool_loop_exhausted")
+            return AnswerResult(
+                answer=IDK_MARKER,
+                citations=[],
+                retrieved=[c for c in ctx.citations if isinstance(c, RetrievedChunk)],
+                usage=usage,
+                idk=True,
+                decision="tool_loop_exhausted",
+                tool_calls=tool_trace,
             )
-            tool_messages = await self._run_tool_calls(ctx, turn.tool_calls, tool_trace)
-            messages.extend(tool_messages)
 
-        log.warning("agent.tool_loop_exhausted", hops=self._settings.max_tool_hops)
-        return AnswerResult(
-            answer=IDK_MARKER,
-            citations=[],
-            retrieved=[c for c in ctx.citations if isinstance(c, RetrievedChunk)],
-            usage=usage,
-            idk=True,
-            decision="tool_loop_exhausted",
-            tool_calls=tool_trace,
-        )
+    @staticmethod
+    def _tag_run(span, *, answer: str, usage: Usage, decision: str) -> None:
+        """Set trace-level output + aggregate token/cost totals on the root span."""
+        span.set_attribute("langfuse.trace.output", answer)
+        span.set_attribute("agent.decision", decision)
+        span.set_attribute("gen_ai.usage.input_tokens", usage.input_tokens)
+        span.set_attribute("gen_ai.usage.output_tokens", usage.output_tokens)
+        span.set_attribute("gen_ai.usage.cost_usd", usage.cost_usd)
 
     async def stream_answer(
         self,

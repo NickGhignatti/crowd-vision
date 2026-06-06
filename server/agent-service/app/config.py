@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     embed_timeout_seconds: float = Field(default=15.0, alias="EMBED_TIMEOUT_SECONDS")
 
     otel_endpoint: str = Field(default="", alias="OTEL_EXPORTER_OTLP_ENDPOINT")
+    # "http/protobuf" routes traces to an OTLP/HTTP collector (e.g. Langfuse at
+    # /api/public/otel); anything else (default) uses the OTLP/gRPC exporter.
+    # Endpoint + auth headers are read from the standard OTEL_EXPORTER_OTLP_* env
+    # vars by the exporter itself.
+    otel_protocol: str = Field(default="", alias="OTEL_EXPORTER_OTLP_PROTOCOL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     # auto = pretty console when no OTLP endpoint (dev), JSON otherwise (prod).
     # Force with "console" or "json".

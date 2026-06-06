@@ -103,4 +103,11 @@
     handle /grafana/* {
         reverse_proxy grafana:3000
     }
+
+    # Langfuse (LLM trace UI). Served on its own host port 3030 — the prebuilt
+    # image inlines its base path at build time, so a subpath reverse_proxy would
+    # break static assets. Redirect to the direct port instead.
+    handle /langfuse* {
+        redir {http.request.scheme}://{http.request.host}:3030 permanent
+    }
 }

@@ -8,6 +8,7 @@ from openai import AsyncOpenAI, omit
 from app.agent.llm.base import ChatTurn, Completion, CompletionUsage, ToolCall, ToolSchema
 from app.agent.llm.pricing import estimate_cost
 from app.config import get_settings
+from app.tracing import tag_generation, tracer
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -78,6 +79,8 @@ class OpenAICompatClient:
         # accounting is enabled. Other OpenAI-compatible endpoints (e.g. OpenAI
         # itself) reject the extra body field, so gate it on the provider.
         self._report_cost = "openrouter" in settings.llm_base_url.lower()
+        # Used as gen_ai.system on generation spans.
+        self._system = "openrouter" if self._report_cost else "openai"
 
     @property
     def _usage_extra_body(self) -> dict | None:
@@ -104,14 +107,25 @@ class OpenAICompatClient:
         )
 
     async def complete(self, messages: list[dict], temperature: float = 0.2) -> Completion:
-        resp = await self._client.chat.completions.create(
-            model=self.model,
-            messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
-            temperature=temperature,
-            extra_body=self._usage_extra_body,
-        )
+        with tracer().start_as_current_span(f"gen_ai.chat {self.model}") as span:
+            span.set_attribute("gen_ai.system", self._system)
+            span.set_attribute("gen_ai.request.temperature", temperature)
+            resp = await self._client.chat.completions.create(
+                model=self.model,
+                messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
+                temperature=temperature,
+                extra_body=self._usage_extra_body,
+            )
+            usage = self._usage(resp)
+            tag_generation(
+                span,
+                model=self.model,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                cost_usd=usage.cost_usd,
+            )
         text = resp.choices[0].message.content or ""
-        return Completion(text=text, usage=self._usage(resp), model=self.model)
+        return Completion(text=text, usage=usage, model=self.model)
 
     async def stream(self, messages: list[dict], temperature: float = 0.2) -> AsyncIterator[str]:
         stream = await self._client.chat.completions.create(
@@ -147,25 +161,39 @@ class OpenAICompatClient:
             else None
         )
 
-        resp = await self._client.chat.completions.create(
-            model=self.model,
-            messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
-            temperature=temperature,
-            tools=cast("list[ChatCompletionToolUnionParam]", oai_tools) if oai_tools else omit,
-            extra_body=self._usage_extra_body,
-        )
-        msg = resp.choices[0].message
-        calls: list[ToolCall] = []
-        for tc in getattr(msg, "tool_calls", None) or []:
-            try:
-                args = json.loads(tc.function.arguments or "{}")
-            except json.JSONDecodeError:
-                args = {}
-            calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
+        with tracer().start_as_current_span(f"gen_ai.chat {self.model}") as span:
+            span.set_attribute("gen_ai.system", self._system)
+            span.set_attribute("gen_ai.request.temperature", temperature)
+            if tools:
+                span.set_attribute("gen_ai.request.tool_count", len(tools))
+            resp = await self._client.chat.completions.create(
+                model=self.model,
+                messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
+                temperature=temperature,
+                tools=cast("list[ChatCompletionToolUnionParam]", oai_tools) if oai_tools else omit,
+                extra_body=self._usage_extra_body,
+            )
+            usage = self._usage(resp)
+            tag_generation(
+                span,
+                model=self.model,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                cost_usd=usage.cost_usd,
+            )
+            msg = resp.choices[0].message
+            calls: list[ToolCall] = []
+            for tc in getattr(msg, "tool_calls", None) or []:
+                try:
+                    args = json.loads(tc.function.arguments or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
+            span.set_attribute("gen_ai.response.tool_call_count", len(calls))
 
         return ChatTurn(
             text=msg.content or "",
             tool_calls=calls,
-            usage=self._usage(resp),
+            usage=usage,
             model=self.model,
         )

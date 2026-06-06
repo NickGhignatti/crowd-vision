@@ -53,17 +53,65 @@ def configure_tracing() -> None:
     provider = TracerProvider(resource=resource)
 
     if settings.otel_endpoint:
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        # Pick the OTLP transport by protocol. Langfuse ingests OTLP/HTTP at
+        # /api/public/otel (the HTTP exporter appends /v1/traces) and reads the
+        # Basic-auth header from OTEL_EXPORTER_OTLP_HEADERS; gRPC stays the default
+        # for plain OTel collectors.
+        if settings.otel_protocol.lower().startswith("http"):
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        else:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-        provider.add_span_processor(
-            BatchSpanProcessor(OTLPSpanExporter(endpoint=settings.otel_endpoint))
-        )
+        # Construct with no args so endpoint + headers come from the standard
+        # OTEL_EXPORTER_OTLP_* env vars. This matters for the HTTP exporter: reading
+        # the endpoint from env appends the "/v1/traces" path (Langfuse's OTLP ingest
+        # lives at <endpoint>/v1/traces), whereas passing endpoint= would use it
+        # verbatim and 404.
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     else:
         # Local dev: emit compact one-line spans immediately (no batching delay).
         provider.add_span_processor(SimpleSpanProcessor(_CompactConsoleSpanExporter()))
 
     trace.set_tracer_provider(provider)
 
+    # Auto-instrument outbound httpx calls (twin-service tools) so each shows up as
+    # its own client span — method, URL, status, latency — nested under tool.*.
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+    HTTPXClientInstrumentor().instrument()
+
 
 def tracer():
     return trace.get_tracer("agent-service")
+
+
+def tag_generation(
+    span: trace.Span,
+    *,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    cost_usd: float,
+) -> None:
+    """Mark a span as an LLM generation with tokens + cost.
+
+    Sets both the vendor-neutral OTel GenAI semantic-convention attributes and the
+    Langfuse-specific mapping so the span renders as a "generation" with token and
+    cost columns in Langfuse's trace waterfall.
+    """
+    import json
+
+    span.set_attribute("langfuse.observation.type", "generation")
+    span.set_attribute("gen_ai.request.model", model)
+    span.set_attribute("gen_ai.response.model", model)
+    span.set_attribute("gen_ai.usage.input_tokens", input_tokens)
+    span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
+    # Langfuse reads these JSON blobs for the usage/cost breakdown.
+    span.set_attribute(
+        "langfuse.observation.usage_details",
+        json.dumps({"input": input_tokens, "output": output_tokens}),
+    )
+    span.set_attribute(
+        "langfuse.observation.cost_details",
+        json.dumps({"total": cost_usd}),
+    )

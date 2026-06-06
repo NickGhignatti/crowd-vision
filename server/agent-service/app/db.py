@@ -19,6 +19,11 @@ def get_engine() -> AsyncEngine:
         settings = get_settings()
         _engine = create_async_engine(settings.postgres_url, pool_pre_ping=True)
         _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
+        # Emit a DB span per query (pgvector retrieval, keyword search) nested under
+        # the surrounding retrieve.* spans. Instrument the underlying sync engine.
+        from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+        SQLAlchemyInstrumentor().instrument(engine=_engine.sync_engine)
     return _engine
 
 
