@@ -1,0 +1,44 @@
+# Inherited by every project with `language: 'python'`.
+# `npm test` / `npm run lint` are intentional: each Python project's package.json
+# proxies them to `uv run pytest` / `uv run ruff … && pyright`, giving moon one
+# uniform task interface across languages.
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+inheritedBy:
+  language: 'python'
+
+tasks:
+  test:
+    command: 'npm test'
+    inputs:
+      - 'app/**/*'
+      - 'tests/**/*'
+      - 'pyproject.toml'
+
+  lint:
+    command: 'npm run lint'
+    inputs:
+      - 'app/**/*'
+      - 'tests/**/*'
+      - 'pyproject.toml'
+
+  lint-fix:
+    command: 'npm run lint:fix'
+    options:
+      cache: false
+
+  deps:
+    command: 'uv sync --locked'
+    inputs:
+      - 'pyproject.toml'
+      - 'uv.lock'
+    options:
+      cache: false
+
+  audit:
+    command: 'uv audit'
+    inputs:
+      - 'pyproject.toml'
+      - 'uv.lock'
+    options:
+      cache: false

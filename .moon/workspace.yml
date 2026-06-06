@@ -18,5 +18,9 @@ projects:
   agent-service: "server/agent-service"
   contracts-service: "server/contracts-service"
   sensor-simulator: "simulators/sensor-simulator"
+  # Support packages: deps-only (see .moon/tasks/javascript.yml), no build/test/lint.
+  tooling: "tooling"
+  eslint-config: "tooling/eslint-config"
+  tests: "server/tests"
 
 telemetry: false

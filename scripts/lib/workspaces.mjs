@@ -1,42 +1,33 @@
 //
-// Single source of truth for the repo's workspace layout.
+// Single source of truth for the repo's package list is moon's project graph
+// (.moon/workspace.yml). Instead of maintaining a parallel hand-written list
+// that can silently drift, install.mjs and clean.mjs derive their workspaces
+// from `moon query projects`. Adding a package is then a one-place change:
+// register it with moon.
 //
-// There is no root package.json / npm workspaces — each JS package owns its own
-// node_modules and package-lock.json (see the Contributing docs). These lists are
-// shared by install.mjs, audit.mjs, deps-check.mjs and clean.mjs so the set of
-// directories never drifts between recipes.
+//   js     → typescript | javascript projects  (npm)
+//   python → python projects                   (uv)
+//   rust   → rust projects                      (cargo)
+//
+// Paths returned are repo-root-relative (moon's `source`), e.g. "server/auth-service".
 //
 
-// Every JS package that has its own package-lock.json. Used by `just install`
-// and `just clean-install` (bootstrap + full wipe/regenerate).
-export const JS_WORKSPACES = [
-  'tooling',
-  'tooling/eslint-config',
-  'client',
-  'server/auth-service',
-  'server/twin-service',
-  'server/notification-service',
-  'server/sensor-service',
-  'server/socket-service',
-  'server/tests',
-  'simulators/sensor-simulator',
-];
+import { execSync } from 'node:child_process';
 
-// The JS dirs that CI's audit/deps matrices cover (.github/workflows/ci-audit.yml,
-// ci-deps.yml). A subset of JS_WORKSPACES — excludes the `file:`-linked
-// eslint-config and the integration-only `server/tests`. `just audit` and
-// `just deps-check` use this so they mirror CI exactly.
-export const CI_JS_WORKSPACES = [
-  'tooling',
-  'client',
-  'server/auth-service',
-  'server/twin-service',
-  'server/notification-service',
-  'server/sensor-service',
-  'server/socket-service',
-  'simulators/sensor-simulator',
-];
+import { withMise } from './mise.mjs';
 
-// The Python (uv) and Rust (cargo) packages, for the non-JS legs of each recipe.
-export const PYTHON_WORKSPACE = 'server/agent-service';
-export const RUST_WORKSPACE = 'server/contracts-service';
+export function queryWorkspaces() {
+  const out = execSync(withMise('moon query projects'), { encoding: 'utf8' });
+  const { projects } = JSON.parse(out);
+
+  const js = [];
+  const python = [];
+  const rust = [];
+  for (const { source, language } of projects) {
+    if (language === 'typescript' || language === 'javascript') js.push(source);
+    else if (language === 'python') python.push(source);
+    else if (language === 'rust') rust.push(source);
+  }
+
+  return { js: js.sort(), python: python.sort(), rust: rust.sort() };
+}

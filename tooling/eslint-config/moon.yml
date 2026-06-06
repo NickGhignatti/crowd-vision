@@ -1,0 +1,4 @@
+# The shared @crowdvision/eslint-config package. A `file:` dependency of the
+# services, so its own deps must be installed in place. `language: javascript`
+# gives it `deps` without pulling in the TS build/test/lint pipeline.
+language: 'javascript'

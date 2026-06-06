@@ -1,23 +1,8 @@
 language: 'typescript'
 
-tasks:
-  build:
-    command: 'npm run build'
-    inputs:
-      - 'src/**/*'
-      - 'tsconfig*.json'
-      - 'package.json'
-    outputs:
-      - 'dist'
-
-  lint:
-    command: 'npm run lint'
-    inputs:
-      - 'src/**/*'
-      - 'eslint.config.mjs'
-      - '/tooling/eslint-config/index.mjs'
-
-  lint-fix:
-    command: 'npm run lint:fix'
-    options:
-      cache: false
+# build / lint / lint-fix are inherited from .moon/tasks/typescript.yml.
+# No unit-test suite is wired into CI for the simulator yet, so don't inherit `test`.
+workspace:
+  inheritedTasks:
+    exclude:
+      - 'test'

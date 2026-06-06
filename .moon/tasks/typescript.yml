@@ -1,0 +1,57 @@
+# Inherited by every project with `language: 'typescript'`.
+# Define the shared build/test/lint pipeline once here; a project's own moon.yml
+# only needs to override a task where it genuinely differs (see client/moon.yml).
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+inheritedBy:
+  language: 'typescript'
+
+tasks:
+  build:
+    command: 'npm run build'
+    inputs:
+      - 'src/**/*'
+      - 'tsconfig*.json'
+      - 'package.json'
+    outputs:
+      - 'dist'
+
+  test:
+    command: 'npm test'
+    inputs:
+      - 'src/**/*'
+      - '__tests__/**/*'
+      - 'package.json'
+
+  lint:
+    command: 'npm run lint'
+    inputs:
+      - 'src/**/*'
+      - '__tests__/**/*'
+      - 'eslint.config.mjs'
+      - '/tooling/eslint-config/index.mjs'
+
+  lint-fix:
+    command: 'npm run lint:fix'
+    options:
+      cache: false
+
+  # Verify the lockfile is in sync with the manifest (mirrors each ci-*.yml's
+  # `npm ci` step). Not cached: it re-installs and is a verification gate.
+  deps:
+    command: 'npm ci'
+    inputs:
+      - 'package.json'
+      - 'package-lock.json'
+    options:
+      cache: false
+
+  # Mirrors each ci-*.yml's audit step. Not cached: the advisory DB lives
+  # server-side, so a stale "passed" must never mask a newly-disclosed CVE.
+  audit:
+    command: 'npm audit --audit-level=high --omit=dev'
+    inputs:
+      - 'package.json'
+      - 'package-lock.json'
+    options:
+      cache: false

@@ -1,0 +1,17 @@
+# Inherited by support packages tagged `language: 'javascript'` — the shared
+# tooling, the eslint-config, and the integration-test harness. These have npm
+# dependencies (so they need `deps`) but no build/test/lint pipeline of their
+# own, so they intentionally do NOT inherit typescript.yml.
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+inheritedBy:
+  language: 'javascript'
+
+tasks:
+  deps:
+    command: 'npm ci'
+    inputs:
+      - 'package.json'
+      - 'package-lock.json'
+    options:
+      cache: false
