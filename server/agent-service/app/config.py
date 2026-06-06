@@ -49,6 +49,18 @@ class Settings(BaseSettings):
     # models that advertise a huge default max output (e.g. Gemini's 65k) otherwise
     # get a 402 "requires more credits" on low-balance accounts.
     max_output_tokens: int = Field(default=2048, alias="MAX_OUTPUT_TOKENS")
+
+    # Per-request chat-model override (`/ask` `model` field) is a privileged eval/ops
+    # feature, not for end users — it spends the shared OpenRouter balance. It is
+    # honoured only for callers at/above this role, and (when set) the model must be
+    # in the allowlist. Empty allowlist ⇒ no allowlist constraint (still role-gated).
+    model_override_min_role: str = Field(default="business_admin", alias="MODEL_OVERRIDE_MIN_ROLE")
+    allowed_models: str = Field(default="", alias="ALLOWED_MODELS")
+
+    @property
+    def allowed_models_set(self) -> set[str]:
+        return {m.strip() for m in self.allowed_models.split(",") if m.strip()}
+
     embed_timeout_seconds: float = Field(default=15.0, alias="EMBED_TIMEOUT_SECONDS")
 
     otel_endpoint: str = Field(default="", alias="OTEL_EXPORTER_OTLP_ENDPOINT")

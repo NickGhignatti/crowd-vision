@@ -1,17 +1,42 @@
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.llm import get_llm
+from app.agent.llm import LLMClient, get_llm
 from app.agent.loop import Agent
 from app.auth import AuthUser, require_user
+from app.config import get_settings
 from app.db import get_session
 from app.models.api import AskRequest, AskResponse, CitationModel, UsageModel
 
 router = APIRouter(tags=["ask"])
 _agent = Agent()
+
+
+def _resolve_override_llm(model: str | None, user: AuthUser) -> LLMClient | None:
+    """Validate a per-request model override and return its client (or None).
+
+    The override spends the shared OpenRouter balance, so it is a privileged eval/ops
+    feature: gated behind `MODEL_OVERRIDE_MIN_ROLE` and, when configured, an
+    `ALLOWED_MODELS` allowlist. Returns None when no override was requested.
+    """
+    if not model:
+        return None
+    settings = get_settings()
+    if not user.has_role_at_least(settings.model_override_min_role):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"model override requires role '{settings.model_override_min_role}' or higher",
+        )
+    allowed = settings.allowed_models_set
+    if allowed and model not in allowed:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"model '{model}' is not in the allowed set: {sorted(allowed)}",
+        )
+    return get_llm(model)
 
 
 @router.post(
@@ -39,7 +64,9 @@ _agent = Agent()
                 },
             },
         },
+        400: {"description": "`model` override is not in the allowed set."},
         401: {"description": "Missing or invalid JWT cookie."},
+        403: {"description": "`model` override requires a higher role."},
         422: {"description": "Validation error in request body."},
     },
 )
@@ -48,8 +75,8 @@ async def ask(
     session: AsyncSession = Depends(get_session),
     user: AuthUser = Depends(require_user),
 ):
-    # Per-request model override (None ⇒ server default); client cached per model.
-    llm = get_llm(payload.model) if payload.model else None
+    # Per-request model override (None ⇒ server default); privilege/allowlist checked.
+    llm = _resolve_override_llm(payload.model, user)
 
     if payload.stream:
 

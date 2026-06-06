@@ -5,6 +5,16 @@ from fastapi import HTTPException, Request, status
 
 from app.config import get_settings
 
+# Mirrors auth-service `src/models/role.ts` (ROLE_WEIGHTS). Hierarchical RBAC:
+# a caller satisfies a required role iff their max role weight >= that role's weight.
+# Unknown role names map to 0 (no privilege), matching the auth-service behaviour.
+ROLE_WEIGHTS: dict[str, int] = {
+    "admin": 100,
+    "business_admin": 80,
+    "business_staff": 60,
+    "standard_customer": 10,
+}
+
 
 @dataclass
 class AuthUser:
@@ -15,6 +25,14 @@ class AuthUser:
     @property
     def permissions(self) -> list[str]:
         return [*self.roles, *self.domains]
+
+    @property
+    def max_role_weight(self) -> int:
+        return max((ROLE_WEIGHTS.get(r, 0) for r in self.roles), default=0)
+
+    def has_role_at_least(self, role: str) -> bool:
+        """True if the caller's highest role weight meets/exceeds `role`'s weight."""
+        return self.max_role_weight >= ROLE_WEIGHTS.get(role, 101)
 
 
 def _decode(token: str, secret: str) -> AuthUser:
