@@ -107,6 +107,58 @@ Retrieval and citation enforcement are two halves of the same contract. Each ret
 
 This is the existing "output guardrail" referenced under Safety — it prevents the agent from fabricating source references.
 
+## Observability — [app/tracing.py](app/tracing.py)
+
+Every `/ask` request emits one OpenTelemetry trace you can open as a waterfall in
+**Langfuse** (self-hosted in the docker stack). The trace shows latency for every
+step, and **tokens + cost** for each LLM call.
+
+**Span tree of a request:**
+
+```
+POST /ask                         (FastAPIInstrumentor)
+└─ agent.answer                    trace IO: question in, answer out, user id, total tokens/cost
+   ├─ agent.hop.0                  per-hop token counts + tool-call count
+   │  └─ gen_ai.chat <model>       generation: model, in/out tokens, cost (OpenRouter usage.cost)
+   ├─ tool.search_docs            tool.name, tool.is_error
+   │  ├─ retrieve.embed
+   │  ├─ retrieve.vector           retrieve.top_k / retrieve.hits
+   │  │  └─ SELECT chunks …        pgvector query (SQLAlchemyInstrumentor)
+   │  ├─ retrieve.keyword
+   │  └─ retrieve.rerank
+   ├─ tool.list_rooms
+   │  └─ GET twin-service/…        outbound HTTP (HTTPXClientInstrumentor)
+   └─ agent.hop.1 → gen_ai.chat …  final answer turn
+```
+
+**How it's wired.** `configure_tracing()` (called from the FastAPI lifespan) sets up a
+`TracerProvider` and auto-instruments httpx (twin tools) and SQLAlchemy (pgvector /
+keyword search). The LLM generation span and its token/cost attributes live in
+[app/agent/llm/openai_compat.py](app/agent/llm/openai_compat.py) via
+`tracing.tag_generation`, which sets both the vendor-neutral OTel **GenAI** semantic
+conventions (`gen_ai.usage.*`) and the **Langfuse** attribute mapping
+(`langfuse.observation.type=generation`, `usage_details`, `cost_details`) so the span
+renders as a generation with token/cost columns.
+
+**Exporter.** Controlled entirely by standard OTel env vars:
+
+| Var | Value (dev) | Meaning |
+| --- | --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://langfuse-web:3000/api/public/otel` | Langfuse OTLP ingest |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | HTTP exporter (else gRPC) |
+| `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Basic%20<b64(pk:sk)>` | Langfuse project keys |
+
+With **no endpoint set**, the service falls back to a compact one-line console span
+exporter (`trace gen_ai.chat 412.3ms`) — no trace backend required for local hacking.
+
+**Opening Langfuse.** UI at `http://localhost:3030` (or `/langfuse` via the gateway,
+which redirects there). Project, user, and API keys are provisioned headlessly on
+first boot from the `LANGFUSE_INIT_*` / `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`
+values in the root `.env`; log in with `LANGFUSE_INIT_USER_EMAIL` /
+`LANGFUSE_INIT_USER_PASSWORD`. The backend (langfuse-web/worker, clickhouse, minio,
+langfuse-db; reusing the shared redis) lives in the root
+[docker-compose.yml](../../docker-compose.yml).
+
 ## Dependencies
 
 - **uvicorn**: accepts HTTP requests and hands them to the app (the agent)

@@ -62,25 +62,31 @@ class HybridRetriever:
         with tr.start_as_current_span("retrieve.embed"):
             query_vec = await self._embedder.embed_query(question)
 
-        with tr.start_as_current_span("retrieve.vector"):
+        with tr.start_as_current_span("retrieve.vector") as span:
+            span.set_attribute("retrieve.top_k", self._settings.top_k_vector)
             vector_hits = await vector_search(
                 session,
                 query_vec,
                 limit=self._settings.top_k_vector,
                 user_permissions=user_permissions,
             )
+            span.set_attribute("retrieve.hits", len(vector_hits))
 
-        with tr.start_as_current_span("retrieve.keyword"):
+        with tr.start_as_current_span("retrieve.keyword") as span:
+            span.set_attribute("retrieve.top_k", self._settings.top_k_keyword)
             keyword_hits = await keyword_search(
                 session,
                 question,
                 limit=self._settings.top_k_keyword,
                 user_permissions=user_permissions,
             )
+            span.set_attribute("retrieve.hits", len(keyword_hits))
 
         merged = _rrf_merge(vector_hits, keyword_hits)
 
-        with tr.start_as_current_span("retrieve.rerank"):
+        with tr.start_as_current_span("retrieve.rerank") as span:
             reranked = await self._reranker.rerank(question, merged)
+            span.set_attribute("retrieve.merged", len(merged))
+            span.set_attribute("retrieve.final", min(len(reranked), self._settings.top_k_final))
 
         return reranked[: self._settings.top_k_final]

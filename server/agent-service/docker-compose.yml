@@ -14,9 +14,19 @@ services:
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=${RERANKER:-noop}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # OpenTelemetry → Langfuse (OTLP/HTTP). Unset the endpoint to fall back to
+      # the compact console span exporter (no trace backend required).
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
     depends_on:
-      - agent-db
+      agent-db:
+        condition: service_started
+      # Start Langfuse first when present, but don't block agent-service on it
+      # (traces are fire-and-forget; the app runs fine if the backend is absent).
+      langfuse-web:
+        condition: service_started
+        required: false
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:3000/health',timeout=2).status==200 else 1)\""]
       interval: 5s
