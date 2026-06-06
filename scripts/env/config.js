@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline");
 
-const envPath = path.join(__dirname, "../..", ".env");
+const envPath = process.env.ENV_FILE || path.join(__dirname, "../..", ".env");
 
 function parseEnv() {
     const envVars = {};
@@ -67,12 +67,12 @@ async function setupConfig() {
     await checkAndAsk("DEV_URL", "Enter DEV_URL", "http://localhost");
     await checkAndAsk("PROD_URL", "Enter PROD_URL", "http://localhost");
 
-    // Agent-service LLM credentials. Optional — the service boots without them
-    // but /ask will fail on the first tool-calling hop. Get them from:
-    //   - GOOGLE_API_KEY:   https://aistudio.google.com/apikey
-    //   - DEEPSEEK_API_KEY: https://platform.deepseek.com/api_keys
-    await checkAndAskOptional("GOOGLE_API_KEY", "Enter GOOGLE_API_KEY (Gemini)");
-    await checkAndAskOptional("DEEPSEEK_API_KEY", "Enter DEEPSEEK_API_KEY");
+    // Agent-service LLM credentials. The agent talks to any OpenAI-compatible
+    // endpoint; we default to OpenRouter (chat + embeddings via one key). Optional —
+    // the service boots without it, but /ask fails on the first LLM/tool-calling hop.
+    // Get a key at https://openrouter.ai/keys. The legacy GOOGLE_API_KEY /
+    // DEEPSEEK_API_KEY names are still honoured if already present in .env.
+    await checkAndAskOptional("OPENROUTER_API_KEY", "Enter OPENROUTER_API_KEY");
 
     rl.close();
 
