@@ -25,16 +25,44 @@ def load_dataset(path: pathlib.Path) -> list[dict]:
 
 
 def score_row(row: dict, response: dict) -> tuple[bool, str]:
+    """Grade one golden-dataset row against the agent's JSON response.
+
+    Checks, in order: expected_idk → tool behaviour (expected_tool /
+    expected_no_tool) → retrieval grounding (expected_sources) → answer content
+    (expected_keywords) → must_cite. Fields are optional, so a row only asserts
+    what it specifies (live-data rows assert a tool but no keywords; doc rows
+    assert a source + keywords; conversational rows assert no tool).
+    """
     answer = (response.get("answer") or "").lower()
     idk = bool(response.get("idk"))
-    decision = response.get("decision", "answerable")
+    decision = response.get("decision", "answered")
     citations = response.get("citations") or []
+    tool_calls = [
+        tc.get("name") for tc in (response.get("retrieval") or {}).get("tool_calls", [])
+    ]
+    sources = [c.get("source", "") for c in citations]
 
     if row.get("expected_idk"):
-        return idk, "expected IDK"
+        return idk, "expected IDK" if idk else "expected IDK but agent answered"
     if row.get("expected_decision"):
-        return decision == row["expected_decision"], f"expected decision={row['expected_decision']}"
+        ok = decision == row["expected_decision"]
+        return ok, f"expected decision={row['expected_decision']}, got {decision}"
 
+    # Tool behaviour.
+    if row.get("expected_no_tool") and tool_calls:
+        return False, f"expected no tool call, but called: {tool_calls}"
+    if row.get("expected_tool") and row["expected_tool"] not in tool_calls:
+        return False, f"expected tool '{row['expected_tool']}' not called (called: {tool_calls})"
+
+    # Retrieval grounding: at least one citation source must match an expected source
+    # (substring, so repo-relative paths can be given without the chunk suffix).
+    expected_sources = row.get("expected_sources") or (
+        [row["expected_source"]] if row.get("expected_source") else []
+    )
+    if expected_sources and not any(exp in s for exp in expected_sources for s in sources):
+        return False, f"no citation from expected sources {expected_sources} (got {sources})"
+
+    # Answer content.
     missing = [kw for kw in row.get("expected_keywords", []) if kw.lower() not in answer]
     if missing:
         return False, f"missing keywords: {missing}"
@@ -56,15 +84,23 @@ def main() -> int:
     total_latency_ms = 0.0
 
     headers = {"Cookie": cookie} if cookie else {}
+    timeout = float(os.environ.get("EVAL_TIMEOUT_SECONDS", "120"))
 
-    with httpx.Client(timeout=60.0) as client:
+    with httpx.Client(timeout=timeout) as client:
         for row in dataset:
             t0 = time.perf_counter()
-            r = client.post(
-                f"{base}/ask",
-                json={"question": row["question"], "stream": False},
-                headers=headers,
-            )
+            try:
+                r = client.post(
+                    f"{base}/ask",
+                    json={"question": row["question"], "stream": False},
+                    headers=headers,
+                )
+            except httpx.HTTPError as e:
+                # A slow/failed row shouldn't abort the whole run.
+                latency_ms = (time.perf_counter() - t0) * 1000
+                total_latency_ms += latency_ms
+                print(f"[FAIL] {row['id']} ({latency_ms:.0f}ms): request error: {e!r}")
+                continue
             latency_ms = (time.perf_counter() - t0) * 1000
             total_latency_ms += latency_ms
             if r.status_code != 200:

@@ -1,4 +1,4 @@
-# Creating a new agent tool
+# Adding an Agent Tool
 
 A "tool" is a capability the LLM can call (search docs, fetch a building, send a notification...). The agent loop ([app/agent/loop.py](app/agent/loop.py)) discovers tools through the `REGISTRY`, validates the model's JSON arguments through your Pydantic `Args`, calls `run`, and feeds the result back into the conversation.
 
@@ -11,7 +11,9 @@ Before writing code, answer four questions:
 1. **What does the tool do, in one sentence?** This becomes the `description` the LLM reads.
 2. **What inputs does it need?** Each input becomes a field on the `Args` Pydantic model.
 3. **What does it return?** Keep payloads small — the result is fed back into the LLM context as JSON. Project away fields the model doesn't need.
-4. **Read-only or write?** Write tools (book a room, send a notification) need extra guardrails (see Roadmap → Safety in [README.md](README.md)). Start read-only unless you explicitly need otherwise.
+4. **Read-only or write?** The current agent has no confirmation flow for write actions.
+   Keep tools read-only unless authorization, confirmation, audit logging, and retry
+   behavior are explicitly designed.
 
 ## 2. Where the file lives
 
@@ -101,7 +103,9 @@ Rules of thumb:
 - **Use `ctx`**:
   - `ctx.session` — async SQLAlchemy session for Postgres queries.
   - `ctx.user` — the authenticated `AuthUser` (roles, domains, permissions). Use this to enforce per-tool RBAC.
-  - `ctx.citations` — append `Citation`-shaped objects here if your tool produces sources the user should see (see `SearchDocsTool`).
+  - `ctx.citations` — accumulated citation candidates from completed tools. Prefer
+    returning new citations through `ToolResult(citations=[...])`; the agent loop appends
+    them to the context (see `SearchDocsTool`).
 - **Project the response.** When wrapping an HTTP call, return only the fields the LLM needs. Big payloads waste tokens and confuse the model.
 - **No prints, use `structlog`.** `from app.logging import get_logger; log = get_logger(__name__)`.
 - **No global state in `run`.** Module-level singletons (a shared `httpx.AsyncClient`, a retriever) are fine — *per-call* state belongs in `ctx` or local variables.
@@ -132,7 +136,10 @@ Inject a fake client/session and assert on the `ToolResult`. Pattern: mock the *
 
 ### 7c. Integration test through the agent loop
 
-Once the in-progress fake-`LLMClient` harness lands (see Roadmap → Code quality in [README.md](README.md)), script a `tool_calls` sequence and assert your tool gets dispatched with the right args and produces the expected `ToolResult`. Until then, manual smoke through `/ask` is acceptable for read-only tools.
+The current integration suite does not provide a reusable scripted-`LLMClient` harness.
+For now, test `run` at the backend boundary and manually smoke-test dispatch through `/ask`.
+When adding a reusable fake LLM, assert the full tool-call and recovery sequence through
+`Agent.answer`.
 
 ## 8. Run the checks
 
