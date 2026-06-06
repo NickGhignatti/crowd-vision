@@ -13,6 +13,9 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=${RERANKER:-noop}
+      # Privileged per-request model override (/ask `model`): min role + optional allowlist.
+      - MODEL_OVERRIDE_MIN_ROLE=${MODEL_OVERRIDE_MIN_ROLE:-business_admin}
+      - ALLOWED_MODELS=${ALLOWED_MODELS:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # OpenTelemetry → Langfuse (OTLP/HTTP). Unset the endpoint to fall back to
       # the compact console span exporter (no trace backend required).

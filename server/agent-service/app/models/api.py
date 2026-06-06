@@ -47,9 +47,11 @@ class AskRequest(BaseModel):
     )
     model: str | None = Field(
         default=None,
-        description="Override the chat model for this request (any OpenRouter model id, "
-        "e.g. 'anthropic/claude-sonnet-4-6'). Defaults to the server's ANSWER_MODEL. "
-        "Embeddings/retrieval are unaffected — useful for A/B evaluating generators.",
+        description="Override the chat model for this request (an OpenRouter model id, "
+        "e.g. 'google/gemini-2.5-flash'). Defaults to the server's ANSWER_MODEL. "
+        "Embeddings/retrieval are unaffected — for A/B evaluating generators. "
+        "**Privileged:** requires the MODEL_OVERRIDE_MIN_ROLE role (default "
+        "business_admin) and, when configured, the model must be in ALLOWED_MODELS.",
     )
 
     model_config = ConfigDict(
