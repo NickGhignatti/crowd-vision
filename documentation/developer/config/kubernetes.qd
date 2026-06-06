@@ -65,7 +65,17 @@ Secrets are created directly from your `.env` file — never committed to the re
 .code lang:{bash}
     just k8s-secrets
 
-This reads `JWT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `GOOGLE_API_KEY`, `DEEPSEEK_API_KEY`, `GHCR_USERNAME`, `GHCR_TOKEN` and other keys from `.env` and creates the corresponding Kubernetes Secret objects. It is idempotent — safe to run again after rotating keys.
+This reads `JWT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, agent provider keys,
+`GHCR_USERNAME`, `GHCR_TOKEN`, and other values from `.env`, then creates the corresponding
+Kubernetes Secret objects. It is idempotent — safe to run again after rotating keys.
+
+.box type:{warning}
+    The current `agent-service-secret` generator forwards the legacy `GOOGLE_API_KEY` and
+    `DEEPSEEK_API_KEY` names, while the recommended provider setup uses
+    `OPENROUTER_API_KEY`. Before deploying the agent, verify that the generated secret
+    contains a key compatible with its configured `LLM_BASE_URL`. Kubernetes also does not
+    deploy the documentation ingester or Langfuse; see the
+    [Agent Service](../services/agent.qd) guide.
 
 .box type:{warning}
     The namespace must exist before secrets can be created. Always run `kubectl apply -f k8s/namespace.yml` (or `just k8s-setup`) before `just k8s-secrets` in isolation.

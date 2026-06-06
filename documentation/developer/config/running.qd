@@ -51,6 +51,9 @@ The `agent-service` is the heaviest service (Python + model loading). Skip it wh
     - - API Gateway
       - `http://localhost:80`
       - Caddy proxy — routes to all microservices.
+    - - Agent API Docs
+      - `http://localhost/agent/docs`
+      - FastAPI/OpenAPI reference for `/ask`, `/ingest`, and `/health`.
     - - Auth DB GUI
       - `http://localhost/auth-db-gui/`
       - Mongo Express for the auth database. Dev mode only.
@@ -63,6 +66,57 @@ The `agent-service` is the heaviest service (Python + model loading). Skip it wh
     - - Prometheus
       - `http://localhost/prometheus/`
       - Raw metrics scraper. Dev mode only.
+    - - Langfuse
+      - `http://localhost:3030`
+      - AI-agent traces, tool calls, tokens, cost, and latency. Docker mode only.
+
+### Langfuse Login
+
+Langfuse is the trace UI for `agent-service`. Open `http://localhost:3030` directly, or
+open `http://localhost/langfuse` to be redirected there.
+
+The Docker Compose development defaults are:
+
+.var {headers}
+   - Field
+   - Default
+
+.tablebyrows {.headers}
+    - - Email
+      - `admin@crowd-vision.local`
+    - - Password
+      - `langfuse-admin`
+
+Override the defaults in the root `.env` before starting Langfuse for the first time:
+
+.code lang:{bash}
+    LANGFUSE_INIT_USER_EMAIL=your-email@example.com
+    LANGFUSE_INIT_USER_PASSWORD=use-a-strong-password
+
+.box type:{warning}
+    The `LANGFUSE_INIT_USER_*` values provision the initial account when the Langfuse
+    database is first created. Changing them later does not update an existing user's
+    login. For any shared or externally reachable deployment, replace the development
+    password before first startup.
+
+.box type:{note}
+    Langfuse is currently included in the Docker Compose stack only. The repository's
+    Kubernetes manifests do not deploy or expose Langfuse.
+
+### Agent Operations
+
+.code lang:{bash}
+    just logs agent-service       # follow application logs and console traces
+    just agent-ingest             # ingest developer + user documentation
+    just test-agent               # Moon-managed agent pytest task
+    just test-agent-integration   # Testcontainers/Postgres integration suite
+
+The automatic `agent-ingester` runs once during Docker Compose startup after
+`agent-service` becomes healthy. Kubernetes does not deploy this ingester, so documents
+must be ingested manually after deployment.
+
+For provider verification, model evaluation, API examples, permissions, and current
+limitations, see the [Agent Service](../services/agent.qd) guide.
 
 ### Production / Detached Mode
 
@@ -363,6 +417,35 @@ The agent-service reads its Postgres connection string from `POSTGRES_URL` (not 
       -o jsonpath='{.data.POSTGRES_URL}' | base64 -d
 
 If it is empty or missing, check your `.env` for `POSTGRES_URL` and re-run `just k8s-secrets`.
+
+---
+
+### agent-service provider requests return `401`, `402`, or model errors
+
+The agent uses one OpenAI-compatible endpoint for chat and embeddings. Verify that the
+provider key matches the endpoint:
+
+.code lang:{bash}
+cd server/agent-service
+OPENROUTER_API_KEY=<your-key> uv run python scripts/verify_provider.py
+
+For the default OpenRouter endpoint, configure `OPENROUTER_API_KEY`. A `402` commonly means
+the OpenRouter account lacks credit for the selected model; lower `MAX_OUTPUT_TOKENS` or use
+a cheaper allowed model.
+
+---
+
+### agent answers documentation questions with no useful sources
+
+Re-ingest the documentation and inspect the agent logs:
+
+.code lang:{bash}
+    just agent-ingest
+    just logs agent-service
+
+The Docker ingester loads `documentation/user` and `documentation/developer`. Kubernetes
+does not run it automatically. Retrieval also filters documents against JWT roles/domains;
+empty document permissions are visible to every authenticated caller.
 
 ---
 

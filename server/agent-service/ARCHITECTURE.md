@@ -19,7 +19,8 @@ agent-service (FastAPI)
 ```
 
 The container runs `alembic upgrade head` before starting Uvicorn. In the development
-stack, `agent-ingester` waits for `/health` and then loads the repository documentation.
+stack, `agent-ingester` waits for `/health` and then loads `documentation/user` and
+`documentation/developer`. The current Kubernetes manifests do not run this ingester.
 
 ## Request Lifecycle
 
@@ -49,6 +50,14 @@ The model chooses tools from JSON schemas generated from their Pydantic argument
 Tool errors are returned to the model as tool-result messages so it can recover. Reaching
 `MAX_TOOL_HOPS` returns the IDK marker with `decision=tool_loop_exhausted`.
 
+The default answer model is constructed once with the agent. A privileged `/ask` request
+may select a different model; clients are cached per model for reuse. Overrides are checked
+against hierarchical JWT role weights and the optional model allowlist before the loop
+runs. The embedding model is never changed by an answer-model override.
+
+The request model currently exposes `top_k`, but the route does not pass it into the agent
+or retriever. Retrieval depth is controlled by tool arguments and service configuration.
+
 `stream=true` uses the same tool loop and emits the completed answer as one SSE `token`
 event, followed by a `done` event. It is not currently per-token model streaming.
 
@@ -63,6 +72,13 @@ event, followed by a `done` event. It is not currently per-token model streaming
 
 Each chunk stores its text, embedding, generated `tsvector`, permissions, source metadata,
 and section path.
+
+Content hashes are globally unique, while sources are not. A changed file therefore creates
+a new document instead of replacing the old source version. The ingester does not delete
+stale documents; a clean rebuild requires truncating the agent knowledge-base tables first.
+
+`/ingest` is authenticated, but currently has no role check despite being described as an
+administrative operation in the OpenAPI metadata.
 
 ## Tools
 
@@ -134,6 +150,10 @@ Protected routes accept:
 JWTs are verified using HS256 and `JWT_SECRET`. Roles and domains are collected from direct
 claims and `accountMemberships`, then combined into `AuthUser.permissions`.
 
+Role-sensitive operations use the same hierarchy as `auth-service`:
+`standard_customer` (10), `business_staff` (60), `business_admin` (80), and `admin` (100).
+The current role-gated operation is per-request answer-model override.
+
 `REQUIRE_AUTH=false` creates an anonymous user and is intended only for isolated local use.
 
 ## Database
@@ -172,9 +192,14 @@ Generation spans record model, input/output tokens, and estimated or provider-re
 With `OTEL_EXPORTER_OTLP_ENDPOINT` configured, spans are exported over OTLP. Without it,
 compact span summaries are printed to the console.
 
+OpenRouter-reported cost is preferred. Other providers use the small static pricing table
+in `app/agent/llm/pricing.py`; unknown models report `$0`, so fallback cost is informational
+rather than billing-grade. Each LLM call is capped by `MAX_OUTPUT_TOKENS`, and a request can
+make up to `MAX_TOOL_HOPS` calls.
+
 ## Tests And Evaluations
 
-- `tests/unit/`: hermetic tests for chunking, ranking, citations, and prompts.
+- `tests/unit/`: hermetic tests for chunking, ranking, citations, and model-override access.
 - `tests/integration/`: Testcontainers/Postgres scaffolding; current agent-flow coverage is
   limited and the ingest test is parked.
 - `evals/`: real-agent golden-dataset runner that grades tool choice, sources, keywords,

@@ -101,10 +101,10 @@ You will be prompted for the following:
       - Temperature/presence simulator endpoint (external service).
     - - `GOOGLE_API_KEY`
       - *(empty)*
-      - Gemini API key for the AI agent. Optional — service boots without it.
+      - Legacy agent key alias prompted by `just env`; optional.
     - - `DEEPSEEK_API_KEY`
       - *(empty)*
-      - DeepSeek API key. Optional — service boots without it.
+      - Legacy agent key alias prompted by `just env`; optional.
 
 The following secrets are **generated automatically** by `just env` and written to `.env` — you do not need to supply them manually:
 
@@ -114,6 +114,59 @@ The following secrets are **generated automatically** by `just env` and written 
 
 .box type:{warning}
     **Security Note:** All microservices that share `JWT_SECRET` must have the exact same value. If they differ, cross-service authorization will fail with `401 Unauthorized`.
+
+.box type:{note}
+    `just env` currently prompts for the legacy `GOOGLE_API_KEY` and
+    `DEEPSEEK_API_KEY` aliases. The recommended OpenRouter setup must be added manually:
+
+    .code lang:{bash}
+        OPENROUTER_API_KEY=<your-openrouter-key>
+        LLM_BASE_URL=https://openrouter.ai/api/v1
+        ANSWER_MODEL=openai/gpt-4o-mini
+        EMBEDDING_MODEL=openai/text-embedding-3-small
+
+    The key must authenticate against the configured `LLM_BASE_URL`. See the
+    [Agent Service](../services/agent.qd) guide for models, privileged overrides,
+    ingestion, evaluation, and observability.
+
+### Optional Langfuse Login Overrides
+
+The Docker Compose stack includes Langfuse for inspecting AI-agent traces, tool calls,
+tokens, cost, and latency. Its default local login is:
+
+*   Email: `admin@crowd-vision.local`
+*   Password: `langfuse-admin`
+
+For a shared development environment, add stronger credentials to the root `.env`
+**before the first Langfuse startup**:
+
+.code lang:{bash}
+    LANGFUSE_INIT_USER_EMAIL=your-email@example.com
+    LANGFUSE_INIT_USER_PASSWORD=use-a-strong-password
+
+These variables initialize the first account; changing them does not reset an account
+already stored in the Langfuse database. See [Running the Application](running.qd) for
+the access URL and operational notes.
+
+The current Compose stack also expects Langfuse project and infrastructure secrets in the
+root `.env`; `just env` does not generate them:
+
+.code lang:{bash}
+    LANGFUSE_PUBLIC_KEY=<project-public-key>
+    LANGFUSE_SECRET_KEY=<project-secret-key>
+    LANGFUSE_NEXTAUTH_SECRET=<random-secret>
+    LANGFUSE_SALT=<random-secret>
+    LANGFUSE_ENCRYPTION_KEY=<64-hex-character-key>
+    LANGFUSE_CLICKHOUSE_PASSWORD=<random-password>
+    LANGFUSE_MINIO_ROOT_PASSWORD=<random-password>
+
+To export agent traces to the Compose Langfuse instance, also configure the standard
+OpenTelemetry variables expected by `agent-service`:
+
+.code lang:{bash}
+    OTEL_EXPORTER_OTLP_ENDPOINT=http://langfuse-web:3000/api/public/otel
+    OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+    OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64-public-key-colon-secret-key>
 
 ### Manual VAPID Key Generation
 
@@ -154,7 +207,9 @@ With empty databases you cannot log in. Run the provisioning script to create th
 
 Run this once after `just dev` reports all services as healthy. The script prompts you for the admin email, password, and domain name, then calls the live auth-service to register them.
 
-*(If you are working on the Python AI Agent, you can also re-ingest documentation into the knowledge base at any time with `just agent-ingest`.)*
+*(If you are working on the Python AI Agent, you can also re-ingest documentation into the
+knowledge base at any time with `just agent-ingest`. This does not remove stale versions of
+changed source files; see the [Agent Service](../services/agent.qd) guide.)*
 
 ---
 

@@ -122,7 +122,7 @@ The routing table is identical across both deployment models. The only differenc
       - Ingesting time-series sensor readings (people count, temperature).
     - - `/agent/`
       - `agent-service`
-      - LLM-powered natural language queries about building data.
+      - Tool-calling assistant for live building data and permission-filtered documentation search.
     - - `/socket.io/`
       - `socket-service`
       - Maintaining persistent WebSocket connections to the frontend.

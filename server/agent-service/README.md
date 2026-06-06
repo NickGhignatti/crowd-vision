@@ -22,7 +22,8 @@ curl http://localhost/agent/health
 ```
 
 `just dev` generates `.env`, starts `agent-service` + pgvector, runs Alembic migrations,
-and runs the one-shot `agent-ingester` over `documentation/`.
+and runs the one-shot `agent-ingester` over `documentation/user` and
+`documentation/developer`.
 
 For direct-process debugging while Postgres and downstream services are already running,
 run from `server/agent-service`:
@@ -56,6 +57,7 @@ Commands marked **root** run from the repository root; the others run from
 | Apply lint and formatting fixes | `npm run lint:fix` |
 | Verify the configured LLM + embedding provider | `uv run python scripts/verify_provider.py` |
 | Run real-agent golden-dataset evaluations | `AUTH_COOKIE="authentication_token=<jwt>" uv run python evals/run_evals.py` |
+| Compare answer models end to end | `AUTH_COOKIE="authentication_token=<privileged-jwt>" uv run python evals/run_evals.py --models model-a,model-b` |
 | Export `openapi.json` and `openapi.yaml` | `npm run openapi` |
 | Apply database migrations | `uv run alembic upgrade head` |
 
@@ -90,6 +92,15 @@ curl -s http://localhost/agent/ask \
 The response contains `answer`, resolved `citations`, token/cost `usage`, the tool-call
 trace under `retrieval.tool_calls`, `idk`, and `decision`.
 
+Privileged callers can add `"model":"google/gemini-2.5-flash"` to override the answer model
+for one request. The caller must meet `MODEL_OVERRIDE_MIN_ROLE` and, when `ALLOWED_MODELS`
+is non-empty, the model must be allowlisted. The override spends the server's shared
+provider balance; it does not change the embedding model.
+
+`AskRequest.top_k` is present in the API model but is not currently wired into retrieval;
+`search_docs` chooses its own `top_k`, while the retrieval pipeline uses the configured
+`TOP_K_VECTOR`, `TOP_K_KEYWORD`, and `TOP_K_FINAL` values.
+
 ### Ask With SSE
 
 ```bash
@@ -119,7 +130,13 @@ curl -s http://localhost/agent/ingest \
 
 Ingestion chunks Markdown, creates embeddings, and stores vector + full-text indexes.
 Identical content hashes are skipped. An empty `permissions` list makes a document
-available to every authenticated user.
+available to every authenticated user. `/ingest` currently requires authentication but
+does not enforce an administrator role; treat it as an internal endpoint.
+
+The repository ingester loads `.qd`, `.md`, and `.markdown` files from
+`documentation/user` and `documentation/developer`. Re-ingestion is content-hash
+idempotent, but it does not delete older versions when a source file changes. For a clean
+knowledge-base rebuild, clear the agent tables before ingesting again.
 
 Interactive API documentation is available at `/agent/docs`; the raw schema is at
 `/agent/openapi.json`.
@@ -185,19 +202,43 @@ system internals, see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `ANSWER_MODEL` | `openai/gpt-4o-mini` | Chat and tool-calling model |
 | `EMBEDDING_MODEL` | `openai/text-embedding-3-small` | Embedding model |
 | `EMBEDDING_DIM` | `768` | Must match the database vector dimension |
+| `MAX_OUTPUT_TOKENS` | `2048` | Maximum generated tokens for each provider call |
+| `MODEL_OVERRIDE_MIN_ROLE` | `business_admin` | Minimum JWT role allowed to override the answer model |
+| `ALLOWED_MODELS` | empty | Optional comma-separated override allowlist; empty permits any model for privileged callers |
+| `LLM_TIMEOUT_SECONDS` / `EMBED_TIMEOUT_SECONDS` | `30` / `15` | Provider request timeouts |
 | `POSTGRES_URL` | Docker-local agent DB | Async SQLAlchemy connection URL |
 | `JWT_SECRET` | empty | Must match `auth-service` |
+| `JWT_COOKIE_NAME` | `authentication_token` | JWT cookie read by protected routes |
 | `REQUIRE_AUTH` | `true` | Protect `/ask` and `/ingest` |
 | `TWIN_SERVICE_URL` | `http://twin-service:3000` | Live-data backend |
 | `TOP_K_VECTOR` / `TOP_K_KEYWORD` / `TOP_K_FINAL` | `20` / `20` / `6` | Retrieval depths |
 | `RERANKER` | `noop` | Retrieval reranker implementation |
 | `MAX_TOOL_HOPS` | `6` | Maximum agent loop iterations |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | OTLP trace destination; console spans if empty |
-| `LOG_LEVEL` / `LOG_FORMAT` | `INFO` / `auto` | Logging controls |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` / `OTEL_EXPORTER_OTLP_HEADERS` | empty | OTLP transport and authentication |
+| `LOG_LEVEL` / `LOG_FORMAT` | `INFO` / `auto` | Logging controls; `auto` uses console without OTLP and JSON with OTLP |
 
 The complete source of truth is [app/config.py](app/config.py). With the full stack running,
 LLM traces, tool calls, latency, tokens, and cost are visible in Langfuse at
 `http://localhost:3030`.
+
+`CONFIDENCE_THRESHOLD` and `CORS_ORIGINS` exist in settings but are not currently consumed
+by the retrieval pipeline or FastAPI middleware.
+
+### Langfuse Login
+
+The Docker Compose stack provisions Langfuse with these local defaults:
+
+```text
+email:    admin@crowd-vision.local
+password: langfuse-admin
+```
+
+Override `LANGFUSE_INIT_USER_EMAIL` and `LANGFUSE_INIT_USER_PASSWORD` in the root `.env`
+before Langfuse starts for the first time. These initialize the first account; changing
+them later does not update an existing login. Langfuse is not deployed by the current
+Kubernetes manifests. The Compose stack also requires Langfuse project/infrastructure
+secrets and `OTEL_EXPORTER_OTLP_*` variables; `just env` does not currently generate them.
 
 ## Troubleshooting
 
@@ -217,6 +258,11 @@ uv run python scripts/verify_provider.py
 ```
 
 It verifies resolved provider settings, tool-calling support, and embedding dimensions.
+
+The recommended configuration is one `OPENROUTER_API_KEY` for the default
+`https://openrouter.ai/api/v1` endpoint. `LLM_API_KEY`, `DEEPSEEK_API_KEY`, and
+`GOOGLE_API_KEY` are accepted as legacy aliases, but the key must belong to the configured
+`LLM_BASE_URL`.
 
 ### Document Questions Return No Useful Results
 
@@ -238,3 +284,17 @@ the dimension requires a schema migration and re-ingestion, not only an environm
 Confirm `twin-service` is running and `TWIN_SERVICE_URL` is reachable from where the agent
 runs. The Docker default `http://twin-service:3000` does not resolve from a host process;
 override it with the host-accessible twin-service URL when debugging outside Docker.
+
+### Model Override Returns `400` Or `403`
+
+- `403`: the JWT does not meet `MODEL_OVERRIDE_MIN_ROLE`.
+- `400`: `ALLOWED_MODELS` is configured and the requested model is not listed.
+- An empty `ALLOWED_MODELS` does not disable overrides; it permits any model for callers
+  that satisfy the role gate.
+
+### Kubernetes Agent Has Provider Or Retrieval Problems
+
+The current Kubernetes manifests deploy `agent-service` and `agent-db`, but do not deploy
+Langfuse or the one-shot documentation ingester. Verify the `agent-service-secret`
+contains a provider key compatible with `LLM_BASE_URL`, then ingest documents manually
+through `/agent/ingest` after deployment.

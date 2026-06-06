@@ -1,0 +1,213 @@
+.docname {Agent Service}
+.include {docs}
+
+The Python `agent-service` is CrowdVision's tool-calling assistant. It combines a
+permission-filtered documentation knowledge base with live building and room data from
+`twin-service`.
+
+For the code-level guides, see `server/agent-service/README.md`,
+`server/agent-service/ARCHITECTURE.md`, and `server/agent-service/ADDING_TOOLS.md`.
+
+---
+
+## Capabilities
+
+The model can choose from five read-only tools:
+
+.var {headers}
+   - Tool
+   - Data source
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `search_docs`
+      - Agent Postgres database
+      - Hybrid vector and full-text search over ingested documentation.
+    - - `list_buildings`
+      - Twin Service
+      - List buildings for a domain.
+    - - `get_building`
+      - Twin Service
+      - Fetch complete building details by ID.
+    - - `list_rooms`
+      - Twin Service
+      - List room occupancy, capacity, and temperature.
+    - - `get_room`
+      - Twin Service
+      - Fetch one room by ID.
+
+The agent answers with validated documentation citations, a tool-call trace, token usage,
+estimated/provider-reported cost, an `idk` flag, and a final decision.
+
+.box type:{warning}
+    The current twin tools do not forward the caller JWT or perform their own
+    `ToolContext` authorization. Do not add sensitive or write-capable tools without
+    explicit authorization, confirmation, and audit behavior.
+
+---
+
+## API
+
+Docker Compose exposes the service through Caddy at `http://localhost/agent`. Kubernetes
+uses the same `/agent` ingress prefix. Inside the service network it listens on port `3000`.
+
+.var {headers}
+   - Endpoint
+   - Authentication
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `GET /agent/health`
+      - Public
+      - Liveness and database reachability.
+    - - `POST /agent/ask`
+      - JWT cookie or Bearer token
+      - Run the tool loop; JSON with `stream=false`, SSE by default.
+    - - `POST /agent/ingest`
+      - JWT cookie or Bearer token
+      - Chunk, embed, and store one Markdown document.
+    - - `GET /agent/docs`
+      - Public FastAPI UI
+      - Interactive OpenAPI documentation.
+
+.box type:{warning}
+    `/ingest` is authenticated but currently does not enforce an administrator role.
+    Treat it as an internal endpoint.
+
+SSE currently emits the completed answer as one `token` event followed by a `done` event;
+it is not true per-token model streaming.
+
+The request schema currently exposes `top_k`, but it is not wired into retrieval. Retrieval
+depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
+
+---
+
+## Provider And Models
+
+One OpenAI-compatible endpoint drives both chat/tool-calling and embeddings. OpenRouter is
+the default:
+
+.code lang:{bash}
+    OPENROUTER_API_KEY=<your-openrouter-key>
+    LLM_BASE_URL=https://openrouter.ai/api/v1
+    ANSWER_MODEL=openai/gpt-4o-mini
+    EMBEDDING_MODEL=openai/text-embedding-3-small
+    EMBEDDING_DIM=768
+    MAX_OUTPUT_TOKENS=2048
+
+`LLM_API_KEY`, `DEEPSEEK_API_KEY`, and `GOOGLE_API_KEY` are accepted as legacy key aliases,
+but the supplied key must authenticate against `LLM_BASE_URL`.
+
+Privileged callers may override the answer model per `/ask` request:
+
+.code lang:{bash}
+    MODEL_OVERRIDE_MIN_ROLE=business_admin
+    ALLOWED_MODELS=openai/gpt-4o-mini,google/gemini-2.5-flash
+
+The override spends the server's shared provider balance. It is rejected with `403` below
+the configured role and with `400` when a non-empty allowlist excludes the model. An empty
+`ALLOWED_MODELS` permits any model for callers that pass the role gate.
+
+---
+
+## Knowledge Base And Retrieval
+
+In Docker Compose, the one-shot `agent-ingester` waits for the service to become healthy,
+then ingests `.qd`, `.md`, and `.markdown` files from `documentation/user` and
+`documentation/developer`.
+
+.code lang:{bash}
+    just agent-ingest
+
+Ingestion is idempotent by global content hash. It does not replace or delete an older
+document when a source file changes, so a clean rebuild requires clearing the agent tables
+before re-ingesting.
+
+`search_docs`:
+
+1. Embeds the query.
+2. Runs pgvector cosine search.
+3. Runs PostgreSQL full-text search.
+4. Merges rankings with Reciprocal Rank Fusion.
+5. Applies the configured reranker (`noop` is the only current implementation).
+6. Returns the highest-ranked chunks.
+
+Both searches filter chunks against the caller's JWT roles and domains. Empty document
+permissions make a document visible to every authenticated caller.
+
+---
+
+## Evaluation And Development Commands
+
+Run these from `server/agent-service` unless marked as repository-root commands:
+
+.code lang:{bash}
+    uv run python scripts/verify_provider.py     # real chat/tool + embedding smoke test
+    uv run pytest tests/unit                     # fast, hermetic tests
+    npm test                                     # full pytest suite
+    npm run lint                                 # Ruff format/lint + Pyright
+    npm run openapi                              # regenerate openapi.json and openapi.yaml
+
+    # Repository root:
+    just test-agent
+    just test-agent-integration
+    just agent-ingest
+
+The golden-dataset runner calls the real service and may incur provider cost:
+
+.code lang:{bash}
+    AUTH_COOKIE="authentication_token=<jwt>" uv run python evals/run_evals.py
+
+    AUTH_COOKIE="authentication_token=<privileged-jwt>" \
+      uv run python evals/run_evals.py --models model-a,model-b
+
+Model sweeps compare the full agent behavior: each model independently chooses tools and
+retrieval queries. They do not compare generators over frozen context.
+
+---
+
+## Langfuse Observability
+
+The Docker Compose stack deploys Langfuse and sends agent OpenTelemetry traces to it.
+Traces include model generations, tool calls, retrieval stages, latency, tokens, and cost.
+
+*   URL: `http://localhost:3030` (`http://localhost/langfuse` redirects there)
+*   Default email: `admin@crowd-vision.local`
+*   Default password: `langfuse-admin`
+
+Set `LANGFUSE_INIT_USER_EMAIL` and `LANGFUSE_INIT_USER_PASSWORD` before the first Langfuse
+startup to change the initial login. Changing them later does not update an existing user.
+
+The current Compose stack also requires Langfuse project/infrastructure secrets and the
+agent's `OTEL_EXPORTER_OTLP_*` variables in the root `.env`; `just env` does not generate
+them. See [Setting Up Your Environment](../config/setting-up.qd) for the variable list.
+
+Langfuse is not deployed by the current Kubernetes manifests. Without an
+`OTEL_EXPORTER_OTLP_ENDPOINT`, the agent prints compact trace summaries to its logs instead.
+
+---
+
+## Current Deployment Differences
+
+.var {headers}
+   - Capability
+   - Docker Compose
+   - Kubernetes
+
+.tablebyrows {.headers}
+    - - Agent service + pgvector database
+      - Included
+      - Included
+    - - Automatic documentation ingestion
+      - Included through `agent-ingester`
+      - Not deployed; ingest manually
+    - - Langfuse trace backend
+      - Included
+      - Not deployed
+    - - Provider configuration
+      - `OPENROUTER_API_KEY` and model variables forwarded by Compose
+      - Verify `agent-service-secret`; current secret generation still uses legacy key names
+
+The source of truth for runtime settings is `server/agent-service/app/config.py`.
+`CONFIDENCE_THRESHOLD` and `CORS_ORIGINS` are currently defined there but are not consumed
+by retrieval or FastAPI middleware.
