@@ -140,6 +140,25 @@ db-clear-sensor:
 agent-ingest:
     mise exec -- node scripts/ops/ingest-docs.js
 
+# ── Documentation ─────────────────────────────────────────────────────────────
+
+# Requires the Quarkdown CLI + a JDK 17+ on PATH: https://github.com/iamgio/quarkdown
+[doc("Compile both Quarkdown guides to landing-page/{user,dev} (mirrors CI).")]
+docs:
+    quarkdown c documentation/user/main.qd --out landing-page/user
+    quarkdown c documentation/developer/main.qd --out landing-page/dev
+
+[doc("Live-reloading preview server for one guide. dir=user|developer (default: user).")]
+docs-preview dir="user":
+    quarkdown c documentation/{{dir}}/main.qd --out landing-page/{{dir}} --preview --watch
+
+# Builds both guides, then live-serves the whole landing-page/ (index.html + user
+# + dev + api) on http://localhost:8080 with browser auto-reload. Re-run `just docs`
+# in another terminal to rebuild — the server reloads automatically.
+[doc("Build both guides then live-serve the whole landing-page/ site at :8080.")]
+docs-serve: docs
+    mise exec -- npx --yes live-server landing-page
+
 # ── Linting ───────────────────────────────────────────────────────────────────
 
 # Lint every service (moon caches results; unchanged services are instant)
