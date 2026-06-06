@@ -1,0 +1,5 @@
+# Backend integration-test harness. Its jest suite runs against a composed
+# stack via `just test-integration`, NOT as a moon `:test` task — so
+# `language: javascript` deliberately excludes it from the unit-test pipeline
+# while still giving it `deps` and registering it with moon.
+language: 'javascript'

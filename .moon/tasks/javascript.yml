@@ -1,0 +1,13 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+inheritedBy:
+  language: 'javascript'
+
+tasks:
+  deps:
+    command: 'npm ci'
+    inputs:
+      - 'package.json'
+      - 'package-lock.json'
+    options:
+      cache: false

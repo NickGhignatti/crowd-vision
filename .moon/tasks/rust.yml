@@ -1,0 +1,44 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+inheritedBy:
+  language: 'rust'
+
+tasks:
+  build:
+    command: 'cargo build'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+    outputs:
+      - 'target/debug'
+
+  test:
+    command: 'cargo test'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+
+  lint:
+    command: 'cargo clippy -- -D warnings'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+
+  # `cargo check` doubles as the lockfile/compile verification leg of deps.
+  deps:
+    command: 'cargo check'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+  # cargo-audit is an optional contributor tool; don't fail the run if absent.
+  audit:
+    command: 'cargo audit'
+    inputs:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+    options:
+      cache: false
+      allowFailure: true

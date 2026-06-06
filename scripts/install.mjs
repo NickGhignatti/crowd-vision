@@ -1,19 +1,24 @@
-// Installs dependencies for every language in parallel:
-//   - `npm ci` for each JS workspace (reproducible; never rewrites the lockfile,
-//     so a Linux-resolved lock stays intact when installing on Windows/macOS)
-//   - `uv sync --locked` for the Python agent-service
-//   - `cargo fetch` for the Rust contracts-service
+// Installs dependencies for every package moon knows about, in parallel:
+//   - `npm ci` for each JS (typescript|javascript) project (reproducible; never
+//     rewrites the lockfile, so a Linux-resolved lock stays intact on Win/macOS)
+//   - `uv sync --locked` for each Python project
+//   - `cargo fetch` for each Rust project
+//
+// The package list comes from `moon query projects` (see lib/workspaces.mjs),
+// so it can never drift from .moon/workspace.yml.
 //
 // To (re)generate lockfiles instead of installing from them, use
 // `just clean-install` — that is the only path that mutates lock files.
 
 import { runTasks } from './lib/run.mjs';
-import { JS_WORKSPACES, PYTHON_WORKSPACE, RUST_WORKSPACE } from './lib/workspaces.mjs';
+import { queryWorkspaces } from './lib/workspaces.mjs';
+
+const { js, python, rust } = queryWorkspaces();
 
 const tasks = [
-  ...JS_WORKSPACES.map((cwd) => ({ name: cwd, cwd, cmd: 'npm ci' })),
-  { name: 'agent-service (uv)', cwd: PYTHON_WORKSPACE, cmd: 'uv sync --locked' },
-  { name: 'contracts-service (cargo)', cwd: RUST_WORKSPACE, cmd: 'cargo fetch' },
+  ...js.map((cwd) => ({ name: cwd, cwd, cmd: 'npm ci' })),
+  ...python.map((cwd) => ({ name: `${cwd} (uv)`, cwd, cmd: 'uv sync --locked' })),
+  ...rust.map((cwd) => ({ name: `${cwd} (cargo)`, cwd, cmd: 'cargo fetch' })),
 ];
 
 await runTasks(tasks, { label: 'install' });

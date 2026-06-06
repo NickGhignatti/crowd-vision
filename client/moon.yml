@@ -1,8 +1,14 @@
 language: 'typescript'
 
+# Vite/Vitest app — inherits the shared TS pipeline but overrides the tasks that
+# differ from a plain service (different build inputs, vitest, TS eslint config).
 tasks:
   build:
     command: 'npm run build'
+    # replace, not append, the args inherited from typescript.yml's build
+    options:
+      mergeArgs: 'replace'
+      mergeInputs: 'replace'
     inputs:
       - 'src/**/*'
       - 'public/**/*'
@@ -15,18 +21,19 @@ tasks:
 
   test:
     command: 'npm run test:unit'
+    options:
+      mergeArgs: 'replace'
+      mergeInputs: 'replace'
     inputs:
       - 'src/**/*'
       - 'vitest.config.ts'
       - 'package.json'
 
+  # command inherited (npm run lint); replace inputs so we track this project's
+  # TS eslint config instead of the inherited eslint.config.mjs (which it lacks).
   lint:
-    command: 'npm run lint'
+    options:
+      mergeInputs: 'replace'
     inputs:
       - 'src/**/*'
       - 'eslint.config.ts'
-
-  lint-fix:
-    command: 'npm run lint:fix'
-    options:
-      cache: false

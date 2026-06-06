@@ -213,17 +213,20 @@ See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Q
 
 ## 🔒 Auditing & Dependency Checks
 
-Two recipes reproduce CI's dependency gates locally so you can catch failures before pushing. Both run every ecosystem in parallel (override with `JOBS=N`).
+Two recipes run a security audit and a lockfile-sync check across every project. Both delegate to **moon** (`moon run :audit` / `:deps`), so they are cached and accept `--affected` to scope to the projects changed on your branch. See [The Toolchain: mise & moon](toolchain.qd) for how these tasks are defined.
 
 .code lang:{bash}
-    # Mirror ci-audit: npm audit (--audit-level=high --omit=dev) + uv audit + cargo audit:
+    # Security audit — npm audit (--audit-level=high --omit=dev) + uv audit + cargo audit:
     just audit
 
-    # Mirror ci-deps: npm ci + uv sync --locked + cargo check (verifies every lockfile is in sync):
+    # Lockfile-sync check — npm ci + uv sync --locked + cargo check:
     just deps-check
 
+    # Scope either to only the projects changed on your branch:
+    mise exec -- moon run :audit --affected
+
 .box type:{note}
-    `just deps-check` is the fastest way to reproduce the CI `dependencies` job that fails with `npm ci can only install packages when your package.json and package-lock.json are in sync`. If it fails, regenerate the offending lockfile with `just clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). `just audit` skips `cargo audit` with a hint if `cargo-audit` is not installed (`cargo install cargo-audit`).
+    `just deps-check` is the fastest way to catch a lockfile drift before pushing (the classic `npm ci can only install packages when your package.json and package-lock.json are in sync`). If it fails, regenerate the offending lockfile with `just clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). The Rust `cargo audit` leg is marked **allow-failure**: if `cargo-audit` isn't installed it is reported but does not fail the run (`cargo install cargo-audit` to enable it).
 
 ---
 
@@ -263,11 +266,17 @@ Two recipes reproduce CI's dependency gates locally so you can catch failures be
     - - `just agent-ingest`
       - Re-ingest documentation into the AI agent knowledge base.
     - - `just audit`
-      - Run all security audits locally (npm + uv + cargo), mirroring `ci-audit`.
+      - Security audit across all projects via `moon run :audit` (npm + uv + cargo).
     - - `just deps-check`
-      - Verify every lockfile is in sync (npm ci + uv sync --locked + cargo check), mirroring `ci-deps`.
+      - Lockfile-sync check across all projects via `moon run :deps` (npm ci + uv sync --locked + cargo check).
     - - `just clean-install`
       - Wipe all node_modules + lockfiles and regenerate them for Linux, then reinstall.
+    - - `just docs`
+      - Compile both Quarkdown guides to `landing-page/{user,dev}` (mirrors CI).
+    - - `just docs-preview [dir=...]`
+      - Quarkdown live-reloading server for one guide while editing.
+    - - `just docs-serve`
+      - Build both guides, then live-serve the whole `landing-page/` site at `:8080`.
 
 ---
 

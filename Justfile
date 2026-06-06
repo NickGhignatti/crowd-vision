@@ -16,7 +16,8 @@ default:
 # Windows/macOS can't strip the Linux optional packages from the locks — see
 # `clean-install` below for regenerating them. Override parallelism with JOBS=N.
 install:
-    node scripts/install.mjs
+    mise install
+    mise exec -- node scripts/install.mjs
 
 # Wipe every node_modules + package-lock.json, then reinstall from scratch.
 # Cross-platform: safe to run on Windows, macOS, or Linux.
@@ -26,43 +27,32 @@ install:
 # mongodb-memory-server) are resolved for Linux — matching the CI runner —
 # even when running locally on Windows or macOS.
 clean-install:
-    node scripts/clean.mjs
-    npm --prefix tooling install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix tooling/eslint-config install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix client install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix server/auth-service install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix server/twin-service install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix server/notification-service install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix server/sensor-service install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix server/socket-service install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix server/tests install --package-lock-only --cpu=x64 --os=linux
-    npm --prefix simulators/sensor-simulator install --package-lock-only --cpu=x64 --os=linux
-    uv lock --project server/agent-service
+    mise exec -- node scripts/clean.mjs
     just install
 
 # ── Dependency Verification ───────────────────────────────────────────────────
 
-# Mirror CI's security audit locally (npm audit + uv audit + cargo audit), in
-# parallel. Run before pushing to catch vulnerabilities the `ci-audit` gate would.
-# cargo-audit is optional — skipped with a hint if not installed.
+# Security audit across every project (npm/uv/cargo), mirroring the audit step in
+# each per-service CI workflow. cargo-audit is optional (won't fail the run).
+# Scope to changed projects only with: moon run :audit --affected
 audit:
-    node scripts/audit.mjs
+    mise exec -- moon run :audit
 
-# Mirror CI's dependency check locally (npm ci + uv sync --locked + cargo check),
-# in parallel. Verifies every lockfile is in sync with its manifest, matching the
-# `ci-deps` gate. Override parallelism with JOBS=N.
+# Verify every lockfile is in sync with its manifest (npm ci / uv sync --locked /
+# cargo check), mirroring the install step in each per-service CI workflow.
+# Scope to changed projects only with: moon run :deps --affected
 deps-check:
-    node scripts/deps-check.mjs
+    mise exec -- moon run :deps
 
 # ── Environment ───────────────────────────────────────────────────────────────
 
 # Generate .env (VAPID keys, JWT tokens, admin credentials)
 env:
-    node scripts/env/create.js
-    node scripts/env/vapid.js
-    node scripts/env/token.js
-    node scripts/env/config.js
-    node scripts/env/admin.js
+    mise exec -- node scripts/env/create.js
+    mise exec -- node scripts/env/vapid.js
+    mise exec -- node scripts/env/token.js
+    mise exec -- node scripts/env/config.js
+    mise exec -- node scripts/env/admin.js
 
 # ── Development ───────────────────────────────────────────────────────────────
 
@@ -71,20 +61,20 @@ env:
 #   just dev exclude="agent simulator"  → also skip aq-simulator, sensor-simulator
 [doc("Start dev stack. Use exclude= with space-separated substrings of folder names.")]
 dev exclude="": env
-    node scripts/compose/compose-run.mjs dev {{exclude}}
+    mise exec -- node scripts/compose/compose-run.mjs dev {{exclude}}
 
 [doc("Rebuild then start dev stack. Same exclude= syntax as dev.")]
 dev-build exclude="": env
-    node scripts/compose/compose-run.mjs dev-build {{exclude}}
+    mise exec -- node scripts/compose/compose-run.mjs dev-build {{exclude}}
 
 # Start production stack in background. Same exclusion syntax as `dev`.
 [doc("Start production stack (background). Use exclude= with space-separated substrings.")]
 start exclude="": env
-    node scripts/compose/compose-run.mjs start {{exclude}}
+    mise exec -- node scripts/compose/compose-run.mjs start {{exclude}}
 
 # Stop all containers and remove orphans (always tears down everything)
 down:
-    node scripts/compose/compose-run.mjs down
+    mise exec -- node scripts/compose/compose-run.mjs down
 
 # Follow logs for all services, or one: just logs auth-service
 logs service="":
@@ -94,42 +84,42 @@ logs service="":
 
 # Run all unit tests across all services (moon handles caching + task graph)
 test:
-    moon run :test
+    mise exec -- moon run :test
 
 # Run only tests for services affected by changes on the current branch
 test-affected:
-    moon run :test --affected
+    mise exec -- moon run :test --affected
 
 # Per-service unit tests
 test-auth:
-    moon run auth-service:test
+    mise exec -- moon run auth-service:test
 
 test-twin:
-    moon run twin-service:test
+    mise exec -- moon run twin-service:test
 
 test-notification:
-    moon run notification-service:test
+    mise exec -- moon run notification-service:test
 
 test-sensor:
-    moon run sensor-service:test
+    mise exec -- moon run sensor-service:test
 
 test-socket:
-    moon run socket-service:test
+    mise exec -- moon run socket-service:test
 
 test-client:
-    moon run client:test
+    mise exec -- moon run client:test
 
 test-agent:
-    moon run agent-service:test
+    mise exec -- moon run agent-service:test
 
 # Agent Python integration tests (separate suite from the docker-compose one)
 test-agent-integration:
-    uv run --directory server/agent-service pytest tests/integration
+    mise exec -- uv run --directory server/agent-service pytest tests/integration
 
 # Run backend integration tests against a composed stack (full stack, no exclusion)
 test-integration:
-    node scripts/compose/compose-run.mjs integration
-    node scripts/compose/compose-run.mjs down
+    mise exec -- node scripts/compose/compose-run.mjs integration
+    mise exec -- node scripts/compose/compose-run.mjs down
 
 # ── Database Utilities ────────────────────────────────────────────────────────
 
@@ -148,21 +138,40 @@ db-clear-sensor:
 
 # Re-ingest all documentation into the agent knowledge base
 agent-ingest:
-    node scripts/ops/ingest-docs.js
+    mise exec -- node scripts/ops/ingest-docs.js
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+
+# Requires the Quarkdown CLI + a JDK 17+ on PATH: https://github.com/iamgio/quarkdown
+[doc("Compile both Quarkdown guides to landing-page/{user,dev} (mirrors CI).")]
+docs:
+    quarkdown c documentation/user/main.qd --out landing-page/user
+    quarkdown c documentation/developer/main.qd --out landing-page/dev
+
+[doc("Live-reloading preview server for one guide. dir=user|developer (default: user).")]
+docs-preview dir="user":
+    quarkdown c documentation/{{dir}}/main.qd --out landing-page/{{dir}} --preview --watch
+
+# Builds both guides, then live-serves the whole landing-page/ (index.html + user
+# + dev + api) on http://localhost:8080 with browser auto-reload. Re-run `just docs`
+# in another terminal to rebuild — the server reloads automatically.
+[doc("Build both guides then live-serve the whole landing-page/ site at :8080.")]
+docs-serve: docs
+    mise exec -- npx --yes live-server landing-page
 
 # ── Linting ───────────────────────────────────────────────────────────────────
 
 # Lint every service (moon caches results; unchanged services are instant)
 lint:
-    moon run :lint
+    mise exec -- moon run :lint
 
 # Lint only services affected by changes on the current branch
 lint-affected:
-    moon run :lint --affected
+    mise exec -- moon run :lint --affected
 
 # Fix linting issues across every service (always runs; not cached)
 lint-fix:
-    moon run :lint-fix
+    mise exec -- moon run :lint-fix
 
 # ── Kubernetes ────────────────────────────────────────────────────────────────
 
@@ -190,7 +199,7 @@ k8s-ingress:
 
 # Create or update all Kubernetes secrets from your .env file
 k8s-secrets:
-    node scripts/k8s/k8s-secrets.mjs
+    mise exec -- node scripts/k8s/k8s-secrets.mjs
 
 # Validate all manifests without touching the cluster (dry run)
 k8s-validate:

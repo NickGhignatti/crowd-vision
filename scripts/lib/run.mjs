@@ -1,8 +1,8 @@
 //
 // Cross-platform parallel task runner.
 //
-// Generalizes the buffered-parallel pattern from scripts/test/test-run.mjs so
-// install / audit / deps-check can all share one runner. Each task is:
+// The buffered-parallel runner behind `just install` (audit/deps now run via
+// moon; see .moon/tasks/*.yml). Each task is:
 //
 //   { name, cwd, cmd, optional? }
 //
@@ -20,6 +20,8 @@
 
 import { spawn } from 'node:child_process';
 
+import { withMise } from './mise.mjs';
+
 const banner = (name, cwd) => `\n━━━ ${String(name).padEnd(22)} (${cwd}) ━━━\n`;
 
 export const concurrencyFromEnv = (fallback = 4) => {
@@ -32,7 +34,9 @@ function runOne(task) {
     const buffer = [];
     let spawnError = null;
 
-    const child = spawn(task.cmd, { cwd: task.cwd, shell: true });
+    // Resolve the tool from mise (.mise.toml), but keep the original cmd for the
+    // banner / skip messages below so they show `uv …`, not `mise exec -- uv …`.
+    const child = spawn(withMise(task.cmd), { cwd: task.cwd, shell: true });
 
     child.stdout.on('data', (d) => buffer.push(d.toString()));
     child.stderr.on('data', (d) => buffer.push(d.toString()));
