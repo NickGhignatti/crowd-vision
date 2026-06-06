@@ -1,7 +1,3 @@
-# Inherited by every project with `language: 'python'`.
-# `npm test` / `npm run lint` are intentional: each Python project's package.json
-# proxies them to `uv run pytest` / `uv run ruff … && pyright`, giving moon one
-# uniform task interface across languages.
 $schema: 'https://moonrepo.dev/schemas/tasks.json'
 
 inheritedBy:
