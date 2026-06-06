@@ -109,8 +109,14 @@
               }
             }
           },
+          "400": {
+            "description": "`model` override is not in the allowed set."
+          },
           "401": {
             "description": "Missing or invalid JWT cookie."
+          },
+          "403": {
+            "description": "`model` override requires a higher role."
           },
           "422": {
             "description": "Validation error in request body."
@@ -151,6 +157,18 @@
             "title": "Stream",
             "description": "If true, return Server-Sent Events. If false, return a single JSON response.",
             "default": true
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "description": "Override the chat model for this request (an OpenRouter model id, e.g. 'google/gemini-2.5-flash'). Defaults to the server's ANSWER_MODEL. Embeddings/retrieval are unaffected \u2014 for A/B evaluating generators. **Privileged:** requires the MODEL_OVERRIDE_MIN_ROLE role (default business_admin) and, when configured, the model must be in ALLOWED_MODELS."
           }
         },
         "type": "object",

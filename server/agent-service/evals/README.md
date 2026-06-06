@@ -33,7 +33,7 @@ retrieval expectations are expressed as the source document path, never a chunk 
 ## Running
 
 ```bash
-# 1. Bring up the stack and let agent-ingester load documentation/ (see ../README.md).
+# 1. Bring up the stack and let agent-ingester load documentation/user + documentation/developer.
 # 2. Mint a JWT whose domain has seeded buildings (for the live_data rows), then:
 AGENT_URL=http://localhost/agent \
 AUTH_COOKIE="authentication_token=<jwt>" \
@@ -46,10 +46,20 @@ so it can gate CI.
 
 ## Comparing models (A/B)
 
-The `/ask` endpoint takes an optional `model` (any OpenRouter id) that overrides the
-chat model for that request only — embeddings and retrieval are unchanged, so you're
-comparing generators on identical context. `run_evals.py --models a,b,c` runs the
-whole dataset once per model and prints a comparison table:
+The `/ask` endpoint takes an optional `model` that overrides the chat model for that request
+only. The embedding model and indexed corpus stay fixed, but each answer model independently
+chooses tools and search queries. This is therefore an **end-to-end agent comparison**, not a
+generator-only comparison over frozen context.
+
+> **Privileged.** Because the override spends the shared OpenRouter balance, it is
+> gated: the caller's JWT must hold a role at/above `MODEL_OVERRIDE_MIN_ROLE`
+> (default `business_admin`) or `/ask` returns **403**, and when `ALLOWED_MODELS`
+> is set the model must be in it (else **400**). Mint an admin/business_admin JWT
+> for the eval token. An empty `ALLOWED_MODELS` permits any model for callers that
+> satisfy the role gate.
+
+`run_evals.py --models a,b,c` runs the whole dataset once per model and prints a
+comparison table:
 
 ```bash
 AGENT_URL=http://localhost/agent AUTH_COOKIE="authentication_token=<jwt>" \
@@ -61,6 +71,10 @@ uv run python evals/run_evals.py \
 No `--models` ⇒ a single run against the server's default `ANSWER_MODEL`. Each run
 also tags its Langfuse traces `model:<id>`, so you can filter/group by model in the UI
 to compare cost, tokens, and latency on the same questions.
+
+Model sweeps make real provider requests and can make several LLM calls per question because
+of the tool loop. Keep `MAX_OUTPUT_TOKENS`, `MAX_TOOL_HOPS`, and `ALLOWED_MODELS` bounded
+before running large sweeps.
 
 ## Growing the set
 

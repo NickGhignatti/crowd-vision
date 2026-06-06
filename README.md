@@ -38,14 +38,21 @@ See the [Developer Setup Guide](documentation/developer/config/setting-up.qd) fo
 
 ## 🔑 AI Agent API Keys
 
-The agent-service uses two LLM providers and needs an API key for each:
+The agent-service uses one OpenAI-compatible provider for chat, tool calling, and
+embeddings. OpenRouter is the default:
 
-- `GOOGLE_API_KEY` — Gemini (chat + embeddings). Create one at <https://aistudio.google.com/apikey>.
-- `DEEPSEEK_API_KEY` — DeepSeek (alternative chat backend). Create one at <https://platform.deepseek.com/api_keys>.
+```env
+OPENROUTER_API_KEY=<your-key>
+LLM_BASE_URL=https://openrouter.ai/api/v1
+ANSWER_MODEL=openai/gpt-4o-mini
+EMBEDDING_MODEL=openai/text-embedding-3-small
+```
 
-Running `just env` (called automatically by `just dev` / `just start`) will prompt you for both and write them to your local `.env`. You can leave them empty if you don't plan to use the agent — the service will boot, but `/ask` will fail on the first LLM call.
+`LLM_API_KEY`, `DEEPSEEK_API_KEY`, and `GOOGLE_API_KEY` remain accepted as legacy aliases,
+but the key must belong to the configured endpoint. You can leave the provider key empty if
+you do not plan to use the agent; the service boots, but model and embedding requests fail.
 
-For the full environment variable reference and Kubernetes setup, see the [Developer Setup Guide](documentation/developer/config/setting-up.qd).
+For the full reference, see the [Agent Service Guide](documentation/developer/services/agent.qd).
 
 ---
 
@@ -60,4 +67,3 @@ distributing, or using it commercially isn't permitted.
 
 See the full [LICENSE](LICENSE) for the details. For commercial use or any
 permission not covered there, just reach out: **nick.ghignatti@gmail.com**.
-

@@ -15,6 +15,10 @@ Before writing code, answer four questions:
    Keep tools read-only unless authorization, confirmation, audit logging, and retry
    behavior are explicitly designed.
 
+The current twin tools do not forward the caller JWT or enforce `ToolContext` authorization.
+Do not copy that behavior for sensitive tools: authorize against `ctx.user` or use a
+downstream endpoint that enforces the caller's identity.
+
 ## 2. Where the file lives
 
 - **Single tool, focused domain** → new file in `app/agent/tools/<name>.py`.
@@ -102,7 +106,8 @@ Rules of thumb:
 - **Return errors as data, don't raise.** Use `ToolResult(content=<message>, is_error=True)`. The agent loop already catches uncaught exceptions, but a clean `is_error` message gives the model a chance to recover (try a different building id, ask the user, etc.). Raising is for genuine bugs.
 - **Use `ctx`**:
   - `ctx.session` — async SQLAlchemy session for Postgres queries.
-  - `ctx.user` — the authenticated `AuthUser` (roles, domains, permissions). Use this to enforce per-tool RBAC.
+  - `ctx.user` — the authenticated `AuthUser` (roles, domains, permissions, role weight).
+    Use this to enforce per-tool RBAC before accessing sensitive data.
   - `ctx.citations` — accumulated citation candidates from completed tools. Prefer
     returning new citations through `ToolResult(citations=[...])`; the agent loop appends
     them to the context (see `SearchDocsTool`).
@@ -161,6 +166,8 @@ Pyright will catch the most common mistakes here:
 - [ ] Class has `name` (snake_case, unique), `description` (with *when to use*), `Args`, async `run`.
 - [ ] `run(args: <YourArgs>, ctx: ToolContext) -> ToolResult` — narrow types, no widening to `BaseModel`.
 - [ ] Errors returned as `ToolResult(..., is_error=True)`, not raised.
+- [ ] Sensitive operations explicitly authorize `ctx.user`; write tools have confirmation
+      and audit behavior.
 - [ ] Response projected to the minimum the LLM needs.
 - [ ] Registered in [app/agent/tools/__init__.py](app/agent/tools/__init__.py).
 - [ ] `npm run lint` and `npm run test` pass.
