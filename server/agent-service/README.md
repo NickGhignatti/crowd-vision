@@ -202,6 +202,7 @@ system internals, see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `ANSWER_MODEL` | `openai/gpt-4o-mini` | Chat and tool-calling model |
 | `EMBEDDING_MODEL` | `openai/text-embedding-3-small` | Embedding model |
 | `EMBEDDING_DIM` | `768` | Must match the database vector dimension |
+| `LLM_TEMPERATURE` | `0.2` | Default generation temperature (`0` to `2`) |
 | `MAX_OUTPUT_TOKENS` | `2048` | Maximum generated tokens for each provider call |
 | `MODEL_OVERRIDE_MIN_ROLE` | `business_admin` | Minimum JWT role allowed to override the answer model |
 | `ALLOWED_MODELS` | empty | Optional comma-separated override allowlist; empty permits any model for privileged callers |
@@ -210,7 +211,7 @@ system internals, see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `JWT_SECRET` | empty | Must match `auth-service` |
 | `JWT_COOKIE_NAME` | `authentication_token` | JWT cookie read by protected routes |
 | `REQUIRE_AUTH` | `true` | Protect `/ask` and `/ingest` |
-| `TWIN_SERVICE_URL` | `http://twin-service:3000` | Live-data backend |
+| `TWIN_SERVICE_URL` / `TWIN_TIMEOUT_SECONDS` | `http://twin-service:3000` / `10` | Live-data backend and request timeout |
 | `TOP_K_VECTOR` / `TOP_K_KEYWORD` / `TOP_K_FINAL` | `20` / `20` / `6` | Retrieval depths |
 | `RERANKER` | `noop` | Retrieval reranker implementation |
 | `MAX_TOOL_HOPS` | `6` | Maximum agent loop iterations |
@@ -222,8 +223,10 @@ The complete source of truth is [app/config.py](app/config.py). With the full st
 LLM traces, tool calls, latency, tokens, and cost are visible in Langfuse at
 `http://localhost:3030`.
 
-`CONFIDENCE_THRESHOLD` and `CORS_ORIGINS` exist in settings but are not currently consumed
-by the retrieval pipeline or FastAPI middleware.
+`CORS_ORIGINS` exists in settings but is not currently consumed by FastAPI middleware.
+Invalid numeric bounds, unsupported role/log-format values, and malformed service URL schemes
+fail during settings loading. Service startup also fails when the provider key is missing, or
+when authentication is enabled without `JWT_SECRET`.
 
 ### Langfuse Login
 

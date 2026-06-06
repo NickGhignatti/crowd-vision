@@ -209,5 +209,10 @@ Langfuse is not deployed by the current Kubernetes manifests. Without an
       - Verify `agent-service-secret`; current secret generation still uses legacy key names
 
 The source of truth for runtime settings is `server/agent-service/app/config.py`.
-`CONFIDENCE_THRESHOLD` and `CORS_ORIGINS` are currently defined there but are not consumed
-by retrieval or FastAPI middleware.
+`LLM_TEMPERATURE` controls the default generation temperature, while
+`TWIN_TIMEOUT_SECONDS` controls live-data request timeouts. Invalid numeric bounds,
+unsupported model-override roles or log formats, and malformed service URL schemes fail
+during settings loading. Startup also fails when the provider key is missing, or when
+authentication is enabled without `JWT_SECRET`.
+
+`CORS_ORIGINS` is currently defined there but is not consumed by FastAPI middleware.

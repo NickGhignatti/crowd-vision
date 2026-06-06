@@ -76,6 +76,7 @@ class OpenAICompatClient:
         )
         self.model = model or settings.answer_model
         self._max_tokens = settings.max_output_tokens
+        self._temperature = settings.llm_temperature
         # OpenRouter returns the *actual* charged cost in `usage.cost` when usage
         # accounting is enabled. Other OpenAI-compatible endpoints (e.g. OpenAI
         # itself) reject the extra body field, so gate it on the provider.
@@ -118,7 +119,8 @@ class OpenAICompatClient:
         choices = getattr(resp, "choices", None) or []
         return choices[0].message if choices else None
 
-    async def complete(self, messages: list[dict], temperature: float = 0.2) -> Completion:
+    async def complete(self, messages: list[dict], temperature: float | None = None) -> Completion:
+        temperature = self._temperature if temperature is None else temperature
         with tracer().start_as_current_span(f"gen_ai.chat {self.model}") as span:
             span.set_attribute("gen_ai.system", self._system)
             span.set_attribute("gen_ai.request.temperature", temperature)
@@ -141,7 +143,10 @@ class OpenAICompatClient:
         text = (getattr(msg, "content", None) or "") if msg else ""
         return Completion(text=text, usage=usage, model=self.model)
 
-    async def stream(self, messages: list[dict], temperature: float = 0.2) -> AsyncIterator[str]:
+    async def stream(
+        self, messages: list[dict], temperature: float | None = None
+    ) -> AsyncIterator[str]:
+        temperature = self._temperature if temperature is None else temperature
         stream = await self._client.chat.completions.create(
             model=self.model,
             messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
@@ -158,8 +163,9 @@ class OpenAICompatClient:
         self,
         messages: list[dict],
         tools: list[ToolSchema] | None = None,
-        temperature: float = 0.2,
+        temperature: float | None = None,
     ) -> ChatTurn:
+        temperature = self._temperature if temperature is None else temperature
         oai_tools = (
             [
                 {
