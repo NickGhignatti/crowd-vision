@@ -42,15 +42,19 @@ class ChatTurn:
 class LLMClient(Protocol):
     model: str
 
-    async def complete(self, messages: list[dict], temperature: float = 0.2) -> Completion: ...
+    async def complete(
+        self, messages: list[dict], temperature: float | None = None
+    ) -> Completion: ...
 
     # Async generator: calling it returns the iterator directly (not a coroutine),
     # so this is a plain `def` returning AsyncIterator — not `async def`.
-    def stream(self, messages: list[dict], temperature: float = 0.2) -> AsyncIterator[str]: ...
+    def stream(
+        self, messages: list[dict], temperature: float | None = None
+    ) -> AsyncIterator[str]: ...
 
     async def chat(
         self,
         messages: list[dict],
         tools: list[ToolSchema] | None = None,
-        temperature: float = 0.2,
+        temperature: float | None = None,
     ) -> ChatTurn: ...

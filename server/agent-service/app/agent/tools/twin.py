@@ -8,7 +8,11 @@ from app.config import get_settings
 
 
 def _client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(base_url=get_settings().twin_service_url, timeout=10.0)
+    settings = get_settings()
+    return httpx.AsyncClient(
+        base_url=settings.twin_service_url,
+        timeout=settings.twin_timeout_seconds,
+    )
 
 
 # ─── list_buildings ─────────────────────────────────────────────────────────

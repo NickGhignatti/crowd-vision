@@ -4,16 +4,7 @@ import jwt
 from fastapi import HTTPException, Request, status
 
 from app.config import get_settings
-
-# Mirrors auth-service `src/models/role.ts` (ROLE_WEIGHTS). Hierarchical RBAC:
-# a caller satisfies a required role iff their max role weight >= that role's weight.
-# Unknown role names map to 0 (no privilege), matching the auth-service behaviour.
-ROLE_WEIGHTS: dict[str, int] = {
-    "admin": 100,
-    "business_admin": 80,
-    "business_staff": 60,
-    "standard_customer": 10,
-}
+from app.roles import ROLE_WEIGHTS
 
 
 @dataclass

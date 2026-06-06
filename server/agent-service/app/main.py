@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-from app.config import get_settings
+from app.config import get_settings, validate_startup_settings
 from app.db import dispose_engine, get_engine
 from app.logging import configure_logging, get_logger
 from app.routes import ask, health, ingest
@@ -41,9 +41,9 @@ OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_startup_settings(get_settings())
     configure_logging()
     configure_tracing()
-    get_settings()
     get_engine()
     get_logger(__name__).info("agent_service.startup")
     try:
