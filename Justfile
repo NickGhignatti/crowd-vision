@@ -53,6 +53,7 @@ env:
     mise exec -- node scripts/env/token.js
     mise exec -- node scripts/env/config.js
     mise exec -- node scripts/env/admin.js
+    mise exec -- node scripts/env/langfuse.js
 
 # ── Development ───────────────────────────────────────────────────────────────
 

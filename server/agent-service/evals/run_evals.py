@@ -53,9 +53,7 @@ def score_row(row: dict, response: dict) -> tuple[bool, str]:
     idk = bool(response.get("idk"))
     decision = response.get("decision", "answered")
     citations = response.get("citations") or []
-    tool_calls = [
-        tc.get("name") for tc in (response.get("retrieval") or {}).get("tool_calls", [])
-    ]
+    tool_calls = [tc.get("name") for tc in (response.get("retrieval") or {}).get("tool_calls", [])]
     sources = [c.get("source", "") for c in citations]
 
     if row.get("expected_idk"):
