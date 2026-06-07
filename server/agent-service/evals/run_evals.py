@@ -13,6 +13,14 @@ Usage:
         uv run python evals/run_evals.py
 
 Assumes the corpus referenced in expected_sources has already been ingested.
+
+Exit code: 0 unless a row FAILs unexpectedly. A dataset row marked `"xfail": true`
+(with a required `xfail_reason`) is an accepted, tracked gap: when it fails its
+assertions it's reported as XFAIL and does NOT fail the run; if it ever passes it's
+reported as XPASS (stale marker). Infra errors (request exceptions, non-200, malformed
+responses) always FAIL, even on xfail rows. Pass --strict to also fail on XPASS (for CI
+on a pinned model). Pass --report-only for an interactive report that exits zero after
+scored results; setup and preflight errors still exit non-zero.
 """
 
 from __future__ import annotations
@@ -119,10 +127,40 @@ class RunStats:
     total: int
     cost_usd: float
     latency_ms: float
+    xfailed: int = 0  # known-gap rows that failed as expected
+    xpassed: int = 0  # known-gap rows that now PASS → stale marker
+    failed: int = 0  # unexpected failures (assertion or infra)
 
 
 def load_dataset(path: pathlib.Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    try:
+        rows = json.loads(path.read_text())
+    except ValueError as exc:
+        raise SystemExit(f"dataset {path} contains invalid JSON: {exc}") from exc
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise SystemExit(f"dataset {path} must be a JSON array of objects")
+    # An xfail row without a reason is invisible debt — refuse it.
+    for row in rows:
+        if row.get("xfail") and not row.get("xfail_reason"):
+            raise SystemExit(
+                f"dataset row {row.get('id')!r} is marked xfail but has no xfail_reason"
+            )
+    return rows
+
+
+def classify(row: dict, *, infra_error: bool, score_ok: bool) -> str:
+    """Map a row result to PASS / FAIL / XFAIL / XPASS.
+
+    Only a well-formed response that fails its assertions can become XFAIL. Infra
+    errors (request exceptions, non-200, malformed responses) always FAIL — even for
+    an xfail-marked row — so an outage or auth/credit problem can never masquerade as
+    an accepted gap.
+    """
+    if infra_error:
+        return "FAIL"
+    if score_ok:
+        return "XPASS" if row.get("xfail") else "PASS"
+    return "XFAIL" if row.get("xfail") else "FAIL"
 
 
 def score_row(row: dict, response: dict) -> tuple[bool, str]:
@@ -182,7 +220,7 @@ def run_dataset(
 ) -> RunStats:
     """Run every row once (optionally pinning a chat model) and print per-row results."""
     label = model or "(default)"
-    passed = 0
+    counts = {"PASS": 0, "XFAIL": 0, "XPASS": 0, "FAIL": 0}
     total = len(dataset)
     total_cost = initial_cost_usd
     total_latency_ms = 0.0
@@ -196,44 +234,74 @@ def run_dataset(
         try:
             r = client.post(f"{base}/ask", json=body, headers=auth.headers())
         except httpx.HTTPError as e:
-            # A slow/failed row shouldn't abort the whole run.
+            # Infra failure: always FAIL, even for xfail rows (never mask an outage).
             latency_ms = (time.perf_counter() - t0) * 1000
             total_latency_ms += latency_ms
+            counts[classify(row, infra_error=True, score_ok=False)] += 1
             print(f"[FAIL] {row['id']} ({latency_ms:.0f}ms): request error: {e!r}")
             continue
         latency_ms = (time.perf_counter() - t0) * 1000
         total_latency_ms += latency_ms
         if r.status_code != 200:
+            counts[classify(row, infra_error=True, score_ok=False)] += 1
             print(f"[FAIL] {row['id']}: HTTP {r.status_code}: {r.text[:200]}")
             continue
-        data = r.json()
+        try:
+            data = r.json()
+        except ValueError:
+            counts[classify(row, infra_error=True, score_ok=False)] += 1
+            print(f"[FAIL] {row['id']}: invalid JSON response: {r.text[:200]}")
+            continue
+        if not isinstance(data, dict):
+            counts[classify(row, infra_error=True, score_ok=False)] += 1
+            print(f"[FAIL] {row['id']}: JSON response must be an object")
+            continue
         total_cost += data.get("usage", {}).get("cost_usd", 0.0)
         ok, reason = score_row(row, data)
-        status = "PASS" if ok else "FAIL"
+        status = classify(row, infra_error=False, score_ok=ok)
+        counts[status] += 1
+        note = reason
+        if status == "XFAIL":
+            note = f"{reason}  (known gap: {row.get('xfail_reason')})"
+        elif status == "XPASS":
+            note = f"{reason}  (known-gap row now PASSES — remove its xfail marker)"
         print(
             f"[{status}] {row['id']} ({latency_ms:.0f}ms) "
-            f"${data.get('usage', {}).get('cost_usd', 0):.5f}: {reason}"
+            f"${data.get('usage', {}).get('cost_usd', 0):.5f}: {note}"
         )
-        if ok:
-            passed += 1
 
+    passed = counts["PASS"] + counts["XPASS"]
     print(
         f"{label}: {passed}/{total} passed | "
-        f"total cost ${total_cost:.4f} | "
-        f"avg latency {total_latency_ms / max(total, 1):.0f}ms"
+        f"{counts['XFAIL']} xfail, {counts['XPASS']} xpass, {counts['FAIL']} fail | "
+        f"cost ${total_cost:.4f} | avg latency {total_latency_ms / max(total, 1):.0f}ms"
     )
-    return RunStats(label, passed, total, total_cost, total_latency_ms / max(total, 1))
+    return RunStats(
+        label,
+        passed,
+        total,
+        total_cost,
+        total_latency_ms / max(total, 1),
+        xfailed=counts["XFAIL"],
+        xpassed=counts["XPASS"],
+        failed=counts["FAIL"],
+    )
 
 
 def print_comparison(stats: list[RunStats]) -> None:
     name_w = max((len(s.model) for s in stats), default=5)
-    print("\n" + "=" * (name_w + 44))
-    print(f"{'model':<{name_w}}  {'pass':>7}  {'pass%':>6}  {'cost $':>9}  {'avg ms':>8}")
-    print("-" * (name_w + 44))
+    width = name_w + 62
+    print("\n" + "=" * width)
+    print(
+        f"{'model':<{name_w}}  {'pass':>7}  {'pass%':>6}  {'xfail':>5}  "
+        f"{'xpass':>5}  {'fail':>4}  {'cost $':>9}  {'avg ms':>8}"
+    )
+    print("-" * width)
     for s in stats:
         pct = 100 * s.passed / max(s.total, 1)
         print(
             f"{s.model:<{name_w}}  {f'{s.passed}/{s.total}':>7}  {pct:>5.0f}%  "
+            f"{s.xfailed:>5}  {s.xpassed:>5}  {s.failed:>4}  "
             f"{s.cost_usd:>9.4f}  {s.latency_ms:>8.0f}"
         )
 
@@ -310,10 +378,22 @@ def main() -> int:
         default="authentication_token",
         help="Cookie name used for automatically minted local JWTs.",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Also exit non-zero on XPASS (a known-gap xfail row that now passes, so its "
+        "marker is stale). Intended for CI on a pinned baseline model.",
+    )
+    parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Exit zero after scored results even when they contain FAIL or XPASS. Setup and "
+        "preflight errors still exit non-zero. Intended for interactive evaluations.",
+    )
     args = parser.parse_args()
 
     base = os.environ.get("AGENT_URL", "http://localhost/agent").rstrip("/")
-    dataset = load_dataset(HERE / "dataset.jsonl")
+    dataset = load_dataset(HERE / "dataset.json")
     timeout = float(os.environ.get("EVAL_TIMEOUT_SECONDS", "120"))
     models: list[str | None] = [m.strip() for m in args.models.split(",") if m.strip()] or [None]
     auth = EvalAuth.from_args(base, args)
@@ -329,8 +409,33 @@ def main() -> int:
     if len(results) > 1:
         print_comparison(results)
 
-    # Non-zero exit if any row failed in any run, so this can gate CI.
-    return 0 if all(s.passed == s.total for s in results) else 1
+    if any(s.xpassed for s in results):
+        if args.report_only:
+            suffix = " (report-only: exit remains zero)"
+        else:
+            suffix = " (failing the run under --strict)" if args.strict else ""
+        print(f"\n⚠ XPASS: a known-gap (xfail) row now passes — remove its marker{suffix}.")
+    if any(s.failed for s in results):
+        suffix = " (report-only: exit remains zero)" if args.report_only else ""
+        print(f"\n✖ unexpected failures present — see the [FAIL] rows above{suffix}.")
+    return exit_code(results, strict=args.strict, report_only=args.report_only)
+
+
+def exit_code(results: list[RunStats], *, strict: bool, report_only: bool = False) -> int:
+    """0 unless something needs attention.
+
+    FAIL (unexpected: assertion regressions or infra errors) always fails the run.
+    XFAIL (accepted, tracked gaps) never does. XPASS (a known-gap row that now passes)
+    fails only under --strict — so a stale marker is forced out on the pinned CI model
+    without breaking multi-model sweeps where a stronger model legitimately passes a
+    row that's an accepted gap for the baseline. Report-only mode always returns zero
+    after scored results; setup and preflight errors occur before this function.
+    """
+    if report_only:
+        return 0
+    unexpected = any(s.failed for s in results)
+    stale = any(s.xpassed for s in results)
+    return 1 if unexpected or (stale and strict) else 0
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 # Evals — golden dataset
 
-`dataset.jsonl` is the **golden dataset**: hand-written questions, each paired with
-the behaviour we expect from the agent. One JSON object per line.
+`dataset.json` is the **golden dataset**: a formatted JSON array of hand-written
+questions, each paired with the behaviour we expect from the agent.
 
 For every row we record the **input** plus the **expected behaviour**: which document
 the retrieval should surface (`expected_sources`), which tool should be called
@@ -21,6 +21,8 @@ the answer must contain.
 | `key_facts`         | no       | Human-readable facts the answer should convey (reference, not auto-scored)       |
 | `ideal_answer`      | no       | A model answer (reference, not auto-scored)                                      |
 | `expected_idk`      | no       | If true, response `idk` must be true (out-of-scope / unknown)                    |
+| `xfail`             | no       | If true, an assertion failure is an accepted, tracked gap reported as `XFAIL`    |
+| `xfail_reason`      | with `xfail` | Required explanation of the accepted gap and when to revisit it               |
 
 **Notes on what the agent can actually emit:** `decision` is only `answered` or
 `tool_loop_exhausted`. There is no `out_of_scope` / `clarification_needed` decision —
@@ -41,20 +43,41 @@ just eval
 uv run python evals/run_evals.py
 ```
 
-`run_evals.py` prints per-row PASS/FAIL with latency and cost, then a summary
-(`passed/total`, total cost, avg latency). Exit code is non-zero if any row fails,
-so it can gate CI.
+`run_evals.py` prints per-row results with latency and cost, then a summary
+(`passed/total`, xfail/xpass/fail, total cost, avg latency). `passed` counts rows
+whose assertions succeeded, including `XPASS`; `XFAIL` is not counted as passed.
+
+**Exit code & known gaps (xfail).** A row tagged `"xfail": true` (with a required
+`"xfail_reason"`) is an *accepted, tracked* failure:
+
+| status | meaning | exits non-zero? |
+| ------ | ------- | --------------- |
+| `PASS`  | assertions met | no |
+| `FAIL`  | unexpected assertion regression or infrastructure error, including timeout, non-200, or malformed JSON | **yes** |
+| `XFAIL` | an `xfail` row failed its assertions, as expected | no |
+| `XPASS` | an `xfail` row now passes; it counts as passed but its marker is stale | only with `--strict` |
+
+Direct runner invocations exit non-zero on real regressions/outages but stay green for
+documented gaps. Infra errors **always** report `FAIL`, even on an `xfail` row, so an
+outage can't masquerade as an accepted gap. Use `--strict` (CI on a pinned baseline
+model) to also fail on `XPASS`, forcing stale markers to be removed.
+
+`just eval` is the interactive report command. It passes `--report-only`, so scored
+`FAIL` and `XPASS` results remain visible but do not produce `error: recipe 'eval'
+failed`. Setup and preflight errors such as an unreachable service, invalid
+authentication, or an unauthorized model still fail the recipe.
 
 For example:
 
 ```text
-(default): 15/16 passed | total cost $0.0141 | avg latency 9207ms
-error: recipe `eval` failed ... exit code 1
+(default): 15/16 passed | 1 xfail, 0 xpass, 0 fail | cost $0.0141 | avg latency 9207ms
 ```
 
-This means the harness completed normally, but one row failed its expected behavior.
-Find the preceding `[FAIL] <row-id> ...` line for the exact reason. The total cost includes
-the preflight request; average latency covers the scored dataset rows.
+This run exits zero because its only assertion failure is a documented known gap. A
+direct runner invocation exits non-zero when the summary reports one or more `fail`;
+`just eval` reports them without failing the recipe. Find the preceding `[FAIL]
+<row-id> ...` line for the exact reason. The total cost includes the preflight request;
+average latency covers the scored dataset rows.
 
 For local URLs, the runner reads `JWT_SECRET` from the environment or root `.env` and
 mints a fresh five-minute JWT for every request. The defaults are role `admin`, domain
@@ -112,7 +135,7 @@ table:
 
 ```bash
 just eval models="openai/gpt-4o-mini,google/gemini-2.5-flash,deepseek/deepseek-chat"
-# ⇒ per-model PASS/FAIL, then: model | pass | pass% | cost $ | avg ms
+# ⇒ per-model statuses, then: model | pass | pass% | xfail | xpass | fail | cost $ | avg ms
 ```
 
 No `--models` ⇒ a single run against the server's default `ANSWER_MODEL`. Each run
@@ -127,10 +150,12 @@ before running large sweeps.
 
 | Command | Purpose |
 | --- | --- |
-| `just eval` | Evaluate the server's configured `ANSWER_MODEL` against the local stack |
-| `just eval models="a,b"` | Evaluate and compare multiple answer models |
+| `just eval` | Interactively evaluate the configured model; report scored failures without failing the recipe |
+| `just eval models="a,b"` | Interactively evaluate and compare models without failing on scored results |
 | `uv run python evals/run_evals.py` | Direct local invocation from `server/agent-service` |
 | `MODELS=a,b uv run python evals/run_evals.py` | Direct model sweep using an environment variable |
+| `uv run python evals/run_evals.py --strict` | Also exit non-zero when an `xfail` row passes |
+| `uv run python evals/run_evals.py --report-only` | Report scored failures but exit zero; setup/preflight errors still fail |
 | `EVAL_TIMEOUT_SECONDS=240 uv run python evals/run_evals.py` | Increase the per-request timeout |
 | `AGENT_URL=... AUTH_COOKIE=... uv run python evals/run_evals.py` | Evaluate a remote/CI deployment |
 
@@ -138,6 +163,8 @@ before running large sweeps.
 
 - Add a row for each major doc section and each tool path you care about.
 - When a user reports a wrong answer, add it here **before** fixing, so the fix is verified.
+- Use `xfail` only for accepted, tracked gaps and always provide an actionable
+  `xfail_reason`; remove the marker when the row reports `XPASS`.
 - Keep `expected_keywords` to 1–2 robust tokens to avoid flaky phrasing failures; put
   the fuller expectation in `key_facts` / `ideal_answer`.
 - Live-data rows can't pin numbers (data changes) — assert the tool and grounding
