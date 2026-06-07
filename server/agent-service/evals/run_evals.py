@@ -1,13 +1,16 @@
 """Run the golden dataset against a running agent-service.
 
 Usage:
-    # single run against the server's default model
-    AGENT_URL=http://localhost/agent AUTH_COOKIE="authentication_token=..." \
-        uv run python evals/run_evals.py
+    # local run: automatically mints a fresh JWT for every request
+    uv run python evals/run_evals.py
 
     # A/B several models in one go (per-request override) + comparison table
     uv run python evals/run_evals.py \
         --models openai/gpt-4o-mini,anthropic/claude-sonnet-4-6,google/gemini-2.5-flash
+
+    # remote/CI run: provide a cookie explicitly
+    AGENT_URL=https://example.com/agent AUTH_COOKIE="authentication_token=..." \
+        uv run python evals/run_evals.py
 
 Assumes the corpus referenced in expected_sources has already been ingested.
 """
@@ -18,13 +21,95 @@ import argparse
 import json
 import os
 import pathlib
+import shlex
 import sys
 import time
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 import httpx
+import jwt
 
 HERE = pathlib.Path(__file__).parent
+REPO_ROOT = HERE.parents[2]
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "agent-service", "host.docker.internal"}
+
+
+def _read_env_value(path: pathlib.Path, name: str) -> str | None:
+    """Read one simple dotenv assignment, including export/quotes/comments."""
+    if not path.exists():
+        return None
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line.removeprefix("export ").lstrip()
+        key, separator, value = line.partition("=")
+        if not separator or key.strip() != name:
+            continue
+        value = value.strip()
+        lexer = shlex.shlex(value, posix=True)
+        lexer.whitespace_split = True
+        lexer.commenters = "#"
+        try:
+            return " ".join(lexer)
+        except ValueError as exc:
+            raise SystemExit(f"Invalid {name} assignment in {path}: {exc}") from exc
+    return None
+
+
+def _jwt_secret() -> str:
+    secret = os.environ.get("JWT_SECRET") or _read_env_value(REPO_ROOT / ".env", "JWT_SECRET")
+    if not secret:
+        raise SystemExit(
+            "No JWT secret for local evaluation: set JWT_SECRET or define JWT_SECRET in "
+            f"{REPO_ROOT / '.env'}"
+        )
+    return secret
+
+
+def _is_local_url(url: str) -> bool:
+    return urlparse(url).hostname in LOCAL_HOSTS
+
+
+@dataclass
+class EvalAuth:
+    cookie_name: str
+    role: str
+    domain: str
+    secret: str | None = None
+    explicit_cookie: str | None = None
+
+    @classmethod
+    def from_args(cls, base: str, args: argparse.Namespace) -> EvalAuth:
+        explicit_cookie = os.environ.get("AUTH_COOKIE")
+        if explicit_cookie:
+            return cls(args.cookie_name, args.role, args.domain, explicit_cookie=explicit_cookie)
+        if not _is_local_url(base):
+            raise SystemExit(
+                "Automatic JWT minting is restricted to local agent URLs. "
+                "Set AUTH_COOKIE when evaluating a remote service."
+            )
+        return cls(args.cookie_name, args.role, args.domain, secret=_jwt_secret())
+
+    def headers(self) -> dict[str, str]:
+        if self.explicit_cookie:
+            return {"Cookie": self.explicit_cookie}
+        assert self.secret is not None
+        now = int(time.time())
+        token = jwt.encode(
+            {
+                "sub": "evalbot",
+                "roles": [self.role],
+                "domains": [self.domain],
+                "iat": now,
+                "exp": now + 300,
+            },
+            self.secret,
+            algorithm="HS256",
+        )
+        return {"Cookie": f"{self.cookie_name}={token}"}
 
 
 @dataclass
@@ -90,15 +175,16 @@ def score_row(row: dict, response: dict) -> tuple[bool, str]:
 def run_dataset(
     client: httpx.Client,
     base: str,
-    headers: dict,
+    auth: EvalAuth,
     dataset: list[dict],
     model: str | None,
+    initial_cost_usd: float = 0.0,
 ) -> RunStats:
     """Run every row once (optionally pinning a chat model) and print per-row results."""
     label = model or "(default)"
     passed = 0
     total = len(dataset)
-    total_cost = 0.0
+    total_cost = initial_cost_usd
     total_latency_ms = 0.0
 
     print(f"\n=== model: {label} ===")
@@ -108,7 +194,7 @@ def run_dataset(
             body["model"] = model
         t0 = time.perf_counter()
         try:
-            r = client.post(f"{base}/ask", json=body, headers=headers)
+            r = client.post(f"{base}/ask", json=body, headers=auth.headers())
         except httpx.HTTPError as e:
             # A slow/failed row shouldn't abort the whole run.
             latency_ms = (time.perf_counter() - t0) * 1000
@@ -152,6 +238,59 @@ def print_comparison(stats: list[RunStats]) -> None:
         )
 
 
+def preflight(client: httpx.Client, base: str, auth: EvalAuth, model: str | None) -> float:
+    """Fail once with an actionable setup error before running the full dataset."""
+    label = model or "(default)"
+    print(f"\nPreflight: checking {label}...")
+    try:
+        health = client.get(f"{base}/health")
+    except httpx.HTTPError as exc:
+        raise SystemExit(f"Agent is unreachable at {base}: {exc}") from exc
+    if health.status_code != 200:
+        raise SystemExit(
+            f"Agent health check failed: HTTP {health.status_code}: {health.text[:200]}"
+        )
+    try:
+        health_data = health.json()
+    except ValueError as exc:
+        raise SystemExit(f"Agent health check returned invalid JSON: {health.text[:200]}") from exc
+    if health_data.get("status") != "ok":
+        raise SystemExit(f"Agent dependencies are degraded: {health_data}")
+
+    body = {"question": "Reply briefly: evaluation preflight.", "stream": False}
+    if model:
+        body["model"] = model
+    try:
+        response = client.post(f"{base}/ask", json=body, headers=auth.headers())
+    except httpx.HTTPError as exc:
+        raise SystemExit(f"Agent preflight request failed: {exc}") from exc
+    if response.status_code == 401:
+        raise SystemExit(
+            "Agent rejected the evaluation JWT (401). Check JWT_SECRET or AUTH_COOKIE."
+        )
+    if response.status_code == 403:
+        raise SystemExit(
+            "Agent rejected the model override (403). Use a role allowed by "
+            "MODEL_OVERRIDE_MIN_ROLE or provide an authorized AUTH_COOKIE."
+        )
+    if response.status_code == 400 and model:
+        raise SystemExit(
+            f"Agent rejected model override '{model}' (400). Check ALLOWED_MODELS: "
+            f"{response.text[:200]}"
+        )
+    if response.status_code != 200:
+        raise SystemExit(
+            f"Agent preflight failed: HTTP {response.status_code}: {response.text[:200]}"
+        )
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise SystemExit(f"Agent preflight returned invalid JSON: {response.text[:200]}") from exc
+    cost = float(data.get("usage", {}).get("cost_usd", 0.0))
+    print(f"Preflight passed: {label} (${cost:.5f}, included in total cost)")
+    return cost
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the golden dataset against agent-service.")
     parser.add_argument(
@@ -159,20 +298,33 @@ def main() -> int:
         default=os.environ.get("MODELS", ""),
         help="Comma-separated OpenRouter model ids to A/B. Empty ⇒ one run on the server default.",
     )
+    parser.add_argument("--domain", default="unibo.it", help="Domain embedded in local eval JWTs.")
+    parser.add_argument(
+        "--role",
+        default="admin",
+        choices=["admin", "business_admin", "business_staff", "standard_customer"],
+        help="Role embedded in local eval JWTs.",
+    )
+    parser.add_argument(
+        "--cookie-name",
+        default="authentication_token",
+        help="Cookie name used for automatically minted local JWTs.",
+    )
     args = parser.parse_args()
 
     base = os.environ.get("AGENT_URL", "http://localhost/agent").rstrip("/")
-    cookie = os.environ.get("AUTH_COOKIE", "")
     dataset = load_dataset(HERE / "dataset.jsonl")
-    headers = {"Cookie": cookie} if cookie else {}
     timeout = float(os.environ.get("EVAL_TIMEOUT_SECONDS", "120"))
-
     models: list[str | None] = [m.strip() for m in args.models.split(",") if m.strip()] or [None]
+    auth = EvalAuth.from_args(base, args)
 
     results: list[RunStats] = []
     with httpx.Client(timeout=timeout) as client:
         for model in models:
-            results.append(run_dataset(client, base, headers, dataset, model))
+            preflight_cost = preflight(client, base, auth, model)
+            results.append(
+                run_dataset(client, base, auth, dataset, model, initial_cost_usd=preflight_cost)
+            )
 
     if len(results) > 1:
         print_comparison(results)

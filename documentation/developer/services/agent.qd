@@ -152,17 +152,41 @@ Run these from `server/agent-service` unless marked as repository-root commands:
     just test-agent
     just test-agent-integration
     just agent-ingest
+    just eval
+    just eval models="model-a,model-b"
 
 The golden-dataset runner calls the real service and may incur provider cost:
 
 .code lang:{bash}
-    AUTH_COOKIE="authentication_token=<jwt>" uv run python evals/run_evals.py
+    uv run python evals/run_evals.py
 
+    # Remote/CI evaluation requires an explicit cookie:
+    AGENT_URL=https://example.com/agent \
     AUTH_COOKIE="authentication_token=<privileged-jwt>" \
       uv run python evals/run_evals.py --models model-a,model-b
 
 Model sweeps compare the full agent behavior: each model independently chooses tools and
 retrieval queries. They do not compare generators over frozen context.
+
+For local URLs, the runner reads `JWT_SECRET` from the environment or repository `.env`
+and mints a fresh short-lived JWT for every request. Automatic minting is disabled for
+remote URLs, which must use `AUTH_COOKIE`. Before each model run, the harness checks
+service/database health, authentication, and model-override authorization with one model
+request whose cost is included in the total.
+
+Direct local invocation supports `--role`, `--domain`, and `--cookie-name`. `AUTH_COOKIE`
+always takes precedence, while `MODELS` and `EVAL_TIMEOUT_SECONDS` configure model sweeps
+and request timeouts.
+
+.code lang:{bash}
+    cd server/agent-service
+    uv run python evals/run_evals.py --role admin --domain unibo.it
+    EVAL_TIMEOUT_SECONDS=240 uv run python evals/run_evals.py
+
+An eval summary followed by `recipe 'eval' failed ... exit code 1` means the harness
+completed but at least one scored row failed. Find the preceding `[FAIL]` line for its id
+and reason. The non-zero exit is intentional so the command can gate CI. Reported total
+cost includes preflight requests; average latency covers scored dataset rows.
 
 ---
 
