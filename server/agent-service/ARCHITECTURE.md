@@ -206,7 +206,12 @@ make up to `MAX_TOOL_HOPS` calls.
   citations, and IDK behavior.
 
 Evaluations are intentionally separate from pytest because they require a running stack,
-real provider calls, and may incur cost. See [evals/README.md](evals/README.md).
+real provider calls, and may incur cost. Run `just eval` for the configured default model or
+`just eval models="a,b"` for an end-to-end model sweep. Local runs mint a fresh short-lived
+JWT for every request; remote/CI runs require `AUTH_COOKIE`. Each model receives one
+preflight request before its scored rows, and its cost is included in the reported total.
+The runner intentionally exits non-zero when any golden-dataset row fails. See
+[evals/README.md](evals/README.md).
 
 ## Key Modules
 

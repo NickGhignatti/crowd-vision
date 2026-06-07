@@ -56,14 +56,20 @@ Commands marked **root** run from the repository root; the others run from
 | Lint, format-check, and type-check | `npm run lint` |
 | Apply lint and formatting fixes | `npm run lint:fix` |
 | Verify the configured LLM + embedding provider | `uv run python scripts/verify_provider.py` |
-| Run real-agent golden-dataset evaluations | `AUTH_COOKIE="authentication_token=<jwt>" uv run python evals/run_evals.py` |
-| Compare answer models end to end | `AUTH_COOKIE="authentication_token=<privileged-jwt>" uv run python evals/run_evals.py --models model-a,model-b` |
+| Run real-agent golden-dataset evaluations (**root**) | `just eval` |
+| Compare answer models end to end (**root**) | `just eval models="model-a,model-b"` |
 | Export `openapi.json` and `openapi.yaml` | `npm run openapi` |
 | Apply database migrations | `uv run alembic upgrade head` |
 
-Provider verification and evals make real model requests and may incur cost. Evals require a
-running, already-ingested stack; see [evals/README.md](evals/README.md) for dataset fields
-and scoring rules.
+Provider verification and evals make real model requests and may incur cost. Local evals
+automatically mint short-lived JWTs from the root `.env`; remote and CI runs require an
+explicit `AUTH_COOKIE`. Evals require a running, already-ingested stack; see
+[evals/README.md](evals/README.md) for dataset fields and scoring rules.
+
+An eval summary such as `15/16 passed` followed by `recipe 'eval' failed ... exit code 1`
+means the run completed but at least one golden-dataset row failed. Find the preceding
+`[FAIL]` line for the row id and reason. The non-zero exit is intentional so evals can gate
+CI.
 
 ## Documentation Map
 

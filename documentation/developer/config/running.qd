@@ -110,6 +110,8 @@ Override the defaults in the root `.env` before starting Langfuse for the first 
     just agent-ingest             # ingest developer + user documentation
     just test-agent               # Moon-managed agent pytest task
     just test-agent-integration   # Testcontainers/Postgres integration suite
+    just eval                     # evaluate the configured answer model
+    just eval models="a,b"        # compare answer models end to end
 
 The automatic `agent-ingester` runs once during Docker Compose startup after
 `agent-service` becomes healthy. Kubernetes does not deploy this ingester, so documents
@@ -117,6 +119,11 @@ must be ingested manually after deployment.
 
 For provider verification, model evaluation, API examples, permissions, and current
 limitations, see the [Agent Service](../services/agent.qd) guide.
+
+`just eval` makes real provider requests and requires a running, already-ingested stack.
+Local runs mint a fresh JWT for every request from the repository `.env`. A non-zero exit
+after the summary means at least one golden-dataset row failed; inspect the preceding
+`[FAIL]` line.
 
 ### Production / Detached Mode
 
