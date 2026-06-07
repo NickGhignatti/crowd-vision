@@ -2,6 +2,7 @@
 import { ref, nextTick, computed, watch } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import { useAuth } from '@/composables/auth/useAuth.ts'
+import { renderMarkdown } from '@/composables/core/useMarkdown.ts'
 
 interface Citation {
   chunk_id: string
@@ -21,15 +22,21 @@ interface ChatMessage {
 const CITATION_RE = /\s*\[\^[0-9a-fA-F-]{8,}\]/g
 const stripCitations = (s: string) => s.replace(CITATION_RE, '')
 
+const renderAssistant = (s: string) => renderMarkdown(stripCitations(s))
+
+// Show the full doc path without its file extension, e.g.
+// "docs/platform/occupancy.md" -> "docs/platform/occupancy".
+const sourceLabel = (source: string) => source.replace(/\.[^./\\]+$/, '')
+
 const uniqueSources = (cits: Citation[] | undefined) => {
   if (!cits?.length) return []
   const seen = new Set<string>()
-  const out: { source: string; section?: string | null }[] = []
+  const out: { source: string; label: string; section?: string | null }[] = []
   for (const c of cits) {
     const key = `${c.source}::${c.section_path ?? ''}`
     if (seen.has(key)) continue
     seen.add(key)
-    out.push({ source: c.source, section: c.section_path })
+    out.push({ source: c.source, label: sourceLabel(c.source), section: c.section_path })
   }
   return out
 }
@@ -208,16 +215,19 @@ const onKeydown = (e: KeyboardEvent) => {
             :class="msg.role === 'user' ? 'items-end' : 'items-start'"
           >
             <div
-              class="max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words shadow-sm"
+              class="max-w-[85%] rounded-2xl px-3.5 py-2 text-sm break-words shadow-sm"
               :class="
                 msg.role === 'user'
-                  ? 'bg-emerald-600 text-white rounded-br-md'
+                  ? 'bg-emerald-600 text-white rounded-br-md whitespace-pre-wrap'
                   : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md'
               "
             >
-              <span v-if="msg.text">{{
-                msg.role === 'assistant' ? stripCitations(msg.text) : msg.text
-              }}</span>
+              <template v-if="msg.role === 'user'">{{ msg.text }}</template>
+              <div
+                v-else-if="msg.text"
+                class="chat-markdown"
+                v-html="renderAssistant(msg.text)"
+              ></div>
               <span v-if="msg.pending" class="inline-flex gap-1 items-center align-middle">
                 <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0ms" />
                 <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 120ms" />
@@ -227,18 +237,25 @@ const onKeydown = (e: KeyboardEvent) => {
 
             <div
               v-if="msg.role === 'assistant' && msg.citations?.length"
-              class="mt-1 max-w-[80%] text-[11px] text-slate-500 px-1"
+              class="mt-1.5 max-w-[85%] px-1"
             >
-              <span class="font-medium text-slate-600">Sources:</span>
-              <span
-                v-for="(s, idx) in uniqueSources(msg.citations)"
-                :key="s.source + idx"
-                class="ml-1"
-              >
-                <span class="text-slate-700">{{ s.source }}</span>
-                <span v-if="s.section" class="text-slate-400"> · {{ s.section }}</span>
-                <span v-if="idx < uniqueSources(msg.citations).length - 1">,</span>
-              </span>
+              <div class="flex items-center gap-1 text-[11px] font-medium text-slate-400 mb-1">
+                <i class="ph-bold ph-books text-xs"></i>
+                <span>Sources</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span
+                  v-for="(s, idx) in uniqueSources(msg.citations)"
+                  :key="s.source + idx"
+                  class="inline-flex items-start gap-1 self-start rounded-lg bg-emerald-50 border border-emerald-100 px-2 py-1 text-[11px] leading-snug text-emerald-700"
+                >
+                  <i class="ph-bold ph-file-text text-[11px] mt-0.5 shrink-0 text-emerald-500"></i>
+                  <span class="break-words">
+                    <span class="font-medium">{{ s.label }}</span>
+                    <span v-if="s.section" class="text-emerald-500/70"> · {{ s.section }}</span>
+                  </span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -288,3 +305,123 @@ const onKeydown = (e: KeyboardEvent) => {
     </button>
   </div>
 </template>
+
+<style scoped>
+/* Styling for sanitized markdown rendered via v-html (not scoped by default,
+   so target it through :deep). Tuned for the compact chat bubble. */
+.chat-markdown {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.chat-markdown :deep(p) {
+  margin: 0;
+}
+.chat-markdown :deep(p + p),
+.chat-markdown :deep(p + ul),
+.chat-markdown :deep(p + ol),
+.chat-markdown :deep(ul + p),
+.chat-markdown :deep(ol + p) {
+  margin-top: 0.5rem;
+}
+
+.chat-markdown :deep(ul),
+.chat-markdown :deep(ol) {
+  margin: 0.25rem 0;
+  padding-left: 1.15rem;
+}
+.chat-markdown :deep(ul) {
+  list-style: disc;
+}
+.chat-markdown :deep(ol) {
+  list-style: decimal;
+}
+.chat-markdown :deep(li) {
+  margin: 0.15rem 0;
+}
+.chat-markdown :deep(li::marker) {
+  color: #94a3b8;
+}
+
+.chat-markdown :deep(h1),
+.chat-markdown :deep(h2),
+.chat-markdown :deep(h3),
+.chat-markdown :deep(h4) {
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0.5rem 0 0.25rem;
+}
+.chat-markdown :deep(h1) {
+  font-size: 1.05rem;
+}
+.chat-markdown :deep(h2) {
+  font-size: 1rem;
+}
+.chat-markdown :deep(h3),
+.chat-markdown :deep(h4) {
+  font-size: 0.9rem;
+}
+
+.chat-markdown :deep(a) {
+  color: #059669;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-markdown :deep(strong) {
+  font-weight: 600;
+}
+
+.chat-markdown :deep(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: #f1f5f9;
+  color: #0f172a;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3rem;
+}
+
+.chat-markdown :deep(pre) {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.75rem;
+  background: #0f172a;
+  border-radius: 0.6rem;
+  overflow-x: auto;
+}
+.chat-markdown :deep(pre code) {
+  background: transparent;
+  color: #e2e8f0;
+  padding: 0;
+  font-size: 0.8rem;
+}
+
+.chat-markdown :deep(blockquote) {
+  margin: 0.4rem 0;
+  padding-left: 0.6rem;
+  border-left: 3px solid #d1fae5;
+  color: #475569;
+}
+
+.chat-markdown :deep(hr) {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 0.6rem 0;
+}
+
+.chat-markdown :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+}
+.chat-markdown :deep(th),
+.chat-markdown :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 0.25rem 0.45rem;
+  text-align: left;
+}
+.chat-markdown :deep(th) {
+  background: #f8fafc;
+  font-weight: 600;
+}
+</style>
