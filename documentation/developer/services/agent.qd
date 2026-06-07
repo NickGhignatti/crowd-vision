@@ -183,10 +183,12 @@ and request timeouts.
     uv run python evals/run_evals.py --role admin --domain unibo.it
     EVAL_TIMEOUT_SECONDS=240 uv run python evals/run_evals.py
 
-An eval summary followed by `recipe 'eval' failed ... exit code 1` means the harness
-completed but at least one scored row failed. Find the preceding `[FAIL]` line for its id
-and reason. The non-zero exit is intentional so the command can gate CI. Reported total
-cost includes preflight requests; average latency covers scored dataset rows.
+Rows report `PASS`, `FAIL`, `XFAIL` for accepted known gaps, or `XPASS` when a known gap
+now passes. `just eval` is report-only for scored results, so those statuses do not
+produce a recipe failure; setup and preflight errors still do. Direct runner invocations
+exit non-zero on unexpected failures and can use `--strict` to also fail on stale
+`XPASS` markers. Reported total cost includes preflight requests; average latency covers
+scored dataset rows.
 
 ---
 

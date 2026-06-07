@@ -210,8 +210,10 @@ real provider calls, and may incur cost. Run `just eval` for the configured defa
 `just eval models="a,b"` for an end-to-end model sweep. Local runs mint a fresh short-lived
 JWT for every request; remote/CI runs require `AUTH_COOKIE`. Each model receives one
 preflight request before its scored rows, and its cost is included in the reported total.
-The runner intentionally exits non-zero when any golden-dataset row fails. See
-[evals/README.md](evals/README.md).
+Direct runner invocations exit non-zero on unexpected assertion or infrastructure
+failures. Accepted known gaps report `XFAIL` without failing the run; strict mode also
+fails on stale `XPASS` markers. `just eval` uses report-only mode for scored results,
+while setup/preflight errors still fail. See [evals/README.md](evals/README.md).
 
 ## Key Modules
 

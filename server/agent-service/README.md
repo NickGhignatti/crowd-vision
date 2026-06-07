@@ -66,10 +66,11 @@ automatically mint short-lived JWTs from the root `.env`; remote and CI runs req
 explicit `AUTH_COOKIE`. Evals require a running, already-ingested stack; see
 [evals/README.md](evals/README.md) for dataset fields and scoring rules.
 
-An eval summary such as `15/16 passed` followed by `recipe 'eval' failed ... exit code 1`
-means the run completed but at least one golden-dataset row failed. Find the preceding
-`[FAIL]` line for the row id and reason. The non-zero exit is intentional so evals can gate
-CI.
+Eval rows report `PASS`, `FAIL`, `XFAIL` for accepted known gaps, or `XPASS` when a
+known gap now passes. Direct runner invocations exit non-zero on unexpected assertion
+and infrastructure failures; `XFAIL` does not. `just eval` is report-only for scored
+results, while setup/preflight errors still fail the recipe. See the eval guide for the
+full scoring and exit-code contract.
 
 ## Documentation Map
 

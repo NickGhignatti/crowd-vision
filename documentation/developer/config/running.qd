@@ -121,9 +121,10 @@ For provider verification, model evaluation, API examples, permissions, and curr
 limitations, see the [Agent Service](../services/agent.qd) guide.
 
 `just eval` makes real provider requests and requires a running, already-ingested stack.
-Local runs mint a fresh JWT for every request from the repository `.env`. A non-zero exit
-after the summary means at least one golden-dataset row failed; inspect the preceding
-`[FAIL]` line.
+Local runs mint a fresh JWT for every request from the repository `.env`. `just eval`
+reports scored `FAIL`, `XFAIL`, and `XPASS` results without failing the recipe; setup and
+preflight errors still fail. Direct runner invocations exit non-zero on unexpected
+failures and can use `--strict` to also fail on stale `XPASS` markers.
 
 ### Production / Detached Mode
 

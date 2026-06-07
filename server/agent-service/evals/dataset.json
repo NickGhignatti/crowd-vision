@@ -1,0 +1,235 @@
+[
+  {
+    "id": "cv-doc-001",
+    "category": "docs_retrieval",
+    "question": "What is Crowd-Vision and how is its backend architected?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/architecture/overview.qd",
+      "documentation/developer/main.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "microservices"
+    ],
+    "key_facts": "Crowd-Vision is a digital-twin platform for visualizing/managing building occupancy. Backend is a distributed, event-driven microservices architecture with the frontend fully separated from backend services and services isolated from each other (fault tolerance, independent scalability, strict data boundaries).",
+    "ideal_answer": "Crowd-Vision is a digital-twin platform for visualizing and managing building occupancy in real time. Its backend is a distributed, event-driven microservices architecture that separates the frontend client from the backend and isolates each service from the others, giving fault tolerance, independent scalability, and strict data-boundary enforcement."
+  },
+  {
+    "id": "cv-doc-002",
+    "category": "docs_retrieval",
+    "question": "How does Crowd-Vision enforce multi-tenant data isolation between the Auth and Twin services?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/design/domains.qd",
+      "documentation/developer/design/buildings.qd",
+      "documentation/developer/services/digital-twin.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "domain"
+    ],
+    "key_facts": "Isolation uses the domain NAME string (not an ObjectId/DB reference) embedded in the JWT. The Twin Service has its own isolated twin-db and cannot join the Auth DB; it authorizes by matching the domain string in the JWT and querying Building.find({ domains: domainName }) locally, with zero inter-service calls.",
+    "ideal_answer": "Each building stores a `domains` array of plain domain-name strings, and the same domain names are embedded in the user's JWT memberships. Because the Twin Service runs on its own isolated database, it never queries the Auth DB — it just verifies the JWT and runs `Building.find({ domains: domainName })` against its own data, so multi-tenancy is enforced on both sides without any cross-database join."
+  },
+  {
+    "id": "cv-doc-003",
+    "category": "docs_retrieval",
+    "question": "What user roles exist in Crowd-Vision and what can each one do?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/design/user-accounts.qd",
+      "documentation/developer/design/domains.qd",
+      "documentation/developer/domain/entities.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "admin",
+      "staff"
+    ],
+    "key_facts": "Hierarchical weight RBAC: Admin (100, full system control), Business Admin (80, org owner, manages buildings/sensors/invites), Business Staff (60, facility managers, edit room properties), Standard Customer (10, default for new accounts, viewers). A route requiring weight N admits any role whose weight >= N.",
+    "ideal_answer": "Roles use a hierarchical weight system: Admin (weight 100, full system control), Business Admin (80, organization owner — manages buildings, sensors, and invite codes), Business Staff (60, facility managers who can edit room properties like capacity and thresholds), and Standard Customer (10, the default viewer role for new accounts). A protected route admits any role whose weight is at least the required level."
+  },
+  {
+    "id": "cv-doc-004",
+    "category": "docs_retrieval",
+    "question": "How are notifications delivered to users who are watching the dashboard versus users who are offline?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/design/notifications.qd",
+      "documentation/user/info/notifications.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "push"
+    ],
+    "key_facts": "Two channels fire on every alert. Active users: Notification Service publishes to a Redis 'notifications' pub/sub channel; the Socket Service (Socket.IO) forwards via io.emit to connected browsers (in-app bell). Offline users: Web Push via VAPID keys delivers an encrypted payload to a registered service worker that shows an OS-level notification even when the tab is closed.",
+    "ideal_answer": "Every alert fires on two parallel channels. For users actively on the dashboard, the Notification Service publishes to a Redis `notifications` channel and the Socket Service forwards it over Socket.IO to the in-app notification bell. For offline users, it uses Web Push with VAPID keys to send an encrypted payload to the browser's service worker, which raises an OS-level notification even if the tab is closed."
+  },
+  {
+    "id": "cv-doc-005",
+    "category": "docs_retrieval",
+    "question": "How does authentication work and how are passwords stored?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/services/authentication.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "bcrypt"
+    ],
+    "key_facts": "Auth Service uses a stateless JWT pattern. On internal login it looks up the account by email, verifies the bcrypt-hashed password (never plaintext), and the Token Service mints an access token with the account's memberships embedded. Other services (Twin, Sensor, Socket, Agent) trust the signed JWT without calling Auth.",
+    "ideal_answer": "Crowd-Vision uses stateless JWT authentication handled by the Auth Service. On internal login the service finds the account by email and verifies the password against a bcrypt hash (passwords are never stored in plaintext); on success the Token Service signs an access token with the user's domain memberships embedded, which every other service can verify locally without calling Auth."
+  },
+  {
+    "id": "cv-doc-006",
+    "category": "docs_retrieval",
+    "question": "How are building and room IDs generated in the Twin service?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/services/digital-twin.qd",
+      "documentation/developer/design/buildings.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "uuid"
+    ],
+    "key_facts": "Building IDs are server-generated UUIDs (crypto.randomUUID); the client must NOT send an id on POST /register and any id field is ignored — the generated id is returned in the 201 response. Room IDs come from the uploaded JSON model file and are preserved as-is as stable identifiers.",
+    "ideal_answer": "Building IDs are server-generated UUIDs (`crypto.randomUUID()`): the client must not send an `id` when registering — any id is ignored, and the assigned id is returned in the 201 response and used for all later operations. Room IDs are different: they originate from the uploaded JSON model file and are kept as-is as stable identifiers."
+  },
+  {
+    "id": "cv-doc-007",
+    "category": "docs_retrieval",
+    "question": "What is the sensor-service responsible for and how does it handle IoT ingestion?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/services/sensor.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "sensor"
+    ],
+    "key_facts": "The sensor-service is the ingestion gateway for IoT telemetry (Node.js/Express, TypeScript). It uses a Modular Microkernel architecture with a Fast Path / Slow Path: validation is separated from persistence so the backend doesn't hold TCP connections open during slow DB writes/alerts, and new sensor types can be added without modifying existing controllers (Open/Closed).",
+    "ideal_answer": "The sensor-service is the ingestion gateway for all IoT telemetry. It uses a Modular Microkernel architecture with a Fast Path / Slow Path split: it validates and acknowledges the payload quickly (Fast Path) and defers persistence and alerting (Slow Path) so it never holds an IoT device's connection open during slow database writes, and new sensor types (temperature, air quality, people count) can be added without touching existing controllers."
+  },
+  {
+    "id": "cv-doc-008",
+    "category": "docs_retrieval",
+    "question": "What is the difference between the 'internal' and 'oidc' authStrategy for a domain?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/design/domains.qd",
+      "documentation/developer/domain/entities.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "oidc"
+    ],
+    "key_facts": "A Domain's authStrategy is either 'internal' (credentials managed directly by Crowd-Vision, email/password) or 'oidc' (identity verification delegated to an external OIDC identity provider). This field fundamentally changes the entire login flow.",
+    "ideal_answer": "A domain's `authStrategy` decides how identity is verified. With `internal`, Crowd-Vision manages the credentials itself (email/password login). With `oidc`, authentication is delegated to an external OIDC identity provider via the domain's SSO config. The choice changes the entire login flow for that organization."
+  },
+  {
+    "id": "cv-doc-009",
+    "category": "docs_retrieval",
+    "question": "How do external requests reach the right service — what is the gateway?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/architecture/overview.qd",
+      "documentation/developer/design/communication.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "gateway"
+    ],
+    "key_facts": "In Docker Compose all external traffic enters through a single Caddy reverse-proxy gateway on port 80, which strips the service prefix from the URL (/auth, /twin, /notification, /sensor, /socket.io) and proxies to the target container on the internal bridge network. In Kubernetes the same role is played by an nginx Ingress Controller.",
+    "ideal_answer": "All external traffic enters through one gateway. In Docker Compose that's a Caddy reverse proxy on port 80 that strips the path prefix (e.g. `/twin/*`) and forwards the request to the matching service on the internal network. In Kubernetes the equivalent is an nginx Ingress Controller — same single-entry-point routing, declared in YAML instead of a Caddyfile."
+  },
+  {
+    "id": "cv-doc-010",
+    "category": "docs_retrieval",
+    "question": "What information does a Room store in the digital twin, and what does it deliberately NOT store?",
+    "expected_tool": "search_docs",
+    "expected_sources": [
+      "documentation/developer/design/buildings.qd",
+      "documentation/developer/services/digital-twin.qd"
+    ],
+    "must_cite": true,
+    "expected_keywords": [
+      "capacity"
+    ],
+    "key_facts": "A Room is an embedded subdocument of a Building storing only structural/organizational data: id, name, capacity, position (Coordinates x/y/z), dimensions (width/height/depth), optional color. It is intentionally sparse — it does NOT store live sensor readings or safety thresholds (those live in the sensor/notification services).",
+    "ideal_answer": "A Room is an embedded subdocument of its Building and stores only structural and organizational data: id, name, capacity, 3D position, dimensions, and an optional color. It is intentionally sparse — it does not hold any live sensor readings (occupancy, temperature) or safety thresholds; those are owned by the sensor and notification services."
+  },
+  {
+    "id": "cv-live-001",
+    "category": "live_data",
+    "question": "What buildings can I access?",
+    "expected_tool": "list_buildings",
+    "expected_sources": [],
+    "must_cite": false,
+    "expected_keywords": [],
+    "key_facts": "Agent must call the list_buildings twin tool (using the caller's domain from the JWT when none is named) and report the building names returned by the tool. It must not invent building names or ids; if the domain has none, it should say so plainly.",
+    "ideal_answer": "Lists the buildings returned by list_buildings for the caller's domain(s), by name. If the domain has no buildings, states that no buildings are registered rather than guessing."
+  },
+  {
+    "id": "cv-live-002",
+    "category": "live_data",
+    "question": "Which rooms are the most crowded right now?",
+    "expected_tool": "list_rooms",
+    "expected_sources": [],
+    "must_cite": false,
+    "expected_keywords": [],
+    "key_facts": "Agent should locate a building (list_buildings to get an id, since it must never invent ids) then call list_rooms and compare each room's current occupancy (no_person) against capacity, reporting the busiest rooms from live tool output. No fabricated numbers.",
+    "ideal_answer": "Resolves a building via list_buildings, then calls list_rooms and ranks rooms by current occupancy (no_person) relative to capacity, naming the most crowded rooms using only the numbers from the tool output."
+  },
+  {
+    "id": "cv-live-003",
+    "category": "live_data",
+    "question": "For a building I can access, what is each room's current occupancy compared to its capacity?",
+    "expected_tool": "list_rooms",
+    "expected_sources": [],
+    "must_cite": false,
+    "expected_keywords": [],
+    "key_facts": "Agent must call list_buildings to obtain a real building id, then list_rooms for that building, and present each room's no_person vs capacity from the tool result. Ids and numbers must come from tool output, never prior knowledge.",
+    "ideal_answer": "Picks an accessible building (via list_buildings), calls list_rooms, and lists each room with its current occupancy (no_person) versus capacity straight from the tool output."
+  },
+  {
+    "id": "cv-conv-001",
+    "category": "conversational",
+    "question": "Hi there! How are you today?",
+    "expected_tool": null,
+    "expected_no_tool": true,
+    "expected_sources": [],
+    "must_cite": false,
+    "expected_keywords": [],
+    "expected_idk": false,
+    "key_facts": "A greeting/chit-chat should be answered directly without calling any tool and without emitting the IDK marker. A brief friendly reply that offers help with buildings/occupancy/docs is ideal.",
+    "ideal_answer": "Responds briefly and warmly without using any tool, e.g. 'Hi! I'm doing well — I can help you with building occupancy, room data, or how Crowd-Vision works. What would you like to know?'"
+  },
+  {
+    "id": "cv-oos-001",
+    "category": "out_of_scope",
+    "question": "What is the airspeed velocity of an unladen swallow?",
+    "expected_tool": null,
+    "expected_sources": [],
+    "must_cite": false,
+    "expected_keywords": [],
+    "expected_idk": true,
+    "xfail": true,
+    "xfail_reason": "off-topic trivia is answered instead of declined — out-of-scope guardrail gap; revisit when the agent-guardrails milestone lands",
+    "key_facts": "Unrelated to Crowd-Vision and absent from the knowledge base; after finding nothing the agent must reply exactly with the IDK marker rather than answering from general knowledge.",
+    "ideal_answer": "I don't know based on the available data."
+  },
+  {
+    "id": "cv-oos-002",
+    "category": "out_of_scope",
+    "question": "Can you book me a flight to Paris next week?",
+    "expected_tool": null,
+    "expected_no_tool": true,
+    "expected_sources": [],
+    "must_cite": false,
+    "expected_keywords": [],
+    "key_facts": "Out of scope: no tool/data for travel booking. The agent should give a brief, scoped refusal (stating it only helps with Crowd-Vision / building occupancy) without calling any tool and without fabricating an action it cannot perform.",
+    "ideal_answer": "I'm here to help with Crowd-Vision — building occupancy, room data, and how the platform works. I can't book flights."
+  }
+]

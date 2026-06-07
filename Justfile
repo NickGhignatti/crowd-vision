@@ -119,7 +119,7 @@ test-agent-integration:
 
 # Run the agent golden-dataset evaluation against the local stack (auto-mints JWTs)
 eval models="":
-    models='{{models}}'; mise exec -- uv run --directory server/agent-service python evals/run_evals.py --models "${models#models=}"
+    models='{{models}}'; mise exec -- uv run --directory server/agent-service python evals/run_evals.py --report-only --models "${models#models=}"
 
 # Run backend integration tests against a composed stack (full stack, no exclusion)
 test-integration:
