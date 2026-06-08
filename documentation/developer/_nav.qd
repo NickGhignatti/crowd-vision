@@ -10,10 +10,28 @@
 - [Telemetry Distribution Context](./domain/telemetry-distribution.qd)
 - [Alerting Context](./domain/alerting.qd)
 
-###! Architecture
+###! System Architecture
 - [Overview](./architecture/overview.qd)
-- [The Microservices](./architecture/microservices.qd)
-- [Kubernetes Architecture](./architecture/kubernetes.qd)
+- [Communication & Data Flow](./architecture/data-flow.qd)
+- [Deployment & Kubernetes](./architecture/deployment.qd)
+
+###! Microservices Architecture
+- [Service Anatomy](./architecture/microservices.qd)
+- [Authentication Service](./architecture/auth-architecture.qd)
+- [Digital Twin Service](./architecture/twin-architecture.qd)
+- [Notification Service](./architecture/notification-architecture.qd)
+- [Sensor Service](./architecture/sensor-architecture.qd)
+- [Contracts Service](./architecture/contracts-architecture.qd)
+- [Socket Service](./architecture/socket-architecture.qd)
+
+###! Service Internals
+- [Authentication Service](./services/authentication.qd)
+- [Authentication Service: Middleware](./services/middlewares.qd)
+- [Digital Twin Service](./services/digital-twin.qd)
+- [Notification Service](./services/notification.qd)
+- [Sensor Service](./services/sensor.qd)
+- [Contracts Service](./services/contracts.qd)
+- [Socket Service](./services/socket.qd)
 
 ###! Design
 - [Communication Schema](./design/communication.qd)
@@ -31,12 +49,3 @@
 - [External Simulators](./config/sensor-simulator.qd)
 - [Contributing](./config/contributing.qd)
 - [Release & CI/CD Pipeline](./config/cicd.qd)
-
-##! Services
-- [Authentication Service](./services/authentication.qd)
-- [Authentication Service: Middleware](./services/middlewares.qd)
-- [Digital Twin Service](./services/digital-twin.qd)
-- [Notification Service](./services/notification.qd)
-- [Sensor Service](./services/sensor.qd)
-- [Agent Service](./services/agent.qd)
-- [Contracts Service](./services/contracts.qd)

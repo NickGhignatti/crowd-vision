@@ -1,0 +1,49 @@
+.docname {Notification Service Architecture}
+.include {docs}
+
+**Bounded context:** [Alerting](../domain/alerting.qd) · **Stack:** Node.js / Express · **Code-level walkthrough:** [Notification Service](../services/notification.qd)
+
+The notification-service realises the [Alerting](../domain/alerting.qd) context. Architecturally it is a **rule engine and dispatcher**: it decides whether an event warrants an alert and fans it out to the right people across more than one channel.
+
+---
+
+## Architectural Style
+
+A layered Express service organised around two responsibilities that map directly onto the context's two aggregates: managing *where* a principal can be reached, and *what* they have chosen to receive.
+
+---
+
+## Internal Structure
+
+.mermaid
+    graph TD
+        R[Router] --> NC[Notification Controller]
+        R --> PC[Preferences Controller]
+        NC --> NS[Notification Service]
+        NC --> PS[Push Service]
+        PC --> M2[Alert Preference Model]
+        NS --> M2
+        PS --> M1[Delivery Channel Model]
+        M1 -.-> DB[(notification-db)]
+        M2 -.-> DB
+        NS -.->|publish| BR[(broker)]
+        NS -.->|resolve domains| TW[twin-service]
+
+---
+
+## Key Architectural Decisions
+
+- **Two responsibilities, two models.** Delivery channels and alert preferences are kept apart so a device can be revoked without losing choices, and choices can change without re-registering devices.
+- **Dual-channel delivery.** An alert is dispatched both as an in-app event (through the broker, to connected clients) and as a push to offline devices, so reachability does not depend on the app being open.
+- **Repeat suppression.** Because readings arrive continuously, the service is designed to debounce repeated alerts for the same condition rather than notify on every reading.
+- **Recipient resolution by collaboration.** The service asks the twin-service which domains a building belongs to and translates that into recipients, rather than keeping its own copy of building structure (an anti-corruption boundary).
+- **Self-pruning channels.** A delivery channel that the provider reports as permanently dead is removed automatically, keeping the model clean without a scheduled job.
+
+---
+
+## Integration
+
+- Owns `notification-db`; no other service reads it.
+- Receives temperature events from sensor-service; resolves domains from twin-service; publishes alert events to the broker — see [Communication & Data Flow](data-flow.qd).
+
+For the throttle mechanics, VAPID delivery, the cleanup behaviour, and the API, see the [Notification Service](../services/notification.qd) internals page.

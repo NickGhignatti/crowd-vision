@@ -1,0 +1,51 @@
+.docname {Authentication Service Architecture}
+.include {docs}
+
+**Bounded context:** [Identity & Access](../domain/identity-access.qd) · **Stack:** Node.js / Express · **Code-level walkthrough:** [Authentication Service](../services/authentication.qd)
+
+The auth-service realises the [Identity & Access](../domain/identity-access.qd) context. Architecturally it is the platform's trust anchor: it authenticates principals and issues the signed identity token that every other service verifies on its own.
+
+---
+
+## Architectural Style
+
+A layered Express service (see [Service Anatomy](microservices.qd)) built around a **stateless authorization** model. There is no server-side session — all the authority a request needs is carried in a signed token — so any instance can serve any request and no other service has to call back here to authorize.
+
+---
+
+## Internal Structure
+
+The HTTP surface is split across several controllers by concern, with the heavier logic isolated in dedicated services.
+
+.mermaid
+    graph TD
+        R[Router] --> AC[Authentication Controller]
+        R --> DC[Domain Controller]
+        R --> ADC[Administration Controller]
+        AC --> TKS[Token Service]
+        AC --> TOS[TOTP Service]
+        DC --> TOS
+        AC --> M[Models: Account / Domain / Role]
+        DC --> M
+        ADC --> M
+        M -.-> DB[(auth-db)]
+
+---
+
+## Key Architectural Decisions
+
+- **Stateless JWT issuance.** Memberships are embedded in the token at sign-in, so authorization everywhere else is a local check rather than a call back to this service.
+- **Controllers split by concern** (authentication, domain, administration) to keep each cohesive and small.
+- **Specialised domain services.** Token handling and the TOTP invite-code logic are kept out of the controllers so they can be reasoned about and tested in isolation.
+- **Federation as account-linking.** External SSO augments an existing account rather than creating one — a deliberate limit on what federation is allowed to do.
+- **Cross-cutting concerns in middleware.** Authorization and error shaping are factored into middleware instead of being repeated per controller (see [Auth Service: Middleware](../services/middlewares.qd)).
+
+---
+
+## Integration
+
+- Owns `auth-db`; no other service reads it.
+- Produces the identity token consumed platform-wide — see [Communication & Data Flow](data-flow.qd).
+- Has no synchronous dependency on any other service.
+
+For the login, SSO, and TOTP flows, the code-level decisions, and the API, see the [Authentication Service](../services/authentication.qd) internals page.

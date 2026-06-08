@@ -1,7 +1,7 @@
-.docname {Kubernetes Architecture}
+.docname {Deployment & Kubernetes}
 .include {docs}
 
-This page covers the Kubernetes-specific implementation details of CrowdVision: how the cluster is structured, what each manifest type does, how the nginx Ingress works, and how data is persisted across pod restarts.
+This page covers how CrowdVision is deployed on Kubernetes: how the cluster is structured, what each manifest type does, how the nginx Ingress works, and how data is persisted across pod restarts. For the high-level deployment models and the gateway, see the [Architecture Overview](overview.qd).
 
 ---
 

@@ -1,60 +1,93 @@
-.docname {Deep Dive into Microservices}
+.docname {Service Anatomy}
 .include {docs}
 
-At a macro level, CrowdVision relies on a distributed microservices architecture. However, at a micro level, **each individual service is built as an internally monolithic, layered application**. 
+At the macro level CrowdVision is a distributed system; at the micro level, **most services are internally a small, layered, monolithic application**. Standardising that internal shape means a developer can move between the Auth, Twin, Notification, and Sensor services and immediately know where the routing, the business logic, and the data access live.
 
-By standardizing the internal architecture of these services, developers can easily jump between the Auth, Twin, or Notification services and instantly understand where to find the business logic, database queries, and route handlers.
+This page describes the shared anatomy and the deliberate exceptions to it. Each service then has its own architecture page (linked below) for its structure and key decisions; the code-level walkthrough and API for each live in the [Service Internals](../services/authentication.qd) section.
 
 ---
 
-## 🥞 The Internal Layered Architecture
+## The Shared Layered Architecture
 
-The primary REST APIs (Auth, Twin, and Notification) share a strict 4-tier internal architecture. The flow of data is strictly unidirectional: requests enter through the Router, pass to the Controller, are processed by the Service, and interact with the Database via the Model.
+The REST services follow a strict four-tier internal layering. Data flows in one direction: a request enters at the Router, passes to the Controller, is processed by the Service, and reaches the database through the Model.
 
-.mermaid 
+.mermaid
     graph TD
         subgraph Single Microservice Boundary
-            R[Router Layer<br/>`src/router.ts`] --> C[Controller Layer<br/>`src/controller/`]
-            C --> S[Service Layer<br/>`src/services/`]
-            S --> M[Model Layer<br/>`src/models/`]
-            M -.-> DB[(Dedicated MongoDB)]
+            R["Router Layer (router.ts)"] --> C["Controller Layer (controller/)"]
+            C --> S["Service Layer (services/)"]
+            S --> M["Model Layer (models/)"]
+            M -.-> DB[(Dedicated database)]
         end
 
-### Layer Breakdown
-- Router Layer (src/router.ts): Acts as the entry point. It defines HTTP methods and paths, attaches middleware (like requireAuth), and delegates the request to the appropriate Controller.
-- Controller Layer: Responsible purely for HTTP concerns. It extracts bodies, parameters, and headers, calls the Service layer, and formats the JSON response or error codes. It contains zero business logic.
-- Service Layer: The heart of the service. All business logic, threshold evaluations, and data manipulation rules reside here.
-- Model Layer: Contains the Mongoose schemas and interfaces representing the Domain Entities (as mapped in the DDD section). It is responsible for database operations and data validation.
+### Layer Responsibilities
+
+- **Router** — the entry point. Declares HTTP methods and paths, attaches middleware (such as authorization), and delegates to a Controller.
+- **Controller** — HTTP concerns only. Reads the body, params, and headers, calls the Service, and shapes the JSON response or error. It contains no business logic.
+- **Service** — the heart of the service. All business logic, threshold evaluation, and orchestration lives here.
+- **Model** — the schemas and data access. It maps the aggregates from the [Domain model](../domain/strategic-design.qd) onto storage and validates data.
 
 ---
 
-## 🔍 Service-by-Service Breakdown
-Let's look at the specific responsibilities and internal components of each microservice.
+## Deliberate Exceptions
 
-### 1. Auth Service (`/auth/*`)
-The Auth Service is the gatekeeper of the platform.
-- Responsibilities: Account registration, login, JWT minting, Multi-Domain management, and external OIDC/SSO integrations.
-- Internal Structure: * It splits HTTP handlers across multiple controllers (authenticationController, domainController, administrationController).
-- Heavy business logic is separated into specialized services (totpService for 6-digit role codes, tokenService for JWT handling).
+Not every service fits the four-tier mould — and that is by design.
 
-### 2. Twin Service (`/twin/*`)
-The Twin Service is the spatial engine.
-- Responsibilities: Full CRUD operations for Building schemas and their child Room entities.
-- Security Notice: Because the Twin Service has its own isolated database, it cannot query the Auth DB to see what domains a user belongs to. Instead, it relies on the self-contained JWT (verified via middleware) to enforce that a user can only read or mutate buildings within their authorized domains.
+.var {headers}
+   - Service
+   - Why it differs
 
-### 3. Notification Service (`/notification/*`)
-The Notification Service acts as the rule engine and dispatcher.
-- Responsibilities: Receiving sensor POST requests, evaluating them against thresholds, managing offline user Push Subscriptions (VAPID), and publishing events to the Redis broker.
-- Internal Structure: Uses a notificationService to handle Redis publishing and threshold logic, and a pushService specifically designed to handle the encryption and delivery of Web Push payloads to service workers.
+.tablebyrows {.headers}
+    - - sensor-service
+      - Layered, but the Controllers are generic: a microkernel resolves a per-metric module (Strategy) at request time, so new sensor types plug in without touching the core. It also splits a fast validation path from a slow persistence path.
+    - - contracts-service
+      - Written in Rust/Axum, not Node. It pairs an HTTP API with a background task that filters the telemetry stream, and keeps its hot state in memory rather than a database.
+    - - socket-service
+      - A single flat gateway with no Controller/Service/Model and no database — it only bridges the broker to WebSocket clients.
 
-### 4. Socket Service (`/socket.io/*`)
-Unlike the REST APIs, the Socket Service is highly specialized and much flatter in its architecture.
-- Responsibilities: Maintaining persistent, multiplexed WebSocket connections to thousands of front-end clients.
-- Design Note: It does not use the Controller/Service/Model pattern because it does not connect to a MongoDB database. It simply runs an index.ts gateway that Subscribes to Redis and emits the incoming payloads directly to connected browsers.
+---
 
-### 5. Agent Service (LLM)
-This service is experimental and represents our future AI capabilities.
-- Responsibilities: Providing natural-language question answering (e.g., "Where is the least crowded room?").
-- Internal Structure: Built on Fastify (instead of Express) for high performance, it utilizes LangChain and type-safe routing with Zod schemas to structure interactions with the LLM providers.
+## Cross-Cutting Concerns
 
+Two concerns are factored out of every Express service into middleware rather than repeated in each controller:
 
+- **Authorization.** A middleware verifies the identity token and evaluates the principal's role for the requested context. See [Auth Service: Middleware](../services/middlewares.qd).
+- **Error handling.** Controllers and services throw typed errors; a single middleware at the bottom of the stack formats them into a consistent JSON shape. Also covered in [Auth Service: Middleware](../services/middlewares.qd).
+
+---
+
+## The Services
+
+Each service realises exactly one bounded context. Its architecture page covers internal structure and key decisions; the matching [Service Internals](../services/authentication.qd) page covers the code-level flows and API.
+
+.var {headers}
+   - Service
+   - Bounded Context
+   - Stack
+   - Page
+
+.tablebyrows {.headers}
+    - - auth-service
+      - Identity & Access
+      - Node.js / Express
+      - [Authentication Service](auth-architecture.qd)
+    - - twin-service
+      - Building Management
+      - Node.js / Express
+      - [Digital Twin Service](twin-architecture.qd)
+    - - sensor-service
+      - Telemetry Ingestion
+      - Node.js / Express
+      - [Sensor Service](sensor-architecture.qd)
+    - - contracts-service
+      - Telemetry Distribution
+      - Rust / Axum
+      - [Contracts Service](contracts-architecture.qd)
+    - - notification-service
+      - Alerting
+      - Node.js / Express
+      - [Notification Service](notification-architecture.qd)
+    - - socket-service
+      - Real-time transport (generic)
+      - Node.js / Socket.IO
+      - [Socket Service](socket-architecture.qd)

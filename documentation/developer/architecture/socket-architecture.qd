@@ -1,0 +1,40 @@
+.docname {Socket Service Architecture}
+.include {docs}
+
+**Bounded context:** real-time transport (generic) · **Stack:** Node.js / Socket.IO · **Code-level walkthrough:** [Socket Service](../services/socket.qd)
+
+The socket-service is the bridge between the broker and the browser. It carries filtered telemetry and alerts to connected clients over WebSockets. It is classified as a **generic subdomain** (see [Telemetry Distribution](../domain/telemetry-distribution.qd)): pure transport, with no domain model and no database.
+
+---
+
+## Architectural Style
+
+Deliberately the simplest service in the system: a single flat gateway with **no Controller/Service/Model layering and no persistence**. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.
+
+---
+
+## Internal Structure
+
+.mermaid
+    graph LR
+        BR[(broker)] -->|alerts + per-building feeds| SUB[Broker subscriber]
+        SUB --> IO[Socket.IO server]
+        IO -->|room-scoped / broadcast| CL[Connected clients]
+
+---
+
+## Key Architectural Decisions
+
+- **Pure transport, no model.** Treating real-time delivery as a generic subdomain keeps all domain logic out of it and concentrates modelling effort on the core services.
+- **Room-scoped telemetry, broadcast alerts.** Clients receive readings only for buildings they have joined, so each connection's stream stays minimal; alerts, which anyone may need, are broadcast.
+- **Stateless relay.** The service holds no durable state, so an instance can be replaced freely.
+- **Scaling is an explicit concern.** Running more than one instance requires sticky sessions for the handshake and a broker-backed adapter to deliver across instances — a known extension point rather than a current capability.
+
+---
+
+## Integration
+
+- Subscribes to the alert channel and the per-building filtered feeds, and emits them to clients — see [Communication & Data Flow](data-flow.qd).
+- Holds no database and calls no other service synchronously.
+
+For the channel-to-event mapping, the client subscription protocol, and scaling notes, see the [Socket Service](../services/socket.qd) internals page.
