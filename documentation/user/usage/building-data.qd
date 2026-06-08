@@ -11,44 +11,45 @@ A building layout cannot be created room by room through the UI. The entire stru
 
 ### Required Structure
 
-.code lang:{json}
+```json
+{
+  "id": "building-main",
+  "name": "Main Campus Building",
+  "rooms": [
     {
-      "id": "building-main",
-      "name": "Main Campus Building",
-      "rooms": [
-        {
-          "id": "room-101",
-          "name": "Lecture Hall A",
-          "capacity": 120,
-          "color": "#4f86c6",
-          "position": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-          },
-          "dimensions": {
-            "width": 20,
-            "height": 4,
-            "depth": 15
-          }
-        },
-        {
-          "id": "room-102",
-          "name": "Study Room B",
-          "capacity": 30,
-          "position": {
-            "x": 25,
-            "y": 0,
-            "z": 0
-          },
-          "dimensions": {
-            "width": 10,
-            "height": 4,
-            "depth": 8
-          }
-        }
-      ]
+      "id": "room-101",
+      "name": "Lecture Hall A",
+      "capacity": 120,
+      "color": "#4f86c6",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "dimensions": {
+        "width": 20,
+        "height": 4,
+        "depth": 15
+      }
+    },
+    {
+      "id": "room-102",
+      "name": "Study Room B",
+      "capacity": 30,
+      "position": {
+        "x": 25,
+        "y": 0,
+        "z": 0
+      },
+      "dimensions": {
+        "width": 10,
+        "height": 4,
+        "depth": 8
+      }
     }
+  ]
+}
+```
 
 ### Field Reference
 

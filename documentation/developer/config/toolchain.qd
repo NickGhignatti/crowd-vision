@@ -39,8 +39,9 @@ Underneath, two small Node scripts (`scripts/install.mjs`, `scripts/clean.mjs`) 
 
 Before this setup, tools were resolved from whatever happened to be on your `PATH`. That is fragile: a globally-installed Node from `nvm` or a Rust from `rustup` would silently shadow the versions the project expects, and a tool with **no** global fallback (notably `uv`) would simply fail:
 
-.code lang:{text}
-    'uv' is not recognized as an internal or external command
+```text
+'uv' is not recognized as an internal or external command
+```
 
 The fix is the principle that runs through this whole page: **never trust the ambient `PATH`; resolve every tool through `mise`, and let one config file be the source of truth for each concern.**
 
@@ -50,13 +51,14 @@ The fix is the principle that runs through this whole page: **never trust the am
 
 [mise](https://mise.jdx.dev/) pins every language runtime and CLI to an exact version, per project, cross-platform. The pins live in **`.mise.toml`** at the repo root:
 
-.code lang:{toml}
-    [tools]
-    node = "24"
-    python = "3.12"
-    rust = "stable"
-    "ubi:moonrepo/moon" = "latest"
-    uv = "latest"
+```toml
+[tools]
+node = "24"
+python = "3.12"
+rust = "stable"
+"ubi:moonrepo/moon" = "latest"
+uv = "latest"
+```
 
 Run `mise install` once after cloning and every one of those tools is fetched at the pinned version into mise's own store — independent of anything else on your machine.
 
@@ -84,24 +86,26 @@ There are two ways mise can put those tools on your `PATH`, and the project is d
 
 Every `Justfile` recipe that invokes a **mise-managed** tool (`node`, `npm`, `uv`, `cargo`, `moon`) is prefixed with `mise exec --`. Tools mise does *not* manage (`docker`, `k3d`, `kubectl`) are called directly. For example:
 
-.code lang:{bash}
-    # Justfile recipes wrap every mise-managed tool in `mise exec --`:
-    install:    mise install  &&  mise exec -- node scripts/install.mjs
-    test:       mise exec -- moon run :test
-    logs:       docker compose -f compose.runtime.yml logs -f   # NOT mise-managed
+```bash
+# Justfile recipes wrap every mise-managed tool in `mise exec --`:
+install:    mise install  &&  mise exec -- node scripts/install.mjs
+test:       mise exec -- moon run :test
+logs:       docker compose -f compose.runtime.yml logs -f   # NOT mise-managed
+```
 
 ### `withMise()` — the same rule inside the scripts
 
 The Node scripts that `just` launches (`install`, `clean`) spawn tools of their own. They route those through the same gate via a tiny helper, `scripts/lib/mise.mjs`:
 
-.code lang:{js}
-    // Wrap a command so its tool resolves from mise — unless we can already see a
-    // mise-provided environment (the Justfile launches scripts under `mise exec`,
-    // which exports __MISE_DIFF), in which case we don't wrap it twice.
-    export function withMise(cmd) {
-      const inside = process.env.__MISE_DIFF || process.env.MISE_SHELL;
-      return inside ? cmd : `mise exec -- ${cmd}`;
-    }
+```js
+// Wrap a command so its tool resolves from mise — unless we can already see a
+// mise-provided environment (the Justfile launches scripts under `mise exec`,
+// which exports __MISE_DIFF), in which case we don't wrap it twice.
+export function withMise(cmd) {
+  const inside = process.env.__MISE_DIFF || process.env.MISE_SHELL;
+  return inside ? cmd : `mise exec -- ${cmd}`;
+}
+```
 
 This means a script works **both** when launched via `just` (already under `mise exec`) **and** when run directly as `node scripts/install.mjs` on a shell that never activated mise.
 
@@ -121,18 +125,19 @@ This means a script works **both** when launched via `just` (already under `mise
 
 Every package is registered once in **`.moon/workspace.yml`**. This is *the* list of packages in the repo — nothing else hand-maintains it:
 
-.code lang:{yaml}
-    projects:
-      client: "client"
-      auth-service: "server/auth-service"
-      twin-service: "server/twin-service"
-      # … the other services …
-      contracts-service: "server/contracts-service"
-      sensor-simulator: "simulators/sensor-simulator"
-      # Support packages: deps-only, no build/test/lint
-      tooling: "tooling"
-      eslint-config: "tooling/eslint-config"
-      tests: "server/tests"
+```yaml
+projects:
+  client: "client"
+  auth-service: "server/auth-service"
+  twin-service: "server/twin-service"
+  # … the other services …
+  contracts-service: "server/contracts-service"
+  sensor-simulator: "simulators/sensor-simulator"
+  # Support packages: deps-only, no build/test/lint
+  tooling: "tooling"
+  eslint-config: "tooling/eslint-config"
+  tests: "server/tests"
+```
 
 ### Tasks are defined once per language
 
@@ -159,18 +164,19 @@ Rather than repeat the same `test`/`lint`/`build` config in twelve `moon.yml` fi
 
 A language file looks like this — note the `inheritedBy` block, which is what scopes it:
 
-.code lang:{yaml}
-    # moon/tasks/typescript.yml
-    inheritedBy:
-      language: 'typescript'
-    tasks:
-      test:
-        command: 'npm test'
-        inputs: ['src/**/*', '__tests__/**/*', 'package.json']
-      audit:
-        command: 'npm audit --audit-level=high --omit=dev'
-        options: { cache: false }
-      # … build, lint, lint-fix, deps …
+```yaml
+# moon/tasks/typescript.yml
+inheritedBy:
+  language: 'typescript'
+tasks:
+  test:
+    command: 'npm test'
+    inputs: ['src/**/*', '__tests__/**/*', 'package.json']
+  audit:
+    command: 'npm audit --audit-level=high --omit=dev'
+    options: { cache: false }
+  # … build, lint, lint-fix, deps …
+```
 
 .box type:{note}
     **Why `npm test` for the Python service?** `agent-service`'s `package.json` proxies `npm test` → `uv run pytest` and `npm run lint` → `uv run ruff … && pyright`. This gives moon one uniform task interface across languages while the real work still runs through `uv`.
@@ -179,9 +185,10 @@ A language file looks like this — note the `inheritedBy` block, which is what 
 
 Because the pipeline is inherited, a standard service's entire moon config is two lines:
 
-.code lang:{yaml}
-    language: 'typescript'
-    # build / test / lint / lint-fix / deps / audit inherited from moon/tasks/typescript.yml
+```yaml
+language: 'typescript'
+# build / test / lint / lint-fix / deps / audit inherited from moon/tasks/typescript.yml
+```
 
 Projects only declare what genuinely differs:
 
@@ -201,11 +208,12 @@ Projects only declare what genuinely differs:
 
 These read-only commands are the fastest way to understand or debug the setup — they show resolved config without running anything:
 
-.code lang:{bash}
-    # Read-only — these print resolved config without running anything:
-    mise exec -- moon task auth-service:test   # one task: command, inputs, inheritance
-    mise exec -- moon query projects           # every project moon knows (id + language)
-    mise exec -- moon query tasks              # which projects expose each task
+```bash
+# Read-only — these print resolved config without running anything:
+mise exec -- moon task auth-service:test   # one task: command, inputs, inheritance
+mise exec -- moon query projects           # every project moon knows (id + language)
+mise exec -- moon query tasks              # which projects expose each task
+```
 
 ---
 
@@ -227,8 +235,9 @@ The payoff of this design is that **each fact lives in exactly one place**:
 
 Crucially, **`install` and `clean` derive their package list from moon** rather than keeping a parallel hand-written list. `scripts/lib/workspaces.mjs` shells out to `moon query projects` and buckets the result by language:
 
-.code lang:{js}
-    const { projects } = JSON.parse(execSync(withMise('moon query projects')));
+```js
+const { projects } = JSON.parse(execSync(withMise('moon query projects')));
+```
 
 So `just install` installs exactly the packages moon knows about — no drift possible.
 

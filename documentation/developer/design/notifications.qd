@@ -127,12 +127,13 @@ Triggered by an administrator from the dashboard. This path has **no cooldown** 
 
 The Socket Service broadcasts all Redis messages to **every connected client** with a single `io.emit('notification', data)`:
 
-.code lang:{typescript}
-    // socket-service/src/index.ts
-    await redisSubscriber.subscribe('notifications', (message) => {
-        const data = JSON.parse(message);
-        io.emit('notification', data);  // ← no domain filter
-    });
+```typescript
+// socket-service/src/index.ts
+await redisSubscriber.subscribe('notifications', (message) => {
+    const data = JSON.parse(message);
+    io.emit('notification', data);  // ← no domain filter
+});
+```
 
 The notification payload includes a `domainName` field, but the Socket Service does not use it to route messages to specific rooms or namespaces. Every connected user receives every notification regardless of domain membership. **Domain-based filtering is the responsibility of the frontend.**
 

@@ -37,23 +37,26 @@ This is the same reasoning behind not running load-test tooling inside a product
 
 Both simulator images are built and pushed to GHCR as part of the CD pipeline. To run them locally:
 
-.code lang:{bash}
-    # Sensor simulator (people count + temperature):
-    docker run -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest
+```bash
+# Sensor simulator (people count + temperature):
+docker run -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest
 
-    # Air quality simulator:
-    docker run -p 3002:3000 ghcr.io/nickghignatti/crowdvision-aq-simulator:latest
+# Air quality simulator:
+docker run -p 3002:3000 ghcr.io/nickghignatti/crowdvision-aq-simulator:latest
+```
 
 Alternatively, both simulators are included in the Docker Compose stack and start automatically with `just dev` (unless excluded):
 
-.code lang:{bash}
-    just dev exclude="simulator"   # skip both simulators
-    just dev exclude="aq"          # skip only the AQ simulator
+```bash
+just dev exclude="simulator"   # skip both simulators
+just dev exclude="aq"          # skip only the AQ simulator
+```
 
 To stop a standalone container:
 
-.code lang:{bash}
-    docker stop <container-id>
+```bash
+docker stop <container-id>
+```
 
 ---
 

@@ -40,10 +40,11 @@ The service is built on the **Axum** async web framework and runs two concurrent
 
 The cornerstone of the service's performance is the `DashMap<String, Vec<String>>` held inside `AppState`:
 
-.code lang:{rust}
-    pub struct AppState {
-        pub building_preferences: Arc<DashMap<String, Vec<String>>>,
-    }
+```rust
+pub struct AppState {
+    pub building_preferences: Arc<DashMap<String, Vec<String>>>,
+}
+```
 
 `DashMap` is a concurrent hash map that shards its internal `RwLock`s across CPU cores. Because the telemetry tunnel performs millions of **reads** and preferences are updated rarely, this means:
 
@@ -64,11 +65,12 @@ The key type is `String` (the Building ID) and the value is `Vec<String>` — th
 Returns the current allowed column list for a building.
 
 **Response `200 OK`:**
-.code lang:{json}
-    {
-      "building_id": "building_alpha",
-      "allowed_columns": ["roomName", "roomMaxOccupancy", "temperature"]
-    }
+```json
+{
+  "building_id": "building_alpha",
+  "allowed_columns": ["roomName", "roomMaxOccupancy", "temperature"]
+}
+```
 
 Returns `404 Not Found` if no preferences have been registered for this building yet.
 
@@ -79,20 +81,22 @@ Returns `404 Not Found` if no preferences have been registered for this building
 Replaces the allowed column list for a building. This is called by the frontend when the user saves a custom column configuration.
 
 **Request body:**
-.code lang:{json}
-    {
-      "allowed_columns": ["roomName", "peopleCount", "airQuality"]
-    }
+```json
+{
+  "allowed_columns": ["roomName", "peopleCount", "airQuality"]
+}
+```
 
 The handler performs an **instant cache mutation** on the hot path: `DashMap::insert` acquires a single shard lock for microseconds, then returns. The telemetry tunnel picks up the new filter on its very next iteration—there is no propagation delay.
 
 **Response `200 OK`:**
-.code lang:{json}
-    {
-      "status": "success",
-      "building_id": "building_alpha",
-      "active_columns": 3
-    }
+```json
+{
+  "status": "success",
+  "building_id": "building_alpha",
+  "active_columns": 3
+}
+```
 
 ---
 
@@ -103,8 +107,9 @@ Seeds **default preferences** for a newly created building. Called exclusively b
 The handler uses `DashMap::entry(...).or_insert_with(...)` which is the idempotent write pattern: it only inserts if no entry exists yet. A subsequent call for the same building (e.g. a retry or a duplicate creation event) is a safe no-op.
 
 **Default columns seeded:**
-.code lang:{json}
-    ["roomName", "roomMaxOccupancy"]
+```json
+["roomName", "roomMaxOccupancy"]
+```
 
 These are the two metrics owned by the `twin-service` itself — the room name and its maximum occupancy — forming the structural baseline every building starts with.
 
@@ -114,14 +119,15 @@ These are the two metrics owned by the `twin-service` itself — the room name a
 
 Metric discovery endpoint. Scans environment variables for keys ending in `_METRICS_URL`, calls `GET /contracts` on each registered service, and aggregates the full catalog of available `MetricContract` objects. This catalog is used by the frontend to populate the Add Column and Swap Column panels.
 
-.code lang:{json}
-    {
-      "metrics": [
-        { "metricKey": "temperature", "label": "Temperature", "unit": "°C", "sourceService": "sensor-service" },
-        { "metricKey": "peopleCount", "label": "People Count", "sourceService": "sensor-service" },
-        { "metricKey": "roomName",    "label": "Room Name",    "sourceService": "twin-service" }
-      ]
-    }
+```json
+{
+  "metrics": [
+    { "metricKey": "temperature", "label": "Temperature", "unit": "°C", "sourceService": "sensor-service" },
+    { "metricKey": "peopleCount", "label": "People Count", "sourceService": "sensor-service" },
+    { "metricKey": "roomName",    "label": "Room Name",    "sourceService": "twin-service" }
+  ]
+}
+```
 
 ---
 
@@ -132,19 +138,21 @@ The tunnel is a `tokio::spawn`ed background task started at service boot (`main.
 ### Filtering Logic
 
 Every raw telemetry message has the shape:
-.code lang:{json}
-    { "type": "temperature", "buildingId": "building_alpha", "roomId": "room_01", "timestamp": 1718000000, "value": 22.4 }
+```json
+{ "type": "temperature", "buildingId": "building_alpha", "roomId": "room_01", "timestamp": 1718000000, "value": 22.4 }
+```
 
 The tunnel extracts the `type` field and iterates over all entries in the `DashMap`. For each building whose `allowed_columns` **contains** the metric type string, it publishes the full raw payload to `telemetry:filtered:<building_id>`.
 
-.code lang:{rust}
-    let metric_type = raw_data.get("type").and_then(|v| v.as_str());
+```rust
+let metric_type = raw_data.get("type").and_then(|v| v.as_str());
 
-    for entry in state.building_preferences.iter() {
-        if allowed_columns.iter().any(|col| col == metric_type) {
-            // PUBLISH telemetry:filtered:<building_id> <payload>
-        }
+for entry in state.building_preferences.iter() {
+    if allowed_columns.iter().any(|col| col == metric_type) {
+        // PUBLISH telemetry:filtered:<building_id> <payload>
     }
+}
+```
 
 This is a **type-based gate** rather than a field-name filter. The raw payload is forwarded intact; no fields are stripped. This preserves the full sensor context (`roomId`, `timestamp`, `value`) downstream.
 
@@ -172,7 +180,7 @@ When a building is first created, the following cross-service sequence runs sync
         T->>S: PUT /thresholds/buildings/:id (syncBuildingClone)
         S-->>T: OK
         T->>C: POST /preferences/init/:id
-        Note over C: DashMap.entry(id).or_insert_with(["roomName","roomMaxOccupancy"])
+        Note over C: idempotent insert of defaults ["roomName", "roomMaxOccupancy"]
         C-->>T: 200 OK
         T-->>U: Building object
 

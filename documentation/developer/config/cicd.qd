@@ -176,9 +176,10 @@ All Node.js production images (`auth`, `twin`, `sensor`, `socket`, `notification
 
 Dependency upgrades are made **manually** (there is no longer a `.github/dependabot.yml` — automated Dependabot PRs were removed). Bump versions in the relevant manifest, then verify and regenerate locks locally before opening a PR:
 
-.code lang:{bash}
-    just deps-check   # mirrors ci-deps  — every lockfile in sync (npm ci / uv sync --locked / cargo check)
-    just audit        # mirrors ci-audit — no known vulnerabilities (npm / uv / cargo audit)
+```bash
+just deps-check   # mirrors ci-deps  — every lockfile in sync (npm ci / uv sync --locked / cargo check)
+just audit        # mirrors ci-audit — no known vulnerabilities (npm / uv / cargo audit)
+```
 
 Both gates also run on every pull request as `ci-deps` and `ci-audit`, so a drifted or vulnerable dependency blocks the merge regardless.
 
@@ -240,32 +241,37 @@ All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and 
 
 Before pushing, run the full test suite locally to catch failures before CI does.
 
-.code lang:{bash}
-    just test
+```bash
+just test
+```
 
 This delegates to **moon**, which caches task results by input hash — if nothing in a service has changed since the last run, the cached result is replayed in milliseconds. To run only the services your branch actually changed:
 
-.code lang:{bash}
-    just test-affected
+```bash
+just test-affected
+```
 
 For per-service tests:
 
-.code lang:{bash}
-    just test-auth
-    just test-twin
-    just test-sensor
-    just test-notification
-    just test-socket
-    just test-client
-    just test-agent
+```bash
+just test-auth
+just test-twin
+just test-sensor
+just test-notification
+just test-socket
+just test-client
+just test-agent
+```
 
 For full backend integration tests (spins up a composed stack):
 
-.code lang:{bash}
-    just test-integration
+```bash
+just test-integration
+```
 
 To reproduce the security and dependency gates (`ci-audit` / `ci-deps`) before pushing:
 
-.code lang:{bash}
-    just audit        # npm audit + uv audit + cargo audit
-    just deps-check   # npm ci + uv sync --locked + cargo check (lockfile sync)
+```bash
+just audit        # npm audit + uv audit + cargo audit
+just deps-check   # npm ci + uv sync --locked + cargo check (lockfile sync)
+```

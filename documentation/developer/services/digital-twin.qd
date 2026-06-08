@@ -19,22 +19,23 @@ The Twin Service is a Node.js/Express microservice utilizing MongoDB. It operate
 
 A `Twin` represents a physical building or campus. It is a deeply nested document containing rooms and sensor mappings.
 
-.code lang:{typescript}
-    export interface IBuilding {
-        id: string;        // Auto-generated UUID (randomUUID). Never set by the client.
-        name: string;
-        rooms: Room[];
-        domains: string[];
-    }
+```typescript
+export interface IBuilding {
+    id: string;        // Auto-generated UUID (randomUUID). Never set by the client.
+    name: string;
+    rooms: Room[];
+    domains: string[];
+}
 
-    export interface Room {
-        id: string;        // Comes from the uploaded JSON model file.
-        name: string;
-        capacity: number;
-        position: Coordinates;
-        dimensions: Dimensions;
-        color?: string;
-    }
+export interface Room {
+    id: string;        // Comes from the uploaded JSON model file.
+    name: string;
+    capacity: number;
+    position: Coordinates;
+    dimensions: Dimensions;
+    color?: string;
+}
+```
 
 ### ID Generation
 

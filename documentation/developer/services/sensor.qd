@@ -221,53 +221,55 @@ The architecture is open for extension but closed for modification. Adding suppo
 
 Extend `BaseSensorModule<T>` and implement the three required abstract members. The Redis publish and the shared `getLatest()` query are handled automatically by the base class — you only write what is unique to this sensor type.
 
-.code lang:{typescript}
-    import { ValidationResult } from './ISensorModule.js';
-    import { BaseSensorModule, type TelemetryEvent } from './BaseSensorModule.js';
-    import { LightLevel, type ILightLevel } from '../models/lightLevel.js';
-    import { LightLevelService } from '../services/LightLevelService.js';
+```typescript
+import { ValidationResult } from './ISensorModule.js';
+import { BaseSensorModule, type TelemetryEvent } from './BaseSensorModule.js';
+import { LightLevel, type ILightLevel } from '../models/lightLevel.js';
+import { LightLevelService } from '../services/LightLevelService.js';
 
-    export class LightLevelModule extends BaseSensorModule<ILightLevel> {
-        public readonly type = 'lightLevel' as const;
-        protected readonly model = LightLevel;
-        private readonly service = new LightLevelService();
+export class LightLevelModule extends BaseSensorModule<ILightLevel> {
+    public readonly type = 'lightLevel' as const;
+    protected readonly model = LightLevel;
+    private readonly service = new LightLevelService();
 
-        validate(payload: any): ValidationResult {
-            const errors: string[] = [];
-            if (typeof payload.lux !== 'number')
-                errors.push('lux: must be a finite number.');
-            return errors.length === 0
-                ? ValidationResult.ok()
-                : ValidationResult.fail(errors);
-        }
-
-        protected async persist(payload: any): Promise<void> {
-            await this.service.persistSignal(payload.buildingId, payload.roomId, payload.timestamp, payload.lux);
-        }
-
-        protected buildTelemetryEvent(payload: any): TelemetryEvent {
-            return { type: this.type, buildingId: payload.buildingId, roomId: payload.roomId, timestamp: payload.timestamp, value: payload.lux };
-        }
-
-        async getAllLatest(buildingId: string): Promise<unknown[]> {
-            return this.service.getAllLatest(buildingId);
-        }
-
-        async getDashboardData(buildingId: string, timeRange: string, roomId?: string): Promise<unknown[]> {
-            return this.service.getDashboardData(buildingId, timeRange, roomId);
-        }
+    validate(payload: any): ValidationResult {
+        const errors: string[] = [];
+        if (typeof payload.lux !== 'number')
+            errors.push('lux: must be a finite number.');
+        return errors.length === 0
+            ? ValidationResult.ok()
+            : ValidationResult.fail(errors);
     }
+
+    protected async persist(payload: any): Promise<void> {
+        await this.service.persistSignal(payload.buildingId, payload.roomId, payload.timestamp, payload.lux);
+    }
+
+    protected buildTelemetryEvent(payload: any): TelemetryEvent {
+        return { type: this.type, buildingId: payload.buildingId, roomId: payload.roomId, timestamp: payload.timestamp, value: payload.lux };
+    }
+
+    async getAllLatest(buildingId: string): Promise<unknown[]> {
+        return this.service.getAllLatest(buildingId);
+    }
+
+    async getDashboardData(buildingId: string, timeRange: string, roomId?: string): Promise<unknown[]> {
+        return this.service.getDashboardData(buildingId, timeRange, roomId);
+    }
+}
+```
 
 ### Step 2: Register the Module (`src/index.ts`)
 
 Register the new module during the Kernel bootstrapping phase.
 
-.code lang:{typescript}
-    const kernel = new SensorKernel()
-        .register(new TemperatureModule())
-        .register(new PeopleCountModule())
-        .register(new AirQualityModule())
-        .register(new LightLevelModule());
+```typescript
+const kernel = new SensorKernel()
+    .register(new TemperatureModule())
+    .register(new PeopleCountModule())
+    .register(new AirQualityModule())
+    .register(new LightLevelModule());
+```
 
 ---
 
@@ -333,12 +335,13 @@ Rather than fracturing threshold configurations across multiple database collect
 
 This central document contains nested "slices" for each domain:
 
-.code lang:{json}
-    {
-      "buildingId": "HQ_01",
-      "temperature": { "maxTemp": 24, "minTemp": 18 },
-      "peopleCount": { "maxPeople": 50 }
-    }
+```json
+{
+  "buildingId": "HQ_01",
+  "temperature": { "maxTemp": 24, "minTemp": 18 },
+  "peopleCount": { "maxPeople": 50 }
+}
+```
 
 .mermaid
     sequenceDiagram

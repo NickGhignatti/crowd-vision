@@ -1,0 +1,120 @@
+.docname {Building Management Context}
+.include {docs}
+
+**Realised by:** twin-service · **Subdomain type:** Core
+
+This page describes the design-time model of the Building Management context — the structural backbone of the platform that the live-data contexts decorate. Concrete APIs and storage are documented in the [Services](../services/digital-twin.qd) section.
+
+The context models the physical reality being monitored: buildings, the rooms inside them, and the geometry that places those rooms in the 3D digital twin.
+
+---
+
+## Ubiquitous Language
+
+.var {headers}
+   - Term
+   - Meaning in this context
+
+.tablebyrows {.headers}
+    - - Building
+      - A monitored physical structure, scoped to one or more domains.
+    - - Room
+      - A bounded space inside a Building with a capacity and a position.
+    - - Geometry
+      - The position and dimensions that render a Room in the 3D twin.
+
+---
+
+## The Building Aggregate
+
+We model `Building` as the single aggregate root, with `Room` as an entity that lives inside it. A Room has no meaning on its own — it is always created and changed in the context of its Building — which is why we draw the aggregate boundary around the Building rather than promoting Room to a root of its own.
+
+.mermaid
+    classDiagram
+        class Building {
+            <<Aggregate Root>>
+            +id
+            +name
+            +domain[] domains
+            +Room[] rooms
+        }
+        class Room {
+            <<Entity>>
+            +id
+            +name
+            +Coordinates position
+            +Dimensions dimensions
+            +color
+        }
+        class Coordinates {
+            <<Value Object>>
+            +x
+            +y
+            +z
+        }
+        class Dimensions {
+            <<Value Object>>
+            +width
+            +height
+            +depth
+        }
+
+        Building "1" *-- "many" Room : contains
+        Room "1" *-- "1" Coordinates : positioned at
+        Room "1" *-- "1" Dimensions : sized by
+
+### Aggregate Root: Building
+
+- A Building is associated with one or more domains (by name, the shared identifier). We model tenancy as a many-to-many association so that a structure can be shared across organizations without duplication.
+- **Intended invariant:** changes to a Room flow through its Building, so the aggregate is always saved as a coherent whole rather than as independently mutated rooms.
+
+### Entity: Room
+
+- A Room is identified within its Building.
+- We deliberately keep only *structural* data on the Room — name, geometry. Live readings such as temperature and occupancy are **not** part of this model; they belong to the Telemetry contexts. This separation is a core design decision: it keeps the twin's structure stable while readings change continuously.
+
+### Value Objects: Coordinates and Dimensions
+
+Geometry is modelled as immutable, identity-less value objects. Two rooms sharing the same coordinates are not "the same place" — position is defined entirely by its values, which is exactly the value-object contract.
+
+---
+
+## Multi-Tenancy as a Domain Rule
+
+A guiding decision for this context is that it should enforce tenancy *without* depending on the Identity & Access context at request time. The principal's memberships arrive with the request (in the identity token), and a Building already records the domains it belongs to, so the rule can be evaluated entirely within this context.
+
+.mermaid
+    sequenceDiagram
+        participant C as Client
+        participant B as Building Management
+        C->>B: request buildings for a domain (with identity token)
+        Note over B: check the domain is among the principal's memberships
+        Note over B: select buildings associated with that domain
+        B-->>C: authorized buildings
+
+This is the intended shape of the rule; how the check is wired and how buildings are queried are implementation matters left to the service.
+
+---
+
+## Relationships to Other Contexts
+
+This context is meant to act as an upstream supplier to three downstream contexts. The model assumes that, when a Building comes into existence, the downstream contexts are given the baseline they need.
+
+.var {headers}
+   - Downstream Context
+   - What this context is expected to supply
+   - Pattern
+
+.tablebyrows {.headers}
+    - - Telemetry Ingestion
+      - A threshold baseline describing the Building's rooms.
+      - Customer / Supplier
+    - - Telemetry Distribution
+      - A default set of display preferences, plus the structural metrics the Building itself owns.
+      - Customer / Supplier
+    - - Knowledge & Assistance
+      - Read-only access to Building and Room data.
+      - Anti-Corruption Layer
+
+.box {Design decision: provisioning is best-effort} type:{note}
+    We intend the downstream provisioning to be **best-effort rather than transactional**: if seeding a downstream context does not succeed, creating the Building should still be allowed to complete, and the baseline can be re-established later. This deliberately softens the aggregate's consistency boundary at the network edge, trading strict consistency for availability. It is a decision we expect to revisit if the downstream baselines become safety-critical.

@@ -9,13 +9,14 @@ The Building domain model is the physical core of CrowdVision's digital twin par
 
 The `Building` acts as the Aggregate Root for all spatial data, managed by the Twin Service in its own isolated `twin-db`.
 
-.code lang:{typescript}
-    export interface IBuilding {
-        id: string;
-        name: string;
-        rooms: Room[];
-        domains: string[];
-    }
+```typescript
+export interface IBuilding {
+    id: string;
+    name: string;
+    rooms: Room[];
+    domains: string[];
+}
+```
 
 ### The Decoupled Multi-Tenancy Design
 Notice that the `domains` array contains plain strings, not MongoDB `ObjectId` references.
@@ -26,15 +27,16 @@ Notice that the `domains` array contains plain strings, not MongoDB `ObjectId` r
 ## 🚪 The Room Entity
 A `Building` is composed of an array of `Room` entities stored as embedded subdocuments. Embedding ensures that fetching a building returns its complete 3D geometry in a single query.
 
-.code lang:{typescript}
-    export interface Room {
-        id: string;
-        name: string;
-        capacity: number;
-        position: Coordinates;
-        dimensions: Dimensions;
-        color?: string;
-    }
+```typescript
+export interface Room {
+    id: string;
+    name: string;
+    capacity: number;
+    position: Coordinates;
+    dimensions: Dimensions;
+    color?: string;
+}
+```
 
 The Twin Service Room is intentionally **sparse**. It stores only structural and organizational data — identity, capacity, visual styling, and spatial placement. It does not store any live sensor readings or safety thresholds.
 
@@ -110,18 +112,19 @@ To evaluate whether a temperature reading exceeds a room's safety threshold, the
 
 CrowdVision uses the second approach. The Sensor Service stores a lightweight `BuildingThreshold` document in its own database — a **shadow** of the building containing only alerting-relevant data.
 
-.code lang:{typescript}
-    // sensor-service/src/models/buildingThreshold.ts
-    export interface BuildingThreshold {
-        buildingId: string;
-        maxTemperature: number;   // building-level default (default: 27°C)
-        rooms: ThresholdRoom[];
-    }
+```typescript
+// sensor-service/src/models/buildingThreshold.ts
+export interface BuildingThreshold {
+    buildingId: string;
+    maxTemperature: number;   // building-level default (default: 27°C)
+    rooms: ThresholdRoom[];
+}
 
-    export interface ThresholdRoom {
-        id: string;
-        maxTemperature: number;   // room-level override
-    }
+export interface ThresholdRoom {
+    id: string;
+    maxTemperature: number;   // room-level override
+}
+```
 
 This shadow is kept in sync automatically. The Twin Service calls `syncBuildingClone` via an internal HTTP call to `PUT /sensor/thresholds/buildings/:buildingId` after every operation that mutates a building:
 - `POST /twin/register` — creates the threshold clone with the building's rooms

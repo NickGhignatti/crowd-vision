@@ -1,0 +1,88 @@
+.docname {Telemetry Distribution Context}
+.include {docs}
+
+**Realised by:** contracts-service · **Subdomain type:** Core
+
+This page describes the design-time model of the Telemetry Distribution context. The runtime mechanics — how filtering is made fast, how streams are carried to the browser — are architectural concerns documented in the [Contracts Service](../services/contracts.qd) and [Architecture Overview](../architecture/overview.qd) pages.
+
+At the domain level, this context decides *which metrics each building's live view should carry*, and shapes the flow of readings accordingly.
+
+---
+
+## Ubiquitous Language
+
+.var {headers}
+   - Term
+   - Meaning in this context
+
+.tablebyrows {.headers}
+    - - Preference
+      - The ordered set of metrics a Building has chosen to display.
+    - - Allowed metric
+      - A single metric included in a Preference.
+    - - Metric Catalog
+      - The combined list of metrics offered by the upstream contexts.
+    - - Distribution
+      - Forwarding a reading only to the Buildings whose Preference includes its metric.
+
+---
+
+## The Building Preference Aggregate
+
+The aggregate root is a Building's Preference: which metrics it shows, in what order. Order is part of the model, because it is the order the display is meant to present.
+
+.mermaid
+    classDiagram
+        class BuildingPreference {
+            <<Aggregate Root>>
+            +buildingId
+            +metric[] allowedMetrics
+        }
+        class Metric {
+            <<Value Object>>
+            +key
+            +label
+            +unit
+            +sourceContext
+        }
+
+        BuildingPreference "1" o-- "many" Metric : selects
+
+- A Preference is keyed by its Building, so there is exactly one Preference per Building.
+- The allowed metrics are an *ordered* collection; reordering is a meaningful change to the model, not an incidental detail.
+- We left open, at design time, how durable a Preference must be and how quickly a change must take effect — those service-level qualities are decided in the implementation.
+
+---
+
+## The Metric Catalog
+
+This context does not invent metrics — it **assembles** them. The design intent is that each upstream context describes its own metrics (see the Published Language in [Telemetry Ingestion](telemetry-ingestion.qd) and the structural metrics owned by [Building Management](building-management.qd)), and this context gathers those descriptions into one catalog the display can choose from.
+
+.mermaid
+    graph LR
+        ING["Telemetry Ingestion: metric descriptions"] --> CAT["Metric Catalog"]
+        BM["Building Management: structural metrics"] --> CAT
+        CAT --> UI["Display: choose which metrics to show"]
+
+Gathering rather than defining keeps this context a Conformist consumer of each upstream Published Language: a new metric upstream becomes selectable here without a coordinated change.
+
+---
+
+## Distribution as a Domain Rule
+
+The central rule of this context is simple to state at the domain level: a reading should reach a Building's live view only if that Building's Preference includes the reading's metric.
+
+```text
+distribute(reading):
+    for each building preference:
+        if reading.metric in preference.allowedMetrics:
+            deliver the reading to that building's view
+```
+
+The model says nothing about *how* readings arrive or are carried onward — that the rule must hold at high throughput is a quality we hand to the implementation.
+
+---
+
+## A note on transport
+
+Carrying readings to the browser is, by design, **not** part of this context's model. We classify real-time transport as a generic subdomain (see [Strategic Design](strategic-design.qd)): it holds no aggregates and enforces no rules, so it is kept out of the domain model and treated as infrastructure.
