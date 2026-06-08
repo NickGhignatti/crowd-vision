@@ -1,34 +1,34 @@
 .docname {Socket Service}
 .include {docs}
 
-The `socket-service` is the platform's **real-time transport**: the bridge between the Redis broker and the browser. It pushes filtered telemetry and alerts to connected clients over WebSockets. It realises the generic-subdomain "transport" role described in [Telemetry Distribution](../domain/telemetry-distribution.qd) — it holds no domain model and owns no database.
+Implementation reference for the `socket-service`. For its architectural role, see [Socket Service Architecture](../architecture/socket-architecture.qd).
 
-It is a Node.js service built on **Socket.IO** with a Redis subscriber.
-
----
-
-## Architecture
-
-Unlike the REST services, the socket-service has **no Controller/Service/Model layering** — there is nothing to persist and no business rules to enforce. It is a single, flat gateway process: subscribe to Redis, emit to sockets, and track which clients care about which building.
-
-.mermaid
-    graph TD
-        subgraph socket-service
-            IO["Socket.IO server"]
-            SUB["Redis subscriber"]
-        end
-        R[("Redis")] -->|"SUBSCRIBE notifications"| SUB
-        R -->|"PSUBSCRIBE telemetry:filtered:*"| SUB
-        SUB -->|"emit"| IO
-        IO -->|"WebSocket"| Client["Vue clients"]
-
-Because it is pure transport, the service is deliberately minimal — its entire job is to move messages from the broker to the right sockets and back.
+A small Node.js service built on **Socket.IO** and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database, no controllers, and no domain model — the entire service is a single `index.ts`.
 
 ---
 
-## Channels and Emission
+## Configuration
 
-The subscriber maps each broker channel to a Socket.IO emission:
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `REDIS_URL`
+      - empty
+      - Broker connection for the subscriber.
+    - - `CLIENT_URL`
+      - `http://localhost:5173`
+      - Allowed CORS origin for the Socket.IO server (credentials enabled).
+
+The HTTP/WebSocket server listens on port `3000`.
+
+---
+
+## Broker Subscriptions and Emissions
+
+At startup the service connects a Redis subscriber and binds two channels to two Socket.IO events:
 
 .var {headers}
    - Redis subscription
@@ -37,31 +37,31 @@ The subscriber maps each broker channel to a Socket.IO emission:
 
 .tablebyrows {.headers}
     - - `notifications`
-      - `notification`
-      - Broadcast to every connected client.
-    - - `telemetry:filtered:{buildingId}` (pattern)
-      - `telemetry`
-      - Sent only to the room `building:{buildingId}`.
+      - emit `notification` to every socket
+      - All connected clients (broadcast).
+    - - `telemetry:filtered:*` (pattern)
+      - emit `telemetry` to room `building:{id}`
+      - Only clients in that building's room.
 
-Telemetry is **room-scoped**: a client receives readings only for the buildings it has explicitly joined, which keeps each browser's stream limited to what it is actually displaying. Alerts are broadcast, since any connected client may need to see them.
+For the pattern subscription, the building id is recovered from the channel name (stripping the `telemetry:filtered:` prefix) and used to target the room. Each incoming message is JSON-parsed before emission.
 
 ---
 
 ## Client Subscription Protocol
 
-Clients manage their own interest by joining and leaving rooms over the socket:
+Clients declare their interest by joining and leaving rooms over the socket connection:
 
 .var {headers}
    - Client event
-   - Effect
+   - Handler effect
 
 .tablebyrows {.headers}
-    - - `join_room`
-      - Join a room keyed by the user identifier.
-    - - `subscribe_building`
-      - Join `building:{buildingId}` to start receiving that building's telemetry.
-    - - `unsubscribe_building`
-      - Leave `building:{buildingId}` to stop receiving it.
+    - - `join_room(userId)`
+      - Joins a per-user room.
+    - - `subscribe_building(buildingId)`
+      - Joins room `building:{buildingId}` to start receiving that building's telemetry.
+    - - `unsubscribe_building(buildingId)`
+      - Leaves room `building:{buildingId}` to stop receiving it.
 
 .mermaid
     sequenceDiagram
@@ -71,18 +71,20 @@ Clients manage their own interest by joining and leaving rooms over the socket:
         UI->>WS: connect
         UI->>WS: subscribe_building(B)
         Note over WS: socket joins room building:B
-        R-->>WS: telemetry:filtered:B event
-        WS->>UI: emit "telemetry" (only to room building:B)
-        UI->>WS: unsubscribe_building(B)
-        Note over WS: socket leaves room building:B
+        R-->>WS: telemetry:filtered:B message
+        WS->>UI: emit "telemetry" (room building:B only)
+        R-->>WS: notifications message
+        WS->>UI: emit "notification" (broadcast)
+
+Telemetry is room-scoped so each browser receives only the buildings it is displaying; alerts are broadcast because any client may need them.
 
 ---
 
 ## Scaling Considerations
 
-The service runs as a single Socket.IO process today. Two points matter when running more than one replica:
+The service runs as a single Socket.IO process. Two changes are required to run multiple replicas:
 
-- **Sticky sessions.** Socket.IO's HTTP long-polling handshake must return to the same instance. The Kubernetes ingress already sets cookie-based affinity for this — see [Deployment & Kubernetes](../architecture/deployment.qd).
-- **Cross-instance rooms.** With multiple replicas, a room can span instances. Delivering an emission to all members would require the Socket.IO Redis adapter so that emissions propagate across instances. This is a known extension point, not yet in place.
+- **Sticky sessions.** The HTTP long-polling handshake must return to the same instance; the Kubernetes ingress sets cookie affinity for this (see [Deployment & Kubernetes](../architecture/deployment.qd)).
+- **Cross-instance rooms.** With multiple replicas a room spans instances, so emissions must propagate via the Socket.IO Redis adapter. This is a known extension point, not yet in place.
 
-For how this service fits the end-to-end real-time path, see [Communication & Data Flow](../architecture/data-flow.qd).
+For where this service sits in the end-to-end real-time path, see [Communication & Data Flow](../architecture/data-flow.qd).

@@ -3,7 +3,7 @@
 
 At the macro level CrowdVision is a distributed system; at the micro level, **most services are internally a small, layered, monolithic application**. Standardising that internal shape means a developer can move between the Auth, Twin, Notification, and Sensor services and immediately know where the routing, the business logic, and the data access live.
 
-This page describes the shared anatomy and the deliberate exceptions to it. Each service then has its own architecture page (linked below) for its structure and key decisions; the code-level walkthrough and API for each live in the [Service Internals](../services/authentication.qd) section.
+This page describes the shared anatomy and the deliberate exceptions to it. Each service then has its own architecture page (linked below) for its structure and key decisions; the code-level walkthrough and API for each live in the [Implementation Reference](../services/authentication.qd) section.
 
 ---
 
@@ -58,7 +58,7 @@ Two concerns are factored out of every Express service into middleware rather th
 
 ## The Services
 
-Each service realises exactly one bounded context. Its architecture page covers internal structure and key decisions; the matching [Service Internals](../services/authentication.qd) page covers the code-level flows and API.
+Each service realises exactly one bounded context. Its architecture page covers internal structure and key decisions; the matching [Implementation Reference](../services/authentication.qd) page covers the code-level flows and API.
 
 .var {headers}
    - Service

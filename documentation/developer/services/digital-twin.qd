@@ -1,99 +1,150 @@
 .docname {Digital Twin Service}
 .include {docs}
 
-The `twin-service` is the spatial source of truth for CrowdVision. It manages the Digital Twins—the structural metadata of physical buildings, floors, and rooms.
+Implementation reference for the `twin-service`. For its architectural role, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd); for the domain model, see [Building Management](../domain/building-management.qd).
+
+A Node.js / Express service in TypeScript. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services.
 
 ---
 
-## 🏗️ Architecture Overview
-The Twin Service is a Node.js/Express microservice utilizing MongoDB. It operates completely independently of the Auth Service, relying exclusively on Stateless JWTs to enforce multi-tenant isolation.
+## Source Layout
 
-*   **Controllers (`buildings.ts`):** Handles REST API requests, HTTP validation, and JSON responses.
-*   **Services (`buildings.ts`):** Contains the core business logic for CRUD operations, including name normalisation and Sensor Service synchronisation.
-*   **Names helper (`names.ts`):** Pure utility functions for normalising building and room display names, used by both registration and backfill paths.
-*   **Models (`buildings.ts`):** Defines the spatial topology and multi-tenant domain mapping.
+.var {headers}
+   - Path
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - `src/router.ts`
+      - Route table for building CRUD, plus health, metrics, and the `/contracts` metric catalog.
+    - - `src/controller/buildings.ts`
+      - HTTP adapters over the building service.
+    - - `src/services/buildings.ts`
+      - Core CRUD logic and orchestration of downstream synchronisation.
+    - - `src/services/names.ts`
+      - Pure helpers for normalising and backfilling building/room display names.
+    - - `src/services/sensors.ts`
+      - Pushes the threshold clone to the sensor-service.
+    - - `src/services/contractsService.ts`
+      - Seeds default display preferences in the contracts-service.
+    - - `src/models/building.ts`
+      - Mongoose schema for `Building`, `Room`, and the geometry value objects.
 
 ---
 
-## 🗺️ The Twin Entity
+## Configuration
 
-A `Twin` represents a physical building or campus. It is a deeply nested document containing rooms and sensor mappings.
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `SENSOR_SERVICE_URL`
+      - falls back to `VITE_SERVER_URL`, then `http://localhost:3000`
+      - Target for the threshold clone sync.
+    - - `CONTRACTS_SERVICE_URL`
+      - `http://localhost:3001`
+      - Target for default-preference seeding.
+    - - `NODE_ENV`
+      - —
+      - When `test`, threshold sync and preference seeding are skipped.
+
+---
+
+## Data Model
 
 ```typescript
-export interface IBuilding {
-    id: string;        // Auto-generated UUID (randomUUID). Never set by the client.
-    name: string;
-    rooms: Room[];
-    domains: string[];
+interface IBuilding {
+  id: string;        // server-generated UUID (crypto.randomUUID); unique
+  name: string;
+  rooms: Room[];     // embedded
+  domains: string[]; // tenant names; indexed { domains: 1 }
 }
 
-export interface Room {
-    id: string;        // Comes from the uploaded JSON model file.
-    name: string;
-    capacity: number;
-    position: Coordinates;
-    dimensions: Dimensions;
-    color?: string;
+interface Room {
+  id: string;        // taken from the uploaded model file; stable
+  name: string;
+  capacity: number;
+  position: { x: number; y: number; z: number };   // value object
+  dimensions: { width: number; height: number; depth: number }; // value object
+  color?: string;
 }
 ```
 
-### ID Generation
-
-Building IDs are **server-generated UUIDs** (`crypto.randomUUID()`). The client must not send an `id` field when calling `POST /register`; any such field is silently ignored. The generated `id` is returned in the `201` response body and must be used for all subsequent operations on that building.
-
-Room IDs, by contrast, originate from the uploaded JSON model file and are preserved as-is. They act as stable identifiers for the lifetime of the building.
-
-### Name Normalisation
-
-Display names go through `normalizeBuildingName(name, id)` on both registration and backfill.
-The priority chain is:
-1. `name` if it is a non-blank string (trimmed).
-2. `id` if provided and non-blank.
-3. `"Building"` as a last-resort fallback (applies when both are absent, e.g. auto-generated IDs at registration time where no name was given).
-
-Room names follow the same rule via `normalizeRoomNames`, falling back to `room.id`.
-
-### Multi-Tenancy (`domains` array)
-As established in the Auth documentation, a single Twin can be associated with one or more `domains` (e.g., `["university.edu", "facilities-corp.com"]`). This array is the access key. The Twin Service will only return a document if the requesting user's JWT contains a matching domain in its `memberships` payload.
-
-The `domains` field carries a dedicated MongoDB index (`{ domains: 1 }`) so that `Building.find({ domains: domainName })` resolves via an index seek rather than a full collection scan.
+- `id` is generated server-side; a client-supplied `id` on creation is ignored.
+- The `{ domains: 1 }` index makes `Building.find({ domains })` an index seek rather than a collection scan.
+- Geometry is stored as `_id: false` subdocuments. The schema enables timestamps.
 
 ---
 
-## Building Registration Flow
+## HTTP API
 
-The full registration sequence from the administrator's perspective:
+.var {headers}
+   - Method · Path
+   - Description
 
-1. Administrator uploads a JSON model file in the UI (the `RegisterBuildingModal`).
-2. The frontend parses the file and displays a review form with default threshold values pre-populated from room `capacity` fields.
-3. On save, the frontend calls `POST /twin/register` with `{ name, rooms, domains }` — **no `id`**.
-4. The twin-service assigns a UUID, normalises names, persists the document, and synchronises a lightweight copy to the Sensor Service.
-5. The `201` response contains the full building object including the server-assigned `id`.
-6. The frontend uses the returned `id` to fire subsequent `PATCH` calls to the Sensor Service to persist the threshold configuration (temperature, AQI, people-count per room).
+.tablebyrows {.headers}
+    - - `POST /register`
+      - Create a building from `{ name, rooms, domains }`. Assigns a UUID, normalises names, persists, then synchronises downstream. Returns the full document. `201`.
+    - - `GET /building/:id`
+      - Fetch one building by UUID; backfills names on read. `404` if absent.
+    - - `GET /buildings/:domain`
+      - List buildings scoped to a tenant (`domains` contains `:domain`). Returns `[]` when none.
+    - - `GET /domain/:buildingName`
+      - Return the flattened list of domains for buildings matching the name. Used by notification-service for recipient resolution.
+    - - `PATCH /building/:buildingId`
+      - Update `name` and/or `domains` (and an optional `maxTemperature` forwarded to the clone). Re-syncs.
+    - - `PATCH /building/:buildingId/room/:roomId`
+      - Update a room's `name`, `color`, or `capacity`. Re-syncs.
+    - - `GET /contracts`
+      - Return this service's metric catalog (`roomName`, `roomMaxOccupancy`).
+    - - `GET /health/`, `GET /metrics/`
+      - Liveness and Prometheus metrics.
+
+.box {Authentication is not enforced at this layer} type:{warning}
+    As wired in `router.ts`, the building routes do not attach an authentication middleware. Tenant scoping is performed by the `:domain` path parameter against each building's `domains` array, but the identity token is not verified inside the service. This is a gap relative to the [intended design](../architecture/twin-architecture.qd), where tenancy is enforced from the verified token. Treat token verification here as a required hardening step.
 
 ---
 
-## Building and room configuration
+## Name Normalisation
 
-Building layouts are treated as **static structures** for geometry and topology.
-Rooms cannot yet be edited at a physical level (shape, position). Non-critical attributes such as building name, room display name, capacity, and theme color can be updated via `PATCH` endpoints.
+`services/names.ts` keeps display names consistent on both write and read.
 
-The building model is kept **in sync with the Sensor Service**, which stores a lightweight copy of each building entity.
-This synchronisation guarantees the monitoring pipeline always works against a consistent view of the environment.
+- `normalizeBuildingName(name, id)` resolves to the trimmed `name`, else `id`, else the literal `"Building"`.
+- `normalizeRoomNames(rooms)` trims each room name, falling back to the room `id`.
+- `backfillNames(building)` re-applies these rules when a building is read and persists only if something changed — so older documents are healed lazily.
 
 ---
 
-## 🛠️ Architecture Roadmap & Suggested Fixes
-*This section outlines technical debt and planned architectural updates for the Twin Service.*
+## Downstream Synchronisation
 
-1. **Full Spatial Editing (Geometry & Layouts):**
-   * *Issue:* Buildings are structurally static. Only metadata and threshold parameters can be changed post-registration.
-   * *Fix Required:* Upgrade the frontend editor and backend schemas to support full physical layout editing (resizing, merging rooms, changing coordinates). This is a highly anticipated feature.
+A building's structure is mirrored to two services. The two paths have **different failure semantics**, which matters operationally.
 
-2. **Redis Pub/Sub Synchronisation:**
-   * *Issue:* The Sensor Service sync (`syncBuildingClone`) is a synchronous REST call made inline during `addBuilding` and `updateBuilding`. If the Sensor Service is unavailable, registration will fail.
-   * *Fix Required:* Implement a Redis publisher that emits a `TWIN_UPDATED` event on every change, allowing the Sensor Service to update its copy asynchronously and decoupling the two services.
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as Client
+        participant T as twin-service
+        participant DB as twin-db
+        participant S as sensor-service
+        participant K as contracts-service
+        C->>T: POST /register { name, rooms, domains }
+        Note over T: normalise names, assign UUID
+        T->>DB: building.save()
+        T->>S: PUT /thresholds/buildings/:id (clone)
+        Note over T,S: throws on non-2xx — registration fails
+        T->>K: POST /preferences/init/:id
+        Note over T,K: best-effort — errors logged, swallowed
+        T-->>C: 201 building
 
-3. **Threshold Seeding at Registration:**
-   * *Current state:* Threshold data (temperature min/max, AQI max, people-count max-per-room) is sent by the frontend in a series of `PATCH` calls to the Sensor Service **after** twin registration completes. This creates a window where the building exists but has no thresholds.
-   * *Fix Required:* The `POST /register` payload could include threshold data and the twin-service could forward it atomically to the Sensor Service in a single transaction.
+- **Sensor threshold clone** (`syncBuildingClone`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`. It is gated by `shouldSyncThresholds()` (skipped under test) and **throws on a non-OK response**, so a sensor-service failure fails the building operation.
+- **Contracts preference seeding** (`initBuildingPreferences`): a `POST` that is skipped under test and **swallows errors** (logged only), so it never blocks building creation.
+
+.box {Known gap: synchronous coupling} type:{note}
+    The sensor clone is an inline, synchronous REST call inside `addBuilding`/`updateBuilding`. The roadmap is to replace it with a published `TWIN_UPDATED` event so the sensor-service can update its copy asynchronously, decoupling the two services.
+
+---
+
+## Error Handling
+
+The service uses the same `BaseError` hierarchy and global error middleware as the auth-service (`ValidationError` 400, `NotFoundError` 404, …) — see [Auth Service: Middleware](middlewares.qd). Building/room lookups raise `NotFoundError` when the target does not exist.
