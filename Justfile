@@ -238,6 +238,7 @@ k8s-setup: k8s-ingress
 k8s-build:
     docker build -t ghcr.io/nickghignatti/crowdvision-client:latest ./client
     docker build -t ghcr.io/nickghignatti/crowdvision-auth:latest ./server/auth-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest ./server/chat-service
     docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest ./server/twin-service
     docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./server/notification-service
     docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest ./server/sensor-service
@@ -249,6 +250,7 @@ k8s-build:
 k8s-push:
     docker push ghcr.io/nickghignatti/crowdvision-client:latest
     docker push ghcr.io/nickghignatti/crowdvision-auth:latest
+    docker push ghcr.io/nickghignatti/crowdvision-chat:latest
     docker push ghcr.io/nickghignatti/crowdvision-twin:latest
     docker push ghcr.io/nickghignatti/crowdvision-notification:latest
     docker push ghcr.io/nickghignatti/crowdvision-sensor:latest
@@ -262,7 +264,7 @@ k8s-build-push: k8s-build k8s-push
 # Load locally built images directly into k3d (local dev — skips GHCR entirely)
 # Requires k3d. Pass cluster= to target a different cluster name: just k8s-load cluster=mycluster
 k8s-load cluster="crowdvision":
-    k3d image import ghcr.io/nickghignatti/crowdvision-client:latest ghcr.io/nickghignatti/crowdvision-auth:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest -c {{cluster}}
+    k3d image import ghcr.io/nickghignatti/crowdvision-client:latest ghcr.io/nickghignatti/crowdvision-auth:latest ghcr.io/nickghignatti/crowdvision-chat:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest -c {{cluster}}
 
 # Show all pods, deployments, services and StatefulSets in the namespace
 k8s-status:

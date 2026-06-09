@@ -41,6 +41,13 @@ spec:
                 name: auth-service
                 port:
                   number: 3000
+          - path: /chat(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chat-service
+                port:
+                  number: 3000
           - path: /twin(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
