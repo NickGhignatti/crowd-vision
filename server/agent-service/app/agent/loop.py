@@ -57,16 +57,21 @@ class Agent:
         self._settings = get_settings()
         self._llm = llm or OpenAICompatClient()
 
-    def _bootstrap_messages(self, user: AuthUser, question: str) -> list[dict]:
+    def _bootstrap_messages(
+        self,
+        user: AuthUser,
+        question: str,
+        history: list[dict] | None = None,
+    ) -> list[dict]:
         # Inject lightweight user context so the model knows whose data it can ask for.
         scope = (
             f"Caller domains: {user.domains or ['(none)']}. "
             f"Caller roles: {user.roles or ['(none)']}."
         )
-        return [
-            {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + scope},
-            {"role": "user", "content": question},
-        ]
+        messages = [{"role": "system", "content": SYSTEM_PROMPT + "\n\n" + scope}]
+        messages.extend(history or [])
+        messages.append({"role": "user", "content": question})
+        return messages
 
     async def _run_tool_calls(self, ctx: ToolContext, calls: list, trace: list[dict]) -> list[dict]:
         """Execute tool calls; return new 'tool' messages to append to history."""
@@ -139,13 +144,14 @@ class Agent:
         question: str,
         user: AuthUser,
         llm: LLMClient | None = None,
+        history: list[dict] | None = None,
     ) -> AnswerResult:
         # `llm` lets a caller pick a model per request (multi-model eval); defaults
         # to the agent's configured client.
         llm = llm or self._llm
         usage = Usage()
         ctx = ToolContext(user=user, session=session)
-        messages = self._bootstrap_messages(user, question)
+        messages = self._bootstrap_messages(user, question, history)
         tool_trace: list[dict] = []
         tools = REGISTRY.schemas()
         tr = tracer()
@@ -226,12 +232,13 @@ class Agent:
         question: str,
         user: AuthUser,
         llm: LLMClient | None = None,
+        history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Run the tool loop, then stream the final answer text token by token.
 
         Tool-calling and streaming are awkward together across providers; we pay one
         non-streamed final hop's cost in exchange for a uniform implementation."""
-        result = await self.answer(session, question, user, llm=llm)
+        result = await self.answer(session, question, user, llm=llm, history=history)
 
         # Emit the answer as a single token event for now. (Real per-token streaming
         # of the *final* turn is a follow-up: re-run a no-tools `stream()` with the

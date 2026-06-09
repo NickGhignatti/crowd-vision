@@ -25,6 +25,9 @@ services:
       socket-server:
         condition: service_started
         required: false
+      chat-service:
+        condition: service_started
+        required: false
 
   redis:
     image: redis:alpine

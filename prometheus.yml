@@ -11,3 +11,7 @@ scrape_configs:
     static_configs:
       - targets: ["twin-service:3000"]
     metrics_path: /metrics
+  - job_name: "chat-service"
+    static_configs:
+      - targets: ["chat-service:3000"]
+    metrics_path: /metrics

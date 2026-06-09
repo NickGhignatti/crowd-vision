@@ -95,6 +95,9 @@ test-affected:
 test-auth:
     mise exec -- moon run auth-service:test
 
+test-chat:
+    mise exec -- moon run chat-service:test
+
 test-twin:
     mise exec -- moon run twin-service:test
 
@@ -128,9 +131,10 @@ test-integration:
 
 # ── Database Utilities ────────────────────────────────────────────────────────
 
-# Clear all service databases (auth, twin, notification, agent)
+# Clear all service databases (auth, chat, twin, notification, agent)
 db-clear:
     docker compose -f docker-compose.yml -f server/auth-service/docker-compose.yml exec auth-db mongosh authdb --eval "db.dropDatabase()"
+    docker compose -f docker-compose.yml -f server/chat-service/docker-compose.yml exec chat-db mongosh chatdb --eval "db.dropDatabase()"
     docker compose -f docker-compose.yml -f server/twin-service/docker-compose.yml exec twin-db mongosh twindb --eval "db.dropDatabase()"
     docker compose -f docker-compose.yml -f server/notification-service/docker-compose.yml exec notification-db mongosh notificationdb --eval "db.dropDatabase()"
     docker compose -f docker-compose.yml -f server/agent-service/docker-compose.yml exec agent-db psql -U agent -d agentdb -c "TRUNCATE chunks, documents RESTART IDENTITY CASCADE;"

@@ -52,6 +52,11 @@
         reverse_proxy agent-service:3000
     }
 
+    # ── Chat service ──────────────────────────────────────────────────────────
+    handle_path /chat/* {
+        reverse_proxy chat-service:3000
+    }
+
     # ── Contracts Service ───────────────────────────────────────────────────────
     # Using `handle` (not `handle_path`) so the full path is forwarded to the
     # service unchanged. This means Axum receives /contracts and
@@ -93,6 +98,10 @@
 
     handle /contracts-db-gui/* {
         reverse_proxy contracts-service-db-express:8081
+    }
+
+    handle /chat-db-gui/* {
+        reverse_proxy chat-db-express:8081
     }
 
     # ── Observability ─────────────────────────────────────────────────────────
