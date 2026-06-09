@@ -168,4 +168,4 @@ Edit the hosts file as administrator (Windows: `C:\Windows\System32\drivers\etc\
     - - `just k8s-hosts`
       - Print the line to add to your hosts file.
 
-Manifests are also validated in CI by the `ci-k8s` workflow (kubeconform, pluto, kube-score) — see [CI/CD Pipeline](cicd.qd).
+Manifests are also validated in CI by the `ci-k8s` workflow (kubeconform, pluto, kube-score) — see [CI/CD Pipeline](../contributing/cicd.qd).

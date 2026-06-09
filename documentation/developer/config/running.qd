@@ -23,21 +23,21 @@ just dev
 
 ### Excluding Services
 
-The `agent-service` is the heaviest service (Python + model loading). Skip it when you are not working on AI features:
+Run a lighter stack by excluding services you are not working on:
 
 ```bash
 # Exclude by substring of folder name:
-just dev exclude="agent"
+just dev exclude="simulator"
 
 # Exclude multiple services (space-separated):
-just dev exclude="agent simulator"
+just dev exclude="simulator client"
 
 # Exclude the client (useful when running it separately with Vite):
 just dev exclude="client"
 ```
 
 .box type:{note}
-    Exclusion matches by **folder name substring**. `"agent"` will skip `server/agent-service`, `agent-db`, and any folder containing "agent". Use a more specific substring if needed.
+    Exclusion matches by **folder name substring**. `"simulator"` will skip `aq-simulator` and `sensor-simulator`. Use a more specific substring to target a single service.
 
 ### Accessing the Application (Docker mode)
 
@@ -53,9 +53,6 @@ just dev exclude="client"
     - - API Gateway
       - `http://localhost:80`
       - Caddy proxy — routes to all microservices.
-    - - Agent API Docs
-      - `http://localhost/agent/docs`
-      - FastAPI/OpenAPI reference for `/ask`, `/ingest`, and `/health`.
     - - Auth DB GUI
       - `http://localhost/auth-db-gui/`
       - Mongo Express for the auth database. Dev mode only.
@@ -68,67 +65,6 @@ just dev exclude="client"
     - - Prometheus
       - `http://localhost/prometheus/`
       - Raw metrics scraper. Dev mode only.
-    - - Langfuse
-      - `http://localhost:3030`
-      - AI-agent traces, tool calls, tokens, cost, and latency. Docker mode only.
-
-### Langfuse Login
-
-Langfuse is the trace UI for `agent-service`. Open `http://localhost:3030` directly, or
-open `http://localhost/langfuse` to be redirected there.
-
-The Docker Compose development defaults are:
-
-.var {headers}
-   - Field
-   - Default
-
-.tablebyrows {.headers}
-    - - Email
-      - `admin@crowd-vision.local`
-    - - Password
-      - `langfuse-admin`
-
-Override the defaults in the root `.env` before starting Langfuse for the first time:
-
-```bash
-LANGFUSE_INIT_USER_EMAIL=your-email@example.com
-LANGFUSE_INIT_USER_PASSWORD=use-a-strong-password
-```
-
-.box type:{warning}
-    The `LANGFUSE_INIT_USER_*` values provision the initial account when the Langfuse
-    database is first created. Changing them later does not update an existing user's
-    login. For any shared or externally reachable deployment, replace the development
-    password before first startup.
-
-.box type:{note}
-    Langfuse is currently included in the Docker Compose stack only. The repository's
-    Kubernetes manifests do not deploy or expose Langfuse.
-
-### Agent Operations
-
-```bash
-just logs agent-service       # follow application logs and console traces
-just agent-ingest             # ingest developer + user documentation
-just test-agent               # Moon-managed agent pytest task
-just test-agent-integration   # Testcontainers/Postgres integration suite
-just eval                     # evaluate the configured answer model
-just eval models="a,b"        # compare answer models end to end
-```
-
-The automatic `agent-ingester` runs once during Docker Compose startup after
-`agent-service` becomes healthy. Kubernetes does not deploy this ingester, so documents
-must be ingested manually after deployment.
-
-For provider verification, model evaluation, API examples, permissions, and current
-limitations, see the [Agent Service](../services/agent.qd) guide.
-
-`just eval` makes real provider requests and requires a running, already-ingested stack.
-Local runs mint a fresh JWT for every request from the repository `.env`. `just eval`
-reports scored `FAIL`, `XFAIL`, and `XPASS` results without failing the recipe; setup and
-preflight errors still fail. Direct runner invocations exit non-zero on unexpected
-failures and can use `--strict` to also fail on stale `XPASS` markers.
 
 ### Production / Detached Mode
 
@@ -276,7 +212,6 @@ just test-sensor
 just test-notification
 just test-socket
 just test-client
-just test-agent
 
 # Full backend integration tests (spins up a composed stack, then tears it down):
 just test-integration
@@ -340,8 +275,6 @@ mise exec -- moon run :audit --affected
       - Lint only services changed on the current branch.
     - - `just lint-fix`
       - Auto-fix linting issues across every service.
-    - - `just agent-ingest`
-      - Re-ingest documentation into the AI agent knowledge base.
     - - `just audit`
       - Security audit across all projects via `moon run :audit` (npm + uv + cargo).
     - - `just deps-check`
@@ -386,8 +319,8 @@ Run `just env` to fill any gaps. The script skips variables already present, so 
 Exclusion works by matching the **folder name substring**. Examples:
 
 ```bash
-just dev exclude="agent"          # skips server/agent-service, agent-db, agent-ingester
-just dev exclude="agent simulator"  # also skips aq-simulator, sensor-simulator
+just dev exclude="simulator"         # skips aq-simulator and sensor-simulator
+just dev exclude="simulator client"  # also skips the Vue client
 ```
 
 If exclusion suddenly stops working after editing the Justfile: verify that `dev` still takes only ONE parameter (`exclude=""`). Adding a second parameter before `exclude` in the recipe definition breaks named-argument resolution in `just`.
@@ -433,50 +366,6 @@ just k8s-load
 ```
 
 Also check that the deployment manifest sets `imagePullPolicy: IfNotPresent`, not `Always` — `Always` forces a remote pull even when the image exists locally.
-
----
-
-### agent-service fails to start (database migration error)
-
-The agent-service reads its Postgres connection string from `POSTGRES_URL` (not `DATABASE_URL`). Verify the secret was created correctly:
-
-```bash
-kubectl get secret agent-service-secret -n crowdvision \
-  -o jsonpath='{.data.POSTGRES_URL}' | base64 -d
-```
-
-If it is empty or missing, check your `.env` for `POSTGRES_URL` and re-run `just k8s-secrets`.
-
----
-
-### agent-service provider requests return `401`, `402`, or model errors
-
-The agent uses one OpenAI-compatible endpoint for chat and embeddings. Verify that the
-provider key matches the endpoint:
-
-```bash
-cd server/agent-service
-OPENROUTER_API_KEY=<your-key> uv run python scripts/verify_provider.py
-```
-
-For the default OpenRouter endpoint, configure `OPENROUTER_API_KEY`. A `402` commonly means
-the OpenRouter account lacks credit for the selected model; lower `MAX_OUTPUT_TOKENS` or use
-a cheaper allowed model.
-
----
-
-### agent answers documentation questions with no useful sources
-
-Re-ingest the documentation and inspect the agent logs:
-
-```bash
-just agent-ingest
-just logs agent-service
-```
-
-The Docker ingester loads `documentation/user` and `documentation/developer`. Kubernetes
-does not run it automatically. Retrieval also filters documents against JWT roles/domains;
-empty document permissions are visible to every authenticated caller.
 
 ---
 

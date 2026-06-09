@@ -12,7 +12,7 @@ CrowdVision is a polyglot monorepo: a Vue client and five Node services in TypeS
 Two structural facts shape everything you do:
 
 - **There is no root `package.json` and no npm workspaces.** Each Node service installs its own `node_modules`. Shared JavaScript dev tooling (semantic-release, commitlint, the bump script) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
-- **Every package is registered once** in `.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](toolchain.qd).
+- **Every package is registered once** in `.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
 
 .box {Dependencies are not hoisted} type:{note}
     When you add a dependency, install it inside that service's directory (`cd server/auth-service && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just clean-install`, or per-service `npm install --prefix server/auth-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just deps-check` before pushing.
@@ -59,7 +59,7 @@ These rules preserve the boundaries the architecture depends on. A contribution 
 
 1. **Branch** from `master` using the branch-naming convention, see [Naming Conventions](naming-conventions.qd).
 2. **Bootstrap** the repository once with `just install` (which runs `mise install` first).
-3. **Develop** against the local stack with `just dev`, see [Docker Compose Orchestration](docker-compose.qd).
+3. **Develop** against the local stack with `just dev`, see [Docker Compose Orchestration](../config/docker-compose.qd).
 4. **Format and lint** with `just lint-fix`, then verify with `just lint-affected`.
 5. **Test** with `just test-affected` (or `just test` for the full suite).
 6. **Verify dependencies** with `just deps-check` (lockfile sync) and `just audit` (vulnerabilities) — these mirror the `ci-deps` and `ci-audit` gates.

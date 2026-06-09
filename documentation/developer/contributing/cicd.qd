@@ -213,4 +213,4 @@ just deps-check      # lockfile sync
 just audit           # vulnerability audit
 ```
 
-Per-service tests are available as `just test-auth`, `just test-twin`, `just test-sensor`, `just test-notification`, `just test-socket`, `just test-client`, and `just test-agent`. Full backend integration tests run via `just test-integration` (it composes the full stack — see [Docker Compose Orchestration](docker-compose.qd)).
+Per-service tests are available as `just test-auth`, `just test-twin`, `just test-sensor`, `just test-notification`, `just test-socket`, `just test-client`, and `just test-agent`. Full backend integration tests run via `just test-integration` (it composes the full stack — see [Docker Compose Orchestration](../config/docker-compose.qd)).

@@ -38,7 +38,7 @@ mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires 
 just install
 ```
 
-`just install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; the agent-service Python deps; and the Rust contracts-service. The exact set of packages is **derived from moon's project registry** (`.moon/workspace.yml`, via `moon query projects`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+`just install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; plus the Python and Rust services' dependencies. The exact set of packages is **derived from moon's project registry** (`.moon/workspace.yml`, via `moon query projects`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
 
 The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked` and Rust uses `cargo fetch`. Set `JOBS=N` to cap parallelism (default 4): `JOBS=2 just install`.
 
@@ -103,12 +103,6 @@ You will be prompted for the following:
     - - `VITE_SIMULATOR_URL_TP`
       - `http://localhost/simulator/tp`
       - Temperature/presence simulator endpoint (external service).
-    - - `GOOGLE_API_KEY`
-      - *(empty)*
-      - Legacy agent key alias prompted by `just env`; optional.
-    - - `DEEPSEEK_API_KEY`
-      - *(empty)*
-      - Legacy agent key alias prompted by `just env`; optional.
 
 The following secrets are **generated automatically** by `just env` and written to `.env` — you do not need to supply them manually:
 
@@ -118,63 +112,6 @@ The following secrets are **generated automatically** by `just env` and written 
 
 .box type:{warning}
     **Security Note:** All microservices that share `JWT_SECRET` must have the exact same value. If they differ, cross-service authorization will fail with `401 Unauthorized`.
-
-.box type:{note}
-    `just env` currently prompts for the legacy `GOOGLE_API_KEY` and
-    `DEEPSEEK_API_KEY` aliases. The recommended OpenRouter setup must be added manually:
-
-    ```bash
-    OPENROUTER_API_KEY=<your-openrouter-key>
-    LLM_BASE_URL=https://openrouter.ai/api/v1
-    ANSWER_MODEL=openai/gpt-4o-mini
-    EMBEDDING_MODEL=openai/text-embedding-3-small
-    ```
-
-    The key must authenticate against the configured `LLM_BASE_URL`. See the
-    [Agent Service](../services/agent.qd) guide for models, privileged overrides,
-    ingestion, evaluation, and observability.
-
-### Optional Langfuse Login Overrides
-
-The Docker Compose stack includes Langfuse for inspecting AI-agent traces, tool calls,
-tokens, cost, and latency. Its default local login is:
-
-*   Email: `admin@crowd-vision.local`
-*   Password: `langfuse-admin`
-
-For a shared development environment, add stronger credentials to the root `.env`
-**before the first Langfuse startup**:
-
-```bash
-LANGFUSE_INIT_USER_EMAIL=your-email@example.com
-LANGFUSE_INIT_USER_PASSWORD=use-a-strong-password
-```
-
-These variables initialize the first account; changing them does not reset an account
-already stored in the Langfuse database. See [Running the Application](running.qd) for
-the access URL and operational notes.
-
-The current Compose stack also expects Langfuse project and infrastructure secrets in the
-root `.env`; `just env` does not generate them:
-
-```bash
-LANGFUSE_PUBLIC_KEY=<project-public-key>
-LANGFUSE_SECRET_KEY=<project-secret-key>
-LANGFUSE_NEXTAUTH_SECRET=<random-secret>
-LANGFUSE_SALT=<random-secret>
-LANGFUSE_ENCRYPTION_KEY=<64-hex-character-key>
-LANGFUSE_CLICKHOUSE_PASSWORD=<random-password>
-LANGFUSE_MINIO_ROOT_PASSWORD=<random-password>
-```
-
-To export agent traces to the Compose Langfuse instance, also configure the standard
-OpenTelemetry variables expected by `agent-service`:
-
-```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://langfuse-web:3000/api/public/otel
-OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64-public-key-colon-secret-key>
-```
 
 ### Manual VAPID Key Generation
 
@@ -198,11 +135,11 @@ just dev
 
 This starts all services with hot-reloading. When you save a source file, the change is reflected inside the running container instantly — no manual restart needed.
 
-**Skip heavy services you are not actively working on:**
+**Skip services you are not actively working on:**
 
 ```bash
-just dev exclude="agent"            # skip the Python AI service
-just dev exclude="agent simulator"  # also skip simulator containers
+just dev exclude="simulator"   # skip the simulator containers
+just dev exclude="client"      # skip the Vue client (e.g. run it separately via Vite)
 ```
 
 See the [Running the Application](running.qd) page for the full Docker Compose reference.
@@ -218,10 +155,6 @@ node scripts/ops/provision.js
 ```
 
 Run this once after `just dev` reports all services as healthy. The script prompts you for the admin email, password, and domain name, then calls the live auth-service to register them.
-
-*(If you are working on the Python AI Agent, you can also re-ingest documentation into the
-knowledge base at any time with `just agent-ingest`. This does not remove stale versions of
-changed source files; see the [Agent Service](../services/agent.qd) guide.)*
 
 ---
 
