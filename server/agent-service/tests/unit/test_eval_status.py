@@ -5,6 +5,7 @@ load it by path via importlib. These tests need no server/DB/LLM.
 """
 
 import importlib.util
+import json
 import pathlib
 import sys
 
@@ -76,6 +77,68 @@ def test_load_dataset_reports_invalid_json(tmp_path):
         run_evals.load_dataset(p)
 
 
+# ── score_row(): deterministic assertions compose ────────────────────────────
+
+
+def test_score_row_checks_no_tool_even_when_expected_idk_passes():
+    row = {"expected_idk": True, "expected_no_tool": True}
+    response = {
+        "answer": "I don't know based on the available data.",
+        "idk": True,
+        "retrieval": {"tool_calls": [{"name": "search_docs"}]},
+    }
+
+    ok, reason = run_evals.score_row(row, response)
+
+    assert not ok
+    assert "expected no tool call" in reason
+
+
+def test_score_row_reports_multiple_failures():
+    row = {"expected_idk": True, "expected_no_tool": True}
+    response = {
+        "answer": "Here is an answer.",
+        "idk": False,
+        "retrieval": {"tool_calls": [{"name": "search_docs"}]},
+    }
+
+    ok, reason = run_evals.score_row(row, response)
+
+    assert not ok
+    assert "expected IDK but agent answered" in reason
+    assert "expected no tool call" in reason
+
+
+def test_llm_judge_parses_structured_verdict(monkeypatch):
+    monkeypatch.setenv("JUDGE_API_KEY", "test-key")
+    monkeypatch.setenv("JUDGE_BASE_URL", "http://judge")
+
+    def handler(request):
+        body = json.loads(request.content)
+        assert body["model"] == "judge-model"
+        assert body["temperature"] == 0
+        assert json.loads(body["messages"][1]["content"]) == {
+            "question": "off-topic",
+            "assistant_answer": "I cannot help with that.",
+        }
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"content": '{"pass": true, "reason": "declined request"}'}}
+                ],
+                "usage": {"cost": 0.002},
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = run_evals.LLMJudge(client, "judge-model").evaluate(
+            "out_of_scope_refusal", "off-topic", "I cannot help with that."
+        )
+
+    assert result == run_evals.JudgeResult(True, "declined request", 0.002)
+
+
 # ── run_dataset(): accounting and row-level infra failures ───────────────────
 
 
@@ -126,6 +189,34 @@ def test_run_dataset_counts_xpass_as_behavioral_pass():
 
     assert stats.passed == 1
     assert stats.xpassed == 1
+
+
+class _Judge:
+    def __init__(self, passed: bool):
+        self.passed = passed
+
+    def evaluate(self, rubric_name, question, answer):
+        assert rubric_name == "out_of_scope_refusal"
+        assert question == "off-topic"
+        assert answer == "response"
+        return run_evals.JudgeResult(self.passed, "semantic verdict", 0.001)
+
+
+def test_run_dataset_combines_deterministic_and_llm_judge_scores():
+    row = {
+        "id": "x",
+        "question": "off-topic",
+        "expected_no_tool": True,
+        "llm_judge": "out_of_scope_refusal",
+    }
+    body = {"answer": "response", "retrieval": {"tool_calls": []}}
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=body))
+
+    with httpx.Client(transport=transport) as client:
+        stats = run_evals.run_dataset(client, "http://agent", _auth(), [row], None, _Judge(False))
+
+    assert stats.failed == 1
+    assert stats.cost_usd == pytest.approx(0.001)
 
 
 # ── exit_code(): the headline behaviour (`just eval` no longer "fails") ───────
