@@ -143,7 +143,26 @@ Triggered on every push to `master`. Runs semantic-release from `tooling/`: it r
 
 ### cd-registry
 
-Also triggered on push to `master` when source changes. Builds and pushes all Docker images to GHCR tagged both `:latest` and `:<git-sha>`. After each push, **Trivy** scans the image for HIGH and CRITICAL CVEs. Only vulnerabilities with an available fix (`ignore-unfixed: true`) fail the job; results are uploaded as SARIF to the GitHub Security tab. A concurrency guard ensures one push at a time.
+Triggered on push to `master` when source changes under `server/**`, `simulators/**`, `client/**`, or the workflow file itself. Builds and pushes Docker images to GHCR tagged both `:latest` and `:<git-sha>`. After each push, **Trivy** scans the image for HIGH and CRITICAL CVEs. Only vulnerabilities with an available fix (`ignore-unfixed: true`) fail the job; results are uploaded as SARIF to the GitHub Security tab. A concurrency guard ensures one push at a time.
+
+#### Selective builds: only changed services are pushed
+
+The workflow does **not** rebuild every image on every push. It runs in two jobs:
+
+.var {headers}
+   - Job
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - `changes`
+      - Detects which services changed and emits a dynamic build matrix.
+    - - `build-and-push`
+      - `needs: changes`; runs once per matrix entry, building only the selected images. Skipped entirely when nothing matches (`if: needs.changes.outputs.any == 'true'`).
+
+The `changes` job uses `dorny/paths-filter` with one filter per image, mapping each image to its source directory (e.g. `crowdvision-auth → server/auth-service/**`). A shell step then turns the set of changed filters into a JSON matrix of `{image, context}` entries, which `build-and-push` consumes via `strategy.matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}`. Because each image's Docker build context is self-contained (every `Dockerfile` does `COPY . .` within its own directory), a change under one service directory maps cleanly to exactly one image.
+
+.box {Two special cases force a full rebuild} type:{note}
+    A change to `cd-registry.yml` itself rebuilds **all** images, since the build logic changed. A manual run (`workflow_dispatch`) accepts a `service` input — `all` (the default) builds every image, or a comma-separated list of image names (e.g. `crowdvision-auth,crowdvision-client`) builds just those.
 
 The Trivy scan is deliberately scoped to **OS packages only** (`vuln-type: os`). Application dependencies are not re-scanned here because they are already gated pre-merge by `ci-audit`. The division of labour is: **`ci-audit` owns language dependencies at PR time; `cd-registry` Trivy owns the base-OS layer at push time** — the part the dependency audits cannot see.
 
