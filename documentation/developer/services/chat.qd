@@ -1,0 +1,179 @@
+.docname {Chat Service}
+.include {docs}
+
+The `chat-service` is the conversation layer in front of the agent. The [Agent Service](agent.qd)
+is intentionally **stateless** — each `POST /ask` is an independent call that takes an optional
+`history` array but stores nothing. The chat-service is what turns that into a real chat
+product: it persists conversations, owns them per user, and feeds the recent history back into
+each agent call.
+
+It is a Node.js / Express service in TypeScript, matching the rest of the backend. Keeping
+conversation storage out of the Python agent is deliberate: the agent stays a pure
+question-answering engine, while session persistence — a different concern with a different
+database and scaling profile — lives in its own service.
+
+---
+
+## Source Layout
+
+.var {headers}
+   - Path
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - `src/router.ts`
+      - Route table for conversation CRUD and message sending, plus health and metrics.
+    - - `src/controller/conversation.ts`
+      - HTTP adapters over the conversation service.
+    - - `src/services/conversation.ts`
+      - Core logic: ownership checks, validation, history assembly, persistence.
+    - - `src/services/agent.ts`
+      - Thin client that calls `agent-service` `/ask` and validates its response.
+    - - `src/models/conversation.ts`
+      - Mongoose schema for `Conversation`, its embedded `messages`, and citations.
+    - - `src/middlewares/authentication.ts`
+      - Verifies the JWT and extracts the owning account id.
+
+---
+
+## Data Model
+
+A conversation is a single MongoDB document with its messages **embedded** rather than stored
+in a separate collection. A chat is loaded and saved as a whole, and message counts are
+bounded, so embedding avoids a join and makes each individual MongoDB save atomic.
+
+Sending a message is not atomic end-to-end: it loads the conversation, waits for an external
+agent request, then saves the updated document without a transaction or per-conversation lock.
+Concurrent sends can therefore use stale history or race while saving. The current client
+prevents concurrent sends from one widget, but server-side concurrency control is future work.
+
+```typescript
+interface IConversation {
+  userId: string;          // owner; indexed { userId: 1 }
+  title: string;           // defaults to "New chat"; auto-set from the first question
+  messages: IChatMessage[]; // embedded, capped at MAX_MESSAGES
+}
+
+interface IChatMessage {
+  role: "user" | "assistant";
+  content: string;         // 1..MAX_MESSAGE_LENGTH chars
+  citations?: ICitation[]; // grounding sources, copied from the agent's answer
+  createdAt: Date;
+}
+```
+
+Citations are persisted on the assistant message so that reopening an old conversation shows
+the same grounded sources the agent originally returned, without re-querying.
+
+---
+
+## HTTP API
+
+Conversation routes require authentication. `GET /health` and `GET /metrics` are public
+operational endpoints. The service is exposed through Caddy at `http://localhost/chat` (and the
+same `/chat` ingress prefix in Kubernetes).
+
+.var {headers}
+   - Method · Path
+   - Description
+
+.tablebyrows {.headers}
+    - - `POST /conversations`
+      - Create an empty conversation for the caller. Optional `title`.
+    - - `GET /conversations`
+      - List the caller's conversations, newest first, without message bodies.
+    - - `GET /conversations/:id`
+      - Fetch one owned conversation with its full message history.
+    - - `PATCH /conversations/:id`
+      - Rename an owned conversation.
+    - - `DELETE /conversations/:id`
+      - Delete an owned conversation.
+    - - `POST /conversations/:id/messages`
+      - Send a user message; returns the assistant reply (see below).
+    - - `GET /health/`, `GET /metrics/`
+      - Liveness and Prometheus metrics.
+
+Every conversation route resolves the document by `{ _id, userId }`, so one user can never read
+or mutate another user's chat — an unmatched id returns `404` rather than `403`, to avoid
+revealing that the conversation exists.
+
+---
+
+## Sending A Message
+
+`POST /conversations/:id/messages` is where the chat-service orchestrates the agent. It loads
+the conversation, takes the last `HISTORY_MAX_MESSAGES` turns as history, calls the agent, and
+persists both the user message and the assistant reply.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as Client (ChatWidget)
+        participant CH as chat-service
+        participant DB as chat-db
+        participant A as agent-service
+        C->>CH: POST /conversations/:id/messages { content }
+        CH->>DB: load conversation by { _id, userId }
+        Note over CH: take last HISTORY_MAX_MESSAGES turns
+        CH->>A: POST /ask { question, history, stream:false } (+ caller cookie)
+        A-->>CH: { answer, citations }
+        CH->>DB: push user + assistant messages, save
+        CH-->>C: assistant message
+
+Two design points worth calling out:
+
+- **The caller's JWT cookie is forwarded to the agent**, not a service account. This means the
+  agent runs `/ask` under the *user's* identity, so its permission-filtered retrieval only
+  returns documents that user is allowed to see. The chat-service never widens access.
+- **History is truncated** to the last `HISTORY_MAX_MESSAGES` turns before being sent. This
+  bounds the prompt size (and therefore cost and latency) the agent has to process, and the
+  agent already treats prior messages as untrusted context rather than instructions.
+
+The first user message also seeds the conversation title (the prior default is `"New chat"`),
+so a freshly created chat gets a meaningful name without a separate request.
+
+---
+
+## Configuration
+
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `AGENT_BASE_URL`
+      - `http://agent-service:3000`
+      - Where to reach the agent's `/ask` endpoint.
+    - - `JWT_SECRET`
+      - —
+      - HS256 secret; must match the issuing auth-service. Authenticated requests fail if missing.
+    - - `JWT_COOKIE_NAME`
+      - `authentication_token`
+      - Cookie the JWT is read from.
+    - - `HISTORY_MAX_MESSAGES`
+      - `10`
+      - Number of recent turns sent to the agent as context.
+
+`MAX_MESSAGES` (100), `MAX_MESSAGE_LENGTH` (8000), and `MAX_TITLE_LENGTH` (120) are fixed
+in-code limits that bound document growth and reject oversized input.
+
+---
+
+## Authentication
+
+`requireAuthentication` reads the JWT from the configured cookie, verifies it with HS256, and
+extracts `accountId` as the owning `userId`. The token is verified locally with no call to the
+auth-service. The implementation follows the repository's Node-service middleware conventions,
+but chat-service owns its authentication middleware and error classes rather than importing
+the auth-service implementation; see [Auth Service: Middleware](middlewares.qd) for the broader
+pattern. A failure to reach the agent surfaces as a `502 Bad Gateway`, distinguishing an
+upstream agent problem from a client error.
+
+---
+
+## Client
+
+In the frontend, the assistant is the floating `ChatWidget.vue`, driven by the
+`useChatSessions` composable, which calls these `/chat/*` routes. For what the assistant can
+and cannot answer from a user's perspective, see *Using the Assistant* in the user guide.

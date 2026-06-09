@@ -10,7 +10,7 @@
     "dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts",
     "test": "jest",
     "lint": "eslint .",
-    "lint:fix": "prettier --write src __tests__ tsconfig.json tsconfig.build.json package.json && eslint . --fix"
+    "lint:fix": "prettier --write src __tests__ tsconfig.json tsconfig.build.json openapi.yaml package.json && eslint . --fix"
   },
   "license": "ISC",
   "type": "module",

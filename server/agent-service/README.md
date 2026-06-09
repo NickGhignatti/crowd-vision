@@ -61,25 +61,19 @@ Commands marked **root** run from the repository root; the others run from
 | Export `openapi.json` and `openapi.yaml` | `npm run openapi` |
 | Apply database migrations | `uv run alembic upgrade head` |
 
-Provider verification and evals make real model requests and may incur cost. Local evals
-automatically mint short-lived JWTs from the root `.env`; remote and CI runs require an
-explicit `AUTH_COOKIE`. Evals require a running, already-ingested stack; see
-[evals/README.md](evals/README.md) for dataset fields and scoring rules.
-
-Eval rows report `PASS`, `FAIL`, `XFAIL` for accepted known gaps, or `XPASS` when a
-known gap now passes. Direct runner invocations exit non-zero on unexpected assertion
-and infrastructure failures; `XFAIL` does not. `just eval` is report-only for scored
-results, while setup/preflight errors still fail the recipe. See the eval guide for the
-full scoring and exit-code contract.
+Provider verification and evals make real model requests and may incur cost. See
+[Evaluation](#evaluation) below for the full workflow.
 
 ## Documentation Map
 
-| Document | Use it for |
+This README is the operational guide: setup, commands, API usage, configuration, evaluation,
+and troubleshooting. The design-level documentation lives in the Quarkdown **Developer Guide**:
+
+| Topic | Source |
 | --- | --- |
-| [README.md](README.md) | Setup, commands, API usage, configuration, troubleshooting |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Agent loop, retrieval, permissions, database, tracing |
-| [ADDING_TOOLS.md](ADDING_TOOLS.md) | Implementing, registering, and testing a new tool |
-| [evals/README.md](evals/README.md) | Golden-dataset fields, scoring, and evaluation workflow |
+| Agent architecture, retrieval, citations, auth, observability | `documentation/developer/services/agent.qd` |
+| Chat-service and the end-to-end chat flow | `documentation/developer/services/chat.qd` |
+| Implementing, registering, and testing a new tool | `documentation/developer/contributing/adding-agent-tools.qd` |
 
 ## API
 
@@ -150,27 +144,11 @@ Interactive API documentation is available at `/agent/docs`; the raw schema is a
 
 ## How It Works
 
-```text
-question + JWT roles/domains
-        |
-        v
-  Agent tool loop -----------------------> twin-service live data
-        |
-        +--> search_docs
-               |
-               +--> vector search (pgvector)
-               +--> keyword search (Postgres tsvector)
-               +--> reciprocal-rank fusion + reranker
-        |
-        v
-answer + validated citations + usage + tool trace
-```
-
-The LLM chooses tools from Pydantic-generated JSON schemas. The loop validates arguments,
-executes tools, feeds results back to the model, and stops when the model returns a final
-answer or `MAX_TOOL_HOPS` is reached. Retrieved documents are filtered against JWT roles and
-domains at query time. Citation markers invented by the model are removed from the answer
-and reported in `retrieval.hallucinated_citations`.
+In short: `/ask` runs a tool-calling loop — the model picks tools from generated JSON schemas,
+the loop runs them and feeds results back until the model answers or hits `MAX_TOOL_HOPS`,
+retrieval is filtered against the caller's JWT roles/domains, and invented citation markers are
+stripped. For the full design — request lifecycle, hybrid retrieval and RRF, citation
+validation, auth, and observability — see `documentation/developer/services/agent.qd`.
 
 ## Project Structure
 
@@ -196,9 +174,97 @@ tests/unit/               hermetic, fast behavior tests
 tests/integration/        Postgres/testcontainers integration tests
 ```
 
-To add an agent capability, implement and register a tool under `app/agent/tools/`.
-See [ADDING_TOOLS.md](ADDING_TOOLS.md) for the complete contract and checklist. For deeper
-system internals, see [ARCHITECTURE.md](ARCHITECTURE.md).
+To add an agent capability, implement and register a tool under `app/agent/tools/`. See
+`documentation/developer/contributing/adding-agent-tools.qd` for the complete contract and
+checklist, and `documentation/developer/services/agent.qd` for deeper system internals.
+
+## Evaluation
+
+`evals/dataset.json` is a **golden dataset**: "hand-written" questions, each paired with the
+behavior expected of the agent. `evals/run_evals.py` sends every row to the real `/ask` and
+grades the response. For the design rationale (why a golden dataset, deterministic vs.
+LLM-judge), see `documentation/developer/services/agent.qd`; this section is the operational
+reference. Evals need a running, already-ingested stack and make real provider calls.
+
+```bash
+just eval                                       # default model + default judge (report-only)
+just eval models="openai/gpt-4o-mini,google/gemini-2.5-flash"  # compare answer models end to end
+just eval judge="anthropic/claude-haiku-4-5"    # choose the judge model
+
+# direct invocation (from server/agent-service):
+uv run python evals/run_evals.py --role admin --domain unibo.it
+# remote/CI: minting is local-only, so pass a cookie explicitly:
+AGENT_URL=https://example.com/agent AUTH_COOKIE="authentication_token=<jwt>" \
+  uv run python evals/run_evals.py
+```
+
+For local URLs the runner mints a fresh short-lived JWT per request from `JWT_SECRET` (env or
+root `.env`); remote URLs require `AUTH_COOKIE`. `EVAL_TIMEOUT_SECONDS` raises the per-request
+timeout for slow sweeps.
+
+### Dataset fields
+
+Each row asserts only the fields it specifies, so a row checks exactly the behavior it cares
+about. All present assertions must hold (one passing check cannot mask another failure).
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Stable row id, e.g. `cv-doc-001` |
+| `category` | Curation aid: `docs_retrieval` · `live_data` · `conversational` · `out_of_scope` |
+| `question` | The prompt sent to `/ask` |
+| `expected_tool` | Tool that must appear in the tool-call trace |
+| `expected_no_tool` | If true, the agent must answer without calling any tool |
+| `expected_sources` | Repo-relative doc path(s); ≥1 citation source must match (substring) |
+| `must_cite` | If true, the answer must include at least one citation |
+| `expected_keywords` | Lowercase substrings that must all appear in the answer |
+| `expected_idk` | If true, the response `idk` flag must be true (unknown in-scope answer) |
+| `llm_judge` | Semantic rubric to apply, currently `out_of_scope_refusal` |
+| `key_facts` / `ideal_answer` | Human reference, not auto-scored |
+| `xfail` (+ `xfail_reason`) | Marks an accepted, tracked gap; the reason is required |
+
+Keep `expected_keywords` to 1–2 robust tokens (avoid flaky phrasing failures); put the fuller
+expectation in `key_facts`/`ideal_answer`. Use `llm_judge` only where deterministic checks
+can't capture the behavior; keep tool, source, citation, and keyword checks deterministic. When
+a user reports a wrong answer, add a row **before** fixing it.
+
+### Scope contract
+
+Unknown *in-scope* questions return the IDK marker (`I don't know based on the available
+data.`). *Out-of-scope* questions must decline or redirect to CrowdVision's scope without
+fulfilling the request and without calling a tool — measured by the `out_of_scope_refusal`
+judge plus deterministic `expected_no_tool`. Greetings are in scope and answered directly.
+
+### Statuses and exit code
+
+A dataset row marked `xfail` is a **known, accepted gap** that must carry an `xfail_reason`.
+The runner classifies every row into one of four statuses, mirroring pytest's expected-failure
+model:
+
+| Status | Meaning | Fails the run? |
+| --- | --- | --- |
+| `PASS` | a normal row met its assertions | no |
+| `FAIL` | a normal row failed, or any row hit an infra error (timeout, non-200, bad JSON) | **yes** |
+| `XFAIL` | an `xfail` row failed — exactly what its `xfail_reason` predicts | no |
+| `XPASS` | an `xfail` row unexpectedly **passed** — the gap is fixed, so its marker is now stale | only with `--strict` |
+
+The pairing is the useful part: an accepted gap (`XFAIL`) keeps the build green while staying
+counted on every run, and a fixed gap (`XPASS`) nudges you to delete its now-stale marker.
+Direct runner invocations exit non-zero on `FAIL`; `just eval` is report-only for scored
+results (so `FAIL`/`XPASS` stay visible without failing the recipe), but setup and preflight
+errors still fail. Infra errors always report `FAIL`, even on an `xfail` row, so an outage can
+never masquerade as an accepted gap.
+
+### Judge configuration
+
+The semantic judge is configured independently of the answer model: `JUDGE_MODEL` (default
+`google/gemini-2.5-flash`), with `JUDGE_API_KEY` and `JUDGE_BASE_URL` falling back to the normal
+LLM/OpenRouter settings. The default is a *different* model family from the answer model to
+reduce self-preference bias. Judge request or parsing errors always report `FAIL`, including on
+an `xfail` row.
+
+> **Model sweeps are privileged.** A per-request `model` override spends the shared provider
+> balance, so the eval JWT must hold a role at/above `MODEL_OVERRIDE_MIN_ROLE` (else `403`) and,
+> when `ALLOWED_MODELS` is non-empty, the model must be listed (else `400`).
 
 ## Configuration
 

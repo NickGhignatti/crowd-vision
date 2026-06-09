@@ -1,0 +1,72 @@
+.docname {Using the Assistant}
+.include {docs}
+
+The CrowdVision Assistant is a chat helper tucked into the corner of the app. Ask it questions
+in plain language about your buildings, your rooms, current occupancy, or how CrowdVision
+works, and it answers using your live data and the product documentation.
+
+---
+
+## Starting a chat
+
+Open the chat widget from its button in the corner of the screen, type your question, and send
+it. You must be logged in to send messages or access saved conversations. The assistant replies
+in the same window.
+
+Your conversations are saved, so you can:
+
+- Come back later and pick up where you left off.
+- Rename a conversation to find it again.
+- Delete a conversation you no longer need.
+- Start a new chat for a separate topic.
+
+A new conversation is automatically named after your first question, so your history stays easy
+to scan.
+
+---
+
+## What you can ask
+
+.var {headers}
+   - Ask about
+   - Example
+
+.tablebyrows {.headers}
+    - - Live building and room state
+      - "Which rooms are the most crowded right now?"
+    - - Occupancy versus capacity
+      - "How full is the main hall compared to its capacity?"
+    - - How the platform works
+      - "How do I add a column to the dashboard table?"
+    - - Concepts and features
+      - "What's the difference between a domain admin and staff?"
+
+When the answer comes from the documentation, the assistant includes the sources it used, so
+you can check where the information came from.
+
+---
+
+## What it will not answer
+
+The assistant is focused **only** on CrowdVision. If you ask it something outside that — general
+knowledge, maths, coding help, translation, or other unrelated requests — it should politely say
+it can only help with CrowdVision rather than answer. This is deliberate: it is an assistant for
+your buildings and the platform, not a general-purpose chatbot.
+
+Two more things to expect:
+
+- **It only sees what you can see.** The assistant answers using the same buildings, rooms, and
+  documents your account already has access to. It cannot reveal data from other organizations.
+- **It should say when it doesn't know.** If it can't find an answer in the available data, it
+  is instructed to say so instead of guessing. Verify important answers against the displayed
+  sources and live dashboard data.
+
+---
+
+## Tips for better answers
+
+- Be specific: name the building or room when you can.
+- Ask one thing at a time for the clearest reply.
+- If an answer looks off, rephrase — and use the cited sources to dig deeper.
+
+For the data behind these answers, see the [Dashboard](dashboard.qd).
