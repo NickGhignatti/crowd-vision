@@ -48,6 +48,7 @@ def test_settings_construction_does_not_require_runtime_secrets(monkeypatch):
     settings = Settings()
     assert settings.jwt_secret == ""
     assert settings.llm_api_key == ""
+    assert settings.observe_payloads is False
 
 
 def test_startup_rejects_missing_runtime_secrets(monkeypatch):

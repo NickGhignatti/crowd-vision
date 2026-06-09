@@ -224,6 +224,7 @@ system internals, see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `MAX_TOOL_HOPS` | `6` | Maximum agent loop iterations |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | OTLP trace destination; console spans if empty |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` / `OTEL_EXPORTER_OTLP_HEADERS` | empty | OTLP transport and authentication |
+| `OBSERVE_PAYLOADS` | `false` | Include bounded query, document-preview, and tool I/O payloads in traces; development Compose defaults to `true` |
 | `LOG_LEVEL` / `LOG_FORMAT` | `INFO` / `auto` | Logging controls; `auto` uses console without OTLP and JSON with OTLP |
 
 The complete source of truth is [app/config.py](app/config.py). With the full stack running,

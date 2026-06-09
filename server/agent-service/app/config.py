@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     # Endpoint + auth headers are read from the standard OTEL_EXPORTER_OTLP_* env
     # vars by the exporter itself.
     otel_protocol: str = Field(default="", alias="OTEL_EXPORTER_OTLP_PROTOCOL")
+    observe_payloads: bool = Field(default=False, alias="OBSERVE_PAYLOADS")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     # auto = pretty console when no OTLP endpoint (dev), JSON otherwise (prod).
     # Force with "console" or "json".
