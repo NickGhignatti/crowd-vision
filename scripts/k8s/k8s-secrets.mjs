@@ -104,6 +104,13 @@ applySecret('authentication-service-secret', {
   MONGO_URI: 'mongodb://auth-db:27017/authdb',
 })
 
+applySecret('chat-service-secret', {
+  // chat-service verifies the same user JWTs as auth/agent — shared secret.
+  JWT_SECRET: need('JWT_SECRET'),
+  // MongoDB has no password — internal cluster only
+  MONGO_URI: 'mongodb://chat-db:27017/chatdb',
+})
+
 applySecret('twin-service-secret', {
   MONGO_URI: 'mongodb://twin-db:27017/twindb',
 })

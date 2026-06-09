@@ -113,6 +113,13 @@ components:
               type: null
           title: Model
           description: "Override the chat model for this request (an OpenRouter model id, e.g. 'google/gemini-2.5-flash'). Defaults to the server's ANSWER_MODEL. Embeddings/retrieval are unaffected \u2014 for A/B evaluating generators. **Privileged:** requires the MODEL_OVERRIDE_MIN_ROLE role (default business_admin) and, when configured, the model must be in ALLOWED_MODELS."
+        history:
+          items:
+            $ref: "#/components/schemas/ChatTurn"
+          type: array
+          maxItems: 20
+          title: History
+          description: Previous user and assistant messages, ordered oldest to newest.
       type: object
       required:
         - question
@@ -156,6 +163,24 @@ components:
         - idk
         - decision
       title: AskResponse
+    ChatTurn:
+      properties:
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+          title: Role
+        content:
+          type: string
+          maxLength: 8000
+          minLength: 1
+          title: Content
+      type: object
+      required:
+        - role
+        - content
+      title: ChatTurn
     CitationModel:
       properties:
         chunk_id:

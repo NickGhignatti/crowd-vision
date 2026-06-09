@@ -32,6 +32,8 @@ jobs:
         include:
           - context: ./server/auth-service
             image: crowdvision-auth
+          - context: ./server/chat-service
+            image: crowdvision-chat
           - context: ./server/twin-service
             image: crowdvision-twin
           - context: ./server/notification-service

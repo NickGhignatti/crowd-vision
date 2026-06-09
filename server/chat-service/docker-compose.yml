@@ -1,0 +1,19 @@
+services:
+  chat-service:
+    build:
+      context: .
+    environment:
+      - MONGO_URI=mongodb://chat-db:27017/chatdb
+      - JWT_SECRET=${JWT_SECRET}
+      - AGENT_BASE_URL=http://agent-service:3000
+      - HISTORY_MAX_MESSAGES=10
+    depends_on:
+      - chat-db
+
+  chat-db:
+    image: mongo:latest
+    volumes:
+      - chat-data:/data/db
+
+volumes:
+  chat-data:

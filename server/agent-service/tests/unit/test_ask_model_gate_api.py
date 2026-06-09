@@ -37,8 +37,9 @@ def agent_calls(monkeypatch):
     `llm` it was called with so we can assert the override was wired through."""
     calls: dict = {}
 
-    async def _answer(session, question, user, llm=None):
+    async def _answer(session, question, user, llm=None, history=None):
         calls["llm"] = llm
+        calls["history"] = history
         return AnswerResult(answer="ok", citations=[], retrieved=[], usage=Usage(1, 1, 0.0))
 
     monkeypatch.setattr(ask_route._agent, "answer", _answer)

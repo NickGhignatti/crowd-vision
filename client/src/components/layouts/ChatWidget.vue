@@ -1,52 +1,54 @@
 <script setup lang="ts">
 import { ref, nextTick, computed, watch } from 'vue'
-import { makeRequest } from '@/composables/core/useApi.ts'
 import { useAuth } from '@/composables/auth/useAuth.ts'
-
-interface Citation {
-  chunk_id: string
-  document_id: string
-  source: string
-  section_path?: string | null
-}
-
-interface ChatMessage {
-  id: number
-  role: 'user' | 'assistant'
-  text: string
-  pending?: boolean
-  citations?: Citation[]
-}
+import { renderMarkdown } from '@/composables/core/useMarkdown.ts'
+import { useChatSessions } from '@/composables/chat/useChatSessions.ts'
+import type { ChatCitation } from '@/interfaces/chat.ts'
 
 const CITATION_RE = /\s*\[\^[0-9a-fA-F-]{8,}\]/g
 const stripCitations = (s: string) => s.replace(CITATION_RE, '')
 
-const uniqueSources = (cits: Citation[] | undefined) => {
+const renderAssistant = (s: string) => renderMarkdown(stripCitations(s))
+
+// Show the full doc path without its file extension, e.g.
+// "docs/platform/occupancy.md" -> "docs/platform/occupancy".
+const sourceLabel = (source: string) => source.replace(/\.[^./\\]+$/, '')
+
+const uniqueSources = (cits: ChatCitation[] | undefined) => {
   if (!cits?.length) return []
   const seen = new Set<string>()
-  const out: { source: string; section?: string | null }[] = []
+  const out: { source: string; label: string; section?: string | null }[] = []
   for (const c of cits) {
     const key = `${c.source}::${c.section_path ?? ''}`
     if (seen.has(key)) continue
     seen.add(key)
-    out.push({ source: c.source, section: c.section_path })
+    out.push({ source: c.source, label: sourceLabel(c.source), section: c.section_path })
   }
   return out
 }
 
 const { isLoggedIn } = useAuth()
+const sessions = useChatSessions()
 
 const isOpen = ref(false)
 const input = ref('')
-const messages = ref<ChatMessage[]>([])
-const sending = ref(false)
+const pendingQuestion = ref('')
 const scrollEl = ref<HTMLElement | null>(null)
-let nextId = 1
+const messages = computed(() => sessions.activeConversation.value?.messages ?? [])
 
-const canSend = computed(() => input.value.trim().length > 0 && !sending.value)
+const canSend = computed(
+  () => input.value.trim().length > 0 && !sessions.sending.value && !!sessions.activeConversation.value,
+)
 
-const toggle = () => {
+const initializeChats = async () => {
+  if (!isLoggedIn.value || sessions.conversations.value.length > 0) return
+  await sessions.loadConversations()
+  if (sessions.conversations.value.length === 0) await sessions.createConversation()
+}
+
+const toggle = async () => {
   isOpen.value = !isOpen.value
+  if (isOpen.value) await initializeChats()
 }
 
 const scrollToBottom = async () => {
@@ -60,81 +62,30 @@ watch(messages, scrollToBottom, { deep: true })
 watch(isOpen, (v) => {
   if (v) scrollToBottom()
 })
+watch(isLoggedIn, (loggedIn) => {
+  if (!loggedIn) sessions.clear()
+  else if (isOpen.value) initializeChats()
+})
 
 const send = async () => {
   if (!canSend.value) return
   const question = input.value.trim()
   input.value = ''
+  pendingQuestion.value = question
+  await sessions.sendMessage(question)
+  pendingQuestion.value = ''
+}
 
-  messages.value.push({ id: nextId++, role: 'user', text: question })
-  const assistantMsg: ChatMessage = { id: nextId++, role: 'assistant', text: '', pending: true }
-  messages.value.push(assistantMsg)
-  sending.value = true
+const renameChat = async () => {
+  const conversation = sessions.activeConversation.value
+  if (!conversation) return
+  const title = window.prompt('Rename chat', conversation.title)?.trim()
+  if (title) await sessions.renameConversation(title)
+}
 
-  try {
-    const res = await makeRequest('/agent/ask', 'POST', {
-      headers: { Accept: 'text/event-stream' },
-      body: JSON.stringify({ question, stream: true }),
-    })
-
-    if (!res.ok || !res.body) {
-      assistantMsg.text =
-        res.status === 401
-          ? 'Please log in to chat with the agent.'
-          : `Request failed (${res.status}).`
-      assistantMsg.pending = false
-      return
-    }
-
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      let sep
-      while ((sep = buffer.indexOf('\n\n')) !== -1) {
-        const raw = buffer.slice(0, sep)
-        buffer = buffer.slice(sep + 2)
-
-        const dataLine = raw
-          .split('\n')
-          .filter((l) => l.startsWith('data:'))
-          .map((l) => l.slice(5).trimStart())
-          .join('\n')
-        if (!dataLine) continue
-
-        try {
-          const evt = JSON.parse(dataLine)
-          if (evt.type === 'token' && typeof evt.text === 'string') {
-            assistantMsg.text += evt.text
-            assistantMsg.pending = false
-          } else if (evt.type === 'done') {
-            assistantMsg.pending = false
-            if (Array.isArray(evt.citations) && evt.citations.length) {
-              assistantMsg.citations = evt.citations as Citation[]
-            }
-          } else if (evt.type === 'error') {
-            assistantMsg.text = evt.message || 'Something went wrong.'
-            assistantMsg.pending = false
-          }
-        } catch {
-          /* ignore malformed event */
-        }
-      }
-    }
-    assistantMsg.pending = false
-    if (!assistantMsg.text) assistantMsg.text = "I don't have an answer for that."
-  } catch (err) {
-    console.error('[ChatWidget] request failed', err)
-    const detail = err instanceof Error ? err.message : String(err)
-    assistantMsg.text = `Network error: ${detail}. Is agent-service running?`
-    assistantMsg.pending = false
-  } finally {
-    sending.value = false
+const deleteChat = async () => {
+  if (sessions.activeConversation.value && window.confirm('Delete this chat permanently?')) {
+    await sessions.deleteConversation()
   }
 }
 
@@ -172,7 +123,7 @@ const onKeydown = (e: KeyboardEvent) => {
             </div>
             <div class="leading-tight">
               <div class="font-semibold text-sm">CrowdVision Agent</div>
-              <div class="text-xs text-emerald-50/90">Ask anything about your twin</div>
+              <div class="text-xs text-emerald-50/90">Saved conversations</div>
             </div>
           </div>
           <button
@@ -181,6 +132,33 @@ const onKeydown = (e: KeyboardEvent) => {
             aria-label="Close chat"
           >
             <i class="ph-bold ph-x text-base"></i>
+          </button>
+        </div>
+
+        <div v-if="isLoggedIn" class="flex items-center gap-1.5 border-b border-slate-200 bg-white px-3 py-2">
+          <select
+            :value="sessions.activeConversation.value?._id"
+            :disabled="sessions.loading.value || sessions.sending.value"
+            class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+            aria-label="Conversation"
+            @change="sessions.openConversation(($event.target as HTMLSelectElement).value)"
+          >
+            <option
+              v-for="conversation in sessions.conversations.value"
+              :key="conversation._id"
+              :value="conversation._id"
+            >
+              {{ conversation.title }}
+            </option>
+          </select>
+          <button class="chat-action" aria-label="New chat" @click="sessions.createConversation">
+            <i class="ph-bold ph-plus"></i>
+          </button>
+          <button class="chat-action" aria-label="Rename chat" @click="renameChat">
+            <i class="ph-bold ph-pencil-simple"></i>
+          </button>
+          <button class="chat-action text-rose-500" aria-label="Delete chat" @click="deleteChat">
+            <i class="ph-bold ph-trash"></i>
           </button>
         </div>
 
@@ -203,44 +181,66 @@ const onKeydown = (e: KeyboardEvent) => {
 
           <div
             v-for="msg in messages"
-            :key="msg.id"
+            :key="msg._id ?? `${msg.role}-${msg.createdAt}`"
             class="flex flex-col"
             :class="msg.role === 'user' ? 'items-end' : 'items-start'"
           >
             <div
-              class="max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words shadow-sm"
+              class="max-w-[85%] rounded-2xl px-3.5 py-2 text-sm break-words shadow-sm"
               :class="
                 msg.role === 'user'
-                  ? 'bg-emerald-600 text-white rounded-br-md'
+                  ? 'bg-emerald-600 text-white rounded-br-md whitespace-pre-wrap'
                   : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md'
               "
             >
-              <span v-if="msg.text">{{
-                msg.role === 'assistant' ? stripCitations(msg.text) : msg.text
-              }}</span>
-              <span v-if="msg.pending" class="inline-flex gap-1 items-center align-middle">
+              <template v-if="msg.role === 'user'">{{ msg.content }}</template>
+              <div
+                v-else-if="msg.content"
+                class="chat-markdown"
+                v-html="renderAssistant(msg.content)"
+              ></div>
+            </div>
+
+            <div
+              v-if="msg.role === 'assistant' && msg.citations?.length"
+              class="mt-1.5 max-w-[85%] px-1"
+            >
+              <div class="flex items-center gap-1 text-[11px] font-medium text-slate-400 mb-1">
+                <i class="ph-bold ph-books text-xs"></i>
+                <span>Sources</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span
+                  v-for="(s, idx) in uniqueSources(msg.citations)"
+                  :key="s.source + idx"
+                  class="inline-flex items-start gap-1 self-start rounded-lg bg-emerald-50 border border-emerald-100 px-2 py-1 text-[11px] leading-snug text-emerald-700"
+                >
+                  <i class="ph-bold ph-file-text text-[11px] mt-0.5 shrink-0 text-emerald-500"></i>
+                  <span class="break-words">
+                    <span class="font-medium">{{ s.label }}</span>
+                    <span v-if="s.section" class="text-emerald-500/70"> · {{ s.section }}</span>
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="pendingQuestion" class="flex flex-col items-end">
+            <div class="max-w-[85%] rounded-2xl rounded-br-md bg-emerald-600 px-3.5 py-2 text-sm text-white shadow-sm">
+              {{ pendingQuestion }}
+            </div>
+            <div class="mt-3 self-start rounded-2xl rounded-bl-md border border-slate-200 bg-white px-3.5 py-2 shadow-sm">
+              <span class="inline-flex gap-1 items-center align-middle">
                 <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0ms" />
                 <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 120ms" />
                 <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 240ms" />
               </span>
             </div>
-
-            <div
-              v-if="msg.role === 'assistant' && msg.citations?.length"
-              class="mt-1 max-w-[80%] text-[11px] text-slate-500 px-1"
-            >
-              <span class="font-medium text-slate-600">Sources:</span>
-              <span
-                v-for="(s, idx) in uniqueSources(msg.citations)"
-                :key="s.source + idx"
-                class="ml-1"
-              >
-                <span class="text-slate-700">{{ s.source }}</span>
-                <span v-if="s.section" class="text-slate-400"> · {{ s.section }}</span>
-                <span v-if="idx < uniqueSources(msg.citations).length - 1">,</span>
-              </span>
-            </div>
           </div>
+
+          <p v-if="sessions.error.value" class="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600">
+            {{ sessions.error.value }}
+          </p>
         </div>
 
         <!-- Input -->
@@ -255,7 +255,7 @@ const onKeydown = (e: KeyboardEvent) => {
             :placeholder="
               isLoggedIn ? 'Type your question…' : 'Log in to chat with the agent…'
             "
-            :disabled="!isLoggedIn || sending"
+            :disabled="!isLoggedIn || sessions.sending.value"
             class="flex-1 resize-none max-h-32 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 disabled:opacity-60"
           />
           <button
@@ -264,7 +264,7 @@ const onKeydown = (e: KeyboardEvent) => {
             class="shrink-0 w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:translate-y-0 disabled:shadow-none"
             aria-label="Send"
           >
-            <i v-if="!sending" class="ph-bold ph-paper-plane-tilt text-lg"></i>
+            <i v-if="!sessions.sending.value" class="ph-bold ph-paper-plane-tilt text-lg"></i>
             <i v-else class="ph-bold ph-circle-notch text-lg animate-spin"></i>
           </button>
         </form>
@@ -288,3 +288,139 @@ const onKeydown = (e: KeyboardEvent) => {
     </button>
   </div>
 </template>
+
+<style scoped>
+.chat-action {
+  display: inline-flex;
+  height: 1.8rem;
+  width: 1.8rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: #64748b;
+}
+
+.chat-action:hover {
+  background: #f1f5f9;
+  color: #059669;
+}
+
+/* Styling for sanitized markdown rendered via v-html (not scoped by default,
+   so target it through :deep). Tuned for the compact chat bubble. */
+.chat-markdown {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.chat-markdown :deep(p) {
+  margin: 0;
+}
+.chat-markdown :deep(p + p),
+.chat-markdown :deep(p + ul),
+.chat-markdown :deep(p + ol),
+.chat-markdown :deep(ul + p),
+.chat-markdown :deep(ol + p) {
+  margin-top: 0.5rem;
+}
+
+.chat-markdown :deep(ul),
+.chat-markdown :deep(ol) {
+  margin: 0.25rem 0;
+  padding-left: 1.15rem;
+}
+.chat-markdown :deep(ul) {
+  list-style: disc;
+}
+.chat-markdown :deep(ol) {
+  list-style: decimal;
+}
+.chat-markdown :deep(li) {
+  margin: 0.15rem 0;
+}
+.chat-markdown :deep(li::marker) {
+  color: #94a3b8;
+}
+
+.chat-markdown :deep(h1),
+.chat-markdown :deep(h2),
+.chat-markdown :deep(h3),
+.chat-markdown :deep(h4) {
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0.5rem 0 0.25rem;
+}
+.chat-markdown :deep(h1) {
+  font-size: 1.05rem;
+}
+.chat-markdown :deep(h2) {
+  font-size: 1rem;
+}
+.chat-markdown :deep(h3),
+.chat-markdown :deep(h4) {
+  font-size: 0.9rem;
+}
+
+.chat-markdown :deep(a) {
+  color: #059669;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-markdown :deep(strong) {
+  font-weight: 600;
+}
+
+.chat-markdown :deep(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: #f1f5f9;
+  color: #0f172a;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3rem;
+}
+
+.chat-markdown :deep(pre) {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.75rem;
+  background: #0f172a;
+  border-radius: 0.6rem;
+  overflow-x: auto;
+}
+.chat-markdown :deep(pre code) {
+  background: transparent;
+  color: #e2e8f0;
+  padding: 0;
+  font-size: 0.8rem;
+}
+
+.chat-markdown :deep(blockquote) {
+  margin: 0.4rem 0;
+  padding-left: 0.6rem;
+  border-left: 3px solid #d1fae5;
+  color: #475569;
+}
+
+.chat-markdown :deep(hr) {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 0.6rem 0;
+}
+
+.chat-markdown :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+}
+.chat-markdown :deep(th),
+.chat-markdown :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 0.25rem 0.45rem;
+  text-align: left;
+}
+.chat-markdown :deep(th) {
+  background: #f8fafc;
+  font-weight: 600;
+}
+</style>
