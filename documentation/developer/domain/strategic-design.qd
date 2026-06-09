@@ -1,0 +1,159 @@
+.docname {Strategic Design}
+.include {docs}
+
+CrowdVision is modelled with a **Domain-Driven Design (DDD)** mindset. We approached the system not as one monolithic model but as a set of collaborating models, each owned by a context and each speaking its own dialect of a shared **Ubiquitous Language**. This page captures the *strategic* design decisions taken up front — the subdomains, the bounded contexts, and the relationships between them. The *tactical* model (aggregates, entities, value objects, domain services) is described per context on the following pages.
+
+.box {A pragmatic stance} type:{note}
+    We treat DDD as a **design compass, not a rulebook**. The strategic boundaries below are the part of the design we were most confident in. The tactical model is applied where it earns its keep, and some boundaries were left intentionally soft because the product ideas were still maturing when this design was written. The per-context pages flag where a decision is provisional or expected to evolve.
+
+---
+
+## Domain and Subdomains
+
+The overall domain is **real-time monitoring of physical spaces through a digital twin**. We classify the subdomains by how much competitive value they carry, which in turn drives how much modelling effort each is given.
+
+.var {headers}
+   - Subdomain
+   - Type
+   - Realised by
+   - Rationale
+
+.tablebyrows {.headers}
+    - - Spatial Digital Twin
+      - Core
+      - twin-service
+      - The 3D building model is the product's differentiator and receives the richest model.
+    - - Telemetry Ingestion & Thresholds
+      - Core
+      - sensor-service
+      - Turning raw sensor signals into meaningful, bounded readings is central business logic.
+    - - Telemetry Distribution
+      - Core
+      - contracts-service
+      - Per-building stream shaping is what makes the live view feel tailored.
+    - - Identity & Access
+      - Supporting
+      - auth-service
+      - Multi-tenant access control is essential but not a differentiator.
+    - - Alerting
+      - Supporting
+      - notification-service
+      - Push alerting supports the core experience without defining it.
+    - - Knowledge & Assistance
+      - Supporting
+      - agent-service
+      - The assistant augments the product; it is explicitly experimental.
+    - - Real-Time Transport
+      - Generic
+      - socket-service
+      - A commodity relay with no domain model of its own.
+
+---
+
+## Bounded Contexts
+
+A guiding decision is that each core and supporting subdomain becomes exactly one **bounded context**, and each context is meant to stand on its own — its own model, its own storage, its own boundary. We chose this alignment so that a model can never quietly leak into another context through shared data: a context boundary is also intended to be a deployment and storage boundary.
+
+.mermaid
+    graph TB
+        subgraph IA["Identity and Access Context"]
+            ACC["Account / Domain"]
+        end
+        subgraph BM["Building Management Context"]
+            BLD["Building / Room"]
+        end
+        subgraph TI["Telemetry Ingestion Context"]
+            SIG["Signals / Thresholds"]
+        end
+        subgraph TD["Telemetry Distribution Context"]
+            PRF["Building Preferences"]
+        end
+        subgraph AL["Alerting Context"]
+            SUB["Delivery / Preferences"]
+        end
+        subgraph KA["Knowledge and Assistance Context"]
+            DOC["Documents / Chunks"]
+        end
+
+        IA -.->|"identity claims"| BM
+        IA -.->|"identity claims"| AL
+        IA -.->|"identity claims"| KA
+        BM -->|"structural metrics"| TD
+        BM -->|"threshold baseline"| TI
+        BM -->|"domain resolution"| AL
+        TI -->|"readings"| TD
+        TI -->|"metric catalog"| TD
+        BM -->|"live building data"| KA
+
+The Real-Time Transport context is omitted from the map: it is meant to carry messages between contexts but to hold no model and enforce no rules.
+
+---
+
+## Context Map
+
+We describe the relationships between contexts with the standard DDD integration patterns. They tell a contributor *who depends on whom* and *which side dictates the contract*. The interactions are stated conceptually; concrete endpoints belong to the implementation.
+
+.var {headers}
+   - Upstream → Downstream
+   - Pattern
+   - Integration
+
+.tablebyrows {.headers}
+    - - Identity → all other contexts
+      - Published Language
+      - The signed identity token (memberships, roles, domains) is the published language every context conforms to. Downstream contexts are **Conformists**: they read the token but never reshape it.
+    - - Building Management → Telemetry Ingestion
+      - Customer / Supplier
+      - When a Building is created, Building Management supplies a threshold baseline. It is the customer driving the contract.
+    - - Building Management → Telemetry Distribution
+      - Customer / Supplier
+      - Building Management supplies default display preferences and contributes the structural metrics it owns to the catalog.
+    - - Telemetry Ingestion → Telemetry Distribution
+      - Open Host Service + Published Language
+      - Telemetry Ingestion describes its metrics in a stable, self-describing form. Distribution gathers those descriptions, so new metrics appear downstream without a coordinated change.
+    - - Building Management → Alerting
+      - Customer / Supplier (Anti-Corruption)
+      - Alerting asks Building Management which domains a building belongs to, and translates the answer into its own terms.
+    - - Building Management → Knowledge & Assistance
+      - Anti-Corruption Layer
+      - The assistant reaches live building data only through a thin read-only layer, keeping the Building model out of the assistant's domain.
+
+---
+
+## The Shared Identifier Convention
+
+Across the platform, we decided that a **Domain is referenced by its name**, never by an internal database identifier. This is the closest thing the design has to a Shared Kernel, and it is deliberately minimal: a single, stable, human-readable string rather than shared code.
+
+.mermaid
+    erDiagram
+        ACCOUNT ||--o{ MEMBERSHIP : holds
+        MEMBERSHIP }o--|| DOMAIN_NAME : "references by name"
+        BUILDING }o--o{ DOMAIN_NAME : "scoped by name"
+        PREFERENCE }o--|| DOMAIN_NAME : "scoped by name"
+
+Because the domain name travels inside the identity token and is recorded by each context, the intent is that multi-tenant isolation can be enforced symmetrically — each context answers "may this caller see this data?" from data it already holds, without consulting another context.
+
+---
+
+## Tactical Patterns at a Glance
+
+The building blocks below recur throughout the per-context pages. The table states what each means *in our model* — not how any one service ends up implementing it.
+
+.var {headers}
+   - DDD Building Block
+   - How it appears in our model
+
+.tablebyrows {.headers}
+    - - Aggregate Root
+      - A top-level concept that owns a consistency boundary, e.g. Account, Building, BuildingThreshold.
+    - - Entity
+      - Something with identity that lives inside an aggregate, e.g. Room within Building.
+    - - Value Object
+      - An immutable, identity-less descriptor, e.g. Coordinates, Dimensions, a per-type preference.
+    - - Domain Service
+      - Behaviour that does not belong to a single entity, e.g. issuing the identity token, or deciding whether a reading is acceptable.
+    - - Domain Event
+      - Something noteworthy that happened, broadcast for other contexts to react to, e.g. a new reading or an alert.
+
+.box {Where the model is deliberately light} type:{tip}
+    Some aggregates are intentionally thin at this stage — they describe data and a few rules rather than rich behaviour. This was a conscious trade-off while the contexts were still settling, and the per-context pages note where we expect behaviour to grow onto the aggregate as the design firms up.

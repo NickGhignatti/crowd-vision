@@ -1,51 +1,63 @@
-.docname {Dashboard: Digital Twin Overview}
+.docname {Dashboard}
 .include {docs}
 
-The Dashboard serves as your central hub for real-time monitoring and analytics. By default, it opens to the **List (Table) View**, providing a quick, scannable overview of your spaces.
+The Dashboard is your central hub for real-time monitoring. It opens to the **Table view**, a scannable overview of every monitored room in the selected building.
+
+![The dashboard table view](../assets/figures/dashboard-table.png)
+
+*Figure 1 — The dashboard table view. Each row is a room; columns update live as sensors report.*
 
 ---
 
-## The Default Table View
+## The table view
 
-The default table displays live data for all monitored rooms within your currently selected building. It is designed to give administrators a comprehensive overview at a glance.
-
-The columns shown depend on the saved configuration for that building. By default, a newly registered building starts with the room name and capacity columns. As an administrator you can add any sensor metric as a column, remove columns you don't need, change their order, and save the layout so it persists across sessions. See [Customizing the Data Table](./building-table.qd) for a complete guide.
+Each row is one room in the current building, and each column is a property or live measurement. A newly registered building starts with the room name and capacity columns; you can add, remove, reorder, and save columns. See [Customizing the Data Table](building-table.qd) for the full guide.
 
 ---
 
-## 🚦 Occupancy Status Indicators
+## Occupancy status
 
-CrowdVision automatically calculates an occupancy status based on the percentage of the room's capacity that is currently filled.
+CrowdVision derives an occupancy status from how full a room is relative to its capacity.
 
-* 🟢 **Empty** — 0% occupancy.
-* 🔵 **Normal** — 1% to 50% occupancy.
-* 🟠 **Crowded** — 51% to 95% occupancy.
-* 🔴 **Full** — 96% to 100% occupancy.
-* 🚨 **Overcrowded** — over 100% occupancy. Requires immediate attention.
+.var {headers}
+   - Status
+   - Occupancy
 
----
-
-## Building Selection
-
-If your organization manages multiple buildings or facilities across different domains, you can easily navigate between them.
-* Locate the **Model Selection Dropdown** at the top of the Dashboard interface.
-* Click to open the list of available buildings you have access to.
-* Selecting a new building will instantly refresh the table to display the rooms and live sensor data for that specific location.
-
----
-
-## Switching Views
-
-While the table is perfect for detailed, row-by-row data, CrowdVision also offers visual analytics.
-* At the top of the dashboard, you will find a toggle switch featuring **List** and **Graph** buttons.
-* Click the **Graph** button to seamlessly transition from the default table to the visual sensor dashboard.
-* To return to the data table at any time, simply click the **List** button.
+.tablebyrows {.headers}
+    - - Empty
+      - 0%
+    - - Normal
+      - 1% to 50%
+    - - Crowded
+      - 51% to 95%
+    - - Full
+      - 96% to 100%
+    - - Overcrowded
+      - over 100% — needs immediate attention
 
 ---
 
-## Fullscreen Mode (Focus Mode)
+## Choosing a building
 
-For control rooms, reception desks, or presentations, the Dashboard includes a built-in **Focus Mode**.
-* Click the **Fullscreen** button located on the dashboard interface.
-* This will expand the current view (whether Table or Graph) to fill your entire screen, hiding your browser's UI and the application's navigation bars. This provides a clean, distraction-free display that is perfect for dedicated monitoring monitors.
-* To exit Focus Mode, simply click the fullscreen toggle again or press the `Esc` key on your keyboard.
+If you manage several buildings, switch between them from the selector at the top of the dashboard.
+
+1. Open the **building selector** dropdown at the top of the view.
+2. Pick a building you have access to.
+3. The table refreshes instantly with that building's rooms and live data.
+
+![The building selector dropdown](../assets/figures/building-selector.png)
+
+*Figure 2 — The building selector lists every building your account can access.*
+
+---
+
+## Switching views and Focus Mode
+
+A toggle at the top of the dashboard switches between **List** (the table) and **Graph** (the charts — see [Charts & Simulator](sensors.qd)). A **Fullscreen** control expands the current view into a clean, distraction-free display for wall monitors.
+
+![The List / Graph toggle and the Fullscreen control](../assets/figures/view-toggle.png)
+
+*Figure 3 — Switch between List and Graph, or enter Fullscreen (Focus Mode).*
+
+- Click **Graph** to see visual analytics; click **List** to return to the table.
+- Click **Fullscreen** to fill the screen; press `Esc` or click the control again to exit.

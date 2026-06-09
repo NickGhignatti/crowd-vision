@@ -63,8 +63,9 @@ To ensure high throughput and low latency, the system utilizes a unidirectional 
 
 The raw telemetry payload is a flat JSON object with a `type` discriminator field:
 
-.code lang:{json}
-    { "type": "temperature", "buildingId": "alpha", "roomId": "r1", "timestamp": 1718000000, "value": 22.4 }
+```json
+{ "type": "temperature", "buildingId": "alpha", "roomId": "r1", "timestamp": 1718000000, "value": 22.4 }
+```
 
 The Contracts Service checks whether `payload["type"]` is in the building's `allowed_columns` list. If it is, the **entire payload is forwarded unchanged**. This approach:
 

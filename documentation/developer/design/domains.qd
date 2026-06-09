@@ -9,15 +9,16 @@ A "Domain" represents a distinct organization, campus, or physical environment. 
 
 The `Domain` model is managed by the Auth Service. It dictates not just the existence of an organization, but the rules for how users can join and authenticate against it.
 
-.code lang:{typescript}
-    export interface IDomain extends Document {
-        name: string;
-        subdomains: Types.ObjectId[];
-        authStrategy: "internal" | "oidc";
-        totpSecrets: IDomainTOTPSecrets;
-        ssoConfig?: ISSOConfig;
-        isVisibleFromOutside?: boolean;
-    }
+```typescript
+export interface IDomain extends Document {
+    name: string;
+    subdomains: Types.ObjectId[];
+    authStrategy: "internal" | "oidc";
+    totpSecrets: IDomainTOTPSecrets;
+    ssoConfig?: ISSOConfig;
+    isVisibleFromOutside?: boolean;
+}
+```
 
 Key Field Breakdown:
 - *name*: The unique, human-readable identifier for the organization (e.g., `university.edu`). This string — not a MongoDB ObjectId — is what gets embedded in JWTs and stored in the Twin DB, making it the universal key for cross-service isolation.
@@ -85,12 +86,13 @@ One important constraint: **OIDC domains explicitly block manual subscription.**
 ### Strategy 2: `oidc` (Enterprise SSO)
 For enterprise clients using platforms like Keycloak, Auth0, or Entra ID, CrowdVision acts as an OIDC relying party. When a domain uses `oidc`, it must have its `ssoConfig` populated:
 
-.code lang:{typescript}
-    export interface ISSOConfig {
-        issuerUrl: string;   // e.g. "https://keycloak.company.com/realms/main"
-        clientId: string;
-        clientSecret: string; // select: false — never returned by default queries
-    }
+```typescript
+export interface ISSOConfig {
+    issuerUrl: string;   // e.g. "https://keycloak.company.com/realms/main"
+    clientId: string;
+    clientSecret: string; // select: false — never returned by default queries
+}
+```
 
 #### The SSO Flow Is Account-Linking, Not Signup
 

@@ -1,20 +1,29 @@
 .docname {Account Login}
 .include {docs}
----
 
-## How to Log In
+## Signing in
 
-To sign in to your existing account, follow these steps:
-1. Locate and click the **Login** button in the interface.
-2. The login window will appear on your screen.
-3. Enter your registered **Username**.
+1. Click the **Login** button in the top navigation bar.
+2. The login dialog appears.
+3. Enter your **Username**.
 4. Enter your **Password**.
-5. Click the **Login** button at the bottom of the form to securely access your account.
+5. Click **Login** to access your account.
+
+![The login dialog](../assets/figures/login-dialog.png)
+
+*Figure 1 — The login dialog. Enter your username and password, then click Login.*
+
+.box {Enterprise sign-in} type:{note}
+    If your organization uses Single Sign-On, you sign in through your company identity provider instead. See [Enterprise Login (SSO)](sso-login.qd).
 
 ---
 
-## Locked Navigation & Restricted Access
+## Locked navigation
 
-To maintain privacy and security, CrowdVision locks its core navigation choices—such as the Dashboard, Digital Twin model, Domains, and the Administrator Panel—until you are fully authenticated.
+To protect your data, the core areas — Dashboard, Digital Twin, Domains, and the Administrator Panel — stay locked until you are signed in.
 
-You don't necessarily have to click the main login button first to get where you want to go. If you click on any restricted navigation link while logged out, the system will automatically pop up a "Sign in to continue" window. Simply enter your credentials directly into this popup, and upon successful login, the system will unlock the interface and take you straight to your destination.
+You do not have to click **Login** first. If you open any locked area while signed out, a **Sign in to continue** popup appears. Enter your credentials there, and once you are signed in the application unlocks and takes you straight to where you were headed.
+
+![The "Sign in to continue" popup over a locked page](../assets/figures/signin-popup.png)
+
+*Figure 2 — Opening a locked area while signed out prompts you to sign in, then continues to your destination.*

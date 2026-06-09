@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content=".">
+    <meta name="quarkdown:search-index" content="./search-index.json">
+    <title>Identity &amp; Access Context</title>
+    <script src="./script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="./lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="./lib/highlight.js/highlightjs.min.js"></script>
+    <script src="./lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="./lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="./lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="./lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="./theme/theme.css" rel="stylesheet">
+    <style>
+
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="aggregates" data-depth="2"><a href="#aggregates">Aggregates</a><ol><li data-target-id="aggregate-account" data-depth="3"><a href="#aggregate-account">Aggregate: Account</a></li><li data-target-id="aggregate-domain" data-depth="3"><a href="#aggregate-domain">Aggregate: Domain</a></li></ol></li><li data-target-id="the-role-value-object" data-depth="2"><a href="#the-role-value-object">The Role Value Object</a></li><li data-target-id="domain-services" data-depth="2"><a href="#domain-services">Domain Services</a></li><li data-target-id="published-language-the-jwt" data-depth="2"><a href="#published-language-the-jwt">Published Language: the JWT</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="box error"><header><h4>Error: include</h4></header><div class="box-content"><p>Cannot call function include<span class="inline-collapse" data-full-text="(MutableContext context, String path, optional ContextSandbox sandbox)" data-collapsed-text="(...)" data-collapsed="true">(...)</span> with arguments <span class="inline-collapse" data-full-text="(./_setup.qd)" data-collapsed-text="(...)" data-collapsed="false">(./_setup.qd)</span>: <br /><em>File c:\Users\nickg\Documents\University\Web\CrowdVision\documentation\developer\domain\.\_setup.qd does not exist.</em></p><pre><code class="no-highlight nohljsln">.include {.pathtoroot/_setup.qd}</code></pre></div></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><div class="box error"><header><h4>Error: include</h4></header><div class="box-content"><p>Cannot call function include<span class="inline-collapse" data-full-text="(MutableContext context, String path, optional ContextSandbox sandbox)" data-collapsed-text="(...)" data-collapsed="true">(...)</span> with arguments <span class="inline-collapse" data-full-text="(./_nav.qd)" data-collapsed-text="(...)" data-collapsed="false">(./_nav.qd)</span>: <br /><em>File c:\Users\nickg\Documents\University\Web\CrowdVision\documentation\developer\domain\.\_nav.qd does not exist.</em></p><pre><code class="no-highlight nohljsln">.include {.pathtoroot/_nav.qd}</code></pre></div></div></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents"></h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="aggregates" data-depth="2"><a href="#aggregates">Aggregates</a><ol><li data-target-id="aggregate-account" data-depth="3"><a href="#aggregate-account">Aggregate: Account</a></li><li data-target-id="aggregate-domain" data-depth="3"><a href="#aggregate-domain">Aggregate: Domain</a></li></ol></li><li data-target-id="the-role-value-object" data-depth="2"><a href="#the-role-value-object">The Role Value Object</a></li><li data-target-id="domain-services" data-depth="2"><a href="#domain-services">Domain Services</a></li><li data-target-id="published-language-the-jwt" data-depth="2"><a href="#published-language-the-jwt">Published Language: the JWT</a></li></ol></nav></div><h1 id="identity--access-context" data-decorative="">Identity & Access Context</h1><p><strong>Owning service:</strong> <span class="codespan-content"><code>auth-service</code></span> · <strong>Subdomain type:</strong> Supporting · <strong>Persistence:</strong> MongoDB (<span class="codespan-content"><code>auth-db</code></span>)</p><p>The Identity &amp; Access context answers three questions: <em>who is this user</em>, <em>which organizations do they belong to</em>, and <em>what may they do there</em>. It is the upstream supplier of identity for the entire platform — it mints the JWT that every other context treats as its Published Language.</p><hr /><h2 id="ubiquitous-language">Ubiquitous Language</h2><table><thead><tr><th>Term</th><th>Meaning in this context</th></tr></thead><tbody><tr><td>Account</td><td>A human user or system principal that can authenticate.</td></tr><tr><td>Domain</td><td>An organization, campus, or tenant. The unit of multi-tenancy.</td></tr><tr><td>Membership</td><td>The link that places an Account inside a Domain with a specific Role.</td></tr><tr><td>Role</td><td>A ranked permission level used for authorization decisions.</td></tr><tr><td>Auth Strategy</td><td>How a Domain verifies identity: internal credentials or delegated oidc.</td></tr></tbody></table><hr /><h2 id="aggregates">Aggregates</h2><p>This context holds two aggregate roots — <span class="codespan-content"><code>Account</code></span> and <span class="codespan-content"><code>Domain</code></span> — that are intentionally kept separate. An Account references a Domain only by its <span class="codespan-content"><code>name</code></span> (the shared identifier), never by a hard database reference, so the two can be created, queried, and scaled independently.</p><figure><pre class="mermaid">classDiagram
+    class Account {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +String name
+        +String email
+        +String password
+        +String totpSecret
+        +IDomainMembership[] memberships
+    }
+    class IDomainMembership {
+        &lt;&lt;Value Object&gt;&gt;
+        +String domainName
+        +Role role
+        +String externalId
+    }
+    class Domain {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +String name
+        +Boolean isVisibleFromOutside
+        +String authStrategy
+        +ObjectId[] subdomains
+        +IDomainTOTPSecrets totpSecrets
+        +ISSOConfig ssoConfig
+    }
+    class ISSOConfig {
+        &lt;&lt;Value Object&gt;&gt;
+        +String issuerUrl
+        +String clientId
+        +String clientSecret
+    }
+    class IDomainTOTPSecrets {
+        &lt;&lt;Value Object&gt;&gt;
+        +String business_admin
+        +String business_staff
+        +String standard_customer
+    }
+    class Role {
+        &lt;&lt;Value Object&gt;&gt;
+        +String name
+        +Number weight
+    }
+
+    Account &quot;1&quot; *-- &quot;many&quot; IDomainMembership : embeds
+    IDomainMembership &quot;1&quot; --&gt; &quot;1&quot; Role : carries
+    Domain &quot;1&quot; *-- &quot;0..1&quot; ISSOConfig : may hold
+    Domain &quot;1&quot; *-- &quot;1&quot; IDomainTOTPSecrets : holds</pre></figure><h3 id="aggregate-account">Aggregate: Account</h3><p>The consistency boundary around a single principal and its memberships.</p><ul><li><span class="codespan-content"><code>memberships</code></span> is <strong>embedded</strong> rather than referenced. A single read of the Account yields everything needed to mint a JWT, which keeps the authentication path to one query.</li><li><span class="codespan-content"><code>password</code></span> and <span class="codespan-content"><code>totpSecret</code></span> are credential material; the latter is the per-account TOTP seed used for second-factor flows.</li><li><strong>Invariant:</strong> an Account holds at most one membership per <span class="codespan-content"><code>domainName</code></span>. The SSO callback enforces this by replacing any prior membership for the domain rather than appending a second one.</li></ul><h3 id="aggregate-domain">Aggregate: Domain</h3><p>The consistency boundary around an organization and the rules under which members join it.</p><ul><li><span class="codespan-content"><code>authStrategy</code></span> is the central policy switch. It determines the entire sign-in flow and which value objects are populated.</li><li><span class="codespan-content"><code>totpSecrets</code></span> and <span class="codespan-content"><code>ssoConfig.clientSecret</code></span> are marked <span class="codespan-content"><code>select: false</code></span> in the schema — they are <strong>never</strong> returned by default queries and must be explicitly re-selected. This keeps secret material from leaking through ordinary reads.</li><li><span class="codespan-content"><code>subdomains</code></span> references other <span class="codespan-content"><code>Domain</code></span> documents by <span class="codespan-content"><code>ObjectId</code></span>; hierarchy resolution uses MongoDB <span class="codespan-content"><code>$graphLookup</code></span>, so the tree may be arbitrarily deep.</li><li><strong>Invariant:</strong> an <span class="codespan-content"><code>internal</code></span> domain never carries an <span class="codespan-content"><code>ssoConfig</code></span>; an <span class="codespan-content"><code>oidc</code></span> domain blocks manual subscription. These rules live in the Service layer, not on the schema.</li></ul><hr /><h2 id="the-role-value-object">The Role Value Object</h2><p><span class="codespan-content"><code>Role</code></span> is a value object backed by a weighted ordering rather than a free string. Authorization is a comparison of weights, which makes &ldquo;at least this powerful&rdquo; the natural primitive.</p><pre><code class="language-typescript">export const ROLE_WEIGHTS = {
+    admin: 100,
+    business_admin: 80,
+    business_staff: 60,
+    standard_customer: 10,
+} as const;
+
+export const hasRequiredRole = (userRole: Role, requiredRole: Role): boolean =&gt;
+    (ROLE_WEIGHTS[userRole] ?? 0) &gt;= (ROLE_WEIGHTS[requiredRole] ?? Infinity);</code></pre><p><span class="codespan-content"><code>hasRequiredRole</code></span> is the single domain rule for permission checks; the authorization middleware evaluates it against the memberships carried in the verified token.</p><hr /><h2 id="domain-services">Domain Services</h2><table><thead><tr><th>Service</th><th>Responsibility</th></tr></thead><tbody><tr><td>tokenService</td><td>Mints and verifies the JWT. Embeds the memberships array so downstream contexts can authorize locally.</td></tr><tr><td>totpService</td><td>Generates and validates the six-digit, time-based role invite codes derived from a Domain’s totpSecrets.</td></tr></tbody></table><hr /><h2 id="published-language-the-jwt">Published Language: the JWT</h2><p>The output of this context is a signed token whose payload is the contract every other context conforms to. Treat its shape as a public interface — changing it ripples across the whole platform.</p><figure><pre class="mermaid">sequenceDiagram
+    participant U as Client
+    participant A as auth-service
+    participant DB as auth-db
+    U-&gt;&gt;A: POST /auth/login (credentials)
+    A-&gt;&gt;DB: Account.findOne({ name })
+    DB--&gt;&gt;A: Account + embedded memberships
+    Note over A: tokenService signs { accountMemberships, roles, domains }
+    A--&gt;&gt;U: JWT (the Published Language)</pre></figure><div class="box warning"><header><h4>Roadmap: harden SSO state</h4></header><div class="box-content"><p>The OIDC flow currently encodes the PKCE verifier and target domain into the OAuth <span class="codespan-content"><code>state</code></span> parameter as base64 JSON, which exposes the verifier client-side and permits state tampering. The intended model stores this server-side under a short-lived Redis key. See <div class="box error"><header><h4>Error</h4></header><div class="box-content"><p>Cannot access file c:\Users\nickg\Documents\University\Web\CrowdVision\documentation\developer\domain\..\design\domains.qd: not enough privileges to perform this action. <br />Missing required permission: <strong><span class="codespan-content"><code>global-read</code></span></strong>. <br />To grant this permission, run with: <span class="codespan-content"><code>--allow global-read</code></span></p></div></div> for the full analysis — this is a known gap, not the target design.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

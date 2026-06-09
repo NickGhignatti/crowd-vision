@@ -1,42 +1,58 @@
 .docname {User Guide}
 .include {docs}
 
-Welcome to the **CrowdVision** User Guide! 👋
+Welcome to the **CrowdVision** User Guide.
 
-> 💡 **The Short Version**
-> CrowdVision is a comprehensive **digital twin** and **crowd analytics** platform. It is designed to help you monitor building occupancy, environmental conditions, and safety alerts in real-time.
+CrowdVision is a digital twin and crowd-analytics platform. It helps you monitor building occupancy, environmental conditions, and safety alerts in real time — from a single office floor to an entire campus.
 
-Whether you are managing a single office floor or an entire campus, CrowdVision brings your physical spaces into the digital world, making it easier than ever to understand how your buildings are being used and to keep everyone inside them safe.
+![The CrowdVision dashboard after signing in](assets/figures/app-overview.png)
 
----
-
-## 🌟 Core Capabilities
-
-CrowdVision takes complex data and turns it into an intuitive, visual experience. Here is what you can do with the platform:
-
-| Feature | Description |
-| :--- | :--- |
-| 🏢 **3D Digital Twin** | Interact with a live, 3D digital replica of your buildings and floors. See exactly what is happening, where it is happening. |
-| 📊 **Analytics Dashboard** | Navigate through beautifully designed dashboards to monitor real-time building occupancy and environmental conditions. |
-| 🔔 **Smart Notifications** | Receive instant alerts for critical events, such as overcrowding or high temperatures, so you can act immediately. |
-| 🤖 **AI Assistant** | Leverage artificial intelligence to get quick answers and insights about your building's data. |
-| 🛠️ **Data Management** | Easily manage domains, buildings, and room data to keep your digital twin perfectly synced with the real world. |
+*Figure 1 — The dashboard you reach after signing in.*
 
 ---
 
-## 👥 Who is CrowdVision For?
+## What you can do
 
-CrowdVision is built to be accessible, yet powerful enough for different types of users:
+.var {headers}
+   - Capability
+   - What it gives you
 
-* **Facility Managers:** Get a bird's-eye view of building health, optimize space utilization, and respond rapidly to environmental or occupancy alerts.
-* **Administrators:** Manage user access, configure building domains, and customize the digital twin environment.
-* **General Users:** View safe zones, check room availability, and stay informed about the spaces they interact with daily.
-
-> 🔒 **Access Note**
-> While some features of the platform can be viewed as a guest, administrative actions (like editing room details or managing domains) require a registered account.
+.tablebyrows {.headers}
+    - - 3D Digital Twin
+      - A live, interactive 3D replica of your buildings and rooms.
+    - - Analytics Dashboard
+      - Real-time tables and charts of occupancy and environmental data.
+    - - Smart Notifications
+      - Instant alerts for overcrowding or high temperature, in-app and as browser push.
+    - - Data Management
+      - Tools to manage domains, buildings, and room data.
 
 ---
 
-## 🚀 Ready to dive in?
+## Who it is for
 
-Now that you know what CrowdVision is, let's get you set up and familiar with the platform!
+- **Facility managers** — a bird's-eye view of building health, with rapid response to alerts.
+- **Administrators** — manage access, configure domains, and maintain the digital twin.
+- **General users** — check room availability and stay informed about the spaces they use.
+
+.box {Account access} type:{note}
+    Some views can be browsed as a guest, but actions such as editing rooms or managing domains require a registered account with the right role.
+
+---
+
+## How to use this guide
+
+The guide follows the order you will naturally use the product: create an account, sign in, then explore each view. Use the navigation on the left to jump to any topic.
+
+.mermaid
+    flowchart LR
+        A["Create an account"] --> B["Sign in"]
+        B --> C["Dashboard"]
+        C --> D["Customise the table"]
+        C --> E["Charts & simulator"]
+        B --> F["Digital Twin (3D)"]
+        B --> G["Domains"]
+        G --> H["Administration"]
+
+.box {About the figures} type:{tip}
+    Every image in this guide is currently a **placeholder** that describes the screen it represents. To replace one with a real screenshot, drop your image into `documentation/user/assets/figures/` using the file name shown in the placeholder and recompile. See `assets/README.md` for the full shot list.

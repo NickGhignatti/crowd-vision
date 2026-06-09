@@ -1,0 +1,47 @@
+.docname {Contracts Service Architecture}
+.include {docs}
+
+**Bounded context:** [Telemetry Distribution](../domain/telemetry-distribution.qd) · **Stack:** Rust / Axum · **Code-level walkthrough:** [Contracts Service](../services/contracts.qd)
+
+The contracts-service realises the [Telemetry Distribution](../domain/telemetry-distribution.qd) context. It sits between the raw reading stream and the browser feed, shaping each building's live view. It is the one service written in Rust, chosen for throughput on a hot path that inspects every reading.
+
+---
+
+## Architectural Style
+
+Not a layered REST service. It runs two concurrent components in one process: an **HTTP API** for managing preferences, and a **background stream processor** that filters telemetry. Its frequently-read state is kept **in memory**, with a database behind it for durability.
+
+---
+
+## Internal Structure
+
+.mermaid
+    graph TD
+        subgraph contracts-service
+            API[Axum HTTP API]
+            TUNNEL[Background Telemetry Tunnel]
+            CACHE[In-memory preference projection]
+        end
+        API --> CACHE
+        TUNNEL --> CACHE
+        API -.-> DB[(durable store)]
+        BR1[(broker: raw readings)] --> TUNNEL
+        TUNNEL --> BR2[(broker: per-building feeds)]
+
+---
+
+## Key Architectural Decisions
+
+- **Rust on the hot path.** The filter inspects a high-frequency stream; the language choice is an architectural decision to keep that path cheap and predictable.
+- **In-memory projection.** Preferences are read on every reading but changed rarely, so they are held in a concurrent in-memory structure for lock-free reads; the database is touched only on startup (hydration) and on change (cold path).
+- **Filter by preference, fan out per building.** A reading is forwarded only to the buildings whose preference includes its metric; one reading can fan out to many building feeds.
+- **Gather, do not define, the catalog.** The service discovers each upstream service's self-describing metric catalog and aggregates it, so new metrics appear without any change here — an Open Host Service consuming each upstream's Published Language.
+
+---
+
+## Integration
+
+- Subscribes to the raw-reading channel and publishes per-building filtered feeds on the broker — see [Communication & Data Flow](data-flow.qd).
+- Discovers metric catalogs from sensor-service and twin-service; receives default preferences seeded by twin-service.
+
+For the concurrency model, the tunnel internals, persistence status, and the API, see the [Contracts Service](../services/contracts.qd) internals page.

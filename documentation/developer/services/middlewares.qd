@@ -1,109 +1,116 @@
 .docname {Auth Service: Middleware}
 .include {docs}
 
-In the CrowdVision Express applications, controllers and services focus strictly on business logic. Cross-cutting concerns—specifically **Authorization** and **Error Handling**—are delegated to dedicated middleware. 
-
-This ensures that our API endpoints remain secure by default and return consistent, predictable JSON responses to the frontend.
+Implementation reference for the cross-cutting Express middleware shared by the Node services. Controllers and services hold business logic; **authorization, request authentication, and error shaping** are delegated to the middleware documented here. The canonical implementations live in the `auth-service`.
 
 ---
 
-## 🛡️ 1. The Authorization Middleware
-**File:** `src/controller/authentication.ts`
+## 1. Authentication — `requireAuthentication`
 
-Because CrowdVision uses stateless JSON Web Tokens (JWTs), the Auth Middleware does not need to query the database. It intercepts the incoming request, cryptographically verifies the token, evaluates the user's role against the requested context, and either rejects the request or passes it to the controller.
+**File:** `src/middlewares/authentication.ts`
 
-### Usage in Routers
-Developers protect routes using the `requireAuthentication(level)` middleware factory.
+Verifies the caller's identity token and attaches it to the request. It performs **authentication only** — it does not evaluate roles.
 
-.code lang:{typescript}
-    import { Router } from 'express';
-    import { requireAuthentication } from '../controller/authenticationMiddleware';
-    import { getDomainUsers } from './domainController';
+```typescript
+export const requireAuthentication = (req, _res, next) => {
+  const token = req.cookies?.[COOKIE_NAME];        // "authentication_token"
+  if (!token) throw new NotFoundError("Could not find token for the cookie");
+  req.account = TokenService.verifyToken(token);   // throws if invalid/expired
+  next();
+};
+```
 
-    const router = Router();
+- The token is read from the `httpOnly` cookie `authentication_token`, **not** from an `Authorization` header.
+- On success the decoded payload (`accountId`, `accountName`, `accountMemberships`) is attached to `req.account` for downstream handlers.
+- A missing token raises `NotFoundError`; an invalid or expired signature throws from `verifyToken` and is converted to a `500`-class response by the error handler unless caught earlier.
 
-    // 10 = Standard Customer, 60 = Staff, 80 = Admin, 100 = Global Admin
-    
-    // Anyone logged in can view
-    router.get('/:domainName/users', requireAuthentication(10), getDomainUsers);
-    
-    // Only Business Admins (or higher) can delete
-    router.delete('/:domainName/users/:userId', requireAuthentication(80), removeDomainUser);
-
-### How It Works Under the Hood
-
-When a request hits a route protected by `requireAuthentication()`, the middleware executes the following pipeline:
-
-1. **Token Extraction:** It looks for the `Authorization: a jwt present in the cookies (`httpOnly`). If missing or malformed, it throws a `401 Unauthorized`.
-2. **Cryptographic Verification:** It uses the `JWT_SECRET` to verify the token's signature and check its `exp` (expiration) claim. 
-3. **Request Augmentation:** It extracts the decoded token payload (which includes the user's `ID`, `email`, and `memberships` array) and attaches it to the Express Request object (e.g., `req.account = decodedPayload`). This allows the downstream Controller to know exactly who made the request.
-4. **Contextual RBAC Evaluation:**
-   * It checks the `req.params` for `domainName`.
-   * If `domainName` exists (e.g., `/acme-corp/users`), it filters the user's embedded memberships to find their specific role for `acme-corp`.
-   * It compares that role's numeric weight against the `minimumWeight` required by the route.
-   * If the user's weight is too low, it throws a `403 Forbidden`.
-
-.box type:{note}
-    **Developer Tip:** Always extract the user identity from `req.account` inside your controllers. Never trust a `userId` passed in the body of a request, as malicious actors can easily manipulate the request body.
+.box {Always trust `req.account`, never the body} type:{note}
+    Controllers must read the caller identity from `req.account`. A `userId`/`accountName` in the request body is attacker-controlled and must never be used for authorization.
 
 ---
 
-## 🚨 2. The Global Error Middleware
+## 2. Authorization — `requireAuthorization(level)`
+
+**File:** `src/models/role.ts`
+
+A middleware factory that enforces a minimum role. It is contextual: when the route carries a `:domainName` parameter, the check is scoped to the caller's role *in that domain*.
+
+```typescript
+router.get("/domains",  requireAuthentication, getAllAllowedDomains);
+router.post("/domains", requireAuthentication,
+            requireAuthorization("business_admin"), createDomain);
+```
+
+Evaluation pipeline:
+
+1. **Resolve the payload.** Prefer `req.account` (set by `requireAuthentication`); otherwise parse a `Bearer` token from the `Authorization` header and verify it.
+2. **Select memberships.** If `:domainName` is present, keep only memberships for that domain; otherwise consider all.
+3. **Compare weights.** Pass if any selected membership satisfies `hasRequiredRole(role, level)` — i.e. its weight is at least the required weight (`admin` 100, `business_admin` 80, `business_staff` 60, `standard_customer` 10).
+4. **Reject** with `401` when the token is missing or malformed, and `403` when no membership meets the threshold.
+
+---
+
+## 3. Internal Signature — `requireHmacSignature`
+
+**File:** `src/middlewares/authentication.ts`
+
+Guards the internal provisioning endpoint (`POST /business/register`) for service-to-service calls that are not user-authenticated.
+
+- The client sends `x-signature`, the hex HMAC-SHA256 of the **raw request body** keyed by `INTERNAL_ADMIN_SECRET`.
+- The server recomputes the HMAC over `req.rawBody` (captured by the JSON body parser in `index.ts`) and compares with `crypto.timingSafeEqual` to avoid timing leaks.
+- Any mismatch, malformed signature, or missing secret raises `ForbiddenError` / `InternalError`.
+
+---
+
+## 4. Global Error Handling — `errorHandler`
+
 **File:** `src/middlewares/error.ts`
 
-In a microservices architecture, it is crucial that the frontend receives a standardized error format, regardless of whether a database query failed, a token expired, or a validation rule was broken.
+The last middleware in the stack. Controllers and services never write error responses directly; they `throw` typed errors, and this handler serialises them.
 
-CrowdVision uses a centralized Error Handling Middleware. Controllers and Services **do not** send `res.status(500).send(...)` directly. Instead, they `throw` custom error classes, and the middleware catches them.
+```typescript
+export const errorHandler = (err, _req, res, _next) => {
+  if (err instanceof BaseError)
+    return res.status(err.code).json({ type: err.type, message: err.message });
+  return res.status(500).json({
+    type: "Internal Server Error",
+    message: "An unexpected error occurred. Please try again later.",
+  });
+};
+```
 
-### The Custom Error Models
+Any error that is not a `BaseError` is scrubbed to a generic `500`, so stack traces and database internals never reach the client.
+
+### Error taxonomy
+
 **File:** `src/models/error.ts`
 
-We extend the native JavaScript `Error` class to create specific, semantic errors.
+.var {headers}
+   - Class
+   - Status
+   - `type`
 
-.code lang:{typescript}
-    export class BaseError extends Error {
-        public statusCode: number;
-        public errorCode: string;
+.tablebyrows {.headers}
+    - - `ValidationError`
+      - 400
+      - Validation Error
+    - - `UnauthorizedError`
+      - 401
+      - Unauthorized Error
+    - - `ForbiddenError`
+      - 403
+      - Forbidden Error
+    - - `NotFoundError`
+      - 404
+      - Not Found Error
+    - - `ConflictError`
+      - 409
+      - Conflict Error
+    - - `InternalError`
+      - 500
+      - Internal Error
 
-        constructor(message: string, statusCode: number, errorCode: string) {
-            super(message);
-            this.statusCode = statusCode;
-            this.errorCode = errorCode;
-        }
-    }
+Every error carries an HTTP `code` and a human-readable `type`, producing a stable `{ type, message }` envelope the frontend can branch on.
 
-    export class NotFoundError extends BaseError {
-        constructor(message = "Resource not found") {
-            super(message, 404, "NOT_FOUND");
-        }
-    }
-
-    export class ValidationError extends BaseError {
-        constructor(message: string) {
-            super(message, 400, "VALIDATION_FAILED");
-        }
-    }
-
-### The Middleware Interceptor
-The `errorsMiddleware` sits at the very bottom of the Express application stack. It acts as a safety net that catches everything thrown by the layers above it.
-
-.mermaid
-    flowchart LR
-        C[Controller] -- throws ValidationError --> M[Error Middleware]
-        S[Service] -- throws NotFoundError --> M
-        DB[Database] -- throws MongoError --> M
-        
-        M -- Formats JSON --> Res[HTTP Response]
-
-**The resulting JSON payload always looks like this:**
-
-.code lang:{json}
-    {
-        "status": "error",
-        "code": "VALIDATION_FAILED",
-        "message": "The provided email address is already in use."
-    }
-
-### Benefits of this Pattern:
-1. **Frontend Predictability:** The Vue.js client can confidently write generic Axios interceptors because the error structure (`error.response.data.code`) never changes.
-2. **Security:** By formatting the errors centrally, we ensure that stack traces or sensitive database query failures are never accidentally leaked to the client. Unhandled exceptions (500s) are logged internally but scrubbed into generic "Internal Server Error" messages before reaching the user.
+.box {Convention} type:{tip}
+    This authentication/authorization/error pattern is shared across the Node services (auth, twin, notification). New endpoints should attach `requireAuthentication` (and `requireAuthorization` where a role is needed) and throw typed errors rather than handling HTTP status codes inline.

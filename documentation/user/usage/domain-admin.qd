@@ -1,25 +1,31 @@
-.docname {Domains Administration}
+.docname {Domain Administration}
 .include {docs}
 
-The **Administrator Panel** is the operational control center for domain owners and staff. This is where the actual configuration of your domains, including building data and security tokens, takes place.
+The **Administrator Panel** is the control centre for domain owners and staff. From here you configure your domains, upload buildings, and onboard new members.
+
+![The Administrator Panel with a domain's token and QR codes](../assets/figures/admin-panel-qr.png)
+
+*Figure 1 — The Administrator Panel: your domains on the left, the selected domain's token and QR codes on the right.*
 
 ---
 
-## Managing Organization Domains
+## Managing your domains
 
-When you open the Administrator Panel, you will see a list of the domains you manage on the left side of the screen.
+Your domains are listed on the left. From there you can:
 
-From this domain list, administrators can:
-* **Add New Domain:** You can trigger the creation of a new Main Domain or Subdomain directly from here.
-* **Upload Building Data (JSON):** You can upload a valid `.json` file containing the 3D geometry and structural data for a building, linking it directly to the selected domain.
-* **Enable Notifications:** Trigger notification subscriptions for critical alerts within a specific domain.
+- **Add a new domain** — create a main domain or a subdomain.
+- **Upload Building Data (JSON)** — attach a building's 3D layout to the selected domain (see [Upload a Digital Twin](building-data.qd)).
+- **Enable Notifications** — turn on alert delivery for the domain (see [Notifications](../info/notifications.qd)).
 
 ---
 
-## Managing Access (Tokens & QR Codes)
+## Onboarding members with QR codes
 
-CrowdVision uses secure, time-based OTPs to onboard new staff and grant them elevated permissions. This is managed entirely within the Administration Panel.
+CrowdVision onboards new members with time-based, one-time codes (OTP), generated per role.
 
-1. **Select a Domain:** Click on any domain in your list to open its specific security details.
-2. **Organization Token & QR Code:** On the right side of the screen, the system will display the active token and a corresponding **QR Code** for the selected domain, there will be different QRs according to the level to grant.
-3. **Onboarding Staff:** Administrators can show or share this QR code. New staff members will scan this code using an Authenticator App (like Google Authenticator or Authy) and use the generated 6-digit OTP during the account registration process to automatically join the domain with the correct privileges.
+1. **Select a domain** in your list to open its security details.
+2. **Find the token and QR codes** on the right. There is a different QR code for each role you can grant.
+3. **Share the QR code** for the role you want to assign. The new member scans it with an authenticator app and enters the six-digit code during registration to join with the correct role (see [Account Registration](../getting-started/registration.qd)).
+
+.box {Share the right code} type:{tip}
+    Each QR code maps to a specific role. Share the staff code with staff and the administrator code only with people who should administer the domain.
