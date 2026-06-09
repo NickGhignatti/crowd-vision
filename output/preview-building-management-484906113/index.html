@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content=".">
+    <meta name="quarkdown:search-index" content="./search-index.json">
+    <title>Building Management Context</title>
+    <script src="./script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="./lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="./lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="./theme/theme.css" rel="stylesheet">
+    <style>
+
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="the-building-aggregate" data-depth="2"><a href="#the-building-aggregate">The Building Aggregate</a><ol><li data-target-id="aggregate-root-building" data-depth="3"><a href="#aggregate-root-building">Aggregate Root: Building</a></li><li data-target-id="entity-room" data-depth="3"><a href="#entity-room">Entity: Room</a></li><li data-target-id="value-objects-coordinates-and-dimensions" data-depth="3"><a href="#value-objects-coordinates-and-dimensions">Value Objects: Coordinates and Dimensions</a></li></ol></li><li data-target-id="multi-tenancy-as-a-domain-rule" data-depth="2"><a href="#multi-tenancy-as-a-domain-rule">Multi-Tenancy as a Domain Rule</a></li><li data-target-id="relationships-to-other-contexts" data-depth="2"><a href="#relationships-to-other-contexts">Relationships to Other Contexts</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="box error"><header><h4>Error: include</h4></header><div class="box-content"><p>Cannot call function include<span class="inline-collapse" data-full-text="(MutableContext context, String path, optional ContextSandbox sandbox)" data-collapsed-text="(...)" data-collapsed="true">(...)</span> with arguments <span class="inline-collapse" data-full-text="(./_setup.qd)" data-collapsed-text="(...)" data-collapsed="false">(./_setup.qd)</span>: <br /><em>File c:\Users\nickg\Documents\University\Web\CrowdVision\documentation\developer\domain\.\_setup.qd does not exist.</em></p><pre><code class="no-highlight nohljsln">.include {.pathtoroot/_setup.qd}</code></pre></div></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><div class="box error"><header><h4>Error: include</h4></header><div class="box-content"><p>Cannot call function include<span class="inline-collapse" data-full-text="(MutableContext context, String path, optional ContextSandbox sandbox)" data-collapsed-text="(...)" data-collapsed="true">(...)</span> with arguments <span class="inline-collapse" data-full-text="(./_nav.qd)" data-collapsed-text="(...)" data-collapsed="false">(./_nav.qd)</span>: <br /><em>File c:\Users\nickg\Documents\University\Web\CrowdVision\documentation\developer\domain\.\_nav.qd does not exist.</em></p><pre><code class="no-highlight nohljsln">.include {.pathtoroot/_nav.qd}</code></pre></div></div></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents"></h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="the-building-aggregate" data-depth="2"><a href="#the-building-aggregate">The Building Aggregate</a><ol><li data-target-id="aggregate-root-building" data-depth="3"><a href="#aggregate-root-building">Aggregate Root: Building</a></li><li data-target-id="entity-room" data-depth="3"><a href="#entity-room">Entity: Room</a></li><li data-target-id="value-objects-coordinates-and-dimensions" data-depth="3"><a href="#value-objects-coordinates-and-dimensions">Value Objects: Coordinates and Dimensions</a></li></ol></li><li data-target-id="multi-tenancy-as-a-domain-rule" data-depth="2"><a href="#multi-tenancy-as-a-domain-rule">Multi-Tenancy as a Domain Rule</a></li><li data-target-id="relationships-to-other-contexts" data-depth="2"><a href="#relationships-to-other-contexts">Relationships to Other Contexts</a></li></ol></nav></div><h1 id="building-management-context" data-decorative="">Building Management Context</h1><p><strong>Owning service:</strong> <span class="codespan-content"><code>twin-service</code></span> · <strong>Subdomain type:</strong> Core · <strong>Persistence:</strong> MongoDB (<span class="codespan-content"><code>twin-db</code></span>)</p><p>The Building Management context models the physical reality being monitored: buildings, the rooms inside them, and the spatial geometry that places those rooms in the 3D digital twin. It is the structural backbone the rest of the platform decorates with live data.</p><hr /><h2 id="ubiquitous-language">Ubiquitous Language</h2><table><thead><tr><th>Term</th><th>Meaning in this context</th></tr></thead><tbody><tr><td>Building</td><td>A monitored physical structure, scoped to one or more domains.</td></tr><tr><td>Room</td><td>A bounded space inside a Building with a position.</td></tr><tr><td>Position / Dimensions</td><td>The geometry that renders a Room in the 3D twin.</td></tr></tbody></table><hr /><h2 id="the-building-aggregate">The Building Aggregate</h2><p><span class="codespan-content"><code>Building</code></span> is the single aggregate root. A <span class="codespan-content"><code>Room</code></span> has no independent existence — it is created, mutated, and deleted only through its Building, which is the textbook reason to keep it inside the aggregate boundary rather than promoting it to its own collection.</p><figure><pre class="mermaid">classDiagram
+    class Building {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +String id
+        +String name
+        +String[] domains
+        +Room[] rooms
+    }
+    class Room {
+        &lt;&lt;Entity&gt;&gt;
+        +String id
+        +String name
+        +Coordinates position
+        +Dimensions dimensions
+        +String color
+    }
+    class Coordinates {
+        &lt;&lt;Value Object&gt;&gt;
+        +Number x
+        +Number y
+        +Number z
+    }
+    class Dimensions {
+        &lt;&lt;Value Object&gt;&gt;
+        +Number width
+        +Number height
+        +Number depth
+    }
+
+    Building &quot;1&quot; *-- &quot;many&quot; Room : contains
+    Room &quot;1&quot; *-- &quot;1&quot; Coordinates : positioned at
+    Room &quot;1&quot; *-- &quot;1&quot; Dimensions : sized by</pre></figure><h3 id="aggregate-root-building">Aggregate Root: Building</h3><ul><li><span class="codespan-content"><code>id</code></span> is a service-generated <span class="codespan-content"><code>UUID</code></span>, decoupling the public identifier from MongoDB&rsquo;s <span class="codespan-content"><code>_id</code></span>.</li><li><span class="codespan-content"><code>domains</code></span> is an array of domain <strong>names</strong> (the shared identifier), making a building multi-tenant: it can be shared across organizations without duplication.</li><li><strong>Invariant:</strong> every mutation to a Room must go through the Building, so the aggregate as a whole is always persisted in a consistent state.</li></ul><h3 id="entity-room">Entity: Room</h3><ul><li>Identity is the <span class="codespan-content"><code>id</code></span> field, unique within its Building.</li><li>Holds only <strong>structural</strong> data — name, geometry. Note that live readings (temperature, occupancy) are <em>not</em> stored here; they belong to the Telemetry contexts. This separation keeps the twin model stable while readings churn continuously.</li></ul><h3 id="value-objects-coordinates-and-dimensions">Value Objects: Coordinates and Dimensions</h3><p>Both are immutable, identity-less geometry objects persisted as <span class="codespan-content"><code>_id: false</code></span> subdocuments. Two rooms with identical coordinates are not &ldquo;the same position&rdquo; in any meaningful sense — position is defined entirely by its values, which is exactly the value-object contract.</p><hr /><h2 id="multi-tenancy-as-a-domain-rule">Multi-Tenancy as a Domain Rule</h2><p>Because this context owns no copy of the identity model, it enforces tenancy purely from the JWT it receives and the <span class="codespan-content"><code>domains</code></span> array it stores. There is no call back to <span class="codespan-content"><code>auth-service</code></span>.</p><figure><pre class="mermaid">sequenceDiagram
+    participant C as Client
+    participant T as twin-service
+    participant DB as twin-db
+    C-&gt;&gt;T: GET /twin/buildings/:domain (JWT)
+    Note over T: Verify token, assert :domain in accountMemberships
+    T-&gt;&gt;DB: Building.find({ domains: domain })
+    DB--&gt;&gt;T: Buildings for that tenant only
+    T--&gt;&gt;C: Authorized buildings</pre></figure><p>The <span class="codespan-content"><code>Building.find({ domains: domainName })</code></span> query is indexed on <span class="codespan-content"><code>domains</code></span>; without that index every tenant lookup would be a full collection scan.</p><hr /><h2 id="relationships-to-other-contexts">Relationships to Other Contexts</h2><p>This context is an upstream <strong>supplier</strong> to three downstream contexts. The side effects below run synchronously inside <span class="codespan-content"><code>addBuilding</code></span> when a building is first created.</p><table><thead><tr><th>Downstream Context</th><th>What this context supplies</th><th>Pattern</th></tr></thead><tbody><tr><td>Telemetry Ingestion</td><td>A threshold clone via PUT /thresholds/buildings/:id so the sensor side knows the building’s rooms.</td><td>Customer / Supplier</td></tr><tr><td>Telemetry Distribution</td><td>Default column preferences via POST /preferences/init/:id, plus the structural metrics roomName and roomMaxOccupancy.</td><td>Customer / Supplier</td></tr><tr><td>Knowledge &amp; Assistance</td><td>Live building and room data, read-only, through the agent’s wrapping tools.</td><td>Anti-Corruption Layer</td></tr></tbody></table><div class="box tip"><header><h4>Pragmatic note</h4></header><div class="box-content"><p>The cross-context seeding calls are <strong>fire-and-forget</strong> from the twin&rsquo;s perspective: if a downstream call fails, the error is logged and building creation still succeeds. This favours availability over strict consistency, on the assumption that preferences and thresholds can be re-seeded later. It is a deliberate softening of the aggregate&rsquo;s transactional boundary across the network.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

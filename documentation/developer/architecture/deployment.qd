@@ -1,7 +1,7 @@
-.docname {Kubernetes Architecture}
+.docname {Deployment & Kubernetes}
 .include {docs}
 
-This page covers the Kubernetes-specific implementation details of CrowdVision: how the cluster is structured, what each manifest type does, how the nginx Ingress works, and how data is persisted across pod restarts.
+This page covers how CrowdVision is deployed on Kubernetes: how the cluster is structured, what each manifest type does, how the nginx Ingress works, and how data is persisted across pod restarts. For the high-level deployment models and the gateway, see the [Architecture Overview](overview.qd).
 
 ---
 
@@ -9,31 +9,32 @@ This page covers the Kubernetes-specific implementation details of CrowdVision: 
 
 All Kubernetes configuration lives in the `k8s/` directory:
 
-.code lang:{bash}
-    k8s/
-    ├── namespace.yml              # The crowdvision namespace
-    ├── ingress.yml                # nginx Ingress routing rules (2 objects)
-    ├── configmaps/
-    │   └── common.yml             # Non-sensitive shared environment variables
-    ├── secrets/                   # GITIGNORED — sensitive credentials
-    │   ├── authentication.yml
-    │   ├── twin.yml
-    │   ├── notification.yml
-    │   └── agent.yml
-    ├── stateful/                  # Databases and stateful services
-    │   ├── auth-db.yml
-    │   ├── twin-db.yml
-    │   ├── notification-db.yml
-    │   ├── sensor-db.yml
-    │   └── redis.yml
-    └── deployments/               # Stateless application services
-        ├── auth-service.yml
-        ├── twin-service.yml
-        ├── notification-service.yml
-        ├── sensor-service.yml
-        ├── socket-service.yml
-        ├── agent-service.yml
-        └── client.yml
+```bash
+k8s/
+├── namespace.yml              # The crowdvision namespace
+├── ingress.yml                # nginx Ingress routing rules (2 objects)
+├── configmaps/
+│   └── common.yml             # Non-sensitive shared environment variables
+├── secrets/                   # GITIGNORED — sensitive credentials
+│   ├── authentication.yml
+│   ├── twin.yml
+│   ├── notification.yml
+│   └── agent.yml
+├── stateful/                  # Databases and stateful services
+│   ├── auth-db.yml
+│   ├── twin-db.yml
+│   ├── notification-db.yml
+│   ├── sensor-db.yml
+│   └── redis.yml
+└── deployments/               # Stateless application services
+    ├── auth-service.yml
+    ├── twin-service.yml
+    ├── notification-service.yml
+    ├── sensor-service.yml
+    ├── socket-service.yml
+    ├── agent-service.yml
+    └── client.yml
+```
 
 ---
 
@@ -43,13 +44,14 @@ Kubernetes separates configuration into two object types based on sensitivity.
 
 **ConfigMap (`k8s/configmaps/common.yml`)** — stores non-sensitive, shared configuration injected as environment variables into all pods that reference it:
 
-.code lang:{yaml}
-    data:
-      REDIS_URL: "redis://redis:6379"
-      TWIN_SERVICE_URL: "http://twin-service:3000"
-      AUTH_SERVICE_URL: "http://auth-service:3000"
-      CLIENT_URL: "http://localhost"
-      PORT: "3000"
+```yaml
+data:
+  REDIS_URL: "redis://redis:6379"
+  TWIN_SERVICE_URL: "http://twin-service:3000"
+  AUTH_SERVICE_URL: "http://auth-service:3000"
+  CLIENT_URL: "http://localhost"
+  PORT: "3000"
+```
 
 **Secrets** — store sensitive values (database URIs, JWT keys, API keys). The `k8s/secrets/` directory is intentionally empty and gitignored. Secrets are created directly on the cluster from your local `.env` file using `just k8s-secrets` — they never touch the git repository. Kubernetes base64-encodes them automatically before storing in etcd.
 
@@ -87,27 +89,29 @@ The Ingress resource is split into two objects in `k8s/ingress.yml` because they
 
 All API services use a regex path with a capture group and the `rewrite-target: /$2` annotation. This strips the service prefix before forwarding — so a request to `/auth/login` reaches `auth-service` as `/login`, not `/auth/login`.
 
-.code lang:{yaml}
-    annotations:
-      nginx.ingress.kubernetes.io/use-regex: "true"
-      nginx.ingress.kubernetes.io/rewrite-target: /$2
-    
-    # Path pattern — two capture groups:
-    path: /auth(/|$)(.*)
-    # Group 1: (/|$)  — matches the slash or end of path
-    # Group 2: (.*)   — captures everything after /auth/
-    # $2 in rewrite-target = the captured remainder → forwarded as /login
+```yaml
+annotations:
+  nginx.ingress.kubernetes.io/use-regex: "true"
+  nginx.ingress.kubernetes.io/rewrite-target: /$2
+
+# Path pattern — two capture groups:
+path: /auth(/|$)(.*)
+# Group 1: (/|$)  — matches the slash or end of path
+# Group 2: (.*)   — captures everything after /auth/
+# $2 in rewrite-target = the captured remainder → forwarded as /login
+```
 
 **Ingress 2: WebSocket and client (no rewriting)**
 
 The second Ingress object handles the Vue client and Socket.IO. No URL rewriting is needed — the client serves from `/` and Socket.IO expects to receive requests at `/socket.io/`. This object also sets sticky session cookies so that Socket.IO polling handshakes are consistently routed to the same backend pod.
 
-.code lang:{yaml}
-    annotations:
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      nginx.ingress.kubernetes.io/affinity: "cookie"
-      nginx.ingress.kubernetes.io/session-cookie-name: "route"
+```yaml
+annotations:
+  nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  nginx.ingress.kubernetes.io/affinity: "cookie"
+  nginx.ingress.kubernetes.io/session-cookie-name: "route"
+```
 
 .box type:{note}
     The `/` catch-all rule for the Vue client uses the path `/()(.*)` — an empty first capture group followed by the full path as group 2. This ensures `rewrite-target: /$2` forwards `/assets/bundle.js` correctly rather than rewriting all asset requests to `/`.
@@ -118,14 +122,15 @@ The second Ingress object handles the Vue client and Socket.IO. No URL rewriting
 
 Services have dependencies — `auth-service` must not start before `auth-db` is accepting connections. CrowdVision uses `initContainers` in each Deployment to enforce this ordering without any cluster-level dependency management:
 
-.code lang:{yaml}
-    initContainers:
-      - name: wait-for-db
-        image: busybox:1.36
-        command:
-          - sh
-          - -c
-          - until nc -z auth-db 27017; do echo "waiting..."; sleep 2; done
+```yaml
+initContainers:
+  - name: wait-for-db
+    image: busybox:1.36
+    command:
+      - sh
+      - -c
+      - until nc -z auth-db 27017; do echo "waiting..."; sleep 2; done
+```
 
 The `initContainer` runs before the main container. It polls `auth-db:27017` every 2 seconds using `netcat`. Only when the TCP connection succeeds does Kubernetes start the main `auth-service` container. The pod shows `Init:0/1` in `kubectl get pods` during this wait.
 
@@ -138,15 +143,16 @@ Every application Deployment uses `imagePullPolicy: Always` in VPS production �
 .box type:{note}
     **Local k3d development:** Set `imagePullPolicy: IfNotPresent` instead of `Always`. When you load images with `just k8s-load`, Kubernetes must use the locally-imported image — `Always` would cause it to attempt a GHCR pull and either fail (if unauthenticated) or silently use a stale remote image.
 
-.code lang:{bash}
-    # Roll out a single service
-    kubectl rollout restart deployment/auth-service -n crowdvision
+```bash
+# Roll out a single service
+kubectl rollout restart deployment/auth-service -n crowdvision
 
-    # Watch the transition
-    kubectl rollout status deployment/auth-service -n crowdvision
+# Watch the transition
+kubectl rollout status deployment/auth-service -n crowdvision
 
-    # Something broke — instant rollback to the previous version
-    kubectl rollout undo deployment/auth-service -n crowdvision
+# Something broke — instant rollback to the previous version
+kubectl rollout undo deployment/auth-service -n crowdvision
+```
 
 ---
 

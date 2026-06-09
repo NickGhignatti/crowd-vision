@@ -87,22 +87,24 @@ depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
 One OpenAI-compatible endpoint drives both chat/tool-calling and embeddings. OpenRouter is
 the default:
 
-.code lang:{bash}
-    OPENROUTER_API_KEY=<your-openrouter-key>
-    LLM_BASE_URL=https://openrouter.ai/api/v1
-    ANSWER_MODEL=openai/gpt-4o-mini
-    EMBEDDING_MODEL=openai/text-embedding-3-small
-    EMBEDDING_DIM=768
-    MAX_OUTPUT_TOKENS=2048
+```bash
+OPENROUTER_API_KEY=<your-openrouter-key>
+LLM_BASE_URL=https://openrouter.ai/api/v1
+ANSWER_MODEL=openai/gpt-4o-mini
+EMBEDDING_MODEL=openai/text-embedding-3-small
+EMBEDDING_DIM=768
+MAX_OUTPUT_TOKENS=2048
+```
 
 `LLM_API_KEY`, `DEEPSEEK_API_KEY`, and `GOOGLE_API_KEY` are accepted as legacy key aliases,
 but the supplied key must authenticate against `LLM_BASE_URL`.
 
 Privileged callers may override the answer model per `/ask` request:
 
-.code lang:{bash}
-    MODEL_OVERRIDE_MIN_ROLE=business_admin
-    ALLOWED_MODELS=openai/gpt-4o-mini,google/gemini-2.5-flash
+```bash
+MODEL_OVERRIDE_MIN_ROLE=business_admin
+ALLOWED_MODELS=openai/gpt-4o-mini,google/gemini-2.5-flash
+```
 
 The override spends the server's shared provider balance. It is rejected with `403` below
 the configured role and with `400` when a non-empty allowlist excludes the model. An empty
@@ -116,8 +118,9 @@ In Docker Compose, the one-shot `agent-ingester` waits for the service to become
 then ingests `.qd`, `.md`, and `.markdown` files from `documentation/user` and
 `documentation/developer`.
 
-.code lang:{bash}
-    just agent-ingest
+```bash
+just agent-ingest
+```
 
 Ingestion is idempotent by global content hash. It does not replace or delete an older
 document when a source file changes, so a clean rebuild requires clearing the agent tables
@@ -141,29 +144,31 @@ permissions make a document visible to every authenticated caller.
 
 Run these from `server/agent-service` unless marked as repository-root commands:
 
-.code lang:{bash}
-    uv run python scripts/verify_provider.py     # real chat/tool + embedding smoke test
-    uv run pytest tests/unit                     # fast, hermetic tests
-    npm test                                     # full pytest suite
-    npm run lint                                 # Ruff format/lint + Pyright
-    npm run openapi                              # regenerate openapi.json and openapi.yaml
+```bash
+uv run python scripts/verify_provider.py     # real chat/tool + embedding smoke test
+uv run pytest tests/unit                     # fast, hermetic tests
+npm test                                     # full pytest suite
+npm run lint                                 # Ruff format/lint + Pyright
+npm run openapi                              # regenerate openapi.json and openapi.yaml
 
-    # Repository root:
-    just test-agent
-    just test-agent-integration
-    just agent-ingest
-    just eval
-    just eval models="model-a,model-b"
+# Repository root:
+just test-agent
+just test-agent-integration
+just agent-ingest
+just eval
+just eval models="model-a,model-b"
+```
 
 The golden-dataset runner calls the real service and may incur provider cost:
 
-.code lang:{bash}
-    uv run python evals/run_evals.py
+```bash
+uv run python evals/run_evals.py
 
-    # Remote/CI evaluation requires an explicit cookie:
-    AGENT_URL=https://example.com/agent \
-    AUTH_COOKIE="authentication_token=<privileged-jwt>" \
-      uv run python evals/run_evals.py --models model-a,model-b
+# Remote/CI evaluation requires an explicit cookie:
+AGENT_URL=https://example.com/agent \
+AUTH_COOKIE="authentication_token=<privileged-jwt>" \
+  uv run python evals/run_evals.py --models model-a,model-b
+```
 
 Model sweeps compare the full agent behavior: each model independently chooses tools and
 retrieval queries. They do not compare generators over frozen context.
@@ -178,10 +183,11 @@ Direct local invocation supports `--role`, `--domain`, and `--cookie-name`. `AUT
 always takes precedence, while `MODELS` and `EVAL_TIMEOUT_SECONDS` configure model sweeps
 and request timeouts.
 
-.code lang:{bash}
-    cd server/agent-service
-    uv run python evals/run_evals.py --role admin --domain unibo.it
-    EVAL_TIMEOUT_SECONDS=240 uv run python evals/run_evals.py
+```bash
+cd server/agent-service
+uv run python evals/run_evals.py --role admin --domain unibo.it
+EVAL_TIMEOUT_SECONDS=240 uv run python evals/run_evals.py
+```
 
 Rows report `PASS`, `FAIL`, `XFAIL` for accepted known gaps, or `XPASS` when a known gap
 now passes. `just eval` is report-only for scored results, so those statuses do not

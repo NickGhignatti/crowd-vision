@@ -1,0 +1,192 @@
+/* Inspired by latex-css https://github.com/vincentdoerig/latex-css */
+@import url("computermodern/index.css");
+@import url("latinmodern-mono/index.css");
+:root {
+  --qd-main-font: "Computer Modern Serif", sans-serif;
+  --qd-main-font-size: 1rem;
+  --qd-heading-margin: 1.4em 0 1em 0;
+  --qd-code-font: "Latin Modern Mono", monospace;
+  --qd-code-span-font-size: 0.93em;
+  --qd-slides-code-block-font-size: 1.5em;
+  --qd-block-margin: 1.8em;
+  --qd-paragraph-vertical-margin: 1.5em;
+  --qd-line-height: 1.5;
+  --qd-heading-label-suffix: " ";
+  --qd-table-default-cell-alignment: start;
+  --qd-quote-type-label-suffix: ". ";
+  --qd-box-icon-baseline: -0.1em;
+  --qd-mermaid-node-filter: drop-shadow(1px 2px var(--qd-mermaid-node-border-color));
+}
+
+.quarkdown-slides {
+  --qd-horizontal-alignment-global: start;
+}
+
+@page {
+  margin: 0.85in;
+}
+.quarkdown h1 {
+  line-height: calc(3.25em / var(--h-font-scale, 1.5));
+  margin-bottom: calc(1.625em / var(--h-font-scale, 1.5));
+}
+.quarkdown h2 {
+  line-height: calc(2em / var(--h-font-scale, 1.5));
+  margin-top: calc(3em / var(--h-font-scale, 1.5));
+}
+.quarkdown h3 {
+  margin-top: calc(2.5em / var(--h-font-scale, 1.5));
+}
+.quarkdown h4 {
+  margin-top: calc(2em / var(--h-font-scale, 1.5));
+}
+.quarkdown h5 {
+  margin-top: calc(1.8em / var(--h-font-scale, 1.5));
+}
+.quarkdown h6 {
+  margin-top: calc(2.5rem / var(--h-font-scale, 1.5));
+}
+.quarkdown h3, .quarkdown h4, .quarkdown h5, .quarkdown h6 {
+  line-height: calc(1.625em / var(--h-font-scale, 1.5));
+}
+.quarkdown h1 + h2 {
+  margin-top: calc(1.625em / var(--h-font-scale, 1.5));
+}
+.quarkdown h2 + h3,
+.quarkdown h3 + h4,
+.quarkdown h4 + h5 {
+  margin-top: calc(0.8em / var(--h-font-scale, 1.5));
+}
+.quarkdown h5 + h6 {
+  margin-top: calc(0.8rem / var(--h-font-scale, 1.5));
+}
+.quarkdown h2, .quarkdown h3, .quarkdown h4, .quarkdown h5, .quarkdown h6 {
+  margin-bottom: calc(0.8em / var(--h-font-scale, 1.5));
+}
+.quarkdown h1 {
+  --h-font-scale: 2.5;
+  font-size: 2.5em;
+}
+.quarkdown h2 {
+  --h-font-scale: 1.7;
+  font-size: 1.7em;
+}
+.quarkdown h3 {
+  --h-font-scale: 1.4;
+  font-size: 1.4em;
+}
+.quarkdown h4 {
+  --h-font-scale: 1.2;
+  font-size: 1.2em;
+}
+.quarkdown h5, .quarkdown h6 {
+  --h-font-scale: 1;
+  font-size: 1em;
+}
+.quarkdown pre table {
+  --border-width-thick: 0;
+  --border-width-thin: 0;
+}
+.quarkdown table:not(pre table) {
+  margin-left: auto;
+  margin-right: auto;
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: auto;
+  max-width: 100%;
+  border-top: 2px solid var(--qd-main-color);
+  border-bottom: 2px solid var(--qd-main-color);
+}
+.quarkdown table:not(pre table) tr > th[scope=col] {
+  border-bottom: 1px solid var(--qd-main-color);
+}
+.quarkdown table:not(pre table) tr > th[scope=row] {
+  border-right: 1px solid var(--qd-main-color);
+}
+.quarkdown table:not(pre table) th, .quarkdown table:not(pre table) td {
+  padding: 0.5rem;
+  line-height: 1.1;
+}
+.quarkdown table:not(pre table) > tbody > tr:first-child th, .quarkdown table:not(pre table) > tbody > tr:first-child td {
+  border-top: 1px solid var(--qd-main-color);
+}
+.quarkdown table:not(pre table) > tbody > tr:last-child th, .quarkdown table:not(pre table) > tbody > tr:last-child td {
+  border-bottom: 1px solid var(--qd-main-color);
+}
+.quarkdown nav a {
+  text-decoration: none;
+}
+.quarkdown nav ul, .quarkdown nav ol {
+  margin: 0;
+  padding-left: 0;
+}
+.quarkdown nav > ul ul, .quarkdown nav > ul ol, .quarkdown nav > ol ul, .quarkdown nav > ol ol {
+  padding-left: 2rem;
+}
+.quarkdown nav > ul > li, .quarkdown nav > ol > li {
+  margin-top: 20px;
+}
+.quarkdown nav > ul > li > a:is(nav[data-role=table-of-contents] a), .quarkdown nav > ol > li > a:is(nav[data-role=table-of-contents] a) {
+  font-weight: bold;
+}
+.quarkdown nav li {
+  margin-top: 7px;
+  list-style-type: none; /* Only numbering-generated bullets are shown */
+}
+.quarkdown nav:is(.quarkdown-docs nav) > ul, .quarkdown nav:is(.quarkdown-docs nav) > ol {
+  margin-left: 0;
+}
+.quarkdown nav:is(.quarkdown-docs nav) > ul ul, .quarkdown nav:is(.quarkdown-docs nav) > ul ol, .quarkdown nav:is(.quarkdown-docs nav) > ol ul, .quarkdown nav:is(.quarkdown-docs nav) > ol ol {
+  padding-left: 1.5rem;
+}
+.quarkdown nav:is(.quarkdown-docs nav) > ul > li, .quarkdown nav:is(.quarkdown-docs nav) > ol > li {
+  margin-top: 4px;
+}
+.quarkdown nav:is(.quarkdown-docs nav) > ul > li a:is(nav[data-role=table-of-contents] a), .quarkdown nav:is(.quarkdown-docs nav) > ol > li a:is(nav[data-role=table-of-contents] a) {
+  font-weight: normal;
+}
+.quarkdown [data-location]:is(h1, h2, h3, h4, h5, h6, li)::before {
+  padding-right: 0.85rem;
+}
+.quarkdown h6 {
+  font-size: 1rem;
+  font-style: italic;
+  font-weight: normal;
+}
+.quarkdown a {
+  text-decoration: underline;
+}
+.quarkdown blockquote {
+  border-left: 2px solid;
+  padding: 14px 1.5em;
+  font-style: italic;
+}
+.quarkdown blockquote .attribution {
+  text-align: end;
+}
+.quarkdown blockquote[class] {
+  font-style: normal;
+}
+.quarkdown .box.callout {
+  border-color: var(--box-header-background-color) !important;
+  border-left: 2px solid;
+  border-radius: 8px 8px 8px 0;
+}
+.quarkdown .box.callout > .box-content {
+  background-color: var(--qd-background-color);
+}
+.quarkdown .box.callout:not(:has(> header)) {
+  border-top: 16px solid;
+}
+.quarkdown .codespan-content {
+  border-radius: 8px;
+  background: none !important;
+}
+.quarkdown .codespan-content .color-preview {
+  margin: 0 0.3em 0 0.4em;
+  border-radius: 3px;
+}
+.quarkdown h1#table-of-contents {
+  text-align: start;
+}
+
+/*# sourceMappingURL=latex.css.map */

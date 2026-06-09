@@ -1,0 +1,90 @@
+.docname {Socket Service}
+.include {docs}
+
+Implementation reference for the `socket-service`. For its architectural role, see [Socket Service Architecture](../architecture/socket-architecture.qd).
+
+A small Node.js service built on **Socket.IO** and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database, no controllers, and no domain model — the entire service is a single `index.ts`.
+
+---
+
+## Configuration
+
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `REDIS_URL`
+      - empty
+      - Broker connection for the subscriber.
+    - - `CLIENT_URL`
+      - `http://localhost:5173`
+      - Allowed CORS origin for the Socket.IO server (credentials enabled).
+
+The HTTP/WebSocket server listens on port `3000`.
+
+---
+
+## Broker Subscriptions and Emissions
+
+At startup the service connects a Redis subscriber and binds two channels to two Socket.IO events:
+
+.var {headers}
+   - Redis subscription
+   - Socket.IO emission
+   - Audience
+
+.tablebyrows {.headers}
+    - - `notifications`
+      - emit `notification` to every socket
+      - All connected clients (broadcast).
+    - - `telemetry:filtered:*` (pattern)
+      - emit `telemetry` to room `building:{id}`
+      - Only clients in that building's room.
+
+For the pattern subscription, the building id is recovered from the channel name (stripping the `telemetry:filtered:` prefix) and used to target the room. Each incoming message is JSON-parsed before emission.
+
+---
+
+## Client Subscription Protocol
+
+Clients declare their interest by joining and leaving rooms over the socket connection:
+
+.var {headers}
+   - Client event
+   - Handler effect
+
+.tablebyrows {.headers}
+    - - `join_room(userId)`
+      - Joins a per-user room.
+    - - `subscribe_building(buildingId)`
+      - Joins room `building:{buildingId}` to start receiving that building's telemetry.
+    - - `unsubscribe_building(buildingId)`
+      - Leaves room `building:{buildingId}` to stop receiving it.
+
+.mermaid
+    sequenceDiagram
+        participant UI as Vue client
+        participant WS as socket-service
+        participant R as Redis
+        UI->>WS: connect
+        UI->>WS: subscribe_building(B)
+        Note over WS: socket joins room building:B
+        R-->>WS: telemetry:filtered:B message
+        WS->>UI: emit "telemetry" (room building:B only)
+        R-->>WS: notifications message
+        WS->>UI: emit "notification" (broadcast)
+
+Telemetry is room-scoped so each browser receives only the buildings it is displaying; alerts are broadcast because any client may need them.
+
+---
+
+## Scaling Considerations
+
+The service runs as a single Socket.IO process. Two changes are required to run multiple replicas:
+
+- **Sticky sessions.** The HTTP long-polling handshake must return to the same instance; the Kubernetes ingress sets cookie affinity for this (see [Deployment & Kubernetes](../architecture/deployment.qd)).
+- **Cross-instance rooms.** With multiple replicas a room spans instances, so emissions must propagate via the Socket.IO Redis adapter. This is a known extension point, not yet in place.
+
+For where this service sits in the end-to-end real-time path, see [Communication & Data Flow](../architecture/data-flow.qd).

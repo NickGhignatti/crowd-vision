@@ -1,46 +1,63 @@
 .docname {Account Registration}
 .include {docs}
----
 
-## Standard Account Creation
+There are three ways to get a CrowdVision account. This page covers each. The diagram below helps you pick the right one.
 
-A standard account allows you to access the basic features of CrowdVision, such as viewing public domains and exploring building digital twins.
-
-**How to create a standard account:**
-1. Navigate to the CrowdVision application and open the **Login/Register** menu.
-2. Select the option to **Sign Up** or **Create an Account**.
-3. Fill in the required registration fields:
-   * **Username:** Choose a unique username for your profile.
-   * **Email:** Provide a valid email address.
-   * **Password:** Create a secure password.
-4. Leave the OTP field blank.
-5. Click **Submit** or **Sign Up** to finalize your registration.
-6. You can now log in using your newly created credentials!
+.mermaid
+    flowchart TD
+        Q{"How are you joining?"}
+        Q -->|"On my own"| S["Standard account<br/>(leave OTP blank)"]
+        Q -->|"Invited to an organization"| O["Account with OTP<br/>(enter the invite code)"]
+        Q -->|"Setting up an organization"| B["Business account<br/>(contact CrowdVision)"]
 
 ---
 
-## Account Creation with OTP (Role Assignment)
+## Standard account
 
-If you are joining an existing organization on CrowdVision (for example, as a staff member or domain administrator), you will need to register using an OTP (One-Time Password). This process automatically grants you the correct access rights and links you to your organization's domain upon registration.
+A standard account lets you explore public domains and view building digital twins.
 
-**How to register with an OTP:**
-1. **Obtain a QR Code:** Ask your organization's Domain Administrator to generate and provide you with an invitation QR Code.
-2. **Scan the Code:** Open an Authenticator app on your smartphone (such as Google Authenticator, Authy, or FreeOTP) and scan the provided QR Code. The app will begin generating a temporary 6-digit code.
-3. **Go to Sign Up:** Navigate to the CrowdVision registration page.
-4. **Enter Details:** Fill in your **Username**, **Email**, and **Password**.
-5. **Enter the OTP:** Look at your Authenticator app and type the current 6-digit code into the **OTP** field on the registration form.
-6. **Submit:** Click **Sign Up**. Your account will instantly be created with the elevated permissions and domain access tied to that code.
+1. Open the CrowdVision application and open the **Login / Register** menu.
+2. Choose **Sign Up** (Create an account).
+3. Fill in the fields:
+   - **Username** — a unique name for your profile.
+   - **Email** — a valid email address.
+   - **Password** — a secure password.
+4. Leave the **OTP** field empty.
+5. Click **Sign Up**. You can now sign in with your new credentials.
 
-*Note: You will use this Authenticator app to generate codes for future logins if Two-Factor Authentication is enforced by your domain.*
+![The sign-up form](../assets/figures/registration-form.png)
+
+*Figure 1 — The sign-up form. Leave OTP blank for a standard account.*
 
 ---
 
-## Business Account Creation
+## Account with an OTP (joining an organization)
 
-CrowdVision allows universities, companies, and large organizations to manage their own digital twins through isolated "Domains." Because Domains require custom configuration, Business Accounts cannot be created via the standard public registration page.
+If you are joining an existing organization (for example as staff), register with a one-time code. This grants the correct role and links you to the organization's domain immediately.
 
-**How to get a Business Account:**
-1. **Contact CrowdVision Administration:** Reach out directly to the CrowdVision staff or support team to request a new Business Domain.
-2. **Provide Organization Details:** You will need to provide the name of your organization, your desired domain structure (e.g., `university.edu`), and specify if the domain should be visible to the public or kept private.
-3. **Setup and Handoff:** The CrowdVision administration team will manually create your Domain and configure your root Administrator account.
-4. **Manage Your Domain:** Once your account is provisioned, you can log in, access the **Control Panel**, create digital twins of your buildings, and generate QR Codes to invite your own staff members (using the OTP method described above).
+1. **Get an invite QR code** from your organization's domain administrator.
+2. **Scan the code** with an authenticator app (Google Authenticator, Authy, FreeOTP). The app starts generating a six-digit code.
+3. Open the CrowdVision **registration** page.
+4. Enter your **Username**, **Email**, and **Password**.
+5. Type the current **six-digit code** from your authenticator app into the **OTP** field.
+6. Click **Sign Up**. Your account is created with the role and domain access tied to that code.
+
+![The sign-up form with the OTP field filled in](../assets/figures/otp-registration.png)
+
+*Figure 2 — Registering with an invite code in the OTP field.*
+
+.box {Keep your authenticator app} type:{note}
+    Keep the authenticator entry — you will use it again if your organization enforces two-factor sign-in.
+
+---
+
+## Business account (organizations)
+
+Organizations manage their own buildings through isolated **domains**. Because domains need custom setup, business accounts are not created through the public sign-up page.
+
+1. **Contact CrowdVision support** to request a new business domain.
+2. **Provide your organization details** — name, desired domain (for example `university.edu`), and whether it should be public or private.
+3. **Setup and handoff** — CrowdVision creates your domain and your root administrator account.
+4. **Manage your domain** — sign in, open the Administrator Panel, upload your buildings, and generate invite QR codes for your staff (the OTP method above).
+
+Next: [sign in to your account](login.qd).

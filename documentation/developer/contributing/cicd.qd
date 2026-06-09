@@ -1,0 +1,216 @@
+.docname {CI/CD Pipeline}
+.include {docs}
+
+CrowdVision uses a fully automated CI/CD pipeline on GitHub Actions. Every pull request to `master` is gated by a suite of checks — builds, tests, linting, security audits, and Kubernetes manifest validation. Merging to `master` automatically triggers a versioned release and pushes Docker images to GHCR. This page documents the workflows; the commit format and release mechanics that drive them are covered in [Commits & Semantic Release](semantic-release.qd).
+
+---
+
+## Workflow naming
+
+All workflow files live in `.github/workflows/` and use a three-prefix convention that mirrors their purpose.
+
+.var {headers}
+   - Prefix
+   - Category
+   - When it runs
+
+.tablebyrows {.headers}
+    - - `ci-*`
+      - Continuous integration checks
+      - On every pull request to `master`
+    - - `cd-*`
+      - Continuous delivery
+      - On every push to `master`
+    - - `maint-*`
+      - Maintenance
+      - Weekly schedule or manual dispatch
+
+---
+
+## The CI gate
+
+Every pull request must pass a single required status check: `ci-gate / ci-passed`. This is the only check branch protection needs to require. The gate (`ci-gate.yml`) calls every CI workflow in parallel as reusable workflows and reports one aggregated result — if any leg fails or is cancelled, the gate fails.
+
+.mermaid
+    graph LR
+        PR[Pull Request] --> GATE[ci-gate]
+        GATE --> LINT[ci-lint]
+        GATE --> AUDIT[ci-audit]
+        GATE --> DEPS[ci-deps]
+        GATE --> DOCKER[ci-docker]
+        GATE --> COMMITLINT[ci-commitlint]
+        GATE --> K8S[ci-k8s]
+        GATE --> CODEQL[ci-codeql]
+        GATE --> AUTH[ci-auth]
+        GATE --> CLIENT[ci-client]
+        GATE --> TWIN[ci-twin]
+        GATE --> SENSOR[ci-sensor]
+        GATE --> SOCKET[ci-socket]
+        GATE --> NOTIFICATION[ci-notification]
+        GATE --> CONTRACTS[ci-contracts]
+        GATE --> AGENT[ci-agent]
+        LINT --> PASSED[ci-passed]
+        AUDIT --> PASSED
+        DEPS --> PASSED
+        DOCKER --> PASSED
+        COMMITLINT --> PASSED
+        K8S --> PASSED
+        CODEQL --> PASSED
+        AUTH --> PASSED
+        CLIENT --> PASSED
+        TWIN --> PASSED
+        SENSOR --> PASSED
+        SOCKET --> PASSED
+        NOTIFICATION --> PASSED
+        CONTRACTS --> PASSED
+        AGENT --> PASSED
+
+.box {Unaffected legs are skipped, not failed} type:{note}
+    Each service leg runs only when `dorny/paths-filter` detects a change under its directory, so an unaffected service resolves as `skipped`, which the gate counts as a pass. The Python agent (`ci-agent.yml`) is called by the gate like every other service.
+
+---
+
+## Service CI workflows
+
+Each service has a dedicated workflow that runs on pull requests touching its directory, performing: install dependencies, compile, run tests.
+
+.var {headers}
+   - Workflow
+   - Service
+   - Language / test runner
+
+.tablebyrows {.headers}
+    - - `ci-auth.yml`
+      - `server/auth-service`
+      - Node.js 24 / Jest
+    - - `ci-twin.yml`
+      - `server/twin-service`
+      - Node.js 24 / Jest
+    - - `ci-sensor.yml`
+      - `server/sensor-service`
+      - Node.js 24 / Jest
+    - - `ci-socket.yml`
+      - `server/socket-service`
+      - Node.js 24 / Jest
+    - - `ci-notification.yml`
+      - `server/notification-service`
+      - Node.js 24 / Jest
+    - - `ci-contracts.yml`
+      - `server/contracts-service`
+      - Rust stable / cargo test
+    - - `ci-client.yml`
+      - `client`
+      - Node.js 24 / Vitest
+    - - `ci-agent.yml`
+      - `server/agent-service`
+      - Python 3.12 / pytest
+
+The contracts workflow also runs `cargo fmt --check` and `cargo clippy -- -D warnings` before building, catching formatting and lint issues at compile time.
+
+---
+
+## Cross-cutting checks
+
+These workflows validate properties that span the whole codebase.
+
+.var {headers}
+   - Workflow
+   - What it validates
+
+.tablebyrows {.headers}
+    - - `ci-lint`
+      - ESLint per Node project plus Ruff/Pyright for the agent. Each matrix leg installs `tooling/eslint-config/` and the service's own deps. Also triggers on `&#46;moon/**` changes so tooling config is re-validated.
+    - - `ci-audit`
+      - Security audits across all three ecosystems: `npm audit --audit-level=high` per Node package, `uv audit` for the agent, and `cargo audit` for contracts.
+    - - `ci-deps`
+      - Lockfile-to-manifest consistency: `npm ci`, `uv sync --locked`, and `cargo check`.
+    - - `ci-docker`
+      - hadolint on every Dockerfile, then a full-stack build through `scripts/compose/compose-run.mjs build` (the same orchestrator as `just dev`, so path resolution is identical). The hadolint step runs first; a lint failure skips the build.
+    - - `ci-commitlint`
+      - Validates every commit message against Conventional Commits via `wagoid/commitlint-github-action`.
+    - - `ci-codeql`
+      - GitHub's static security analysis (SAST) for `javascript-typescript` and `python`, on pull requests, pushes to `master`, and a weekly schedule.
+    - - `ci-k8s`
+      - Validates `k8s/` with kubeconform (schema), pluto (deprecated APIs), and kube-score (best practices).
+
+---
+
+## CD workflows
+
+### cd-release
+
+Triggered on every push to `master`. Runs semantic-release from `tooling/`: it reads commits since the last tag, computes the next version, updates `CHANGELOG.md`, bumps every manifest, tags the repository, and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Semantic Release](semantic-release.qd).
+
+### cd-registry
+
+Also triggered on push to `master` when source changes. Builds and pushes all Docker images to GHCR tagged both `:latest` and `:<git-sha>`. After each push, **Trivy** scans the image for HIGH and CRITICAL CVEs. Only vulnerabilities with an available fix (`ignore-unfixed: true`) fail the job; results are uploaded as SARIF to the GitHub Security tab. A concurrency guard ensures one push at a time.
+
+The Trivy scan is deliberately scoped to **OS packages only** (`vuln-type: os`). Application dependencies are not re-scanned here because they are already gated pre-merge by `ci-audit`. The division of labour is: **`ci-audit` owns language dependencies at PR time; `cd-registry` Trivy owns the base-OS layer at push time** — the part the dependency audits cannot see.
+
+To keep the OS scan green, every production image upgrades its base-OS packages at build time (`apk upgrade` on Alpine images, `apt-get upgrade` on the Debian-based contracts, agent, and aq-simulator images). The Debian upgrade lines carry `# hadolint ignore=DL3005` because hadolint discourages `apt-get upgrade` by default. Any residual fixable CVE that cannot be patched in-build is waived in the repo-root `.trivyignore`, where each entry must carry a justifying comment. Node production images also run `npm cache clean --force` after install, so the npm cache is never present in the pushed image.
+
+---
+
+## Maintenance
+
+`maint-cleanup` runs every Sunday at 02:00 UTC (or on manual dispatch). It removes old package versions from GHCR, keeping a minimum of three versions per image, so the registry does not grow unbounded.
+
+---
+
+## Dependency updates
+
+Dependency upgrades are made manually (there is no Dependabot). Bump the version in the relevant manifest, then verify and regenerate locks locally before opening a pull request:
+
+```bash
+just deps-check   # mirrors ci-deps  — every lockfile in sync (npm ci / uv sync --locked / cargo check)
+just audit        # mirrors ci-audit — no known vulnerabilities (npm / uv / cargo audit)
+```
+
+Both gates also run on every pull request, so a drifted or vulnerable dependency blocks the merge regardless.
+
+---
+
+## Docker image registry
+
+All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and `:<git-sha>`. The Kubernetes deployment manifests reference `:latest`.
+
+.var {headers}
+   - Service
+   - GHCR image
+
+.tablebyrows {.headers}
+    - - `auth-service`
+      - `ghcr.io/nickghignatti/crowdvision-auth`
+    - - `twin-service`
+      - `ghcr.io/nickghignatti/crowdvision-twin`
+    - - `sensor-service`
+      - `ghcr.io/nickghignatti/crowdvision-sensor`
+    - - `notification-service`
+      - `ghcr.io/nickghignatti/crowdvision-notification`
+    - - `socket-service`
+      - `ghcr.io/nickghignatti/crowdvision-socket`
+    - - `contracts-service`
+      - `ghcr.io/nickghignatti/crowdvision-contracts`
+    - - `agent-service`
+      - `ghcr.io/nickghignatti/crowdvision-agent`
+    - - `client`
+      - `ghcr.io/nickghignatti/crowdvision-client`
+    - - `sensor-simulator`
+      - `ghcr.io/nickghignatti/crowdvision-simulator`
+    - - `aq-simulator`
+      - `ghcr.io/nickghignatti/crowdvision-aq-simulator`
+
+---
+
+## Reproducing the gates locally
+
+Run the same checks CI runs before pushing, to avoid a slow round-trip through a failed pipeline:
+
+```bash
+just test            # all unit tests (moon-cached); or just test-affected
+just lint-affected   # ESLint / Ruff on changed projects
+just deps-check      # lockfile sync
+just audit           # vulnerability audit
+```
+
+Per-service tests are available as `just test-auth`, `just test-twin`, `just test-sensor`, `just test-notification`, `just test-socket`, `just test-client`, and `just test-agent`. Full backend integration tests run via `just test-integration` (it composes the full stack — see [Docker Compose Orchestration](../config/docker-compose.qd)).
