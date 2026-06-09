@@ -1,64 +1,91 @@
-.docname {Digital Twin Visualization}
+.docname {The Digital Twin}
 .include {docs}
 
-The **Digital Twin** view provides an interactive, real-time 3D representation of your organization's monitored buildings. From here, you can visually track occupancy, monitor temperatures, and manage the spatial configuration of your rooms.
+The **Digital Twin** view is an interactive 3D model of your buildings. You can fly around the model, inspect rooms, watch live occupancy and temperature, and — with the right permissions — edit the spatial configuration.
+
+![The 3D digital twin of a building](../assets/figures/twin-3d.svg)
+
+*Figure 1 — The digital twin renders every room of the selected building in 3D.*
 
 ---
 
-## The Control Panel (View Controls)
+## Moving around: the control panel
 
-Located within the 3D viewer, the Control Panel provides the tools you need to navigate and interact with the digital model.
+The control panel inside the viewer holds the navigation tools.
 
-You can perform the following actions directly from the control panel:
-* **Reset View:** Instantly returns the camera to its default starting position and angle, centering the entire building on your screen.
-* **Zoom In & Zoom Out:** Move the camera closer to or further away from the 3D model for a better look at specific areas.
-* **Panorama Mode:** Toggles an auto-rotation feature that smoothly spins the camera around the building at 60fps, providing a hands-free 360-degree overview. Live sensor updates are synchronized to each animation frame so the rotation remains fluid even when telemetry is arriving.
-* **Focus on Room:** When a specific room is selected, this action "explodes" or isolates the room from the rest of the building, moving the camera to focus directly on it for detailed inspection.
-* **Temperature Mode:** Toggles the visual coloring of the rooms to reflect real-time temperature data instead of standard colors. Rooms will shift from cool blues to warm reds based on live climate readings.
+.var {headers}
+   - Control
+   - What it does
 
----
+.tablebyrows {.headers}
+    - - Reset View
+      - Return the camera to its default position, centred on the building.
+    - - Zoom In / Out
+      - Move the camera closer or further away.
+    - - Panorama Mode
+      - Auto-rotate smoothly around the building for a hands-free 360° overview.
+    - - Focus on Room
+      - Isolate the selected room and move the camera to inspect it.
+    - - Temperature Mode
+      - Colour rooms by live temperature, from cool blues to warm reds.
 
-## The Left Menu: Building & Floor Navigation
+![The 3D view control panel](../assets/figures/twin-control-panel.svg)
 
-The Left Menu acts as your primary navigation tool for switching between different physical structures and levels.
-
-* **Select Building:** Use the dropdown menu to choose which building you want to view. The list populates based on the domains your account has access to.
-* **Floor Selection:** If a building has multiple levels, you can filter the 3D view to show only a specific floor or choose **"All Floors"** to see the entire structure.
-* **Register Building:** For administrators setting up a new space, clicking this button opens the **Register Building** modal. From there you can upload a valid JSON file containing the architectural and spatial data (geometry) of the building, review and adjust its name, temperature thresholds, indoor AQI thresholds, and per-room capacity before saving. The system automatically assigns a unique identifier to the building — the JSON file does not need to include one.
-
----
-
-## The Right Menu: Room Details & Search
-
-The Right Menu focuses on the individual rooms within your currently selected building.
-
-* **Search Room:** A search bar that allows you to quickly find a specific room by its name or identifier.
-* **Room List:** Displays a scrollable list of all rooms currently visible in the 3D model.
-* **Selection & Details:** Clicking on a room in this list (or clicking directly on the 3D model) selects it. This highlights the room in the viewer and opens up its specific details and sensor readings.
+*Figure 2 — The control panel: reset, zoom, panorama, focus, and temperature colouring.*
 
 ---
 
-## Editing Capabilities
+## Left menu: buildings and floors
 
-Users with elevated permissions (such as Organization Administrators or Staff) have the ability to modify the digital twin to ensure the system accurately reflects the physical space.
-
-By selecting a room and choosing to **Edit Room**, authorized users can configure:
-* **Room Name:** The display name of the room (e.g., "Physics Lab").
-* **Room Identifier:** The unique system ID for the room (read-only, assigned from the original model file).
-* **Capacity:** The maximum safe number of people allowed in the room, which drives the dashboard occupancy statuses (Normal, Crowded, Overcrowded).
-* **Max Temp (°C):** The upper temperature threshold for the room. If the live temperature exceeds this limit, the system can trigger critical alerts.
-* **Theme Color:** The default visual color of the room when viewed in the standard 3D mode.
-
-Temperature and AQI thresholds for all rooms can also be configured in bulk at registration time through the **Register Building** modal.
+- **Select Building** — choose which building to view (the list reflects your domains).
+- **Floor Selection** — show a single level, or **All Floors** for the whole structure.
+- **Register Building** — administrators open the **Register Building** modal to upload a building's JSON layout and set its name, thresholds, and per-room capacity before saving. The system assigns a unique id automatically. See [Upload a Digital Twin](building-data.qd).
 
 ---
 
-## Editing Building Properties
+## Right menu: rooms and details
 
-Just as you can configure individual rooms, authorized users (Organization Administrators or Staff) can also edit the properties of entire buildings. This is particularly useful for setting global defaults that apply to the whole structure.
+- **Search Room** — find a room by name or id.
+- **Room List** — a scrollable list of the rooms in view.
+- **Selection & Details** — click a room (in the list or the 3D model) to highlight it and open its live readings.
 
-By accessing the **Edit Building** option, you can configure:
-* **Building Name:** Update the display name of the building to keep your digital twin organized.
-* **Global Max Temp (°C):** Set a default upper temperature threshold for the entire building. If a specific room does not have its own custom temperature limit set, it will automatically inherit this global building threshold.
+![The right menu with a room selected](../assets/figures/twin-room-details.svg)
 
-*Note: Changes made at the building level will immediately sync across the 3D model and the dashboard analytics.*
+*Figure 3 — Selecting a room opens its details and live sensor readings.*
+
+---
+
+## Editing rooms
+
+Administrators and staff can keep the twin in sync with the real space. Select a room and choose **Edit Room** to configure:
+
+.var {headers}
+   - Field
+   - Meaning
+
+.tablebyrows {.headers}
+    - - Room Name
+      - The display name (e.g. "Physics Lab").
+    - - Room Identifier
+      - The system id (read-only; set from the uploaded model).
+    - - Capacity
+      - The maximum safe occupancy, which drives the occupancy statuses.
+    - - Max Temp (°C)
+      - The room's upper temperature threshold; exceeding it can trigger alerts.
+    - - Theme Color
+      - The room's default colour in standard 3D mode.
+
+![The Edit Room dialog](../assets/figures/edit-room.svg)
+
+*Figure 4 — Edit Room configures a room's name, capacity, temperature limit, and colour.*
+
+---
+
+## Editing building defaults
+
+Authorized users can also edit a whole building via **Edit Building**:
+
+- **Building Name** — update the display name.
+- **Global Max Temp (°C)** — a default temperature limit for the building. A room without its own limit inherits this value.
+
+Changes at the building level sync immediately across the 3D model and the dashboard analytics.

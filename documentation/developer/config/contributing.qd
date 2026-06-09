@@ -1,85 +1,91 @@
-.docname {Contributing}
+.docname {Contributing & Golden Rules}
 .include {docs}
 
-## 📦 The Polyglot Monorepo
-
-CrowdVision is a **polyglot monorepo** — JavaScript/TypeScript (Vue client + 5 Node services), Python (`agent-service`), and Rust (`contracts-service`) — orchestrated by **moon** for task caching and affected detection, with a root `Justfile` for Docker Compose and Kubernetes tasks. There is **no root `package.json`** and no npm workspaces; each Node service installs its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
-
-*What this means for you:*
-- *Run everything via `just`*: `just install` bootstraps every language. `just dev` starts the stack. `just lint` / `just test` delegate to **moon** — task results are cached by input hash and unchanged services are skipped automatically. Run `just test-affected` or `just lint-affected` to process only services touched by your branch. See `just --list` for the full menu.
-- *No hoisting*: when you add a dep to a service, install it in that service's directory: `cd server/auth-service && npm install <pkg>`. Because that `npm install` resolves the lockfile for *your* OS, regenerate it for Linux before committing — `just clean-install`, or per-service `npm install --prefix server/auth-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. See [Setting Up the Environment](./setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*, and run `just deps-check` before pushing.
-- *Build orchestration*: **moon** provides per-service `moon.yml` files that define `build`, `test`, `lint`, and `lint-fix` tasks with input tracking and caching. Each `moon.yml` lives alongside its service and travels with it if the service is ever extracted to its own repository.
-- *Toolchain pinning*: **mise** (`.mise.toml` at repo root) pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning to get every tool at the correct version on any OS.
-- *Shared ESLint config*: each TypeScript service declares `@crowdvision/eslint-config` as a devDependency (via `"file:../../tooling/eslint-config"`) and re-exports it in its own `eslint.config.mjs`. The scoped package at `tooling/eslint-config/` owns all shared plugins (`typescript-eslint`, etc.); the `eslint` binary is a devDep of every service. Using a proper npm package — rather than a raw `--config` path — means the config can be installed from a registry if a service is extracted to its own repo.
-- *Release flow*: semantic-release drives versioning from `tooling/` (`cd-release.yml`). Version bumps across every service `package.json`, `server/contracts-service/Cargo.toml` (Rust), and `server/agent-service/pyproject.toml` (Python) are applied by `tooling/bump-versions.mjs`.
-
-.box type:{note}
-    **Why `bump-versions.mjs` instead of Lerna?** Lerna 9 dropped its own package-discovery field and now delegates entirely to npm workspaces (`"workspaces"` in `package.json`). npm workspaces cannot point *upward* with `../` — workspace paths must be strict descendants of the directory that owns the `package.json`. Since `tooling/` sits inside the repo rather than above the services, a `tooling/package.json` declaring `"workspaces": ["../client", "../server/*"]` is rejected by npm outright. `tooling/bump-versions.mjs` sidesteps the constraint entirely: it is a plain Node `fs` script that opens each service `package.json` by relative path and writes the new version — no workspaces, no Lerna discovery, no tooling needed beyond Node itself.
+This page is the contract for working in the CrowdVision repository: how the monorepo is organised, the architectural rules contributions must respect, and the day-to-day workflow from clone to merged pull request. The related conventions are detailed on their own pages: [Naming Conventions](naming-conventions.qd), [Commits & Semantic Release](semantic-release.qd), and [CI/CD Pipeline](cicd.qd).
 
 ---
 
-## 🚀 Commits & Semantic Release
-We use Semantic Release to fully automate our versioning, package publishing, and `CHANGELOG.md` generation. For this pipeline to work, you must use *Conventional Commits*.
-When you write a commit message, the prefix dictates how the version number will bump in the next release:
+## The polyglot monorepo
+
+CrowdVision is a polyglot monorepo: a Vue client and five Node services in TypeScript, a Python `agent-service`, and a Rust `contracts-service`, orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`.
+
+Two structural facts shape everything you do:
+
+- **There is no root `package.json` and no npm workspaces.** Each Node service installs its own `node_modules`. Shared JavaScript dev tooling (semantic-release, commitlint, the bump script) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+- **Every package is registered once** in `.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](toolchain.qd).
+
+.box {Dependencies are not hoisted} type:{note}
+    When you add a dependency, install it inside that service's directory (`cd server/auth-service && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just clean-install`, or per-service `npm install --prefix server/auth-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just deps-check` before pushing.
+
+---
+
+## Architectural golden rules
+
+These rules preserve the boundaries the architecture depends on. A contribution that violates one will not be accepted, even if it passes CI.
 
 .var {headers}
-   - Commit prefix
-   - Example
-   - Impact on release
+   - Rule
+   - What it means in practice
 
 .tablebyrows {.headers}
-    - - `feat:`
-      - `feat: add support for private domains`
-      - Minor release (e.g., `1.1.0` -> `1.2.0`).
-    - - `fix:`
-      - `fix: resolve issue with user authentication`
-      - Patch release (e.g., `1.1.0` -> `1.1.1`).
-    - - `docs:`,`chore:`, `refactor:`
-      - `docs: update API documentation`
-      - No version bump. Safe internal changes.
-    - - `BREAKING CHANGE:`
-      - `BREAKING CHANGE: remove deprecated user profile fields`
-      - Major release (e.g., `1.1.0` -> `2.0.0` ).
-
-.box type:{note}
-    ⚙️ The Release Pipeline: When a pull request is merged into the `master` branch, the GitHub Action runs `npx semantic-release` from `tooling/`. Semantic Release reads your commit history since the last tag, calculates the new version, updates the root `CHANGELOG.md`, tags the repository, and publishes the release automatically.
+    - - Respect the database-per-service boundary
+      - A service never opens a connection to another service's database. If a service needs data it does not own, it reads it from the verified identity token, asks the owning service over its API, or reacts to a broker event. Never configure a cross-database Mongoose connection.
+    - - Keep services stateless
+      - Hold no session state in a service; all caller authority travels in the signed token, so any instance can serve any request. Durable state belongs only in databases and the broker.
+    - - One bounded context per service
+      - A service realises exactly one context from the [Domain model](../domain/strategic-design.qd). Logic that belongs to another context goes in that context's service, reached through its contract.
+    - - Keep the frontend lightweight
+      - Avoid adding a global store (Pinia/Vuex) unless genuinely necessary; prefer composables and local state.
+    - - Test what you change
+      - Every backend service has a `__tests__` directory. New behaviour must be covered, and `just test` must pass before you open a pull request.
+    - - Route every tool through mise
+      - Never rely on the ambient `PATH`. Use `just` recipes (which wrap `mise exec --`) or `mise exec -- <tool>` directly. Register any new package in `&#46;moon/workspace.yml`.
 
 ---
 
-## 🏷️ Naming Conventions
-Because CrowdVision spans both frontend Vue applications and backend Express/Fastify services, we follow strict naming conventions to differentiate architectural layers at a glance.
+## The contribution workflow
 
-*Backend Conventions (Express / Node.js)*
-- Controllers & Services: Use camelCase with the layer type as a suffix.
-    - ✅ Good: `buildings.ts`, `notificationService.ts`
-    - ❌ Bad: `twin_ctrl.ts`, `Notification.ts`
-- Models / Entities: Use camelCase for the filename, but PascalCase for the exported Mongoose Model and Interface. Prefix Interfaces with I.
-    - ✅ Good: File: `account.ts` | Code: `export interface IAccount { ... }`, `export const Account = model(...)``
-- Database Collections: Always plural and lowercase (e.g., `accounts`, `buildings`).
+.mermaid
+    flowchart LR
+        A["Branch from master"] --> B["just install"]
+        B --> C["Code + just dev"]
+        C --> D["just lint-fix"]
+        D --> E["just test-affected"]
+        E --> F["just deps-check + just audit"]
+        F --> G["Conventional commit"]
+        G --> H["Open PR"]
+        H --> I["ci-gate / ci-passed"]
+        I --> J["Merge to master"]
 
-*Frontend Conventions (Vue 3 / TresJS)*
-- Vue Components: Use PascalCase for both the filename and the template tag. Use multi-word names to avoid conflicts with HTML elements.
-    - ✅ Good: `BuildingCard.vue`, `NotificationDropdown.vue`, `LeftMenu.vue`
-    -❌ Bad: `card.vue`, `header.vue`
-- Composables: Use camelCase and always prefix with use.
-    - ✅ Good: `useBuildingModel.ts`, `useAuth.ts`, `useSceneControls.ts`
-- Views / Pages: Suffix top-level routing components with View.
-    - ✅ Good: `DashboardView.vue`, `AdministrationView.vue`
+1. **Branch** from `master` using the branch-naming convention, see [Naming Conventions](naming-conventions.qd).
+2. **Bootstrap** the repository once with `just install` (which runs `mise install` first).
+3. **Develop** against the local stack with `just dev`, see [Docker Compose Orchestration](docker-compose.qd).
+4. **Format and lint** with `just lint-fix`, then verify with `just lint-affected`.
+5. **Test** with `just test-affected` (or `just test` for the full suite).
+6. **Verify dependencies** with `just deps-check` (lockfile sync) and `just audit` (vulnerabilities) — these mirror the `ci-deps` and `ci-audit` gates.
+7. **Commit** using Conventional Commits, see [Commits & Semantic Release](semantic-release.qd).
+8. **Open a pull request** to `master`. The single required check is `ci-gate / ci-passed`.
 
---- 
+---
 
-## 🏗️ Architectural Golden Rules
-When adding new features, please respect the architectural boundaries we have put in place:
-- *Never breach the Database-per-Service boundary*: If the Twin Service needs to know something about a User, it must read it from the embedded JWT payload or use a Redis event. Do not configure cross-database Mongoose connections.
-- *Keep the Frontend Lightweight*: Avoid adding Vuex or Pinia unless absolutely necessary.
-- *Test Your Code*: Every backend service has its own `__tests__` directory. Ensure your changes are covered by running `just test` from the root before submitting a pull request.
+## Pre-push checklist
 
+Running the same gates locally that CI runs avoids a slow round-trip through a failed pipeline.
 
+```bash
+just lint-affected   # mirrors ci-lint
+just test-affected   # mirrors the per-service ci-* test legs
+just deps-check      # mirrors ci-deps  (npm ci / uv sync --locked / cargo check)
+just audit           # mirrors ci-audit (npm / uv / cargo audit)
+```
 
+.box {The commit message is part of the build} type:{warning}
+    `ci-commitlint` rejects any commit message that does not follow Conventional Commits, and semantic-release derives the next version directly from those messages. A malformed message blocks the pull request. See [Commits & Semantic Release](semantic-release.qd).
 
+---
 
+## Why bump-versions.mjs instead of Lerna
 
+Release-time version bumps across every manifest are applied by `tooling/bump-versions.mjs`, a plain Node `fs` script, rather than Lerna.
 
-
-
-
+Lerna 9 dropped its own package-discovery field and now delegates entirely to npm workspaces. npm workspaces cannot point upward with `../` — workspace paths must be strict descendants of the directory owning the `package.json`. Because `tooling/` sits inside the repository rather than above the services, a `tooling/package.json` declaring `"workspaces": ["../client", "../server/*"]` is rejected by npm outright. `bump-versions.mjs` sidesteps the constraint entirely: it opens each manifest by relative path and writes the new version — no workspaces, no Lerna discovery, nothing beyond Node itself.

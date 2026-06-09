@@ -1,0 +1,40 @@
+.docname {Enterprise Login (SSO)}
+.include {docs}
+
+Some organizations sign in through their own identity provider (for example Keycloak, Microsoft Entra ID, or Auth0) using **Single Sign-On (SSO)**. If your organization uses SSO, you do not set a separate CrowdVision password — you authenticate with your company account.
+
+.box {You need a CrowdVision account first} type:{note}
+    SSO **links** your company identity to an existing CrowdVision account; it does not create one. If you have never signed in, create a standard account first (see [Account Registration](registration.qd)), then complete the SSO link below.
+
+---
+
+## How it works
+
+.mermaid
+    sequenceDiagram
+        participant You
+        participant CV as CrowdVision
+        participant IdP as Your company login
+        You->>CV: Start SSO for your organization
+        CV->>IdP: Redirect to your company login
+        You->>IdP: Sign in with your company account
+        IdP->>CV: Return to CrowdVision
+        Note over CV: Your role is assigned from your company group
+        CV-->>You: Signed in, membership linked
+
+---
+
+## Steps
+
+1. Sign in to CrowdVision (or create a standard account) and open the **Domains** view.
+2. Choose your organization's domain and start the **SSO sign-in**.
+3. You are redirected to your company's login page.
+4. Authenticate with your usual company credentials.
+5. You are returned to CrowdVision. Your membership and role are set automatically based on your company group, and the domain now appears in your Domains list.
+
+![Starting enterprise SSO sign-in](../assets/figures/sso-start.svg)
+
+*Figure 1 — Starting the SSO sign-in for an enterprise domain.*
+
+.box {Your role is decided by your organization} type:{tip}
+    With SSO, your CrowdVision role (administrator, staff, or standard) is derived from the group you belong to in your company directory. If your access looks wrong, contact your organization's administrator.

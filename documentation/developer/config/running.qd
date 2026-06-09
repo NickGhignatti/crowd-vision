@@ -5,7 +5,7 @@ CrowdVision can be run in two distinct modes: **Docker Compose** for everyday lo
 
 ---
 
-## 🐳 Docker Compose Mode
+## Docker Compose Mode
 
 ### Development (Hot-Reloading)
 
@@ -162,7 +162,7 @@ just db-clear-sensor
 
 ---
 
-## 🌱 Bootstrapping (First-Time Provisioning)
+## Bootstrapping (First-Time Provisioning)
 
 With empty databases you cannot log in. Use the provisioning script to seed the initial Global Admin account and default Domain:
 
@@ -174,7 +174,7 @@ Run this once after your services are healthy. The script prompts you for the ad
 
 ---
 
-## ☸️ Kubernetes Mode
+## Kubernetes Mode
 
 See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Quick summary:
 
@@ -260,7 +260,7 @@ kubectl describe pod <pod-name> -n crowdvision
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all unit tests across all services (moon caches results — unchanged services are instant):
@@ -287,7 +287,7 @@ just test-integration
 
 ---
 
-## 🔒 Auditing & Dependency Checks
+## Auditing & Dependency Checks
 
 Two recipes run a security audit and a lockfile-sync check across every project. Both delegate to **moon** (`moon run :audit` / `:deps`), so they are cached and accept `--affected` to scope to the projects changed on your branch. See [The Toolchain: mise & moon](toolchain.qd) for how these tasks are defined.
 
@@ -307,7 +307,7 @@ mise exec -- moon run :audit --affected
 
 ---
 
-## 📋 Full Just Reference — Docker Compose
+## Full Just Reference — Docker Compose
 
 .var {headers}
    - Recipe
@@ -357,7 +357,7 @@ mise exec -- moon run :audit --affected
 
 ---
 
-## 🔍 Debugging Tips
+## Debugging Tips
 
 ### A service is responding with 502 Bad Gateway
 

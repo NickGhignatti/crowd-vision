@@ -1,18 +1,22 @@
-.docname {Domains Overview}
+.docname {Domains}
 .include {docs}
 
-The **Domains** view provides a straightforward, organized overview of all the environments your account is linked to.
+A **domain** is an organization or environment you belong to. The Domains view lists every domain linked to your account and the role you hold in each.
+
+![The Domains view](../assets/figures/domains-view.svg)
+
+*Figure 1 — The Domains view: a control bar on top, your domains and roles below.*
 
 ---
 
-## Navigating the Domains View
+## The control bar
 
-At the top of the Domains screen, you'll find a control bar designed to help you quickly find or add new environments:
+- **Search** — filter your domains by name.
+- **Enter Private Domain** — request access to, or sign in to, a private domain.
+- **Create New Domain** — open the domain creation wizard (administrators only).
 
-* **Search Bar:** A quick text filter to find a specific domain in your list instantly.
-* **Enter Private Domain:** Click this button to request access or log into a private organizational domain.
-* **Create New Domain:** Opens the domain creation wizard (this button is restricted to users with administrative privileges).
+---
 
-## The Domains Table
+## The domains table
 
-Below the controls is the main **Domains Table**. This table lists all the Main Domains and Subdomains you are a member of, displaying the domain names and the specific roles (e.g., Admin, Member) you hold in each one.
+The table lists the main domains and subdomains you are a member of, with the role you hold in each (for example administrator, staff, or standard). To configure a domain you administer, open the [Administrator Panel](domain-admin.qd).

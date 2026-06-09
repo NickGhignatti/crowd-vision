@@ -18,7 +18,7 @@ CrowdVision ships two simulators that exist **outside the main application clust
 
 ---
 
-## 🏗️ Architectural Decision: Keep Simulators External
+## Architectural Decision: Keep Simulators External
 
 **Decision:** Simulators are never included in Kubernetes manifests and are not part of the production system definition.
 
@@ -33,7 +33,7 @@ This is the same reasoning behind not running load-test tooling inside a product
 
 ---
 
-## 📦 Running the Simulators
+## Running the Simulators
 
 Both simulator images are built and pushed to GHCR as part of the CD pipeline. To run them locally:
 
@@ -60,7 +60,7 @@ docker stop <container-id>
 
 ---
 
-## 🔌 How Connections Work
+## How Connections Work
 
 The simulator sends data to CrowdVision's `/sensor/` endpoints via HTTP POST. When the user starts the simulator from the dashboard UI, the Vue client:
 
@@ -88,7 +88,7 @@ The simulator sends data to CrowdVision's `/sensor/` endpoints via HTTP POST. Wh
 
 ---
 
-## 🐳 The `host.docker.internal` Resolution
+## The `host.docker.internal` Resolution
 
 This is the most important implementation detail to understand when running the simulator against a local k3d cluster.
 
@@ -117,7 +117,7 @@ The rewrite is transparent to the user — they type `http://localhost:3001` as 
 
 ---
 
-## 🎛️ Simulator Control API
+## Simulator Control API
 
 The simulator exposes three HTTP endpoints that the Vue dashboard calls directly (bypassing the cluster Ingress entirely):
 
@@ -145,7 +145,7 @@ The simulator can manage multiple buildings simultaneously. Each building sends 
 
 ---
 
-## ⚙️ Simulation Parameters
+## Simulation Parameters
 
 The following values are currently fixed in `simulatorService.ts`. They can be adjusted by editing the service and rebuilding the image:
 
@@ -167,7 +167,7 @@ The following values are currently fixed in `simulatorService.ts`. They can be a
 
 ---
 
-## 🔗 Connecting the Simulator from the Dashboard
+## Connecting the Simulator from the Dashboard
 
 From the Vue dashboard (Graph view), a gear icon opens the simulator configuration modal. Enter the simulator's base URL (e.g., `http://localhost:3001`) and click Save. The dashboard remembers this URL in `localStorage`, so you only need to enter it once per browser.
 

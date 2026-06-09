@@ -1,0 +1,112 @@
+.docname {Commits & Semantic Release}
+.include {docs}
+
+CrowdVision automates versioning, changelog generation, and releases with [semantic-release](https://semantic-release.gitbook.io/). Version numbers are not chosen by hand — they are derived from commit messages. This makes the commit message a functional input to the build, which is why its format is enforced.
+
+---
+
+## Conventional Commits
+
+Every commit message must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```text
+<type>(<optional scope>): <subject>
+
+<optional body>
+
+<optional footer(s)>
+```
+
+- **type** — the kind of change (table below).
+- **scope** — the affected component, e.g. `auth`, `twin`, `ci` (see [Naming Conventions](naming-conventions.qd)).
+- **subject** — a concise, imperative description ("add", not "added").
+
+The convention is enforced on every pull request by the `ci-commitlint` workflow, which runs `@commitlint/config-conventional` (configured in `tooling/commitlint.config.js`). A non-conforming message blocks the merge.
+
+---
+
+## Type to release impact
+
+The type determines how the next version is computed.
+
+.var {headers}
+   - Type
+   - Example
+   - Release impact
+
+.tablebyrows {.headers}
+    - - `feat`
+      - `feat(twin): add per-room colour overrides`
+      - Minor bump (`1.1.0` → `1.2.0`).
+    - - `fix`
+      - `fix(auth): reject expired refresh tokens`
+      - Patch bump (`1.1.0` → `1.1.1`).
+    - - `docs`, `chore`, `refactor`, `test`, `ci`, `style`, `perf`, `build`
+      - `docs(sensor): document the ingestion fast path`
+      - No release.
+    - - Breaking change
+      - `feat(auth)!: remove the /auth/v1 endpoints`
+      - Major bump (`1.1.0` → `2.0.0`).
+
+A breaking change is signalled either by a `!` after the type/scope, or by a `BREAKING CHANGE:` footer:
+
+```text
+feat(auth)!: remove the deprecated /auth/v1 endpoints
+
+BREAKING CHANGE: clients must migrate to /auth. The v1 routes are gone.
+```
+
+.box {Only feat and fix produce a release} type:{note}
+    Commits typed `chore`, `docs`, `ci`, `test`, `refactor`, etc. are safe to merge freely — they never trigger a version bump. Only `feat` (minor) and `fix` (patch) do, and a breaking change escalates to major.
+
+---
+
+## The release pipeline
+
+Releases are fully automated. On every push to `master`, the `cd-release` workflow installs `tooling/` and runs `npx semantic-release` from there. The behaviour is configured in `tooling/.releaserc`.
+
+.mermaid
+    flowchart TD
+        M["Push to master"] --> CA["commit-analyzer<br/>reads commits since last tag"]
+        CA --> RN["release-notes-generator<br/>builds the notes"]
+        RN --> CL["changelog<br/>updates ../CHANGELOG.md"]
+        CL --> EX["exec<br/>node bump-versions.mjs &lt;version&gt;"]
+        EX --> GIT["git<br/>commit assets + tag"]
+        GIT --> GH["github<br/>publish the Release"]
+
+Step by step, semantic-release:
+
+1. **Analyses commits** since the last Git tag and computes the next version from their types.
+2. **Generates release notes** grouped by type.
+3. **Updates the changelog** — `@semantic-release/changelog` writes to the repo-root `../CHANGELOG.md` (paths are relative to `tooling/`).
+4. **Bumps every manifest** — `@semantic-release/exec` runs `node bump-versions.mjs <version>`, which writes the new version into each service `package.json`, `server/contracts-service/Cargo.toml`, and `server/agent-service/pyproject.toml`.
+5. **Commits and tags** — `@semantic-release/git` commits the changelog and all bumped manifests with the message `chore(release): <version> [skip ci]` and creates the tag.
+6. **Publishes a GitHub Release** with the generated notes.
+
+The release commit carries `[skip ci]` so it does not re-trigger the pipeline, and the workflow uses a concurrency guard so two pushes cannot release at once.
+
+### Assets committed by the release
+
+```text
+../CHANGELOG.md
+../client/package.json            + package-lock.json
+../server/*/package.json          + package-lock.json
+../server/contracts-service/Cargo.toml
+../server/agent-service/pyproject.toml
+```
+
+This is the full set of files the version number lives in, kept in lockstep by `bump-versions.mjs`. For why a custom script is used instead of Lerna, see [Contributing & Golden Rules](contributing.qd).
+
+---
+
+## Worked example
+
+A branch merges three commits since the last `v1.4.2` tag:
+
+```text
+fix(sensor): clamp negative people counts to zero
+feat(twin): support multi-floor buildings
+docs(twin): note the floor-selection control
+```
+
+semantic-release sees a `feat` (the highest-ranked change), so the next version is a **minor** bump: `v1.5.0`. It writes the changelog, bumps every manifest to `1.5.0`, tags `v1.5.0`, and publishes the release. The `docs` commit contributes a changelog line but does not affect the version. In the same push, `cd-registry` builds and pushes the Docker images — see [CI/CD Pipeline](cicd.qd).

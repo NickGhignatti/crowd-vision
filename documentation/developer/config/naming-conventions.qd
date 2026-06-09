@@ -1,0 +1,189 @@
+.docname {Naming Conventions}
+.include {docs}
+
+Consistent naming lets a reader infer an artefact's role from its name alone. CrowdVision spans several languages and layers, so the conventions are defined per layer below. They are enforced partly by ESLint and partly by review; treat them as mandatory.
+
+---
+
+## Files and directories
+
+Every Node service follows the same internal layout, so the file you want is always in the same place.
+
+.var {headers}
+   - Path
+   - Holds
+
+.tablebyrows {.headers}
+    - - `src/router.ts`
+      - Route declarations.
+    - - `src/controller/`
+      - HTTP adapters (one file per concern).
+    - - `src/services/`
+      - Business logic.
+    - - `src/models/`
+      - Schemas and shared types.
+    - - `src/middlewares/`
+      - Cross-cutting middleware.
+    - - `src/config/`
+      - Environment accessors and client setup.
+    - - `__tests__/`
+      - The service's test suite.
+
+---
+
+## Backend — Node.js / TypeScript
+
+.var {headers}
+   - Artefact
+   - Convention
+   - Recommended
+   - Avoid
+
+.tablebyrows {.headers}
+    - - Controller / service files
+      - `camelCase`, layer as suffix where it adds clarity
+      - `buildings.ts`, `notificationService.ts`
+      - `twin_ctrl.ts`, `Notification.ts`
+    - - Model files
+      - `camelCase` file name
+      - `account.ts`, `buildingThreshold.ts`
+      - `Account.ts`, `building_threshold.ts`
+    - - Exported model and interface
+      - `PascalCase`; interfaces prefixed `I`
+      - `export interface IAccount`, `export const Account = model(...)`
+      - `export const account`, `export interface Account`
+    - - Functions and variables
+      - `camelCase`
+      - `generateStandardToken`, `allowedColumns`
+      - `GenerateToken`, `allowed_columns`
+    - - Constants
+      - `UPPER_SNAKE_CASE`
+      - `ROLE_WEIGHTS`, `COOKIE_NAME`
+      - `roleWeights`
+    - - Database collections
+      - plural, lowercase
+      - `accounts`, `buildings`
+      - `Account`, `building`
+
+---
+
+## Frontend — Vue 3 / TresJS
+
+.var {headers}
+   - Artefact
+   - Convention
+   - Recommended
+   - Avoid
+
+.tablebyrows {.headers}
+    - - Components
+      - `PascalCase`, multi-word (to avoid clashing with HTML elements), file and tag
+      - `BuildingCard.vue`, `NotificationDropdown.vue`, `LeftMenu.vue`
+      - `card.vue`, `header.vue`
+    - - Views / pages (top-level routes)
+      - `PascalCase` with a `View` suffix
+      - `DashboardView.vue`, `AdministrationView.vue`
+      - `Dashboard.vue`
+    - - Composables
+      - `camelCase`, prefixed `use`
+      - `useBuildingModel.ts`, `useAuth.ts`, `useSceneControls.ts`
+      - `buildingModel.ts`, `getAuth.ts`
+    - - Utilities / helpers
+      - `camelCase`
+      - `metrics.ts`, `formatTimestamp.ts`
+      - `Metrics.ts`
+
+---
+
+## Rust — contracts-service
+
+The contracts-service follows idiomatic Rust style.
+
+.var {headers}
+   - Artefact
+   - Convention
+   - Example
+
+.tablebyrows {.headers}
+    - - Modules and files
+      - `snake_case`
+      - `tunnel.rs`, `discovery.rs`
+    - - Functions
+      - `snake_case`
+      - `start_telemetry_tunnel`, `metric_is_allowed`
+    - - Types (structs, enums)
+      - `PascalCase`
+      - `AppState`, `PreferenceDocument`
+    - - Constants
+      - `SCREAMING_SNAKE_CASE`
+      - `RAW_CHANNEL`, `DEFAULT_COLUMNS`
+
+---
+
+## Python — agent-service
+
+The agent-service follows PEP 8: `snake_case` for modules, functions, and variables; `PascalCase` for classes; `SCREAMING_SNAKE_CASE` for constants. (The agent is maintained separately; these conventions are listed for completeness.)
+
+---
+
+## Branches
+
+Branch names mirror the commit types, so the branch announces its intent.
+
+```text
+<type>/<short-kebab-description>
+```
+
+.var {headers}
+   - Type
+   - Example
+
+.tablebyrows {.headers}
+    - - `feat`
+      - `feat/private-domains`
+    - - `fix`
+      - `fix/jwt-expiry-off-by-one`
+    - - `chore`
+      - `chore/bump-dependencies`
+    - - `docs`
+      - `docs/sensor-api-reference`
+    - - `refactor`
+      - `refactor/extract-token-service`
+
+---
+
+## Commit scopes
+
+Conventional-commit scopes use the service or area name, so history can be filtered by component.
+
+```text
+feat(twin): add per-room colour overrides
+fix(auth): reject expired refresh tokens
+docs(sensor): document the ingestion fast path
+chore(ci): pin the kubeconform version
+```
+
+Common scopes: `auth`, `twin`, `sensor`, `notification`, `socket`, `contracts`, `client`, `agent`, `ci`, `docs`, `k8s`. The full commit format is covered in [Commits & Semantic Release](semantic-release.qd).
+
+---
+
+## Other identifiers
+
+.var {headers}
+   - Artefact
+   - Convention
+   - Example
+
+.tablebyrows {.headers}
+    - - Environment variables
+      - `UPPER_SNAKE_CASE`
+      - `JWT_SECRET`, `SENSOR_SERVICE_URL`
+    - - Docker images
+      - `crowdvision-<service>` under the org namespace
+      - `ghcr.io/nickghignatti/crowdvision-auth`
+    - - Workflow files
+      - `<category>-<name>&#46;yml` (`ci-`, `cd-`, `maint-`)
+      - `ci-auth.yml`, `cd-release.yml`, `maint-cleanup.yml`
+    - - Documentation pages
+      - `kebab-case` `&#46;qd`
+      - `building-data.qd`, `naming-conventions.qd`

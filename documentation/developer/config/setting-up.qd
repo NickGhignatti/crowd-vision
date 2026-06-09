@@ -7,7 +7,7 @@ Don't worry — we have provided scripts to automate the hardest parts.
 
 ---
 
-## 🛠️ 1. Prerequisites
+## 1. Prerequisites
 
 **Install these two tools first — everything else depends on them:**
 
@@ -27,7 +27,7 @@ Once `just` and `mise` are available, the remaining tools can be managed by `mis
 
 ---
 
-## 📦 2. Installation
+## 2. Installation
 
 Clone the repository, then install toolchain versions and all language-specific dependencies:
 
@@ -65,7 +65,7 @@ The `--cpu=x64 --os=linux` flags make npm record the Linux optional tree even wh
 
 ---
 
-## 🔐 3. Environment Variables & Secrets
+## 3. Environment Variables & Secrets
 
 Microservices require secrets to communicate securely, encrypt tokens, and send push notifications. **Never commit `.env` files to version control.**
 
@@ -188,7 +188,7 @@ Copy the output into your `.env` file.
 
 ---
 
-## 🐳 4. Running Locally with Docker Compose
+## 4. Running Locally with Docker Compose
 
 With your `.env` set up, start the full development stack:
 
@@ -209,7 +209,7 @@ See the [Running the Application](running.qd) page for the full Docker Compose r
 
 ---
 
-## 🌱 5. Bootstrapping the System (Provisioning)
+## 5. Bootstrapping the System (Provisioning)
 
 With empty databases you cannot log in. Run the provisioning script to create the initial Global Admin account and default Domain:
 
@@ -225,7 +225,7 @@ changed source files; see the [Agent Service](../services/agent.qd) guide.)*
 
 ---
 
-## ☸️ 6. Kubernetes Deployment
+## 6. Kubernetes Deployment
 
 If you are deploying CrowdVision to a local or remote Kubernetes cluster, follow the steps below. For ongoing day-to-day k8s operations, see the [Kubernetes Configuration](kubernetes.qd) page.
 
