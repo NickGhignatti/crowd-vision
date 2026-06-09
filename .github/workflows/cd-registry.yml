@@ -2,13 +2,17 @@ name: push images to ghcr
 
 on:
   workflow_dispatch:
+    inputs:
+      service:
+        description: "Image(s) to build: 'all' or comma-separated (e.g. crowdvision-auth,crowdvision-client)"
+        required: false
+        default: "all"
   push:
     branches: ["master"]
     paths:
-      - "docker/**"
       - "server/**"
+      - "simulators/**"
       - "client/**"
-      - "k8s/**"
       - ".github/workflows/cd-registry.yml"
 
 env:
@@ -19,7 +23,84 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      any: ${{ steps.set.outputs.any }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Detect changed services
+        if: github.event_name == 'push'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            crowdvision-auth: 'server/auth-service/**'
+            crowdvision-chat: 'server/chat-service/**'
+            crowdvision-twin: 'server/twin-service/**'
+            crowdvision-notification: 'server/notification-service/**'
+            crowdvision-socket: 'server/socket-service/**'
+            crowdvision-agent: 'server/agent-service/**'
+            crowdvision-sensor: 'server/sensor-service/**'
+            crowdvision-contracts: 'server/contracts-service/**'
+            crowdvision-simulator: 'simulators/sensor-simulator/**'
+            crowdvision-aq-simulator: 'simulators/aq-simulator/**'
+            crowdvision-client: 'client/**'
+            workflow: '.github/workflows/cd-registry.yml'
+
+      - name: Build matrix
+        id: set
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT: ${{ github.event.inputs.service }}
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          # Single source of truth: image -> build context, in sync with the dorny context above.
+          CONTEXTS='{
+            "crowdvision-auth":"./server/auth-service",
+            "crowdvision-chat":"./server/chat-service",
+            "crowdvision-twin":"./server/twin-service",
+            "crowdvision-notification":"./server/notification-service",
+            "crowdvision-socket":"./server/socket-service",
+            "crowdvision-agent":"./server/agent-service",
+            "crowdvision-sensor":"./server/sensor-service",
+            "crowdvision-contracts":"./server/contracts-service",
+            "crowdvision-simulator":"./simulators/sensor-simulator",
+            "crowdvision-aq-simulator":"./simulators/aq-simulator",
+            "crowdvision-client":"./client"
+          }'
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ -z "$INPUT" ] || [ "$INPUT" = "all" ]; then
+              SELECTED=$(echo "$CONTEXTS" | jq -c 'keys')
+            else
+              SELECTED=$(echo "$INPUT" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$";""))')
+            fi
+          else
+            # push: the 'workflow' filter means cd-registry.yml itself changed -> rebuild all
+            if echo "$CHANGED" | jq -e 'index("workflow")' >/dev/null; then
+              SELECTED=$(echo "$CONTEXTS" | jq -c 'keys')
+            else
+              SELECTED=$(echo "$CHANGED" | jq -c 'map(select(. != "workflow"))')
+            fi
+          fi
+
+          MATRIX=$(jq -nc --argjson ctx "$CONTEXTS" --argjson sel "$SELECTED" \
+            '{include: ($sel | map(select($ctx[.] != null) | {image: ., context: $ctx[.]}))}')
+          if [ "$(echo "$MATRIX" | jq '.include | length')" -gt 0 ]; then ANY=true; else ANY=false; fi
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "any=$ANY" >> "$GITHUB_OUTPUT"
+          echo "Selected images: $MATRIX"
+
   build-and-push:
+    needs: changes
+    if: ${{ needs.changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,30 +109,7 @@ jobs:
       security-events: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - context: ./server/auth-service
-            image: crowdvision-auth
-          - context: ./server/chat-service
-            image: crowdvision-chat
-          - context: ./server/twin-service
-            image: crowdvision-twin
-          - context: ./server/notification-service
-            image: crowdvision-notification
-          - context: ./server/socket-service
-            image: crowdvision-socket
-          - context: ./server/agent-service
-            image: crowdvision-agent
-          - context: ./server/sensor-service
-            image: crowdvision-sensor
-          - context: ./server/contracts-service
-            image: crowdvision-contracts
-          - context: ./simulators/sensor-simulator
-            image: crowdvision-simulator
-          - context: ./simulators/aq-simulator
-            image: crowdvision-aq-simulator
-          - context: ./client
-            image: crowdvision-client
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
@@ -99,17 +157,17 @@ jobs:
       #   - exit-code 1 + ignore-unfixed: block only on FIXABLE HIGH/CRITICAL OS CVEs.
       #   - Base images run apk/apt upgrade at build time to keep this green.
       #   - .trivyignore holds deliberate, justified CVE waivers.
-      - name: 🔍 Scan image for vulnerabilities (Trivy)
+      - name: Scan image for vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
           format: sarif
           output: trivy-results-${{ matrix.image }}.sarif
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: "1"
           ignore-unfixed: true
           trivyignores: .trivyignore
-          vuln-type: os                 # OS packages only — app deps gated by ci-audit
+          vuln-type: os # OS packages only — app deps gated by ci-audit
 
       - name: Upload Trivy scan results to GitHub Security
         if: always()
