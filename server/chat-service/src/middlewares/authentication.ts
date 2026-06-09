@@ -31,7 +31,8 @@ export const requireAuthentication = (
     throw new UnauthorizedError("Invalid authentication token");
   }
 
-  const userId = payload.accountId ?? payload.accountName;
+  // 
+  const userId = payload.accountId;
   if (typeof userId !== "string" || !userId) {
     throw new UnauthorizedError("Authentication token is missing an account id");
   }

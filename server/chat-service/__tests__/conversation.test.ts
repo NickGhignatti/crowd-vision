@@ -200,4 +200,18 @@ describe("conversation API", () => {
       .send({ content: " " });
     expect(response.status).toBe(400);
   });
+
+  it("rejects tokens without the stable accountId claim", async () => {
+    const nameOnlyCookie =
+      `authentication_token=${jwt.sign({ accountName: "mutable-name" }, "test-secret")}`;
+
+    const response = await request(app)
+      .get("/conversations")
+      .set("Cookie", nameOnlyCookie);
+
+    expect(response.status).toBe(401);
+    expect(response.body.message).toBe(
+      "Authentication token is missing an account id",
+    );
+  });
 });
