@@ -11,7 +11,7 @@ from app.citations import Citation, extract_citations, strip_hallucinated
 from app.config import get_settings
 from app.logging import get_logger
 from app.retrieval.pipeline import RetrievedChunk
-from app.tracing import tracer
+from app.tracing import tag_tool, tracer
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -77,46 +77,39 @@ class Agent:
         """Execute tool calls; return new 'tool' messages to append to history."""
         out_messages: list[dict] = []
         for call in calls:
-            tool = REGISTRY.get(call.name)
-            if tool is None:
-                content = f"unknown tool: {call.name}"
-                trace.append({"name": call.name, "args": call.arguments, "error": content})
-                out_messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": call.id,
-                        "name": call.name,
-                        "content": content,
-                    }
-                )
-                continue
-            try:
-                args = tool.Args(**call.arguments)
-            except Exception as e:
-                content = f"invalid arguments: {e}"
-                trace.append({"name": call.name, "args": call.arguments, "error": content})
-                out_messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": call.id,
-                        "name": call.name,
-                        "content": content,
-                    }
-                )
-                continue
-
             tr = tracer()
             with tr.start_as_current_span(f"tool.{call.name}") as span:
                 span.set_attribute("tool.name", call.name)
-                try:
-                    result = await tool.run(args, ctx)
-                except Exception as e:
-                    log.exception("tool.error", tool=call.name)
+                exception: BaseException | None = None
+                tool = REGISTRY.get(call.name)
+                if tool is None:
                     result = ToolResult(
-                        content=f"tool {call.name} failed: {type(e).__name__}: {e}",
+                        content=f"unknown tool: {call.name}",
                         is_error=True,
                     )
-                span.set_attribute("tool.is_error", bool(result.is_error))
+                else:
+                    try:
+                        args = tool.Args(**call.arguments)
+                    except Exception as e:
+                        exception = e
+                        result = ToolResult(content=f"invalid arguments: {e}", is_error=True)
+                    else:
+                        try:
+                            result = await tool.run(args, ctx)
+                        except Exception as e:
+                            log.exception("tool.error", tool=call.name)
+                            exception = e
+                            result = ToolResult(
+                                content=f"tool {call.name} failed: {type(e).__name__}: {e}",
+                                is_error=True,
+                            )
+                tag_tool(
+                    span,
+                    args=call.arguments,
+                    output=result.content,
+                    is_error=result.is_error,
+                    exception=exception,
+                )
 
             ctx.citations.extend(result.citations or [])
             trace.append(
@@ -124,6 +117,7 @@ class Agent:
                     "name": call.name,
                     "args": call.arguments,
                     "is_error": result.is_error,
+                    **({"error": result.content} if result.is_error else {}),
                 }
             )
             out_messages.append(

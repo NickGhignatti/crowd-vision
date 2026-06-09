@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from app.config import get_settings
 from app.retrieval.keyword import keyword_search
 from app.retrieval.vector import vector_search
-from app.tracing import tracer
+from app.tracing import tag_retriever, tracer
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,6 +71,7 @@ class HybridRetriever:
                 user_permissions=user_permissions,
             )
             span.set_attribute("retrieve.hits", len(vector_hits))
+            tag_retriever(span, query=question, output_docs=vector_hits)
 
         with tr.start_as_current_span("retrieve.keyword") as span:
             span.set_attribute("retrieve.top_k", self._settings.top_k_keyword)
@@ -81,6 +82,7 @@ class HybridRetriever:
                 user_permissions=user_permissions,
             )
             span.set_attribute("retrieve.hits", len(keyword_hits))
+            tag_retriever(span, query=question, output_docs=keyword_hits)
 
         merged = _rrf_merge(vector_hits, keyword_hits)
 
@@ -88,5 +90,11 @@ class HybridRetriever:
             reranked = await self._reranker.rerank(question, merged)
             span.set_attribute("retrieve.merged", len(merged))
             span.set_attribute("retrieve.final", min(len(reranked), self._settings.top_k_final))
+            tag_retriever(
+                span,
+                query=question,
+                input_docs=merged,
+                output_docs=reranked[: self._settings.top_k_final],
+            )
 
         return reranked[: self._settings.top_k_final]

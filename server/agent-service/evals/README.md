@@ -18,16 +18,26 @@ the answer must contain.
 | `expected_sources`  | no       | Repo-relative doc path(s); ≥1 citation source must match (substring)             |
 | `must_cite`         | no       | If true, the answer must include at least one citation                           |
 | `expected_keywords` | no       | Lowercase substrings that must all appear in the answer                          |
+| `llm_judge`          | no      | Semantic judge rubric, currently `out_of_scope_refusal`                         |
 | `key_facts`         | no       | Human-readable facts the answer should convey (reference, not auto-scored)       |
 | `ideal_answer`      | no       | A model answer (reference, not auto-scored)                                      |
-| `expected_idk`      | no       | If true, response `idk` must be true (out-of-scope / unknown)                    |
+| `expected_idk`      | no       | If true, response `idk` must be true (unknown in-scope answer)                   |
 | `xfail`             | no       | If true, an assertion failure is an accepted, tracked gap reported as `XFAIL`    |
 | `xfail_reason`      | with `xfail` | Required explanation of the accepted gap and when to revisit it               |
 
-**Notes on what the agent can actually emit:** `decision` is only `answered` or
-`tool_loop_exhausted`. There is no `out_of_scope` / `clarification_needed` decision —
-unknown or off-topic questions surface as `idk: true` (the IDK marker), and greetings
-are simply answered with no tool call. The dataset reflects this.
+All assertions present on a row are checked. For example, a row with both
+`expected_idk` and `expected_no_tool` fails if it returns IDK after an unnecessary
+tool call.
+
+**Scope contract.** Unknown in-scope questions use the IDK marker:
+`I don't know based on the available data.` Off-topic questions must decline, state
+inability, or redirect to Crowd-Vision's scope without fulfilling any material part
+of the request and without calling a tool. Greetings remain in scope and are answered
+directly without tools.
+
+The response `decision` is currently only `answered` or `tool_loop_exhausted`; there
+is no structured `out_of_scope` decision. Out-of-scope behavior is therefore measured
+with the `out_of_scope_refusal` LLM judge plus deterministic `expected_no_tool`.
 
 Chunk ids are UUIDs assigned at ingest and are **not stable** across re-ingests, so
 retrieval expectations are expressed as the source document path, never a chunk id.
@@ -46,6 +56,12 @@ uv run python evals/run_evals.py
 `run_evals.py` prints per-row results with latency and cost, then a summary
 (`passed/total`, xfail/xpass/fail, total cost, avg latency). `passed` counts rows
 whose assertions succeeded, including `XPASS`; `XFAIL` is not counted as passed.
+The total cost includes semantic judge calls. Choose the judge model with
+`just eval judge="<model>"` (or `--judge-model` / the `JUDGE_MODEL` env var); it
+defaults to `google/gemini-2.5-flash`, a different family from the default answer model
+to reduce self-preference. Configure judge credentials independently with `JUDGE_API_KEY`
+and `JUDGE_BASE_URL`; both fall back to the normal LLM/OpenRouter settings. Judge request
+or parsing errors always report `FAIL`, including on an `xfail` row.
 
 **Exit code & known gaps (xfail).** A row tagged `"xfail": true` (with a required
 `"xfail_reason"`) is an *accepted, tracked* failure:
@@ -152,10 +168,12 @@ before running large sweeps.
 | --- | --- |
 | `just eval` | Interactively evaluate the configured model; report scored failures without failing the recipe |
 | `just eval models="a,b"` | Interactively evaluate and compare models without failing on scored results |
+| `just eval judge="<model>"` | Choose the LLM-judge model (default `google/gemini-2.5-flash`); combine with `models=` |
 | `uv run python evals/run_evals.py` | Direct local invocation from `server/agent-service` |
 | `MODELS=a,b uv run python evals/run_evals.py` | Direct model sweep using an environment variable |
 | `uv run python evals/run_evals.py --strict` | Also exit non-zero when an `xfail` row passes |
 | `uv run python evals/run_evals.py --report-only` | Report scored failures but exit zero; setup/preflight errors still fail |
+| `JUDGE_MODEL=... uv run python evals/run_evals.py` | Select the model used for semantic judge assertions |
 | `EVAL_TIMEOUT_SECONDS=240 uv run python evals/run_evals.py` | Increase the per-request timeout |
 | `AGENT_URL=... AUTH_COOKIE=... uv run python evals/run_evals.py` | Evaluate a remote/CI deployment |
 
@@ -167,5 +185,7 @@ before running large sweeps.
   `xfail_reason`; remove the marker when the row reports `XPASS`.
 - Keep `expected_keywords` to 1–2 robust tokens to avoid flaky phrasing failures; put
   the fuller expectation in `key_facts` / `ideal_answer`.
+- Use `llm_judge` only where semantic correctness cannot be captured robustly with
+  deterministic assertions; keep tool, source, citation, and keyword checks deterministic.
 - Live-data rows can't pin numbers (data changes) — assert the tool and grounding
   instead, and rely on `key_facts` for the qualitative bar.

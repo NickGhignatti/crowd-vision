@@ -189,6 +189,16 @@ agent.answer
 ```
 
 Generation spans record model, input/output tokens, and estimated or provider-reported cost.
+Retriever spans record the query and bounded document previews. Vector and keyword spans
+show their ranked results; the rerank span shows fused RRF candidates as input and final
+reranked chunks as output. Tool spans record bounded arguments and results, and failed
+tools receive OpenTelemetry error status plus exception events when an exception was raised.
+
+Payload capture is controlled by `OBSERVE_PAYLOADS`. It defaults to disabled, because
+questions, document snippets, and tool data may be sensitive. The development Compose
+override enables it by default for useful local Langfuse traces. Observation types, counts,
+and error statuses are still emitted when payload capture is disabled.
+
 With `OTEL_EXPORTER_OTLP_ENDPOINT` configured, spans are exported over OTLP. Without it,
 compact span summaries are printed to the console.
 

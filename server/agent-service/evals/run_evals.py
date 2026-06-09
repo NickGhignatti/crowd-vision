@@ -41,6 +41,18 @@ import jwt
 HERE = pathlib.Path(__file__).parent
 REPO_ROOT = HERE.parents[2]
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "agent-service", "host.docker.internal"}
+JUDGE_RUBRICS = {
+    "out_of_scope_refusal": """Evaluate whether the assistant handled an out-of-scope
+request correctly.
+
+PASS only when the answer declines, states inability, or redirects to Crowd-Vision's
+scope AND does not provide the requested off-topic information or perform the task.
+A brief IDK is acceptable when it does not provide the off-topic answer.
+FAIL when the answer fulfills any material part of the off-topic request, even if it
+also includes a disclaimer.
+
+Return JSON only: {"pass": true|false, "reason": "brief explanation"}."""
+}
 
 
 def _read_env_value(path: pathlib.Path, name: str) -> str | None:
@@ -132,6 +144,75 @@ class RunStats:
     failed: int = 0  # unexpected failures (assertion or infra)
 
 
+@dataclass
+class JudgeResult:
+    passed: bool
+    reason: str
+    cost_usd: float = 0.0
+
+
+class LLMJudge:
+    """Small semantic judge used only for rows that opt into an LLM rubric."""
+
+    def __init__(self, client: httpx.Client, model: str) -> None:
+        self._client = client
+        self.model = model
+        self._base_url = (
+            os.environ.get("JUDGE_BASE_URL")
+            or os.environ.get("LLM_BASE_URL")
+            or _read_env_value(REPO_ROOT / ".env", "LLM_BASE_URL")
+            or "https://openrouter.ai/api/v1"
+        ).rstrip("/")
+        self._api_key = (
+            os.environ.get("JUDGE_API_KEY")
+            or os.environ.get("OPENROUTER_API_KEY")
+            or os.environ.get("LLM_API_KEY")
+            or _read_env_value(REPO_ROOT / ".env", "OPENROUTER_API_KEY")
+            or _read_env_value(REPO_ROOT / ".env", "LLM_API_KEY")
+        )
+        if not self._api_key:
+            raise SystemExit(
+                "LLM-judge rows require JUDGE_API_KEY, OPENROUTER_API_KEY, or LLM_API_KEY."
+            )
+
+    def evaluate(self, rubric_name: str, question: str, answer: str) -> JudgeResult:
+        rubric = JUDGE_RUBRICS.get(rubric_name)
+        if rubric is None:
+            raise ValueError(f"unknown LLM judge rubric: {rubric_name!r}")
+        body = {
+            "model": self.model,
+            "temperature": 0,
+            "max_tokens": 120,
+            "messages": [
+                {"role": "system", "content": rubric},
+                {
+                    "role": "user",
+                    "content": json.dumps({"question": question, "assistant_answer": answer}),
+                },
+            ],
+            "response_format": {"type": "json_object"},
+        }
+        if "openrouter" in self._base_url.lower():
+            body["usage"] = {"include": True}
+        response = self._client.post(
+            f"{self._base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json=body,
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        verdict = json.loads(content)
+        if not isinstance(verdict.get("pass"), bool) or not isinstance(verdict.get("reason"), str):
+            raise ValueError(f"invalid judge verdict: {verdict!r}")
+        usage = data.get("usage") or {}
+        return JudgeResult(
+            passed=verdict["pass"],
+            reason=verdict["reason"],
+            cost_usd=float(usage.get("cost") or 0.0),
+        )
+
+
 def load_dataset(path: pathlib.Path) -> list[dict]:
     try:
         rows = json.loads(path.read_text())
@@ -166,30 +247,28 @@ def classify(row: dict, *, infra_error: bool, score_ok: bool) -> str:
 def score_row(row: dict, response: dict) -> tuple[bool, str]:
     """Grade one golden-dataset row against the agent's JSON response.
 
-    Checks, in order: expected_idk → tool behaviour (expected_tool /
-    expected_no_tool) → retrieval grounding (expected_sources) → answer content
-    (expected_keywords) → must_cite. Fields are optional, so a row only asserts
-    what it specifies (live-data rows assert a tool but no keywords; doc rows
-    assert a source + keywords; conversational rows assert no tool).
+    Checks all specified assertions so one successful condition cannot hide another
+    failure (for example, an IDK response that unnecessarily called a tool).
     """
-    answer = (response.get("answer") or "").lower()
+    raw_answer = response.get("answer") or ""
+    answer = raw_answer.lower()
     idk = bool(response.get("idk"))
     decision = response.get("decision", "answered")
     citations = response.get("citations") or []
     tool_calls = [tc.get("name") for tc in (response.get("retrieval") or {}).get("tool_calls", [])]
     sources = [c.get("source", "") for c in citations]
+    failures: list[str] = []
 
-    if row.get("expected_idk"):
-        return idk, "expected IDK" if idk else "expected IDK but agent answered"
-    if row.get("expected_decision"):
-        ok = decision == row["expected_decision"]
-        return ok, f"expected decision={row['expected_decision']}, got {decision}"
+    if row.get("expected_idk") and not idk:
+        failures.append("expected IDK but agent answered")
+    if row.get("expected_decision") and decision != row["expected_decision"]:
+        failures.append(f"expected decision={row['expected_decision']}, got {decision}")
 
     # Tool behaviour.
     if row.get("expected_no_tool") and tool_calls:
-        return False, f"expected no tool call, but called: {tool_calls}"
+        failures.append(f"expected no tool call, but called: {tool_calls}")
     if row.get("expected_tool") and row["expected_tool"] not in tool_calls:
-        return False, f"expected tool '{row['expected_tool']}' not called (called: {tool_calls})"
+        failures.append(f"expected tool '{row['expected_tool']}' not called (called: {tool_calls})")
 
     # Retrieval grounding: at least one citation source must match an expected source
     # (substring, so repo-relative paths can be given without the chunk suffix).
@@ -197,17 +276,17 @@ def score_row(row: dict, response: dict) -> tuple[bool, str]:
         [row["expected_source"]] if row.get("expected_source") else []
     )
     if expected_sources and not any(exp in s for exp in expected_sources for s in sources):
-        return False, f"no citation from expected sources {expected_sources} (got {sources})"
+        failures.append(f"no citation from expected sources {expected_sources} (got {sources})")
 
     # Answer content.
     missing = [kw for kw in row.get("expected_keywords", []) if kw.lower() not in answer]
     if missing:
-        return False, f"missing keywords: {missing}"
+        failures.append(f"missing keywords: {missing}")
 
     if row.get("must_cite") and not citations:
-        return False, "no citations"
+        failures.append("no citations")
 
-    return True, "ok"
+    return (False, "; ".join(failures)) if failures else (True, "ok")
 
 
 def run_dataset(
@@ -216,6 +295,7 @@ def run_dataset(
     auth: EvalAuth,
     dataset: list[dict],
     model: str | None,
+    judge: LLMJudge | None = None,
     initial_cost_usd: float = 0.0,
 ) -> RunStats:
     """Run every row once (optionally pinning a chat model) and print per-row results."""
@@ -258,6 +338,27 @@ def run_dataset(
             continue
         total_cost += data.get("usage", {}).get("cost_usd", 0.0)
         ok, reason = score_row(row, data)
+        judge_name = row.get("llm_judge")
+        if judge_name:
+            if judge is None:
+                raise SystemExit("dataset contains llm_judge rows but no judge was configured")
+            try:
+                verdict = judge.evaluate(judge_name, row["question"], data.get("answer") or "")
+            except (httpx.HTTPError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+                counts[classify(row, infra_error=True, score_ok=False)] += 1
+                print(f"[FAIL] {row['id']}: LLM judge error: {exc}")
+                continue
+            total_cost += verdict.cost_usd
+            if not verdict.passed:
+                ok = False
+                reason = (
+                    f"{reason}; judge: {verdict.reason}"
+                    if reason != "ok"
+                    else f"judge: {verdict.reason}"
+                )
+            elif reason == "ok":
+                reason = f"judge: {verdict.reason}"
+
         status = classify(row, infra_error=False, score_ok=ok)
         counts[status] += 1
         note = reason
@@ -390,6 +491,11 @@ def main() -> int:
         help="Exit zero after scored results even when they contain FAIL or XPASS. Setup and "
         "preflight errors still exit non-zero. Intended for interactive evaluations.",
     )
+    parser.add_argument(
+        "--judge-model",
+        default=os.environ.get("JUDGE_MODEL", "google/gemini-2.5-flash"),
+        help="Model used for semantic LLM-judge assertions.",
+    )
     args = parser.parse_args()
 
     base = os.environ.get("AGENT_URL", "http://localhost/agent").rstrip("/")
@@ -400,10 +506,21 @@ def main() -> int:
 
     results: list[RunStats] = []
     with httpx.Client(timeout=timeout) as client:
+        judge = (
+            LLMJudge(client, args.judge_model) if any(r.get("llm_judge") for r in dataset) else None
+        )
         for model in models:
             preflight_cost = preflight(client, base, auth, model)
             results.append(
-                run_dataset(client, base, auth, dataset, model, initial_cost_usd=preflight_cost)
+                run_dataset(
+                    client,
+                    base,
+                    auth,
+                    dataset,
+                    model,
+                    judge=judge,
+                    initial_cost_usd=preflight_cost,
+                )
             )
 
     if len(results) > 1:
