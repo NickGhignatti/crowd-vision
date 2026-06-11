@@ -1,7 +1,7 @@
 .docname {Strategic Design}
 .include {docs}
 
-CrowdVision is modelled with a **Domain-Driven Design (DDD)** mindset. We approached the system not as one monolithic model but as a set of collaborating models, each owned by a context and each speaking its own dialect of a shared **Ubiquitous Language**. This page captures the *strategic* design decisions taken up front — the subdomains, the bounded contexts, and the relationships between them. The *tactical* model (aggregates, entities, value objects, domain services) is described per context on the following pages.
+CrowdVision is modelled with a **Domain-Driven Design (DDD)** mindset. We approached the system not as one monolithic model but as a set of collaborating models, each owned by a context and each speaking its own dialect of a shared **Ubiquitous Language**. This page captures the *strategic* design decisions taken up front — the subdomains, the bounded contexts, and the relationships between them. The *tactical* model (aggregates, entities, value objects, domain services) is described per context on the following pages. The user stories that seeded these decisions — and the places where backlog and design deliberately part ways — are catalogued in [User Stories](../requirements/user-stories.qd).
 
 .box {A pragmatic stance} type:{note}
     We treat DDD as a **design compass, not a rulebook**. The strategic boundaries below are the part of the design we were most confident in. The tactical model is applied where it earns its keep, and some boundaries were left intentionally soft because the product ideas were still maturing when this design was written. The per-context pages flag where a decision is provisional or expected to evolve.
