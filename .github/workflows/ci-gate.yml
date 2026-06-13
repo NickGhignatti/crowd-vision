@@ -29,6 +29,9 @@ jobs:
       k8s: ${{ steps.filter.outputs.k8s }}
       shared: ${{ steps.filter.outputs.shared }}
       ci: ${{ steps.filter.outputs.ci }}
+      infra: ${{ steps.filter.outputs.infra }}
+      unmapped: ${{ steps.filter.outputs.unmapped }}
+      unmapped_files: ${{ steps.filter.outputs.unmapped_files }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
@@ -36,6 +39,9 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          # list-files: shell exposes <filter>_files (e.g. unmapped_files),
+          # space-separated and shell-escaped, so the tripwire can name names.
+          list-files: shell
           filters: |
             auth:
               - 'server/auth-service/**'
@@ -71,6 +77,30 @@ jobs:
               - 'tooling/eslint-config/**'
             ci:
               - '.github/**'
+            infra:
+              - 'scripts/**'
+              - 'tooling/**'
+              - '.github/workflows/ci-infra.yml'
+            # Tripwire: any path covered by NO bucket above. A PR touching only
+            # these would otherwise merge green having run zero checks. We
+            # subtract the known service/infra buckets and the inert content
+            # set (docs, generated assets, prose); everything left — root config
+            # (Caddyfile, docker-compose.yml, prometheus.yml, .mise.toml,
+            # .trivyignore…), .moon task defs, seed.py, and simulators until
+            # they get their own CI — trips the guard and forces a human look.
+            unmapped:
+              - '**'
+              - '!server/**'
+              - '!client/**'
+              - '!k8s/**'
+              - '!.github/**'
+              - '!scripts/**'
+              - '!tooling/**'
+              - '!documentation/**'
+              - '!landing-page/**'
+              - '!output/**'
+              - '!**/*.md'
+              - '!LICENSE'
 
       # Build the Docker matrix (include-form) from the changed services that
       # ship an image. Only these get a PR-time build
@@ -152,7 +182,7 @@ jobs:
     if: needs.changes.outputs.k8s == 'true'
     uses: ./.github/workflows/ci-k8s.yml
 
-  # Statically validates the workflow files themselves —s
+  # Statically validates the workflow files themselves.
   workflows-lint:
     needs: changes
     if: needs.changes.outputs.ci == 'true'
@@ -168,6 +198,36 @@ jobs:
         uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
         with:
           args: -no-color -shellcheck=
+
+  infra:
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    uses: ./.github/workflows/ci-infra.yml
+
+  # ── Tripwire ────────────────────────────────────────────────────────────────
+  # Solo-repo substitute for "a human must review this." Fails whenever a PR
+  # changes a path no CI bucket covers, so nothing merges ungated. The remedy
+  # is one line in the `changes` filters above: map the path to a real bucket,
+  # or add it to the inert exclusions if it genuinely carries no risk.
+  guard-unmapped:
+    name: Guard Unmapped Paths
+    needs: changes
+    if: needs.changes.outputs.unmapped == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report unmapped files and fail
+        env:
+          FILES: ${{ needs.changes.outputs.unmapped_files }}
+        run: |
+          echo "::error::This PR changes paths that no CI job covers — refusing to merge ungated."
+          echo "Unmapped files:"
+          for f in $FILES; do echo "  - $f"; done
+          echo ""
+          echo "Resolve in .github/workflows/ci-gate.yml by either:"
+          echo "  1) mapping these paths to a CI bucket (preferred), or"
+          echo "  2) adding them to the inert exclusions in the 'unmapped' filter"
+          echo "     if they genuinely carry no risk (docs, generated assets)."
+          exit 1
 
   ci-passed:
     name: CI Passed
@@ -186,6 +246,8 @@ jobs:
       - docker
       - k8s
       - workflows-lint
+      - infra
+      - guard-unmapped
     if: always()
     steps:
       - name: Verify every job succeeded or legitimately skipped

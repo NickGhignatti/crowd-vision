@@ -1,0 +1,39 @@
+name: infra-ci
+
+on:
+  workflow_call:
+
+jobs:
+  scripts-and-tooling:
+    name: Scripts & Tooling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Syntax-check JavaScript
+        run: |
+          status=0
+          files=$(git ls-files scripts tooling | grep -E '\.(mjs|js)$' | grep -v '^tooling/eslint-config/' || true)
+          for f in $files; do
+            node --check "$f" || { echo "::error file=$f::JavaScript syntax error"; status=1; }
+          done
+          exit $status
+
+      - name: Syntax-check shell scripts
+        run: |
+          status=0
+          files=$(git ls-files scripts | grep -E '\.sh$' || true)
+          for f in $files; do
+            bash -n "$f" || { echo "::error file=$f::shell syntax error"; status=1; }
+          done
+          exit $status
+
+      - name: Validate tooling lockfile
+        working-directory: tooling
+        run: npm ci
