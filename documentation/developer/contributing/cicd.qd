@@ -29,7 +29,7 @@ All workflow files live in `.github/workflows/` and use a three-prefix conventio
 
 ## The CI gate
 
-Every pull request must pass a single required status check: `CI Gate / CI Passed`. This is the only check branch protection needs to require. The gate (`ci-gate.yml`) detects what changed, fans out to the relevant checks in parallel, and reports one aggregated result.
+Every pull request must pass `CI Gate / CI Passed` — the single aggregated check that covers all the fast CI. The gate (`ci-gate.yml`) detects what changed, fans out to the relevant checks in parallel, and reports one result. The only other check worth requiring in branch protection is **CodeQL** (the *Static security analysis* section below), which runs as a separate workflow because it needs wider permissions than the gate's read-only token.
 
 .mermaid
     graph LR
@@ -185,7 +185,11 @@ To keep the OS scan green, every production image upgrades its base-OS packages 
 
 ## Static security analysis (CodeQL)
 
-`ci-codeql.yml` runs GitHub's SAST for `javascript-typescript` and `python` with the `security-extended` query suite. It is currently configured for **manual dispatch only** (`workflow_dispatch`) and is not yet wired into the gate — run it on demand from the Actions tab. Wiring it onto pull requests, pushes to `master`, and a weekly schedule is a planned hardening step.
+`ci-codeql.yml` runs GitHub's SAST for `javascript-typescript`, `python`, and `rust` with the `security-extended` query suite. It runs automatically on **every pull request to `master`**, on **every push to `master`** (to refresh the Security tab's default-branch baseline), and on a **weekly schedule** (Monday 03:00 UTC) to catch CVEs newly disclosed against unchanged code. Manual `workflow_dispatch` is retained for on-demand re-scans, and a concurrency guard cancels a scan superseded by a newer commit.
+
+All three languages use **`build-mode: none`** — CodeQL extracts from source without a compile. For `javascript-typescript` and `python` that is the natural mode; for `rust` (`contracts-service`) it means no Rust toolchain or mold-linker setup is needed, and the crate is found under `server/contracts-service` without a root `Cargo.toml`.
+
+It runs as a **standalone workflow rather than a leg of the gate**, on purpose: CodeQL needs `security-events: write` to upload results, whereas the gate's token is deliberately read-only, and a reusable workflow cannot hold more permission than its caller. Keeping CodeQL separate preserves the gate's least-privilege token. Add **CodeQL** as a second required status check in branch protection (alongside `CI Gate / CI Passed`) to block merges on new high-severity findings.
 
 ---
 

@@ -2,6 +2,19 @@ name: CodeQL
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  # Monday 03:00 UTC
+  schedule:
+    - cron: "0 3 * * 1"
+
+# A newer commit on the same ref supersedes an in-flight scan — no point
+# finishing a scan of code that has already been replaced.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze:
@@ -15,9 +28,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language:
-          - javascript-typescript
-          - python
+        include:
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          # build-mode: none extracts from source without compiling
+          - language: rust
+            build-mode: none
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -26,11 +44,12 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
           queries: security-extended
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
+      # No Autobuild step: every language runs build-mode: none, so CodeQL
+      # extracts from source without a compile. (For js-ts and python the old
+      # Autobuild step was already a no-op; none is the correct modern setting.)
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
