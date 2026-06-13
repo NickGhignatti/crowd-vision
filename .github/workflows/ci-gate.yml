@@ -32,8 +32,8 @@ jobs:
       infra: ${{ steps.filter.outputs.infra }}
       simulators: ${{ steps.filter.outputs.simulators }}
       deps: ${{ steps.filter.outputs.deps }}
-      unmapped: ${{ steps.filter.outputs.unmapped }}
-      unmapped_files: ${{ steps.filter.outputs.unmapped_files }}
+      unmapped: ${{ steps.filter_unmapped.outputs.unmapped }}
+      unmapped_files: ${{ steps.filter_unmapped.outputs.unmapped_files }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
@@ -43,9 +43,6 @@ jobs:
       - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         id: filter
         with:
-          # list-files: shell exposes <filter>_files (e.g. unmapped_files),
-          # space-separated and shell-escaped, so the tripwire can name names.
-          list-files: shell
           filters: |
             auth:
               - 'server/auth-service/**'
@@ -98,13 +95,15 @@ jobs:
               - '**/requirements*.txt'
               - '**/Cargo.toml'
               - '**/Cargo.lock'
-            # Tripwire: any path covered by NO bucket above. A PR touching only
-            # these would otherwise merge green having run zero checks. We
-            # subtract the known service/infra/simulator buckets and the inert
-            # content set (docs, generated assets, prose); everything left —
-            # root config (Caddyfile, docker-compose.yml, prometheus.yml,
-            # .mise.toml, .trivyignore…), .moon task defs, and seed.py — trips
-            # the guard and forces a human look.
+
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+        id: filter_unmapped
+        with:
+          # list-files: shell exposes unmapped_files (space-separated, escaped)
+          # so the guard can name the offending paths.
+          list-files: shell
+          predicate-quantifier: every
+          filters: |
             unmapped:
               - '**'
               - '!server/**'
