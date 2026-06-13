@@ -38,6 +38,8 @@ jobs:
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         id: filter
         with:
@@ -205,6 +207,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       # The image bundles shellcheck, but it is disabled here until its findings on the
       # existing run: blocks are triaged — install shellcheck locally, run
@@ -214,6 +218,21 @@ jobs:
         uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
         with:
           args: -no-color -shellcheck=
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      # zizmor audits the workflows for security smells actionlint doesn't cover:
+      # template injection in run: blocks, credential persistence, over-broad
+      # permissions, dangerous triggers. --offline keeps it deterministic (no
+      # token); --min-severity medium gates on real findings while ignoring
+      # low-confidence informational notes. Bump the pin to re-baseline.
+      - name: zizmor
+        run: |
+          pip install zizmor==1.25.2
+          zizmor --offline --min-severity medium .github/workflows/
 
   infra:
     needs: changes

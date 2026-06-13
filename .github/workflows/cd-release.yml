@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
+        # zizmor: ignore[artipacked] — semantic-release pushes the tag, CHANGELOG
+        # and version bumps back to the repo, so the credential MUST persist here.
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0

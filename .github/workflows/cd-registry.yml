@@ -33,6 +33,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       - name: Detect changed services
         if: github.event_name == 'push'
@@ -114,6 +116,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       - name: Set lowercase image prefix
         run: |
@@ -198,5 +202,8 @@ jobs:
           cache-from: type=gha
 
       - name: Print image tag
-        run: |
-          echo "Successfully pushed ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}"
+        # Pass expansions through env (set as a literal value), never inline
+        # them into the shell — avoids template-injection as a standing pattern.
+        env:
+          IMAGE_REF: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+        run: echo "Successfully pushed $IMAGE_REF"
