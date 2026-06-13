@@ -24,19 +24,19 @@ jobs:
         with:
           enable-cache: true
 
-      - name: 📦 Install dependencies
+      - name: Install Dependencies
         run: uv sync --locked --all-extras --dev
 
-      - name: 🔍 Ruff lint
+      - name: Lint
         run: uv run ruff check .
 
-      - name: 🎨 Ruff format check
+      - name: Check Formatting
         run: uv run ruff format --check .
 
-      - name: 🏗️ Type check (pyright)
+      - name: Type Check
         run: uv run pyright
 
-      - name: 🔒 Audit dependencies
+      - name: Audit Dependencies
         run: uv audit
 
   tests:
@@ -59,8 +59,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: 📦 Install dependencies
+      - name: Install Dependencies
         run: uv sync --locked --all-extras --dev
 
-      - name: 🧪 Run tests (unit + integration)
+      - name: Run Tests
         run: uv run pytest

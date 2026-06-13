@@ -21,17 +21,21 @@ jobs:
           cache: "npm"
           cache-dependency-path: client/package-lock.json
 
-      - name: 📦 Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: 🔍 Lint
+      - name: Lint
         run: npm run lint
 
-      - name: 🏗️ Type Check
+      - name: Type Check
         run: npm run type-check
 
-      - name: 🔒 Audit dependencies
+      - name: Audit Production Dependencies
         run: npm audit --audit-level=high --omit=dev
+
+      - name: Audit All Dependencies
+        run: npm audit --audit-level=high
+        continue-on-error: true
 
   test:
     name: unit tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
@@ -57,5 +61,5 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      - name: 🧪 Run Unit Tests
+      - name: Run Unit Tests
         run: npm run test:unit -- run --shard=${{ matrix.shard }}/${{ strategy.job-total }}
