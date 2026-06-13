@@ -1,0 +1,29 @@
+name: dependency-review-ci
+
+on:
+  workflow_call:
+
+# Read-only: the action diffs the PR's dependency graph against the GitHub
+# Advisory DB. Results go to the job summary, not a PR comment, so no
+# pull-requests:write is needed (and the gate's token stays least-privilege).
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # Fails the PR if it INTRODUCES a dependency with a known high/critical
+      # CVE — catching a vulnerable package at the moment it is added, which
+      # the per-service `npm/uv/cargo audit` (which only sees the merged
+      # lockfile state) cannot do as precisely. Requires the repository's
+      # dependency graph to be enabled (on by default for public repos).
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: never

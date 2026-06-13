@@ -30,6 +30,8 @@ jobs:
       shared: ${{ steps.filter.outputs.shared }}
       ci: ${{ steps.filter.outputs.ci }}
       infra: ${{ steps.filter.outputs.infra }}
+      simulators: ${{ steps.filter.outputs.simulators }}
+      deps: ${{ steps.filter.outputs.deps }}
       unmapped: ${{ steps.filter.outputs.unmapped }}
       unmapped_files: ${{ steps.filter.outputs.unmapped_files }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
@@ -81,13 +83,26 @@ jobs:
               - 'scripts/**'
               - 'tooling/**'
               - '.github/workflows/ci-infra.yml'
+            simulators:
+              - 'simulators/**'
+              - '.github/workflows/ci-simulators.yml'
+            # Any dependency manifest/lockfile across all ecosystems — gates the
+            # PR against newly-introduced vulnerable dependencies.
+            deps:
+              - '**/package.json'
+              - '**/package-lock.json'
+              - '**/pyproject.toml'
+              - '**/uv.lock'
+              - '**/requirements*.txt'
+              - '**/Cargo.toml'
+              - '**/Cargo.lock'
             # Tripwire: any path covered by NO bucket above. A PR touching only
             # these would otherwise merge green having run zero checks. We
-            # subtract the known service/infra buckets and the inert content
-            # set (docs, generated assets, prose); everything left — root config
-            # (Caddyfile, docker-compose.yml, prometheus.yml, .mise.toml,
-            # .trivyignore…), .moon task defs, seed.py, and simulators until
-            # they get their own CI — trips the guard and forces a human look.
+            # subtract the known service/infra/simulator buckets and the inert
+            # content set (docs, generated assets, prose); everything left —
+            # root config (Caddyfile, docker-compose.yml, prometheus.yml,
+            # .mise.toml, .trivyignore…), .moon task defs, and seed.py — trips
+            # the guard and forces a human look.
             unmapped:
               - '**'
               - '!server/**'
@@ -96,6 +111,7 @@ jobs:
               - '!.github/**'
               - '!scripts/**'
               - '!tooling/**'
+              - '!simulators/**'
               - '!documentation/**'
               - '!landing-page/**'
               - '!output/**'
@@ -204,6 +220,17 @@ jobs:
     if: needs.changes.outputs.infra == 'true'
     uses: ./.github/workflows/ci-infra.yml
 
+  simulators:
+    needs: changes
+    if: needs.changes.outputs.simulators == 'true'
+    uses: ./.github/workflows/ci-simulators.yml
+
+  # Blocks a PR that introduces a dependency with a known high/critical CVE.
+  dependency-review:
+    needs: changes
+    if: needs.changes.outputs.deps == 'true'
+    uses: ./.github/workflows/ci-dependency-review.yml
+
   # ── Tripwire ────────────────────────────────────────────────────────────────
   # Solo-repo substitute for "a human must review this." Fails whenever a PR
   # changes a path no CI bucket covers, so nothing merges ungated. The remedy
@@ -247,6 +274,8 @@ jobs:
       - k8s
       - workflows-lint
       - infra
+      - simulators
+      - dependency-review
       - guard-unmapped
     if: always()
     steps:

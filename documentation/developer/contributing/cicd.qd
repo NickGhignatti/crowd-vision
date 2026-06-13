@@ -107,6 +107,27 @@ The **Node services** share the same shape: `npm ci`, install the shared `toolin
 
 ---
 
+## Simulator CI
+
+The two device simulators ship as GHCR images but are not application services, so they get a dedicated `ci-simulators.yml` — one job each, gated on `simulators/`.
+
+.var {headers}
+   - Job
+   - Runtime
+   - Checks
+
+.tablebyrows {.headers}
+    - - `sensor-simulator`
+      - Node.js 24 / TypeScript
+      - ESLint (shared config) + `tsc` build. No test suite exists yet, so there is no test step — a bare Jest with zero tests would fail.
+    - - `aq-simulator`
+      - Python 3.12
+      - `py_compile` parses every module (smoke.py is **not** executed — it performs network I/O), then `ruff check` runs with default rules, which catch real defects such as undefined names and unused imports.
+
+Both were previously ungated despite shipping images; until this workflow existed they were held by the unmapped-path tripwire below.
+
+---
+
 ## Cross-cutting checks
 
 These legs validate properties that span the codebase rather than a single service. They are gated by their own path filters and join the same `ci-passed` aggregator.
@@ -124,6 +145,8 @@ These legs validate properties that span the codebase rather than a single servi
       - A job defined inline in `ci-gate.yml`. Runs **actionlint** (digest-pinned container) over the workflow files themselves whenever anything under the `&#46;github/` tree changes — catching malformed expressions, invalid action inputs, and injection patterns. shellcheck is bundled but currently disabled (`-shellcheck=`) until its findings on existing `run:` blocks are triaged.
     - - `ci-infra.yml`
       - The `infra` leg. Cheap, real validation for repo scripts and release tooling whenever `scripts/` or `tooling/` change: `node --check` parses every tracked `&#46;mjs`/`&#46;js`, `bash -n` checks every shell script, and `npm ci` in `tooling/` proves the release-tooling lockfile is still in sync. Keeps routine script edits green automatically instead of tripping the guard below.
+    - - `ci-dependency-review.yml`
+      - The `dependency-review` leg. On any PR that changes a dependency manifest or lockfile, it fails if the PR **introduces** a dependency carrying a known high/critical advisory (`fail-on-severity: high`). It complements the per-service audit steps: those see the merged lockfile state, whereas this diffs exactly what the PR adds, catching a vulnerable package at the moment it is introduced. Requires the repository's dependency graph (on by default for public repos).
 
 ---
 
@@ -142,6 +165,7 @@ unmapped:
   - '!.github/**'
   - '!scripts/**'
   - '!tooling/**'
+  - '!simulators/**'
   - '!documentation/**'   # …and the inert content that needs no checks
   - '!landing-page/**'
   - '!output/**'
@@ -152,7 +176,7 @@ unmapped:
 Whatever survives that subtraction is, by definition, a path nobody mapped. When the filter catches something, `guard-unmapped` runs, lists the offending files (via `list-files: shell`), and **fails** — turning the gate red and forcing a conscious decision. The remedy is one line in the filter: either map the path to a real check, or add it to the inert exclusions if it genuinely carries no risk.
 
 .box {Fail closed, by design} type:{tip}
-    Today the survivors include root config (`Caddyfile`, `docker-compose.yml`, `prometheus.yml`, `.mise.toml`, `.trivyignore`…), `.moon/` task definitions, `seed.py`, and `simulators/**` — the simulators stay in the tripwire deliberately until they get their own CI, so the "nothing merges unchecked" invariant holds even before that work lands. On a solo repository where no second reviewer exists, this guard is the mechanical substitute for "a human must look at this change."
+    Today the survivors include root config (`Caddyfile`, `docker-compose.yml`, `prometheus.yml`, `.mise.toml`, `.trivyignore`…), `.moon/` task definitions, and `seed.py`. The simulators used to live here too — they were the motivating example of "ships an artifact but nothing gates it" — until `ci-simulators.yml` gave them a real bucket. On a solo repository where no second reviewer exists, this guard is the mechanical substitute for "a human must look at this change."
 
 ---
 
