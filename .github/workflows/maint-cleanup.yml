@@ -16,11 +16,13 @@ jobs:
       matrix:
         package-name:
           - crowdvision-auth
+          - crowdvision-chat
           - crowdvision-twin
           - crowdvision-notification
           - crowdvision-socket
           - crowdvision-agent
           - crowdvision-sensor
+          - crowdvision-contracts
           - crowdvision-simulator
           - crowdvision-aq-simulator
           - crowdvision-client
