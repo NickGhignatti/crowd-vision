@@ -28,6 +28,7 @@ jobs:
       twin: ${{ steps.filter.outputs.twin }}
       k8s: ${{ steps.filter.outputs.k8s }}
       shared: ${{ steps.filter.outputs.shared }}
+      ci: ${{ steps.filter.outputs.ci }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
@@ -68,6 +69,8 @@ jobs:
               - '.github/workflows/ci-k8s.yml'
             shared:
               - 'tooling/eslint-config/**'
+            ci:
+              - '.github/**'
 
       # Build the Docker matrix (include-form) from the changed services that
       # ship an image. Only these get a PR-time build
@@ -149,10 +152,28 @@ jobs:
     if: needs.changes.outputs.k8s == 'true'
     uses: ./.github/workflows/ci-k8s.yml
 
+  # Statically validates the workflow files themselves —s
+  workflows-lint:
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # The image bundles shellcheck, but it is disabled here until its findings on the
+      # existing run: blocks are triaged — install shellcheck locally, run
+      # `actionlint`, fix what it reports, then drop `-shellcheck=` so CI
+      # gains that layer too.
+      - name: actionlint
+        uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
+        with:
+          args: -no-color -shellcheck=
+
   ci-passed:
     name: CI Passed
     runs-on: ubuntu-latest
     needs:
+      - changes
       - auth
       - chat
       - agent
@@ -164,12 +185,29 @@ jobs:
       - twin
       - docker
       - k8s
+      - workflows-lint
     if: always()
     steps:
-      - name: Verify all jobs succeeded
+      - name: Verify every job succeeded or legitimately skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+          CHANGES: ${{ needs.changes.result }}
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "One or more CI jobs failed or were cancelled"
+          echo "results: $RESULTS"
+          # The fan-out root must have succeeded — if it failed or was
+          # cancelled, every service job was skipped without ever being
+          # evaluated, and a green gate here would be a false pass.
+          if [ "$CHANGES" != "success" ]; then
+            echo "::error::'changes' ended in '$CHANGES' — CI never actually evaluated this PR"
             exit 1
           fi
-          echo "All CI jobs passed"
+          # Whitelist: success (ran and passed) or skipped (path filter says
+          # unaffected). Anything else — failure, cancelled — fails the gate.
+          read -ra results <<< "$RESULTS"
+          for r in "${results[@]}"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::a required job ended in '$r'"; exit 1 ;;
+            esac
+          done
+          echo "All required jobs passed or were legitimately skipped"
