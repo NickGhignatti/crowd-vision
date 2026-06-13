@@ -224,11 +224,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      # zizmor audits the workflows for security smells actionlint doesn't cover:
-      # template injection in run: blocks, credential persistence, over-broad
-      # permissions, dangerous triggers. --offline keeps it deterministic (no
-      # token); --min-severity medium gates on real findings while ignoring
-      # low-confidence informational notes. Bump the pin to re-baseline.
       - name: zizmor
         run: |
           pip install zizmor==1.25.2
@@ -250,11 +245,7 @@ jobs:
     if: needs.changes.outputs.deps == 'true'
     uses: ./.github/workflows/ci-dependency-review.yml
 
-  # ── Tripwire ────────────────────────────────────────────────────────────────
-  # Solo-repo substitute for "a human must review this." Fails whenever a PR
-  # changes a path no CI bucket covers, so nothing merges ungated. The remedy
-  # is one line in the `changes` filters above: map the path to a real bucket,
-  # or add it to the inert exclusions if it genuinely carries no risk.
+  # Fails whenever a PR changes a path no CI bucket covers, so nothing merges ungated.
   guard-unmapped:
     name: Guard Unmapped Paths
     needs: changes
