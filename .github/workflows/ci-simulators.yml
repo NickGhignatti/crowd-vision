@@ -1,0 +1,72 @@
+name: simulators-ci
+
+on:
+  workflow_call:
+
+jobs:
+  # sensor-simulator is Node/TypeScript and mirrors a Node service: lint with
+  # the shared ESLint config, then a tsc build. It has no test suite yet, so no
+  # test step (a bare `jest` with zero tests would fail — no test theater).
+  sensor-simulator:
+    name: sensor-simulator (Node)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./simulators/sensor-simulator
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: |
+            simulators/sensor-simulator/package-lock.json
+            tooling/eslint-config/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Shared ESLint Config
+        working-directory: tooling/eslint-config
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  # aq-simulator is Python with no test framework or pyproject. The honest
+  # minimum: parse every module (py_compile, no execution — smoke.py does
+  # network I/O so it is NOT run here) and lint with ruff's default rules,
+  # which catch real defects like undefined names and unused imports.
+  aq-simulator:
+    name: aq-simulator (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./simulators/aq-simulator
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Syntax Check (py_compile)
+        run: find . -name '*.py' -print0 | xargs -0 python -m py_compile
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Lint (ruff)
+        run: ruff check .

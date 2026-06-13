@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 
 from schemas import BuildingConfig, StopRequest, StatusResponse
 from simulator import Simulator

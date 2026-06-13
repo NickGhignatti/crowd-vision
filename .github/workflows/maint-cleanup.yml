@@ -16,18 +16,20 @@ jobs:
       matrix:
         package-name:
           - crowdvision-auth
+          - crowdvision-chat
           - crowdvision-twin
           - crowdvision-notification
           - crowdvision-socket
           - crowdvision-agent
           - crowdvision-sensor
+          - crowdvision-contracts
           - crowdvision-simulator
           - crowdvision-aq-simulator
           - crowdvision-client
 
     steps:
       - name: Delete old package versions for ${{ matrix.package-name }}
-        uses: actions/delete-package-versions@v5
+        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5
         with:
           package-name: ${{ matrix.package-name }}
           package-type: "container"

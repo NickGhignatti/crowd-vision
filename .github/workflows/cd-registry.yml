@@ -32,12 +32,14 @@ jobs:
       any: ${{ steps.set.outputs.any }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       - name: Detect changed services
         if: github.event_name == 'push'
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         with:
           filters: |
             crowdvision-auth: 'server/auth-service/**'
@@ -113,7 +115,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       - name: Set lowercase image prefix
         run: |
@@ -121,10 +125,10 @@ jobs:
           echo "IMAGE_PREFIX=ghcr.io/$OWNER_LOWERCASE" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -134,22 +138,28 @@ jobs:
         if: matrix.image == 'crowdvision-client'
         run: echo "BUILD_ARGS=VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}" >> $GITHUB_ENV
 
-      - name: Build and push ${{ matrix.image }}
-        uses: docker/build-push-action@v6
+      # Build into the runner's local daemon only (push: false + load: true).
+      # Publishing happens below, AFTER the Trivy gate passes, so a vulnerable
+      # image never reaches GHCR. load:true requires a single-platform build,
+      # which this is — revisit if `platforms:` is ever added.
+      - name: Build ${{ matrix.image }} (local, pre-scan)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.context }}
-          push: true
+          push: false
+          load: true
           build-args: ${{ env.BUILD_ARGS }}
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+          tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       # ── Security scan (Trivy) ────────────────────────────────────────────────
+      # This scan gates the push step below: any finding fails the job BEFORE
+      # the image is published.
       # Scope: OS packages ONLY (vuln-type: os). Application dependencies
-      # (npm/pip/cargo) are already gated PRE-MERGE by ci-audit.yml
-      # (npm audit --audit-level=high --omit=dev, uv audit, cargo audit), so
+      # (npm/pip/cargo) are already gated PRE-MERGE by the per-service CI
+      # workflows (npm audit --audit-level=high --omit=dev, uv audit,
+      # cargo audit), so
       # scanning libraries here too would duplicate that gate with a different DB —
       # Trivy additionally flags bundled/vendored JS (e.g. swagger-ui-dist) that
       # `overrides` cannot patch, producing unactionable failures. Trivy's job here
@@ -158,7 +168,7 @@ jobs:
       #   - Base images run apk/apt upgrade at build time to keep this green.
       #   - .trivyignore holds deliberate, justified CVE waivers.
       - name: Scan image for vulnerabilities (Trivy)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
           format: sarif
@@ -167,16 +177,33 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           trivyignores: .trivyignore
-          vuln-type: os # OS packages only — app deps gated by ci-audit
+          vuln-type: os # OS packages only — app deps gated by per-service CI
 
       - name: Upload Trivy scan results to GitHub Security
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         continue-on-error: true
         with:
           sarif_file: trivy-results-${{ matrix.image }}.sarif
           category: trivy-${{ matrix.image }}
 
+      # Same context/build-args/cache as the pre-scan build, so this resolves
+      # entirely from the still-warm gha cache (no recompilation) and pushes
+      # the exact layers that were just scanned, now also tagged :latest.
+      - name: Push ${{ matrix.image }} (scan passed)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          build-args: ${{ env.BUILD_ARGS }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha
+
       - name: Print image tag
-        run: |
-          echo "Successfully pushed ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}"
+        # Pass expansions through env (set as a literal value), never inline
+        # them into the shell — avoids template-injection as a standing pattern.
+        env:
+          IMAGE_REF: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+        run: echo "Successfully pushed $IMAGE_REF"
