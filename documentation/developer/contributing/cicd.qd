@@ -148,6 +148,9 @@ These legs validate properties that span the codebase rather than a single servi
     - - `ci-dependency-review.yml`
       - The `dependency-review` leg. On any PR that changes a dependency manifest or lockfile, it fails if the PR **introduces** a dependency carrying a known high/critical advisory (`fail-on-severity: high`). It complements the per-service audit steps: those see the merged lockfile state, whereas this diffs exactly what the PR adds, catching a vulnerable package at the moment it is introduced. Requires the repository's dependency graph (on by default for public repos).
 
+.box {Every third-party action is pinned to a commit SHA} type:{note}
+    Each `uses:` across every workflow references a full 40-character commit SHA (with the human-readable version kept as a trailing comment, e.g. `# v6`), never a moving tag like `@v4`. A tag can be silently repointed at malicious code by whoever controls the action; a commit SHA cannot. The repository setting **Settings → Actions → "Require actions to be pinned to a full-length commit SHA"** enforces this, so no future workflow can reintroduce an unpinned action. Local reusable workflows (`uses: ./.github/workflows/…`) are exempt — they live in this repo. Bumping a version means resolving the new tag to its SHA (`git ls-remote`) and updating both the SHA and the comment.
+
 ---
 
 ## The unmapped-path tripwire

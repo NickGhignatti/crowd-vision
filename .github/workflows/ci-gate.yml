@@ -37,8 +37,8 @@ jobs:
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         id: filter
         with:
           # list-files: shell exposes <filter>_files (e.g. unmapped_files),
@@ -204,7 +204,7 @@ jobs:
     if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       # The image bundles shellcheck, but it is disabled here until its findings on the
       # existing run: blocks are triaged — install shellcheck locally, run

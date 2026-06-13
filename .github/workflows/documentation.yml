@@ -19,10 +19,10 @@ jobs:
   build-documentation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "20"
 
@@ -33,7 +33,7 @@ jobs:
 
       - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
 
-      - uses: quarkdown-labs/setup-quarkdown@v1
+      - uses: quarkdown-labs/setup-quarkdown@7f1c7a66fd944e1717778356590e57469a525ca4 # v1
 
       - name: Build user docs
         run: quarkdown c documentation/user/main.qd --out landing-page/user
@@ -42,7 +42,7 @@ jobs:
         run: quarkdown c documentation/developer/main.qd --out landing-page/dev
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./landing-page
