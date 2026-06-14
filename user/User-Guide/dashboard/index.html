@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision user guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Dashboard</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-table-view" data-depth="2"><a href="#the-table-view">The table view</a></li><li data-target-id="occupancy-status" data-depth="2"><a href="#occupancy-status">Occupancy status</a></li><li data-target-id="choosing-a-building" data-depth="2"><a href="#choosing-a-building">Choosing a building</a></li><li data-target-id="switching-views-and-focus-mode" data-depth="2"><a href="#switching-views-and-focus-mode">Switching views and Focus Mode</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>User Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="getting-started" data-decorative="">Getting Started</h3><ul><li><a href="../registration">Account Registration</a></li><li><a href="../login">Login</a></li><li><a href="../sso-login">Enterprise Login (SSO)</a></li></ul><h3 id="using-the-platform" data-decorative="">Using the Platform</h3><ul><li><a href="../dashboard" aria-current="page">Dashboard</a></li><li><a href="../building-table">Customizing the Data Table</a></li><li><a href="../sensors">Charts &amp; Simulator</a></li><li><a href="../twin">The Digital Twin</a></li><li><a href="../building-data">Upload a Digital Twin</a></li><li><a href="../domains">Domains</a></li><li><a href="../domain-admin">Domain Administration</a></li><li><a href="../assistant">Using the Assistant</a></li></ul><h2 id="information" data-decorative="">Information</h2><ul><li><a href="../notifications">Notifications</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-table-view" data-depth="2"><a href="#the-table-view">The table view</a></li><li data-target-id="occupancy-status" data-depth="2"><a href="#occupancy-status">Occupancy status</a></li><li data-target-id="choosing-a-building" data-depth="2"><a href="#choosing-a-building">Choosing a building</a></li><li data-target-id="switching-views-and-focus-mode" data-depth="2"><a href="#switching-views-and-focus-mode">Switching views and Focus Mode</a></li></ol></nav></div><h1 id="dashboard" data-decorative="">Dashboard</h1><p>The Dashboard is your central hub for real-time monitoring. It opens to the <strong>Table view</strong>, a scannable overview of every monitored room in the selected building.</p><figure><img src="media/dashboard-table@-2070495993.png" alt="The dashboard table view" /></figure><p><em>Figure 1 — The dashboard table view. Each row is a room; columns update live as sensors report.</em></p><hr /><h2 id="the-table-view">The table view</h2><p>Each row is one room in the current building, and each column is a property or live measurement. A newly registered building starts with the room name and capacity columns; you can add, remove, reorder, and save columns. See <a href="../building-table">Customizing the Data Table</a> for the full guide.</p><hr /><h2 id="occupancy-status">Occupancy status</h2><p>CrowdVision derives an occupancy status from how full a room is relative to its capacity.</p><table><thead><tr><th>Status</th><th>Occupancy</th></tr></thead><tbody><tr><td>Empty</td><td>0%</td></tr><tr><td>Normal</td><td>1% to 50%</td></tr><tr><td>Crowded</td><td>51% to 95%</td></tr><tr><td>Full</td><td>96% to 100%</td></tr><tr><td>Overcrowded</td><td>over 100% — needs immediate attention</td></tr></tbody></table><hr /><h2 id="choosing-a-building">Choosing a building</h2><p>If you manage several buildings, switch between them from the selector at the top of the dashboard.</p><ol><li>Open the <strong>building selector</strong> dropdown at the top of the view.</li><li>Pick a building you have access to.</li><li>The table refreshes instantly with that building&rsquo;s rooms and live data.</li></ol><figure><img src="media/building-selector@-233845624.png" alt="The building selector dropdown" /></figure><p><em>Figure 2 — The building selector lists every building your account can access.</em></p><hr /><h2 id="switching-views-and-focus-mode">Switching views and Focus Mode</h2><p>A toggle at the top of the dashboard switches between <strong>List</strong> (the table) and <strong>Graph</strong> (the charts — see <a href="sensors.qd)">Charts &amp; Simulator</a>. A <strong>Fullscreen</strong> control expands the current view into a clean, distraction-free display for wall monitors.</p><figure><img src="media/view-toggle@1493244332.png" alt="The List / Graph toggle and the Fullscreen control" /></figure><p><em>Figure 3 — Switch between List and Graph, or enter Fullscreen (Focus Mode).</em></p><ul><li>Click <strong>Graph</strong> to see visual analytics; click <strong>List</strong> to return to the table.</li><li>Click <strong>Fullscreen</strong> to fill the screen; press <span class="codespan-content"><code>Esc</code></span> or click the control again to exit.</li></ul>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

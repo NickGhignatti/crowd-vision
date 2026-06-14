@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision user guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>The Digital Twin</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="moving-around-the-control-panel" data-depth="2"><a href="#moving-around-the-control-panel">Moving around: the control panel</a></li><li data-target-id="left-menu-buildings-and-floors" data-depth="2"><a href="#left-menu-buildings-and-floors">Left menu: buildings and floors</a></li><li data-target-id="right-menu-rooms-and-details" data-depth="2"><a href="#right-menu-rooms-and-details">Right menu: rooms and details</a></li><li data-target-id="editing-rooms" data-depth="2"><a href="#editing-rooms">Editing rooms</a></li><li data-target-id="editing-building-defaults" data-depth="2"><a href="#editing-building-defaults">Editing building defaults</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>User Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="getting-started" data-decorative="">Getting Started</h3><ul><li><a href="../registration">Account Registration</a></li><li><a href="../login">Login</a></li><li><a href="../sso-login">Enterprise Login (SSO)</a></li></ul><h3 id="using-the-platform" data-decorative="">Using the Platform</h3><ul><li><a href="../dashboard">Dashboard</a></li><li><a href="../building-table">Customizing the Data Table</a></li><li><a href="../sensors">Charts &amp; Simulator</a></li><li><a href="../twin" aria-current="page">The Digital Twin</a></li><li><a href="../building-data">Upload a Digital Twin</a></li><li><a href="../domains">Domains</a></li><li><a href="../domain-admin">Domain Administration</a></li><li><a href="../assistant">Using the Assistant</a></li></ul><h2 id="information" data-decorative="">Information</h2><ul><li><a href="../notifications">Notifications</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="moving-around-the-control-panel" data-depth="2"><a href="#moving-around-the-control-panel">Moving around: the control panel</a></li><li data-target-id="left-menu-buildings-and-floors" data-depth="2"><a href="#left-menu-buildings-and-floors">Left menu: buildings and floors</a></li><li data-target-id="right-menu-rooms-and-details" data-depth="2"><a href="#right-menu-rooms-and-details">Right menu: rooms and details</a></li><li data-target-id="editing-rooms" data-depth="2"><a href="#editing-rooms">Editing rooms</a></li><li data-target-id="editing-building-defaults" data-depth="2"><a href="#editing-building-defaults">Editing building defaults</a></li></ol></nav></div><h1 id="the-digital-twin" data-decorative="">The Digital Twin</h1><p>The <strong>Digital Twin</strong> view is an interactive 3D model of your buildings. You can fly around the model, inspect rooms, watch live occupancy and temperature, and — with the right permissions — edit the spatial configuration.</p><figure><img src="media/twin-3d@-765001786.png" alt="The 3D digital twin of a building" /></figure><p><em>Figure 1 — The digital twin renders every room of the selected building in 3D.</em></p><hr /><h2 id="moving-around-the-control-panel">Moving around: the control panel</h2><p>The control panel inside the viewer holds the navigation tools.</p><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>Reset View</td><td>Return the camera to its default position, centred on the building.</td></tr><tr><td>Zoom In / Out</td><td>Move the camera closer or further away.</td></tr><tr><td>Panorama Mode</td><td>Auto-rotate smoothly around the building for a hands-free 360° overview.</td></tr><tr><td>Focus on Room</td><td>Isolate the selected room and move the camera to inspect it.</td></tr><tr><td>Temperature Mode</td><td>Colour rooms by live temperature, from cool blues to warm reds.</td></tr></tbody></table><figure><img src="media/twin-control-panel@-811669131.png" alt="The 3D view control panel" /></figure><p><em>Figure 2 — The control panel: reset, zoom, panorama, focus, and temperature colouring.</em></p><hr /><h2 id="left-menu-buildings-and-floors">Left menu: buildings and floors</h2><ul><li><strong>Select Building</strong> — choose which building to view (the list reflects your domains).</li><li><strong>Floor Selection</strong> — show a single level, or <strong>All Floors</strong> for the whole structure.</li><li><strong>Register Building</strong> — administrators open the <strong>Register Building</strong> modal to upload a building&rsquo;s JSON layout and set its name, thresholds, and per-room capacity before saving. The system assigns a unique id automatically. See <a href="../building-data">Upload a Digital Twin</a>.</li></ul><hr /><h2 id="right-menu-rooms-and-details">Right menu: rooms and details</h2><ul><li><strong>Search Room</strong> — find a room by name or id.</li><li><strong>Room List</strong> — a scrollable list of the rooms in view.</li><li><strong>Selection &amp; Details</strong> — click a room (in the list or the 3D model) to highlight it and open its live readings.</li></ul><figure><img src="media/twin-room-details@139898951.png" alt="The right menu with a room selected" /></figure><p><em>Figure 3 — Selecting a room opens its details and live sensor readings.</em></p><hr /><h2 id="editing-rooms">Editing rooms</h2><p>Administrators and staff can keep the twin in sync with the real space. Select a room and choose <strong>Edit Room</strong> to configure:</p><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td>Room Name</td><td>The display name (e.g. &ldquo;Physics Lab&rdquo;).</td></tr><tr><td>Room Identifier</td><td>The system id (read-only; set from the uploaded model).</td></tr><tr><td>Capacity</td><td>The maximum safe occupancy, which drives the occupancy statuses.</td></tr><tr><td>Max Temp (°C)</td><td>The room&rsquo;s upper temperature threshold; exceeding it can trigger alerts.</td></tr><tr><td>Theme Color</td><td>The room&rsquo;s default colour in standard 3D mode.</td></tr></tbody></table><figure><img src="media/edit-room@2029224558.png" alt="The Edit Room dialog" /></figure><p><em>Figure 4 — Edit Room configures a room&rsquo;s name, capacity, temperature limit, and colour.</em></p><hr /><h2 id="editing-building-defaults">Editing building defaults</h2><p>Authorized users can also edit a whole building via <strong>Edit Building</strong>:</p><ul><li><strong>Building Name</strong> — update the display name.</li><li><strong>Global Max Temp (°C)</strong> — a default temperature limit for the building. A room without its own limit inherits this value.</li></ul><p>Changes at the building level sync immediately across the 3D model and the dashboard analytics.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

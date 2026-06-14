@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Contracts Service</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="state-and-data-model" data-depth="2"><a href="#state-and-data-model">State and Data Model</a></li><li data-target-id="startup-sequence" data-depth="2"><a href="#startup-sequence">Startup Sequence</a></li><li data-target-id="persistence-model-hot-path--cold-path" data-depth="2"><a href="#persistence-model-hot-path--cold-path">Persistence Model (Hot Path / Cold Path)</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="the-telemetry-tunnel" data-depth="2"><a href="#the-telemetry-tunnel">The Telemetry Tunnel</a></li><li data-target-id="metric-discovery" data-depth="2"><a href="#metric-discovery">Metric Discovery</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts" aria-current="page">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="state-and-data-model" data-depth="2"><a href="#state-and-data-model">State and Data Model</a></li><li data-target-id="startup-sequence" data-depth="2"><a href="#startup-sequence">Startup Sequence</a></li><li data-target-id="persistence-model-hot-path--cold-path" data-depth="2"><a href="#persistence-model-hot-path--cold-path">Persistence Model (Hot Path / Cold Path)</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="the-telemetry-tunnel" data-depth="2"><a href="#the-telemetry-tunnel">The Telemetry Tunnel</a></li><li data-target-id="metric-discovery" data-depth="2"><a href="#metric-discovery">Metric Discovery</a></li></ol></nav></div><h1 id="contracts-service" data-decorative="">Contracts Service</h1><p>Implementation reference for the <span class="codespan-content"><code>contracts-service</code></span>. For its architectural role, see <a href="../contracts-architecture">Contracts Service Architecture</a>; for the domain model, see <a href="../telemetry-distribution">Telemetry Distribution</a>.</p><p>The only Rust service in the platform. Built on <strong>Axum</strong> and <strong>Tokio</strong>, it runs an HTTP API and a background telemetry tunnel in a single process, holding per-building preferences in memory for a lock-free hot path.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/main.rs</code></span></td><td>Boot: connect Mongo, hydrate the in-memory map, start the tunnel, serve the Axum router.</td></tr><tr><td><span class="codespan-content"><code>src/state.rs</code></span></td><td><span class="codespan-content"><code>AppState</code></span>: the shared <span class="codespan-content"><code>DashMap</code></span> projection plus the typed Mongo collection handle.</td></tr><tr><td><span class="codespan-content"><code>src/db.rs</code></span></td><td>Mongo access: <span class="codespan-content"><code>connect</code></span> (with unique index), <span class="codespan-content"><code>load_all</code></span> (hydration), <span class="codespan-content"><code>upsert_preference</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/tunnel.rs</code></span></td><td>The background task that filters <span class="codespan-content"><code>telemetry:raw</code></span> and republishes per building.</td></tr><tr><td><span class="codespan-content"><code>src/discovery.rs</code></span></td><td>Resolves downstream metric endpoints from <span class="codespan-content"><code>*_METRICS_URL</code></span> environment variables.</td></tr><tr><td><span class="codespan-content"><code>src/models.rs</code></span></td><td><span class="codespan-content"><code>PreferenceDocument</code></span>, <span class="codespan-content"><code>MetricContract</code></span>, and the discovery response types.</td></tr><tr><td><span class="codespan-content"><code>src/api/data.rs</code></span></td><td><span class="codespan-content"><code>GET</code></span>/<span class="codespan-content"><code>POST /preferences/{building_id}</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/api/init.rs</code></span></td><td><span class="codespan-content"><code>POST /preferences/init/{building_id}</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/api/dashboard.rs</code></span></td><td><span class="codespan-content"><code>GET /</code></span> — the aggregated metric catalog.</td></tr></tbody></table><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>MONGO_URI</code></span></td><td><span class="codespan-content"><code>mongodb://localhost:27017</code></span></td><td>Durable store for preferences (database <span class="codespan-content"><code>crowdvision</code></span>, collection <span class="codespan-content"><code>preferences</code></span>).</td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td><span class="codespan-content"><code>redis://127.0.0.1/</code></span></td><td>Broker for the telemetry tunnel.</td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP listen port.</td></tr><tr><td><span class="codespan-content"><code>*_METRICS_URL</code></span></td><td>—</td><td>Any variable with this suffix is treated as a service base URL for metric discovery.</td></tr></tbody></table><hr /><h2 id="state-and-data-model">State and Data Model</h2><pre><code class="language-rust">pub struct AppState {
+    pub building_preferences: Arc&lt;DashMap&lt;String, Vec&lt;String&gt;&gt;&gt;, // hot path
+    pub mongo_col: Collection&lt;PreferenceDocument&gt;,               // durable
+}
+
+pub struct PreferenceDocument {
+    pub id: Option&lt;ObjectId&gt;,
+    pub building_id: String,      // unique index
+    pub allowed_columns: Vec&lt;String&gt;,
+}</code></pre><p><span class="codespan-content"><code>DashMap</code></span> shards its internal locks across cores, so the tunnel&rsquo;s millions of reads almost never contend with an occasional write. The Mongo collection enforces one document per building via a unique index on <span class="codespan-content"><code>building_id</code></span>.</p><hr /><h2 id="startup-sequence">Startup Sequence</h2><pre><code class="language-text">1. connect(MONGO_URI)          -&gt; ensure unique index on building_id
+2. load_all()                  -&gt; seed the DashMap from persisted documents
+3. start_telemetry_tunnel()    -&gt; spawn the background filter task
+4. axum::serve(router)         -&gt; begin handling HTTP</code></pre><p>Hydration at boot means a restart restores all preferences before the first request is served.</p><hr /><h2 id="persistence-model-hot-path--cold-path">Persistence Model (Hot Path / Cold Path)</h2><p>Reads and the tunnel operate purely in memory; durability is handled off the request path.</p><ul><li><strong>Hot path (reads, tunnel):</strong> O(1) lock-free <span class="codespan-content"><code>DashMap</code></span> lookups; the tunnel never blocks on a write.</li><li><strong>Cold path (writes):</strong> <span class="codespan-content"><code>update_preferences</code></span> mutates the <span class="codespan-content"><code>DashMap</code></span> immediately, then <strong>spawns a fire-and-forget Tokio task</strong> to <span class="codespan-content"><code>upsert_preference</code></span> into Mongo. The HTTP response returns <span class="codespan-content"><code>200</code></span> without waiting for the database. The same write-through applies to <span class="codespan-content"><code>init</code></span> when it creates a new entry.</li></ul><div class="box note"><header><h4>Eventual durability</h4></header><div class="box-content"><p>Because the database write is fire-and-forget, a crash in the narrow window between the in-memory insert and the persisted upsert can lose the most recent change. This is an accepted trade-off for hot-path latency; the next successful save reconciles it.</p></div></div><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /preferences/{building_id}</code></span></td><td>Return <span class="codespan-content"><code>{ building_id, allowed_columns }</code></span>. <span class="codespan-content"><code>404</code></span> if the building has no entry.</td></tr><tr><td><span class="codespan-content"><code>POST /preferences/{building_id}</code></span></td><td>Replace the allowed-column list (body <span class="codespan-content"><code>{ allowed_columns }</code></span>). Instant cache write + async persist. Returns <span class="codespan-content"><code>{ status, building_id, active_columns }</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /preferences/init/{building_id}</code></span></td><td>Idempotently seed defaults <span class="codespan-content"><code>[&quot;roomName&quot;, &quot;roomMaxOccupancy&quot;]</code></span> with an atomic or-insert, so a repeat call is a safe no-op. Called by the twin-service on building creation.</td></tr><tr><td><span class="codespan-content"><code>GET /</code></span></td><td>The aggregated metric catalog (see Metric Discovery).</td></tr></tbody></table><hr /><h2 id="the-telemetry-tunnel">The Telemetry Tunnel</h2><p>Started at boot, the tunnel opens a dedicated Redis PubSub connection and subscribes to <span class="codespan-content"><code>telemetry:raw</code></span>.</p><figure><pre class="mermaid">sequenceDiagram
+    participant R as Redis (telemetry:raw)
+    participant T as Tunnel
+    participant D as DashMap
+    participant F as Redis (telemetry:filtered:{id})
+    R--&gt;&gt;T: { type, buildingId, roomId, value, ... }
+    Note over T: spawn a task per message (ingestion never blocks)
+    loop each building preference
+        T-&gt;&gt;D: does allowed_columns contain `type`?
+        alt allowed
+            T-&gt;&gt;F: PUBLISH telemetry:filtered:{building_id} (full payload)
+        end
+    end</pre></figure><ul><li>Filtering is a <strong>type-based gate</strong>: it matches the message&rsquo;s <span class="codespan-content"><code>type</code></span> against each building&rsquo;s <span class="codespan-content"><code>allowed_columns</code></span>; the payload is forwarded intact (no field stripping).</li><li>One raw message fans out to every building subscribed to that metric type.</li><li>Each message is processed in its own <span class="codespan-content"><code>task::spawn</code></span>, so processing time never back-pressures the subscription stream.</li></ul><hr /><h2 id="metric-discovery">Metric Discovery</h2><p><span class="codespan-content"><code>GET /</code></span> builds the catalog the frontend uses to populate column pickers.</p><ol><li><span class="codespan-content"><code>discover_services()</code></span> collects every environment value whose key ends in <span class="codespan-content"><code>_METRICS_URL</code></span>.</li><li>Each service&rsquo;s <span class="codespan-content"><code>GET /contracts</code></span> is fetched and deserialised (either a <span class="codespan-content"><code>ServiceMetricsContract</code></span> or a bare metric list).</li><li>Each metric is tagged with its <span class="codespan-content"><code>source_service</code></span> and added via <span class="codespan-content"><code>push_unique_metric</code></span>, which deduplicates on <span class="codespan-content"><code>(metric_key, interface_name, source_service)</code></span>.</li></ol><p>New metric types therefore appear automatically once a service advertises them; no change is needed here.</p><div class="box warning"><header><h4>Known gap: deletion cleanup</h4></header><div class="box-content"><p>There is no <span class="codespan-content"><code>DELETE /preferences/{building_id}</code></span>. When a building is removed from the twin-service, its entry remains in both the <span class="codespan-content"><code>DashMap</code></span> and Mongo, and the tunnel keeps evaluating it. A deletion endpoint (called from the twin on removal) is the intended fix.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

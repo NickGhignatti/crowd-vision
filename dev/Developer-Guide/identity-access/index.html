@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Identity &amp; Access Context</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="aggregates" data-depth="2"><a href="#aggregates">Aggregates</a><ol><li data-target-id="aggregate-account" data-depth="3"><a href="#aggregate-account">Aggregate: Account</a></li><li data-target-id="aggregate-domain" data-depth="3"><a href="#aggregate-domain">Aggregate: Domain</a></li></ol></li><li data-target-id="the-role-policy" data-depth="2"><a href="#the-role-policy">The Role policy</a></li><li data-target-id="domain-services" data-depth="2"><a href="#domain-services">Domain Services</a></li><li data-target-id="published-language-the-identity-token" data-depth="2"><a href="#published-language-the-identity-token">Published Language: the identity token</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access" aria-current="page">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="aggregates" data-depth="2"><a href="#aggregates">Aggregates</a><ol><li data-target-id="aggregate-account" data-depth="3"><a href="#aggregate-account">Aggregate: Account</a></li><li data-target-id="aggregate-domain" data-depth="3"><a href="#aggregate-domain">Aggregate: Domain</a></li></ol></li><li data-target-id="the-role-policy" data-depth="2"><a href="#the-role-policy">The Role policy</a></li><li data-target-id="domain-services" data-depth="2"><a href="#domain-services">Domain Services</a></li><li data-target-id="published-language-the-identity-token" data-depth="2"><a href="#published-language-the-identity-token">Published Language: the identity token</a></li></ol></nav></div><h1 id="identity--access-context" data-decorative="">Identity & Access Context</h1><p><strong>Realised by:</strong> auth-service · <strong>Subdomain type:</strong> Supporting</p><p>This page captures the <em>design-time</em> model of the Identity &amp; Access context: the language, the aggregates, and the rules we committed to before writing code. It deliberately stays at the conceptual level — concrete routes, storage, and wire formats are decided later and documented in the <a href="../authentication">Services</a> section.</p><p>The context answers three questions: <em>who is this principal</em>, <em>which organizations do they belong to</em>, and <em>what may they do there</em>. It is the upstream source of identity for the platform — it produces the identity token that every other context treats as a Published Language.</p><hr /><h2 id="ubiquitous-language">Ubiquitous Language</h2><table><thead><tr><th>Term</th><th>Meaning in this context</th></tr></thead><tbody><tr><td>Account</td><td>A principal (human or system) that can authenticate.</td></tr><tr><td>Domain</td><td>An organization or tenant. The unit of multi-tenancy.</td></tr><tr><td>Membership</td><td>The link that places an Account inside a Domain with a specific Role.</td></tr><tr><td>Role</td><td>A ranked permission level used for authorization decisions.</td></tr><tr><td>Auth Strategy</td><td>How a Domain verifies identity: managed internally, or delegated to an external identity provider.</td></tr></tbody></table><hr /><h2 id="aggregates">Aggregates</h2><p>We model two aggregate roots — <span class="codespan-content"><code>Account</code></span> and <span class="codespan-content"><code>Domain</code></span>. They are kept separate on purpose: an Account refers to a Domain only by its name (the shared identifier described in <a href="strategic-design.qd)">Strategic Design</a>, so the two can evolve independently rather than through a hard reference.</p><figure><pre class="mermaid">classDiagram
+    class Account {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +name
+        +email
+        +credential
+        +secondFactorSeed
+        +Membership[] memberships
+    }
+    class Membership {
+        &lt;&lt;Value Object&gt;&gt;
+        +domainName
+        +Role role
+        +externalId
+    }
+    class Domain {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +name
+        +visibleFromOutside
+        +authStrategy
+        +Domain[] subdomains
+        +InviteSecrets inviteSecrets
+        +SSOConfig ssoConfig
+    }
+    class SSOConfig {
+        &lt;&lt;Value Object&gt;&gt;
+        +issuerUrl
+        +clientId
+        +clientSecret
+    }
+    class InviteSecrets {
+        &lt;&lt;Value Object&gt;&gt;
+        +perRoleSecret
+    }
+    class Role {
+        &lt;&lt;Value Object&gt;&gt;
+        +name
+        +rank
+    }
+
+    Account &quot;1&quot; *-- &quot;many&quot; Membership : holds
+    Membership &quot;1&quot; --&gt; &quot;1&quot; Role : carries
+    Domain &quot;1&quot; *-- &quot;0..1&quot; SSOConfig : may hold
+    Domain &quot;1&quot; *-- &quot;1&quot; InviteSecrets : holds</pre></figure><h3 id="aggregate-account">Aggregate: Account</h3><p>The consistency boundary around a principal and its memberships.</p><ul><li>We chose to keep <span class="codespan-content"><code>memberships</code></span> <em>inside</em> the Account aggregate rather than as a separate association. The intent is that resolving a principal also resolves everything needed to make an authorization decision, without consulting another aggregate.</li><li>Credential material (the secret used to authenticate, and any second-factor seed) lives on the aggregate but is treated as sensitive: it is part of the model, not part of what the context hands out.</li><li><strong>Intended invariant:</strong> an Account holds at most one Membership per Domain. Joining a Domain a principal already belongs to updates the existing Membership rather than adding a second.</li></ul><h3 id="aggregate-domain">Aggregate: Domain</h3><p>The consistency boundary around an organization and the rules under which principals join it.</p><ul><li><span class="codespan-content"><code>authStrategy</code></span> is the central policy switch. It is expected to drive how a principal proves identity and which value objects a Domain carries.</li><li><span class="codespan-content"><code>inviteSecrets</code></span> and <span class="codespan-content"><code>ssoConfig</code></span> hold confidential material. The model treats them as write-mostly: they participate in the Domain&rsquo;s behaviour but are not part of its public representation.</li><li><span class="codespan-content"><code>subdomains</code></span> expresses an organizational hierarchy. We left the depth of that hierarchy open at this stage rather than fixing it to a single level.</li><li><strong>Intended invariant:</strong> a Domain&rsquo;s strategy and its configuration agree — an internally-managed Domain carries no external-provider configuration, and an externally-federated Domain does not accept self-service joins.</li></ul><hr /><h2 id="the-role-policy">The Role policy</h2><p><span class="codespan-content"><code>Role</code></span> is modelled as a ranked value object rather than a free-form label, so that authorization can be expressed as &ldquo;at least this powerful&rdquo; rather than an enumeration of cases. The comparison is the single rule the context exposes for permission checks:</p><pre><code class="language-text">role_satisfies(held, required):
+    return rank(held) &gt;= rank(required)
+
+ranking (high to low):
+    admin &gt; business_admin &gt; business_staff &gt; standard_customer</code></pre><p>How this rule is invoked at request time is an implementation concern, covered under <a href="../middlewares">Middleware</a>.</p><hr /><h2 id="domain-services">Domain Services</h2><p>Two pieces of behaviour do not belong to a single entity, so we foresee them as domain services:</p><table><thead><tr><th>Service</th><th>Responsibility</th></tr></thead><tbody><tr><td>Identity token issuance</td><td>Assemble and sign the identity token, embedding the principal&rsquo;s memberships so downstream contexts can authorize on their own.</td></tr><tr><td>Role invitation</td><td>Derive and validate the short, time-bounded codes that grant a Role within a Domain.</td></tr></tbody></table><hr /><h2 id="published-language-the-identity-token">Published Language: the identity token</h2><p>The output of this context is a signed identity token whose contents — the principal, their memberships, roles, and domains — are the contract every other context conforms to. Designing this payload as a stable Published Language is what lets the other contexts authorize locally without calling back here.</p><figure><pre class="mermaid">sequenceDiagram
+    participant U as Client
+    participant A as Identity &amp; Access
+    U-&gt;&gt;A: authenticate (credentials)
+    Note over A: resolve the account and its memberships
+    Note over A: assemble identity token (memberships, roles, domains)
+    A--&gt;&gt;U: signed identity token</pre></figure><p>The interaction above is intentionally generic: the exact endpoints, token format, and federation handshake are design decisions deferred to the implementation. What matters at the domain level is that authentication yields a self-contained statement of identity and authority.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

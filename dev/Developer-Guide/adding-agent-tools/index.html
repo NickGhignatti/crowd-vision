@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Adding an Agent Tool</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-pick-the-shape" data-depth="2"><a href="#_1-pick-the-shape">1. Pick The Shape</a></li><li data-target-id="_2-where-the-file-lives" data-depth="2"><a href="#_2-where-the-file-lives">2. Where The File Lives</a></li><li data-target-id="_3-write-the-args-model" data-depth="2"><a href="#_3-write-the-args-model">3. Write The Args Model</a></li><li data-target-id="_4-write-the-tool-class" data-depth="2"><a href="#_4-write-the-tool-class">4. Write The Tool Class</a><ol><li data-target-id="writing-a-good-description" data-depth="3"><a href="#writing-a-good-description">Writing A Good description</a></li><li data-target-id="about-the-generic-protocol" data-depth="3"><a href="#about-the-generic-protocol">About The Generic Protocol</a></li></ol></li><li data-target-id="_5-implement-run" data-depth="2"><a href="#_5-implement-run">5. Implement run</a></li><li data-target-id="_6-register-the-tool" data-depth="2"><a href="#_6-register-the-tool">6. Register The Tool</a></li><li data-target-id="_7-test-it" data-depth="2"><a href="#_7-test-it">7. Test It</a></li><li data-target-id="_8-run-the-checks" data-depth="2"><a href="#_8-run-the-checks">8. Run The Checks</a></li><li data-target-id="quick-checklist" data-depth="2"><a href="#quick-checklist">Quick Checklist</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools" aria-current="page">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-pick-the-shape" data-depth="2"><a href="#_1-pick-the-shape">1. Pick The Shape</a></li><li data-target-id="_2-where-the-file-lives" data-depth="2"><a href="#_2-where-the-file-lives">2. Where The File Lives</a></li><li data-target-id="_3-write-the-args-model" data-depth="2"><a href="#_3-write-the-args-model">3. Write The Args Model</a></li><li data-target-id="_4-write-the-tool-class" data-depth="2"><a href="#_4-write-the-tool-class">4. Write The Tool Class</a><ol><li data-target-id="writing-a-good-description" data-depth="3"><a href="#writing-a-good-description">Writing A Good description</a></li><li data-target-id="about-the-generic-protocol" data-depth="3"><a href="#about-the-generic-protocol">About The Generic Protocol</a></li></ol></li><li data-target-id="_5-implement-run" data-depth="2"><a href="#_5-implement-run">5. Implement run</a></li><li data-target-id="_6-register-the-tool" data-depth="2"><a href="#_6-register-the-tool">6. Register The Tool</a></li><li data-target-id="_7-test-it" data-depth="2"><a href="#_7-test-it">7. Test It</a></li><li data-target-id="_8-run-the-checks" data-depth="2"><a href="#_8-run-the-checks">8. Run The Checks</a></li><li data-target-id="quick-checklist" data-depth="2"><a href="#quick-checklist">Quick Checklist</a></li></ol></nav></div><h1 id="adding-an-agent-tool" data-decorative="">Adding an Agent Tool</h1><p>A &ldquo;tool&rdquo; is a capability the language model can call — search docs, fetch a building, send a
+notification. For how the agent uses tools at runtime, see <a href="../agent">Agent Service</a>.</p><p>The agent loop (<span class="codespan-content"><code>app/agent/loop.py</code></span>) discovers tools through a <span class="codespan-content"><code>REGISTRY</code></span>, validates the
+model&rsquo;s JSON arguments through your Pydantic <span class="codespan-content"><code>Args</code></span> model, calls <span class="codespan-content"><code>run</code></span>, and feeds the result
+back into the conversation. The whole contract is structural: a tool is any object that
+exposes the right attributes, so you never inherit from a base class. This guide walks through
+adding one end-to-end.</p><hr /><h2 id="_1-pick-the-shape">1. Pick The Shape</h2><p>Before writing code, answer four questions:</p><ol><li><strong>What does the tool do, in one sentence?</strong> This becomes the <span class="codespan-content"><code>description</code></span> the model reads.</li><li><strong>What inputs does it need?</strong> Each input becomes a field on the <span class="codespan-content"><code>Args</code></span> Pydantic model.</li><li><strong>What does it return?</strong> Keep payloads small — the result is fed back into the model&rsquo;s
+context as JSON, where it costs tokens and can distract the model. Project away fields it
+does not need.</li><li><strong>Read-only or write?</strong> The current agent has no confirmation flow for write actions. Keep
+tools read-only unless authorization, confirmation, audit logging, and retry behavior are
+explicitly designed.</li></ol><div class="box warning"><header><h4>Warning</h4></header><div class="box-content"><p>The current twin tools do not forward the caller JWT or enforce <span class="codespan-content"><code>ToolContext</code></span>
+authorization. Do not copy that behavior for sensitive tools: authorize against <span class="codespan-content"><code>ctx.user</code></span>,
+or call a downstream endpoint that enforces the caller&rsquo;s identity.</p></div></div><hr /><h2 id="_2-where-the-file-lives">2. Where The File Lives</h2><ul><li><strong>Single tool, focused domain</strong> → a new file in <span class="codespan-content"><code>app/agent/tools/&lt;name&gt;.py</code></span>.</li><li><strong>Cluster of related tools sharing a backend</strong> → group them in one file (see
+<span class="codespan-content"><code>app/agent/tools/twin.py</code></span> — four tools sharing the same twin-service backend and client
+factory).</li></ul><p>Use <span class="codespan-content"><code># ─── tool_name ──...</code></span> divider comments inside multi-tool files to keep them scannable.</p><hr /><h2 id="_3-write-the-args-model">3. Write The <span class="codespan-content"><code>Args</code></span> Model</h2><pre><code class="language-python">from pydantic import BaseModel, Field
+
+
+class GetRoomArgs(BaseModel):
+    building_id: str = Field(description=&quot;Building containing the room.&quot;)
+    room_id: str = Field(description=&quot;Id of the room within the building.&quot;)</code></pre><p>The reason every field is a Pydantic field with a description is that the agent turns this
+class into a JSON Schema (<span class="codespan-content"><code>Args.model_json_schema()</code></span>) and hands it to the model — so this class
+<em>is</em> the model-facing contract, not just internal validation.</p><ul><li><strong>Every field gets a <span class="codespan-content"><code>Field(description=...)</code></span>.</strong> The model sees the complete generated JSON
+Schema — argument names, types, required fields, defaults, enums, constraints, and
+descriptions. Descriptions explain the semantics those structural fields cannot express, so
+vague descriptions still cause vague tool calls.</li><li><strong>Use the right primitive</strong> (<span class="codespan-content"><code>str</code></span>, <span class="codespan-content"><code>int</code></span>, <span class="codespan-content"><code>bool</code></span>, <span class="codespan-content"><code>Literal[...]</code></span>, enums). Pydantic enforces
+it and the model sees it in the schema.</li><li><strong>Add constraints</strong> where they help: <span class="codespan-content"><code>Field(default=5, ge=1, le=10)</code></span> (see <span class="codespan-content"><code>search_docs.py</code></span>).</li><li><strong>Keep names plain.</strong> <span class="codespan-content"><code>building_id</code></span>, not <span class="codespan-content"><code>bldgIdentifier</code></span> — the model produces these names
+from the schema.</li><li><strong>Resist making everything optional.</strong> Required-by-default produces fewer &ldquo;I forgot to pass
+that&rdquo; tool errors.</li></ul><hr /><h2 id="_4-write-the-tool-class">4. Write The Tool Class</h2><pre><code class="language-python">from app.agent.tools.base import ToolContext, ToolResult
+
+
+class GetRoomTool:
+    name = &quot;get_room&quot;
+    description = (
+        &quot;Fetch a single room's full state: capacity, current occupancy, temperature, &quot;
+        &quot;dimensions, position. Use after locating the room id via list_rooms.&quot;
+    )
+    Args = GetRoomArgs
+
+    async def run(self, args: GetRoomArgs, ctx: ToolContext) -&gt; ToolResult:
+        ...</code></pre><table><thead><tr><th>Attribute</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>name</code></span></td><td>Stable identifier the model emits in <span class="codespan-content"><code>tool_calls</code></span>. Snake_case, unique.</td></tr><tr><td><span class="codespan-content"><code>description</code></span></td><td>What the tool does <em>and when to use it</em> versus alternatives. See below.</td></tr><tr><td><span class="codespan-content"><code>Args</code></span></td><td>The Pydantic class from step 3; the registry exposes it via <span class="codespan-content"><code>model_json_schema()</code></span>.</td></tr><tr><td><span class="codespan-content"><code>run</code></span></td><td>Async method, signature <span class="codespan-content"><code>(self, args: &lt;YourArgs&gt;, ctx: ToolContext) -&gt; ToolResult</code></span>.</td></tr></tbody></table><h3 id="writing-a-good-description">Writing A Good <span class="codespan-content"><code>description</code></span></h3><p>The model uses this to choose between tools, so state <strong>what it does</strong> <em>and</em> <strong>when to pick it
+over neighbors</strong>. Compare:</p><ul><li>❌ &ldquo;Get a room.&rdquo; — too thin; the model will guess.</li><li>✅ &ldquo;Fetch a single room&rsquo;s full state&hellip; Use <em>after</em> locating the room id via <span class="codespan-content"><code>list_rooms</code></span>.&rdquo; —
+names the precondition and steers the model away from calling with a guessed id.</li></ul><p>For a tool with a sibling that does something close (<span class="codespan-content"><code>search_docs</code></span> versus the twin tools),
+explicitly say what it is <em>not</em> for — see <span class="codespan-content"><code>SearchDocsTool</code></span> in <span class="codespan-content"><code>search_docs.py</code></span>.</p><h3 id="about-the-generic-protocol">About The Generic Protocol</h3><p><span class="codespan-content"><code>Tool</code></span> in <span class="codespan-content"><code>app/agent/tools/base.py</code></span> is a <span class="codespan-content"><code>Protocol[ArgsT]</code></span> — generic over your <span class="codespan-content"><code>Args</code></span> type. You
+<strong>do not</strong> inherit from it: Python&rsquo;s structural typing means that as long as your class has
+<span class="codespan-content"><code>name</code></span>, <span class="codespan-content"><code>description</code></span>, <span class="codespan-content"><code>Args</code></span>, and a matching <span class="codespan-content"><code>run</code></span>, it already satisfies <span class="codespan-content"><code>Tool[YourArgs]</code></span>. The
+type variable is what lets the type checker see that <span class="codespan-content"><code>run(args: GetRoomArgs, ...)</code></span> is a valid
+implementation rather than a signature violation.</p><div class="box note"><header><h4>Note</h4></header><div class="box-content"><p>Do not widen your <span class="codespan-content"><code>run</code></span> parameter to <span class="codespan-content"><code>BaseModel</code></span> to &ldquo;match the protocol&rdquo; — that defeats the
+point and loses type safety. Keep it narrow.</p></div></div><hr /><h2 id="_5-implement-run">5. Implement <span class="codespan-content"><code>run</code></span></h2><pre><code class="language-python">async def run(self, args: GetRoomArgs, ctx: ToolContext) -&gt; ToolResult:
+    async with _client() as c:
+        r = await c.get(f&quot;/building/{args.building_id}&quot;)
+    if r.status_code == 404:
+        return ToolResult(content=f&quot;building {args.building_id} not found&quot;, is_error=True)
+    if r.status_code &gt;= 400:
+        return ToolResult(content=f&quot;twin-service error {r.status_code}: {r.text}&quot;, is_error=True)
+    ...
+    return ToolResult(content=room)</code></pre><ul><li><strong>Return errors as data, don&rsquo;t raise.</strong> Use <span class="codespan-content"><code>ToolResult(content=&lt;message&gt;, is_error=True)</code></span>.
+The loop catches uncaught exceptions anyway, but a clean <span class="codespan-content"><code>is_error</code></span> message is sent back to
+the model so it can recover (try a different id, ask the user). Raising is for genuine bugs.</li><li><strong>Use <span class="codespan-content"><code>ctx</code></span>:</strong> <span class="codespan-content"><code>ctx.session</code></span> is an async SQLAlchemy session; <span class="codespan-content"><code>ctx.user</code></span> is the authenticated
+<span class="codespan-content"><code>AuthUser</code></span> (use it to enforce per-tool access control before touching sensitive data);
+<span class="codespan-content"><code>ctx.citations</code></span> accumulates citation candidates — prefer returning new ones via
+<span class="codespan-content"><code>ToolResult(citations=[...])</code></span>, which the loop appends (see <span class="codespan-content"><code>SearchDocsTool</code></span>).</li><li><strong>Project the response.</strong> When wrapping an HTTP call, return only the fields the model needs.</li><li><strong>Treat tool results as untrusted data.</strong> Downstream responses and retrieved documents may
+contain instruction-like text. Return structured, minimized payloads, and never rely on the
+model to enforce authorization or decide whether sensitive data should be exposed.</li><li><strong>No prints, use <span class="codespan-content"><code>structlog</code></span>:</strong> <span class="codespan-content"><code>from app.logging import get_logger; log = get_logger(__name__)</code></span>.</li><li><strong>No per-call global state.</strong> Module-level singletons (a shared <span class="codespan-content"><code>httpx.AsyncClient</code></span>, a
+retriever) are fine; per-call state belongs in <span class="codespan-content"><code>ctx</code></span> or local variables.</li></ul><hr /><h2 id="_6-register-the-tool">6. Register The Tool</h2><p>Open <span class="codespan-content"><code>app/agent/tools/__init__.py</code></span> and add two lines:</p><pre><code class="language-python">from app.agent.tools.twin import GetRoomTool
+...
+REGISTRY.register(GetRoomTool())</code></pre><p>Order does not matter. Duplicate <span class="codespan-content"><code>name</code></span>s raise at startup — that is intentional, to catch
+copy-paste collisions early.</p><hr /><h2 id="_7-test-it">7. Test It</h2><p>Three layers, lightest first:</p><ul><li><strong>Args model</strong> — if you put non-trivial validation on the args (regex, ranges, custom
+validators), unit-test it under <span class="codespan-content"><code>tests/unit/</code></span>. Skip it for trivial fields.</li><li><strong><span class="codespan-content"><code>run</code></span> with a fake backend</strong> — inject a fake client/session and assert on the <span class="codespan-content"><code>ToolResult</code></span>.
+Mock the <em>boundary</em> (httpx, the SQLAlchemy session), not the tool itself.</li><li><strong>Through the agent loop</strong> — the integration suite has no reusable scripted <span class="codespan-content"><code>LLMClient</code></span> yet,
+so for now test <span class="codespan-content"><code>run</code></span> at the backend boundary and smoke-test dispatch through <span class="codespan-content"><code>/ask</code></span>. When a
+reusable fake model is added, assert the full tool-call and recovery sequence through
+<span class="codespan-content"><code>Agent.answer</code></span>.</li></ul><hr /><h2 id="_8-run-the-checks">8. Run The Checks</h2><pre><code class="language-bash">npm run lint       # ruff + pyright, must be clean
+npm run test       # unit + integration</code></pre><p>The checks catch many common mistakes, including invalid return annotations and ordinary type
+errors inside <span class="codespan-content"><code>run</code></span>. The generic <span class="codespan-content"><code>Tool[ArgsT]</code></span> protocol documents the intended relationship
+between <span class="codespan-content"><code>Args</code></span> and the <span class="codespan-content"><code>run</code></span> parameter, but registration currently stores tools as <span class="codespan-content"><code>Tool[Any]</code></span>;
+do not rely on Pyright alone to catch every mismatch between those two attributes. Exercise
+schema generation and dispatch in tests for non-trivial tools.</p><hr /><h2 id="quick-checklist">Quick Checklist</h2><ul><li class="task-list-item"><input disabled="" type="checkbox" />File in <span class="codespan-content"><code>app/agent/tools/&lt;name&gt;.py</code></span> (or grouped sensibly with siblings).</li><li class="task-list-item"><input disabled="" type="checkbox" /><span class="codespan-content"><code>Args</code></span> is a <span class="codespan-content"><code>BaseModel</code></span>; every field has a <span class="codespan-content"><code>Field(description=...)</code></span>.</li><li class="task-list-item"><input disabled="" type="checkbox" />Class has <span class="codespan-content"><code>name</code></span> (snake_case, unique), <span class="codespan-content"><code>description</code></span> (with <em>when to use</em>), <span class="codespan-content"><code>Args</code></span>, async <span class="codespan-content"><code>run</code></span>.</li><li class="task-list-item"><input disabled="" type="checkbox" /><span class="codespan-content"><code>run(args: &lt;YourArgs&gt;, ctx: ToolContext) -&gt; ToolResult</code></span> — narrow types, no widening to <span class="codespan-content"><code>BaseModel</code></span>.</li><li class="task-list-item"><input disabled="" type="checkbox" />Errors returned as <span class="codespan-content"><code>ToolResult(..., is_error=True)</code></span>, not raised.</li><li class="task-list-item"><input disabled="" type="checkbox" />Sensitive operations explicitly authorize <span class="codespan-content"><code>ctx.user</code></span>; write tools have confirmation and audit behavior.</li><li class="task-list-item"><input disabled="" type="checkbox" />Response projected to the minimum the model needs.</li><li class="task-list-item"><input disabled="" type="checkbox" />Tool results treated as untrusted data; authorization is enforced before returning data.</li><li class="task-list-item"><input disabled="" type="checkbox" />Registered in <span class="codespan-content"><code>app/agent/tools/__init__.py</code></span>.</li><li class="task-list-item"><input disabled="" type="checkbox" /><span class="codespan-content"><code>npm run lint</code></span> and <span class="codespan-content"><code>npm run test</code></span> pass.</li></ul>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

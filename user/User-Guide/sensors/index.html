@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision user guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Charts &amp; Simulator</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-charts" data-depth="2"><a href="#the-charts">The charts</a></li><li data-target-id="time-range" data-depth="2"><a href="#time-range">Time range</a></li><li data-target-id="aggregation-mode" data-depth="2"><a href="#aggregation-mode">Aggregation mode</a></li><li data-target-id="the-simulator" data-depth="2"><a href="#the-simulator">The simulator</a><ol><li data-target-id="configure-the-simulator-url" data-depth="3"><a href="#configure-the-simulator-url">Configure the simulator URL</a></li><li data-target-id="start-and-stop" data-depth="3"><a href="#start-and-stop">Start and stop</a></li></ol></li><li data-target-id="alerts-from-sensor-data" data-depth="2"><a href="#alerts-from-sensor-data">Alerts from sensor data</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>User Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="getting-started" data-decorative="">Getting Started</h3><ul><li><a href="../registration">Account Registration</a></li><li><a href="../login">Login</a></li><li><a href="../sso-login">Enterprise Login (SSO)</a></li></ul><h3 id="using-the-platform" data-decorative="">Using the Platform</h3><ul><li><a href="../dashboard">Dashboard</a></li><li><a href="../building-table">Customizing the Data Table</a></li><li><a href="../sensors" aria-current="page">Charts &amp; Simulator</a></li><li><a href="../twin">The Digital Twin</a></li><li><a href="../building-data">Upload a Digital Twin</a></li><li><a href="../domains">Domains</a></li><li><a href="../domain-admin">Domain Administration</a></li><li><a href="../assistant">Using the Assistant</a></li></ul><h2 id="information" data-decorative="">Information</h2><ul><li><a href="../notifications">Notifications</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-charts" data-depth="2"><a href="#the-charts">The charts</a></li><li data-target-id="time-range" data-depth="2"><a href="#time-range">Time range</a></li><li data-target-id="aggregation-mode" data-depth="2"><a href="#aggregation-mode">Aggregation mode</a></li><li data-target-id="the-simulator" data-depth="2"><a href="#the-simulator">The simulator</a><ol><li data-target-id="configure-the-simulator-url" data-depth="3"><a href="#configure-the-simulator-url">Configure the simulator URL</a></li><li data-target-id="start-and-stop" data-depth="3"><a href="#start-and-stop">Start and stop</a></li></ol></li><li data-target-id="alerts-from-sensor-data" data-depth="2"><a href="#alerts-from-sensor-data">Alerts from sensor data</a></li></ol></nav></div><h1 id="charts--simulator" data-decorative="">Charts & Simulator</h1><p>Switching the dashboard from <strong>List</strong> to <strong>Graph</strong> opens the visual analytics view: charts of historical trends, plus the built-in simulator for generating test data.</p><figure><img src="media/graph-view@-945864408.png" alt="The Graph view with occupancy and temperature charts" /></figure><p><em>Figure 1 — The Graph view tracks occupancy and temperature over time for the selected building.</em></p><hr /><h2 id="the-charts">The charts</h2><p>Two charts summarise the building:</p><ul><li><strong>Occupancy (people count)</strong> — traffic flow, peak hours, and how often rooms approach capacity.</li><li><strong>Temperature</strong> — climate trends against the configured maximums.</li></ul><p>Both aggregate readings from across the building and refresh automatically for the selected time range.</p><div class="box note"><header><h4>Sum view</h4></header><div class="box-content"><p>When the aggregation mode is <strong>Sum</strong>, only the Occupancy chart is shown (and widened), because summing temperatures across rooms is not meaningful.</p></div></div><hr /><h2 id="time-range">Time range</h2><p>The <strong>Range</strong> buttons control how far back the charts look.</p><table><thead><tr><th>Range</th><th>Shows</th></tr></thead><tbody><tr><td>1D</td><td>The last 24 hours, hour by hour.</td></tr><tr><td>1W</td><td>The last 7 days, day by day.</td></tr><tr><td>1M</td><td>The last 30 days, day by day.</td></tr></tbody></table><p>Time slots with no data appear as zero.</p><hr /><h2 id="aggregation-mode">Aggregation mode</h2><p>A building has many rooms, so each time slot combines them into one value. The <strong>Data</strong> buttons choose how.</p><table><thead><tr><th>Mode</th><th>Meaning</th></tr></thead><tbody><tr><td>avg</td><td>Average across all rooms — the typical state of the building.</td></tr><tr><td>sum</td><td>Total across all rooms — best for total people in the building.</td></tr><tr><td>min</td><td>Lowest reading in the slot — spots unusually cold rooms.</td></tr><tr><td>max</td><td>Highest reading in the slot — best for finding the hottest room.</td></tr></tbody></table><hr /><h2 id="the-simulator">The simulator</h2><p>CrowdVision includes a simulator that generates synthetic readings — useful for demos, testing, and trying overcrowding scenarios without physical sensors.</p><div class="box note"><header><h4>The simulator is a separate service</h4></header><div class="box-content"><p>The simulator runs independently from the app. An administrator or developer must start it and give you its URL before you can use these controls.</p></div></div><h3 id="configure-the-simulator-url">Configure the simulator URL</h3><ol><li>Click the <strong>gear icon</strong> next to the simulator button.</li><li>Enter the <strong>Simulator URL</strong> (where the simulator is running, e.g. <span class="codespan-content"><code>http://localhost:3001</code></span>).</li><li>Click <strong>Save</strong>. The URL is remembered per browser.</li></ol><h3 id="start-and-stop">Start and stop</h3><ol><li>Click <strong>Start simulator</strong>. It turns green with an animated dot when active.</li><li>Every 10 seconds it sends people-count and temperature readings for each room in the selected building.</li><li>After a few seconds, charts begin to fill — <span class="codespan-content"><code>1D</code></span> range with <span class="codespan-content"><code>avg</code></span> mode is the best live view.</li><li>Click the button again (<strong>Stop simulator</strong>) to halt.</li></ol><figure><img src="media/simulator-controls@726128197.png" alt="The simulator controls and settings" /></figure><p><em>Figure 2 — The simulator button (with its gear settings) starts and stops synthetic data for the selected building.</em></p><div class="box note"><header><h4>Per-building status</h4></header><div class="box-content"><p>The button reflects the simulator status for the building you are viewing. If you start it for Building A and switch to Building B, the button shows B&rsquo;s state — A keeps running in the background.</p></div></div><p>The simulator generates, per room every 10 seconds, a people count of 0–50 and a temperature of 18.0–30.0 C.</p><hr /><h2 id="alerts-from-sensor-data">Alerts from sensor data</h2><p>As readings arrive — simulated or real — CrowdVision checks each against the room&rsquo;s thresholds. If a room exceeds its capacity or maximum temperature, the notification bell turns red with a counter, a toast slides in, and (if enabled) a browser push is delivered even when the dashboard is closed. See <a href="../notifications">Notifications</a>.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

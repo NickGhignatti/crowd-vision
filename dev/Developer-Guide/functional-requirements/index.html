@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Functional Requirements</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-real-time-data-visualisation" data-depth="3"><a href="#_1-real-time-data-visualisation">1. Real-Time Data Visualisation</a></li><li data-target-id="_2-automated-alerting-amp-push-notifications" data-depth="3"><a href="#_2-automated-alerting-amp-push-notifications">2. Automated Alerting &amp; Push Notifications</a></li><li data-target-id="_3-digital-twin-lifecycle-management-crud" data-depth="3"><a href="#_3-digital-twin-lifecycle-management-crud">3. Digital Twin Lifecycle Management (CRUD)</a></li><li data-target-id="_4-multi-tenancy-amp-domain-access-control" data-depth="3"><a href="#_4-multi-tenancy-amp-domain-access-control">4. Multi-Tenancy &amp; Domain Access Control</a></li><li data-target-id="_5-future-historical-analytics-amp-ai-assistant" data-depth="3"><a href="#_5-future-historical-analytics-amp-ai-assistant">5. Future: Historical Analytics &amp; AI Assistant</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements" aria-current="page">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-real-time-data-visualisation" data-depth="3"><a href="#_1-real-time-data-visualisation">1. Real-Time Data Visualisation</a></li><li data-target-id="_2-automated-alerting-amp-push-notifications" data-depth="3"><a href="#_2-automated-alerting-amp-push-notifications">2. Automated Alerting &amp; Push Notifications</a></li><li data-target-id="_3-digital-twin-lifecycle-management-crud" data-depth="3"><a href="#_3-digital-twin-lifecycle-management-crud">3. Digital Twin Lifecycle Management (CRUD)</a></li><li data-target-id="_4-multi-tenancy-amp-domain-access-control" data-depth="3"><a href="#_4-multi-tenancy-amp-domain-access-control">4. Multi-Tenancy &amp; Domain Access Control</a></li><li data-target-id="_5-future-historical-analytics-amp-ai-assistant" data-depth="3"><a href="#_5-future-historical-analytics-amp-ai-assistant">5. Future: Historical Analytics &amp; AI Assistant</a></li></ol></nav></div><h1 id="functional-requirements" data-decorative="">Functional Requirements</h1><p>To effectively contribute to CrowdVision, developers must understand both what the system is expected to do (Functional) and how well it is expected to perform those tasks (Non-Functional).</p><hr /><h3 id="_1-real-time-data-visualisation">1. Real-Time Data Visualisation</h3><ul><li><strong>The Requirement:</strong> The system must stream high-frequency crowd headcount and temperature data from simulated or physical IoT sensors directly to the client interface. The 3D view and data tables must reflect this data instantly.</li><li><strong>Why this is required:</strong> The core value proposition of CrowdVision is immediate situational awareness. Facility managers must know exactly what is happening <em>right now</em> to dispatch security to an overcrowded room or adjust HVAC systems before a room becomes uncomfortably hot. Stale, polled data is insufficient for emergency responses.</li></ul><h3 id="_2-automated-alerting-amp-push-notifications">2. Automated Alerting &amp; Push Notifications</h3><ul><li><strong>The Requirement:</strong> The system must continuously evaluate live sensor data against pre-defined thresholds (e.g., maximum capacity or <span class="codespan-content"><code>maxTemperature</code></span>). Breaches must trigger broadcasts via WebSockets for active users and Web Push Notifications via VAPID for offline browsers.</li><li><strong>Why this is required:</strong> Administrators cannot stare at a dashboard 24/7. The system must act as an automated watchman, proactively pushing critical safety alerts to staff members&rsquo; devices so they can intervene only when necessary.</li></ul><h3 id="_3-digital-twin-lifecycle-management-crud">3. Digital Twin Lifecycle Management (CRUD)</h3><ul><li><strong>The Requirement:</strong> Administrators must be able to upload JSON schemas defining building structures (room 3D coordinates/dimensions) and edit room metadata (capacity, thresholds, names, colours) dynamically after deployment.</li><li><strong>Why this is required:</strong> Physical buildings evolve—rooms are repurposed, capacities are adjusted due to changing regulations (like social distancing), and layouts are modified. The software must provide tools to keep the digital twin perfectly synced with physical reality without requiring developer intervention or database migrations.</li></ul><h3 id="_4-multi-tenancy-amp-domain-access-control">4. Multi-Tenancy &amp; Domain Access Control</h3><ul><li><strong>The Requirement:</strong> A single backend deployment must serve multiple distinct organizations (&ldquo;Domains&rdquo;). Access to data is strictly governed by a user&rsquo;s role-based memberships (e.g., Admin, Business Staff, Viewer) within those specific domains.</li><li><strong>Why this is required:</strong> Deploying a separate server infrastructure for every single client is expensive and difficult to maintain. Multi-tenancy allows efficient resource sharing. Furthermore, users like external contractors or regional managers often need access to multiple organizations seamlessly using a single account.</li></ul><h3 id="_5-future-historical-analytics-amp-ai-assistant">5. Future: Historical Analytics &amp; AI Assistant</h3><ul><li><strong>The Requirement:</strong> The system is planned to aggregate historical data for charting, and introduce an LLM-powered assistant capable of answering natural-language queries about the building&rsquo;s status.</li><li><strong>Why this is required:</strong> While real-time data is for <em>operations</em>, historical data is for <em>planning</em> (e.g., deciding if the university needs to build more study rooms). The AI Assistant lowers the learning curve, allowing non-technical staff to extract complex insights just by asking questions.</li></ul>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

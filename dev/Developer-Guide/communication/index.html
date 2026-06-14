@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Communication Patterns in our Architecture</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-client-to-service-api-gateway" data-depth="2"><a href="#_1-client-to-service-api-gateway">1. Client-to-Service (API Gateway)</a></li><li data-target-id="_2-service-to-service-event-driven-via-redis" data-depth="2"><a href="#_2-service-to-service-event-driven-via-redis">2. Service-to-Service (Event-Driven via Redis)</a><ol><li data-target-id="why-redis-pubsub" data-depth="3"><a href="#why-redis-pubsub">Why Redis Pub/Sub?</a></li></ol></li><li data-target-id="_3-stateless-trust-cross-service-authorization" data-depth="2"><a href="#_3-stateless-trust-cross-service-authorization">3. Stateless Trust (Cross-Service Authorization)</a><ol><li data-target-id="the-embedded-payload-pattern" data-depth="3"><a href="#the-embedded-payload-pattern">The Embedded Payload Pattern</a></li></ol></li><li data-target-id="_4-internal-rest" data-depth="2"><a href="#_4-internal-rest">4. Internal REST</a></li><li data-target-id="_5-iot-sensor-to-service-multiplexing" data-depth="2"><a href="#_5-iot-sensor-to-service-multiplexing">5. IoT Sensor to Service (Multiplexing)</a><ol><li data-target-id="the-multiplexing-pattern" data-depth="3"><a href="#the-multiplexing-pattern">The Multiplexing Pattern</a></li></ol></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication" aria-current="page">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-client-to-service-api-gateway" data-depth="2"><a href="#_1-client-to-service-api-gateway">1. Client-to-Service (API Gateway)</a></li><li data-target-id="_2-service-to-service-event-driven-via-redis" data-depth="2"><a href="#_2-service-to-service-event-driven-via-redis">2. Service-to-Service (Event-Driven via Redis)</a><ol><li data-target-id="why-redis-pubsub" data-depth="3"><a href="#why-redis-pubsub">Why Redis Pub/Sub?</a></li></ol></li><li data-target-id="_3-stateless-trust-cross-service-authorization" data-depth="2"><a href="#_3-stateless-trust-cross-service-authorization">3. Stateless Trust (Cross-Service Authorization)</a><ol><li data-target-id="the-embedded-payload-pattern" data-depth="3"><a href="#the-embedded-payload-pattern">The Embedded Payload Pattern</a></li></ol></li><li data-target-id="_4-internal-rest" data-depth="2"><a href="#_4-internal-rest">4. Internal REST</a></li><li data-target-id="_5-iot-sensor-to-service-multiplexing" data-depth="2"><a href="#_5-iot-sensor-to-service-multiplexing">5. IoT Sensor to Service (Multiplexing)</a><ol><li data-target-id="the-multiplexing-pattern" data-depth="3"><a href="#the-multiplexing-pattern">The Multiplexing Pattern</a></li></ol></li></ol></nav></div><h1 id="communication-patterns-in-our-architecture" data-decorative="">Communication Patterns in our Architecture</h1><p>In a microservices architecture, how services communicate is just as important as what they do. CrowdVision&rsquo;s long-term architectural goal is to restrict direct, synchronous service-to-service HTTP communication to prevent tight coupling and cascading failures.</p><p>However, we balance this strict decoupling with development pragmatism. Currently, the platform relies on four primary communication paradigms:</p><ol><li><strong>API Gateway Routing</strong> (External to Internal)</li><li><strong>Event-Driven Pub/Sub</strong> (Internal Asynchronous)</li><li><strong>Stateless Trust</strong> (Cross-Service Authorization)</li><li><strong>Internal REST</strong> (Internal Synchronous - <em>Transitional</em>)</li></ol><hr /><h2 id="_1-client-to-service-api-gateway">1. Client-to-Service (API Gateway)</h2><p>All external communication from the Vue frontend or IoT sensors is routed through the <strong>Caddy Reverse Proxy</strong>.</p><p>The client never speaks to a microservice directly. Caddy acts as our ingress controller and API Gateway. It terminates the SSL/TLS connection, reads the URL path (e.g., <span class="codespan-content"><code>/api/twin/buildings</code></span>), strips the prefix, and forwards the request to the correct internal Docker/Kubernetes container on the isolated <span class="codespan-content"><code>gateway-net</code></span>.</p><hr /><h2 id="_2-service-to-service-event-driven-via-redis">2. Service-to-Service (Event-Driven via Redis)</h2><p>When one microservice needs to inform another that a state change occurred (e.g., the Notification Service detects a crowded room and needs the Socket Service to update the UI), <strong>we prioritize asynchronous, event-driven architecture</strong>.</p><p>CrowdVision uses <strong>Redis</strong> as a central message broker implementing the Publish/Subscribe (Pub/Sub) pattern.</p><figure><pre class="mermaid">graph LR
+    subgraph Producers
+        NS[Notification Service]
+    end
+
+    subgraph Message Broker
+        R[(Redis Pub/Sub)]
+    end
+
+    subgraph Consumers
+        SS[Socket Service]
+        LLM[Agent Service]
+    end
+
+    NS -- &quot;1. PUBLISH ('notifications', payload)&quot; --&gt; R
+    R -- &quot;2. Broadcast&quot; --&gt; SS
+    R -- &quot;2. Broadcast&quot; --&gt; LLM</pre></figure><h3 id="why-redis-pubsub">Why Redis Pub/Sub?</h3><ul><li><strong>Decoupling</strong>: The Producer (<span class="codespan-content"><code>notification-service</code></span>) does not need to know the IP address, port, or even the existence of the Consumers. It simply fires the event into the ether and forgets about it.</li><li><strong>Extensibility</strong>: If we want the Python-based <span class="codespan-content"><code>agent-service</code></span> to log an anomaly every time a room gets overcrowded, we don&rsquo;t need to touch the Notification Service code. We simply instruct the Agent to <span class="codespan-content"><code>SUBSCRIBE</code></span> to the relevant Redis channel.</li></ul><hr /><h2 id="_3-stateless-trust-cross-service-authorization">3. Stateless Trust (Cross-Service Authorization)</h2><p>A major challenge in a Database-per-Service architecture is Authorization.</p><p>If a user asks the Twin Service to delete a building, the Twin Service needs to know if the user has Admin privileges. However, the Twin Service cannot query the Auth Database due to strict data isolation boundaries.</p><p>To solve this without making synchronous HTTP calls back to the Auth Service on every request, CrowdVision uses <strong>Stateless JSON Web Tokens (JWTs)</strong>.</p><figure><pre class="mermaid">sequenceDiagram
+    participant Client as Vue Client
+    participant Auth as Auth Service
+    participant Twin as Twin Service
+
+    Client-&gt;&gt;Auth: POST /auth/login
+    Note over Auth: Verifies DB, generates JWT with&lt;br/&gt;embedded Domain Memberships
+    Auth--&gt;&gt;Client: Returns JWT
+    
+    Client-&gt;&gt;Twin: DELETE /twin/buildings/123&lt;br/&gt;Header: Bearer {JWT}
+    Note over Twin: Validates JWT signature locally&lt;br/&gt;using shared secret
+    Note over Twin: Reads memberships from payload.&lt;br/&gt;No DB call to Auth required!
+    Twin--&gt;&gt;Client: 200 OK (Building Deleted)</pre></figure><h3 id="the-embedded-payload-pattern">The Embedded Payload Pattern</h3><p>When the Auth Service mints a token, it embeds the user&rsquo;s <span class="codespan-content"><code>IDomainMembership</code></span> array directly into the JWT payload. Because the backend services share the same cryptographic <span class="codespan-content"><code>JWT_SECRET</code></span>, they can mathematically verify the token&rsquo;s authenticity. Once verified, the receiving service simply reads the memberships from the payload to authorize the request—entirely eliminating network overhead.</p><hr /><h2 id="_4-internal-rest">4. Internal REST</h2><blockquote><p><strong>⚠️ Architectural Note:</strong> This is currently a transitional pattern.</p></blockquote><p>While Pub/Sub and Stateless JWTs handle events and authorization, there are instances in the current codebase where services must perform synchronous reads across bounded contexts (e.g., Service A immediately needs specific entity details owned by Service B to complete a transaction).</p><p>In these specific cases, services communicate directly via <strong>Internal HTTP REST calls</strong>.</p><ul><li>These calls are made using internal Docker/Kubernetes DNS resolution (e.g., <span class="codespan-content"><code>http://auth-service:3000</code></span>).</li><li>They never traverse the public internet.</li><li><strong>Future Roadmap:</strong> We are actively evaluating strategies to phase this out.</li></ul><hr /><h2 id="_5-iot-sensor-to-service-multiplexing">5. IoT Sensor to Service (Multiplexing)</h2><p>Physical or simulated IoT sensors communicate their telemetry (temperature, people counts, etc.) to the backend using either standard HTTP POSTs.</p><h3 id="the-multiplexing-pattern">The Multiplexing Pattern</h3><p>Instead of spinning up a unique WebSocket server or connection for every physical room, CrowdVision uses a many-to-one multiplexing pattern:</p><ul><li>Hundreds of sensor clients connect to the single <span class="codespan-content"><code>socket-service</code></span> instance via the Gateway.</li><li>To differentiate the continuous data streams, each sensor injects its corresponding <span class="codespan-content"><code>roomId</code></span> and <span class="codespan-content"><code>sensorId</code></span> directly into the JSON payload of every emitted event.</li><li>The backend aggregates, validates, and routes this telemetry to the <span class="codespan-content"><code>sensor-service</code></span> and connected frontends.</li></ul>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

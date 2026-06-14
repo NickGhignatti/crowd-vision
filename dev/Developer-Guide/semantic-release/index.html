@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Commits &amp; Semantic Release</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="conventional-commits" data-depth="2"><a href="#conventional-commits">Conventional Commits</a></li><li data-target-id="type-to-release-impact" data-depth="2"><a href="#type-to-release-impact">Type to release impact</a></li><li data-target-id="the-release-pipeline" data-depth="2"><a href="#the-release-pipeline">The release pipeline</a><ol><li data-target-id="assets-committed-by-the-release" data-depth="3"><a href="#assets-committed-by-the-release">Assets committed by the release</a></li></ol></li><li data-target-id="worked-example" data-depth="2"><a href="#worked-example">Worked example</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release" aria-current="page">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="conventional-commits" data-depth="2"><a href="#conventional-commits">Conventional Commits</a></li><li data-target-id="type-to-release-impact" data-depth="2"><a href="#type-to-release-impact">Type to release impact</a></li><li data-target-id="the-release-pipeline" data-depth="2"><a href="#the-release-pipeline">The release pipeline</a><ol><li data-target-id="assets-committed-by-the-release" data-depth="3"><a href="#assets-committed-by-the-release">Assets committed by the release</a></li></ol></li><li data-target-id="worked-example" data-depth="2"><a href="#worked-example">Worked example</a></li></ol></nav></div><h1 id="commits--semantic-release" data-decorative="">Commits & Semantic Release</h1><p>CrowdVision automates versioning, changelog generation, and releases with <a href="https://semantic-release.gitbook.io/">semantic-release</a>. Version numbers are not chosen by hand — they are derived from commit messages. This makes the commit message a functional input to the build, which is why its format is enforced.</p><hr /><h2 id="conventional-commits">Conventional Commits</h2><p>Every commit message must follow the <a href="https://www.conventionalcommits.org/">Conventional Commits</a> specification:</p><pre><code class="language-text">&lt;type&gt;(&lt;optional scope&gt;): &lt;subject&gt;
+
+&lt;optional body&gt;
+
+&lt;optional footer(s)&gt;</code></pre><ul><li><strong>type</strong> — the kind of change (table below).</li><li><strong>scope</strong> — the affected component, e.g. <span class="codespan-content"><code>auth</code></span>, <span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>ci</code></span> (see <a href="naming-conventions.qd)">Naming Conventions</a>.</li><li><strong>subject</strong> — a concise, imperative description (&ldquo;add&rdquo;, not &ldquo;added&rdquo;).</li></ul><p>The convention is enforced on every pull request by the <span class="codespan-content"><code>ci-commitlint</code></span> workflow, which runs <span class="codespan-content"><code>@commitlint/config-conventional</code></span> (configured in <span class="codespan-content"><code>tooling/commitlint.config.js</code></span>). A non-conforming message blocks the merge.</p><hr /><h2 id="type-to-release-impact">Type to release impact</h2><p>The type determines how the next version is computed.</p><table><thead><tr><th>Type</th><th>Example</th><th>Release impact</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>feat</code></span></td><td><span class="codespan-content"><code>feat(twin): add per-room colour overrides</code></span></td><td>Minor bump (<span class="codespan-content"><code>1.1.0</code></span> → <span class="codespan-content"><code>1.2.0</code></span>).</td></tr><tr><td><span class="codespan-content"><code>fix</code></span></td><td><span class="codespan-content"><code>fix(auth): reject expired refresh tokens</code></span></td><td>Patch bump (<span class="codespan-content"><code>1.1.0</code></span> → <span class="codespan-content"><code>1.1.1</code></span>).</td></tr><tr><td><span class="codespan-content"><code>docs</code></span>, <span class="codespan-content"><code>chore</code></span>, <span class="codespan-content"><code>refactor</code></span>, <span class="codespan-content"><code>test</code></span>, <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>style</code></span>, <span class="codespan-content"><code>perf</code></span>, <span class="codespan-content"><code>build</code></span></td><td><span class="codespan-content"><code>docs(sensor): document the ingestion fast path</code></span></td><td>No release.</td></tr><tr><td>Breaking change</td><td><span class="codespan-content"><code>feat(auth)!: remove the /auth/v1 endpoints</code></span></td><td>Major bump (<span class="codespan-content"><code>1.1.0</code></span> → <span class="codespan-content"><code>2.0.0</code></span>).</td></tr></tbody></table><p>A breaking change is signalled either by a <span class="codespan-content"><code>!</code></span> after the type/scope, or by a <span class="codespan-content"><code>BREAKING CHANGE:</code></span> footer:</p><pre><code class="language-text">feat(auth)!: remove the deprecated /auth/v1 endpoints
+
+BREAKING CHANGE: clients must migrate to /auth. The v1 routes are gone.</code></pre><div class="box note"><header><h4>Only feat and fix produce a release</h4></header><div class="box-content"><p>Commits typed <span class="codespan-content"><code>chore</code></span>, <span class="codespan-content"><code>docs</code></span>, <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>test</code></span>, <span class="codespan-content"><code>refactor</code></span>, etc. are safe to merge freely — they never trigger a version bump. Only <span class="codespan-content"><code>feat</code></span> (minor) and <span class="codespan-content"><code>fix</code></span> (patch) do, and a breaking change escalates to major.</p></div></div><hr /><h2 id="the-release-pipeline">The release pipeline</h2><p>Releases are fully automated. On every push to <span class="codespan-content"><code>master</code></span>, the <span class="codespan-content"><code>cd-release</code></span> workflow installs <span class="codespan-content"><code>tooling/</code></span> and runs <span class="codespan-content"><code>npx semantic-release</code></span> from there. The behaviour is configured in <span class="codespan-content"><code>tooling/.releaserc</code></span>.</p><figure><pre class="mermaid">flowchart TD
+    M[&quot;Push to master&quot;] --&gt; CA[&quot;commit-analyzer&lt;br/&gt;reads commits since last tag&quot;]
+    CA --&gt; RN[&quot;release-notes-generator&lt;br/&gt;builds the notes&quot;]
+    RN --&gt; CL[&quot;changelog&lt;br/&gt;updates ../CHANGELOG.md&quot;]
+    CL --&gt; EX[&quot;exec&lt;br/&gt;node bump-versions.mjs &amp;lt;version&amp;gt;&quot;]
+    EX --&gt; GIT[&quot;git&lt;br/&gt;commit assets + tag&quot;]
+    GIT --&gt; GH[&quot;github&lt;br/&gt;publish the Release&quot;]</pre></figure><p>Step by step, semantic-release:</p><ol><li><strong>Analyses commits</strong> since the last Git tag and computes the next version from their types.</li><li><strong>Generates release notes</strong> grouped by type.</li><li><strong>Updates the changelog</strong> — <span class="codespan-content"><code>@semantic-release/changelog</code></span> writes to the repo-root <span class="codespan-content"><code>../CHANGELOG.md</code></span> (paths are relative to <span class="codespan-content"><code>tooling/</code></span>).</li><li><strong>Bumps every manifest</strong> — <span class="codespan-content"><code>@semantic-release/exec</code></span> runs <span class="codespan-content"><code>node bump-versions.mjs &lt;version&gt;</code></span>, which writes the new version into each service <span class="codespan-content"><code>package.json</code></span>, <span class="codespan-content"><code>server/contracts-service/Cargo.toml</code></span>, and <span class="codespan-content"><code>server/agent-service/pyproject.toml</code></span>.</li><li><strong>Commits and tags</strong> — <span class="codespan-content"><code>@semantic-release/git</code></span> commits the changelog and all bumped manifests with the message <span class="codespan-content"><code>chore(release): &lt;version&gt; [skip ci]</code></span> and creates the tag.</li><li><strong>Publishes a GitHub Release</strong> with the generated notes.</li></ol><p>The release commit carries <span class="codespan-content"><code>[skip ci]</code></span> so it does not re-trigger the pipeline, and the workflow uses a concurrency guard so two pushes cannot release at once.</p><h3 id="assets-committed-by-the-release">Assets committed by the release</h3><pre><code class="language-text">../CHANGELOG.md
+../client/package.json            + package-lock.json
+../server/*/package.json          + package-lock.json
+../server/contracts-service/Cargo.toml
+../server/agent-service/pyproject.toml</code></pre><p>This is the full set of files the version number lives in, kept in lockstep by <span class="codespan-content"><code>bump-versions.mjs</code></span>. For why a custom script is used instead of Lerna, see <a href="../contributing">Contributing &amp; Golden Rules</a>.</p><hr /><h2 id="worked-example">Worked example</h2><p>A branch merges three commits since the last <span class="codespan-content"><code>v1.4.2</code></span> tag:</p><pre><code class="language-text">fix(sensor): clamp negative people counts to zero
+feat(twin): support multi-floor buildings
+docs(twin): note the floor-selection control</code></pre><p>semantic-release sees a <span class="codespan-content"><code>feat</code></span> (the highest-ranked change), so the next version is a <strong>minor</strong> bump: <span class="codespan-content"><code>v1.5.0</code></span>. It writes the changelog, bumps every manifest to <span class="codespan-content"><code>1.5.0</code></span>, tags <span class="codespan-content"><code>v1.5.0</code></span>, and publishes the release. The <span class="codespan-content"><code>docs</code></span> commit contributes a changelog line but does not affect the version. In the same push, <span class="codespan-content"><code>cd-registry</code></span> builds and pushes the Docker images — see <a href="../cicd">CI/CD Pipeline</a>.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

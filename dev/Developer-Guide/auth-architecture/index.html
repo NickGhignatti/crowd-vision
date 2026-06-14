@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Authentication Service Architecture</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a></li><li data-target-id="internal-structure" data-depth="2"><a href="#internal-structure">Internal Structure</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture" aria-current="page">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a></li><li data-target-id="internal-structure" data-depth="2"><a href="#internal-structure">Internal Structure</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav></div><h1 id="authentication-service-architecture" data-decorative="">Authentication Service Architecture</h1><p><strong>Bounded context:</strong> <a href="../identity-access">Identity &amp; Access</a> · <strong>Stack:</strong> Node.js / Express · <strong>Code-level walkthrough:</strong> <a href="../authentication">Authentication Service</a></p><p>The auth-service realises the <a href="../identity-access">Identity &amp; Access</a> context. Architecturally it is the platform&rsquo;s trust anchor: it authenticates principals and issues the signed identity token that every other service verifies on its own.</p><hr /><h2 id="architectural-style">Architectural Style</h2><p>A layered Express service (see <a href="microservices.qd)">Service Anatomy</a> built around a <strong>stateless authorization</strong> model. There is no server-side session — all the authority a request needs is carried in a signed token — so any instance can serve any request and no other service has to call back here to authorize.</p><hr /><h2 id="internal-structure">Internal Structure</h2><p>The HTTP surface is split across several controllers by concern, with the heavier logic isolated in dedicated services.</p><figure><pre class="mermaid">graph TD
+    R[Router] --&gt; AC[Authentication Controller]
+    R --&gt; DC[Domain Controller]
+    R --&gt; ADC[Administration Controller]
+    AC --&gt; TKS[Token Service]
+    AC --&gt; TOS[TOTP Service]
+    DC --&gt; TOS
+    AC --&gt; M[Models: Account / Domain / Role]
+    DC --&gt; M
+    ADC --&gt; M
+    M -.-&gt; DB[(auth-db)]</pre></figure><hr /><h2 id="key-architectural-decisions">Key Architectural Decisions</h2><ul><li><strong>Stateless JWT issuance.</strong> Memberships are embedded in the token at sign-in, so authorization everywhere else is a local check rather than a call back to this service.</li><li><strong>Controllers split by concern</strong> (authentication, domain, administration) to keep each cohesive and small.</li><li><strong>Specialised domain services.</strong> Token handling and the TOTP invite-code logic are kept out of the controllers so they can be reasoned about and tested in isolation.</li><li><strong>Federation as account-linking.</strong> External SSO augments an existing account rather than creating one — a deliberate limit on what federation is allowed to do.</li><li><strong>Cross-cutting concerns in middleware.</strong> Authorization and error shaping are factored into middleware instead of being repeated per controller (see <a href="../services/middlewares.qd)">Auth Service: Middleware</a>.</li></ul><hr /><h2 id="integration">Integration</h2><ul><li>Owns <span class="codespan-content"><code>auth-db</code></span>; no other service reads it.</li><li>Produces the identity token consumed platform-wide — see <a href="../data-flow">Communication &amp; Data Flow</a>.</li><li>Has no synchronous dependency on any other service.</li></ul><p>For the login, SSO, and TOTP flows, the code-level decisions, and the API, see the <a href="../authentication">Authentication Service</a> internals page.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>
