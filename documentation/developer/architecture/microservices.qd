@@ -41,7 +41,7 @@ Not every service fits the four-tier mould — and that is by design.
     - - sensor-service
       - Layered, but the Controllers are generic: a microkernel resolves a per-metric module (Strategy) at request time, so new sensor types plug in without touching the core. It also splits a fast validation path from a slow persistence path.
     - - contracts-service
-      - Written in Rust/Axum, not Node. It pairs an HTTP API with a background task that filters the telemetry stream, and keeps its hot state in memory rather than a database.
+      - Written in Rust/Axum, not Node. It pairs an HTTP API with a background task that filters the telemetry stream, and keeps its hot state in memory, backed by its own database for durability.
     - - socket-service
       - A single flat gateway with no Controller/Service/Model and no database — it only bridges the broker to WebSocket clients.
 

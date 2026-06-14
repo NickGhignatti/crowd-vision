@@ -1,0 +1,23 @@
+###! Contents
+- [1 · Introduction](#_1--introduction)
+    - [Project goals](#_11-project-goals)
+    - [How we organised the work](#_12-how-we-organised-the-work)
+    - [Licensing](#_13-licensing)
+- [2 · Design](#_2--design)
+    - [The domain, and how we split it](#_21-the-domain-and-how-we-split-it)
+    - [One context, one service](#_22-one-context-one-service)
+    - [How the services talk](#_23-how-the-services-talk)
+    - [What a service looks like inside](#_24-what-a-service-looks-like-inside)
+    - [Keeping data consistent](#_25-keeping-data-consistent)
+- [3 · DevOps](#_3--devops)
+    - [Building with one command](#_31-building-everything-with-one-command)
+    - [Containers, and where they run](#_32-containers-and-where-they-run)
+    - [Branching & continuous deployment](#_33-branching-and-continuous-deployment)
+    - [The pipeline](#_34-the-pipeline)
+- [4 · Decisions we are glad we made](#_4--a-few-decisions-we-are-glad-we-made)
+- [5 · Conclusion](#_5--conclusion)
+
+###! Elsewhere
+- [Developer Guide](../../dev/Developer-Guide/)
+- [User Guide](../../user/User-Guide/)
+- [API Reference](../../index.html)

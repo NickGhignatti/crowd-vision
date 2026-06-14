@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision — Software Process Engineering report">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content=".">
+    <meta name="quarkdown:search-index" content="./search-index.json">
+    <title>SPE Report</title>
+    <script src="./script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="./lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="./theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="crowdvision--software-process-engineering-report" data-depth="1"><a href="#crowdvision--software-process-engineering-report">CrowdVision — Software Process Engineering Report</a></li><li data-target-id="_1--introduction" data-depth="1"><a href="#_1--introduction">1 · Introduction</a><ol><li data-target-id="_11-project-goals" data-depth="2"><a href="#_11-project-goals">1.1 Project goals</a></li><li data-target-id="_12-how-we-organised-the-work" data-depth="2"><a href="#_12-how-we-organised-the-work">1.2 How we organised the work</a></li><li data-target-id="_13-licensing" data-depth="2"><a href="#_13-licensing">1.3 Licensing</a></li></ol></li><li data-target-id="_2--design" data-depth="1"><a href="#_2--design">2 · Design</a><ol><li data-target-id="_21-the-domain-and-how-we-split-it" data-depth="2"><a href="#_21-the-domain-and-how-we-split-it">2.1 The domain, and how we split it</a></li><li data-target-id="_22-one-context-one-service" data-depth="2"><a href="#_22-one-context-one-service">2.2 One context, one service</a></li><li data-target-id="_23-how-the-services-talk" data-depth="2"><a href="#_23-how-the-services-talk">2.3 How the services talk</a></li><li data-target-id="_24-what-a-service-looks-like-inside" data-depth="2"><a href="#_24-what-a-service-looks-like-inside">2.4 What a service looks like inside</a></li><li data-target-id="_25-keeping-data-consistent" data-depth="2"><a href="#_25-keeping-data-consistent">2.5 Keeping data consistent</a></li></ol></li><li data-target-id="_3--devops" data-depth="1"><a href="#_3--devops">3 · DevOps</a><ol><li data-target-id="_31-building-everything-with-one-command" data-depth="2"><a href="#_31-building-everything-with-one-command">3.1 Building everything with one command</a></li><li data-target-id="_32-containers-and-where-they-run" data-depth="2"><a href="#_32-containers-and-where-they-run">3.2 Containers, and where they run</a></li><li data-target-id="_33-branching-and-continuous-deployment" data-depth="2"><a href="#_33-branching-and-continuous-deployment">3.3 Branching, and continuous deployment</a></li><li data-target-id="_34-the-pipeline" data-depth="2"><a href="#_34-the-pipeline">3.4 The pipeline</a></li></ol></li><li data-target-id="_4--a-few-decisions-we-are-glad-we-made" data-depth="1"><a href="#_4--a-few-decisions-we-are-glad-we-made">4 · A few decisions we are glad we made</a></li><li data-target-id="_5--conclusion" data-depth="1"><a href="#_5--conclusion">5 · Conclusion</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>SPE Report</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="contents" data-decorative="">Contents</h3><ul><li><a href="#_1--introduction">1 · Introduction</a><ul><li><a href="#_11-project-goals">Project goals</a></li><li><a href="#_12-how-we-organised-the-work">How we organised the work</a></li><li><a href="#_13-licensing">Licensing</a></li></ul></li><li><a href="#_2--design">2 · Design</a><ul><li><a href="#_21-the-domain-and-how-we-split-it">The domain, and how we split it</a></li><li><a href="#_22-one-context-one-service">One context, one service</a></li><li><a href="#_23-how-the-services-talk">How the services talk</a></li><li><a href="#_24-what-a-service-looks-like-inside">What a service looks like inside</a></li><li><a href="#_25-keeping-data-consistent">Keeping data consistent</a></li></ul></li><li><a href="#_3--devops">3 · DevOps</a><ul><li><a href="#_31-building-everything-with-one-command">Building with one command</a></li><li><a href="#_32-containers-and-where-they-run">Containers, and where they run</a></li><li><a href="#_33-branching-and-continuous-deployment">Branching &amp; continuous deployment</a></li><li><a href="#_34-the-pipeline">The pipeline</a></li></ul></li><li><a href="#_4--a-few-decisions-we-are-glad-we-made">4 · Decisions we are glad we made</a></li><li><a href="#_5--conclusion">5 · Conclusion</a></li></ul><h3 id="elsewhere" data-decorative="">Elsewhere</h3><ul><li><a href="../../dev/Developer-Guide/">Developer Guide</a></li><li><a href="../../user/User-Guide/">User Guide</a></li><li><a href="../../index.html">API Reference</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="crowdvision--software-process-engineering-report" data-depth="1"><a href="#crowdvision--software-process-engineering-report">CrowdVision — Software Process Engineering Report</a></li><li data-target-id="_1--introduction" data-depth="1"><a href="#_1--introduction">1 · Introduction</a><ol><li data-target-id="_11-project-goals" data-depth="2"><a href="#_11-project-goals">1.1 Project goals</a></li><li data-target-id="_12-how-we-organised-the-work" data-depth="2"><a href="#_12-how-we-organised-the-work">1.2 How we organised the work</a></li><li data-target-id="_13-licensing" data-depth="2"><a href="#_13-licensing">1.3 Licensing</a></li></ol></li><li data-target-id="_2--design" data-depth="1"><a href="#_2--design">2 · Design</a><ol><li data-target-id="_21-the-domain-and-how-we-split-it" data-depth="2"><a href="#_21-the-domain-and-how-we-split-it">2.1 The domain, and how we split it</a></li><li data-target-id="_22-one-context-one-service" data-depth="2"><a href="#_22-one-context-one-service">2.2 One context, one service</a></li><li data-target-id="_23-how-the-services-talk" data-depth="2"><a href="#_23-how-the-services-talk">2.3 How the services talk</a></li><li data-target-id="_24-what-a-service-looks-like-inside" data-depth="2"><a href="#_24-what-a-service-looks-like-inside">2.4 What a service looks like inside</a></li><li data-target-id="_25-keeping-data-consistent" data-depth="2"><a href="#_25-keeping-data-consistent">2.5 Keeping data consistent</a></li></ol></li><li data-target-id="_3--devops" data-depth="1"><a href="#_3--devops">3 · DevOps</a><ol><li data-target-id="_31-building-everything-with-one-command" data-depth="2"><a href="#_31-building-everything-with-one-command">3.1 Building everything with one command</a></li><li data-target-id="_32-containers-and-where-they-run" data-depth="2"><a href="#_32-containers-and-where-they-run">3.2 Containers, and where they run</a></li><li data-target-id="_33-branching-and-continuous-deployment" data-depth="2"><a href="#_33-branching-and-continuous-deployment">3.3 Branching, and continuous deployment</a></li><li data-target-id="_34-the-pipeline" data-depth="2"><a href="#_34-the-pipeline">3.4 The pipeline</a></li></ol></li><li data-target-id="_4--a-few-decisions-we-are-glad-we-made" data-depth="1"><a href="#_4--a-few-decisions-we-are-glad-we-made">4 · A few decisions we are glad we made</a></li><li data-target-id="_5--conclusion" data-depth="1"><a href="#_5--conclusion">5 · Conclusion</a></li></ol></nav></div><h1 id="spe-report" data-decorative="">SPE Report</h1><h1 class="page-break" id="crowdvision--software-process-engineering-report">CrowdVision — Software Process Engineering Report</h1><p><strong>Authors:</strong> Nicolò Ghignatti · Mounir Samite · Ettore Farinelli
+<strong>Course:</strong> Software Process Engineering · <strong>Date:</strong> June 2026</p><p>CrowdVision is a <strong>digital-twin and crowd-analytics platform</strong>. In plain terms, it takes live data
+from sensors scattered around a building and shows it on an interactive 3D model, so whoever runs the
+place can see — right now — how crowded a room is, how warm it is, and whether anything needs
+attention. It scales from a single floor to a whole campus.</p><p>This report is not really a tour of the features. It is more the story of <em>how we built it</em>: how we
+organised ourselves, the choices we made about design and architecture, and the tooling that carries
+a commit all the way to a running, deployed service. We have tried to keep it high-level — whenever a
+topic deserves a closer look, we point to the <strong>exact page of the
+<a href="../../dev/Developer-Guide/">Developer Guide</a></strong> rather than repeating it here.</p><div class="box note"><header><h4>How to read this</h4></header><div class="box-content"><p>Every section ends with a <strong>Read more</strong> box linking to the precise Developer-Guide page — and,
+where it helps, the exact section — that goes deeper than we do here.</p></div></div><hr /><h1 class="page-break" id="_1--introduction">1 · Introduction</h1><p>CrowdVision is a <strong>polyglot microservices system</strong> living in a single <strong>monorepo</strong> — every service,
+all the shared tooling, the infrastructure manifests and the documentation sit in one Git
+repository. We landed on nine deployable pieces: seven backend services, two device simulators, and a
+Vue single-page app for the browser.</p><h2 id="_11-project-goals">1.1 Project goals</h2><p>We started from a handful of goals. Each one quietly shaped both the architecture and the pipeline:</p><table><thead><tr><th>Goal</th><th>How we got there</th></tr></thead><tbody><tr><td>Microservices that mean something</td><td>We let Domain-Driven Design draw the boundaries — one bounded context per service, each owning its own database.</td></tr><tr><td>The right language for the job</td><td>Services run on three stacks: TypeScript on Node.js, Python, and Rust. We picked per workload, not by habit.</td></tr><tr><td>One way to build everything</td><td>A single command (just, on top of mise and moon) builds, tests and lints every language, sharing one cache.</td></tr><tr><td>Automation we can trust, with security baked in</td><td>Pipelines handle build, test, lint, dependency and container scanning, static analysis, docs, image publishing and deployment.</td></tr><tr><td>Runs the same everywhere</td><td>Every service ships as a Docker image; the system runs under Docker Compose on a laptop and on Kubernetes in production.</td></tr></tbody></table><h2 id="_12-how-we-organised-the-work">1.2 How we organised the work</h2><p>Three habits carried the day-to-day:</p><ul><li><strong>Version control.</strong> We work on <strong>GitHub Flow</strong>: <span class="codespan-content"><code>master</code></span> is the one protected branch, and nothing
+reaches it except through a reviewed pull request that passes the automated gate. Commit messages
+follow <strong>Conventional Commits</strong>, and branches follow a naming convention — both checked by a
+machine, not by trust.</li><li><strong>Build &amp; quality.</strong> <strong>moon</strong> runs each project&rsquo;s <span class="codespan-content"><code>build</code></span> / <span class="codespan-content"><code>test</code></span> / <span class="codespan-content"><code>lint</code></span> / <span class="codespan-content"><code>audit</code></span> tasks,
+caches the results, and only re-runs what a change actually touched, so a one-line edit never
+rebuilds the whole repo. Every service brings its own tests, linting and dependency audit.</li><li><strong>Release &amp; deployment.</strong> We don&rsquo;t pick version numbers — <strong>semantic-release</strong> reads them straight
+off the commit history. Every merge to <span class="codespan-content"><code>master</code></span> cuts a release, builds and scans the images, and
+pushes them to <strong>GHCR</strong>, which is exactly where production pulls from.</li></ul><h2 id="_13-licensing">1.3 Licensing</h2><p>CrowdVision is <strong>proprietary, source-available software</strong> — <em>“All rights reserved”</em>. The repository
+is public so anyone can read the code and judge it. GitHub&rsquo;s terms let people view and fork it on
+GitHub, but any fork stays under our licence — running it, building a product from it, redistributing
+it elsewhere or selling it is off the table without our say-so.</p><p>That is a conscious middle ground. Permissive licences (MIT, Apache-2.0) would let someone fold the
+code into a closed product; strong copyleft (GPL-3.0) would force every derivative to stay open. We
+wanted neither — we wanted the work to be <strong>open to inspection while staying ours to govern</strong>.</p><p>This openness is deliberately for <em>now</em>. We like having CrowdVision in the open, where it can be read
+and learned from, and we intend to keep it that way through this stage of the project. But the plan is
+for CrowdVision to grow into a startup, so we have reserved the right to change the terms and <strong>make
+the repository private</strong> when that moment comes. Staying source-available today and closing the source
+later is a planned step, not an afterthought.</p><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>Goals and scope: <a href="../../dev/Developer-Guide/functional-requirements/">Functional Requirements</a> ·
+<a href="../../dev/Developer-Guide/non-functional-requirements/">Non-Functional Requirements</a> ·
+<a href="../../dev/Developer-Guide/user-stories/">User Stories</a>. The full terms live in the
+repository <span class="codespan-content"><code>LICENSE</code></span>.</p></div></div><hr /><h1 class="page-break" id="_2--design">2 · Design</h1><p>The system is a set of <strong>microservices</strong>, each one modelling a single slice of the domain and owning
+its own data. We leaned on Domain-Driven Design throughout, but treated it as a <strong>compass, not a
+rulebook</strong>: the strategic boundaries are the part we were most sure of; the tactical detail we added
+only where it paid for itself.</p><h2 id="_21-the-domain-and-how-we-split-it">2.1 The domain, and how we split it</h2><p>The domain, boiled down, is <em>watching physical spaces in real time through a digital twin</em>. We sorted
+the subdomains by how much they actually set the product apart — which then told us where to spend
+our modelling effort:</p><table><thead><tr><th>Subdomain (type)</th><th>Lives in</th></tr></thead><tbody><tr><td>Spatial Digital Twin · Core</td><td>twin-service</td></tr><tr><td>Telemetry Ingestion &amp; Thresholds · Core</td><td>sensor-service</td></tr><tr><td>Telemetry Distribution · Core</td><td>contracts-service</td></tr><tr><td>Identity &amp; Access · Supporting</td><td>auth-service</td></tr><tr><td>Alerting · Supporting</td><td>notification-service</td></tr><tr><td>Knowledge &amp; Assistance · Supporting</td><td>agent-service</td></tr><tr><td>Real-Time Transport · Generic</td><td>socket-service</td></tr></tbody></table><p>Every core and supporting subdomain became exactly one <strong>bounded context</strong>, and we made that boundary
+do double duty as a storage and deployment boundary too. The contexts talk to each other through the
+familiar DDD patterns: the signed <strong>identity token is the Published Language</strong> everyone agrees on,
+while the building-to-telemetry and building-to-alerting links are <strong>Customer/Supplier</strong> with an
+<strong>Anti-Corruption Layer</strong> on the receiving end so no model leaks across.</p><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>The full subdomain breakdown, context map, and the <em>refer-to-a-domain-by-name</em> convention:
+<a href="../../dev/Developer-Guide/strategic-design/#context-map">Strategic Design → Context Map</a>.
+The per-context models:
+<a href="../../dev/Developer-Guide/identity-access/">Identity &amp; Access</a> ·
+<a href="../../dev/Developer-Guide/building-management/">Building Management</a> ·
+<a href="../../dev/Developer-Guide/telemetry-ingestion/">Telemetry Ingestion</a> ·
+<a href="../../dev/Developer-Guide/telemetry-distribution/">Telemetry Distribution</a> ·
+<a href="../../dev/Developer-Guide/alerting/">Alerting</a>.</p></div></div><h2 id="_22-one-context-one-service">2.2 One context, one service</h2><p>Each context maps cleanly onto a deployable service. Every service owns its persistence, answers
+synchronous reads over HTTP, and trades the high-frequency events over a broker.</p><table><thead><tr><th>Service</th><th>Bounded context</th><th>Stack</th><th>Store</th></tr></thead><tbody><tr><td>auth-service</td><td>Identity &amp; Access</td><td>Node.js / Express</td><td>MongoDB</td></tr><tr><td>twin-service</td><td>Building Management</td><td>Node.js / Express</td><td>MongoDB</td></tr><tr><td>sensor-service</td><td>Telemetry Ingestion</td><td>Node.js / Express</td><td>MongoDB</td></tr><tr><td>contracts-service</td><td>Telemetry Distribution</td><td>Rust / Axum</td><td>MongoDB (read state cached in memory)</td></tr><tr><td>notification-service</td><td>Alerting</td><td>Node.js / Express</td><td>MongoDB</td></tr><tr><td>socket-service</td><td>Real-time transport</td><td>Node.js / Socket.IO</td><td>—</td></tr><tr><td>agent-service</td><td>Knowledge &amp; Assistance</td><td>Python</td><td>PostgreSQL</td></tr></tbody></table><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>The whole-system picture, the guiding principles and the routing table:
+<a href="../../dev/Developer-Guide/overview/#component-landscape">Architecture Overview</a>.</p></div></div><h2 id="_23-how-the-services-talk">2.3 How the services talk</h2><p>We use two styles of communication, and we chose between them on purpose:</p><ul><li><strong>Synchronous, over HTTP</strong> through a single gateway — for the things a user does, and for the few
+service-to-service calls that genuinely need an answer on the spot. Identity rides along in the
+signed token, so no service ever has to phone another just to <em>authorise</em> a request.</li><li><strong>Asynchronous, publish/subscribe over Redis</strong> — for the steady stream of telemetry and alerts,
+where a producer should never be slowed down or blocked by whoever happens to be listening.</li></ul><p>The behaviour we most wanted to get right — a real-world reading reaching a browser as it happens —
+runs end to end across <span class="codespan-content"><code>sensor-service &rarr; contracts-service &rarr; socket-service</code></span>, while a second path
+raises threshold alerts through <span class="codespan-content"><code>notification-service</code></span> at the same time.</p><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>The two real-time sequence diagrams and the channel list:
+<a href="../../dev/Developer-Guide/data-flow/#asynchronous-communication">Communication &amp; Data Flow</a>.</p></div></div><h2 id="_24-what-a-service-looks-like-inside">2.4 What a service looks like inside</h2><p>Zoom into most services and you find the same small, layered app: a strict
+<strong>Router → Controller → Service → Model</strong> flow, so anyone hopping between services already knows where
+the routing, the logic and the data access live. Three services break that pattern deliberately — the
+sensor service resolves a per-metric strategy at request time, the Rust contracts service keeps its
+hot state in memory (with its database behind it for durability), and the socket service is a flat
+broker-to-WebSocket bridge with no database at all. Authorisation and error handling we pulled out
+into shared middleware rather than copy-pasting them into every controller.</p><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>The layer responsibilities and the deliberate exceptions:
+<a href="../../dev/Developer-Guide/microservices/#the-shared-layered-architecture">Service Anatomy</a>.</p></div></div><h2 id="_25-keeping-data-consistent">2.5 Keeping data consistent</h2><p>Inside its own walls, each service is <strong>strongly consistent</strong> — it writes through its own database and
+that is that. Across services we settle for <strong>eventual consistency</strong>: a service finishes its local
+write, emits an event, and the others catch up asynchronously. No transaction ever stretches across
+two services. The handful of synchronous cross-service calls (used for provisioning) are best-effort
+and retried — never sitting on the hot path.</p><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>The database-per-service and stateless-service rules that hold this together:
+<a href="../../dev/Developer-Guide/contributing/#architectural-golden-rules">Contributing → Architectural golden rules</a>.</p></div></div><hr /><h1 class="page-break" id="_3--devops">3 · DevOps</h1><h2 id="_31-building-everything-with-one-command">3.1 Building everything with one command</h2><p>The developer experience stands on three layers, each with one job:</p><table><thead><tr><th>Layer</th><th>Its one job</th></tr></thead><tbody><tr><td>just</td><td>The front door. Every workflow is a just &lt;recipe&gt; — short to type, easy to remember.</td></tr><tr><td>mise</td><td>The single source of truth for tool versions (Node, Python, Rust, uv, moon), identical on every machine.</td></tr><tr><td>moon</td><td>Per-project tasks — build / test / lint / audit / deps — with caching and “only what changed” detection.</td></tr></tbody></table><p>The rule we never break: <em>don&rsquo;t trust whatever happens to be on your <span class="codespan-content"><code>PATH</code></span></em>. Every tool is resolved
+through <span class="codespan-content"><code>mise</code></span>, and every package is declared exactly once in <span class="codespan-content"><code>.moon/workspace.yml</code></span>, with everything
+else — installs, cleans, the task graph — derived from that one list. That is what keeps a mixed
+TypeScript / Python / Rust build behaving like a single, tidy project instead of three.</p><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>How the three layers cooperate, and how adding a service is a one-line change:
+<a href="../../dev/Developer-Guide/toolchain/">The Toolchain: mise, moon &amp; just</a>.</p></div></div><h2 id="_32-containers-and-where-they-run">3.2 Containers, and where they run</h2><p>Each service ships its own <strong>two-stage Dockerfile</strong> — one stage compiles, the final stage carries
+only the runtime and the built artifact — and refreshes its base-OS packages at build time so it
+clears the registry scan. The same images run in two places:</p><ul><li><strong>Docker Compose, on your laptop.</strong> Each service&rsquo;s compose files are discovered and merged
+automatically. A service sits on a shared gateway network <em>and</em> a private database network, which
+enforces the database-per-service rule <em>physically</em> — the twin service simply cannot reach the
+auth database.</li><li><strong>Kubernetes, in production.</strong> Stateless services run as <strong>Deployments</strong>, the databases and Redis as
+<strong>StatefulSets</strong> with their own persistent volumes; an <strong>nginx Ingress</strong> routes by URL prefix,
+<span class="codespan-content"><code>initContainers</code></span> hold a service back until its database answers, and secrets are created on the
+cluster from a local <span class="codespan-content"><code>.env</code></span> and never go anywhere near Git.</li></ul><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>Cluster manifests, ingress rewriting and rolling updates:
+<a href="../../dev/Developer-Guide/deployment/">Deployment &amp; Kubernetes</a>. The local compose layering:
+<a href="../../dev/Developer-Guide/docker-compose/">Docker Compose Orchestration</a>.</p></div></div><h2 id="_33-branching-and-continuous-deployment">3.3 Branching, and continuous deployment</h2><p>We keep the branching model boring on purpose. There is <strong>one long-lived branch, <span class="codespan-content"><code>master</code></span></strong>. All the
+real work happens on short feature branches, and the only way into <span class="codespan-content"><code>master</code></span> is a <strong>pull request</strong> —
+reviewed, and green on the CI gate. Direct pushes are blocked.</p><p>The important part is what happens <em>after</em> a merge: <strong>every pull request that reaches <span class="codespan-content"><code>master</code></span> is
+deployed</strong>. There is no separate &ldquo;release day&rdquo;. The moment a PR lands, the pipeline cuts a version,
+builds and scans the images, and publishes them to the registry that production runs from — so the
+freshest <span class="codespan-content"><code>master</code></span> is also the freshest deployment. That is <strong>continuous deployment</strong>, and it is why
+the commit message is treated as a real input to the build rather than a note to ourselves.</p><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>The full workflow and the golden rules:
+<a href="../../dev/Developer-Guide/contributing/#the-contribution-workflow">Contributing &amp; Golden Rules</a>.
+Commit and branch conventions:
+<a href="../../dev/Developer-Guide/naming-conventions/">Naming Conventions</a>.</p></div></div><h2 id="_34-the-pipeline">3.4 The pipeline</h2><p>CI hangs off a <strong>single aggregated gate</strong> (<span class="codespan-content"><code>CI Gate / CI Passed</code></span>). One path-filter runs first, then
+the work fans out — in parallel, and <em>only for whatever actually changed</em> — to each service&rsquo;s checks
+(auth, chat, twin, sensor, socket, notification, contracts, client, agent) plus Docker, Kubernetes,
+workflow-lint and infra. The gate makes its call as a <strong>whitelist</strong>: every leg has to come back
+<span class="codespan-content"><code>success</code></span> or <span class="codespan-content"><code>skipped</code></span>, and the fan-out itself must have succeeded, so an unexpected state can never
+slip through as green.</p><p>Security isn&rsquo;t a separate stage — it&rsquo;s woven in:</p><ul><li><strong>Dependencies</strong> — every service runs <span class="codespan-content"><code>npm</code></span> / <span class="codespan-content"><code>cargo</code></span> / <span class="codespan-content"><code>uv</code></span> audits, and a dependency-review leg
+fails the moment a PR <em>introduces</em> a vulnerable package.</li><li><strong>Static analysis</strong> — CodeQL (<span class="codespan-content"><code>security-extended</code></span>) over JavaScript/TypeScript, Python and Rust, on
+every PR, every push, and once a week.</li><li><strong>Containers</strong> — on <span class="codespan-content"><code>master</code></span>, images are built, <strong>scanned with Trivy, and only pushed to GHCR if the
+scan passes</strong> — never push first and scan later.</li><li><strong>Supply chain</strong> — every third-party action is pinned to a full commit SHA (enforced by a repo
+setting), and an <strong>unmapped-path tripwire</strong> fails the build if a file nobody mapped to a check ever
+gets touched.</li></ul><p>And the release itself runs without anyone touching it: every push to <span class="codespan-content"><code>master</code></span> runs
+<strong>semantic-release</strong> (work out the version → write the changelog → bump every manifest → tag →
+publish), alongside a <span class="codespan-content"><code>cd-registry</code></span> job that rebuilds and pushes only the images whose source moved.</p><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>The gate&rsquo;s decision logic, every leg, and the release/registry mechanics:
+<a href="../../dev/Developer-Guide/cicd/#the-ci-gate">CI/CD Pipeline → The CI gate</a> and
+<a href="../../dev/Developer-Guide/cicd/#cd-workflows">→ CD workflows</a>. The versioning rules:
+<a href="../../dev/Developer-Guide/semantic-release/#the-release-pipeline">Commits &amp; Semantic Release</a>.</p></div></div><hr /><h1 class="page-break" id="_4--a-few-decisions-we-are-glad-we-made">4 · A few decisions we are glad we made</h1><p>Some choices shaped the <em>process</em> more than the product, and they&rsquo;re the ones worth lingering on.</p><ul><li><strong>The unmapped-path tripwire.</strong> A pipeline built on path filters has one blind spot: a file no
+filter knows about runs no checks, and <em>“no checks”</em> quietly reports green. So we added an inverted
+catch-all that fails the build whenever an unmapped file is touched, which makes us stop and decide
+on purpose. On a small team it is the mechanical stand-in for <em>“someone needs to look at this.”</em></li><li><strong>Build, then scan, then push.</strong> Running the vulnerability scan <em>before</em> the registry push — not
+after — means a flagged image is simply never published. Together with the SHA-pinned actions, it
+closes the supply-chain gaps that are easiest to miss.</li><li><strong>A single list for the whole toolchain.</strong> Because installs, cleans and the whole task graph all
+come from <span class="codespan-content"><code>moon query projects</code></span>, the package list cannot drift. Adding a service is a single line
+that then flows into build, test, lint, audit and install on its own.</li><li><strong>A small script instead of Lerna.</strong> A tiny <span class="codespan-content"><code>fs</code></span> script (<span class="codespan-content"><code>bump-versions.mjs</code></span>) keeps every manifest
+— <span class="codespan-content"><code>package.json</code></span>, <span class="codespan-content"><code>Cargo.toml</code></span>, <span class="codespan-content"><code>pyproject.toml</code></span> — in step, which let us sidestep the npm-workspace
+constraints that Lerna could not satisfy in our layout.</li></ul><div class="box tip"><header><h4>Read more</h4></header><div class="box-content"><p>The hardening details: <a href="../../dev/Developer-Guide/cicd/#the-unmapped-path-tripwire">CI/CD Pipeline → The unmapped-path tripwire</a>.
+The toolchain single source of truth and the Lerna call:
+<a href="../../dev/Developer-Guide/toolchain/">The Toolchain</a> ·
+<a href="../../dev/Developer-Guide/contributing/#why-bump-versionsmjs-instead-of-lerna">Contributing</a>.</p></div></div><hr /><h1 class="page-break" id="_5--conclusion">5 · Conclusion</h1><p>Building CrowdVision was, more than anything, an exercise in <strong>getting the process right first</strong>. One
+polyglot build keeps Node, Python and Rust services behind a single interface; one CI gate checks
+every change with security woven through it; and a fully automated path carries a commit all the way
+from a pull request to a scanned image running on Kubernetes — with the architecture&rsquo;s boundaries
+kept in place by the tooling rather than by discipline alone.</p><p>Looking back, the process gave us four things we genuinely value:</p><ul><li><strong>Builds that just work, anywhere</strong> — one command, one cache, and no surprises about which tool
+version is on the machine.</li><li><strong>A straight line from commit to production</strong> — versioning, changelog, image publishing and the
+rollout to production all happen on their own.</li><li><strong>Security as a gate, not a footnote</strong> — dependency, static-analysis and container scans can block
+a merge or a publish, and the supply chain is pinned and tripwired.</li><li><strong>DDD that survived contact with real code</strong> — one bounded context per service, one database per
+service, kept honest by network isolation and by CI.</li></ul><div class="box note"><header><h4>Explore the system</h4></header><div class="box-content"><p>The full implementation depth is in the <a href="../../dev/Developer-Guide/">Developer Guide</a>; the product
+walkthrough is in the <a href="../../user/User-Guide/">User Guide</a>; the HTTP contracts are in the
+<a href="../../index.html">API Reference</a>.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>
