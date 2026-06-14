@@ -1,0 +1,379 @@
+.docname {SPE Report}
+.include {docs}
+
+# CrowdVision — Software Process Engineering Report
+
+**Authors:** Nicolò Ghignatti · Mounir Samite · Ettore Farinelli
+**Course:** Software Process Engineering · **Date:** June 2026
+
+CrowdVision is a **digital-twin and crowd-analytics platform**. In plain terms, it takes live data
+from sensors scattered around a building and shows it on an interactive 3D model, so whoever runs the
+place can see — right now — how crowded a room is, how warm it is, and whether anything needs
+attention. It scales from a single floor to a whole campus.
+
+This report is not really a tour of the features. It is more the story of *how we built it*: how we
+organised ourselves, the choices we made about design and architecture, and the tooling that carries
+a commit all the way to a running, deployed service. We have tried to keep it high-level — whenever a
+topic deserves a closer look, we point to the **exact page of the
+[Developer Guide](../../dev/Developer-Guide/)** rather than repeating it here.
+
+.box {How to read this} type:{note}
+    Every section ends with a **Read more** box linking to the precise Developer-Guide page — and,
+    where it helps, the exact section — that goes deeper than we do here.
+
+---
+
+# 1 · Introduction
+
+CrowdVision is a **polyglot microservices system** living in a single **monorepo** — every service,
+all the shared tooling, the infrastructure manifests and the documentation sit in one Git
+repository. We landed on nine deployable pieces: seven backend services, two device simulators, and a
+Vue single-page app for the browser.
+
+## 1.1 Project goals
+
+We started from a handful of goals. Each one quietly shaped both the architecture and the pipeline:
+
+.var {headers}
+   - Goal
+   - How we got there
+
+.tablebyrows {.headers}
+    - - **Microservices that mean something**
+      - We let Domain-Driven Design draw the boundaries — one bounded context per service, each owning its own database.
+    - - **The right language for the job**
+      - Services run on three stacks: TypeScript on Node.js, Python, and Rust. We picked per workload, not by habit.
+    - - **One way to build everything**
+      - A single command (`just`, on top of `mise` and `moon`) builds, tests and lints every language, sharing one cache.
+    - - **Automation we can trust, with security baked in**
+      - Pipelines handle build, test, lint, dependency and container scanning, static analysis, docs, image publishing and deployment.
+    - - **Runs the same everywhere**
+      - Every service ships as a Docker image; the system runs under Docker Compose on a laptop and on Kubernetes in production.
+
+## 1.2 How we organised the work
+
+Three habits carried the day-to-day:
+
+- **Version control.** We work on **GitHub Flow**: `master` is the one protected branch, and nothing
+  reaches it except through a reviewed pull request that passes the automated gate. Commit messages
+  follow **Conventional Commits**, and branches follow a naming convention — both checked by a
+  machine, not by trust.
+- **Build & quality.** **moon** runs each project's `build` / `test` / `lint` / `audit` tasks,
+  caches the results, and only re-runs what a change actually touched, so a one-line edit never
+  rebuilds the whole repo. Every service brings its own tests, linting and dependency audit.
+- **Release & deployment.** We don't pick version numbers — **semantic-release** reads them straight
+  off the commit history. Every merge to `master` cuts a release, builds and scans the images, and
+  pushes them to **GHCR**, which is exactly where production pulls from.
+
+## 1.3 Licensing
+
+CrowdVision is **proprietary, source-available software** — *“All rights reserved”*. The repository
+is public so anyone can read the code and judge it. GitHub's terms let people view and fork it on
+GitHub, but any fork stays under our licence — running it, building a product from it, redistributing
+it elsewhere or selling it is off the table without our say-so.
+
+That is a conscious middle ground. Permissive licences (MIT, Apache-2.0) would let someone fold the
+code into a closed product; strong copyleft (GPL-3.0) would force every derivative to stay open. We
+wanted neither — we wanted the work to be **open to inspection while staying ours to govern**.
+
+This openness is deliberately for *now*. We like having CrowdVision in the open, where it can be read
+and learned from, and we intend to keep it that way through this stage of the project. But the plan is
+for CrowdVision to grow into a product, so we have reserved the right to change the terms and **make
+the repository private** when that moment comes. Staying source-available today and closing the source
+later is a planned step, not an afterthought.
+
+.box {Read more} type:{tip}
+    Goals and scope: [Functional Requirements](../../dev/Developer-Guide/functional-requirements/) ·
+    [Non-Functional Requirements](../../dev/Developer-Guide/non-functional-requirements/) ·
+    [User Stories](../../dev/Developer-Guide/user-stories/). The full terms live in the
+    repository `LICENSE`.
+
+---
+
+# 2 · Design
+
+The system is a set of **microservices**, each one modelling a single slice of the domain and owning
+its own data. We leaned on Domain-Driven Design throughout, but treated it as a **compass, not a
+rulebook**: the strategic boundaries are the part we were most sure of; the tactical detail we added
+only where it paid for itself.
+
+## 2.1 The domain, and how we split it
+
+The domain, boiled down, is *watching physical spaces in real time through a digital twin*. We sorted
+the subdomains by how much they actually set the product apart — which then told us where to spend
+our modelling effort:
+
+.var {headers}
+   - Subdomain (type)
+   - Lives in
+
+.tablebyrows {.headers}
+    - - Spatial Digital Twin · *Core*
+      - twin-service
+    - - Telemetry Ingestion & Thresholds · *Core*
+      - sensor-service
+    - - Telemetry Distribution · *Core*
+      - contracts-service
+    - - Identity & Access · *Supporting*
+      - auth-service
+    - - Alerting · *Supporting*
+      - notification-service
+    - - Knowledge & Assistance · *Supporting*
+      - agent-service
+    - - Real-Time Transport · *Generic*
+      - socket-service
+
+Every core and supporting subdomain became exactly one **bounded context**, and we made that boundary
+do double duty as a storage and deployment boundary too. The contexts talk to each other through the
+familiar DDD patterns: the signed **identity token is the Published Language** everyone agrees on,
+while the building-to-telemetry and building-to-alerting links are **Customer/Supplier** with an
+**Anti-Corruption Layer** on the receiving end so no model leaks across.
+
+.box {Read more} type:{tip}
+    The full subdomain breakdown, context map, and the *refer-to-a-domain-by-name* convention:
+    [Strategic Design → Context Map](../../dev/Developer-Guide/strategic-design/#context-map).
+    The per-context models:
+    [Identity & Access](../../dev/Developer-Guide/identity-access/) ·
+    [Building Management](../../dev/Developer-Guide/building-management/) ·
+    [Telemetry Ingestion](../../dev/Developer-Guide/telemetry-ingestion/) ·
+    [Telemetry Distribution](../../dev/Developer-Guide/telemetry-distribution/) ·
+    [Alerting](../../dev/Developer-Guide/alerting/).
+
+## 2.2 One context, one service
+
+Each context maps cleanly onto a deployable service. Every service owns its persistence, answers
+synchronous reads over HTTP, and trades the high-frequency events over a broker.
+
+.var {headers}
+   - Service
+   - Bounded context
+   - Stack
+   - Store
+
+.tablebyrows {.headers}
+    - - auth-service
+      - Identity & Access
+      - Node.js / Express
+      - MongoDB
+    - - twin-service
+      - Building Management
+      - Node.js / Express
+      - MongoDB
+    - - sensor-service
+      - Telemetry Ingestion
+      - Node.js / Express
+      - MongoDB
+    - - contracts-service
+      - Telemetry Distribution
+      - Rust / Axum
+      - MongoDB (read state cached in memory)
+    - - notification-service
+      - Alerting
+      - Node.js / Express
+      - MongoDB
+    - - socket-service
+      - Real-time transport
+      - Node.js / Socket.IO
+      - —
+    - - agent-service
+      - Knowledge & Assistance
+      - Python
+      - PostgreSQL
+
+.box {Read more} type:{tip}
+    The whole-system picture, the guiding principles and the routing table:
+    [Architecture Overview](../../dev/Developer-Guide/overview/#component-landscape).
+
+## 2.3 How the services talk
+
+We use two styles of communication, and we chose between them on purpose:
+
+- **Synchronous, over HTTP** through a single gateway — for the things a user does, and for the few
+  service-to-service calls that genuinely need an answer on the spot. Identity rides along in the
+  signed token, so no service ever has to phone another just to *authorise* a request.
+- **Asynchronous, publish/subscribe over Redis** — for the steady stream of telemetry and alerts,
+  where a producer should never be slowed down or blocked by whoever happens to be listening.
+
+The behaviour we most wanted to get right — a real-world reading reaching a browser as it happens —
+runs end to end across `sensor-service → contracts-service → socket-service`, while a second path
+raises threshold alerts through `notification-service` at the same time.
+
+.box {Read more} type:{tip}
+    The two real-time sequence diagrams and the channel list:
+    [Communication & Data Flow](../../dev/Developer-Guide/data-flow/#asynchronous-communication).
+
+## 2.4 What a service looks like inside
+
+Zoom into most services and you find the same small, layered app: a strict
+**Router → Controller → Service → Model** flow, so anyone hopping between services already knows where
+the routing, the logic and the data access live. Three services break that pattern deliberately — the
+sensor service resolves a per-metric strategy at request time, the Rust contracts service keeps its
+hot state in memory (with its database behind it for durability), and the socket service is a flat
+broker-to-WebSocket bridge with no database at all. Authorisation and error handling we pulled out
+into shared middleware rather than copy-pasting them into every controller.
+
+.box {Read more} type:{tip}
+    The layer responsibilities and the deliberate exceptions:
+    [Service Anatomy](../../dev/Developer-Guide/microservices/#the-shared-layered-architecture).
+
+## 2.5 Keeping data consistent
+
+Inside its own walls, each service is **strongly consistent** — it writes through its own database and
+that is that. Across services we settle for **eventual consistency**: a service finishes its local
+write, emits an event, and the others catch up asynchronously. No transaction ever stretches across
+two services. The handful of synchronous cross-service calls (used for provisioning) are best-effort
+and retried — never sitting on the hot path.
+
+.box {Read more} type:{tip}
+    The database-per-service and stateless-service rules that hold this together:
+    [Contributing → Architectural golden rules](../../dev/Developer-Guide/contributing/#architectural-golden-rules).
+
+---
+
+# 3 · DevOps
+
+## 3.1 Building everything with one command
+
+The developer experience stands on three layers, each with one job:
+
+.var {headers}
+   - Layer
+   - Its one job
+
+.tablebyrows {.headers}
+    - - **just**
+      - The front door. Every workflow is a `just <recipe>` — short to type, easy to remember.
+    - - **mise**
+      - The single source of truth for tool versions (Node, Python, Rust, uv, moon), identical on every machine.
+    - - **moon**
+      - Per-project tasks — `build` / `test` / `lint` / `audit` / `deps` — with caching and "only what changed" detection.
+
+The rule we never break: *don't trust whatever happens to be on your `PATH`*. Every tool is resolved
+through `mise`, and every package is declared exactly once in `.moon/workspace.yml`, with everything
+else — installs, cleans, the task graph — derived from that one list. That is what keeps a mixed
+TypeScript / Python / Rust build behaving like a single, tidy project instead of three.
+
+.box {Read more} type:{tip}
+    How the three layers cooperate, and how adding a service is a one-line change:
+    [The Toolchain: mise, moon & just](../../dev/Developer-Guide/toolchain/).
+
+## 3.2 Containers, and where they run
+
+Each service ships its own **two-stage Dockerfile** — one stage compiles, the final stage carries
+only the runtime and the built artifact — and refreshes its base-OS packages at build time so it
+clears the registry scan. The same images run in two places:
+
+- **Docker Compose, on your laptop.** Each service's compose files are discovered and merged
+  automatically. A service sits on a shared gateway network *and* a private database network, which
+  enforces the database-per-service rule *physically* — the twin service simply cannot reach the
+  auth database.
+- **Kubernetes, in production.** Stateless services run as **Deployments**, the databases and Redis as
+  **StatefulSets** with their own persistent volumes; an **nginx Ingress** routes by URL prefix,
+  `initContainers` hold a service back until its database answers, and secrets are created on the
+  cluster from a local `.env` and never go anywhere near Git.
+
+.box {Read more} type:{tip}
+    Cluster manifests, ingress rewriting and rolling updates:
+    [Deployment & Kubernetes](../../dev/Developer-Guide/deployment/). The local compose layering:
+    [Docker Compose Orchestration](../../dev/Developer-Guide/docker-compose/).
+
+## 3.3 Branching, and continuous deployment
+
+We keep the branching model boring on purpose. There is **one long-lived branch, `master`**. All the
+real work happens on short feature branches, and the only way into `master` is a **pull request** —
+reviewed, and green on the CI gate. Direct pushes are blocked.
+
+The important part is what happens *after* a merge: **every pull request that reaches `master` is
+deployed**. There is no separate "release day". The moment a PR lands, the pipeline cuts a version,
+builds and scans the images, and publishes them to the registry that production runs from — so the
+freshest `master` is also the freshest deployment. That is **continuous deployment**, and it is why
+the commit message is treated as a real input to the build rather than a note to ourselves.
+
+.box {Read more} type:{tip}
+    The full workflow and the golden rules:
+    [Contributing & Golden Rules](../../dev/Developer-Guide/contributing/#the-contribution-workflow).
+    Commit and branch conventions:
+    [Naming Conventions](../../dev/Developer-Guide/naming-conventions/).
+
+## 3.4 The pipeline
+
+CI hangs off a **single aggregated gate** (`CI Gate / CI Passed`). One path-filter runs first, then
+the work fans out — in parallel, and *only for whatever actually changed* — to each service's checks
+(auth, chat, twin, sensor, socket, notification, contracts, client, agent) plus Docker, Kubernetes,
+workflow-lint and infra. The gate makes its call as a **whitelist**: every leg has to come back
+`success` or `skipped`, and the fan-out itself must have succeeded, so an unexpected state can never
+slip through as green.
+
+Security isn't a separate stage — it's woven in:
+
+- **Dependencies** — every service runs `npm` / `cargo` / `uv` audits, and a dependency-review leg
+  fails the moment a PR *introduces* a vulnerable package.
+- **Static analysis** — CodeQL (`security-extended`) over JavaScript/TypeScript, Python and Rust, on
+  every PR, every push, and once a week.
+- **Containers** — on `master`, images are built, **scanned with Trivy, and only pushed to GHCR if the
+  scan passes** — never push first and scan later.
+- **Supply chain** — every third-party action is pinned to a full commit SHA (enforced by a repo
+  setting), and an **unmapped-path tripwire** fails the build if a file nobody mapped to a check ever
+  gets touched.
+
+And the release itself runs without anyone touching it: every push to `master` runs
+**semantic-release** (work out the version → write the changelog → bump every manifest → tag →
+publish), alongside a `cd-registry` job that rebuilds and pushes only the images whose source moved.
+
+.box {Read more} type:{tip}
+    The gate's decision logic, every leg, and the release/registry mechanics:
+    [CI/CD Pipeline → The CI gate](../../dev/Developer-Guide/cicd/#the-ci-gate) and
+    [→ CD workflows](../../dev/Developer-Guide/cicd/#cd-workflows). The versioning rules:
+    [Commits & Semantic Release](../../dev/Developer-Guide/semantic-release/#the-release-pipeline).
+
+---
+
+# 4 · A few decisions we are glad we made
+
+Some choices shaped the *process* more than the product, and they're the ones worth lingering on.
+
+- **The unmapped-path tripwire.** A pipeline built on path filters has one blind spot: a file no
+  filter knows about runs no checks, and *“no checks”* quietly reports green. So we added an inverted
+  catch-all that fails the build whenever an unmapped file is touched, which makes us stop and decide
+  on purpose. On a small team it is the mechanical stand-in for *“someone needs to look at this.”*
+- **Build, then scan, then push.** Running the vulnerability scan *before* the registry push — not
+  after — means a flagged image is simply never published. Together with the SHA-pinned actions, it
+  closes the supply-chain gaps that are easiest to miss.
+- **A single list for the whole toolchain.** Because installs, cleans and the whole task graph all
+  come from `moon query projects`, the package list cannot drift. Adding a service is a single line
+  that then flows into build, test, lint, audit and install on its own.
+- **A small script instead of Lerna.** A tiny `fs` script (`bump-versions.mjs`) keeps every manifest
+  — `package.json`, `Cargo.toml`, `pyproject.toml` — in step, which let us sidestep the npm-workspace
+  constraints that Lerna could not satisfy in our layout.
+
+.box {Read more} type:{tip}
+    The hardening details: [CI/CD Pipeline → The unmapped-path tripwire](../../dev/Developer-Guide/cicd/#the-unmapped-path-tripwire).
+    The toolchain single source of truth and the Lerna call:
+    [The Toolchain](../../dev/Developer-Guide/toolchain/) ·
+    [Contributing](../../dev/Developer-Guide/contributing/#why-bump-versionsmjs-instead-of-lerna).
+
+---
+
+# 5 · Conclusion
+
+Building CrowdVision was, more than anything, an exercise in **getting the process right first**. One
+polyglot build keeps Node, Python and Rust services behind a single interface; one CI gate checks
+every change with security woven through it; and a fully automated path carries a commit all the way
+from a pull request to a scanned image running on Kubernetes — with the architecture's boundaries
+kept in place by the tooling rather than by discipline alone.
+
+Looking back, the process gave us four things we genuinely value:
+
+- **Builds that just work, anywhere** — one command, one cache, and no surprises about which tool
+  version is on the machine.
+- **A straight line from commit to production** — versioning, changelog, image publishing and the
+  rollout to production all happen on their own.
+- **Security as a gate, not a footnote** — dependency, static-analysis and container scans can block
+  a merge or a publish, and the supply chain is pinned and tripwired.
+- **DDD that survived contact with real code** — one bounded context per service, one database per
+  service, kept honest by network isolation and by CI.
+
+.box {Explore the system} type:{note}
+    The full implementation depth is in the [Developer Guide](../../dev/Developer-Guide/); the product
+    walkthrough is in the [User Guide](../../user/User-Guide/); the HTTP contracts are in the
+    [API Reference](../../index.html).

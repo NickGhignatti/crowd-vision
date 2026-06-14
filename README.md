@@ -58,12 +58,13 @@ For the full reference, see the [Agent Service Guide](documentation/developer/se
 
 ## 📄 License
 
-Copyright © 2026 Ghignatti Nicolò. All rights reserved.
+Copyright © 2026 the CrowdVision project owner. All rights reserved.
 
-CrowdVision is proprietary software. This repository is public so you can view
-the code — it is not open source. You're welcome to read and explore it for
-personal, non-commercial evaluation, but copying, forking, modifying, running,
-distributing, or using it commercially isn't permitted.
+CrowdVision is **source-available, not open source**. This repository is public so
+you can read and evaluate the code. GitHub's Terms of Service let you view and fork
+it on GitHub — but any fork stays under this license, and running it, building a
+product from it, redistributing it outside GitHub, or using it commercially isn't
+permitted.
 
 See the full [LICENSE](LICENSE) for the details. For commercial use or any
 permission not covered there, just reach out: **nick.ghignatti@gmail.com**.

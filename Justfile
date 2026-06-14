@@ -157,10 +157,11 @@ agent-ingest:
 # ── Documentation ─────────────────────────────────────────────────────────────
 
 # Requires the Quarkdown CLI + a JDK 17+ on PATH: https://github.com/iamgio/quarkdown
-[doc("Compile both Quarkdown guides to landing-page/{user,dev} (mirrors CI).")]
+[doc("Compile the Quarkdown guides + reports to landing-page/{user,dev,reports} (mirrors CI).")]
 docs:
     quarkdown c documentation/user/main.qd --out landing-page/user
     quarkdown c documentation/developer/main.qd --out landing-page/dev
+    quarkdown c documentation/reports/spe/main.qd --out landing-page/reports
 
 [doc("Live-reloading preview server for one guide. dir=user|developer (default: user).")]
 docs-preview dir="user":
