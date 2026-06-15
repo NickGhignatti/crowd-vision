@@ -43,6 +43,9 @@ jobs:
       - name: Build dev docs
         run: quarkdown c documentation/developer/main.qd --out landing-page/dev
 
+      - name: Build SPE report
+        run: quarkdown c documentation/reports/spe/main.qd --out landing-page/reports
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
         with:

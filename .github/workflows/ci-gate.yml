@@ -120,6 +120,7 @@ jobs:
               - '!output/**'
               - '!**/*.md'
               - '!LICENSE'
+              - '!.gitignore'
 
       # Build the Docker matrix (include-form) from the changed services that
       # ship an image. Only these get a PR-time build
