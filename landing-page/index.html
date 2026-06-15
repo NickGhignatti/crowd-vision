@@ -170,6 +170,32 @@
                 </div>
             </div>
 
+            <!-- Code Coverage (populated client-side from the coverage-data branch) -->
+            <div
+                class="lg:col-span-2 bg-white overflow-hidden shadow rounded-lg border border-slate-100 hover:shadow-md transition-shadow">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <h3 class="text-lg leading-6 font-medium text-slate-900 flex items-center">
+                            <svg class="mr-2 h-5 w-5 text-primary-500" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                                </path>
+                            </svg>
+                            Code Coverage
+                        </h3>
+                        <span id="cov-overall" class="text-sm font-semibold text-slate-400">Loading…</span>
+                    </div>
+                    <div class="mt-2 text-sm text-slate-500">
+                        <p>Line coverage per service, refreshed on every push to <code
+                                class="text-slate-700">master</code>.</p>
+                    </div>
+                    <div id="cov-body" class="mt-5">
+                        <p class="text-sm text-slate-400">Loading coverage data…</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
     </main>
@@ -183,6 +209,61 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        // Code-coverage card: fetched live from the coverage-data orphan branch.
+        (function () {
+            const BASE = "https://raw.githubusercontent.com/NickGhignatti/crowd-vision/coverage-data";
+            const SERVICES = [
+                ["auth", "auth-service"], ["chat", "chat-service"], ["notification", "notification-service"],
+                ["sensor", "sensor-service"], ["socket", "socket-service"], ["twin", "twin-service"],
+                ["client", "client"], ["agent", "agent-service"], ["contracts", "contracts-service"],
+            ];
+            const overallEl = document.getElementById("cov-overall");
+            const bodyEl = document.getElementById("cov-body");
+            const colorFor = (p) => (p >= 80 ? "#22c55e" : p >= 60 ? "#f59e0b" : "#ef4444");
+
+            function row(name, pct) {
+                const c = colorFor(pct);
+                return `<div class="flex items-center gap-3">
+                    <span class="w-32 shrink-0 text-sm text-slate-600 truncate">${name}</span>
+                    <div class="flex-grow h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full" style="width:${pct}%;background:${c}"></div>
+                    </div>
+                    <span class="w-12 text-right text-sm font-medium text-slate-700 tabular-nums">${pct.toFixed(1)}%</span>
+                </div>`;
+            }
+
+            async function load() {
+                try {
+                    const [sRes, bRes] = await Promise.all([
+                        fetch(BASE + "/summary.json", { cache: "no-store" }),
+                        fetch(BASE + "/badge.json", { cache: "no-store" }),
+                    ]);
+                    if (!sRes.ok) throw new Error("no summary");
+                    const summary = await sRes.json();
+                    let overall = null;
+                    if (bRes.ok) { try { overall = (await bRes.json()).message; } catch (_) { } }
+                    if (overall) {
+                        overallEl.textContent = overall + " overall";
+                        overallEl.style.color = colorFor(parseFloat(overall));
+                    } else { overallEl.textContent = ""; }
+                    const rows = SERVICES
+                        .filter(([k]) => k in summary)
+                        .map(([k, name]) => row(name, Number(summary[k].lines) || 0))
+                        .join("");
+                    bodyEl.innerHTML =
+                        `<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">${rows}</div>
+                         <p class="mt-4 text-xs text-slate-400">Report-only — coverage is tracked but never blocks a merge.</p>`;
+                } catch (e) {
+                    overallEl.textContent = "";
+                    bodyEl.innerHTML =
+                        `<p class="text-sm text-slate-400">Coverage data isn’t published yet — it appears after the first <code class="text-slate-600">Coverage</code> workflow run on <code class="text-slate-600">master</code>.</p>`;
+                }
+            }
+            load();
+        })();
+    </script>
 
 </body>
 
