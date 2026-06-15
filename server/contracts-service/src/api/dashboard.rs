@@ -6,7 +6,16 @@ use crate::models::{MetricContract, MetricsDiscoveryResponse};
 
 // GET /metrics
 pub async fn get_dashboard_tables() -> impl IntoResponse {
-    let services = discover_services();
+    let metrics = collect_metrics(discover_services()).await;
+    Json(serde_json::json!({ "metrics": metrics })).into_response()
+}
+
+/// Fetches each service's `/contracts` declaration, merging and de-duplicating
+/// the metrics across all of them. A service that is unreachable or returns an
+/// unparseable body is logged and skipped — one bad service never sinks the
+/// whole response. Pure HTTP-in → Vec-out (no env-var discovery), so it is
+/// testable against a mock HTTP server.
+async fn collect_metrics(services: Vec<String>) -> Vec<MetricContract> {
     let mut possible_metrics: Vec<MetricContract> = Vec::new();
 
     for service in services {
@@ -37,7 +46,7 @@ pub async fn get_dashboard_tables() -> impl IntoResponse {
         }
     }
 
-    Json(serde_json::json!({ "metrics": possible_metrics })).into_response()
+    possible_metrics
 }
 
 fn push_unique_metric(possible_metrics: &mut Vec<MetricContract>, metric: MetricContract) {
@@ -150,5 +159,111 @@ mod tests {
             metric_with("people_count", "IPeople", "svc-b"),
         );
         assert_eq!(metrics.len(), 4);
+    }
+
+    // ── collect_metrics (HTTP fan-out, mocked with wiremock) ──────────────────
+    // Exercises the real reqwest path, both response shapes, the source_service
+    // back-fill, cross-service dedup, and the unreachable/unparseable skip arms.
+
+    use super::collect_metrics;
+    use serde_json::json;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// Mounts a `GET /contracts` response on a fresh mock server and returns it.
+    async fn mock_contracts(body: serde_json::Value) -> MockServer {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/contracts"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body))
+            .mount(&server)
+            .await;
+        server
+    }
+
+    #[tokio::test]
+    async fn collects_bare_array_response_and_backfills_source_from_url() {
+        // The `Metrics` variant: a bare array with no service name. source_service
+        // must be back-filled from the service URL it was fetched from.
+        let server = mock_contracts(json!([{
+            "metricKey": "temperature",
+            "label": "Temperature",
+            "interfaceName": "ITemperature",
+            "fields": []
+        }]))
+        .await;
+
+        let metrics = collect_metrics(vec![server.uri()]).await;
+
+        assert_eq!(metrics.len(), 1);
+        assert_eq!(metrics[0].metric_key, "temperature");
+        assert_eq!(
+            metrics[0].source_service.as_deref(),
+            Some(server.uri().as_str())
+        );
+    }
+
+    #[tokio::test]
+    async fn collects_service_contract_response_and_backfills_source_from_service_name() {
+        // The `ServiceContract` variant carries its own service name, which is
+        // used as source_service rather than the URL.
+        let server = mock_contracts(json!({
+            "service": "sensor-service",
+            "metrics": [{
+                "metricKey": "co2",
+                "label": "CO2",
+                "interfaceName": "IAirQuality",
+                "fields": []
+            }]
+        }))
+        .await;
+
+        let metrics = collect_metrics(vec![server.uri()]).await;
+
+        assert_eq!(metrics.len(), 1);
+        assert_eq!(metrics[0].source_service.as_deref(), Some("sensor-service"));
+    }
+
+    #[tokio::test]
+    async fn dedupes_identical_metrics_returned_by_one_service() {
+        let server = mock_contracts(json!({
+            "service": "sensor-service",
+            "metrics": [
+                { "metricKey": "temperature", "label": "T", "interfaceName": "ITemperature", "fields": [] },
+                { "metricKey": "temperature", "label": "T", "interfaceName": "ITemperature", "fields": [] }
+            ]
+        }))
+        .await;
+
+        let metrics = collect_metrics(vec![server.uri()]).await;
+
+        assert_eq!(metrics.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn skips_service_returning_unparseable_body() {
+        // No matcher mounted → wiremock answers 404 with a body that is not a
+        // MetricsDiscoveryResponse, exercising the deserialize-error arm.
+        let server = MockServer::start().await;
+        let metrics = collect_metrics(vec![server.uri()]).await;
+        assert!(metrics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn keeps_reachable_service_when_another_is_unreachable() {
+        let server = mock_contracts(json!([{
+            "metricKey": "temperature",
+            "label": "Temperature",
+            "interfaceName": "ITemperature",
+            "fields": []
+        }]))
+        .await;
+
+        // Port 1 has nothing listening → reqwest returns an error, exercising the
+        // unreachable arm; the good service must still come through.
+        let metrics = collect_metrics(vec!["http://127.0.0.1:1".to_string(), server.uri()]).await;
+
+        assert_eq!(metrics.len(), 1);
+        assert_eq!(metrics[0].metric_key, "temperature");
     }
 }
