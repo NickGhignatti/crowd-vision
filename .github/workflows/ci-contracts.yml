@@ -34,16 +34,24 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy, llvm-tools-preview
 
-      - name: 🎨 Check formatting
+      # Caches the cargo registry + target/ so dependency crates aren't recompiled
+      # on every run. `workspaces` must point at the crate dir — `uses:` steps do
+      # not honor the job's `working-directory` default.
+      - name: Cache cargo registry + build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: server/contracts-service
+
+      - name: Check formatting
         run: cargo fmt --check
 
-      - name: 📎 Run Clippy
+      - name: Run Clippy
         run: cargo clippy -- -D warnings
 
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
 
-      - name: 🧪 Run tests with coverage
+      - name: Run tests with coverage
         run: cargo llvm-cov --json --summary-only --output-path coverage.json
 
       - name: Coverage summary
