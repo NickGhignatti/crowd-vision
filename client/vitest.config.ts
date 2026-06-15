@@ -24,7 +24,13 @@ export default defineConfig((env) => {
             },
           },
         },
-        pool: "threads"
+        pool: "threads",
+        coverage: {
+          provider: 'v8',
+          include: ['src/**/*.{ts,vue}'],
+          exclude: ['src/main.ts', 'src/**/*.d.ts', 'src/assets/**', 'src/i18n.ts', '**/__tests__/**'],
+          reporter: ['text-summary', 'json-summary', 'lcov'],
+        }
       },
     }),
   )

@@ -40,7 +40,13 @@ jobs:
         run: npm run build
 
       - name: Run Tests
-        run: npm run test
+        run: npm run test:coverage
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          jq -r '.total | "| **notification-service** | \(.lines.pct)% | \(.branches.pct)% | \(.functions.pct)% |"' \
+            coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Audit Production Dependencies
         run: npm audit --audit-level=high --omit=dev

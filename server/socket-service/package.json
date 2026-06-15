@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "lint": "eslint .",
     "lint:fix": "prettier --write src tsconfig.json tsconfig.build.json package.json && eslint . --fix"
   },
@@ -66,6 +67,17 @@
     },
     "setupFilesAfterEnv": [
       "./__tests__/setup.ts"
+    ],
+    "coverageProvider": "v8",
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/index.ts",
+      "!src/**/*.d.ts"
+    ],
+    "coverageReporters": [
+      "text-summary",
+      "json-summary",
+      "lcov"
     ]
   }
 }

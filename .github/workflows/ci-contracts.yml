@@ -32,7 +32,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6 # v1
         with:
           toolchain: stable
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
 
       - name: 🎨 Check formatting
         run: cargo fmt --check
@@ -40,8 +40,13 @@ jobs:
       - name: 📎 Run Clippy
         run: cargo clippy -- -D warnings
 
-      - name: 🧪 Run tests
-        run: cargo test
+      # Compiled from source to avoid pinning a third-party install action.
+      # Swap for taiki-e/install-action@<sha> (tool: cargo-llvm-cov) for a faster prebuilt binary.
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+
+      - name: 🧪 Run tests with coverage
+        run: cargo llvm-cov --summary-only
 
       - name: 🔒 Security audit
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
