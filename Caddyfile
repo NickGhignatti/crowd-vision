@@ -1,4 +1,7 @@
 :80 {
+    # Enable compression using Zstandard
+    encode zstd gzip
+
     # ── CORS ─────────────────────────────────────────────────────────────────
     # Handle CORS once here at the gateway so no individual service needs it.
     # {http.request.header.Origin} echoes the browser's own origin back,
