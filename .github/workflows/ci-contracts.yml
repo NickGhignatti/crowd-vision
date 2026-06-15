@@ -40,8 +40,6 @@ jobs:
       - name: 📎 Run Clippy
         run: cargo clippy -- -D warnings
 
-      # Compiled from source to avoid pinning a third-party install action.
-      # Swap for taiki-e/install-action@<sha> (tool: cargo-llvm-cov) for a faster prebuilt binary.
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
 
