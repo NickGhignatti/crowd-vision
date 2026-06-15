@@ -46,7 +46,16 @@ jobs:
         run: cargo install cargo-llvm-cov --locked
 
       - name: 🧪 Run tests with coverage
-        run: cargo llvm-cov --summary-only
+        run: cargo llvm-cov --json --summary-only --output-path coverage.json
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo "| Service | Lines | Branches | Functions |"
+            echo "| --- | --- | --- | --- |"
+            jq -r '.data[0].totals as $t | "| **contracts-service** | \(($t.lines.percent*100|round)/100)% | \(($t.branches.percent*100|round)/100)% | \(($t.functions.percent*100|round)/100)% |"' coverage.json
+          } >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: 🔒 Security audit
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
