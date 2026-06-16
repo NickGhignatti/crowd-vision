@@ -25,8 +25,8 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/composables/building/useSensorData', () => ({
-  getBuildingData: () => ({
+vi.mock('@/composables/building/useBuildingSensor', () => ({
+  useBuildingSensor: () => ({
     data: ref([]),
     isLoading: ref(false),
     error: ref(null),

@@ -7,7 +7,7 @@ import PanelHeader from '@/components/panels/PanelHeader.vue'
 import type { Building, Room } from '@/models/building.ts'
 import { useUserPermissions } from '@/composables/auth/useUserPermissions.ts'
 import { useI18n } from 'vue-i18n'
-import { getBuildingData } from '@/composables/building/useSensorData.ts'
+import { useBuildingSensor } from '@/composables/building/useBuildingSensor.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 import { ref, computed, nextTick, watch } from 'vue'
 
@@ -62,9 +62,9 @@ watch(
 )
 
 const buildingId = computed(() => props.buildingModel?.id)
-const { data: peopleData } = getBuildingData(buildingId, 'peopleCount')
-const { data: temperatures } = getBuildingData(buildingId, 'temperature')
-const { data: airQuality } = getBuildingData(buildingId, 'airQuality')
+const { data: peopleData } = useBuildingSensor(buildingId, 'peopleCount')
+const { data: temperatures } = useBuildingSensor(buildingId, 'temperature')
+const { data: airQuality } = useBuildingSensor(buildingId, 'airQuality')
 
 const enrichedRooms = computed<RoomItemBody[]>(() => {
   if (!props.buildingModel) return []
