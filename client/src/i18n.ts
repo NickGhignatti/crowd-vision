@@ -228,6 +228,20 @@ const messages = {
         temperature: 'Temperature',
         occupancy: 'Occupancy',
         updateFailed: 'Failed to update room',
+        sensors: {
+          title: 'Sensors',
+          add: 'Add sensor',
+          sensorId: 'Sensor ID',
+          sensorIdPlaceholder: 'Enter sensor ID',
+          sensorType: 'Sensor type',
+          empty: 'No sensors registered in this room yet.',
+          loading: 'Loading room sensors...',
+          error: 'Failed to load room sensors.',
+          registerError: 'Failed to register the sensor.',
+          types: {
+            temperature: 'Temperature',
+          },
+        },
       },
       controls: {
         buttons: {
@@ -516,6 +530,20 @@ const messages = {
         temperature: 'Temperatura',
         occupancy: 'Occupazione',
         updateFailed: 'Aggiornamento stanza non riuscito',
+        sensors: {
+          title: 'Sensori',
+          add: 'Aggiungi sensore',
+          sensorId: 'ID Sensore',
+          sensorIdPlaceholder: 'Inserisci ID sensore',
+          sensorType: 'Tipo sensore',
+          empty: 'Nessun sensore registrato in questa stanza.',
+          loading: 'Caricamento sensori stanza...',
+          error: 'Caricamento sensori stanza non riuscito.',
+          registerError: 'Registrazione sensore non riuscita.',
+          types: {
+            temperature: 'Temperatura',
+          },
+        },
       },
       controls: {
         buttons: {

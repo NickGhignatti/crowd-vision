@@ -2,12 +2,13 @@
 import EditRoomModal from '@/components/modals/editing/EditRoomModal.vue'
 import ShortSearchInput from '@/components/inputs/search/ShortSearchInput.vue'
 import RoomCard from '@/components/cards/RoomCard.vue'
+import RoomSensorsPanel from '@/components/selectors/RoomSensorsPanel.vue'
 import CollapsiblePanel from '@/components/panels/CollapsiblePanel.vue'
 import PanelHeader from '@/components/panels/PanelHeader.vue'
 import type { Building, Room } from '@/models/building.ts'
 import { useUserPermissions } from '@/composables/auth/useUserPermissions.ts'
 import { useI18n } from 'vue-i18n'
-import { getBuildingData } from '@/composables/building/useSensorData.ts'
+import { getBuildingData, useBuildingSensors, type RoomSensorRecord } from '@/composables/building/useSensorData.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 import { ref, computed, nextTick, watch } from 'vue'
 
@@ -65,6 +66,19 @@ const buildingId = computed(() => props.buildingModel?.id)
 const { data: peopleData } = getBuildingData(buildingId, 'peopleCount')
 const { data: temperatures } = getBuildingData(buildingId, 'temperature')
 const { data: airQuality } = getBuildingData(buildingId, 'airQuality')
+const { sensors: buildingSensors, isLoading: sensorsLoading, error: sensorsError, registerSensor } =
+  useBuildingSensors(buildingId)
+
+const sensorsByRoom = computed<Record<string, RoomSensorRecord[]>>(() => {
+  const grouped: Record<string, RoomSensorRecord[]> = {}
+
+  for (const sensor of buildingSensors.value) {
+    if (!grouped[sensor.roomId]) grouped[sensor.roomId] = []
+    grouped[sensor.roomId]!.push(sensor)
+  }
+
+  return grouped
+})
 
 const enrichedRooms = computed<RoomItemBody[]>(() => {
   if (!props.buildingModel) return []
@@ -127,6 +141,7 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
             v-for="r in enrichedRooms"
             :key="r.room.id"
             :ref="(el) => (roomRefs[r.room.id] = el as HTMLElement)"
+            class="space-y-2"
           >
             <RoomCard
               :room="r.room"
@@ -137,6 +152,15 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
               :indoor-aqi="r.indoorAqi"
               @select="emit('toggle-select', $event)"
               @edit="handleOpenEdit"
+            />
+
+            <RoomSensorsPanel
+              :room-id="r.room.id"
+              :room-name="r.room.name"
+              :sensors="sensorsByRoom[r.room.id] ?? []"
+              :is-loading="sensorsLoading"
+              :error="sensorsError"
+              :on-register-sensor="registerSensor"
             />
           </div>
 

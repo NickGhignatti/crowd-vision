@@ -23,6 +23,12 @@ export function createRouter(
   router.get("/:sensorType/entireBuilding", reader.getAllLatestBuilding);
   router.get("/:sensorType/dashboard", reader.getDashboard);
 
+  router.get("/sensors/buildings/:buildingId", reader.getBuildingSensors);
+  router.get(
+    "/sensors/buildings/:buildingId/rooms/:roomId",
+    reader.getRoomSensors,
+  );
+
   router.post("/sensor", writer)
 
   router.post("/executeAction", action)

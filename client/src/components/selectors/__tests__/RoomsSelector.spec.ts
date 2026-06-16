@@ -24,6 +24,13 @@ vi.mock('@/composables/building/useSensorData', () => ({
     isLoading: ref(false),
     error: ref(null),
   })),
+  useBuildingSensors: vi.fn(() => ({
+    sensors: ref([]),
+    isLoading: ref(false),
+    error: ref(null),
+    refresh: vi.fn(),
+    registerSensor: vi.fn().mockResolvedValue(undefined),
+  })),
 }))
 
 const EditRoomStub = {
@@ -36,6 +43,11 @@ const RoomCardStub = {
   props: ['room', 'isSelected', 'canEdit'],
   emits: ['select', 'edit'],
   template: '<div class="room-card-stub" :data-id="room.id"></div>',
+}
+
+const RoomSensorsPanelStub = {
+  props: ['roomId', 'roomName', 'sensors', 'isLoading', 'error', 'onRegisterSensor'],
+  template: '<div class="room-sensors-panel-stub"></div>',
 }
 
 const SearchBarStub = {
@@ -51,6 +63,7 @@ const SearchBarStub = {
 const stubs = {
   EditRoomModal: EditRoomStub,
   RoomCard: RoomCardStub,
+  RoomSensorsPanel: RoomSensorsPanelStub,
   ShortSearchInput: SearchBarStub,
   Transition: false, // Disable async animations for instant DOM updates
 }

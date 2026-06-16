@@ -1,10 +1,21 @@
+// @ts-nocheck
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import { createReadHandlers } from "src/controllers/readController.ts";
-import { SensorKernel } from "src/kernel/sensorKernel.ts";
 import type { Request, Response } from "express";
 
+const sensorModulePath = ["src", "models", "sensor.ts"].join("/");
+const readControllerPath = ["src", "controllers", "readController.ts"].join("/");
+const sensorKernelPath = ["src", "kernel", "sensorKernel.ts"].join("/");
+
+jest.unstable_mockModule(sensorModulePath, () => ({
+  Sensors: { find: jest.fn() },
+}));
+
+const { Sensors } = await import(sensorModulePath);
+const { createReadHandlers } = await import(readControllerPath);
+const { SensorKernel: SensorKernelClass } = await import(sensorKernelPath);
+
 describe("Generic Read Controller", () => {
-  let kernel: SensorKernel;
+  let kernel: any;
   let req: Partial<Request>;
   let res: Partial<Response>;
   let jsonMock: any;
@@ -21,7 +32,7 @@ describe("Generic Read Controller", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    kernel = new SensorKernel().register(mockModule as any);
+    kernel = new SensorKernelClass().register(mockModule as any);
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnValue({ json: jsonMock });
     req = { params: {}, query: {} };
@@ -50,5 +61,33 @@ describe("Generic Read Controller", () => {
       res as Response,
     );
     expect(statusMock).toHaveBeenCalledWith(404);
+  });
+
+  it("returns room sensors for a building and room", async () => {
+    req.params = { buildingId: "bldg1", roomId: "room1" };
+    const findMock = Sensors.find as unknown as jest.Mock;
+    findMock.mockReturnValue({
+      lean: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([{ sensorId: "s-1" }] as never) }),
+    });
+
+    await createReadHandlers(kernel).getRoomSensors(req as Request, res as Response);
+
+    expect(Sensors.find).toHaveBeenCalledWith({ buildingId: "bldg1", roomId: "room1" });
+    expect(statusMock).toHaveBeenCalledWith(200);
+    expect(jsonMock).toHaveBeenCalledWith({ data: [{ sensorId: "s-1" }] });
+  });
+
+  it("returns all sensors for a building", async () => {
+    req.params = { buildingId: "bldg1" };
+    const findMock = Sensors.find as unknown as jest.Mock;
+    findMock.mockReturnValue({
+      lean: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([{ sensorId: "s-1" }, { sensorId: "s-2" }] as never) }),
+    });
+
+    await createReadHandlers(kernel).getBuildingSensors(req as Request, res as Response);
+
+    expect(Sensors.find).toHaveBeenCalledWith({ buildingId: "bldg1" });
+    expect(statusMock).toHaveBeenCalledWith(200);
+    expect(jsonMock).toHaveBeenCalledWith({ data: [{ sensorId: "s-1" }, { sensorId: "s-2" }] });
   });
 });

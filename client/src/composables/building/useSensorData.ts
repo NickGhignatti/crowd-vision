@@ -1,6 +1,7 @@
 import { shallowRef, triggerRef, ref, watch, type Ref } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import { socket } from '@/services/socket'
+import type { SensorDraftType } from '@/models/buildingDraft.ts'
 
 export interface ApiDataPoint {
   timestamp: string
@@ -17,6 +18,13 @@ export interface ApiDataPoint {
   aqi?: number
   indoor_aqi?: number
   indoorAqi?: number
+}
+
+export interface RoomSensorRecord {
+  buildingId: string
+  roomId: string
+  sensorId: string
+  sensorType: SensorDraftType | string
 }
 
 export function getBuildingData(
@@ -113,4 +121,78 @@ export function getBuildingData(
   )
 
   return { data, isLoading, error }
+}
+
+export function useBuildingSensors(buildingId: Ref<string | undefined>) {
+  const sensors = shallowRef<RoomSensorRecord[]>([])
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+
+  const refresh = async () => {
+    if (!buildingId.value) {
+      sensors.value = []
+      return
+    }
+
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const response = await makeRequest(
+        `/sensor/sensors/buildings/${buildingId.value}`,
+      )
+
+      if (!response.ok) {
+        throw new Error('Fetch failed')
+      }
+
+      const result = await response.json()
+      sensors.value = result.data || []
+    } catch (err: any) {
+      error.value = err.message
+      console.error('Room sensor fetch error:', err)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const registerSensor = async (payload: {
+    roomId: string
+    sensorId: string
+    sensorType: SensorDraftType
+  }) => {
+    if (!buildingId.value) return
+
+    const response = await makeRequest('/sensor/sensor', 'POST', {
+      body: JSON.stringify({
+        sensorData: {
+          buildingId: buildingId.value,
+          roomId: payload.roomId,
+          sensorId: payload.sensorId,
+          sensorType: payload.sensorType,
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to register sensor')
+    }
+
+    await refresh()
+  }
+
+  watch(
+    buildingId,
+    async (newId) => {
+      if (!newId) {
+        sensors.value = []
+        return
+      }
+
+      await refresh()
+    },
+    { immediate: true },
+  )
+
+  return { sensors, isLoading, error, refresh, registerSensor }
 }
