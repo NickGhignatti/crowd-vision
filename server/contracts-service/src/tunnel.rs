@@ -14,11 +14,6 @@ fn extract_metric_type(raw: &Value) -> Option<&str> {
     raw.get("type").and_then(|v| v.as_str())
 }
 
-/// Returns true if `metric_type` appears in the building's list of allowed columns.
-fn metric_is_allowed(allowed_columns: &[String], metric_type: &str) -> bool {
-    allowed_columns.iter().any(|col| col == metric_type)
-}
-
 /// Initializes the telemetry processing tunnel.
 pub async fn start_telemetry_tunnel(redis_url: &str, state: AppState) {
     let client = match redis::Client::open(redis_url) {
@@ -109,13 +104,10 @@ fn resolve_channel(
     raw: &Value,
     building_preferences: &DashMap<String, Vec<String>>,
 ) -> Option<String> {
-    let metric_type = match extract_metric_type(raw) {
-        Some(t) => t,
-        None => {
-            info!("Raw telemetry missing 'type' field, skipping");
-            return None;
-        }
-    };
+    if extract_metric_type(raw).is_none() {
+        info!("Raw telemetry missing 'type' field, skipping");
+        return None;
+    }
 
     let building_id = match extract_building_id(raw) {
         Some(id) => id,
@@ -125,18 +117,14 @@ fn resolve_channel(
         }
     };
 
-    let Some(allowed_columns) = building_preferences.get(building_id) else {
-        info!(
-            "No preferences found for building {}, skipping",
-            building_id
-        );
-        return None;
-    };
-
-    if !metric_is_allowed(&allowed_columns, metric_type) {
+    if !building_preferences.contains_key(building_id) {
+        info!("No preferences found for building {}, skipping", building_id);
         return None;
     }
 
+    // No metric filtering: every sensor metric a known building emits is
+    // forwarded. Which columns the dashboard *displays* is a client concern;
+    // the model view needs the full telemetry stream regardless.
     Some(format!("telemetry:filtered:{}", building_id))
 }
 
@@ -173,32 +161,9 @@ async fn process_and_publish(
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_building_id, extract_metric_type, metric_is_allowed, resolve_channel};
+    use super::{extract_building_id, extract_metric_type, resolve_channel};
     use dashmap::DashMap;
     use serde_json::json;
-
-    #[test]
-    fn allowed_when_type_matches_a_column() {
-        let cols = vec!["temperature".to_string()];
-        assert!(metric_is_allowed(&cols, "temperature"));
-    }
-
-    #[test]
-    fn not_allowed_when_type_absent_from_columns() {
-        let cols = vec!["temperature".to_string()];
-        assert!(!metric_is_allowed(&cols, "air_quality"));
-    }
-
-    #[test]
-    fn not_allowed_when_column_list_is_empty() {
-        assert!(!metric_is_allowed(&[], "temperature"));
-    }
-
-    #[test]
-    fn allowed_when_type_is_one_of_multiple_columns() {
-        let cols = vec!["temperature".to_string(), "people_count".to_string()];
-        assert!(metric_is_allowed(&cols, "people_count"));
-    }
 
     #[test]
     fn extracts_string_type_field() {
@@ -264,10 +229,16 @@ mod tests {
     }
 
     #[test]
-    fn drops_metric_not_in_buildings_allowed_columns() {
+    fn forwards_any_metric_for_a_known_building() {
+        // The dashboard column set no longer gates telemetry: a metric the
+        // building doesn't list as a column is still forwarded (the model view
+        // needs it; display filtering is the client's job).
         let map = prefs(&[("bldg-1", &["temperature"])]);
         let raw = json!({ "type": "air_quality", "buildingId": "bldg-1", "value": 5 });
-        assert_eq!(resolve_channel(&raw, &map), None);
+        assert_eq!(
+            resolve_channel(&raw, &map),
+            Some("telemetry:filtered:bldg-1".to_string())
+        );
     }
 
     #[test]

@@ -36,5 +36,6 @@ socket.on('notification', (data) => {
     timestamp: new Date(),
     read: false,
   })
+  if (socketState.notifications.length > 100) socketState.notifications.length = 100
   socketState.unreadCount++
 })

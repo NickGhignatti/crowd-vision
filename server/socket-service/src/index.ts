@@ -61,11 +61,11 @@ await redisSubscriber.pSubscribe("telemetry:filtered:*", (message, channel) =>
   relayTelemetry(io, message, channel),
 );
 
-io.on("connection", handleConnection);
-
 server.listen(PORT);
 
 const shutdown = async () => {
+  // Force-exit if the graceful close hangs, so the pod always dies before SIGKILL.
+  setTimeout(() => process.exit(1), 10_000).unref();
   io.close();
   server.close();
   await redisSubscriber.unsubscribe();
@@ -73,6 +73,5 @@ const shutdown = async () => {
   await redisSubscriber.quit();
   process.exit(0);
 };
-setTimeout(() => process.exit(1), 10_000).unref();
 process.on("SIGTERM", () => void shutdown());
 process.on("SIGINT", () => void shutdown());
