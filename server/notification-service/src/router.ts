@@ -10,6 +10,7 @@ import {
 
 const router = Router();
 
+router.get("/health", (_req, res) => res.status(200).send());
 router.get("/public-key", publicKey);
 router.post("/subscribe", subscribe);
 router.get("/preferences/:accountName", getPreferences);

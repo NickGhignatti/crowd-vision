@@ -27,6 +27,7 @@ const io = new Server(server, {
   },
 });
 
+app.get("/health", (_req, res) => res.status(200).send());
 app.get("/metrics", async (_req, res) => {
   res.set("Content-Type", register.contentType);
   res.send(await register.metrics());
@@ -48,3 +49,15 @@ await redisSubscriber.pSubscribe("telemetry:filtered:*", (message, channel) =>
 io.on("connection", handleConnection);
 
 server.listen(PORT);
+
+const shutdown = async () => {
+  io.close();
+  server.close();
+  await redisSubscriber.unsubscribe();
+  await redisSubscriber.pUnsubscribe();
+  await redisSubscriber.quit();
+  process.exit(0);
+};
+setTimeout(() => process.exit(1), 10_000).unref();
+process.on("SIGTERM", () => void shutdown());
+process.on("SIGINT", () => void shutdown());

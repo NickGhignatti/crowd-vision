@@ -1,4 +1,5 @@
 use axum::response::IntoResponse;
+use axum::http::StatusCode;
 use prometheus::{Encoder, IntCounter, TextEncoder, register_int_counter};
 use prometheus::{Histogram, register_histogram};
 use std::sync::LazyLock;
@@ -39,6 +40,11 @@ pub async fn metrics_handler() -> impl IntoResponse {
     // function — take an owned copy so the response doesn't reference a local.
     let content_type = encoder.format_type().to_owned();
     ([(axum::http::header::CONTENT_TYPE, content_type)], buffer)
+}
+
+/// GET /health
+pub async fn health() -> impl IntoResponse {
+    StatusCode::OK
 }
 
 #[cfg(test)]

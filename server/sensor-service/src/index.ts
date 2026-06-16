@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 
@@ -33,12 +34,20 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 if (process.env.NODE_ENV !== "test") {
   Promise.all([connectMongo(), connectRedis()])
     .then(() => {
-      app.listen(PORT, () => {
+      const server = app.listen(PORT, () => {
         console.info(`[sensor-service] Listening on port ${String(PORT)}`);
         console.info(
           `[sensor-service] Registered sensor types: [${kernel.getRegisteredTypes().join(", ")}]`,
         );
       });
+      const shutdown = () => {
+        server.close(() => {
+          mongoose.disconnect().finally(() => process.exit(0));
+        });
+        setTimeout(() => process.exit(1), 10_000).unref();
+      };
+      process.on("SIGTERM", shutdown);
+      process.on("SIGINT", shutdown);
     })
     .catch((err: unknown) => {
       console.error("[sensor-service] Failed to start:", err);
