@@ -3,9 +3,9 @@
 
 **Realised by:** contracts-service · **Subdomain type:** Core
 
-This page describes the design-time model of the Telemetry Distribution context. The runtime mechanics — how filtering is made fast, how streams are carried to the browser — are architectural concerns documented in the [Contracts Service](../services/contracts.qd) and [Architecture Overview](../architecture/overview.qd) pages.
+This page describes the design-time model of the Telemetry Distribution context. The runtime mechanics — how routing is made fast, how streams are carried to the browser — are architectural concerns documented in the [Contracts Service](../services/contracts.qd) and [Architecture Overview](../architecture/overview.qd) pages.
 
-At the domain level, this context decides *which metrics each building's live view should carry*, and shapes the flow of readings accordingly.
+At the domain level, this context owns two things: the **metric catalog** each building chooses from, and each building's **display preference** (which metrics its dashboard table shows, and in what order). Readings themselves are simply routed to the building they belong to.
 
 ---
 
@@ -23,7 +23,7 @@ At the domain level, this context decides *which metrics each building's live vi
     - - Metric Catalog
       - The combined list of metrics offered by the upstream contexts.
     - - Distribution
-      - Forwarding a reading only to the Buildings whose Preference includes its metric.
+      - Routing each reading to its own Building's live feed. It is *not* gated by Preference — see below.
 
 ---
 
@@ -74,16 +74,16 @@ Gathering rather than defining keeps this context a Conformist consumer of each 
 
 ## Distribution as a Domain Rule
 
-The central rule of this context is simple to state at the domain level: a reading should reach a Building's live view only if that Building's Preference includes the reading's metric.
+A reading belongs to exactly one Building, and the rule is simply: deliver it to that Building's live view.
 
 ```text
 distribute(reading):
-    for each building preference:
-        if reading.metric in preference.allowedMetrics:
-            deliver the reading to that building's view
+    deliver the reading to reading.building's view
 ```
 
-The model says nothing about *how* readings arrive or are carried onward — that the rule must hold at high throughput is a quality we hand to the implementation.
+Preference does **not** gate this. It once did — distribution used to drop any metric a Building had not selected — but that coupled every live view to the dashboard's column choices (e.g. the 3D model went stale when temperature was removed from the table). Preference is now purely a **display** concern: it decides which metrics a Building's dashboard *table* renders, applied at the view, while the feed carries every metric the Building produces.
+
+The model says nothing about *how* readings arrive or are carried onward — that this must hold at high throughput is a quality we hand to the implementation.
 
 ---
 

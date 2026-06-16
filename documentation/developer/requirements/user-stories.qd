@@ -197,7 +197,7 @@ The personas mirror the ranked Role policy of the [Identity & Access Context](..
       - Order is part of the model: the allowed metrics are an ordered collection, and reordering is a meaningful change rather than an incidental detail.
     - - TD-3
       - As a **standard user**, I want live values to appear without refreshing, so that the dashboard always shows *now*.
-      - The distribution rule: a reading reaches a building's view only if that building's Preference includes its metric. (The word "instant" is a quality, not a rule — see the differences table below.)
+      - The distribution rule: each reading is routed to its own building's live view. (Preference governs which columns the table *displays*, not whether the reading flows; "instant" is a quality, not a rule — see the differences table below.)
     - - TD-4
       - As a **domain administrator**, I want a freshly registered building to come with a sensible default set of columns, so that the first visit shows data, not configuration work.
       - Building Management supplies the default Preference at creation, acting as the customer in a Customer/Supplier relationship.

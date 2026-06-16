@@ -61,7 +61,7 @@ Redis is the publish/subscribe backbone. Three channels carry the event flow:
     - - `telemetry:filtered:{buildingId}`
       - contracts-service
       - socket-service
-      - Readings a given building has opted to display.
+      - Every reading for that building, routed by the event's own `buildingId`.
     - - `notifications`
       - notification-service
       - socket-service
@@ -88,12 +88,12 @@ The defining flow: a reading becomes a live update on the dashboard, shaped per 
         Note over SS: validate, persist, normalize
         SS->>R: PUBLISH telemetry:raw
         R-->>CS: telemetry:raw event
-        Note over CS: for each building, is this metric allowed?
+        Note over CS: read the event's own buildingId → route
         CS->>R: PUBLISH telemetry:filtered:{buildingId}
         R-->>WS: telemetry:filtered:{buildingId} event
         WS->>UI: emit "telemetry" to room building:{id}
 
-`contracts-service` is the shaping stage: it consults each building's display preferences and forwards a reading only to the buildings that asked for that metric. `socket-service` then delivers it to exactly the clients watching that building (see [Socket Service](../services/socket.qd)).
+`contracts-service` is the routing stage: it republishes each reading to its own building's channel (an O(1) lookup on the event's `buildingId`), so a reading reaches exactly one building's feed and never leaks into another's. It does **not** filter by metric type — every metric a building produces is forwarded, and the dashboard's column preferences only decide what the table *displays*, client-side. `socket-service` then delivers it to exactly the clients watching that building (see [Socket Service](../services/socket.qd)).
 
 ---
 

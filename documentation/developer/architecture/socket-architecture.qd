@@ -3,7 +3,7 @@
 
 **Bounded context:** real-time transport (generic) · **Stack:** Node.js / Socket.IO · **Code-level walkthrough:** [Socket Service](../services/socket.qd)
 
-The socket-service is the bridge between the broker and the browser. It carries filtered telemetry and alerts to connected clients over WebSockets. It is classified as a **generic subdomain** (see [Telemetry Distribution](../domain/telemetry-distribution.qd)): pure transport, with no domain model and no database.
+The socket-service is the bridge between the broker and the browser. It carries per-building telemetry and alerts to connected clients over WebSockets. It is classified as a **generic subdomain** (see [Telemetry Distribution](../domain/telemetry-distribution.qd)): pure transport, with no domain model and no database.
 
 ---
 
@@ -37,7 +37,7 @@ Although a generic subdomain, it is **not anonymous**: a handshake middleware ve
 
 ## Integration
 
-- Subscribes to the alert channel and the per-building filtered feeds, and emits them to clients — see [Communication & Data Flow](data-flow.qd).
+- Subscribes to the alert channel and the per-building telemetry feeds (`telemetry:filtered:<id>`), and emits them to clients — see [Communication & Data Flow](data-flow.qd).
 - Holds no database and calls no other service synchronously.
 
 For the channel-to-event mapping, the client subscription protocol, and scaling notes, see the [Socket Service](../services/socket.qd) internals page.

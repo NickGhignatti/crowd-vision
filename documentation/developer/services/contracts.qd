@@ -25,7 +25,7 @@ The source is organised by role: a composition root and shared kernel at the cra
     - - `src/api/` (`dashboard.rs`, `data.rs`, `init.rs`)
       - Inbound HTTP handlers: the aggregated catalog (`GET /`), preferences CRUD, and defaults seeding.
     - - `src/tunnel.rs`
-      - Inbound stream worker: filters `telemetry:raw`, republishes per building, and records fan-out metrics.
+      - Inbound stream worker: routes `telemetry:raw` to each event's own building, and records fan-out metrics.
     - - `src/infra/db.rs`
       - Mongo access: `connect` (with unique index), `load_all` (hydration), `upsert_preference`.
     - - `src/infra/discovery.rs`
@@ -134,15 +134,13 @@ Started at boot, the tunnel opens a dedicated Redis PubSub connection and subscr
         participant F as Redis (telemetry:filtered:{id})
         R-->>T: { type, buildingId, roomId, value, ... }
         Note over T: spawn a task per message (ingestion never blocks)
-        loop each building preference
-            T->>D: does allowed_columns contain `type`?
-            alt allowed
-                T->>F: PUBLISH telemetry:filtered:{building_id} (full payload)
-            end
+        T->>D: is buildingId a known building?
+        alt known
+            T->>F: PUBLISH telemetry:filtered:{building_id} (full payload)
         end
 
-- Filtering is a **type-based gate**: it matches the message's `type` against each building's `allowed_columns`; the payload is forwarded intact (no field stripping).
-- One raw message fans out to every building subscribed to that metric type.
+- Routing keys on the event's **own** `buildingId`: a reading is published to that one building's channel and no other, so it can never leak into another tenant's feed. The payload is forwarded intact (no field stripping).
+- There is **no metric-type gate**. Every metric a known building emits is forwarded; the building's `allowed_columns` only drive what the dashboard table displays (client-side). The `DashMap` is consulted just to confirm the building is known.
 - Each message is processed in its own `task::spawn`, so processing time never back-pressures the subscription stream.
 - The routing decision is a pure function (`resolve_channel`) so it is unit-tested in isolation; the worker increments received/published counters and observes fan-out latency, exported via `GET /metrics`.
 
