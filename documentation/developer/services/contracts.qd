@@ -9,29 +9,29 @@ The only Rust service in the platform. Built on **Axum** and **Tokio**, it runs 
 
 ## Source Layout
 
+The source is organised by role: a composition root and shared kernel at the crate root, the two inbound adapters (`api/` for HTTP, `tunnel.rs` for the broker stream), and outbound integrations plus cross-cutting infrastructure grouped under `infra/`.
+
 .var {headers}
    - Path
    - Responsibility
 
 .tablebyrows {.headers}
     - - `src/main.rs`
-      - Boot: connect Mongo, hydrate the in-memory map, start the tunnel, serve the Axum router.
+      - Composition root: connect Mongo, hydrate the in-memory map, start the tunnel, serve the Axum router.
     - - `src/state.rs`
       - `AppState`: the shared `DashMap` projection plus the typed Mongo collection handle.
-    - - `src/db.rs`
-      - Mongo access: `connect` (with unique index), `load_all` (hydration), `upsert_preference`.
-    - - `src/tunnel.rs`
-      - The background task that filters `telemetry:raw` and republishes per building.
-    - - `src/discovery.rs`
-      - Resolves downstream metric endpoints from `*_METRICS_URL` environment variables.
     - - `src/models.rs`
       - `PreferenceDocument`, `MetricContract`, and the discovery response types.
-    - - `src/api/data.rs`
-      - `GET`/`POST /preferences/{building_id}`.
-    - - `src/api/init.rs`
-      - `POST /preferences/init/{building_id}`.
-    - - `src/api/dashboard.rs`
-      - `GET /` — the aggregated metric catalog.
+    - - `src/api/` (`dashboard.rs`, `data.rs`, `init.rs`)
+      - Inbound HTTP handlers: the aggregated catalog (`GET /`), preferences CRUD, and defaults seeding.
+    - - `src/tunnel.rs`
+      - Inbound stream worker: filters `telemetry:raw`, republishes per building, and records fan-out metrics.
+    - - `src/infra/db.rs`
+      - Mongo access: `connect` (with unique index), `load_all` (hydration), `upsert_preference`.
+    - - `src/infra/discovery.rs`
+      - Resolves downstream metric endpoints from `*_METRICS_URL` environment variables.
+    - - `src/infra/metrics.rs`
+      - Prometheus registry, telemetry counters and fan-out latency, and the `GET /metrics` handler.
 
 ---
 
@@ -117,6 +117,8 @@ Reads and the tunnel operate purely in memory; durability is handled off the req
       - Idempotently seed defaults `["roomName", "roomMaxOccupancy"]` with an atomic or-insert, so a repeat call is a safe no-op. Called by the twin-service on building creation.
     - - `GET /`
       - The aggregated metric catalog (see Metric Discovery).
+    - - `GET /metrics`
+      - Prometheus exposition: telemetry events received/published counters and fan-out latency.
 
 ---
 
@@ -142,6 +144,7 @@ Started at boot, the tunnel opens a dedicated Redis PubSub connection and subscr
 - Filtering is a **type-based gate**: it matches the message's `type` against each building's `allowed_columns`; the payload is forwarded intact (no field stripping).
 - One raw message fans out to every building subscribed to that metric type.
 - Each message is processed in its own `task::spawn`, so processing time never back-pressures the subscription stream.
+- The routing decision is a pure function (`resolve_channel`) so it is unit-tested in isolation; the worker increments received/published counters and observes fan-out latency, exported via `GET /metrics`.
 
 ---
 

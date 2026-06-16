@@ -1,7 +1,7 @@
 use axum::{Json, response::IntoResponse};
 use log::error;
 
-use crate::discovery::discover_services;
+use crate::infra::discovery::discover_services;
 use crate::models::{MetricContract, MetricsDiscoveryResponse};
 
 // GET /metrics

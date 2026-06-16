@@ -62,9 +62,10 @@ export abstract class BaseSensorModule<T> implements ISensorModule {
    * keeping the ingestion response time independent of Redis latency.
    */
   protected publishTelemetry(event: TelemetryEvent): void {
+    const enriched = { ...event, ingestedAt: Date.now() };
     try {
       Promise.resolve(
-        redisClient.publish("telemetry:raw", JSON.stringify(event)),
+        redisClient.publish("telemetry:raw", JSON.stringify(enriched)),
       ).catch((err) =>
         console.error(`[${this.type}] Failed to publish telemetry:`, err),
       );

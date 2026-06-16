@@ -36,6 +36,7 @@ Not a layered REST service. It runs two concurrent components in one process: an
 - **In-memory projection.** Preferences are read on every reading but changed rarely, so they are held in a concurrent in-memory structure for lock-free reads; the database is touched only on startup (hydration) and on change (cold path).
 - **Filter by preference, fan out per building.** A reading is forwarded only to the buildings whose preference includes its metric; one reading can fan out to many building feeds.
 - **Gather, do not define, the catalog.** The service discovers each upstream service's self-describing metric catalog and aggregates it, so new metrics appear without any change here — an Open Host Service consuming each upstream's Published Language.
+- **Organised by role, not by layer.** The crate root holds the composition root (`main`) and the shared kernel (`state`, `models`); the two inbound adapters live in `api/` (HTTP) and `tunnel.rs` (the Redis stream worker); outbound integrations and cross-cutting infrastructure — Mongo, peer discovery, Prometheus metrics — are grouped under `infra/`. Dependencies point inward: `api` and `tunnel` use `infra`, never the reverse.
 
 ---
 

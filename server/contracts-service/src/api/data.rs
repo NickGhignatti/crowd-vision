@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::db;
+use crate::infra::db;
 use crate::state::AppState;
 
 #[derive(Deserialize)]

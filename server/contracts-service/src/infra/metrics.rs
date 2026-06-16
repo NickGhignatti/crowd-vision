@@ -1,6 +1,16 @@
 use axum::response::IntoResponse;
 use prometheus::{Encoder, IntCounter, TextEncoder, register_int_counter};
+use prometheus::{Histogram, register_histogram};
 use std::sync::LazyLock;
+
+pub static FANOUT_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
+    register_histogram!(
+        "telemetry_fanout_latency_ms",
+        "Latency from sensor ingestion to contracts fan-out (ms)",
+        vec![5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0]
+    )
+    .expect("metric can be created")
+});
 
 pub static EVENTS_RECEIVED: LazyLock<IntCounter> = LazyLock::new(|| {
     register_int_counter!(

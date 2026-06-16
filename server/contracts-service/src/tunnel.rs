@@ -1,4 +1,4 @@
-use crate::metrics;
+use crate::infra::metrics;
 use crate::state::AppState;
 use dashmap::DashMap;
 use futures::StreamExt;
@@ -96,6 +96,10 @@ fn extract_building_id(raw: &Value) -> Option<&str> {
     raw.get("buildingId").and_then(|v| v.as_str())
 }
 
+fn extract_ingested_at(raw: &Value) -> Option<i64> {
+    raw.get("ingestedAt").and_then(|v| v.as_i64())
+}
+
 /// Decides which `telemetry:filtered:*` channel a raw event must be forwarded
 /// to, or `None` if it should be dropped. Routing is keyed on the event's OWN
 /// `buildingId`, so an event is delivered to exactly one building — never
@@ -155,6 +159,14 @@ async fn process_and_publish(
         .arg(payload_str)
         .query_async(&mut publish_conn)
         .await;
+
+    if let Some(ingested_at) = extract_ingested_at(&raw_data) {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(ingested_at);
+        metrics::FANOUT_LATENCY_MS.observe((now_ms - ingested_at).max(0) as f64);
+    }
 
     metrics::EVENTS_PUBLISHED.inc();
 }
