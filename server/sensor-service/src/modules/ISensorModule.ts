@@ -96,4 +96,11 @@ export interface ISensorModule {
     roomId: string,
     payload: unknown,
   ): Promise<unknown>;
+  apply(): Promise<unknown>;
+  create(
+    buildingId: string,
+    roomId: string,
+    sensorType: string,
+    sensorId: string
+  ): Promise<unknown>;
 }

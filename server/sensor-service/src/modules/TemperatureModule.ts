@@ -87,4 +87,8 @@ export class TemperatureModule extends BaseSensorModule<ITemperature> {
       payload.minTemp,
     );
   }
+
+  async apply(): Promise<unknown> {
+    return Promise.resolve(undefined);
+  }
 }

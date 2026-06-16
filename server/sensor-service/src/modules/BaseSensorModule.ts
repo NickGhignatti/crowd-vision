@@ -1,6 +1,7 @@
 import { Model } from "mongoose";
 import { type ISensorModule, ValidationResult } from "./ISensorModule.js";
 import redisClient from "../config/redis.js";
+import { Sensors } from "../models/sensor.ts";
 
 export interface TelemetryEvent {
   readonly type: string;
@@ -107,5 +108,22 @@ export abstract class BaseSensorModule<T> implements ISensorModule {
     _payload: unknown,
   ): Promise<unknown> {
     return Promise.resolve(undefined);
+  }
+  apply(): Promise<unknown> {
+    return Promise.resolve(undefined);
+  }
+  async create(
+    buildingId: string,
+    roomId: string,
+    sensorType: string,
+    sensorId: string
+  ): Promise<void> {
+
+    await Sensors.create({
+      buildingId,
+      roomId,
+      sensorType,
+      sensorId
+    })
   }
 }

@@ -2,6 +2,8 @@ import { Router } from "express";
 import type { RequestHandler } from "express";
 import type { SensorKernel } from "./kernel/sensorKernel.js";
 import { createReadHandlers } from "./controllers/readController.js";
+import { createActionHandler } from "./controllers/actionController.ts";
+import { createWriteHandler } from "./controllers/writerController.ts";
 import { SENSOR_METRICS_CONTRACT } from "./models/metrics.js";
 import { createThresholdHandlers } from "./controllers/thresholdController.js";
 
@@ -11,13 +13,19 @@ export function createRouter(
 ): Router {
   const router = Router();
   const reader = createReadHandlers(kernel);
+  const writer = createWriteHandler(kernel);
   const thresholds = createThresholdHandlers(kernel);
+  const action = createActionHandler(kernel);
 
   router.post("/ingest", ingestionHandler);
 
   router.get("/:sensorType/latest", reader.getLatestSingle);
   router.get("/:sensorType/entireBuilding", reader.getAllLatestBuilding);
   router.get("/:sensorType/dashboard", reader.getDashboard);
+
+  router.post("/sensor", writer)
+
+  router.post("/executeAction", action)
 
   router.put("/thresholds/buildings/:buildingId", thresholds.registerBuilding);
   router.get("/thresholds/buildings/:buildingId", thresholds.getBuildingThresholdClone);
