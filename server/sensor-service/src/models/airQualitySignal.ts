@@ -14,25 +14,37 @@ export interface IAirQuality {
   humidity: number;
   aqi: number;
   indoor_aqi: number;
+  createdAt?: Date;
 }
 
-const airQualitySchema = new Schema<IAirQuality>({
-  building: { type: String, required: true },
-  roomId: { type: String, required: true },
-  timestamp: { type: Number, required: true },
-  scenario: { type: String, required: false },
-  pm25: { type: Number, required: true },
-  pm10: { type: Number, required: true },
-  co2: { type: Number, required: true },
-  voc: { type: Number, required: true },
-  temperature: { type: Number, required: true },
-  humidity: { type: Number, required: true },
-  aqi: { type: Number, required: true },
-  indoor_aqi: { type: Number, required: true },
-});
+const airQualitySchema = new Schema<IAirQuality>(
+  {
+    building: { type: String, required: true },
+    roomId: { type: String, required: true },
+    timestamp: { type: Number, required: true },
+    scenario: { type: String, required: false },
+    pm25: { type: Number, required: true },
+    pm10: { type: Number, required: true },
+    co2: { type: Number, required: true },
+    voc: { type: Number, required: true },
+    temperature: { type: Number, required: true },
+    humidity: { type: Number, required: true },
+    aqi: { type: Number, required: true },
+    indoor_aqi: { type: Number, required: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  {
+    timeseries: {
+      timeField: "createdAt",
+      metaField: "building",
+      granularity: "seconds",
+    },
+    expireAfterSeconds: 60 * 60 * 24 * 90,
+  },
+);
 
+// Secondary indexes for `timestamp`-range and per-room queries (measurements).
 airQualitySchema.index({ building: 1, timestamp: -1 });
-// Compound index for per-room point queries (getLatest, dashboard per-room range scans).
 airQualitySchema.index({ building: 1, roomId: 1, timestamp: -1 });
 
 export const AirQuality = mongoose.model<IAirQuality>(

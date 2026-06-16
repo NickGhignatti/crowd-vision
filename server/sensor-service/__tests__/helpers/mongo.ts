@@ -9,6 +9,14 @@ let mongod: MongoMemoryServer | undefined;
 export async function startMongo(): Promise<void> {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
+  // Time-series collections must exist before the first insert — otherwise a
+  // racing insert auto-creates a plain collection instead. Create every
+  // registered model's collection up front so the timeseries options apply.
+  await Promise.all(
+    mongoose
+      .modelNames()
+      .map((name) => mongoose.model(name).createCollection().catch(() => undefined)),
+  );
 }
 
 export async function stopMongo(): Promise<void> {
