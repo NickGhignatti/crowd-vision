@@ -1,6 +1,5 @@
 use axum::{
     Router,
-    http::StatusCode,
     routing::{get, post},
 };
 use env_logger::Env;
@@ -69,7 +68,7 @@ async fn main() {
     tunnel::start_telemetry_tunnel(&redis_url, state.clone()).await;
 
     let app = Router::new()
-        .route("/health", get(|| async { StatusCode::OK }))
+        .route("/health", get(infra::metrics::health))
         .route("/", get(api::dashboard::get_dashboard_tables))
         .route(
             "/preferences/{building_id}",

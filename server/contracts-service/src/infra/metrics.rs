@@ -1,5 +1,5 @@
-use axum::response::IntoResponse;
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use prometheus::{Encoder, IntCounter, TextEncoder, register_int_counter};
 use prometheus::{Histogram, register_histogram};
 use std::sync::LazyLock;
