@@ -9,7 +9,7 @@ The socket-service is the bridge between the broker and the browser. It carries 
 
 ## Architectural Style
 
-Deliberately the simplest service in the system: a single flat gateway with **no Controller/Service/Model layering and no persistence**. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.
+Deliberately the simplest service in the system: **no persistence and no domain model**. Rather than Controller/Service/Model layering it follows a *functional core / imperative shell* split — pure relay logic (channel-to-room mapping) in a small core, broker- and socket-event handlers that receive their dependencies as arguments, and a thin composition root (`index.ts`) that wires them together and starts listening. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.
 
 ---
 

@@ -1,3 +1,4 @@
+use crate::metrics;
 use crate::state::AppState;
 use dashmap::DashMap;
 use futures::StreamExt;
@@ -140,6 +141,8 @@ async fn process_and_publish(
     state: AppState,
     mut publish_conn: MultiplexedConnection,
 ) {
+    metrics::EVENTS_RECEIVED.inc();
+
     let Some(channel) = resolve_channel(&raw_data, &state.building_preferences) else {
         return;
     };
@@ -152,6 +155,8 @@ async fn process_and_publish(
         .arg(payload_str)
         .query_async(&mut publish_conn)
         .await;
+
+    metrics::EVENTS_PUBLISHED.inc();
 }
 
 #[cfg(test)]

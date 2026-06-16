@@ -2,13 +2,20 @@ import express from "express";
 import * as http from "node:http";
 import { Server } from "socket.io";
 import { createClient } from "redis";
+import { register } from "./config/registry.js";
+import { relayTelemetry } from "./handlers/telemetry.js";
+import { relayNotification } from "./handlers/notification.js";
+import { handleConnection } from "./handlers/connection.js";
+
+// Composition root (imperative shell): build dependencies, wire the pure
+// handlers to them, and start listening. No logic lives here — that's in
+// core/ and handlers/, which is why this file is excluded from coverage.
 
 const PORT = 3000;
 const app = express();
 const server = http.createServer(app);
 
-const getClientUrl = () =>
-  process.env.CLIENT_URL || "http://localhost:5173";
+const getClientUrl = () => process.env.CLIENT_URL || "http://localhost:5173";
 
 app.use(express.json());
 
@@ -20,33 +27,24 @@ const io = new Server(server, {
   },
 });
 
+app.get("/metrics", async (_req, res) => {
+  res.set("Content-Type", register.contentType);
+  res.send(await register.metrics());
+});
+
 const redisSubscriber = createClient({ url: process.env.REDIS_URL || "" });
 redisSubscriber.on("error", (err) => console.error("Redis Client Error", err));
 
 await redisSubscriber.connect();
 
-await redisSubscriber.subscribe("notifications", (message) => {
-  console.info("[Event] New notification received:", message);
-  io.emit("notification", JSON.parse(message));
-});
+await redisSubscriber.subscribe("notifications", (message) =>
+  relayNotification(io, message),
+);
 
-await redisSubscriber.pSubscribe("telemetry:filtered:*", (message, channel) => {
-  const buildingId = channel.replace("telemetry:filtered:", "");
-  io.to(`building:${buildingId}`).emit("telemetry", JSON.parse(message));
-});
+await redisSubscriber.pSubscribe("telemetry:filtered:*", (message, channel) =>
+  relayTelemetry(io, message, channel),
+);
 
-io.on("connection", (socket) => {
-  socket.on("join_room", (userId) => {
-    socket.join(userId);
-  });
-
-  socket.on("subscribe_building", (buildingId) => {
-    socket.join(`building:${buildingId}`);
-  });
-
-  socket.on("unsubscribe_building", (buildingId) => {
-    socket.leave(`building:${buildingId}`);
-  });
-});
+io.on("connection", handleConnection);
 
 server.listen(PORT);

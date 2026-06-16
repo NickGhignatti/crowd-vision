@@ -1,6 +1,6 @@
 global:
-  scrape_interval: 30s      # how often Prometheus pulls /metrics
-  evaluation_interval: 30s  # how often it evaluates alerting rules
+  scrape_interval: 30s # how often Prometheus pulls /metrics
+  evaluation_interval: 30s # how often it evaluates alerting rules
 
 scrape_configs:
   - job_name: "auth-service"
@@ -14,4 +14,12 @@ scrape_configs:
   - job_name: "chat-service"
     static_configs:
       - targets: ["chat-service:3000"]
+    metrics_path: /metrics
+  - job_name: "contracts-service"
+    static_configs:
+      - targets: ["contracts-service:3000"]
+    metrics_path: /metrics
+  - job_name: "socket-service"
+    static_configs:
+      - targets: ["socket-service:3000"]
     metrics_path: /metrics

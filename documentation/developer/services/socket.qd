@@ -3,7 +3,7 @@
 
 Implementation reference for the `socket-service`. For its architectural role, see [Socket Service Architecture](../architecture/socket-architecture.qd).
 
-A small Node.js service built on **Socket.IO** and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database, no controllers, and no domain model — the entire service is a single `index.ts`.
+A small Node.js service built on **Socket.IO** and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split: pure relay helpers in `core/`, the broker- and socket-event handlers in `handlers/`, the metrics registry in `config/`, and a thin composition root in `index.ts` that wires them together.
 
 ---
 

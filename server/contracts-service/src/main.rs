@@ -10,6 +10,7 @@ use tokio::net::TcpListener;
 mod api;
 mod db;
 mod discovery;
+mod metrics;
 mod models;
 mod state;
 mod tunnel;
@@ -54,6 +55,7 @@ async fn main() {
             "/preferences/init/{building_id}",
             post(api::init::init_building_preferences),
         )
+        .route("/metrics", get(metrics::metrics_handler))
         .with_state(state);
 
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
