@@ -37,7 +37,7 @@ export function getBuildingData(
         return
       }
 
-      socket.emit('subscribe_building' as any, newId)
+      socket.emit('subscribe_building', newId)
 
       let abortController: AbortController | null = null
       let rafPending = false
@@ -101,12 +101,12 @@ export function getBuildingData(
         }
       }
 
-      socket.on('telemetry' as any, telemetryHandler)
+      socket.on('telemetry', telemetryHandler)
 
       onCleanup(() => {
         if (abortController) abortController.abort()
-        socket.emit('unsubscribe_building' as any, newId)
-        socket.off('telemetry' as any, telemetryHandler)
+        socket.emit('unsubscribe_building', newId)
+        socket.off('telemetry', telemetryHandler)
       })
     },
     { immediate: true },

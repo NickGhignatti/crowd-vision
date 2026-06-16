@@ -6,11 +6,13 @@ import { register } from "./config/registry.js";
 import { relayTelemetry } from "./handlers/telemetry.js";
 import { relayNotification } from "./handlers/notification.js";
 import { handleConnection } from "./handlers/connection.js";
+import { authenticateToken, readCookie } from "./auth.js";
 
 // Composition root (imperative shell): build dependencies, wire the pure
 // handlers to them, and start listening. No logic lives here — that's in
 // core/ and handlers/, which is why this file is excluded from coverage.
 
+const JWT_SECRET = process.env.JWT_SECRET || "";
 const PORT = 3000;
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +28,19 @@ const io = new Server(server, {
     credentials: true,
   },
 });
+
+io.use((socket, next) => {
+  const token = readCookie(
+    socket.handshake.headers.cookie,
+    "authentication_token",
+  );
+  const identity = authenticateToken(token, JWT_SECRET);
+  if (!identity) return next(new Error("unauthorized"));
+  socket.data.identity = identity; // server-authoritative; client can't forge rooms
+  next();
+});
+
+io.on("connection", handleConnection);
 
 app.get("/health", (_req, res) => res.status(200).send());
 app.get("/metrics", async (_req, res) => {

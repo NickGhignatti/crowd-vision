@@ -1,6 +1,10 @@
 import { io, type Socket } from 'socket.io-client'
 import { reactive } from 'vue'
-import type { ClientToServerEvents, ServerToClientEvents, Notification } from '@/interfaces/notification.ts'
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Notification,
+} from '@/interfaces/notification.ts'
 
 export const socketState = reactive({
   connected: false,
@@ -13,6 +17,7 @@ const URL = import.meta.env.VITE_SERVER_URL || ''
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(URL, {
   autoConnect: false,
   transports: ['websocket'],
+  withCredentials: true,
 })
 
 socket.on('connect', () => {

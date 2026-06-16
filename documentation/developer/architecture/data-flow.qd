@@ -117,10 +117,10 @@ When a reading crosses a configured bound, the alert path runs in parallel to th
         Note over NS: select opted-in recipients
         NS->>R: PUBLISH notifications
         NS->>U: Web Push to registered devices
-        R-->>WS: notifications event
-        WS->>U: emit "notification" to connected clients
+        R-->>WS: notifications event (domainName)
+        WS->>U: emit "notification" to that domain's room
 
-The alert path is owned by [notification-service](../services/notification.qd): it suppresses repeats with a short cooldown, resolves recipients via `twin-service`, and fans out over two channels — an in-app event through the broker and socket, and a Web Push to offline devices.
+The alert path is owned by [notification-service](../services/notification.qd): it suppresses repeats with a short cooldown, resolves recipients via `twin-service`, and fans out over two channels — an in-app event through the broker and socket, and a Web Push to offline devices. The in-app event carries the resolved `domainName`, so socket-service delivers it only to that domain's connected members rather than broadcasting.
 
 ---
 

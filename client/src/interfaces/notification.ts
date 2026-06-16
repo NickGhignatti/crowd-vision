@@ -1,4 +1,4 @@
-import type {Notification as NotificationModel} from '@/models/notification.ts'
+import type { Notification as NotificationModel } from '@/models/notification.ts'
 
 export interface Notification {
   id: string
@@ -10,8 +10,10 @@ export interface Notification {
 
 export interface ServerToClientEvents {
   notification: (data: NotificationModel) => void
+  telemetry: (data: unknown) => void
 }
 
 export interface ClientToServerEvents {
-  join_room: (userId: string) => void
+  subscribe_building: (buildingId: string) => void
+  unsubscribe_building: (buildingId: string) => void
 }

@@ -9,3 +9,8 @@ export function buildingIdFromChannel(channel: string): string {
 export function roomForBuilding(buildingId: string): string {
   return `building:${buildingId}`;
 }
+
+/** The Socket.IO room a domain's members join, for scoped notifications. */
+export function roomForDomain(domainName: string): string {
+  return `domain:${domainName}`;
+}

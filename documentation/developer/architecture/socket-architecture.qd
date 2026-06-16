@@ -9,7 +9,9 @@ The socket-service is the bridge between the broker and the browser. It carries 
 
 ## Architectural Style
 
-Deliberately the simplest service in the system: **no persistence and no domain model**. Rather than Controller/Service/Model layering it follows a *functional core / imperative shell* split — pure relay logic (channel-to-room mapping) in a small core, broker- and socket-event handlers that receive their dependencies as arguments, and a thin composition root (`index.ts`) that wires them together and starts listening. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.
+Deliberately the simplest service in the system: **no persistence and no domain model**. Rather than Controller/Service/Model layering it follows a *functional core / imperative shell* split — pure relay logic (channel-to-room mapping) and JWT verification in a small core, broker- and socket-event handlers that receive their dependencies as arguments, and a thin composition root (`index.ts`) that wires them together and starts listening. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.
+
+Although a generic subdomain, it is **not anonymous**: a handshake middleware verifies the auth-service JWT (carried by the `authentication_token` cookie) before any event runs, so every socket has a known account and domain set. This is what lets the relay scope delivery per tenant rather than blindly broadcasting.
 
 ---
 
@@ -26,7 +28,8 @@ Deliberately the simplest service in the system: **no persistence and no domain 
 ## Key Architectural Decisions
 
 - **Pure transport, no model.** Treating real-time delivery as a generic subdomain keeps all domain logic out of it and concentrates modelling effort on the core services.
-- **Room-scoped telemetry, broadcast alerts.** Clients receive readings only for buildings they have joined, so each connection's stream stays minimal; alerts, which anyone may need, are broadcast.
+- **Authenticated at the edge.** The JWT is verified once on the handshake, not per message; the resulting identity is server-held, so a client can never join a domain or building room it isn't entitled to.
+- **Room-scoped telemetry, domain-scoped notifications.** Clients receive readings only for buildings they have joined, and notifications only for their own domain; tenants stay isolated. Only a notification with no domain (a system-wide message) is broadcast.
 - **Stateless relay.** The service holds no durable state, so an instance can be replaced freely.
 - **Scaling is an explicit concern.** Running more than one instance requires sticky sessions for the handshake and a broker-backed adapter to deliver across instances — a known extension point rather than a current capability.
 
