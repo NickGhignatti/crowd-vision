@@ -255,6 +255,21 @@ const messages = {
         temperature: 'Building temperature',
         indoorAqi: 'Building indoor AQI',
         rooms: 'Rooms',
+        sensors: {
+          title: 'Sensors',
+          add: 'Add sensor',
+          hint: 'Add the sensors to register for this building.',
+          sensorId: 'Sensor ID',
+          sensorIdPlaceholder: 'Enter sensor ID',
+          room: 'Room',
+          selectRoom: 'Select room',
+          type: 'Sensor type',
+          remove: 'Remove sensor',
+          invalidConfig: 'Each sensor must include a sensor ID and a room.',
+          types: {
+            temperature: 'Temperature',
+          },
+        },
         saving: 'Saving...',
         invalidJson: 'Invalid JSON file. Please check the format and try again.',
         room: {
@@ -528,6 +543,21 @@ const messages = {
         temperature: 'Temperatura edificio',
         indoorAqi: 'AQI interno edificio',
         rooms: 'Stanze',
+        sensors: {
+          title: 'Sensori',
+          add: 'Aggiungi sensore',
+          hint: "Aggiungi i sensori da registrare per questo edificio.",
+          sensorId: 'ID Sensore',
+          sensorIdPlaceholder: "Inserisci l'ID del sensore",
+          room: 'Stanza',
+          selectRoom: 'Seleziona stanza',
+          type: 'Tipo sensore',
+          remove: 'Rimuovi sensore',
+          invalidConfig: 'Ogni sensore deve avere ID sensore e stanza.',
+          types: {
+            temperature: 'Temperatura',
+          },
+        },
         saving: 'Salvataggio...',
         invalidJson: 'File JSON non valido. Verifica il formato e riprova.',
         room: {

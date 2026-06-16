@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
-import type { SensorKernel } from "../kernel/sensorKernel.ts";
-import { ActionService } from "../services/ActionService.ts";
+import type { SensorKernel } from "../kernel/sensorKernel.js";
 
 export function createWriteHandler(kernel: SensorKernel) {
   return async function execute(

@@ -1,4 +1,4 @@
-import { Sensors } from "../models/sensor.ts";
+import { Sensors } from "../models/sensor.js";
 
 export class ActionService {
     async getSensorId(roomId: string, buildingId: string): Promise<string | null> {

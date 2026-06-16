@@ -1,7 +1,7 @@
 import { Model } from "mongoose";
 import { type ISensorModule, ValidationResult } from "./ISensorModule.js";
 import redisClient from "../config/redis.js";
-import { Sensors } from "../models/sensor.ts";
+import { Sensors } from "../models/sensor.js";
 
 export interface TelemetryEvent {
   readonly type: string;

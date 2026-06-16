@@ -11,7 +11,7 @@ export interface ISensor {
 const sensorSchema = new Schema<ISensor>({
     buildingId: { type: String, required: true },
     roomId: { type: String, required: true },
-    sensorId: { type: String, required: true },
+    sensorId: { type: String, required: true, unique: true},
     sensorType: { type: String, required: true },
 });
 

@@ -2,8 +2,8 @@ import { Router } from "express";
 import type { RequestHandler } from "express";
 import type { SensorKernel } from "./kernel/sensorKernel.js";
 import { createReadHandlers } from "./controllers/readController.js";
-import { createActionHandler } from "./controllers/actionController.ts";
-import { createWriteHandler } from "./controllers/writerController.ts";
+import { createActionHandler } from "./controllers/actionController.js";
+import { createWriteHandler } from "./controllers/writerController.js";
 import { SENSOR_METRICS_CONTRACT } from "./models/metrics.js";
 import { createThresholdHandlers } from "./controllers/thresholdController.js";
 
