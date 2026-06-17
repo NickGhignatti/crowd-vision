@@ -94,6 +94,10 @@ We chose one aggregate per metric rather than a single generic "reading" so that
 - We keep at most one threshold configuration per Building, so the aggregate owns the complete picture of that Building's bounds.
 - **Intended rule:** a room-level bound, when present, takes precedence over the building-level default for that room. Resolving the effective bound for a given reading is domain logic.
 
+### Value Objects: RoomThreshold and Bound
+
+The threshold aggregate is built from value objects. A **Bound** is a `min`/`max` pair with no identity — two bounds carrying the same numbers are the same bound — and a **RoomThreshold** is just a room's set of overriding bounds. Both are immutable descriptors owned by `BuildingThreshold`; we change them by replacing them on the aggregate, never by giving them a life of their own. The signals above, by contrast, are aggregate roots rather than value objects: each reading carries its own identity of *which room, when*.
+
 ---
 
 ## Validation as a Domain Rule

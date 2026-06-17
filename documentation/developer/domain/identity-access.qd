@@ -96,6 +96,14 @@ The consistency boundary around an organization and the rules under which princi
 - `subdomains` expresses an organizational hierarchy. We left the depth of that hierarchy open at this stage rather than fixing it to a single level.
 - **Intended invariant:** a Domain's strategy and its configuration agree — an internally-managed Domain carries no external-provider configuration, and an externally-federated Domain does not accept self-service joins.
 
+### Value Objects: Membership, SSO config, invite secrets
+
+The smaller concepts living inside these aggregates are modelled as immutable, identity-less value objects:
+
+- **Membership** places an Account inside a Domain with a Role. It has no identity of its own — it means something only as part of an Account — so we treat it as a value object the aggregate replaces wholesale rather than mutates in place.
+- **SSOConfig** and **InviteSecrets** describe *how* a Domain admits principals. They carry no identity and exist only to configure their Domain, so they are value objects held inside it.
+- **Role** is a value object too, but a load-bearing one: because its ranking is the single rule this context exposes, we give it its own section below.
+
 ---
 
 ## The Role policy
