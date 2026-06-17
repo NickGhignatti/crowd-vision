@@ -32,15 +32,5 @@ export function createWriteHandler(kernel: SensorKernel) {
 
     // ── The Fast Path ────────────────────────────────────────────────────────
     res.status(202).json({ accepted: true, type });
-
-    // ── The Slow Path ────────────────────────────────────────────────────────
-    setImmediate(() => {
-      module.process(sensorData).catch((err: unknown) => {
-        console.error(
-          `[SensorKernel] Background processing failed for type='${type}':`,
-          err,
-        );
-      });
-    });
   };
 }

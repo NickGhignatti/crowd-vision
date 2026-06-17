@@ -22,7 +22,7 @@ const emit = defineEmits<{
 
 <template>
   <div @click="emit('select', props.room.id)"
-    class="group p-4 bg-slate-50 rounded-xl border transition-all duration-200 cursor-pointer relative overflow-hidden"
+    class="group p-4 rounded-xl border transition-all duration-200 cursor-pointer relative overflow-hidden"
     :class="[
       isSelected
         ? 'border-emerald-600 shadow-md ring-1 ring-emerald-600 bg-white'

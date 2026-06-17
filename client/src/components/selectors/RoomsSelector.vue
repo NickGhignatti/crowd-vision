@@ -66,8 +66,13 @@ const buildingId = computed(() => props.buildingModel?.id)
 const { data: peopleData } = getBuildingData(buildingId, 'peopleCount')
 const { data: temperatures } = getBuildingData(buildingId, 'temperature')
 const { data: airQuality } = getBuildingData(buildingId, 'airQuality')
-const { sensors: buildingSensors, isLoading: sensorsLoading, error: sensorsError, registerSensor } =
-  useBuildingSensors(buildingId)
+const { 
+  sensors: buildingSensors, 
+  isLoading: sensorsLoading, 
+  error: sensorsError, 
+  registerSensor, 
+  sendAction 
+} = useBuildingSensors(buildingId)
 
 const sensorsByRoom = computed<Record<string, RoomSensorRecord[]>>(() => {
   const grouped: Record<string, RoomSensorRecord[]> = {}
@@ -143,25 +148,30 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
             :ref="(el) => (roomRefs[r.room.id] = el as HTMLElement)"
             class="space-y-2"
           >
-            <RoomCard
-              :room="r.room"
-              :is-selected="selectedRoomId === r.room.id"
-              :can-edit="userCanEdit"
-              :temp="r.temp"
-              :people="r.people"
-              :indoor-aqi="r.indoorAqi"
-              @select="emit('toggle-select', $event)"
-              @edit="handleOpenEdit"
-            />
+            <div
+              class="space-y-0.5 bg-slate-50 rounded-xl border transition-all duration-200 cursor-pointer relative overflow-hidden"
+              >
+              <RoomCard
+                :room="r.room"
+                :is-selected="selectedRoomId === r.room.id"
+                :can-edit="userCanEdit"
+                :temp="r.temp"
+                :people="r.people"
+                :indoor-aqi="r.indoorAqi"
+                @select="emit('toggle-select', $event)"
+                @edit="handleOpenEdit"
+              />
 
-            <RoomSensorsPanel
-              :room-id="r.room.id"
-              :room-name="r.room.name"
-              :sensors="sensorsByRoom[r.room.id] ?? []"
-              :is-loading="sensorsLoading"
-              :error="sensorsError"
-              :on-register-sensor="registerSensor"
-            />
+              <RoomSensorsPanel
+                :room-id="r.room.id"
+                :room-name="r.room.name"
+                :sensors="sensorsByRoom[r.room.id] ?? []"
+                :is-loading="sensorsLoading"
+                :error="sensorsError"
+                :on-register-sensor="registerSensor"
+                :on-send-action="sendAction"
+              />
+            </div>
           </div>
 
           <div v-if="filteredRooms.length === 0" class="text-center py-4">

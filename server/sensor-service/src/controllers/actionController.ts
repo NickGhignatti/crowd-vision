@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import type { SensorKernel } from "../kernel/sensorKernel.js";
-import { ActionService } from "../services/ActionService.js";
 
 export function createActionHandler(kernel: SensorKernel) {
   return async function execute(
@@ -8,16 +7,16 @@ export function createActionHandler(kernel: SensorKernel) {
     res: Response,
   ): Promise<void> {
     const { actionData } = req.body;
-    const type = actionData.sensorType;
+    console.log(actionData);
+    return;
 
-    if (typeof type !== "string" || type.trim().length === 0) {
+    /*if (typeof type !== "string" || type.trim().length === 0) {
       res.status(400).json({
         error: "Missing or invalid field: `type` must be a non-empty string.",
       });
       return;
     }
 
-    const actionService = new ActionService;
     const module = kernel.resolve(type);
     if (!module) {
       res
@@ -34,9 +33,9 @@ export function createActionHandler(kernel: SensorKernel) {
       });
       return;
     }
+    module.apply();
 
-    const sensorId = await actionService.getSensorId(actionData.roomId, actionData.buildingId);
-    console.log(sensorId);
+    console.log(actionData.sensorId);
 
     // ── The Fast Path ────────────────────────────────────────────────────────
     res.status(202).json({ accepted: true, type });
@@ -49,6 +48,6 @@ export function createActionHandler(kernel: SensorKernel) {
           err,
         );
       });
-    });
+    });*/
   };
 }
