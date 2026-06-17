@@ -3,54 +3,89 @@
 
 # CrowdVision — Software Process Engineering Report
 
-**Authors:** Nicolò Ghignatti · Mounir Samite · Ettore Farinelli
+**Authors:** Ettore Farinelli · Nicolò Ghignatti · Mounir Samite
 **Course:** Software Process Engineering · **Date:** June 2026
 
-CrowdVision is a **digital-twin and crowd-analytics platform**. In plain terms, it takes live data
-from sensors scattered around a building and shows it on an interactive 3D model, so whoever runs the
-place can see — right now — how crowded a room is, how warm it is, and whether anything needs
-attention. It scales from a single floor to a whole campus.
+CrowdVision is a **digital-twin and crowd-analytics platform**. It takes live data from sensors
+placed around a building and renders it on an interactive 3D model, so whoever runs the place can
+see — in real time — how crowded a room is, how warm it is, and whether something needs attention.
+It is meant to scale from a single floor up to a whole campus.
 
-This report is not really a tour of the features. It is more the story of *how we built it*: how we
-organised ourselves, the choices we made about design and architecture, and the tooling that carries
-a commit all the way to a running, deployed service. We have tried to keep it high-level — whenever a
-topic deserves a closer look, we point to the **exact page of the
-[Developer Guide](../../dev/Developer-Guide/)** rather than repeating it here.
+.box {This is a short, high-level report — not the documentation} type:{warning}
+    This document is deliberately **light**. It is a *summary* written for the Software Process
+    Engineering exam, not the project's real documentation. We only sketch each topic here; the
+    actual detail — every domain model, every diagram, every workflow — lives in the
+    **[Developer Guide](../../dev/Developer-Guide/)**. Whenever a topic is worth a closer look, a
+    **Read more** box at the end of the section points to the exact page (and often the exact
+    section) that covers it properly. If you want the full picture, please follow those links rather
+    than relying on this report alone.
 
-.box {How to read this} type:{note}
-    Every section ends with a **Read more** box linking to the precise Developer-Guide page — and,
-    where it helps, the exact section — that goes deeper than we do here.
+What follows is therefore less a tour of the features and more an account of *how we built it*: how
+we split the problem into a domain model, the architecture we settled on, and the tooling that
+carries a commit all the way to a deployed service.
 
 ---
 
 # 1 · Introduction
 
-CrowdVision is a **polyglot microservices system** living in a single **monorepo** — every service,
-all the shared tooling, the infrastructure manifests and the documentation sit in one Git
-repository. We landed on nine deployable pieces: seven backend services, two device simulators, and a
-Vue single-page app for the browser.
+We built CrowdVision **domain-first**: we modelled the problem before deciding how to run it. As
+Section 2 explains, the domain splits naturally into several independent parts, and in our scenario
+it was convenient to give each part its own **service**. The result is a **polyglot, multi-service
+system** living in a single **monorepo** — every service, the shared tooling, the infrastructure
+manifests and the documentation sit in one Git repository. Concretely that is ten deployable
+pieces: seven backend services, two device simulators, and a Vue single-page app for the browser.
 
-## 1.1 Project goals
+## 1.1 What we set out to build
 
-We started from a handful of goals. Each one quietly shaped both the architecture and the pipeline:
+The goals below are about *the product* — what CrowdVision is supposed to do. The constraints the
+exam itself imposes are a separate matter, handled in Section 1.2 below. As a product, we wanted
+CrowdVision to:
+
+- **Ingest live telemetry at scale.** A building full of sensors emits a constant stream of readings
+  — people counts, temperature, and so on — and the system had to take that stream in continuously,
+  not in batches.
+- **Be a genuinely data-intensive application.** The interesting engineering is in moving and
+  shaping data: ingesting it, checking it against thresholds, filtering it per building, and fanning
+  it out to whoever is watching — all in real time.
+- **Render the building, live, on the front page.** The centrepiece is an interactive **3D model**
+  of the building that updates as readings arrive: a room visibly fills up or warms up as it
+  happens. This is the product's differentiator, and where we spent the most modelling effort.
+- **Push updates to the browser in real time.** A reading taken by a sensor should reach the
+  operator's screen within moments, not on a manual refresh.
+- **Alert on what matters.** When a reading crosses a threshold, the right people should be notified
+  without anyone having to watch the dashboard.
+- **Scale from a floor to a campus.** The same system should make sense for a single room and for a
+  whole site, which pushed us toward independently scalable parts.
+
+.box {Read more} type:{tip}
+    The product scope in full:
+    [Functional Requirements](../../dev/Developer-Guide/functional-requirements/) ·
+    [Non-Functional Requirements](../../dev/Developer-Guide/non-functional-requirements/) ·
+    [User Stories](../../dev/Developer-Guide/user-stories/).
+
+## 1.2 The exam constraints, and how we met them
+
+Software Process Engineering also sets out a handful of requirements that any project has to
+satisfy. They are not the same thing as the product goals above, so we list them explicitly here,
+each next to what we actually did to meet it.
 
 .var {headers}
-   - Goal
-   - How we got there
+   - Exam requirement
+   - How we satisfied it
 
 .tablebyrows {.headers}
-    - - **Microservices that mean something**
-      - We let Domain-Driven Design draw the boundaries — one bounded context per service, each owning its own database.
-    - - **The right language for the job**
-      - Services run on three stacks: TypeScript on Node.js, Python, and Rust. We picked per workload, not by habit.
-    - - **One way to build everything**
-      - A single command (`just`, on top of `mise` and `moon`) builds, tests and lints every language, sharing one cache.
-    - - **Automation we can trust, with security baked in**
-      - Pipelines handle build, test, lint, dependency and container scanning, static analysis, docs, image publishing and deployment.
-    - - **Runs the same everywhere**
-      - Every service ships as a Docker image; the system runs under Docker Compose on a laptop and on Kubernetes in production.
+    - - **Domain-driven design**
+      - We started from a DDD strategic design: one domain, several subdomains, and bounded contexts joined by a context map (see Section 2.1).
+    - - **A clear development process and DevOps practices**
+      - GitHub Flow on a single protected branch, Conventional Commits and a branch-naming convention, every change reviewed and gated by CI (see Sections 1.3 and 3.3).
+    - - **Full-scale automation, including CI and CD**
+      - One CI gate fans out build / test / lint / audit / scan per service; `semantic-release` then versions and deploys every merge (see Section 3.4).
+    - - **Deploy automation via containerization and/or orchestration**
+      - Every service ships as a Docker image; the system runs under Docker Compose locally and on Kubernetes in production (see Section 3.2).
+    - - **Technically involve two or more target platforms**
+      - Our services run on three different runtimes — TypeScript on Node.js, Python, and Rust — clearing the "different runtime *and* different build system" bar comfortably (see Section 2.2).
 
-## 1.2 How we organised the work
+## 1.3 How we organised the work
 
 Three habits carried the day-to-day:
 
@@ -65,7 +100,7 @@ Three habits carried the day-to-day:
   off the commit history. Every merge to `master` cuts a release, builds and scans the images, and
   pushes them to **GHCR**, which is exactly where production pulls from.
 
-## 1.3 Licensing
+## 1.4 Licensing
 
 CrowdVision is **proprietary, source-available software** — *“All rights reserved”*. The repository
 is public so anyone can read the code and judge it. GitHub's terms let people view and fork it on
@@ -83,25 +118,23 @@ the repository private** when that moment comes. Staying source-available today 
 later is a planned step, not an afterthought.
 
 .box {Read more} type:{tip}
-    Goals and scope: [Functional Requirements](../../dev/Developer-Guide/functional-requirements/) ·
-    [Non-Functional Requirements](../../dev/Developer-Guide/non-functional-requirements/) ·
-    [User Stories](../../dev/Developer-Guide/user-stories/). The full terms live in the
-    repository `LICENSE`.
+    The full licence terms live in the repository `LICENSE`.
 
 ---
 
 # 2 · Design
 
-The system is a set of **microservices**, each one modelling a single slice of the domain and owning
-its own data. We leaned on Domain-Driven Design throughout, but treated it as a **compass, not a
-rulebook**: the strategic boundaries are the part we were most sure of; the tactical detail we added
-only where it paid for itself.
+We designed CrowdVision **domain-first**. Before settling on any technology, we used Domain-Driven
+Design to understand the problem and carve it into parts; only afterwards did we decide how to run
+those parts. We treated DDD as a **compass, not a rulebook**: the strategic boundaries are the part
+we were most confident in; tactical detail we added only where it paid for itself.
 
 ## 2.1 The domain, and how we split it
 
-The domain, boiled down, is *watching physical spaces in real time through a digital twin*. We sorted
-the subdomains by how much they actually set the product apart — which then told us where to spend
-our modelling effort:
+The domain, boiled down, is *watching physical spaces in real time through a digital twin*. It is not
+one undivided thing — it falls into several **subdomains**, each with its own language and its own
+job. We sorted them by how much they actually set the product apart, which in turn told us where to
+spend our modelling effort:
 
 .var {headers}
    - Subdomain (type)
@@ -139,9 +172,14 @@ while the building-to-telemetry and building-to-alerting links are **Customer/Su
     [Telemetry Distribution](../../dev/Developer-Guide/telemetry-distribution/) ·
     [Alerting](../../dev/Developer-Guide/alerting/).
 
-## 2.2 One context, one service
+## 2.2 Why each context became its own service
 
-Each context maps cleanly onto a deployable service. Every service owns its persistence, answers
+Nothing about DDD forces a bounded context to be a separate deployable — a context can live perfectly
+well as a module inside one larger application. In our scenario, though, it was convenient to give
+each context **its own service**: the parts have genuinely different workloads (a Rust telemetry
+filter has little in common with a Python assistant), several of them need to scale on their own, and
+a process boundary is the most honest way to stop one context's model leaking into another's. So we
+mapped each context onto exactly one deployable service. Every service owns its persistence, answers
 synchronous reads over HTTP, and trades the high-frequency events over a broker.
 
 .var {headers}
@@ -364,13 +402,13 @@ kept in place by the tooling rather than by discipline alone.
 
 Looking back, the process gave us four things we genuinely value:
 
-- **Builds that just work, anywhere** — one command, one cache, and no surprises about which tool
-  version is on the machine.
-- **A straight line from commit to production** — versioning, changelog, image publishing and the
-  rollout to production all happen on their own.
-- **Security as a gate, not a footnote** — dependency, static-analysis and container scans can block
-  a merge or a publish, and the supply chain is pinned and tripwired.
-- **DDD that survived contact with real code** — one bounded context per service, one database per
+- **A reproducible build** — one command, one cache, and no ambiguity about which tool version a
+  given machine is using.
+- **An automated path from commit to production** — versioning, changelog, image publishing and the
+  rollout all happen without manual steps.
+- **Security enforced by the gate** — dependency, static-analysis and container scans can block a
+  merge or a publish, and the supply chain is pinned and tripwired.
+- **A DDD model that held up in practice** — one bounded context per service, one database per
   service, kept honest by network isolation and by CI.
 
 .box {Explore the system} type:{note}

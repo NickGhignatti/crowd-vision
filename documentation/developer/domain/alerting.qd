@@ -70,6 +70,10 @@ We model the context as two separate aggregate roots so that the two concerns ca
 - **Intended invariant:** at most one Alert Preference per principal per domain.
 - `AlertType` is modelled as an extensible set. We expect to start with a small number of types and add more, so the model is built to grow rather than fixed to today's list.
 
+### Value Objects: DeliveryKeys and TypePreference
+
+Each aggregate carries one immutable, identity-less value object. **DeliveryKeys** is the key material that lets a Delivery Channel be reached securely — it belongs to its channel and nowhere else. A **TypePreference** is a single *(alert type, subscribed?)* choice held inside an Alert Preference. Neither has meaning on its own, so both are modelled as value objects their aggregate replaces rather than tracks by identity.
+
 ---
 
 ## How Alerting Fits In

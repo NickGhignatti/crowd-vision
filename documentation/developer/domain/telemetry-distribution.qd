@@ -52,6 +52,10 @@ The aggregate root is a Building's Preference: which metrics it shows, in what o
 - The allowed metrics are an *ordered* collection; reordering is a meaningful change to the model, not an incidental detail.
 - We left open, at design time, how durable a Preference must be and how quickly a change must take effect — those service-level qualities are decided in the implementation.
 
+### Value Object: Metric
+
+An **allowed metric** is modelled as a value object — `key`, `label`, `unit`, and the context it came from — with no identity of its own: two entries describing the same metric are interchangeable. A `BuildingPreference` holds an ordered list of them, and a change to the preference replaces those entries rather than mutating them in place. The catalog these are drawn from is assembled separately, as described next.
+
 ---
 
 ## The Metric Catalog
