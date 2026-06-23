@@ -10,7 +10,10 @@ import type { ApiDataPoint } from './useSensorData.ts'
  * + telemetry handler. Acquires on mount / building change and releases on the
  * matching teardown, so the store can reference-count the underlying bucket.
  */
-export function useBuildingSensor(buildingId: Ref<string | undefined>, type: SensorType) {
+export function useBuildingSensor(
+  buildingId: Ref<string | undefined>,
+  type: SensorType,
+): { data: Ref<ApiDataPoint[]>; isLoading: Ref<boolean>; error: Ref<string | null> } {
   const store = useSensorDataStore()
   const bucket = shallowRef<SensorBucket | null>(null)
 

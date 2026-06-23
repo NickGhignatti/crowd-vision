@@ -38,9 +38,10 @@ export const useSensorDataStore = defineStore('sensorData', () => {
   const hasBucketForBuilding = (buildingId: string) =>
     [...buckets.keys()].some((key) => buildingOf(key) === buildingId)
 
-  function onTelemetry(event: ApiDataPoint & { type?: SensorType; buildingId?: string }) {
+  function onTelemetry(rawEvent: unknown) {
     // Telemetry events identify their building as `buildingId` (the REST shape
     // uses `building`); the bucket key is the building id passed to `acquire`.
+    const event = rawEvent as ApiDataPoint & { type?: SensorType; buildingId?: string }
     const key = bucketKey(event?.type as SensorType, event?.buildingId as string)
     const bucket = buckets.get(key)
     if (!bucket) return

@@ -118,7 +118,10 @@ fn resolve_channel(
     };
 
     if !building_preferences.contains_key(building_id) {
-        info!("No preferences found for building {}, skipping", building_id);
+        info!(
+            "No preferences found for building {}, skipping",
+            building_id
+        );
         return None;
     }
 
