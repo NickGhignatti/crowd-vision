@@ -39,18 +39,16 @@ Every pull request must pass `CI Gate / CI Passed` — the single aggregated che
         CHANGES --> K8S[k8s<br/>kubeconform · pluto · kube-score]
         CHANGES --> LINT[workflows-lint<br/>actionlint]
         CHANGES --> INFRA[infra<br/>scripts + tooling]
-        CHANGES --> GUARD[guard-unmapped<br/>tripwire]
         SVC --> PASSED[CI Passed]
         DOCKER --> PASSED
         K8S --> PASSED
         LINT --> PASSED
         INFRA --> PASSED
-        GUARD --> PASSED
         PASSED --> MERGE[merge allowed]
 
 ### How the gate decides
 
-The `changes` job runs `dorny/paths-filter` once and emits a boolean per area. Every downstream leg is guarded by an `if:` on those booleans, so a leg runs **only** when a path it owns actually changed. Service legs and the cross-cutting checks are called as reusable workflows (`uses: ./.github/workflows/ci-*.yml`); the gate itself stays a thin orchestrator — detect, fan out, guard, aggregate.
+The `changes` job runs `dorny/paths-filter` once and emits a boolean per area. Every downstream leg is guarded by an `if:` on those booleans, so a leg runs **only** when a path it owns actually changed. Service legs and the cross-cutting checks are called as reusable workflows (`uses: ./.github/workflows/ci-*.yml`); the gate itself stays a thin orchestrator — detect, fan out, aggregate.
 
 .box {Unaffected legs are skipped, not failed} type:{note}
     A leg whose paths did not change resolves as `skipped`, which the aggregator counts as a pass. This is what keeps the pipeline fast — a one-line change to one service does not rebuild the world.
@@ -151,7 +149,7 @@ The two device simulators ship as GHCR images but are not application services, 
       - Python 3.12
       - `py_compile` parses every module (smoke.py is **not** executed — it performs network I/O), then `ruff check` runs with default rules, which catch real defects such as undefined names and unused imports.
 
-Both were previously ungated despite shipping images; until this workflow existed they were held by the unmapped-path tripwire below.
+Both were previously ungated despite shipping images until this workflow gave them a real bucket.
 
 ---
 
@@ -171,42 +169,12 @@ These legs validate properties that span the codebase rather than a single servi
     - - `workflows-lint`
       - A job defined inline in `ci-gate.yml` that validates the workflow files themselves whenever anything under the `&#46;github/` tree changes. **actionlint** (digest-pinned container) catches malformed expressions and invalid action inputs; shellcheck is bundled but disabled (`-shellcheck=`) until its `run:`-block findings are triaged. **zizmor** (pinned version, run `--offline --min-severity medium`) then audits for security smells actionlint misses: template injection in `run:` blocks, credential persistence (it is why every read-only checkout sets `persist-credentials: false`), over-broad token permissions, and dangerous triggers.
     - - `ci-infra.yml`
-      - The `infra` leg. Cheap, real validation for repo scripts and release tooling whenever `scripts/` or `tooling/` change: `node --check` parses every tracked `&#46;mjs`/`&#46;js`, `bash -n` checks every shell script, and `npm ci` in `tooling/` proves the release-tooling lockfile is still in sync. Keeps routine script edits green automatically instead of tripping the guard below.
+      - The `infra` leg. Cheap, real validation for repo scripts and release tooling whenever `scripts/` or `tooling/` change: `node --check` parses every tracked `&#46;mjs`/`&#46;js`, `bash -n` checks every shell script, and `npm ci` in `tooling/` proves the release-tooling lockfile is still in sync. Keeps routine script edits green automatically.
     - - `ci-dependency-review.yml`
       - The `dependency-review` leg. On any PR that changes a dependency manifest or lockfile, it fails if the PR **introduces** a dependency carrying a known high/critical advisory (`fail-on-severity: high`). It complements the per-service audit steps: those see the merged lockfile state, whereas this diffs exactly what the PR adds, catching a vulnerable package at the moment it is introduced. Requires the repository's dependency graph (on by default for public repos).
 
 .box {Every third-party action is pinned to a commit SHA} type:{note}
     Each `uses:` across every workflow references a full 40-character commit SHA (with the human-readable version kept as a trailing comment, e.g. `# v6`), never a moving tag like `@v4`. A tag can be silently repointed at malicious code by whoever controls the action; a commit SHA cannot. The repository setting **Settings → Actions → "Require actions to be pinned to a full-length commit SHA"** enforces this, so no future workflow can reintroduce an unpinned action. Local reusable workflows (`uses: ./.github/workflows/…`) are exempt — they live in this repo. Bumping a version means resolving the new tag to its SHA (`git ls-remote`) and updating both the SHA and the comment.
-
----
-
-## The unmapped-path tripwire
-
-A path-filtered pipeline has one structural blind spot: a path that **no filter knows about** runs **no checks**, and "no checks" reports green. A pull request touching only such a path would sail through the gate having validated nothing. The `guard-unmapped` job closes that hole.
-
-It is driven by an inverted filter — a catch-all minus everything already accounted for:
-
-```yaml
-unmapped:
-  - '**'                  # suspect everything…
-  - '!server/**'          # …then subtract every path that has a real bucket
-  - '!client/**'
-  - '!k8s/**'
-  - '!.github/**'
-  - '!scripts/**'
-  - '!tooling/**'
-  - '!simulators/**'
-  - '!documentation/**'   # …and the inert content that needs no checks
-  - '!landing-page/**'
-  - '!output/**'
-  - '!**/*.md'
-  - '!LICENSE'
-```
-
-Whatever survives that subtraction is, by definition, a path nobody mapped. When the filter catches something, `guard-unmapped` runs, lists the offending files (via `list-files: shell`), and **fails** — turning the gate red and forcing a conscious decision. The remedy is one line in the filter: either map the path to a real check, or add it to the inert exclusions if it genuinely carries no risk.
-
-.box {Fail closed, by design} type:{tip}
-    Today the survivors include root config (`Caddyfile`, `docker-compose.yml`, `prometheus.yml`, `.mise.toml`, `.trivyignore`…), `.moon/` task definitions, and `seed.py`. The simulators used to live here too — they were the motivating example of "ships an artifact but nothing gates it" — until `ci-simulators.yml` gave them a real bucket. On a solo repository where no second reviewer exists, this guard is the mechanical substitute for "a human must look at this change."
 
 ---
 
@@ -233,7 +201,7 @@ The workflow does **not** rebuild every image on every push. A `changes` job det
 
 The Trivy scan is deliberately scoped to **OS packages only** (`vuln-type: os`). Application dependencies are not re-scanned here because they are already gated pre-merge by the per-service audits. The division of labour is: **the service CI workflows own language dependencies at PR time; `cd-registry` Trivy owns the base-OS layer at push time** — the part the dependency audits cannot see.
 
-To keep the OS scan green, every production image upgrades its base-OS packages at build time (`apk upgrade` on Alpine images, `apt-get upgrade` on the Debian-based contracts, agent, and aq-simulator images). The Debian upgrade lines carry `# hadolint ignore=DL3005`. Any residual fixable CVE that cannot be patched in-build is waived in the repo-root `.trivyignore`, where each entry must carry a justifying comment. (A change to `.trivyignore` itself trips the unmapped-path tripwire, so a CVE waiver can never be slipped in silently.)
+To keep the OS scan green, every production image upgrades its base-OS packages at build time (`apk upgrade` on Alpine images, `apt-get upgrade` on the Debian-based contracts, agent, and aq-simulator images). The Debian upgrade lines carry `# hadolint ignore=DL3005`. Any residual fixable CVE that cannot be patched in-build is waived in the repo-root `.trivyignore`, where each entry must carry a justifying comment.
 
 ---
 

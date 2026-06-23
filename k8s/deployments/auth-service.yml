@@ -57,17 +57,16 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-          # Readiness: removes pod from Service endpoints until app is ready to serve.
-          # Liveness:  restarts the pod if it becomes unresponsive (deadlock, hung process).
-          # Using TCP probes — upgrade to httpGet /auth/health once the endpoint is stable.
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: 3000
             initialDelaySeconds: 20
             periodSeconds: 20

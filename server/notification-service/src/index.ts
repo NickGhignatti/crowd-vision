@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import dotenv from "dotenv";
 import router from "./router.js";
 import { connectRedis } from "./config/redis.js";
@@ -22,9 +23,17 @@ if (process.env.NODE_ENV !== "test") {
     .then(async () => {
       await initializeEventListeners();
 
-      app.listen(PORT, () => {
+      const server = app.listen(PORT, () => {
         console.info(`[notification-service] Listening on port ${PORT}`);
       });
+      const shutdown = () => {
+        server.close(() => {
+          mongoose.disconnect().finally(() => process.exit(0));
+        });
+        setTimeout(() => process.exit(1), 10_000).unref();
+      };
+      process.on("SIGTERM", shutdown);
+      process.on("SIGINT", shutdown);
     })
     .catch((err) => {
       console.error(

@@ -245,4 +245,24 @@ describe('socket service', () => {
       expect(socketState.connected).toBe(true)
     })
   })
+
+  describe('notification cap', () => {
+    it('caps the stored notifications at 100', () => {
+      for (let i = 0; i < 101; i++) fireEvent('notification', makeIncoming({ message: `n${i}` }))
+      expect(socketState.notifications).toHaveLength(100)
+    })
+
+    it('keeps the most recent and drops the oldest when over the cap', () => {
+      for (let i = 0; i < 150; i++) fireEvent('notification', makeIncoming({ message: `n${i}` }))
+
+      // unshift puts the newest at the front; truncation drops the oldest tail.
+      expect(socketState.notifications[0]?.message).toBe('n149')
+      expect(socketState.notifications.some((n) => n.message === 'n0')).toBe(false)
+    })
+
+    it('does not truncate at or below the cap', () => {
+      for (let i = 0; i < 100; i++) fireEvent('notification', makeIncoming())
+      expect(socketState.notifications).toHaveLength(100)
+    })
+  })
 })

@@ -133,7 +133,16 @@ A child therefore implements only what is unique: `type`, `model`, `validate`, `
 
 ### Signals
 
-Each metric is its own append-only collection. All share `building`, `roomId`, `timestamp` plus metric-specific fields, and carry two indexes:
+Each metric is its own **MongoDB time-series collection**. The engine groups readings from the same building into compressed buckets internally; Mongoose reads and writes plain documents — the bucketing is transparent.
+
+All three schemas share the following time-series options:
+
+- `timeField: "createdAt"` — the `Date` axis; stamped automatically on insert via `default: Date.now`.
+- `metaField: "building"` — the series identifier; readings from the same building are co-located in the same bucket.
+- `granularity: "seconds"` — bucket windows sized to the sensor polling rate.
+- `expireAfterSeconds: 7 776 000` (90 days) — retention enforced by the collection, no separate TTL index needed.
+
+Two secondary indexes support dashboard queries that filter on the measurement `timestamp` (Unix epoch from the hardware) rather than the `createdAt` time axis:
 
 - `{ building: 1, timestamp: -1 }` — building-wide range scans.
 - `{ building: 1, roomId: 1, timestamp: -1 }` — per-room point and range queries.

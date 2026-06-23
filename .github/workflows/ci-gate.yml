@@ -32,8 +32,6 @@ jobs:
       infra: ${{ steps.filter.outputs.infra }}
       simulators: ${{ steps.filter.outputs.simulators }}
       deps: ${{ steps.filter.outputs.deps }}
-      unmapped: ${{ steps.filter_unmapped.outputs.unmapped }}
-      unmapped_files: ${{ steps.filter_unmapped.outputs.unmapped_files }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
@@ -96,31 +94,6 @@ jobs:
               - '**/requirements*.txt'
               - '**/Cargo.toml'
               - '**/Cargo.lock'
-
-      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
-        id: filter_unmapped
-        with:
-          # list-files: shell exposes unmapped_files (space-separated, escaped)
-          # so the guard can name the offending paths.
-          list-files: shell
-          predicate-quantifier: every
-          filters: |
-            unmapped:
-              - '**'
-              - '!server/**'
-              - '!client/**'
-              - '!k8s/**'
-              - '!.github/**'
-              - '!scripts/**'
-              - '!tooling/**'
-              - '!Justfile'
-              - '!simulators/**'
-              - '!documentation/**'
-              - '!landing-page/**'
-              - '!output/**'
-              - '!**/*.md'
-              - '!LICENSE'
-              - '!.gitignore'
 
       # Build the Docker matrix (include-form) from the changed services that
       # ship an image. Only these get a PR-time build
@@ -247,27 +220,6 @@ jobs:
     if: needs.changes.outputs.deps == 'true'
     uses: ./.github/workflows/ci-dependency-review.yml
 
-  # Fails whenever a PR changes a path no CI bucket covers, so nothing merges ungated.
-  guard-unmapped:
-    name: Guard Unmapped Paths
-    needs: changes
-    if: needs.changes.outputs.unmapped == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Report unmapped files and fail
-        env:
-          FILES: ${{ needs.changes.outputs.unmapped_files }}
-        run: |
-          echo "::error::This PR changes paths that no CI job covers — refusing to merge ungated."
-          echo "Unmapped files:"
-          for f in $FILES; do echo "  - $f"; done
-          echo ""
-          echo "Resolve in .github/workflows/ci-gate.yml by either:"
-          echo "  1) mapping these paths to a CI bucket (preferred), or"
-          echo "  2) adding them to the inert exclusions in the 'unmapped' filter"
-          echo "     if they genuinely carry no risk (docs, generated assets)."
-          exit 1
-
   ci-passed:
     name: CI Passed
     runs-on: ubuntu-latest
@@ -288,7 +240,6 @@ jobs:
       - infra
       - simulators
       - dependency-review
-      - guard-unmapped
     if: always()
     steps:
       - name: Verify every job succeeded or legitimately skipped

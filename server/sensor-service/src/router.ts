@@ -39,5 +39,7 @@ export function createRouter(
     res.status(200).json(SENSOR_METRICS_CONTRACT),
   );
 
+  router.get("/health", (_req, res) => res.status(200).send());
+
   return router;
 }

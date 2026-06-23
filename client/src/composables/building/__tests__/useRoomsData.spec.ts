@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { useBuildingTemperature, useBuildingAirQualitySensors } from '../useRoomsData'
-import { getBuildingData } from '../useSensorData'
+import { useBuildingSensor } from '../useBuildingSensor'
 import type { ApiDataPoint } from '../useSensorData'
 
 /**
  * Tests for useRoomsData.ts composables.
  *
- * Both exported functions delegate data fetching to `getBuildingData`
- * (from useSensorData).  We mock that dependency so we can control
+ * Both exported functions delegate data fetching to `useBuildingSensor`
+ * (the shared sensor-data store).  We mock that dependency so we can control
  * the reactive `data` ref directly and test only the aggregation logic.
  *
  * Key behaviours under test:
@@ -17,15 +17,15 @@ import type { ApiDataPoint } from '../useSensorData'
  *    the legacy `indoorAqi` field and the newer `indoor_aqi` field.
  */
 
-vi.mock('../useSensorData', () => ({
-  getBuildingData: vi.fn(),
+vi.mock('../useBuildingSensor', () => ({
+  useBuildingSensor: vi.fn(),
 }))
 
 const makeDataRef = (points: Partial<ApiDataPoint>[]) =>
   ref(points as ApiDataPoint[])
 
 const defaultMock = (points: Partial<ApiDataPoint>[] = []) => {
-  vi.mocked(getBuildingData).mockReturnValue({
+  vi.mocked(useBuildingSensor).mockReturnValue({
     data: makeDataRef(points),
     isLoading: ref(false),
     error: ref(null),

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getBuildingData } from '@/composables/building/useSensorData.ts'
+import { useBuildingSensor } from '@/composables/building/useBuildingSensor.ts'
 import { usePagination } from '@/composables/ui/usePagination.ts'
 import { useAutoPlay } from '@/composables/scene/useAutoPlay.ts'
 import { useUserPermissions } from '@/composables/auth/useUserPermissions.ts'
@@ -67,9 +67,9 @@ const {
   (updated) => emit('headers-updated', updated),
 )
 
-const { data: peopleData, isLoading: loadingPeople } = getBuildingData(buildingIdRef, 'peopleCount')
-const { data: temperatures, isLoading: loadingTemperature } = getBuildingData(buildingIdRef, 'temperature')
-const { data: airQualityData } = getBuildingData(buildingIdRef, 'airQuality')
+const { data: peopleData, isLoading: loadingPeople } = useBuildingSensor(buildingIdRef, 'peopleCount')
+const { data: temperatures, isLoading: loadingTemperature } = useBuildingSensor(buildingIdRef, 'temperature')
+const { data: airQualityData } = useBuildingSensor(buildingIdRef, 'airQuality')
 
 const enrichedItems = computed<TableBody[]>(() => {
   if (!props.roomsData) return []

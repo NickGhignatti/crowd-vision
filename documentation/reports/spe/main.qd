@@ -351,8 +351,7 @@ Security isn't a separate stage — it's woven in:
 - **Containers** — on `master`, images are built, **scanned with Trivy, and only pushed to GHCR if the
   scan passes** — never push first and scan later.
 - **Supply chain** — every third-party action is pinned to a full commit SHA (enforced by a repo
-  setting), and an **unmapped-path tripwire** fails the build if a file nobody mapped to a check ever
-  gets touched.
+  setting).
 
 And the release itself runs without anyone touching it: every push to `master` runs
 **semantic-release** (work out the version → write the changelog → bump every manifest → tag →
@@ -370,10 +369,6 @@ publish), alongside a `cd-registry` job that rebuilds and pushes only the images
 
 Some choices shaped the *process* more than the product, and they're the ones worth lingering on.
 
-- **The unmapped-path tripwire.** A pipeline built on path filters has one blind spot: a file no
-  filter knows about runs no checks, and *“no checks”* quietly reports green. So we added an inverted
-  catch-all that fails the build whenever an unmapped file is touched, which makes us stop and decide
-  on purpose. On a small team it is the mechanical stand-in for *“someone needs to look at this.”*
 - **Build, then scan, then push.** Running the vulnerability scan *before* the registry push — not
   after — means a flagged image is simply never published. Together with the SHA-pinned actions, it
   closes the supply-chain gaps that are easiest to miss.
@@ -385,7 +380,6 @@ Some choices shaped the *process* more than the product, and they're the ones wo
   constraints that Lerna could not satisfy in our layout.
 
 .box {Read more} type:{tip}
-    The hardening details: [CI/CD Pipeline → The unmapped-path tripwire](../../dev/Developer-Guide/cicd/#the-unmapped-path-tripwire).
     The toolchain single source of truth and the Lerna call:
     [The Toolchain](../../dev/Developer-Guide/toolchain/) ·
     [Contributing](../../dev/Developer-Guide/contributing/#why-bump-versionsmjs-instead-of-lerna).

@@ -10,8 +10,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    # required: false ⇒ if a service is excluded from the run, gateway still
-    # starts (Caddy will retry connections when the service eventually appears).
+    # required: false ⇒ if a service is excluded from the run, gateway still starts
     depends_on:
       auth-service:
         condition: service_started
@@ -31,17 +30,32 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: crowd-vision-broker
-    ports:
-      - "6379:6379"
+    container_name: services-broker
+    restart: always
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis-langfuse:
+    image: redis:alpine
+    container_name: langfuse-broker
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   prometheus:
     image: prom/prometheus:latest
     container_name: crowd-vision-prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--web.external-url=${DEV_URL}/prometheus/'
-      - '--web.route-prefix=/'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.external-url=${DEV_URL}/prometheus/"
+      - "--web.route-prefix=/"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
@@ -104,8 +118,8 @@ services:
       LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
-      # Reuse the shared redis (no password) defined above.
-      REDIS_HOST: redis
+      # Langfuse's own isolated broker (no password), separate from services-broker.
+      REDIS_HOST: redis-langfuse
       REDIS_PORT: "6379"
       REDIS_AUTH: ""
       # Headless provisioning so agent-service can auth on first boot.
@@ -162,7 +176,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 1s
+      # ClickHouse needs ~10-30s to serve 8123 (more when loading an existing
+      # volume). A 1s grace let early "connection refused" probes trip unhealthy
+      # before it finished booting, aborting the langfuse services that wait on it.
+      start_period: 60s
 
   minio:
     image: cgr.dev/chainguard/minio

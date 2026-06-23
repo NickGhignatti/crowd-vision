@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import router from "./router.js";
 import { connectMongo } from "./config/db.js";
 import { errorHandler } from "./middlewares/errors.js";
@@ -14,6 +15,14 @@ app.use(metricsMiddleware);
 
 if (process.env.NODE_ENV !== "test") {
   connectMongo().then(() => {
-    app.listen(PORT);
+    const server = app.listen(PORT);
+    const shutdown = () => {
+      server.close(() => {
+        mongoose.disconnect().finally(() => process.exit(0));
+      });
+      setTimeout(() => process.exit(1), 10_000).unref();
+    };
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
   });
 }
