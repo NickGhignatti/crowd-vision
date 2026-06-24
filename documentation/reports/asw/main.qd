@@ -104,8 +104,11 @@ In concreto, un utente del sistema deve poter:
 
 - **Tempo reale.** Una lettura presa da un sensore deve arrivare allo schermo dell'operatore in pochi
   istanti, non al refresh manuale. È il requisito che ha guidato quasi tutte le scelte tecniche.
-- **Scalabilità.** Il sistema deve avere senso sia per un singolo piano sia per un intero campus, il
-  che ci ha spinti verso parti che possono scalare in modo indipendente.
+- **Scalabilità.** La sfida non è il browser che disegna un piano o un campus — quella è una
+  questione di prestazioni — ma il fatto di essere un'applicazione **multi-tenant**: una sola
+  installazione gestisce più organizzazioni, ognuna con più edifici, e ogni edificio con il suo
+  flusso di dati dai sensori da ingerire, validare e distribuire. Tenere in piedi tutto questo
+  contemporaneamente è complesso, e ci ha spinti verso parti che possono scalare in modo indipendente.
 - **Sicurezza e isolamento.** I dati di un'organizzazione non devono mai finire sotto gli occhi di
   un'altra; l'accesso alle API va protetto con autenticazione e autorizzazione.
 - **Usabilità.** L'interfaccia deve essere comprensibile anche a chi non è tecnico, e utilizzabile
