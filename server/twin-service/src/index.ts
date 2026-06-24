@@ -1,5 +1,6 @@
 import express from "express";
 import mongoose from "mongoose";
+import rateLimit from "express-rate-limit";
 import router from "./router.js";
 import { connectMongo } from "./config/db.js";
 import { errorHandler } from "./middlewares/errors.js";
@@ -8,7 +9,17 @@ import { metricsMiddleware } from "./middlewares/metrics.js";
 const PORT = 3000;
 export const app = express();
 
+// Per-IP rate limit on all routes (DoS protection); disabled under test.
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 300,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test",
+});
+
 app.use(express.json());
+app.use(apiLimiter);
 app.use("/", router);
 app.use(errorHandler);
 app.use(metricsMiddleware);

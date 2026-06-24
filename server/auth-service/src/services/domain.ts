@@ -12,7 +12,8 @@ export const addDomain = async (
   ssoConfig?: ISSOConfig,
   isVisibleFromOutside: boolean = false,
 ) => {
-  const domain = await Domain.findOne({ name: domainName });
+  // $eq blocks NoSQL operator injection (applied to all user-derived filters).
+  const domain = await Domain.findOne({ name: { $eq: domainName } });
 
   if (domain) {
     throw new ConflictError(`Domain with name "${domainName}" already exists`);
@@ -30,7 +31,7 @@ export const addDomain = async (
   });
 
   await Account.findOneAndUpdate(
-    { name: creatorAccountName },
+    { name: { $eq: creatorAccountName } },
     {
       $push: {
         memberships: { domainName: domainName, role: "business_admin" },
@@ -64,12 +65,14 @@ export const getPublicDomains = async () => {
 };
 
 export const getDomainByName = async (domainName: string) => {
-  return Domain.findOne({ name: domainName }).select("-ssoConfig.clientSecret");
+  return Domain.findOne({ name: { $eq: domainName } }).select(
+    "-ssoConfig.clientSecret",
+  );
 };
 
 export const getDomainSubdomains = async (name: string) => {
   const result = await Domain.aggregate([
-    { $match: { name } },
+    { $match: { name: { $eq: name } } },
     {
       $graphLookup: {
         from: "domains",
@@ -99,13 +102,13 @@ export const addSubdomainToDomain = async (
   subDomain: IDomain,
 ) => {
   await Domain.findOneAndUpdate(
-    { name: domainName },
+    { name: { $eq: domainName } },
     { $addToSet: { subdomains: subDomain._id } },
   );
 };
 
 export const getAccountMemberships = async (accountName: string) => {
-  const account = await Account.findOne({ name: accountName });
+  const account = await Account.findOne({ name: { $eq: accountName } });
 
   if (!account) {
     throw new NotFoundError(`Account with name "${accountName}" not found`);
@@ -115,7 +118,7 @@ export const getAccountMemberships = async (accountName: string) => {
 };
 
 export const subscribe = async (accountName: string, domainName: string) => {
-  const domain = await Domain.findOne({ name: domainName });
+  const domain = await Domain.findOne({ name: { $eq: domainName } });
 
   if (!domain) {
     throw new NotFoundError(`Domain with name "${domainName}" not found`);
@@ -128,7 +131,7 @@ export const subscribe = async (accountName: string, domainName: string) => {
   }
 
   await Account.findOneAndUpdate(
-    { name: accountName },
+    { name: { $eq: accountName } },
     { $addToSet: { memberships: { domainName, role: "standard_customer" } } },
   );
 
@@ -147,7 +150,7 @@ export const subscribe = async (accountName: string, domainName: string) => {
 
 export const unsubscribe = async (accountName: string, domainName: string) => {
   await Account.findOneAndUpdate(
-    { name: accountName },
+    { name: { $eq: accountName } },
     { $pull: { memberships: { domainName } } },
   );
 

@@ -1,5 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type UserConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { templateCompilerOptions } from '@tresjs/core'
@@ -18,30 +18,20 @@ export default defineConfig(({ mode }) => {
 
     build: {
       target: 'esnext',
-      minify: 'esbuild',
-      // rollupOptions: {
-      //   output: {
-      //     // CACHING: Splits code into separate files.
-      //     // If you change your app code, users don't need to re-download
-      //     // massive libraries like Vue or Pinia (they stay cached).
-      //     manualChunks(id) {
-      //       if (id.includes('three') || id.includes('@tresjs')) {
-      //         return 'three-vendor'
-      //       }
-      //       if (id.includes('node_modules')) {
-      //         return 'vendor'
-      //       }
-      //     },
-      //   },
-      // },
+      // Strip console/debugger in production via Rolldown's native (oxc) minifier,
+      // so no separate esbuild install is needed.
+      rolldownOptions: {
+        output: {
+          minify:
+            mode === 'production'
+              ? { compress: { dropConsole: true, dropDebugger: true } }
+              : false,
+        },
+      },
     },
     optimizeDeps: {
       // Force Vite to pre-bundle Three.js as a single unit
       include: ['three', '@tresjs/core', '@tresjs/cientos']
-    },
-    esbuild: {
-      // Automatically removes console output and debugger from Production builds
-      drop: mode === 'production' ? ['console', 'debugger'] : [],
     },
     server: {
       // Pre-loads critical files so the browser doesn't wait when you first open the app
@@ -66,5 +56,5 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-  }
+  } satisfies UserConfig
 })

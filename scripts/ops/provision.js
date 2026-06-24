@@ -7,18 +7,21 @@ const envPath = path.join(__dirname, "../..", ".env");
 
 function parseEnv() {
     const envVars = {};
-    if (fs.existsSync(envPath)) {
-        const content = fs.readFileSync(envPath, "utf8");
-        content.split(/\r?\n/).forEach(line => {
-            const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-            if (match) {
-                let key = match[1];
-                let value = match[2] || '';
-                value = value.replace(/^['"](.*)['"]$/, '$1'); // Remove quotes if present
-                envVars[key] = value;
-            }
-        });
+    let content = "";
+    try {
+        content = fs.readFileSync(envPath, "utf8");
+    } catch (e) {
+        if (e.code !== "ENOENT") throw e;
     }
+    content.split(/\r?\n/).forEach(line => {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match) {
+            let key = match[1];
+            let value = match[2] || '';
+            value = value.replace(/^['"](.*)['"]$/, '$1'); // Remove quotes if present
+            envVars[key] = value;
+        }
+    });
     return envVars;
 }
 
@@ -76,6 +79,7 @@ async function provisionEnterprise() {
 
     const payloadString = JSON.stringify(payload);
 
+    // HMAC request signature (authenticates the caller), not password storage.
     const signature = crypto
         .createHmac("sha256", internalAdminSecret)
         .update(payloadString)

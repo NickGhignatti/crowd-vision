@@ -65,14 +65,15 @@ export const subscribeUser = async (
   subscription: WebSubscriptionInput,
 ) => {
   await Subscription.findOneAndUpdate(
-    { endpoint: subscription.endpoint },
+    // $eq blocks NoSQL operator injection.
+    { endpoint: { $eq: subscription.endpoint } },
     { ...subscription, accountName },
     { upsert: true, returnDocument: "after" },
   );
 };
 
 export const getAccountNotificationPreference = async (accountName: string) => {
-  return NotificationSubscription.find({ accountName });
+  return NotificationSubscription.find({ accountName: { $eq: accountName } });
 };
 
 export const setUserNotificationPreference = async (
@@ -82,12 +83,12 @@ export const setUserNotificationPreference = async (
   type: NotificationType,
 ) => {
   await NotificationSubscription.updateOne(
-    { accountName, domainName },
+    { accountName: { $eq: accountName }, domainName: { $eq: domainName } },
     { $pull: { preferences: { notificationType: type } } },
   );
 
   await NotificationSubscription.updateOne(
-    { accountName, domainName },
+    { accountName: { $eq: accountName }, domainName: { $eq: domainName } },
     {
       $setOnInsert: { accountName, domainName, createdAt: new Date() },
       $push: { preferences: { notificationType: type, isSubscribed: enabled } },
@@ -121,7 +122,7 @@ export const sendPushToDomain = async (
   type: NotificationType,
 ) => {
   const domainSubscriptions = await NotificationSubscription.find({
-    domainName,
+    domainName: { $eq: domainName },
     preferences: {
       $elemMatch: { notificationType: type, isSubscribed: true },
     },

@@ -6,18 +6,21 @@ const envPath = process.env.ENV_FILE || path.join(__dirname, "../..", ".env");
 
 function parseEnv() {
     const envVars = {};
-    if (fs.existsSync(envPath)) {
-        const content = fs.readFileSync(envPath, "utf8");
-        content.split(/\r?\n/).forEach(line => {
-            const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-            if (match) {
-                let key = match[1];
-                let value = match[2] || '';
-                value = value.replace(/^['"](.*)['"]$/, '$1'); // Remove quotes if present
-                envVars[key] = value;
-            }
-        });
+    let content = "";
+    try {
+        content = fs.readFileSync(envPath, "utf8");
+    } catch (e) {
+        if (e.code !== "ENOENT") throw e;
     }
+    content.split(/\r?\n/).forEach(line => {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match) {
+            let key = match[1];
+            let value = match[2] || '';
+            value = value.replace(/^['"](.*)['"]$/, '$1'); // Remove quotes if present
+            envVars[key] = value;
+        }
+    });
     return envVars;
 }
 
@@ -79,13 +82,9 @@ async function setupConfig() {
     if (newConfigs.length > 0) {
         const envConfig = `\n# Generated interactively by config script\n` + newConfigs.join("\n") + "\n";
 
-        if (!fs.existsSync(envPath)) {
-            fs.writeFileSync(envPath, envConfig.trim() + "\n");
-            console.log("\n✅ Created new .env file with your configurations.");
-        } else {
-            fs.appendFileSync(envPath, envConfig);
-            console.log("\n✅ Appended new configurations to .env.");
-        }
+        // appendFileSync creates the file if absent (no existsSync → no TOCTOU race).
+        fs.appendFileSync(envPath, envConfig);
+        console.log("\n✅ Saved new configurations to .env.");
     } else {
         console.log("\n✅ All configurations are already present in .env. Nothing was added.");
     }
