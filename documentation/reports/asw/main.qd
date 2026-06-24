@@ -42,8 +42,9 @@ Il sistema fa quindi tre cose, tutte in tempo reale:
 
 Sopra a tutto c'è la gestione degli accessi: il sistema è **multi-tenant**, cioè una sola
 installazione serve più organizzazioni diverse ("domini"), e ogni utente vede soltanto i dati delle
-organizzazioni di cui fa parte. C'è poi un assistente basato su LLM a cui si può chiedere a parole
-lo stato dell'edificio, ma su quello non ci dilunghiamo perché è una parte di contorno.
+organizzazioni di cui fa parte. Tra i requisiti della proposta iniziale c'era anche un **assistente
+basato su LLM** a cui chiedere a parole lo stato dell'edificio: l'abbiamo realizzato, e ne parliamo
+nella sezione 3.9.
 
 Più che una semplice CRUD, CrowdVision è un'applicazione **data-intensive**: la parte interessante
 non è salvare un record, ma *spostare* i dati — ingerirli, validarli contro le soglie, filtrarli per
@@ -95,6 +96,9 @@ In concreto, un utente del sistema deve poter:
 - **Distribuzione in tempo reale** delle letture al frontend tramite WebSocket;
 - **Invio di notifiche push** (anche a browser chiuso) tramite il protocollo Web Push / VAPID;
 - **Configurazione della dashboard**: scelta e ordinamento delle metriche mostrate per ogni edificio.
+- **Assistente in linguaggio naturale**: un agente LLM a cui chiedere in italiano lo stato di un
+  edificio o come funziona la piattaforma, rispondendo solo sui dati che l'utente ha il diritto di
+  vedere.
 
 ## 2.3 Requisiti non funzionali
 
@@ -216,22 +220,22 @@ ciò che ci aspettavamo dal sistema, e l'interfaccia finale gli è rimasta piutt
 **Dashboard** — la schermata principale per chi gestisce l'edificio: il flusso live dei sensori
 riversato sul gemello digitale, con le metriche di affollamento a colpo d'occhio.
 
-![Mockup della dashboard](../../developer/mockup/dashboard.png)
+![Mockup della dashboard](images/dashboard.png)
 
 **Modello 3D** — il cuore del prodotto: il modello tridimensionale dell'edificio su cui vengono
 disegnate, direttamente sulla pianta, occupazione e letture in tempo reale.
 
-![Mockup della vista 3D](../../developer/mockup/model.png)
+![Mockup della vista 3D](images/model.png)
 
 **Domini** — la gestione delle organizzazioni, dei campus e degli ambienti fisici. Ogni account e
 ogni dato spaziale è agganciato a uno di questi domini.
 
-![Mockup della gestione domini](../../developer/mockup/domains.png)
+![Mockup della gestione domini](images/domains.png)
 
 **Grafici** — la vista di analisi, dove i dati storici dei sensori e gli andamenti di affollamento
 vengono messi a grafico per supportare il capacity planning.
 
-![Mockup dei grafici](../../developer/mockup/graphs.png)
+![Mockup dei grafici](images/graphs.png)
 
 ## 3.4 Design di dettaglio del backend
 
@@ -350,6 +354,45 @@ Giulia vuole solo trovare un posto dove studiare senza fare il giro di tutte le 
 - Giulia apre l'app dal browser del telefono (interfaccia responsive);
 - vede solo gli edifici del suo ateneo;
 - guarda quali aule studio sono libere e ci va a colpo sicuro.
+
+## 3.9 Assistente in linguaggio naturale
+
+Nella proposta di progetto avevamo messo, tra i requisiti, un **assistente basato su LLM**: l'idea
+era abbassare la barriera per chi non è tecnico, lasciando che chiedesse a parole *"quanti posti
+liberi ci sono in biblioteca?"* invece di andare a cercarselo tra menù e tabelle. È un requisito che
+abbiamo effettivamente realizzato — c'è un servizio dedicato, l'`agent-service`.
+
+A differenza del resto del backend è scritto in **Python (FastAPI)**, perché passa quasi tutto il
+tempo in attesa di risposte dalla rete (il provider del modello, il database, il twin-service) e uno
+stack asincrono regge molte richieste in volo senza bloccare un thread per chiamata. Lato web resta
+però un cittadino come gli altri: espone una API REST (`POST /agent/ask`) dietro lo **stesso
+gateway** degli altri servizi e si autentica con lo **stesso JWT** (cookie o `Bearer`), quindi
+eredita gratis lo "stateless trust" descritto nella sezione sulla sicurezza.
+
+Il punto interessante è che non è un singolo prompt buttato dentro al modello, ma un **ciclo di
+tool-calling**: al modello diamo la domanda più gli schemi degli strumenti che può usare, e a ogni
+giro lui decide se rispondere o se chiamare uno strumento. Gli strumenti sono cinque, tutti in **sola
+lettura** — cercare nella documentazione e interrogare edifici e stanze del twin-service — così
+l'agente può concatenare le ricerche (risolve il nome di un edificio nel suo id, poi ne chiede le
+stanze) senza che noi gli si debba pre-cucinare la risposta.
+
+Due scelte le abbiamo prese pensando proprio al *web* e al fatto che è un'app multi-tenant:
+
+- **L'assistente vede solo ciò che vedi tu.** La ricerca nella documentazione filtra i risultati
+  contro ruoli e domini che viaggiano nel JWT, già a livello di query SQL: un utente non recupera
+  nemmeno un frammento che non avrebbe diritto di leggere.
+- **È volutamente "di nicchia".** Il prompt lo limita ai temi di CrowdVision (edifici, stanze,
+  occupazione, come funziona la piattaforma) e gli fa rifiutare in una riga tutto il resto: niente
+  poesie, traduzioni o domande generiche. Questo per non sprecare il budget condiviso del provider e
+  per non trasformare un assistente di prodotto in un chatbot tuttofare.
+
+Resta una parte di contorno rispetto al cuore real-time del sistema, ma è un requisito che era nella
+proposta e che abbiamo portato a casa funzionante.
+
+.box {Per approfondire} type:{tip}
+    Il ciclo di tool-calling, la ricerca ibrida (vettoriale + full-text) e la validazione delle
+    citazioni sono spiegati per esteso nella
+    [Developer Guide → Agent Service](../../dev/Developer-Guide/agent/).
 
 ---
 
