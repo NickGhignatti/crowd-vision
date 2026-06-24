@@ -162,6 +162,16 @@ docs:
     quarkdown c documentation/user/main.qd --out landing-page/user
     quarkdown c documentation/developer/main.qd --out landing-page/dev
     quarkdown c documentation/reports/spe/main.qd --out landing-page/reports
+    quarkdown c documentation/reports/asw/main.qd --out landing-page/reports --allow global-read
+
+# Renders each report to a downloadable PDF next to its HTML build (SPE-Report.pdf,
+# ASW-Report.pdf). Quarkdown drives a headless Chrome via Puppeteer, so this needs
+# Node on PATH — we go through `mise exec` to guarantee it. Slower than `just docs`;
+# CI runs it on every docs deploy so the "Download PDF" buttons always have a file.
+[doc("Render SPE + ASW reports to landing-page/reports/*.pdf (headless Chrome via Node).")]
+docs-pdf:
+    mise exec -- quarkdown c documentation/reports/spe/main.qd --out landing-page/reports --pdf --pdf-no-sandbox --timeout 120
+    mise exec -- quarkdown c documentation/reports/asw/main.qd --out landing-page/reports --pdf --pdf-no-sandbox --timeout 120 --allow global-read
 
 [doc("Live-reloading preview server for one guide. dir=user|developer (default: user).")]
 docs-preview dir="user":
