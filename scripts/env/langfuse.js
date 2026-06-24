@@ -11,7 +11,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const envPath = process.env.ENV_FILE || path.join(__dirname, "../..", ".env");
-const currentEnv = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
+let currentEnv = "";
+try {
+    currentEnv = fs.readFileSync(envPath, "utf8");
+} catch (e) {
+    if (e.code !== "ENOENT") throw e;
+}
 
 if (currentEnv.includes("LANGFUSE_PUBLIC_KEY")) {
     console.log("✅ Langfuse / OTEL config already present in .env. Skipping generation.");

@@ -7,9 +7,11 @@ const envPath = path.join(__dirname, "../..", ".env");
 function generateAdminSecret() {
     let envContent = "";
 
-    // 1. Read existing .env file if it exists
-    if (fs.existsSync(envPath)) {
+    // Read existing .env; absent file stays empty (no existsSync → no TOCTOU race).
+    try {
         envContent = fs.readFileSync(envPath, "utf8");
+    } catch (e) {
+        if (e.code !== "ENOENT") throw e;
     }
 
     if (envContent.includes("INTERNAL_ADMIN_SECRET=")) {

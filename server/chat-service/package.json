@@ -1,4 +1,10 @@
 {
+  "config": {
+    "mongodbMemoryServer": {
+      "disablePostinstall": "1",
+      "version": "7.0.24"
+    }
+  },
   "name": "chat-service",
   "version": "1.0.0",
   "description": "Persistent chat sessions for the Crowd-Vision agent",
