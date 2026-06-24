@@ -50,7 +50,8 @@ export const updateBuilding = async (
 };
 
 export const getBuildingById = async (id: string) => {
-  const building = await Building.findOne({ id });
+  // $eq blocks NoSQL operator injection (applied to all user-derived filters).
+  const building = await Building.findOne({ id: { $eq: id } });
 
   if (!building) {
     throw new NotFoundError(`Building with id: "${id}" not found`);
@@ -61,7 +62,7 @@ export const getBuildingById = async (id: string) => {
 };
 
 export const getBuildingsByDomain = async (domain: string) => {
-  const buildings = await Building.find({ domains: domain });
+  const buildings = await Building.find({ domains: { $eq: domain } });
 
   if (buildings.length === 0) {
     return [];
@@ -95,6 +96,6 @@ export const updateRoom = async (
 };
 
 export const getDomainsByBuilding = async (buildingName: string) => {
-  const buildings = await Building.find({ name: buildingName });
+  const buildings = await Building.find({ name: { $eq: buildingName } });
   return buildings.flatMap((building) => building.domains);
 };

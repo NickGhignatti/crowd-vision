@@ -233,7 +233,7 @@ describe("Authentication service branches", () => {
     expect(mockedAccount.findOneAndUpdate).toHaveBeenNthCalledWith(
       1,
       {
-        name: "alice",
+        name: { $eq: "alice" },
       },
       {
         $pull: {
@@ -246,7 +246,7 @@ describe("Authentication service branches", () => {
     expect(mockedAccount.findOneAndUpdate).toHaveBeenNthCalledWith(
       2,
       {
-        name: "alice",
+        name: { $eq: "alice" },
       },
       {
         $push: {

@@ -1,5 +1,6 @@
 import cookieParser from "cookie-parser";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import { connectMongo } from "./config/db.js";
 import { errorHandler } from "./middlewares/error.js";
@@ -9,8 +10,18 @@ import router from "./router.js";
 const PORT = 3000;
 export const app = express();
 
+// Per-IP rate limit on all routes (DoS protection); disabled under test.
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 300,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test",
+});
+
 app.use(cookieParser());
 app.use(express.json());
+app.use(apiLimiter);
 app.use(metricsMiddleware);
 app.use("/", router);
 app.use(errorHandler);

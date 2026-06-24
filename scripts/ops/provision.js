@@ -76,6 +76,7 @@ async function provisionEnterprise() {
 
     const payloadString = JSON.stringify(payload);
 
+    // HMAC request signature (authenticates the caller), not password storage.
     const signature = crypto
         .createHmac("sha256", internalAdminSecret)
         .update(payloadString)

@@ -15,7 +15,7 @@ export const generateStandardToken = async (payload: StandardTokenPayload) => {
     throw new InternalError("Missing token secrets configuration");
   }
 
-  const account = await Account.findOne({ name: payload.accountName });
+  const account = await Account.findOne({ name: { $eq: payload.accountName } });
 
   if (!account) {
     throw new NotFoundError(

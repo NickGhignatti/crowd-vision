@@ -38,8 +38,11 @@ export function createIngestionHandler(kernel: SensorKernel) {
     // ── The Slow Path ────────────────────────────────────────────────────────
     setImmediate(() => {
       module.process(sensorData).catch((err: unknown) => {
+        // %s keeps user input out of the format string; strip newlines so it
+        // can't forge log lines.
         console.error(
-          `[SensorKernel] Background processing failed for type='${type}':`,
+          "[SensorKernel] Background processing failed for type='%s':",
+          type.replace(/[\r\n]/g, ""),
           err,
         );
       });

@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 import router from "./router.js";
 import { connectRedis } from "./config/redis.js";
 import { connectMongo } from "./config/db.js";
@@ -12,7 +13,17 @@ dotenv.config();
 export const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Per-IP rate limit on all routes (DoS protection); disabled under test.
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 300,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test",
+});
+
 app.use(express.json());
+app.use(apiLimiter);
 app.use("/", router);
 // Express error-handling middleware must be registered AFTER the routes so it
 // can catch errors thrown (or `next(err)`-passed) from any route handler.
