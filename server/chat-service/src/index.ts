@@ -9,6 +9,8 @@ import router from "./router.js";
 
 const PORT = 3000;
 export const app = express();
+// Behind the Caddy/ingress proxy: trust one hop so express-rate-limit reads the real client IP.
+app.set("trust proxy", 1);
 
 // Per-IP rate limit on all routes (DoS protection); disabled under test.
 const apiLimiter = rateLimit({

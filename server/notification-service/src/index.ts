@@ -11,6 +11,8 @@ import { initializeEventListeners } from "./services/eventListener.js";
 dotenv.config();
 
 export const app = express();
+// Behind the Caddy/ingress proxy: trust one hop so express-rate-limit reads the real client IP.
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 
 // Per-IP rate limit on all routes (DoS protection); disabled under test.
