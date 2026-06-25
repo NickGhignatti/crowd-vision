@@ -15,7 +15,7 @@ jest.mock("../src/services/notificationService.js", () => ({
   __esModule: true,
   startNotificationLoop: jest.fn(),
   publishNotification: jest.fn(),
-  getServerUrl: jest.fn(() => "http://localhost:3000"),
+  getGatewayUrl: jest.fn(() => "http://localhost:3000"),
 }));
 
 jest.mock("../src/services/pushService.js", () => {

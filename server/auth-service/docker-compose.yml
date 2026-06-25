@@ -5,11 +5,8 @@ services:
     environment:
       - MONGO_URI=mongodb://auth-db:27017/authdb
       - JWT_SECRET=${JWT_SECRET}
-      # Internal Docker hostname so server-to-server calls (e.g. notification
-      # preference sync) reach the gateway rather than this container itself.
-      # NOTE: also used for the SSO redirect_uri — switch to a browser-facing
-      # URL (or a dedicated public-URL var) if enabling OIDC login in dev.
-      - VITE_SERVER_URL=http://gateway
+      - GATEWAY_URL=http://gateway
+      - PUBLIC_URL=${DEV_URL}:${SERVER_PORT}
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
       - INTERNAL_ADMIN_SECRET=${INTERNAL_ADMIN_SECRET}
     depends_on:

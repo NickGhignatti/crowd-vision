@@ -44,9 +44,12 @@ All runtime configuration is read through `config/config.ts`.
     - - `JWT_SECRET`
       - —
       - HMAC secret used to sign and verify every token. Must be identical across all services.
-    - - `VITE_SERVER_URL`
+    - - `GATEWAY_URL`
       - `http://localhost:3000`
-      - Public base URL of the gateway; used to build the OIDC redirect URI and to call sibling services.
+      - Internal gateway base; used for server-to-server calls (e.g. the notification-preference sync).
+    - - `PUBLIC_URL`
+      - `http://localhost`
+      - Public, browser-facing base; used to build the OIDC redirect URI.
     - - `CLIENT_URL`
       - `http://localhost:5173`
       - Frontend origin; used as the post-SSO redirect target.

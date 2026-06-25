@@ -14,7 +14,7 @@ jest.mock("../src/config/redis.js", () => ({
 jest.mock("../src/services/notificationService.js", () => ({
   startNotificationLoop: jest.fn(),
   publishNotification: jest.fn(), // Verify this is called
-  getServerUrl: jest.fn(() => "http://localhost:3000"),
+  getGatewayUrl: jest.fn(() => "http://localhost:3000"),
 }));
 
 jest.mock("../src/services/pushService.js", () => {

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import {
-  getServerUrl,
+  getGatewayUrl,
   publishNotification,
 } from "../services/notificationService.js";
 import {
@@ -80,7 +80,7 @@ const requireDomainName = (
 
 const getDomainsForBuilding = async (buildingName: string) => {
   const response = await fetch(
-    `${getServerUrl()}/twin/domain/${encodeURIComponent(buildingName)}`,
+    `${getGatewayUrl()}/twin/domain/${encodeURIComponent(buildingName)}`,
   );
 
   if (!response.ok) {

@@ -2,7 +2,7 @@ import { Domain, type IDomain, type ISSOConfig } from "../models/domain.js";
 import { Account } from "../models/account.js";
 import { generateTOTPForAuthorizedRoles } from "./totp.js";
 import { ConflictError, NotFoundError } from "../models/error.js";
-import { getServerUrl } from "../config/config.js";
+import { getGatewayUrl } from "../config/config.js";
 
 // Best-effort sync of a user's notification preference for a domain. This is a
 // side-effect of joining/leaving/creating a domain — if the notification
@@ -14,7 +14,7 @@ const syncNotificationPreference = async (
   enabled: boolean,
 ) => {
   try {
-    const response = await fetch(`${getServerUrl()}/notification/preferences`, {
+    const response = await fetch(`${getGatewayUrl()}/notification/preferences`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, domainId, enabled }),

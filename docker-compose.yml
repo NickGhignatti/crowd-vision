@@ -1,6 +1,3 @@
-# Shared infrastructure only.
-# Service compose files are assembled dynamically by scripts/compose-run.mjs
-# (invoked via the Justfile).
 services:
   gateway:
     image: caddy:latest
@@ -10,7 +7,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    # required: false ⇒ if a service is excluded from the run, gateway still starts
     depends_on:
       auth-service:
         condition: service_started
@@ -70,12 +66,6 @@ services:
     depends_on:
       - prometheus
 
-  # ── Langfuse (LLM observability / trace backend) ────────────────────────────
-  # Self-hosted Langfuse v3. agent-service exports OpenTelemetry traces here over
-  # OTLP/HTTP (see OTEL_EXPORTER_OTLP_* in .env). Adapted from the upstream
-  # docker-compose: we reuse the shared `redis` above (so no langfuse redis), and
-  # the project/user + API keys are provisioned headlessly via LANGFUSE_INIT_*.
-  # UI on host port 3030 (http://localhost:3030 or /langfuse via the gateway).
   langfuse-web:
     image: docker.io/langfuse/langfuse:3
     container_name: crowd-vision-langfuse
@@ -103,7 +93,6 @@ services:
       CLICKHOUSE_USER: clickhouse
       CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD}
       CLICKHOUSE_CLUSTER_ENABLED: "false"
-      # Object storage (event + media blobs) → minio.
       LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
       LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
       LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
@@ -118,11 +107,9 @@ services:
       LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
-      # Langfuse's own isolated broker (no password), separate from services-broker.
       REDIS_HOST: redis-langfuse
       REDIS_PORT: "6379"
       REDIS_AUTH: ""
-      # Headless provisioning so agent-service can auth on first boot.
       LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-crowd-vision}
       LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Crowd-Vision}
       LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-agent-service}
@@ -176,9 +163,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-      # ClickHouse needs ~10-30s to serve 8123 (more when loading an existing
-      # volume). A 1s grace let early "connection refused" probes trip unhealthy
-      # before it finished booting, aborting the langfuse services that wait on it.
       start_period: 60s
 
   minio:
@@ -186,7 +170,6 @@ services:
     container_name: crowd-vision-minio
     restart: always
     entrypoint: sh
-    # Create the 'langfuse' bucket before starting the server.
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:
       MINIO_ROOT_USER: minio
