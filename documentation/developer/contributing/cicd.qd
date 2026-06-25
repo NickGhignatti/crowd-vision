@@ -226,8 +226,8 @@ It runs as a **standalone workflow rather than a leg of the gate**, on purpose: 
 Dependency upgrades are made manually (there is no Dependabot). Bump the version in the relevant manifest, then verify and regenerate locks locally before opening a pull request:
 
 ```bash
-just deps-check   # every lockfile in sync (npm ci / uv sync --locked / cargo check)
-just audit        # no known vulnerabilities (npm / uv / cargo audit)
+just setup deps-check   # every lockfile in sync (npm ci / uv sync --locked / cargo check)
+just setup audit        # no known vulnerabilities (npm / uv / cargo audit)
 ```
 
 Both checks also run inside the per-service CI workflows on every pull request, so a drifted or vulnerable dependency blocks the merge regardless.
@@ -273,10 +273,10 @@ All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and 
 Run the same checks CI runs before pushing, to avoid a slow round-trip through a failed pipeline:
 
 ```bash
-just test            # all unit tests (moon-cached); or just test-affected
-just lint-affected   # ESLint / Ruff on changed projects
-just deps-check      # lockfile sync
-just audit           # vulnerability audit
+just test all            # all unit tests (moon-cached); or just test affected
+just lint affected   # ESLint / Ruff on changed projects
+just setup deps-check      # lockfile sync
+just setup audit           # vulnerability audit
 ```
 
-Per-service tests are available as `just test-auth`, `just test-chat`, `just test-twin`, `just test-sensor`, `just test-notification`, `just test-socket`, `just test-client`, and `just test-agent`. Full backend integration tests run via `just test-integration` (it composes the full stack — see [Docker Compose Orchestration](../config/docker-compose.qd)).
+Per-service tests are available as `just test auth`, `just test chat`, `just test twin`, `just test sensor`, `just test notification`, `just test socket`, `just test client`, and `just test agent`. Full backend integration tests run via `just test integration` (it composes the full stack — see [Docker Compose Orchestration](../config/docker-compose.qd)).

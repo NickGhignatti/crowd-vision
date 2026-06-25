@@ -12,23 +12,23 @@ All Kubernetes operations run through `just` recipes from the repository root, s
 ```bash
 # First time on a new cluster — installs the ingress controller, creates the
 # namespace, injects secrets from .env, then applies all manifests:
-just k8s-setup
+just k8s setup
 
 # Re-apply all manifests after a change (idempotent — safe to run repeatedly):
-just k8s-apply
+just k8s apply
 
 # Tear everything down (deletes the namespace and ALL data inside it):
-just k8s-delete
+just k8s delete
 ```
 
 .box {k8s-delete is destructive} type:{warning}
-    `just k8s-delete` removes the namespace and every PersistentVolumeClaim in it — all database data is permanently lost, with no undo. To pause without losing data, use `just k8s-stop` and later `just k8s-start`.
+    `just k8s delete` removes the namespace and every PersistentVolumeClaim in it — all database data is permanently lost, with no undo. To pause without losing data, use `just k8s stop` and later `just k8s start`.
 
 ---
 
 ## Deployment order
 
-Manifests must be applied in dependency order, because a service crashes if its database is not yet reachable. `just k8s-apply` applies them in exactly this sequence; the manual equivalent is shown for understanding.
+Manifests must be applied in dependency order, because a service crashes if its database is not yet reachable. `just k8s apply` applies them in exactly this sequence; the manual equivalent is shown for understanding.
 
 .var {headers}
    - Step
@@ -65,10 +65,10 @@ kubectl apply -f k8s/monitoring/
 
 ## Secrets
 
-Secrets are created directly on the cluster from your local `.env` and are never committed. `just k8s-secrets` reads values such as `JWT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, `GHCR_USERNAME`, and `GHCR_TOKEN`, and creates the corresponding Secret objects. It is idempotent — safe to re-run after rotating a key.
+Secrets are created directly on the cluster from your local `.env` and are never committed. `just k8s secrets` reads values such as `JWT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, `GHCR_USERNAME`, and `GHCR_TOKEN`, and creates the corresponding Secret objects. It is idempotent — safe to re-run after rotating a key.
 
 .box {Namespace before secrets} type:{warning}
-    The namespace must exist before secrets can be created. Run `kubectl apply -f k8s/namespace.yml` (or the full `just k8s-setup`) before `just k8s-secrets` if invoking it in isolation.
+    The namespace must exist before secrets can be created. Run `kubectl apply -f k8s/namespace.yml` (or the full `just k8s setup`) before `just k8s secrets` if invoking it in isolation.
 
 .box {Agent provider key naming} type:{warning}
     The current `agent-service-secret` generator forwards the legacy `GOOGLE_API_KEY` and `DEEPSEEK_API_KEY` names, while the recommended provider setup uses `OPENROUTER_API_KEY`. Before deploying the agent, confirm the generated secret contains a key compatible with its configured `LLM_BASE_URL`. Kubernetes also does not deploy the documentation ingester or Langfuse — see the [Agent Service](../services/agent.qd) guide.
@@ -78,12 +78,12 @@ Secrets are created directly on the cluster from your local `.env` and are never
 ## Day-to-day operations
 
 ```bash
-just k8s-status                 # pods, deployments, services, StatefulSets
-just k8s-logs auth-service      # tail logs (works for Deployments and StatefulSets)
-just k8s-restart auth-service   # rolling restart one service (picks up a new :latest)
-just k8s-restart-all            # restart every deployment (e.g. after rotating secrets)
-just k8s-rollout auth-service   # watch a rolling update to completion
-just k8s-validate               # dry-run every manifest without touching the cluster
+just k8s status                 # pods, deployments, services, StatefulSets
+just k8s logs auth-service      # tail logs (works for Deployments and StatefulSets)
+just k8s restart auth-service   # rolling restart one service (picks up a new :latest)
+just k8s restart-all            # restart every deployment (e.g. after rotating secrets)
+just k8s rollout auth-service   # watch a rolling update to completion
+just k8s validate               # dry-run every manifest without touching the cluster
 ```
 
 A rolling restart starts new pods and waits for their readiness probe to pass before terminating the old ones, so a healthy service never goes fully down. If a rollout misbehaves, roll back instantly:
@@ -99,9 +99,9 @@ kubectl rollout undo deployment/auth-service -n crowdvision
 ### Production images (GHCR)
 
 ```bash
-just k8s-build        # build all images, tagged for GHCR
-just k8s-push         # push to GHCR (requires: docker login ghcr.io)
-just k8s-build-push   # build and push in one step
+just k8s build        # build all images, tagged for GHCR
+just k8s push         # push to GHCR (requires: docker login ghcr.io)
+just k8s build-push   # build and push in one step
 ```
 
 ### Local k3d (no registry)
@@ -109,9 +109,9 @@ just k8s-build-push   # build and push in one step
 Build images locally and import them straight into the k3d cluster, skipping GHCR entirely:
 
 ```bash
-just k8s-build   # build all images locally
-just k8s-load    # import them into k3d
-just k8s-apply   # apply manifests
+just k8s build   # build all images locally
+just k8s load    # import them into k3d
+just k8s apply   # apply manifests
 ```
 
 .box {Image pull policy for local images} type:{note}
@@ -124,7 +124,7 @@ just k8s-apply   # apply manifests
 For local k3d access, add the ingress hostname to your machine's hosts file:
 
 ```bash
-just k8s-hosts
+just k8s hosts
 # Prints: 127.0.0.1   crowdvision.local
 ```
 
@@ -139,33 +139,33 @@ Edit the hosts file as administrator (Windows: `C:\Windows\System32\drivers\etc\
    - What it does
 
 .tablebyrows {.headers}
-    - - `just k8s-setup`
+    - - `just k8s setup`
       - First-time setup: ingress controller, namespace, secrets, all manifests.
-    - - `just k8s-apply`
+    - - `just k8s apply`
       - Apply all manifests in dependency order (idempotent).
-    - - `just k8s-secrets`
+    - - `just k8s secrets`
       - Create or update secrets from `&#46;env`.
-    - - `just k8s-build` / `k8s-push` / `k8s-build-push`
+    - - `just k8s build` / `k8s-push` / `k8s-build-push`
       - Build, push, or both, for the GHCR-tagged images.
-    - - `just k8s-load`
+    - - `just k8s load`
       - Import locally built images into the k3d cluster.
-    - - `just k8s-status`
+    - - `just k8s status`
       - Show all workloads in the namespace.
-    - - `just k8s-logs <service>`
+    - - `just k8s logs <service>`
       - Tail a service's logs.
-    - - `just k8s-restart <service>` / `k8s-restart-all`
+    - - `just k8s restart <service>` / `k8s-restart-all`
       - Rolling restart one service, or all deployments.
-    - - `just k8s-rollout <service>`
+    - - `just k8s rollout <service>`
       - Watch a rolling update to completion.
-    - - `just k8s-ingress`
+    - - `just k8s ingress`
       - Install or reinstall the nginx Ingress Controller.
-    - - `just k8s-validate`
+    - - `just k8s validate`
       - Dry-run all manifests without touching the cluster.
-    - - `just k8s-stop` / `k8s-start`
+    - - `just k8s stop` / `k8s-start`
       - Pause (data preserved) or resume the cluster.
-    - - `just k8s-delete`
+    - - `just k8s delete`
       - Destructive: delete the namespace and all data.
-    - - `just k8s-hosts`
+    - - `just k8s hosts`
       - Print the line to add to your hosts file.
 
 Manifests are also validated in CI by the `ci-k8s` workflow (kubeconform, pluto, kube-score) — see [CI/CD Pipeline](../contributing/cicd.qd).

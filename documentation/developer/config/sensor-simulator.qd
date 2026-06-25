@@ -45,11 +45,11 @@ docker run -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest
 docker run -p 3002:3000 ghcr.io/nickghignatti/crowdvision-aq-simulator:latest
 ```
 
-Alternatively, both simulators are included in the Docker Compose stack and start automatically with `just dev` (unless excluded):
+Alternatively, both simulators are included in the Docker Compose stack and start automatically with `just stack dev` (unless excluded):
 
 ```bash
-just dev exclude="simulator"   # skip both simulators
-just dev exclude="aq"          # skip only the AQ simulator
+just stack dev exclude="simulator"   # skip both simulators
+just stack dev exclude="aq"          # skip only the AQ simulator
 ```
 
 To stop a standalone container:

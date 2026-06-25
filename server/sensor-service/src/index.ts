@@ -13,6 +13,8 @@ import { createRouter } from "./router.js";
 import { connectRedis } from "./config/redis.js";
 
 export const app = express();
+// Behind the Caddy/ingress proxy: trust one hop so express-rate-limit reads the real client IP.
+app.set("trust proxy", 1);
 const PORT = process.env.PORT ?? 3000;
 
 const kernel = new SensorKernel()

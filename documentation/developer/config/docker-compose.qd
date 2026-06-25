@@ -1,7 +1,7 @@
 .docname {Docker Compose Orchestration}
 .include {docs}
 
-Locally, the entire platform runs under Docker Compose. There is no single hand-maintained compose file that lists every service; instead, each service owns its own compose fragment, and a small Node orchestrator assembles them into one runtime file on demand. This page explains that mechanism end to end, so a new contributor can predict exactly what `just dev` does.
+Locally, the entire platform runs under Docker Compose. There is no single hand-maintained compose file that lists every service; instead, each service owns its own compose fragment, and a small Node orchestrator assembles them into one runtime file on demand. This page explains that mechanism end to end, so a new contributor can predict exactly what `just stack dev` does.
 
 ---
 
@@ -39,7 +39,7 @@ The root file holds the pieces every run needs regardless of which services are 
 
 .mermaid
     flowchart TD
-        J["just dev / start / down / …"] --> R["compose-run.mjs"]
+        J["just stack dev / start / down / …"] --> R["compose-run.mjs"]
         R --> W["Walk server/ and simulators/<br/>apply exclude patterns"]
         W --> G["Write compose.runtime.yml<br/>(an include: list)"]
         G --> D["docker compose -f compose.runtime.yml &lt;up|down|build&gt;"]
@@ -62,7 +62,7 @@ include:
 A single-path entry becomes one sub-project; a multi-path entry merges a service's base file with its dev override into one sub-project (two separate include entries cannot define the same service — that raises a conflict).
 
 .box {Do not commit the runtime file} type:{warning}
-    `compose.runtime.yml` is regenerated on every `just dev` / `start` / `down` / `build`. It is a build artifact, not source — treat it as disposable and never edit it by hand.
+    `compose.runtime.yml` is regenerated on every `just stack dev` / `start` / `down` / `build`. It is a build artifact, not source — treat it as disposable and never edit it by hand.
 
 ### How the include list is built
 
@@ -76,8 +76,8 @@ A single-path entry becomes one sub-project; a multi-path entry merges a service
 In `dev`, `dev-build`, and `start`, you can omit services by substring of their folder name. This is how you run a lighter stack when you do not need the agent or the simulators:
 
 ```bash
-just dev exclude="agent"            # skip agent-service, agent-db, agent-ingester
-just dev exclude="agent simulator"  # also skip aq-simulator, sensor-simulator
+just stack dev exclude="agent"            # skip agent-service, agent-db, agent-ingester
+just stack dev exclude="agent simulator"  # also skip aq-simulator, sensor-simulator
 ```
 
 The `down`, `integration`, and `build` modes always operate on the full set and ignore exclude patterns.
@@ -94,19 +94,19 @@ The first argument to the orchestrator selects the `docker compose` invocation. 
    - Resulting command
 
 .tablebyrows {.headers}
-    - - `just dev`
+    - - `just stack dev`
       - `dev`
       - `up --watch --remove-orphans` — hot-reload; rebuilds/syncs containers as source changes.
-    - - `just dev-build`
+    - - `just stack dev-build`
       - `dev-build`
       - `up --watch --build` — as `dev`, but forces an image rebuild first.
-    - - `just start`
+    - - `just stack start`
       - `start`
       - `up --build -d --remove-orphans` — production-style, detached, in the background.
-    - - `just down`
+    - - `just stack down`
       - `down`
       - `down --remove-orphans` — stop and remove everything.
-    - - `just test-integration`
+    - - `just test integration`
       - `integration`
       - `up --build --exit-code-from integration-tests --abort-on-container-exit`.
     - - (CI) `compose-run.mjs build`
@@ -127,13 +127,13 @@ Every stack-starting recipe (`dev`, `dev-build`, `start`) depends on the `env` r
 Typical local loop:
 
 ```bash
-just dev                 # full stack with hot-reload
-just dev exclude="agent" # lighter stack without the AI agent
-just logs auth-service   # follow one service's logs
-just down                # tear it all down
+just stack dev                 # full stack with hot-reload
+just stack dev exclude="agent" # lighter stack without the AI agent
+just stack logs auth-service   # follow one service's logs
+just stack down                # tear it all down
 ```
 
-`just logs [service]` follows logs against the generated `compose.runtime.yml`, so it targets exactly the services the last run started.
+`just stack logs [service]` follows logs against the generated `compose.runtime.yml`, so it targets exactly the services the last run started.
 
 ---
 
@@ -144,11 +144,11 @@ just down                # tear it all down
    - Purpose
 
 .tablebyrows {.headers}
-    - - `just db-clear`
+    - - `just db clear`
       - Drop the auth, twin, notification, and agent databases (MongoDB plus the agent's Postgres).
-    - - `just db-clear-sensor`
+    - - `just db clear-sensor`
       - Drop only the sensor database.
-    - - `just test-integration`
+    - - `just test integration`
       - Bring up the full stack plus the integration test container, exit with its status, then tear down.
 
 For the production-grade orchestration (StatefulSets, ingress, secrets), see [Kubernetes Configuration](kubernetes.qd); for the runtime topology and gateway routing, see the [Architecture Overview](../architecture/overview.qd).

@@ -15,13 +15,13 @@ listens at `http://agent-service:3000`.
 From the repository root:
 
 ```bash
-just install                 # install Python and monorepo dependencies
-just dev                     # start the full stack; docs are ingested automatically
-just logs agent-service      # follow agent logs
+just setup install                 # install Python and monorepo dependencies
+just stack dev                     # start the full stack; docs are ingested automatically
+just stack logs agent-service      # follow agent logs
 curl http://localhost/agent/health
 ```
 
-`just dev` generates `.env`, starts `agent-service` + pgvector, runs Alembic migrations,
+`just stack dev` generates `.env`, starts `agent-service` + pgvector, runs Alembic migrations,
 and runs the one-shot `agent-ingester` over `documentation/user` and
 `documentation/developer`.
 
@@ -44,13 +44,13 @@ Commands marked **root** run from the repository root; the others run from
 
 | Task | Command |
 | --- | --- |
-| Start the development stack (**root**) | `just dev` |
-| Rebuild and start (**root**) | `just dev-build` |
-| Follow service logs (**root**) | `just logs agent-service` |
-| Re-ingest all documentation (**root**) | `just agent-ingest` |
-| Clear all service databases, including the agent KB (**root**) | `just db-clear` |
-| Run agent tests through Moon (**root**) | `just test-agent` |
-| Run integration tests (**root**, Docker required) | `just test-agent-integration` |
+| Start the development stack (**root**) | `just stack dev` |
+| Rebuild and start (**root**) | `just stack dev-build` |
+| Follow service logs (**root**) | `just stack logs agent-service` |
+| Re-ingest all documentation (**root**) | `just agent ingest` |
+| Clear all service databases, including the agent KB (**root**) | `just db clear` |
+| Run agent tests through Moon (**root**) | `just test agent` |
+| Run integration tests (**root**, Docker required) | `just test agent-integration` |
 | Run all local tests | `npm test` |
 | Run only fast unit tests | `uv run pytest tests/unit` |
 | Lint, format-check, and type-check | `npm run lint` |
@@ -315,7 +315,7 @@ Override `LANGFUSE_INIT_USER_EMAIL` and `LANGFUSE_INIT_USER_PASSWORD` in the roo
 before Langfuse starts for the first time. These initialize the first account; changing
 them later does not update an existing login. Langfuse is not deployed by the current
 Kubernetes manifests. The Compose stack also requires Langfuse project/infrastructure
-secrets and `OTEL_EXPORTER_OTLP_*` variables; `just env` does not currently generate them.
+secrets and `OTEL_EXPORTER_OTLP_*` variables; `just stack env` does not currently generate them.
 
 ## Troubleshooting
 
@@ -323,7 +323,7 @@ secrets and `OTEL_EXPORTER_OTLP_*` variables; `just env` does not currently gene
 
 - Confirm the request includes `authentication_token=<jwt>` or a Bearer token.
 - Confirm `JWT_SECRET` matches the secret used by `auth-service`.
-- Regenerate the local environment with `just env` if the token or secret is stale.
+- Regenerate the local environment with `just stack env` if the token or secret is stale.
 
 ### Provider Requests Fail
 
@@ -344,8 +344,8 @@ The recommended configuration is one `OPENROUTER_API_KEY` for the default
 ### Document Questions Return No Useful Results
 
 ```bash
-just agent-ingest            # from the repository root
-just logs agent-service
+just agent ingest            # from the repository root
+just stack logs agent-service
 ```
 
 Confirm ingestion succeeds and that document permissions overlap the caller's JWT roles or

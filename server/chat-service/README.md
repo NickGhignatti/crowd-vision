@@ -12,8 +12,8 @@ listens at `http://chat-service:3000`.
 From the repository root:
 
 ```bash
-just dev                     # start the full stack (chat-service + chat-db + agent-service)
-just logs chat-service       # follow chat-service logs
+just stack dev                     # start the full stack (chat-service + chat-db + agent-service)
+just stack logs chat-service       # follow chat-service logs
 curl http://localhost/chat/health
 ```
 
@@ -23,7 +23,7 @@ Run from `server/chat-service` unless marked **root**.
 
 | Task | Command |
 | --- | --- |
-| Run tests (**root**, via Moon) | `just test-chat` |
+| Run tests (**root**, via Moon) | `just test chat` |
 | Run tests locally | `npm test` |
 | Lint / type-check | `npm run lint` |
 | Apply lint + formatting fixes | `npm run lint:fix` |
