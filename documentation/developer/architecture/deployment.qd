@@ -53,7 +53,7 @@ data:
   PORT: "3000"
 ```
 
-**Secrets** — store sensitive values (database URIs, JWT keys, API keys). The `k8s/secrets/` directory is intentionally empty and gitignored. Secrets are created directly on the cluster from your local `.env` file using `just k8s-secrets` — they never touch the git repository. Kubernetes base64-encodes them automatically before storing in etcd.
+**Secrets** — store sensitive values (database URIs, JWT keys, API keys). The `k8s/secrets/` directory is intentionally empty and gitignored. Secrets are created directly on the cluster from your local `.env` file using `just k8s secrets` — they never touch the git repository. Kubernetes base64-encodes them automatically before storing in etcd.
 
 .box type:{warning}
     `stringData` is not encryption — it is base64 encoding. Real security comes from RBAC controlling who can `kubectl get secret`. For production, consider integrating an external secrets manager (HashiCorp Vault, AWS Secrets Manager) that injects values at runtime.
@@ -141,7 +141,7 @@ The `initContainer` runs before the main container. It polls `auth-db:27017` eve
 Every application Deployment uses `imagePullPolicy: Always` in VPS production — every rollout restart pulls the freshest `:latest` image from GHCR. When you run `kubectl rollout restart deployment/auth-service`, Kubernetes creates a new pod with the fresh image, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down.
 
 .box type:{note}
-    **Local k3d development:** Set `imagePullPolicy: IfNotPresent` instead of `Always`. When you load images with `just k8s-load`, Kubernetes must use the locally-imported image — `Always` would cause it to attempt a GHCR pull and either fail (if unauthenticated) or silently use a stale remote image.
+    **Local k3d development:** Set `imagePullPolicy: IfNotPresent` instead of `Always`. When you load images with `just k8s load`, Kubernetes must use the locally-imported image — `Always` would cause it to attempt a GHCR pull and either fail (if unauthenticated) or silently use a stale remote image.
 
 ```bash
 # Roll out a single service

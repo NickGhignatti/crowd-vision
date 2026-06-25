@@ -35,12 +35,12 @@ Clone the repository, then install toolchain versions and all language-specific 
 git clone https://github.com/NickGhignatti/crowd-vision.git
 cd crowd-vision
 mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires mise)
-just install
+just setup install
 ```
 
-`just install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; plus the Python and Rust services' dependencies. The exact set of packages is **derived from moon's project registry** (`.moon/workspace.yml`, via `moon query projects`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+`just setup install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; plus the Python and Rust services' dependencies. The exact set of packages is **derived from moon's project registry** (`.moon/workspace.yml`, via `moon query projects`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
 
-The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked` and Rust uses `cargo fetch`. Set `JOBS=N` to cap parallelism (default 4): `JOBS=2 just install`.
+The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked` and Rust uses `cargo fetch`. Set `JOBS=N` to cap parallelism (default 4): `JOBS=2 just setup install`.
 
 ### Lockfiles & Cross-Platform Regeneration
 
@@ -49,7 +49,7 @@ CrowdVision's CI runs on **Linux**, so every committed `package-lock.json` must 
 To avoid this, **never let a plain `npm install` rewrite a committed lockfile**. Regenerate locks only through the dedicated recipe, which forces Linux resolution:
 
 ```bash
-just clean-install   # wipes every node_modules + lock, regenerates for Linux, reinstalls
+just setup clean-install   # wipes every node_modules + lock, regenerates for Linux, reinstalls
 ```
 
 To regenerate just one service's lockfile (e.g. after adding a dependency) without the full wipe:
@@ -61,7 +61,7 @@ npm install --prefix server/twin-service --package-lock-only --cpu=x64 --os=linu
 The `--cpu=x64 --os=linux` flags make npm record the Linux optional tree even when you run the command on another OS; `--package-lock-only` updates the lock without touching `node_modules`.
 
 .box type:{warning}
-    **Never commit a Windows- or macOS-resolved lockfile.** If `git diff` shows optional `@emnapi/*` / `@unrs/*` entries being *removed* from a `package-lock.json`, you ran a plain `npm install` — discard it and regenerate with `just clean-install` (or the per-service command above). Run `just deps-check` before pushing to confirm every lockfile still passes `npm ci`.
+    **Never commit a Windows- or macOS-resolved lockfile.** If `git diff` shows optional `@emnapi/*` / `@unrs/*` entries being *removed* from a `package-lock.json`, you ran a plain `npm install` — discard it and regenerate with `just setup clean-install` (or the per-service command above). Run `just setup deps-check` before pushing to confirm every lockfile still passes `npm ci`.
 
 ---
 
@@ -74,7 +74,7 @@ Microservices require secrets to communicate securely, encrypt tokens, and send 
 Run the interactive setup script. It skips any variable already present in `.env`, so it is safe to re-run at any time:
 
 ```bash
-just env
+just stack env
 ```
 
 You will be prompted for the following:
@@ -104,7 +104,7 @@ You will be prompted for the following:
       - `http://localhost/simulator/tp`
       - Temperature/presence simulator endpoint (external service).
 
-The following secrets are **generated automatically** by `just env` and written to `.env` — you do not need to supply them manually:
+The following secrets are **generated automatically** by `just stack env` and written to `.env` — you do not need to supply them manually:
 
 *   `JWT_SECRET` — used by Auth, Twin, and Notification services to sign/verify JWTs.
 *   `INTERNAL_ADMIN_SECRET` — internal service-to-service credential.
@@ -130,7 +130,7 @@ Copy the output into your `.env` file.
 With your `.env` set up, start the full development stack:
 
 ```bash
-just dev
+just stack dev
 ```
 
 This starts all services with hot-reloading. When you save a source file, the change is reflected inside the running container instantly — no manual restart needed.
@@ -138,8 +138,8 @@ This starts all services with hot-reloading. When you save a source file, the ch
 **Skip services you are not actively working on:**
 
 ```bash
-just dev exclude="simulator"   # skip the simulator containers
-just dev exclude="client"      # skip the Vue client (e.g. run it separately via Vite)
+just stack dev exclude="simulator"   # skip the simulator containers
+just stack dev exclude="client"      # skip the Vue client (e.g. run it separately via Vite)
 ```
 
 See the [Running the Application](running.qd) page for the full Docker Compose reference.
@@ -154,7 +154,7 @@ With empty databases you cannot log in. Run the provisioning script to create th
 node scripts/ops/provision.js
 ```
 
-Run this once after `just dev` reports all services as healthy. The script prompts you for the admin email, password, and domain name, then calls the live auth-service to register them.
+Run this once after `just stack dev` reports all services as healthy. The script prompts you for the admin email, password, and domain name, then calls the live auth-service to register them.
 
 ---
 
@@ -201,7 +201,7 @@ kubectl get nodes
 ### Step 2: Configure Local DNS
 
 ```bash
-just k8s-hosts
+just k8s hosts
 # Prints: 127.0.0.1   crowdvision.local
 ```
 
@@ -223,22 +223,22 @@ Create a PAT at <https://github.com/settings/tokens> with `read:packages` scope.
 ### Step 4: Full Bootstrap
 
 ```bash
-just k8s-setup
+just k8s setup
 ```
 
 This single command runs in order:
 1. Installs the nginx Ingress Controller into `ingress-nginx` namespace.
 2. Waits until the Ingress controller pod is `Running`.
 3. Creates the `crowdvision` namespace.
-4. Runs `just k8s-secrets` — creates all Kubernetes Secret objects from your `.env`.
+4. Runs `just k8s secrets` — creates all Kubernetes Secret objects from your `.env`.
 5. Applies ConfigMaps, StatefulSets (databases), Deployments, Ingress, and monitoring.
 
 .box type:{warning}
-    `just k8s-secrets` must run after the namespace exists. `just k8s-setup` handles this ordering automatically. If you run `just k8s-secrets` manually before creating the namespace, it will fail with "namespaces not found".
+    `just k8s secrets` must run after the namespace exists. `just k8s setup` handles this ordering automatically. If you run `just k8s secrets` manually before creating the namespace, it will fail with "namespaces not found".
 
 ### Accessing the Platform
 
-After `just k8s-setup` completes, the platform is available at `http://crowdvision.local`. All services route through the nginx Ingress controller on port 80.
+After `just k8s setup` completes, the platform is available at `http://crowdvision.local`. All services route through the nginx Ingress controller on port 80.
 
 .var {headers}
    - Interface

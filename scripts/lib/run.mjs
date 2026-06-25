@@ -1,7 +1,7 @@
 //
 // Cross-platform parallel task runner.
 //
-// The buffered-parallel runner behind `just install` (audit/deps now run via
+// The buffered-parallel runner behind `just setup install` (audit/deps now run via
 // moon; see .moon/tasks/*.yml). Each task is:
 //
 //   { name, cwd, cmd, optional? }

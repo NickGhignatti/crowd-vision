@@ -8,7 +8,7 @@
 // so it can never drift from .moon/workspace.yml.
 //
 // To (re)generate lockfiles instead of installing from them, use
-// `just clean-install` — that is the only path that mutates lock files.
+// `just setup clean-install` — that is the only path that mutates lock files.
 
 import { runTasks } from './lib/run.mjs';
 import { queryWorkspaces } from './lib/workspaces.mjs';

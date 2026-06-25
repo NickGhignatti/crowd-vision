@@ -15,7 +15,7 @@ const NS = 'crowdvision'
 // ── Parse .env ────────────────────────────────────────────────────────────────
 
 if (!existsSync(envPath)) {
-  console.error('❌  .env not found. Run `just env` first.')
+  console.error('❌  .env not found. Run `just stack env` first.')
   process.exit(1)
 }
 
@@ -27,7 +27,7 @@ for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
 
 function need(key) {
   if (!env[key]) {
-    console.error(`❌  Missing ${key} in .env. Run \`just env\` to (re)generate it.`)
+    console.error(`❌  Missing ${key} in .env. Run \`just stack env\` to (re)generate it.`)
     process.exit(1)
   }
   return env[key]

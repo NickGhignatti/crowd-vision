@@ -183,7 +183,7 @@ The routing table is identical across both deployment models. Only the component
       - Serves the Vue 3 SPA. Catch-all, must be defined last.
 
 .box {Dev Mode} type:{note}
-    Developer Mode Only: when running `just dev`, Caddy also exposes `auth-db-express` and `twin-db-express` at `/auth-db-gui/*` and `/twin-db-gui/*`. These are not present in Kubernetes deployments for security reasons.
+    Developer Mode Only: when running `just stack dev`, Caddy also exposes `auth-db-express` and `twin-db-express` at `/auth-db-gui/*` and `/twin-db-gui/*`. These are not present in Kubernetes deployments for security reasons.
 
 ---
 

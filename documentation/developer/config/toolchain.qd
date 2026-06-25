@@ -197,7 +197,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
     - - `sensor-simulator`
       - Has no unit suite wired into CI, so it excludes the inherited `test` task.
     - - `tooling`, `eslint-config`, `tests`
-      - Tagged `language: 'javascript'` so they inherit only `deps`. (`server/tests` holds an integration-only Jest suite that runs via `just test-integration`, never as a moon `:test`.)
+      - Tagged `language: 'javascript'` so they inherit only `deps`. (`server/tests` holds an integration-only Jest suite that runs via `just test integration`, never as a moon `:test`.)
 
 ### Inspecting the graph
 
@@ -233,7 +233,7 @@ Crucially, `install` and `clean` derive their package list from moon rather than
 const { projects } = JSON.parse(execSync(withMise('moon query projects')));
 ```
 
-So `just install` installs exactly the packages moon knows about; no drift is possible.
+So `just setup install` installs exactly the packages moon knows about; no drift is possible.
 
 .box {Why install and clean stay scripts} type:{note}
     `install` and `clean` are scripts, not moon tasks, on purpose: `npm ci` wipes and reinstalls `node_modules`, which is not a cacheable artifact, and making moon manage installs would require enabling moon's own toolchain — downloading a second Node and conflicting with mise as the single source of truth. So moon owns build/test/lint/audit/deps; the scripts own install/clean; mise owns versions.
@@ -246,7 +246,7 @@ Thanks to the single registry, onboarding a package is a one-place change:
 
 1. Register it in `.moon/workspace.yml` under `projects:`.
 2. Add a minimal `moon.yml` in the package with its `language:` (and any genuine task overrides).
-3. It now flows automatically into `:build` / `:test` / `:lint` / `:audit` / `:deps`, and into `just install` / `just clean-install` (both derive from `moon query projects`).
+3. It now flows automatically into `:build` / `:test` / `:lint` / `:audit` / `:deps`, and into `just setup install` / `just setup clean-install` (both derive from `moon query projects`).
 
 .box {Choose the language deliberately} type:{warning}
     `typescript` / `python` / `rust` inherit the full build/test/lint pipeline — use them only for packages that have those scripts. Use `javascript` for support packages that need dependency installs but have no build/test/lint (such as `tooling`).
@@ -264,7 +264,7 @@ Thanks to the single registry, onboarding a package is a one-place change:
       - A tool was called outside mise. Use `mise exec -- <tool>`, or activate mise. The tool is installed; it is not on the un-activated `PATH`.
     - - `link.exe not found` during `cargo` (Windows)
       - Rust needs the MSVC linker. Install Visual Studio Build Tools with the "Desktop development with C++" workload. (macOS needs `xcode-select --install`; Linux needs `build-essential`.)
-    - - `just test` / `just lint` re-runs everything
+    - - `just test all` / `just lint all` re-runs everything
       - Expected on the first run. The second run replays from moon's cache. Use `--affected` to scope to changed projects.
     - - A new service is not tested or installed
       - It is not registered in `&#46;moon/workspace.yml`, or its `moon.yml` is missing or has the wrong `language`. Verify with `mise exec -- moon query projects`.
