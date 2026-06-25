@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getBuildingByDomain,
   getBuildingById,
+  getBuildingCounts,
   getDomainsByBuilding,
   addBuilding,
   updateBuilding,
@@ -15,6 +16,9 @@ const router = Router();
 
 router.post("/register", addBuilding);
 router.get("/building/:id", getBuildingById);
+// Registered before "/buildings/:domain" so the literal path isn't captured by
+// the :domain param.
+router.post("/buildings/counts", getBuildingCounts);
 router.get("/buildings/:domain", getBuildingByDomain);
 router.get("/domain/:buildingName", getDomainsByBuilding);
 router.patch("/building/:buildingId", updateBuilding);

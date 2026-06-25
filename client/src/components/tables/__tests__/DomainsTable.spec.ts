@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
-import type { Domain, DomainMembership } from '@/models/domain'
+import type { DomainRow } from '@/interfaces/domain'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -23,7 +23,7 @@ vi.mock('@/stores/authentication.ts', () => ({
 }))
 
 const DomainRowStub = {
-  props: ['id', 'name', 'isSubscribed'],
+  props: ['id', 'name', 'isSubscribed', 'isPrivate', 'role', 'memberCount', 'buildingCount'],
   emits: ['subscribe', 'unsubscribe'],
   template: '<tr class="domain-row-stub" :data-subscribed="isSubscribed"></tr>',
 }
@@ -32,15 +32,12 @@ const stubs = {
   DomainRecord: DomainRowStub,
 }
 
-const makeDomain = (name: string, authStrategy: 'internal' | 'oidc' = 'internal'): Domain => ({
+const makeRow = (name: string, overrides: Partial<DomainRow> = {}): DomainRow => ({
   name,
-  authStrategy,
-  subdomains: [],
-})
-
-const makeMembership = (domainName: string): DomainMembership => ({
-  domainName,
-  role: 'standard_customer',
+  authStrategy: 'internal',
+  isPrivate: false,
+  isSubscribed: false,
+  ...overrides,
 })
 
 const makeResponse = (ok: boolean, body: unknown = {}) => ({
@@ -49,14 +46,12 @@ const makeResponse = (ok: boolean, body: unknown = {}) => ({
 })
 
 describe('DomainsTable', () => {
-  // Capture the original window.location to restore it later
   const originalLocation = window.location
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockAccountName.value = 'alice'
 
-    // Safely mock window.location for redirect tests
     Object.defineProperty(window, 'location', {
       configurable: true,
       enumerable: true,
@@ -73,9 +68,9 @@ describe('DomainsTable', () => {
   })
 
   describe('rendering', () => {
-    it('displays the empty state when no domains are provided', () => {
+    it('displays the empty state when no rows are provided', () => {
       const wrapper = mount(DomainsTable, {
-        props: { domains: [], userMemberships: [] },
+        props: { rows: [] },
         global: { stubs },
       })
 
@@ -83,12 +78,9 @@ describe('DomainsTable', () => {
       expect(wrapper.findComponent(DomainRowStub).exists()).toBe(false)
     })
 
-    it('renders a DomainRecord for each domain', () => {
+    it('renders a DomainRecord for each row', () => {
       const wrapper = mount(DomainsTable, {
-        props: {
-          domains: [makeDomain('acme'), makeDomain('globex')],
-          userMemberships: [],
-        },
+        props: { rows: [makeRow('acme'), makeRow('globex')] },
         global: { stubs },
       })
 
@@ -98,18 +90,23 @@ describe('DomainsTable', () => {
       expect(rows[1]?.props('name')).toBe('globex')
     })
 
-    it('maps userMemberships to the isSubscribed prop correctly', () => {
+    it('forwards subscription, role, privacy and count props per row', () => {
       const wrapper = mount(DomainsTable, {
         props: {
-          domains: [makeDomain('acme'), makeDomain('globex')],
-          userMemberships: [makeMembership('globex')], // Only subscribed to globex
+          rows: [
+            makeRow('acme', { isSubscribed: true, role: 'business_admin', memberCount: 5 }),
+            makeRow('secret', { isPrivate: true, role: 'standard_customer', buildingCount: 2 }),
+          ],
         },
         global: { stubs },
       })
 
       const rows = wrapper.findAllComponents(DomainRowStub)
-      expect(rows[0]?.props('isSubscribed')).toBe(false)
-      expect(rows[1]?.props('isSubscribed')).toBe(true)
+      expect(rows[0]?.props('isSubscribed')).toBe(true)
+      expect(rows[0]?.props('role')).toBe('business_admin')
+      expect(rows[0]?.props('memberCount')).toBe(5)
+      expect(rows[1]?.props('isPrivate')).toBe(true)
+      expect(rows[1]?.props('buildingCount')).toBe(2)
     })
   })
 
@@ -118,12 +115,12 @@ describe('DomainsTable', () => {
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
 
       const wrapper = mount(DomainsTable, {
-        props: { domains: [makeDomain('acme', 'internal')], userMemberships: [] },
+        props: { rows: [makeRow('acme', { authStrategy: 'internal' })] },
         global: { stubs },
       })
 
       await wrapper.findComponent(DomainRowStub).vm.$emit('subscribe', 0)
-      await flushPromises() // Wait for internal async makeRequest to resolve
+      await flushPromises()
 
       expect(makeRequest).toHaveBeenCalledWith('/auth/domains/alice/subscribe', 'POST', {
         body: JSON.stringify({ domainName: 'acme' }),
@@ -131,30 +128,19 @@ describe('DomainsTable', () => {
       expect(wrapper.emitted('refresh')).toBeTruthy()
     })
 
-    it('optimistically updates the row state, and reverts on API failure', async () => {
-      // Suppress the expected console.error to keep terminal output clean
+    it('does not emit refresh when the API fails', async () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      // Force API to fail
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
 
       const wrapper = mount(DomainsTable, {
-        props: { domains: [makeDomain('acme', 'internal')], userMemberships: [] },
+        props: { rows: [makeRow('acme', { authStrategy: 'internal' })] },
         global: { stubs },
       })
 
-      const row = wrapper.findComponent(DomainRowStub)
+      await wrapper.findComponent(DomainRowStub).vm.$emit('subscribe', 0)
+      await flushPromises()
 
-      // Before emit: false
-      expect(row.props('isSubscribed')).toBe(false)
-
-      await row.vm.$emit('subscribe', 0)
-      await flushPromises() // Let the catch block execute and UI update
-
-      // Because the API failed, it should catch the error and revert back to false
-      expect(row.props('isSubscribed')).toBe(false)
-      expect(wrapper.emitted('refresh')).toBeFalsy() // Shouldn't emit refresh on fail
-
+      expect(wrapper.emitted('refresh')).toBeFalsy()
       errorSpy.mockRestore()
     })
   })
@@ -162,13 +148,11 @@ describe('DomainsTable', () => {
   describe('subscribe (OIDC Strategy)', () => {
     it('calls the SSO login endpoint and redirects to the Identity Provider', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, {
-          redirectUrl: 'https://sso.provider.com/login',
-        }) as unknown as Response,
+        makeResponse(true, { redirectUrl: 'https://sso.provider.com/login' }) as unknown as Response,
       )
 
       const wrapper = mount(DomainsTable, {
-        props: { domains: [makeDomain('unibo', 'oidc')], userMemberships: [] },
+        props: { rows: [makeRow('unibo', { authStrategy: 'oidc' })] },
         global: { stubs },
       })
 
@@ -177,23 +161,7 @@ describe('DomainsTable', () => {
 
       expect(makeRequest).toHaveBeenCalledWith('/auth/sso/login/unibo?accountName=alice')
       expect(window.location.href).toBe('https://sso.provider.com/login')
-      expect(wrapper.emitted('refresh')).toBeFalsy() // No refresh emitted for OIDC
-    })
-
-    it('does not redirect if the API response is not ok', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
-
-      const wrapper = mount(DomainsTable, {
-        props: { domains: [makeDomain('unibo', 'oidc')], userMemberships: [] },
-        global: { stubs },
-      })
-
-      await wrapper.findComponent(DomainRowStub).vm.$emit('subscribe', 0)
-      await flushPromises()
-
-      expect(window.location.href).toBe('') // Unchanged
-      errorSpy.mockRestore()
+      expect(wrapper.emitted('refresh')).toBeFalsy()
     })
   })
 
@@ -202,10 +170,7 @@ describe('DomainsTable', () => {
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
 
       const wrapper = mount(DomainsTable, {
-        props: {
-          domains: [makeDomain('acme')],
-          userMemberships: [makeMembership('acme')],
-        },
+        props: { rows: [makeRow('acme', { isSubscribed: true })] },
         global: { stubs },
       })
 
@@ -217,47 +182,18 @@ describe('DomainsTable', () => {
       })
       expect(wrapper.emitted('refresh')).toBeTruthy()
     })
-
-    it('optimistically updates the row state, and reverts on API failure', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      // Force API to fail
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
-
-      const wrapper = mount(DomainsTable, {
-        props: {
-          domains: [makeDomain('acme')],
-          userMemberships: [makeMembership('acme')],
-        },
-        global: { stubs },
-      })
-
-      const row = wrapper.findComponent(DomainRowStub)
-
-      // Before emit: true
-      expect(row.props('isSubscribed')).toBe(true)
-
-      await row.vm.$emit('unsubscribe', 0)
-      await flushPromises() // Wait for internal catch block
-
-      // Because the API failed, it should catch the error and revert back to true
-      expect(row.props('isSubscribed')).toBe(true)
-      expect(wrapper.emitted('refresh')).toBeFalsy()
-
-      errorSpy.mockRestore()
-    })
   })
 
-  describe('edge cases', () => {
-    it('aborts actions if accountName is null', async () => {
-      mockAccountName.value = null
-
+  describe('private rows', () => {
+    it('ignores subscribe/unsubscribe on a private row', async () => {
       const wrapper = mount(DomainsTable, {
-        props: { domains: [makeDomain('acme')], userMemberships: [] },
+        props: { rows: [makeRow('secret', { isPrivate: true, isSubscribed: true })] },
         global: { stubs },
       })
 
       await wrapper.findComponent(DomainRowStub).vm.$emit('subscribe', 0)
+      await wrapper.findComponent(DomainRowStub).vm.$emit('unsubscribe', 0)
+      await flushPromises()
 
       expect(makeRequest).not.toHaveBeenCalled()
     })

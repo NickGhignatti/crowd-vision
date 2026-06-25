@@ -35,6 +35,33 @@ export const getAllAllowedDomains = async (req: Request, res: Response) => {
   res.json({ domains });
 };
 
+export const getDomainMemberCounts = async (req: Request, res: Response) => {
+  const accountName: string | undefined = (
+    req.account as { accountName?: string }
+  )?.accountName;
+
+  if (!accountName) {
+    throw new UnauthorizedError("Invalid account name");
+  }
+
+  // Scope counts to what the caller may see: public domains plus their own
+  // memberships. Identity comes from the token, never from a request param.
+  const [publicDomains, memberships] = await Promise.all([
+    DomainService.getPublicDomains(),
+    DomainService.getAccountMemberships(accountName),
+  ]);
+
+  const visibleNames = Array.from(
+    new Set([
+      ...publicDomains.map((d) => d.name),
+      ...memberships.map((m) => m.domainName),
+    ]),
+  );
+
+  const counts = await DomainService.getMemberCountsFor(visibleNames);
+  res.json({ counts });
+};
+
 export const getDomainsByAccount = async (req: Request, res: Response) => {
   const { accountName } = req.params;
   const memberships = await DomainService.getAccountMemberships(

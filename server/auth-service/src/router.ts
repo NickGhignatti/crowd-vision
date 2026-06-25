@@ -16,6 +16,7 @@ import {
   createSubdomain,
   getDomainTOTPQr,
   getAllAllowedDomains,
+  getDomainMemberCounts,
 } from "./controller/domain.js";
 import {
   requireAuthentication,
@@ -46,6 +47,11 @@ router.post(
   requireAuthentication,
   requireAuthorization("business_admin"),
   createDomain,
+);
+router.get(
+  "/domains/member-counts",
+  requireAuthentication,
+  getDomainMemberCounts,
 );
 router.get("/domains/:accountName", requireAuthentication, getDomainsByAccount);
 router.get(

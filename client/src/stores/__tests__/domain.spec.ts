@@ -330,6 +330,122 @@ describe('useDomainsStore', () => {
       expect(makeRequest).toHaveBeenCalledTimes(1)
       expect(store.allDomains).toEqual([makeDomain('acme')])
     })
+
+    it('clears member and building counts', () => {
+      const store = useDomainsStore()
+      store.memberCounts = { acme: 3 }
+      store.buildingCounts = { acme: 2 }
+
+      store.invalidate()
+
+      expect(store.memberCounts).toEqual({})
+      expect(store.buildingCounts).toEqual({})
+    })
+  })
+
+  describe('fetchMemberCounts', () => {
+    it('calls the scoped member-counts endpoint and stores the map', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, { counts: { acme: 4 } }) as unknown as Response,
+      )
+
+      const store = useDomainsStore()
+      await store.fetchMemberCounts()
+
+      expect(makeRequest).toHaveBeenCalledWith('/auth/domains/member-counts')
+      expect(store.memberCounts).toEqual({ acme: 4 })
+    })
+
+    it('defaults to an empty map on a non-ok response', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
+
+      const store = useDomainsStore()
+      await store.fetchMemberCounts()
+
+      expect(store.memberCounts).toEqual({})
+    })
+
+    it('defaults to an empty map when the request throws', async () => {
+      vi.mocked(makeRequest).mockRejectedValue(new Error('Network error'))
+
+      const store = useDomainsStore()
+      await store.fetchMemberCounts()
+
+      expect(store.memberCounts).toEqual({})
+    })
+  })
+
+  describe('fetchBuildingCounts', () => {
+    it('POSTs the explicit name list and stores the map', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, { counts: { acme: 2 } }) as unknown as Response,
+      )
+
+      const store = useDomainsStore()
+      await store.fetchBuildingCounts(['acme', 'globex'])
+
+      expect(makeRequest).toHaveBeenCalledWith('/twin/buildings/counts', 'POST', {
+        body: JSON.stringify({ domains: ['acme', 'globex'] }),
+      })
+      expect(store.buildingCounts).toEqual({ acme: 2 })
+    })
+
+    it('skips the request when the name list is empty', async () => {
+      const store = useDomainsStore()
+      await store.fetchBuildingCounts([])
+
+      expect(makeRequest).not.toHaveBeenCalled()
+      expect(store.buildingCounts).toEqual({})
+    })
+
+    it('defaults to an empty map when the request throws', async () => {
+      vi.mocked(makeRequest).mockRejectedValue(new Error('Network error'))
+
+      const store = useDomainsStore()
+      await store.fetchBuildingCounts(['acme'])
+
+      expect(store.buildingCounts).toEqual({})
+    })
+  })
+
+  describe('unifiedDomains getter', () => {
+    it('merges public domains with private memberships and overlays role + counts', () => {
+      const store = useDomainsStore()
+      store.allDomains = [makeDomain('acme'), makeDomain('globex')]
+      store.memberships = [makeMembership('acme', 'business_admin'), makeMembership('secret')]
+      store.memberCounts = { acme: 4, secret: 1 }
+      store.buildingCounts = { acme: 2 }
+
+      const rows = store.unifiedDomains
+
+      const acme = rows.find((r) => r.name === 'acme')!
+      expect(acme.isPrivate).toBe(false)
+      expect(acme.isSubscribed).toBe(true)
+      expect(acme.role).toBe('business_admin')
+      expect(acme.memberCount).toBe(4)
+      expect(acme.buildingCount).toBe(2)
+
+      const globex = rows.find((r) => r.name === 'globex')!
+      expect(globex.isSubscribed).toBe(false)
+      expect(globex.role).toBeUndefined()
+
+      const secret = rows.find((r) => r.name === 'secret')!
+      expect(secret.isPrivate).toBe(true)
+      expect(secret.isSubscribed).toBe(true)
+      expect(secret.role).toBe('standard_customer')
+      expect(secret.memberCount).toBe(1)
+    })
+
+    it('does not duplicate a public domain the user has joined', () => {
+      const store = useDomainsStore()
+      store.allDomains = [makeDomain('acme')]
+      store.memberships = [makeMembership('acme', 'business_staff')]
+
+      const rows = store.unifiedDomains
+
+      expect(rows.filter((r) => r.name === 'acme')).toHaveLength(1)
+      expect(rows[0]?.role).toBe('business_staff')
+    })
   })
 })
 

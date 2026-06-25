@@ -1,5 +1,8 @@
 import type { Request, Response } from "express";
 import * as BuildingService from "../services/buildings.js";
+import { ValidationError } from "../models/error.js";
+
+const MAX_DOMAIN_NAMES = 500;
 
 export const addBuilding = async (req: Request, res: Response) => {
   const { name, rooms, domains } = req.body;
@@ -40,6 +43,26 @@ export const updateBuilding = async (req: Request, res: Response) => {
     updates,
   );
   res.status(200).json(updatedBuilding);
+};
+
+export const getBuildingCounts = async (req: Request, res: Response) => {
+  const { domains } = req.body;
+
+  if (
+    !Array.isArray(domains) ||
+    !domains.every((d) => typeof d === "string")
+  ) {
+    throw new ValidationError("'domains' must be an array of strings");
+  }
+
+  if (domains.length > MAX_DOMAIN_NAMES) {
+    throw new ValidationError(
+      `Too many domains requested (max ${MAX_DOMAIN_NAMES})`,
+    );
+  }
+
+  const counts = await BuildingService.getBuildingCountsFor(domains);
+  res.status(200).json({ counts });
 };
 
 export const getDomainsByBuilding = async (req: Request, res: Response) => {

@@ -104,6 +104,44 @@ describe("Twin Service API", () => {
     });
   });
 
+  describe("POST /buildings/counts", () => {
+    it("returns building counts only for the requested domains", async () => {
+      await request(app).post("/register").send(mockBuilding);
+      await request(app).post("/register").send(mockBuilding);
+
+      const res = await request(app)
+        .post("/buildings/counts")
+        .send({ domains: [mockBuilding.domains[0], "unknown-domain"] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.counts[mockBuilding.domains[0] as string]).toBe(2);
+      expect(res.body.counts["unknown-domain"]).toBeUndefined();
+    });
+
+    it("returns an empty map for an empty request", async () => {
+      const res = await request(app).post("/buildings/counts").send({ domains: [] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.counts).toEqual({});
+    });
+
+    it("rejects a non-array domains payload", async () => {
+      const res = await request(app)
+        .post("/buildings/counts")
+        .send({ domains: "not-an-array" });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects an oversized domains payload", async () => {
+      const domains = Array.from({ length: 501 }, (_, i) => `d-${i}`);
+
+      const res = await request(app).post("/buildings/counts").send({ domains });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("PATCH /building/:buildingId/room/:roomId", () => {
     let buildingId: string;
 

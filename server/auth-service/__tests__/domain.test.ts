@@ -9,6 +9,7 @@ import {
   getDomains,
   getAccountMemberships,
   getDomainSubdomains,
+  getMemberCountsFor,
   subscribe,
   unsubscribe,
 } from "../src/services/domain.js";
@@ -118,6 +119,29 @@ describe("Domain API", () => {
         (m: any) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeUndefined();
+    });
+  });
+
+  describe("Member counts", () => {
+    beforeEach(async () => {
+      await createMockDomainWithSubdomains();
+    });
+
+    it("counts members per domain, restricted to the requested names", async () => {
+      const sub = await addAccount("sub", "sub@gmail.com", "sub");
+      await subscribe(sub.name, mockDomain.name);
+
+      const counts = await getMemberCountsFor([mockDomain.name]);
+
+      // creator (business_admin) + one subscriber
+      expect(counts[mockDomain.name]).toBe(2);
+    });
+
+    it("omits domains with no members and returns {} for an empty request", async () => {
+      const counts = await getMemberCountsFor(["nonexistent.it"]);
+      expect(counts["nonexistent.it"]).toBeUndefined();
+
+      expect(await getMemberCountsFor([])).toEqual({});
     });
   });
 });

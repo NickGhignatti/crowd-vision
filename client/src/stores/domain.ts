@@ -2,17 +2,60 @@ import { defineStore } from 'pinia'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import { useAuthStore } from './authentication'
 import type { DomainMembership, Domain } from '@/models/domain'
+import type { DomainRow } from '@/interfaces/domain'
 
 export const useDomainsStore = defineStore('domains', {
   state: () => ({
     memberships: null as DomainMembership[] | null,
     allDomains: null as Domain[] | null,
+    memberCounts: {} as Record<string, number>,
+    buildingCounts: {} as Record<string, number>,
     loading: false,
     loadingAll: false,
     _membershipsPromise: null as Promise<void> | null,
     _allDomainsPromise: null as Promise<void> | null,
     _authStore: useAuthStore(),
   }),
+
+  getters: {
+    // Public domains plus the private domains the user belongs to, with role and
+    // counts overlaid. A joined public domain appears once (not duplicated).
+    unifiedDomains(state): DomainRow[] {
+      const publicDomains = state.allDomains ?? []
+      const memberships = state.memberships ?? []
+      const roleByName = new Map(memberships.map((m) => [m.domainName, m.role]))
+      const publicNames = new Set(publicDomains.map((d) => d.name))
+
+      const withCounts = (row: Omit<DomainRow, 'memberCount' | 'buildingCount'>): DomainRow => ({
+        ...row,
+        memberCount: state.memberCounts[row.name],
+        buildingCount: state.buildingCounts[row.name],
+      })
+
+      const publicRows: DomainRow[] = publicDomains.map((d) =>
+        withCounts({
+          name: d.name,
+          authStrategy: d.authStrategy,
+          isPrivate: false,
+          role: roleByName.get(d.name),
+          isSubscribed: roleByName.has(d.name),
+        }),
+      )
+
+      const privateRows: DomainRow[] = memberships
+        .filter((m) => !publicNames.has(m.domainName))
+        .map((m) =>
+          withCounts({
+            name: m.domainName,
+            isPrivate: true,
+            role: m.role,
+            isSubscribed: true,
+          }),
+        )
+
+      return [...publicRows, ...privateRows]
+    },
+  },
 
   actions: {
     async fetchMemberships(forceRefresh = false) {
@@ -54,6 +97,32 @@ export const useDomainsStore = defineStore('domains', {
       return this._allDomainsPromise
     },
 
+    async fetchMemberCounts() {
+      try {
+        const res = await makeRequest('/auth/domains/member-counts')
+        const data = await res.json()
+        this.memberCounts = res.ok ? (data.counts ?? {}) : {}
+      } catch {
+        this.memberCounts = {}
+      }
+    },
+
+    async fetchBuildingCounts(domainNames: string[]) {
+      if (domainNames.length === 0) {
+        this.buildingCounts = {}
+        return
+      }
+      try {
+        const res = await makeRequest('/twin/buildings/counts', 'POST', {
+          body: JSON.stringify({ domains: domainNames }),
+        })
+        const data = await res.json()
+        this.buildingCounts = res.ok ? (data.counts ?? {}) : {}
+      } catch {
+        this.buildingCounts = {}
+      }
+    },
+
     async createNewDomain(payload: any) {
       const accountName = this._authStore.accountName
       if (!accountName) throw new Error('Missing account name in auth store')
@@ -89,7 +158,7 @@ export const useDomainsStore = defineStore('domains', {
       return await response.json()
     },
 
-    async subscribeToDomain(domain: Domain) {
+    async subscribeToDomain(domain: { name: string; authStrategy?: 'internal' | 'oidc' }) {
       const accountName = this._authStore.accountName
       if (!accountName) throw new Error('Missing account name in auth store')
 
@@ -140,6 +209,8 @@ export const useDomainsStore = defineStore('domains', {
     invalidate() {
       this.memberships = null
       this.allDomains = null
+      this.memberCounts = {}
+      this.buildingCounts = {}
       this._membershipsPromise = null
       this._allDomainsPromise = null
     },
