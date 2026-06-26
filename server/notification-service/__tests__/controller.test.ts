@@ -129,6 +129,26 @@ describe("Notification controller branches", () => {
     );
   });
 
+  it("forwards the caller's token to the twin domain lookup", async () => {
+    const token = tokenFor("alice");
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ["domain-a"],
+    } as any);
+
+    await request(app)
+      .post("/trigger")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ buildingName: "building-1", notificationType: "temperature" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/twin/domain/building-1");
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      `Bearer ${token}`,
+    );
+  });
+
   it("fans out alerts to multiple domains", async () => {
     jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,

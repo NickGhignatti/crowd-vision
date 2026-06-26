@@ -45,6 +45,13 @@ describe("Twin Service API", () => {
       const res = await request(app).get("/health/");
       expect(res.status).toBe(200);
     });
+
+    it("accepts a valid token from the cookie", async () => {
+      const res = await request(app)
+        .get("/buildings/some-domain")
+        .set("Cookie", `authentication_token=${token}`);
+      expect(res.status).toBe(200);
+    });
   });
 
   describe("POST /register", () => {
