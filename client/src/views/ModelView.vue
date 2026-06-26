@@ -95,7 +95,7 @@ onMounted(() => {
         :buildingModel="buildingModel.building.value"
         :activeFloor="buildingModel.selectedFloor.value"
         @json-uploaded="buildingModel.fetchBuildings"
-        @change-building="buildingModel.setBuildingByIndex"
+        @change-building="buildingModel.setBuildingById"
         @change-floor="buildingModel.setFloor"
       />
 

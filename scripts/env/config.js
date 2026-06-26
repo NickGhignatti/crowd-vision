@@ -37,25 +37,30 @@ const askQuestion = (query, defaultVal) => {
     });
 };
 
+// Local-dev defaults written non-interactively. Override by editing .env.
+const DEFAULT_CONFIG = {
+    SERVER_PORT: "80",
+    CLIENT_PORT: "8080",
+    DEV_URL: "http://localhost",
+};
+
 async function setupConfig() {
     console.log("📝 Setting up environment configuration...\n");
 
     const existingEnv = parseEnv();
     const newConfigs = [];
 
-    async function checkAndAsk(key, promptText, defaultVal) {
+    for (const [key, defaultVal] of Object.entries(DEFAULT_CONFIG)) {
         if (existingEnv[key]) {
-            console.log(`⏩ Skipping ${promptText} (Found in .env: ${existingEnv[key]})`);
+            console.log(`⏩ ${key} already set (${existingEnv[key]})`);
         } else {
-            const val = await askQuestion(promptText, defaultVal);
-            newConfigs.push(`${key}=${val}`);
+            newConfigs.push(`${key}=${defaultVal}`);
         }
     }
 
     async function checkAndAskOptional(key, promptText) {
         if (existingEnv[key]) {
-            const masked = existingEnv[key] ? "***" : "(empty)";
-            console.log(`⏩ Skipping ${promptText} (Found in .env: ${masked})`);
+            console.log(`⏩ ${promptText} already set`);
             return;
         }
         const val = await askQuestion(`${promptText} (leave empty to skip)`, "");
@@ -63,12 +68,6 @@ async function setupConfig() {
         // rather than crashing on a missing alias.
         newConfigs.push(`${key}=${val}`);
     }
-
-    await checkAndAsk("MONGO_PORT", "Enter MONGO_PORT", "27017");
-    await checkAndAsk("SERVER_PORT", "Enter SERVER_PORT", "80");
-    await checkAndAsk("CLIENT_PORT", "Enter CLIENT_PORT", "8080");
-    await checkAndAsk("DEV_URL", "Enter DEV_URL", "http://localhost");
-    await checkAndAsk("PROD_URL", "Enter PROD_URL", "http://localhost");
 
     // Agent-service LLM credentials. The agent talks to any OpenAI-compatible
     // endpoint; we default to OpenRouter (chat + embeddings via one key). Optional —

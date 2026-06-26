@@ -2,8 +2,9 @@ import redisClient from "../config/redis.js";
 import { sendPushToDomain } from "./pushService.js";
 import { NotificationType } from "../models/notificationSubscription.js";
 
-export const getServerUrl = () =>
-  process.env.SERVER_URL || "http://localhost:3000";
+// Internal gateway base for server-to-server calls (routed through Caddy).
+export const getGatewayUrl = () =>
+  process.env.GATEWAY_URL || "http://localhost:3000";
 
 export const publishNotification = async (
   message: string,

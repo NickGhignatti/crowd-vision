@@ -87,6 +87,7 @@ const hydrateBuildingThresholds = async (buildings: Building[]) => {
 interface BuildingOption {
   id: string
   name: string
+  domains: string[]
 }
 
 export function useBuildingModel() {
@@ -113,6 +114,7 @@ export function useBuildingModel() {
     allBuildings.value.map((b) => ({
       id: b.id,
       name: b.name?.trim() || b.id,
+      domains: b.domains ?? [],
     })),
   )
 
@@ -171,8 +173,10 @@ export function useBuildingModel() {
     }
   }
 
-  const setBuildingByIndex = (index: number) => {
-    building.value = allBuildings.value[index] || null
+  // Select by id, not list position: the sidebar groups/filters buildings, so a
+  // visible-list index no longer maps onto the underlying allBuildings order.
+  const setBuildingById = (id: string) => {
+    building.value = allBuildings.value.find((b) => b.id === id) || null
   }
 
   const toggleRoom = (id: string) => {
@@ -195,7 +199,7 @@ export function useBuildingModel() {
     visibleRooms,
     displayedBuilding,
     fetchBuildings,
-    setBuildingByIndex,
+    setBuildingById,
     toggleRoom,
     setFloor,
   }

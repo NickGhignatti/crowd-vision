@@ -95,6 +95,22 @@ export const updateRoom = async (
   return room;
 };
 
+// Counts buildings per domain, restricted to the explicit names supplied by the
+// caller so this route can't be used to enumerate every domain in the system.
+export const getBuildingCountsFor = async (domainNames: string[]) => {
+  if (domainNames.length === 0) return {} as Record<string, number>;
+
+  const rows = await Building.aggregate([
+    { $unwind: "$domains" },
+    { $match: { domains: { $in: domainNames } } },
+    { $group: { _id: "$domains", count: { $sum: 1 } } },
+  ]);
+
+  return Object.fromEntries(
+    rows.map((r) => [r._id as string, r.count as number]),
+  );
+};
+
 export const getDomainsByBuilding = async (buildingName: string) => {
   const buildings = await Building.find({ name: { $eq: buildingName } });
   return buildings.flatMap((building) => building.domains);

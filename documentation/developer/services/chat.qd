@@ -142,7 +142,7 @@ so a freshly created chat gets a meaningful name without a separate request.
    - Purpose
 
 .tablebyrows {.headers}
-    - - `AGENT_BASE_URL`
+    - - `AGENT_SERVICE_URL`
       - `http://agent-service:3000`
       - Where to reach the agent's `/ask` endpoint.
     - - `JWT_SECRET`

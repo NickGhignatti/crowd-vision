@@ -15,9 +15,10 @@ const crypto = require("node:crypto");
 
 const ROOT = path.resolve(__dirname, "../..");
 const ENV_PATH = path.join(ROOT, ".env");
-// AGENT_URL points at the agent-service base. From the host (default), Caddy
-// fronts it at /agent. Inside the docker network, set AGENT_URL=http://agent-service:3000.
-const AGENT_URL = process.env.AGENT_URL || "http://localhost/agent";
+// AGENT_SERVICE_URL points at the agent-service base. From the host (default),
+// Caddy fronts it at /agent. Inside the docker network, set
+// AGENT_SERVICE_URL=http://agent-service:3000.
+const AGENT_URL = process.env.AGENT_SERVICE_URL || "http://localhost/agent";
 const READY_TIMEOUT_MS = Number(process.env.READY_TIMEOUT_MS || 60000);
 
 function loadEnv() {

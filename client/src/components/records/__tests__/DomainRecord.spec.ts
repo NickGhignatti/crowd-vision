@@ -7,6 +7,7 @@ const defaultProps: DomainSubscriptionRowProps = {
   id: 1,
   name: 'example.com',
   isSubscribed: false,
+  isPrivate: false,
 }
 
 describe('DomainRecord', () => {
@@ -14,6 +15,35 @@ describe('DomainRecord', () => {
     it('displays the domain name provided in props', () => {
       const wrapper = mount(DomainRecord, { props: defaultProps })
       expect(wrapper.text()).toContain('example.com')
+    })
+
+    it('shows the role badge when a role is provided', () => {
+      const wrapper = mount(DomainRecord, {
+        props: { ...defaultProps, isSubscribed: true, role: 'business_admin' },
+      })
+      expect(wrapper.text()).toContain('domains.roles.businessAdmin')
+    })
+
+    it('shows the "not a member" label when no role is provided', () => {
+      const wrapper = mount(DomainRecord, { props: defaultProps })
+      expect(wrapper.text()).toContain('domains.labels.notMember')
+    })
+
+    it('renders member and building counts, falling back to a dash', () => {
+      const wrapper = mount(DomainRecord, {
+        props: { ...defaultProps, memberCount: 7 },
+      })
+      const text = wrapper.text()
+      expect(text).toContain('7')
+      expect(text).toContain('—')
+    })
+
+    it('shows a private chip and no action button on private rows', () => {
+      const wrapper = mount(DomainRecord, {
+        props: { ...defaultProps, isPrivate: true, isSubscribed: true, role: 'standard_customer' },
+      })
+      expect(wrapper.text()).toContain('domains.labels.private')
+      expect(wrapper.find('button').exists()).toBe(false)
     })
   })
 
@@ -27,8 +57,6 @@ describe('DomainRecord', () => {
 
       expect(wrapper.emitted('subscribe')).toBeTruthy()
       expect(wrapper.emitted('subscribe')?.[0]).toEqual([42])
-
-      // Ensure the opposite event was not accidentally fired
       expect(wrapper.emitted('unsubscribe')).toBeUndefined()
     })
 
@@ -41,7 +69,6 @@ describe('DomainRecord', () => {
 
       expect(wrapper.emitted('unsubscribe')).toBeTruthy()
       expect(wrapper.emitted('unsubscribe')?.[0]).toEqual([99])
-
       expect(wrapper.emitted('subscribe')).toBeUndefined()
     })
   })

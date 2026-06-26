@@ -14,9 +14,6 @@ services:
       - PORT=${CLIENT_PORT}
       - VITE_SIMULATOR_URL_AQ=${DEV_URL}/simulator/aq
       - VITE_SIMULATOR_URL_TP=${DEV_URL}/simulator/tp
-    # auth-service is in a separately-included compose; mark it optional so
-    # the client still boots when auth-service is excluded from the run.
-    # gateway is always in the project (root compose), so no flag needed.
     depends_on:
       auth-service:
         condition: service_started

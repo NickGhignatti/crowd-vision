@@ -40,7 +40,7 @@ A Node.js / Express service in TypeScript. It is the spatial source of truth: it
 
 .tablebyrows {.headers}
     - - `SENSOR_SERVICE_URL`
-      - falls back to `VITE_SERVER_URL`, then `http://localhost:3000`
+      - `http://localhost:3000`
       - Target for the threshold clone sync.
     - - `CONTRACTS_SERVICE_URL`
       - `http://localhost:3001`

@@ -142,13 +142,13 @@ describe('useBuildingModel', () => {
       expect(availableBuildingsNames.value).toEqual([])
     })
 
-    it('returns id-name pairs for all buildings', () => {
+    it('returns id-name-domains tuples for all buildings', () => {
       const { allBuildings, availableBuildingsNames } = useBuildingModel()
       allBuildings.value = [makeBuilding('hq'), makeBuilding('annex')]
 
       expect(availableBuildingsNames.value).toEqual([
-        { id: 'hq', name: 'hq' },
-        { id: 'annex', name: 'annex' },
+        { id: 'hq', name: 'hq', domains: ['test-domain'] },
+        { id: 'annex', name: 'annex', domains: ['test-domain'] },
       ])
     })
 
@@ -156,12 +156,14 @@ describe('useBuildingModel', () => {
       const { allBuildings, availableBuildingsNames } = useBuildingModel()
 
       allBuildings.value = [makeBuilding('hq')]
-      expect(availableBuildingsNames.value).toEqual([{ id: 'hq', name: 'hq' }])
+      expect(availableBuildingsNames.value).toEqual([
+        { id: 'hq', name: 'hq', domains: ['test-domain'] },
+      ])
 
       allBuildings.value = [makeBuilding('hq'), makeBuilding('annex')]
       expect(availableBuildingsNames.value).toEqual([
-        { id: 'hq', name: 'hq' },
-        { id: 'annex', name: 'annex' },
+        { id: 'hq', name: 'hq', domains: ['test-domain'] },
+        { id: 'annex', name: 'annex', domains: ['test-domain'] },
       ])
     })
   })
@@ -498,30 +500,30 @@ describe('useBuildingModel', () => {
     })
   })
 
-  describe('setBuildingByIndex', () => {
-    it('sets building to the item at the given index', () => {
+  describe('setBuildingById', () => {
+    it('sets building to the item with the matching id', () => {
       const hq = makeBuilding('hq')
       const annex = makeBuilding('annex')
-      const { allBuildings, building, setBuildingByIndex } = useBuildingModel()
+      const { allBuildings, building, setBuildingById } = useBuildingModel()
       allBuildings.value = [hq, annex]
 
-      setBuildingByIndex(1)
+      setBuildingById('annex')
 
       expect(building.value).toEqual(annex)
     })
 
-    it('sets building to null when the index is out of bounds', () => {
-      const { allBuildings, building, setBuildingByIndex } = useBuildingModel()
+    it('sets building to null when no building matches the id', () => {
+      const { allBuildings, building, setBuildingById } = useBuildingModel()
       allBuildings.value = [makeBuilding('hq')]
 
-      setBuildingByIndex(5)
+      setBuildingById('missing')
 
       expect(building.value).toBeNull()
     })
 
     it('sets building to null when allBuildings is empty', () => {
-      const { building, setBuildingByIndex } = useBuildingModel()
-      setBuildingByIndex(0)
+      const { building, setBuildingById } = useBuildingModel()
+      setBuildingById('hq')
 
       expect(building.value).toBeNull()
     })

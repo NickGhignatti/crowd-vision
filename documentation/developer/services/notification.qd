@@ -42,9 +42,9 @@ A Node.js / Express service. It receives candidate alert events, debounces them,
     - - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`
       - empty
       - VAPID key pair; when both are set, `web-push` is configured for delivery.
-    - - `SERVER_URL`
+    - - `GATEWAY_URL`
       - `http://localhost:3000`
-      - Gateway base URL; used to resolve a building's domains via the twin-service.
+      - Internal gateway base; used to resolve a building's domains via the twin-service.
     - - `REDIS_URL`
       - —
       - Broker connection for publishing `notifications`.

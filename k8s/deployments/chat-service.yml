@@ -80,10 +80,10 @@ spec:
             - configMapRef:
                 name: common-config         # PORT, CLIENT_URL, service URLs
           # Non-secret, chat-specific config not held in common-config.
-          # AGENT_BASE_URL targets the in-cluster agent-service root (not the
+          # AGENT_SERVICE_URL targets the in-cluster agent-service root (not the
           # /agent ingress prefix — service-to-service traffic skips the ingress).
           env:
-            - name: AGENT_BASE_URL
+            - name: AGENT_SERVICE_URL
               value: "http://agent-service:3000"
             - name: HISTORY_MAX_MESSAGES
               value: "10"

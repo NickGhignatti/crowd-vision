@@ -18,7 +18,7 @@ export const getTokenSecret = () => {
 };
 
 export const getAgentBaseUrl = () =>
-  process.env.AGENT_BASE_URL ?? "http://agent-service:3000";
+  process.env.AGENT_SERVICE_URL ?? "http://agent-service:3000";
 
 export const getHistoryMaxMessages = () =>
   readPositiveInteger("HISTORY_MAX_MESSAGES", 10);

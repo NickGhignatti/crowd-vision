@@ -147,8 +147,16 @@ const messages = {
         title: 'Domains',
         headers: {
           name: 'Name',
+          members: 'Members',
+          buildings: 'Buildings',
+          role: 'Your Role',
           action: 'Action',
         },
+      },
+      labels: {
+        private: 'Private',
+        notMember: 'Not a member',
+        memberLabel: 'Member',
       },
       administration: {
         organizationDomains: 'Organization Domains',
@@ -270,6 +278,7 @@ const messages = {
       subName: 'Structure Name',
       data: 'Buildings',
       name: 'Domain name',
+      ungrouped: 'Other',
       loading: 'Loading data...',
     },
   },
@@ -419,8 +428,16 @@ const messages = {
         title: 'Domini',
         headers: {
           name: 'Nome',
+          members: 'Membri',
+          buildings: 'Edifici',
+          role: 'Il tuo ruolo',
           action: 'Azione',
         },
+      },
+      labels: {
+        private: 'Privato',
+        notMember: 'Non iscritto',
+        memberLabel: 'Membro',
       },
       administration: {
         organizationDomains: 'Domini Organizzazione',
@@ -543,6 +560,7 @@ const messages = {
       subName: 'Nome Struttura',
       data: 'Strutture',
       name: 'Nome dominio',
+      ungrouped: 'Altri',
       loading: 'Caricamento dati...',
     },
   },

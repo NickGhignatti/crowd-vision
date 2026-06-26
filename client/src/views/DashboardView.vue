@@ -7,8 +7,7 @@ import BuildingTable from '@/components/tables/BuildingTable.vue'
 import type { TableBody, TableHeader } from '@/models/table.ts'
 
 import { onMounted, onUnmounted, ref } from 'vue'
-import { getStatusByOccupants, getStatusColor } from '@/helpers/status'
-import { useI18n } from 'vue-i18n'
+import { getStatusByOccupants } from '@/helpers/status'
 import GraphDashboard from '@/components/dashboards/GraphDashboard.vue'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
@@ -19,8 +18,6 @@ import DateCard from '@/components/cards/DateCard.vue'
 
 const domainStore = useDomainsStore()
 const buildingStore = useBuildingsStore()
-
-const { t } = useI18n()
 
 export interface ModelOption {
   id: string
@@ -170,32 +167,7 @@ onUnmounted(() => {
               :selectedBuildingId="selectedModel?.id"
               class="fullscreen:transform fullscreen:scale-150 fullscreen:origin-top"
               @headers-updated="tableHeaders = $event"
-            >
-              <template #status="{ value }">
-                <span :class="getStatusColor(value)">{{ t(value) }}</span>
-              </template>
-              <template #teacher="{ value }">
-                <span :class="getStatusColor(value)">{{ value }}</span>
-              </template>
-              <template #people="{ value }">
-                <div class="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    class="text-slate-400"
-                  >
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                  <span class="font-bold">{{ value }}</span>
-                </div>
-              </template>
-            </BuildingTable>
+            />
           </div>
 
           <div v-else key="graph" class="w-full">

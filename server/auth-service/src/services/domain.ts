@@ -2,7 +2,45 @@ import { Domain, type IDomain, type ISSOConfig } from "../models/domain.js";
 import { Account } from "../models/account.js";
 import { generateTOTPForAuthorizedRoles } from "./totp.js";
 import { ConflictError, NotFoundError } from "../models/error.js";
-import { getServerUrl } from "../config/config.js";
+import { getGatewayUrl } from "../config/config.js";
+
+// Domain ids flow in from request bodies, so they must never be logged verbatim:
+// stripping CR/LF prevents forged log entries (log injection), and passing the
+// value as a positional argument to a constant format string keeps it out of the
+// format-string position (where a "%s" could inject format specifiers).
+export const sanitizeForLog = (value: string) => value.replace(/[\n\r]/g, "");
+
+// Best-effort sync of a user's notification preference for a domain. This is a
+// side-effect of joining/leaving/creating a domain — if the notification
+// service is unreachable it must not fail the core operation, so failures are
+// swallowed with a warning rather than propagated.
+const syncNotificationPreference = async (
+  userId: string,
+  domainId: string,
+  enabled: boolean,
+) => {
+  try {
+    const response = await fetch(`${getGatewayUrl()}/notification/preferences`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, domainId, enabled }),
+    });
+
+    if (!response.ok) {
+      console.warn(
+        'Notification preference sync for "%s" returned %d',
+        sanitizeForLog(domainId),
+        response.status,
+      );
+    }
+  } catch (error) {
+    console.warn(
+      'Notification preference sync for "%s" failed: %s',
+      sanitizeForLog(domainId),
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+};
 
 export const addDomain = async (
   domainName: string,
@@ -39,17 +77,7 @@ export const addDomain = async (
     },
   );
 
-  await fetch(`${getServerUrl()}/notification/preferences`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      userId: creatorAccountName,
-      domainId: domainName,
-      enabled: true,
-    }),
-  });
+  await syncNotificationPreference(creatorAccountName, domainName, true);
 
   return createdDomain;
 };
@@ -107,6 +135,22 @@ export const addSubdomainToDomain = async (
   );
 };
 
+// Counts members per domain, restricted to the given domain names so callers
+// never receive counts for domains outside their visibility scope.
+export const getMemberCountsFor = async (domainNames: string[]) => {
+  if (domainNames.length === 0) return {} as Record<string, number>;
+
+  const rows = await Account.aggregate([
+    { $unwind: "$memberships" },
+    { $match: { "memberships.domainName": { $in: domainNames } } },
+    { $group: { _id: "$memberships.domainName", count: { $sum: 1 } } },
+  ]);
+
+  return Object.fromEntries(
+    rows.map((r) => [r._id as string, r.count as number]),
+  );
+};
+
 export const getAccountMemberships = async (accountName: string) => {
   const account = await Account.findOne({ name: { $eq: accountName } });
 
@@ -135,17 +179,7 @@ export const subscribe = async (accountName: string, domainName: string) => {
     { $addToSet: { memberships: { domainName, role: "standard_customer" } } },
   );
 
-  await fetch(`${getServerUrl()}/notification/preferences`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      userId: accountName,
-      domainId: domainName,
-      enabled: true,
-    }),
-  });
+  await syncNotificationPreference(accountName, domainName, true);
 };
 
 export const unsubscribe = async (accountName: string, domainName: string) => {
@@ -154,15 +188,5 @@ export const unsubscribe = async (accountName: string, domainName: string) => {
     { $pull: { memberships: { domainName } } },
   );
 
-  await fetch(`${getServerUrl()}/notification/preferences`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      userId: accountName,
-      domainId: domainName,
-      enabled: false,
-    }),
-  });
+  await syncNotificationPreference(accountName, domainName, false);
 };

@@ -77,7 +77,7 @@ Run the interactive setup script. It skips any variable already present in `.env
 just stack env
 ```
 
-You will be prompted for the following:
+These local-dev defaults are written to `.env` non-interactively (edit `.env` to override):
 
 .var {headers}
    - Variable
@@ -85,24 +85,17 @@ You will be prompted for the following:
    - Description
 
 .tablebyrows {.headers}
-    - - `MONGO_PORT`
-      - `27017`
-      - Exposed port for MongoDB containers (local Docker only).
+    - - `SERVER_PORT`
+      - `80`
+      - Host port the API gateway (Caddy) listens on.
     - - `CLIENT_PORT`
       - `8080`
       - Port the Vue client is served on.
-    - - `BACKEND_URL`
+    - - `DEV_URL`
       - `http://localhost`
-      - URL of the API gateway. Use `http://localhost` for Docker dev, `http://crowdvision.local` for k8s dev.
-    - - `CLIENT_URL`
-      - `http://localhost:8080`
-      - Browser origin used for CORS. Must match where you open the app.
-    - - `VITE_SIMULATOR_URL_AQ`
-      - `http://localhost/simulator/aq`
-      - Air quality simulator endpoint (external service).
-    - - `VITE_SIMULATOR_URL_TP`
-      - `http://localhost/simulator/tp`
-      - Temperature/presence simulator endpoint (external service).
+      - Base URL of the gateway; combined with the ports to build public-facing URLs.
+
+The only interactive prompt is the optional `OPENROUTER_API_KEY` (leave empty to skip — the agent-service boots without it, but `/ask` fails on the first LLM hop).
 
 The following secrets are **generated automatically** by `just stack env` and written to `.env` — you do not need to supply them manually:
 
