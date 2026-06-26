@@ -1,3 +1,4 @@
+import type { Request, Response } from "express";
 import { Account } from "../src/models/account.js";
 import { Domain } from "../src/models/domain.js";
 import {
@@ -14,6 +15,10 @@ import {
   unsubscribe,
   sanitizeForLog,
 } from "../src/services/domain.js";
+import {
+  getDomainsByAccount,
+  subscribeAccountToDomain,
+} from "../src/controller/domain.js";
 
 describe("Domain API", () => {
   const mockUser = {
@@ -120,6 +125,63 @@ describe("Domain API", () => {
         (m: any) => m.domainName === mockDomain.name,
       );
       expect(membership).toBeUndefined();
+    });
+  });
+
+  describe("IDOR protection: identity is bound to the token", () => {
+    beforeEach(async () => {
+      await createMockDomainWithSubdomains();
+    });
+
+    // Helper: a minimal res that captures the JSON body.
+    const captureRes = () => {
+      const body: { value?: unknown } = {};
+      const res = {
+        json: (payload: unknown) => {
+          body.value = payload;
+          return res;
+        },
+        status: () => res,
+        send: () => res,
+      } as unknown as Response;
+      return { res, body };
+    };
+
+    it("getDomainsByAccount ignores the URL param and uses the token account", async () => {
+      // mockUser is business_admin of the domain; attacker has no memberships.
+      await addAccount("attacker", "attacker@test.com", "password123");
+
+      const { res, body } = captureRes();
+      await getDomainsByAccount(
+        {
+          account: { accountName: "attacker" },
+          params: { accountName: mockUser.username },
+        } as unknown as Request,
+        res,
+      );
+
+      // Must return attacker's (empty) memberships, NOT mockUser's domain.
+      expect((body.value as { domains: unknown[] }).domains).toHaveLength(0);
+    });
+
+    it("subscribeAccountToDomain subscribes the token account, not the URL param", async () => {
+      await addAccount("attacker", "attacker@test.com", "password123");
+
+      const { res } = captureRes();
+      await subscribeAccountToDomain(
+        {
+          account: { accountName: "attacker" },
+          params: { accountName: mockUser.username },
+          body: { domainName: mockDomain.name },
+        } as unknown as Request,
+        res,
+      );
+
+      // The attacker (token identity) is subscribed — the param was ignored.
+      const attackerMemberships = await getAccountMemberships("attacker");
+      expect(
+        attackerMemberships.some((m) => m.domainName === mockDomain.name),
+      ).toBe(true);
     });
   });
 

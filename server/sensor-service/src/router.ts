@@ -5,6 +5,7 @@ import type { SensorKernel } from "./kernel/sensorKernel.js";
 import { createReadHandlers } from "./controllers/readController.js";
 import { SENSOR_METRICS_CONTRACT } from "./models/metrics.js";
 import { createThresholdHandlers } from "./controllers/thresholdController.js";
+import { requireAuthentication } from "./middlewares/authentication.js";
 
 // Rate-limit the DB-backed read/threshold endpoints (DoS protection). The
 // telemetry hot path (/ingest) and /health are intentionally excluded.
@@ -24,7 +25,8 @@ export function createRouter(
   const reader = createReadHandlers(kernel);
   const thresholds = createThresholdHandlers(kernel);
 
-  // Unthrottled: telemetry ingestion hot path + infra endpoints.
+  // Unthrottled + unauthenticated: telemetry ingestion hot path (device-facing,
+  // guarded separately) + infra endpoints.
   router.post("/ingest", ingestionHandler);
   router.get("/contracts", (_req, res) =>
     res.status(200).json(SENSOR_METRICS_CONTRACT),
@@ -33,6 +35,10 @@ export function createRouter(
 
   // Rate-limited from here down: every handler below performs a DB read/write.
   router.use(apiLimiter);
+
+  // Authenticated from here down: building reads and threshold management are
+  // user/account data (browser cookie, or twin-service forwarding a bearer token).
+  router.use(requireAuthentication);
 
   router.get("/:sensorType/latest", reader.getLatestSingle);
   router.get("/:sensorType/entireBuilding", reader.getAllLatestBuilding);

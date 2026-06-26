@@ -24,9 +24,11 @@
   "type": "module",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.2",
     "redis": "^6.0.0",
     "swagger-ui-express": "^5.0.1",
@@ -36,7 +38,9 @@
   "devDependencies": {
     "@crowdvision/eslint-config": "file:../../tooling/eslint-config",
     "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/jest": "^30.0.0",
     "@types/mongoose": "^5.11.97",
     "@types/node": "^26.0.0",

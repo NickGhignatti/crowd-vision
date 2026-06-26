@@ -173,15 +173,18 @@ One document per building (`buildingId` unique). It holds building-level default
 
 .tablebyrows {.headers}
     - - `POST /ingest`
-      - Ingest a reading. `202` on accept, `422` on validation failure, `404` on unknown type.
+      - Ingest a reading. `202` on accept, `422` on validation failure, `404` on unknown type. **Public** (device-facing hot path).
     - - `GET` read endpoints
-      - Latest-per-room, all-latest-per-building, and bucketed dashboard time-series, served by `readController`.
+      - Latest-per-room, all-latest-per-building, and bucketed dashboard time-series, served by `readController`. **JWT.**
     - - `PATCH /thresholds/...`
-      - Update building- or room-level thresholds, served by `thresholdController`.
+      - Update building- or room-level thresholds, served by `thresholdController`. **JWT.**
     - - `PUT /thresholds/buildings/:id`
-      - Receives the building clone (rooms, name) pushed by the twin-service.
+      - Receives the building clone (rooms, name) pushed by the twin-service. **JWT** — twin forwards the caller's bearer token; the browser also calls it directly with its cookie.
     - - `GET /contracts`
-      - The metric catalog (`peopleCount`, `temperature`, `airQuality`).
+      - The metric catalog (`peopleCount`, `temperature`, `airQuality`). **Public.**
+
+.box {Auth boundary} type:{note}
+    `requireAuthentication` (`src/middlewares/authentication.ts`) is mounted after the rate limiter, so everything below `/ingest`, `/contracts`, and `/health` requires a verified JWT (cookie **or** forwarded bearer). The middleware responds `401` directly rather than throwing, because sensor-service has no global error handler. `/ingest` stays open as the device-facing hot path — moving it to device-token auth is tracked separately.
 
 ---
 
