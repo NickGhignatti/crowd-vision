@@ -4,6 +4,12 @@ import { generateTOTPForAuthorizedRoles } from "./totp.js";
 import { ConflictError, NotFoundError } from "../models/error.js";
 import { getGatewayUrl } from "../config/config.js";
 
+// Domain ids flow in from request bodies, so they must never be logged verbatim:
+// stripping CR/LF prevents forged log entries (log injection), and passing the
+// value as a positional argument to a constant format string keeps it out of the
+// format-string position (where a "%s" could inject format specifiers).
+export const sanitizeForLog = (value: string) => value.replace(/[\n\r]/g, "");
+
 // Best-effort sync of a user's notification preference for a domain. This is a
 // side-effect of joining/leaving/creating a domain — if the notification
 // service is unreachable it must not fail the core operation, so failures are
@@ -22,13 +28,16 @@ const syncNotificationPreference = async (
 
     if (!response.ok) {
       console.warn(
-        `Notification preference sync for "${domainId}" returned ${response.status}`,
+        'Notification preference sync for "%s" returned %d',
+        sanitizeForLog(domainId),
+        response.status,
       );
     }
   } catch (error) {
     console.warn(
-      `Notification preference sync for "${domainId}" failed:`,
-      error instanceof Error ? error.message : error,
+      'Notification preference sync for "%s" failed: %s',
+      sanitizeForLog(domainId),
+      error instanceof Error ? error.message : String(error),
     );
   }
 };

@@ -12,6 +12,7 @@ import {
   getMemberCountsFor,
   subscribe,
   unsubscribe,
+  sanitizeForLog,
 } from "../src/services/domain.js";
 
 describe("Domain API", () => {
@@ -143,5 +144,33 @@ describe("Domain API", () => {
 
       expect(await getMemberCountsFor([])).toEqual({});
     });
+  });
+});
+
+describe("sanitizeForLog", () => {
+  it("strips newlines so user input cannot forge log entries", () => {
+    expect(sanitizeForLog("evil\nINFO admin logged in")).toBe(
+      "evilINFO admin logged in",
+    );
+  });
+
+  it("strips carriage returns and CRLF sequences", () => {
+    expect(sanitizeForLog("a\rb\r\nc")).toBe("abc");
+  });
+
+  it("removes every line break, not just the first", () => {
+    expect(sanitizeForLog("a\nb\nc\nd")).toBe("abcd");
+  });
+
+  it("leaves a clean domain id untouched", () => {
+    expect(sanitizeForLog("studio.unibo.it")).toBe("studio.unibo.it");
+  });
+
+  it("preserves percent signs (format specifiers are neutralised by position, not content)", () => {
+    expect(sanitizeForLog("%s%d")).toBe("%s%d");
+  });
+
+  it("returns an empty string unchanged", () => {
+    expect(sanitizeForLog("")).toBe("");
   });
 });
