@@ -89,7 +89,7 @@ export const useSensorDataStore = defineStore('sensorData', () => {
       const res = await makeRequest(
         `/sensor/${type}/entireBuilding?building=${buildingId}`,
         'GET',
-        { signal: bucket.abort.signal, credentials: 'omit' },
+        { signal: bucket.abort.signal },
       )
       if (!res.ok) {
         bucket.error.value = 'Fetch failed'
