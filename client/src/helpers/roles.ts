@@ -24,3 +24,9 @@ export const ROLE_META: Record<string, { i18nKey: string; badge: string; tab: st
 export const getRoleMeta = (role: string) => {
   return ROLE_META[role.toLowerCase()] || ROLE_META.standard_customer
 }
+
+// Roles that grant management actions within a domain. A standard_customer is
+// read-only, so it can neither upload nor administer the domain.
+export const MANAGEMENT_ROLES = ['admin', 'business_admin', 'business_staff']
+
+export const canManageDomain = (role: string) => MANAGEMENT_ROLES.includes(role.toLowerCase())

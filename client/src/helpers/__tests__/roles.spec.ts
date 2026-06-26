@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ROLE_META, getRoleMeta } from '@/helpers/roles'
+import { ROLE_META, getRoleMeta, MANAGEMENT_ROLES, canManageDomain } from '@/helpers/roles'
 
 describe('roles helper', () => {
 
@@ -59,6 +59,33 @@ describe('roles helper', () => {
         expect(getRoleMeta(role)).toBe(ROLE_META[role])
       },
     )
+  })
+
+  describe('canManageDomain', () => {
+    it.each(['admin', 'business_admin', 'business_staff'])(
+      'returns true for the management role "%s"',
+      (role) => {
+        expect(canManageDomain(role)).toBe(true)
+      },
+    )
+
+    it('returns false for a standard_customer', () => {
+      expect(canManageDomain('standard_customer')).toBe(false)
+    })
+
+    it('returns false for an unrecognised role', () => {
+      expect(canManageDomain('unknown_role')).toBe(false)
+    })
+
+    it('is case-insensitive', () => {
+      expect(canManageDomain('Admin')).toBe(true)
+      expect(canManageDomain('BUSINESS_STAFF')).toBe(true)
+    })
+
+    it('MANAGEMENT_ROLES excludes standard_customer', () => {
+      expect(MANAGEMENT_ROLES).not.toContain('standard_customer')
+      expect(MANAGEMENT_ROLES).toEqual(['admin', 'business_admin', 'business_staff'])
+    })
   })
 
   describe('getRoleMeta — fallback', () => {
