@@ -1,15 +1,14 @@
 """The twin RAG tool must call twin-service AS the asking user.
 
 twin-service authenticates its routes, so the tool has to forward the caller's JWT.
-These tests cover both halves: `require_user` keeping the raw token, and `_client`
+These tests cover both halves: `require_user` keeping the raw token, and `auth_headers`
 attaching it as a bearer header (and omitting it when there is no token).
 """
 
 import jwt
 from starlette.requests import Request
 
-from app.agent.tools.base import ToolContext
-from app.agent.tools.twin import _client
+from app.agent.tools.downstream import auth_headers
 from app.auth import AuthUser, require_user
 from app.config import get_settings
 
@@ -24,16 +23,14 @@ def _request(headers: dict[str, str]) -> Request:
     return Request(scope)
 
 
-async def test_client_forwards_caller_jwt_as_bearer():
-    ctx = ToolContext(user=AuthUser(user_id="u1", raw_token="tok-123"), session=None)  # type: ignore[arg-type]
-    async with _client(ctx) as c:
-        assert c.headers["authorization"] == "Bearer tok-123"
+def test_auth_headers_forwards_caller_jwt_as_bearer():
+    assert auth_headers(AuthUser(user_id="u1", raw_token="tok-123")) == {
+        "Authorization": "Bearer tok-123"
+    }
 
 
-async def test_client_sends_no_auth_header_without_token():
-    ctx = ToolContext(user=AuthUser(user_id="anon"), session=None)  # type: ignore[arg-type]
-    async with _client(ctx) as c:
-        assert "authorization" not in c.headers
+def test_auth_headers_empty_without_token():
+    assert auth_headers(AuthUser(user_id="anon")) == {}
 
 
 async def test_require_user_keeps_raw_token_for_forwarding(monkeypatch):
@@ -41,9 +38,7 @@ async def test_require_user_keeps_raw_token_for_forwarding(monkeypatch):
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     get_settings.cache_clear()
     try:
-        token = jwt.encode(
-            {"accountId": "u1", "accountName": "alice"}, SECRET, algorithm="HS256"
-        )
+        token = jwt.encode({"accountId": "u1", "accountName": "alice"}, SECRET, algorithm="HS256")
 
         user = await require_user(_request({"authorization": f"Bearer {token}"}))
 
