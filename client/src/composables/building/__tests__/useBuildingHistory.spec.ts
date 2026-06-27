@@ -75,7 +75,6 @@ describe('getBuildingHistory', () => {
     expect(makeRequest).toHaveBeenCalledWith(
       expect.stringContaining('/sensor/temperature/dashboard'),
       'GET',
-      expect.any(Object),
     )
   })
 
@@ -89,7 +88,6 @@ describe('getBuildingHistory', () => {
     expect(makeRequest).toHaveBeenCalledWith(
       expect.stringContaining('building=bldg-42'),
       'GET',
-      expect.any(Object),
     )
   })
 
@@ -103,7 +101,6 @@ describe('getBuildingHistory', () => {
     expect(makeRequest).toHaveBeenCalledWith(
       expect.stringContaining('timeRange=1W'),
       'GET',
-      expect.any(Object),
     )
   })
 
@@ -117,7 +114,6 @@ describe('getBuildingHistory', () => {
     expect(makeRequest).toHaveBeenCalledWith(
       expect.stringContaining('aggMode=sum'),
       'GET',
-      expect.any(Object),
     )
   })
 
@@ -131,7 +127,6 @@ describe('getBuildingHistory', () => {
     expect(makeRequest).toHaveBeenCalledWith(
       expect.stringContaining('/sensor/peopleCount/dashboard'),
       'GET',
-      expect.any(Object),
     )
   })
 
@@ -145,7 +140,6 @@ describe('getBuildingHistory', () => {
     expect(makeRequest).toHaveBeenCalledWith(
       expect.stringContaining('/sensor/airQuality/dashboard'),
       'GET',
-      expect.any(Object),
     )
   })
 
@@ -285,7 +279,6 @@ describe('getBuildingHistory', () => {
     expect(makeRequest).toHaveBeenLastCalledWith(
       expect.stringContaining('aggMode=max'),
       'GET',
-      expect.any(Object),
     )
   })
 
@@ -304,7 +297,6 @@ describe('getBuildingHistory', () => {
     expect(makeRequest).toHaveBeenLastCalledWith(
       expect.stringContaining('building=bldg-2'),
       'GET',
-      expect.any(Object),
     )
   })
 

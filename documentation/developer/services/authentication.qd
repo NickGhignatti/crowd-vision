@@ -144,13 +144,13 @@ export const hasRequiredRole = (held: Role, required: Role): boolean =>
       - Create a domain (see side effects below). `201`.
     - - `GET /domains/:accountName`
       - JWT
-      - Return the account's memberships.
+      - Return the **caller's own** memberships. The `:accountName` param is ignored (kept for URL compatibility); identity comes from the token.
     - - `POST /domains/:accountName/subscribe`
       - JWT
-      - Join an `internal` domain as `standard_customer`.
+      - Join the **caller** to an `internal` domain as `standard_customer`. `:accountName` ignored.
     - - `DELETE /domains/:accountName/unsubscribe`
       - JWT
-      - Leave a domain.
+      - Remove the **caller's** membership. `:accountName` ignored.
     - - `GET /subdomains/:domainName`
       - JWT
       - Resolve the full subdomain tree (recursive).
@@ -169,6 +169,9 @@ export const hasRequiredRole = (held: Role, required: Role): boolean =>
     - - `GET /health/`, `GET /metrics/`
       - Public
       - Liveness and Prometheus metrics.
+
+.box {The `:accountName` membership routes are bound to the token} type:{note}
+    `getDomainsByAccount`, `subscribeAccountToDomain`, and `unsubscribeAccountFromDomain` previously trusted the `:accountName` URL param, so any logged-in user could read or modify another account's memberships (an IDOR). They now derive the account from the verified token (`tokenAccountName(req)`) and ignore the param. The frontend already sends the caller's own name, so no client change was needed.
 
 ---
 

@@ -1,5 +1,6 @@
 import express from "express";
 import mongoose from "mongoose";
+import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 
@@ -26,6 +27,7 @@ export const getClientUrl = () =>
   process.env.CLIENT_URL ?? "http://localhost:8080";
 
 app.use(express.json());
+app.use(cookieParser());
 
 const ingestionHandler = createIngestionHandler(kernel);
 app.use("/", createRouter(ingestionHandler, kernel));

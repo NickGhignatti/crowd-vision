@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import router from "./router.js";
 import { connectMongo } from "./config/db.js";
 import { errorHandler } from "./middlewares/errors.js";
@@ -21,6 +22,7 @@ const apiLimiter = rateLimit({
 });
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(apiLimiter);
 app.use("/", router);
 app.use(errorHandler);

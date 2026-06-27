@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { shallowRef, ref, triggerRef, type ShallowRef, type Ref } from 'vue'
+import { shallowRef, ref, type ShallowRef, type Ref } from 'vue'
 import { socket } from '@/services/socket'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import type { ApiDataPoint } from '@/composables/building/useSensorData.ts'
@@ -23,10 +23,12 @@ const buildingOf = (key: string) => key.slice(key.indexOf(':') + 1)
  * own REST fetch + socket subscription + telemetry handler, they share one bucket
  * here, reference-counted. One global telemetry handler dispatches each event to
  * its bucket by an O(1) map lookup, and updates are batched into a single rAF
- * `triggerRef` so Vue's scheduler never interrupts the Three.js render loop.
+ * reference swap per bucket so Vue's scheduler never interrupts the Three.js
+ * render loop.
  *
  * It is a *setup* store holding `shallowRef`s on purpose: the data arrays are not
- * deeply reactive, preserving the manual triggerRef model the renderer relies on.
+ * deeply reactive, so the renderer pays for one shallow copy per frame rather than
+ * per-event deep tracking.
  */
 export const useSensorDataStore = defineStore('sensorData', () => {
   const buckets = new Map<string, SensorBucket>()
@@ -55,14 +57,19 @@ export const useSensorDataStore = defineStore('sensorData', () => {
     scheduleFlush()
   }
 
-  // Coalesce every bucket touched this frame into one triggerRef pass.
+  // Coalesce every bucket touched this frame into one reactive update. We swap in
+  // a fresh array reference (not triggerRef on the in-place-mutated one): consumers
+  // read this data through a `computed`, and Vue ≥3.4 only re-notifies a computed's
+  // dependents when its value changes by identity. An in-place mutation keeps the
+  // same reference, so the update would be swallowed at the computed boundary and
+  // never reach the views.
   function scheduleFlush() {
     if (rafPending) return
     rafPending = true
     requestAnimationFrame(() => {
       for (const key of dirty) {
         const bucket = buckets.get(key)
-        if (bucket) triggerRef(bucket.data)
+        if (bucket) bucket.data.value = bucket.data.value.slice()
       }
       dirty.clear()
       rafPending = false
@@ -89,7 +96,7 @@ export const useSensorDataStore = defineStore('sensorData', () => {
       const res = await makeRequest(
         `/sensor/${type}/entireBuilding?building=${buildingId}`,
         'GET',
-        { signal: bucket.abort.signal, credentials: 'omit' },
+        { signal: bucket.abort.signal },
       )
       if (!res.ok) {
         bucket.error.value = 'Fetch failed'

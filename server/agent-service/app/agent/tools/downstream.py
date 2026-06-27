@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from app.config import get_settings
 
+if TYPE_CHECKING:
+    from app.auth import AuthUser
+
 _twin_client: httpx.AsyncClient | None = None
 _sensor_client: httpx.AsyncClient | None = None
 _TRANSIENT_STATUSES = {502, 503, 504}
+
+
+def auth_headers(user: AuthUser) -> dict[str, str]:
+    """Forward the caller's JWT so the downstream read authorizes as the asking
+    user rather than anonymously. Empty when there is no token (auth disabled)."""
+    if user.raw_token:
+        return {"Authorization": f"Bearer {user.raw_token}"}
+    return {}
 
 
 def get_twin_client() -> httpx.AsyncClient:
@@ -39,11 +50,12 @@ async def get_with_retry(
     path: str,
     *,
     params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> httpx.Response:
     """GET with one bounded retry for transport errors and transient gateways."""
     for attempt in range(2):
         try:
-            response = await client.get(path, params=params)
+            response = await client.get(path, params=params, headers=headers)
         except httpx.TransportError:
             if attempt == 1:
                 raise

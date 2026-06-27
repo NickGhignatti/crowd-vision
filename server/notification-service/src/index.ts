@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import router from "./router.js";
 import { connectRedis } from "./config/redis.js";
@@ -25,6 +26,7 @@ const apiLimiter = rateLimit({
 });
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(apiLimiter);
 app.use("/", router);
 // Express error-handling middleware must be registered AFTER the routes so it

@@ -94,9 +94,12 @@ The model can choose from five **read-only** tools:
 The agent answers with validated documentation citations, a tool-call trace, token usage,
 estimated/provider-reported cost, an `idk` flag, and a final decision.
 
-.box type:{warning}
-    The current twin tools do not forward the caller JWT or perform their own `ToolContext`
-    authorization. Do not add sensitive or write-capable tools without explicit
+.box type:{note}
+    The twin tools now **forward the caller's JWT** to twin-service: `require_user` stashes the
+    raw token on `AuthUser.raw_token`, and the twin tool's httpx client sends it as
+    `Authorization: Bearer …` so the read happens as the asking user (twin-service authenticates
+    its routes). The tools still rely on twin-service for authorization rather than performing their
+    own `ToolContext` checks — do not add sensitive or write-capable tools without explicit
     authorization, confirmation, and audit behavior.
 
 ---

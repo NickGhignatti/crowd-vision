@@ -97,12 +97,12 @@ interface Room {
     - - `PATCH /building/:buildingId/room/:roomId`
       - Update a room's `name`, `color`, or `capacity`. Re-syncs.
     - - `GET /contracts`
-      - Return this service's metric catalog (`roomName`, `roomMaxOccupancy`).
+      - Return this service's metric catalog (`roomName`, `roomMaxOccupancy`). **Public.**
     - - `GET /health/`, `GET /metrics/`
-      - Liveness and Prometheus metrics.
+      - Liveness and Prometheus metrics. **Public.**
 
-.box {Authentication is not enforced at this layer} type:{warning}
-    As wired in `router.ts`, the building routes do not attach an authentication middleware. Tenant scoping is performed by the `:domain` path parameter against each building's `domains` array, but the identity token is not verified inside the service. This is a gap relative to the [intended design](../architecture/twin-architecture.qd), where tenancy is enforced from the verified token. Treat token verification here as a required hardening step.
+.box {All building routes require a verified JWT} type:{note}
+    `router.ts` mounts `requireAuthentication` ahead of every building route (only `/health`, `/metrics`, and `/contracts` stay public). The middleware (`src/middlewares/authentication.ts`) verifies the HS256 token and accepts it from **either** the `authentication_token` cookie (browser) **or** an `Authorization: Bearer` header (trusted services forwarding the caller's identity — e.g. the agent-service's twin tool). It also stashes the raw token on `req.authToken` so the service can forward it on its own outbound call (the sensor threshold clone, see below). This closes the previous gap where the identity token was never verified inside the service.
 
 ---
 
@@ -137,7 +137,7 @@ A building's structure is mirrored to two services. The two paths have **differe
         Note over T,K: best-effort — errors logged, swallowed
         T-->>C: 201 building
 
-- **Sensor threshold clone** (`syncBuildingClone`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`. It is gated by `shouldSyncThresholds()` (skipped under test) and **throws on a non-OK response**, so a sensor-service failure fails the building operation.
+- **Sensor threshold clone** (`syncBuildingClone`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`. It is gated by `shouldSyncThresholds()` (skipped under test) and **throws on a non-OK response**, so a sensor-service failure fails the building operation. The sensor-service now authenticates this route, so the call forwards the caller's JWT as `Authorization: Bearer ${req.authToken}`.
 - **Contracts preference seeding** (`initBuildingPreferences`): a `POST` that is skipped under test and **swallows errors** (logged only), so it never blocks building creation.
 
 .box {Known gap: synchronous coupling} type:{note}

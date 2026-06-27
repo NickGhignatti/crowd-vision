@@ -11,7 +11,12 @@ from app.agent.tools.access import (
     get_authorized_building,
 )
 from app.agent.tools.base import ToolContext, ToolResult
-from app.agent.tools.downstream import downstream_error, get_twin_client, get_with_retry
+from app.agent.tools.downstream import (
+    auth_headers,
+    downstream_error,
+    get_twin_client,
+    get_with_retry,
+)
 
 
 def _room_payload(room: dict) -> dict:
@@ -64,7 +69,11 @@ class ListBuildingsTool:
 
         try:
             domain = quote(args.domain, safe="")
-            r = await get_with_retry(get_twin_client(), f"/buildings/{domain}")
+            r = await get_with_retry(
+                get_twin_client(),
+                f"/buildings/{domain}",
+                headers=auth_headers(ctx.user),
+            )
         except httpx.HTTPError:
             return ToolResult(content="twin-service is unavailable", is_error=True)
         if r.status_code >= 400:

@@ -24,8 +24,11 @@ export const requireAuthentication = (req, _res, next) => {
 - On success the decoded payload (`accountId`, `accountName`, `accountMemberships`) is attached to `req.account` for downstream handlers.
 - A missing token raises `NotFoundError`; an invalid or expired signature throws from `verifyToken` and is converted to a `500`-class response by the error handler unless caught earlier.
 
-.box {Always trust `req.account`, never the body} type:{note}
-    Controllers must read the caller identity from `req.account`. A `userId`/`accountName` in the request body is attacker-controlled and must never be used for authorization.
+.box {Cookie *or* bearer in the downstream services} type:{note}
+    The `twin-service`, `sensor-service`, and `notification-service` each carry their own copy of `requireAuthentication` that accepts the JWT from **either** the `authentication_token` cookie (browser) **or** an `Authorization: Bearer` header. The bearer path lets a trusted service forward the caller's identity on a service-to-service hop — the agent-service forwards the asking user's token to twin reads, and twin/notification forward `req.authToken` on their own calls back into twin/sensor. The token is always verified; "bearer" is just the transport, not a bypass.
+
+.box {Always trust `req.account`, never the body or URL} type:{note}
+    Controllers must read the caller identity from `req.account`. A `userId`/`accountName` in the request body **or URL path** is attacker-controlled and must never be used for authorization — doing so was the IDOR fixed on the auth-service `/domains/:accountName` family and the notification-service `/preferences/:accountName` route.
 
 ---
 
@@ -113,4 +116,4 @@ Any error that is not a `BaseError` is scrubbed to a generic `500`, so stack tra
 Every error carries an HTTP `code` and a human-readable `type`, producing a stable `{ type, message }` envelope the frontend can branch on.
 
 .box {Convention} type:{tip}
-    This authentication/authorization/error pattern is shared across the Node services (auth, twin, notification). New endpoints should attach `requireAuthentication` (and `requireAuthorization` where a role is needed) and throw typed errors rather than handling HTTP status codes inline.
+    This authentication/authorization/error pattern is shared across the Node services (auth, twin, sensor, notification, chat). New endpoints should attach `requireAuthentication` (and `requireAuthorization` where a role is needed) and throw typed errors rather than handling HTTP status codes inline. Exceptions that stay public are narrow and deliberate: liveness/metrics, metric `/contracts` catalogs, the notification VAPID `/public-key`, and the sensor `/ingest` hot path (device-facing, slated for device-token auth).

@@ -12,6 +12,7 @@ export const addBuilding = async (
   name: string | undefined,
   rooms: any,
   domains: string[],
+  authToken?: string,
 ) => {
   const normalizedBuildingName = normalizeBuildingName(name, undefined);
   const normalizedRooms = normalizeRoomNames(rooms as Room[]);
@@ -21,7 +22,7 @@ export const addBuilding = async (
     domains,
   });
   await building.save();
-  await syncBuildingClone(building.toObject());
+  await syncBuildingClone(building.toObject(), undefined, authToken);
   await initBuildingPreferences(building.id);
   return building;
 };
@@ -31,6 +32,7 @@ export const updateBuilding = async (
   updates: Partial<Pick<IBuilding, "name" | "domains">> & {
     maxTemperature?: number;
   },
+  authToken?: string,
 ) => {
   const building = await getBuildingById(buildingId);
 
@@ -44,7 +46,11 @@ export const updateBuilding = async (
 
   await building.save();
 
-  await syncBuildingClone(building.toObject(), updates.maxTemperature);
+  await syncBuildingClone(
+    building.toObject(),
+    updates.maxTemperature,
+    authToken,
+  );
 
   return building;
 };
@@ -76,6 +82,7 @@ export const updateRoom = async (
   buildingId: string,
   roomId: string,
   updates: Partial<Pick<Room, "name" | "color" | "capacity">>,
+  authToken?: string,
 ) => {
   const building = await getBuildingById(buildingId);
 
@@ -91,7 +98,7 @@ export const updateRoom = async (
   if (updates.capacity !== undefined) room.capacity = updates.capacity;
 
   await building.save();
-  await syncBuildingClone(building.toObject());
+  await syncBuildingClone(building.toObject(), undefined, authToken);
   return room;
 };
 

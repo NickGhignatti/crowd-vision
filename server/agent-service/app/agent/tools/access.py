@@ -6,7 +6,12 @@ from urllib.parse import quote
 import httpx
 
 from app.agent.tools.base import ToolContext, ToolResult
-from app.agent.tools.downstream import downstream_error, get_twin_client, get_with_retry
+from app.agent.tools.downstream import (
+    auth_headers,
+    downstream_error,
+    get_twin_client,
+    get_with_retry,
+)
 from app.config import get_settings
 
 if TYPE_CHECKING:
@@ -37,7 +42,11 @@ async def get_authorized_building(
     """Fetch a building and reject inaccessible IDs without revealing existence."""
     try:
         encoded_id = quote(building_id, safe="")
-        response = await get_with_retry(get_twin_client(), f"/building/{encoded_id}")
+        response = await get_with_retry(
+            get_twin_client(),
+            f"/building/{encoded_id}",
+            headers=auth_headers(ctx.user),
+        )
     except httpx.HTTPError:
         return None, ToolResult(content="twin-service is unavailable", is_error=True)
 

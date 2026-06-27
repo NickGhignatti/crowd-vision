@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ref, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { useBuildingSensor } from '@/composables/building/useBuildingSensor.ts'
 import { useSensorDataStore } from '@/stores/sensorData.ts'
@@ -92,5 +92,32 @@ describe('useBuildingSensor', () => {
 
     fireTelemetry({ type: 'temperature', buildingId: 'b1', roomId: 'r1', value: 9 })
     expect(data.value[0]?.value).toBe(9)
+  })
+
+  // Regression: the right-hand room menu renders telemetry through a `computed`
+  // (enrichedRooms), and the view is a watcher that must be *notified* to re-render.
+  // Vue ≥3.4 only re-notifies a computed's dependents when its value changes by
+  // identity. An in-place array mutation keeps the same reference, so the
+  // notification is swallowed at the computed boundary and the menu freezes on its
+  // first reading. A telemetry tick must therefore hand out a new array reference.
+  it('notifies a downstream watcher on live telemetry', async () => {
+    vi.mocked(makeRequest).mockResolvedValue(
+      makeResponse(true, { data: [{ roomId: 'r1', value: 1 }] }) as unknown as Response,
+    )
+    useSensorDataStore()
+
+    const { data } = useBuildingSensor(ref('b1'), 'temperature')
+    await flush()
+
+    // Mirrors RoomsSelector.enrichedRooms: a computed derived from `data`, observed
+    // by an effect (the render) that only re-runs when it gets notified.
+    const tempForR1 = computed(() => data.value.find((d) => d.roomId === 'r1')?.value)
+    const seen: (number | undefined)[] = []
+    watch(tempForR1, (v) => seen.push(v))
+
+    fireTelemetry({ type: 'temperature', buildingId: 'b1', roomId: 'r1', value: 9 })
+    await nextTick()
+
+    expect(seen).toContain(9)
   })
 })

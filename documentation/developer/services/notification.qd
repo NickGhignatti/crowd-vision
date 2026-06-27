@@ -95,22 +95,25 @@ A single account may own several `WebPushSubscription` records (one per device) 
       - Public
       - Returns `{ publicVapidKey }` for the browser to create a push subscription.
     - - `POST /subscribe`
-      - Public
-      - Upserts a device subscription and, when a domain is supplied, the matching preferences. `201`.
+      - JWT
+      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences. `201`.
     - - `GET /preferences/:accountName`
-      - —
-      - Returns all of an account's `NotificationSubscription` records.
+      - JWT
+      - Returns the **caller's own** `NotificationSubscription` records. The `:accountName` param is ignored (identity from the token).
     - - `POST /preferences`
-      - —
-      - Sets one or more per-domain, per-type opt-in flags. `200`.
+      - JWT
+      - Sets one or more per-domain, per-type opt-in flags for the **caller**. `200`.
     - - `POST /trigger`
-      - —
-      - Manual alert for a building (no cooldown). Resolves domains via twin, publishes, and pushes. `200`.
+      - JWT
+      - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `200`.
     - - `POST /push/temperature`
-      - Internal
-      - Automated threshold alert from the sensor-service; subject to the per-room cooldown below. `200`.
+      - JWT
+      - Automated threshold alert; subject to the per-room cooldown below. `200`.
 
-Request bodies accept the canonical `accountName` / `domainName` fields and the deprecated aliases `userId` / `domainId`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array.
+Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified JWT, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array.
+
+.box {Auth boundary} type:{note}
+    Only `/health` and `/public-key` (the non-secret VAPID key) stay public; `requireAuthentication` guards everything else. `/trigger` and `/push/temperature` fan out push notifications to a whole domain, so leaving them open was an abuse vector — they now require a valid token like the rest.
 
 ---
 

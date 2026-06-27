@@ -113,16 +113,22 @@ applySecret('chat-service-secret', {
 
 applySecret('twin-service-secret', {
   MONGO_URI: 'mongodb://twin-db:27017/twindb',
+  // twin-service authenticates its routes against the same user JWTs.
+  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('sensor-service-secret', {
   MONGO_URI: 'mongodb://sensor-db:27017/sensordb',
+  // sensor-service authenticates its read/threshold routes — shared secret.
+  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('notification-service-secret', {
   MONGO_URI: 'mongodb://notification-db:27017/notificationdb',
   VAPID_PUBLIC_KEY: need('VAPID_PUBLIC_KEY'),
   VAPID_PRIVATE_KEY: need('VAPID_PRIVATE_KEY'),
+  // notification-service authenticates its routes — shared secret.
+  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('agent-service-secret', {

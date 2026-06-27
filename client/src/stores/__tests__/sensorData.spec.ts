@@ -61,10 +61,12 @@ describe('useSensorDataStore', () => {
       await flush()
 
       expect(makeRequest).toHaveBeenCalledTimes(1)
+      // Must NOT omit credentials: the auth cookie has to ride along or the
+      // now-authenticated sensor endpoints answer 401.
       expect(makeRequest).toHaveBeenCalledWith(
         '/sensor/temperature/entireBuilding?building=b1',
         'GET',
-        expect.objectContaining({ credentials: 'omit' }),
+        expect.not.objectContaining({ credentials: 'omit' }),
       )
       expect(socketMock.emit).toHaveBeenCalledWith('subscribe_building', 'b1')
       expect(bucket.data.value).toHaveLength(1)
