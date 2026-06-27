@@ -1,0 +1,20 @@
+name: Renovate
+
+on:
+  workflow_dispatch: # allow a manual run any time
+  schedule:
+    - cron: "0 2 * * 1" # Weekly at 2AM UTC on Monday
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Renovate
+        uses: renovatebot/github-action@6d859fc95779be83a0335ca704879b47e5d79641 # v46.1.16
+        with:
+          token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
