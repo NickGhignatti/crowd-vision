@@ -7,14 +7,14 @@ set working-directory := '..'
 default:
     @just --list lint
 
-# Lint every service (moon caches results; unchanged services are instant)
+[doc("Lint every service (moon caches results; unchanged services are instant).")]
 all:
     mise exec -- moon run :lint
 
-# Lint only services affected by changes on the current branch
+[doc("Lint only services affected by changes on the current branch.")]
 affected:
     mise exec -- moon run :lint --affected
 
-# Fix linting issues across every service (always runs; not cached)
+[doc("Fix linting issues across every service (always runs; not cached).")]
 fix:
     mise exec -- moon run :lint-fix
