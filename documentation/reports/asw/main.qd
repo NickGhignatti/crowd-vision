@@ -191,6 +191,9 @@ tenere separati i dati per costruzione.
     - - socket-service
       - Trasporto real-time verso il browser
       - Node.js / Socket.IO
+    - - chat-service
+      - Conversazioni persistenti e orchestrazione delle richieste all'agente
+      - Node.js / Express + MongoDB
     - - agent-service
       - Assistente in linguaggio naturale
       - Python + PostgreSQL
@@ -199,8 +202,8 @@ tenere separati i dati per costruzione.
       - Vue 3 / Vite
 
 Tutto il traffico esterno entra da un **unico gateway** (un reverse proxy) che instrada per prefisso
-di URL (`/auth/`, `/twin/`, `/sensor/`, `/socket.io/`, …): il client non parla mai direttamente con
-un microservizio. I servizi comunicano tra loro in due modi, scelti apposta:
+di URL (`/auth/`, `/twin/`, `/sensor/`, `/chat/`, `/socket.io/`, …): il client non parla mai
+direttamente con un microservizio. I servizi comunicano tra loro in due modi, scelti apposta:
 
 - **Sincrono, via HTTP**, solo per le poche cose che hanno bisogno di una risposta sul momento;
 - **Asincrono, publish/subscribe su Redis**, per il flusso continuo di letture e avvisi, dove chi
@@ -411,13 +414,19 @@ servizi e PostgreSQL per l'agente.
 
 .tablebyrows {.headers}
     - - **Node.js + Express**
-      - Backend della maggior parte dei servizi (auth, twin, sensor, notification, socket).
+      - Backend della maggior parte dei servizi (auth, twin, sensor, notification, socket, chat).
+    - - **Python + FastAPI**
+      - API asincrona e ciclo di tool-calling dell'agent-service.
     - - **Rust + Axum**
       - Il contracts-service, dove conta la velocità nel filtrare e distribuire le letture.
     - - **Vue 3 + Vite + TypeScript**
       - Il client single-page.
-    - - **MongoDB / PostgreSQL**
-      - Persistenza (un database per servizio).
+    - - **MongoDB**
+      - Persistenza dei servizi Node.js, con un database per servizio.
+    - - **PostgreSQL + pgvector**
+      - Knowledge base dell'agente e ricerca RAG ibrida, vettoriale e full-text.
+    - - **OpenTelemetry + Langfuse**
+      - Tracing dell'agente: chiamate al modello, strumenti, retrieval, token e costi.
     - - **Redis**
       - Message broker pub/sub per letture e avvisi.
     - - **Socket.IO**
