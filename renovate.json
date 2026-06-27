@@ -1,0 +1,95 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Rome",
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
+  "packageRules": [
+    {
+      "description": "Every major bump lands in its own PR so breaking changes are reviewed one at a time.",
+      "matchUpdateTypes": ["major"],
+      "addLabels": ["dependencies", "major"]
+    },
+    {
+      "description": "Per-service grouping: one PR per service for all its non-major updates (npm + docker + lang manifests).",
+      "matchFileNames": ["client/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "client",
+      "addLabels": ["dependencies", "client"]
+    },
+    {
+      "matchFileNames": ["server/auth-service/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "auth-service",
+      "addLabels": ["dependencies", "auth-service"]
+    },
+    {
+      "matchFileNames": ["server/chat-service/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "chat-service",
+      "addLabels": ["dependencies", "chat-service"]
+    },
+    {
+      "matchFileNames": ["server/twin-service/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "twin-service",
+      "addLabels": ["dependencies", "twin-service"]
+    },
+    {
+      "matchFileNames": ["server/notification-service/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "notification-service",
+      "addLabels": ["dependencies", "notification-service"]
+    },
+    {
+      "matchFileNames": ["server/sensor-service/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "sensor-service",
+      "addLabels": ["dependencies", "sensor-service"]
+    },
+    {
+      "matchFileNames": ["server/socket-service/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "socket-service",
+      "addLabels": ["dependencies", "socket-service"]
+    },
+    {
+      "matchFileNames": ["server/agent-service/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "agent-service",
+      "addLabels": ["dependencies", "agent-service"]
+    },
+    {
+      "matchFileNames": ["server/contracts-service/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "contracts-service",
+      "addLabels": ["dependencies", "contracts-service"]
+    },
+    {
+      "matchFileNames": ["server/tests/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "server-tests",
+      "addLabels": ["dependencies", "server-tests"]
+    },
+    {
+      "matchFileNames": ["simulators/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "simulators",
+      "addLabels": ["dependencies", "simulators"]
+    },
+    {
+      "matchFileNames": ["tooling/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "tooling",
+      "addLabels": ["dependencies", "tooling"]
+    },
+    {
+      "description": "Repo-level CI: GitHub Actions + mise toolchain.",
+      "matchManagers": ["github-actions", "mise"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "ci",
+      "addLabels": ["dependencies", "ci"]
+    }
+  ]
+}
