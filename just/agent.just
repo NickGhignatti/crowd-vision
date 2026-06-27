@@ -7,6 +7,6 @@ set working-directory := '..'
 default:
     @just --list agent
 
-# Re-ingest all documentation into the agent knowledge base
+[doc("Re-ingest all documentation into the agent knowledge base.")]
 ingest:
     mise exec -- node scripts/ops/ingest-docs.js

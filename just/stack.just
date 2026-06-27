@@ -7,7 +7,7 @@ set working-directory := '..'
 default:
     @just --list stack
 
-# Generate .env (VAPID keys, JWT tokens, admin credentials)
+[doc("Generate .env (VAPID keys, JWT tokens, admin credentials).")]
 env:
     mise exec -- node scripts/env/create.js
     mise exec -- node scripts/env/vapid.js
@@ -27,15 +27,14 @@ dev exclude="": env
 dev-build exclude="": env
     mise exec -- node scripts/compose/compose-run.mjs dev-build {{exclude}}
 
-# Start production stack in background. Same exclusion syntax as `dev`.
 [doc("Start production stack (background). Use exclude= with space-separated substrings.")]
 start exclude="": env
     mise exec -- node scripts/compose/compose-run.mjs start {{exclude}}
 
-# Stop all containers and remove orphans (always tears down everything)
+[doc("Stop all containers and remove orphans (always tears down everything).")]
 down:
     mise exec -- node scripts/compose/compose-run.mjs down
 
-# Follow logs for all services, or one: just stack logs auth-service
+[doc("Follow logs for all services, or one: just stack logs auth-service.")]
 logs service="":
     docker compose -f compose.runtime.yml logs -f {{service}}
