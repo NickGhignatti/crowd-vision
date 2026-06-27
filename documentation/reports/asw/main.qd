@@ -1,21 +1,21 @@
 .docname {ASW Report}
 .include {docs}
 
-# CrowdVision — Report di Applicazioni e Servizi Web
+# CrowdVision: Report di Applicazioni e Servizi Web
 
 **Autori:** Ettore Farinelli · Nicolò Ghignatti · Mounir Samite
 **Corso:** Applicazioni e Servizi Web · **Data:** Giugno 2026
 
 CrowdVision è un'applicazione web che fa da **gemello digitale** di un edificio: prende i dati che
-arrivano in continuazione dai sensori sparsi nelle stanze — quante persone ci sono, che temperatura
-c'è — e li mostra in tempo reale su un modello 3D navigabile. Chi gestisce lo spazio (un'università,
+arrivano in continuazione dai sensori sparsi nelle stanze: quante persone ci sono, che temperatura
+c'è, e li mostra in tempo reale su un modello 3D navigabile. Chi gestisce lo spazio (un'università,
 un museo, un centro congressi) può così vedere a colpo d'occhio quali stanze si stanno riempiendo,
 dove fa troppo caldo, e ricevere un avviso quando qualcosa supera una soglia, senza dover stare
 incollato a un monitor.
 
 .box {Una nota su questo report} type:{note}
     Questo è il report per l'esame di **Applicazioni e Servizi Web**: ci concentriamo sugli aspetti
-    *web* del progetto — le API REST, la comunicazione in tempo reale, il frontend con il 3D,
+    *web* del progetto: le API REST, la comunicazione in tempo reale, il frontend con il 3D,
     l'autenticazione. La parte di processo (DevOps, CI/CD, design domain-driven nel dettaglio) è
     raccontata nel report di **Software Process Engineering**, e tutta la documentazione completa
     vive nella **[Developer Guide](../../dev/Developer-Guide/)** e nella
@@ -26,8 +26,8 @@ incollato a un monitor.
 
 # 1 · Introduzione
 
-L'idea di CrowdVision nasce da un problema piuttosto concreto: in un edificio grande —
-pensiamo a una sede universitaria — è difficile sapere *in questo momento* quanto è piena un'aula
+L'idea di CrowdVision nasce da un problema piuttosto concreto: in un edificio grande,
+pensiamo a una sede universitaria, è difficile sapere *in questo momento* quanto è piena un'aula
 studio, se la biblioteca è invivibile, o se una sala riunioni è libera. Di solito lo si scopre
 andandoci di persona. Noi volevamo che bastasse aprire una pagina web.
 
@@ -47,7 +47,7 @@ basato su LLM** a cui chiedere a parole lo stato dell'edificio: l'abbiamo realiz
 nella sezione 3.9.
 
 Più che una semplice CRUD, CrowdVision è un'applicazione **data-intensive**: la parte interessante
-non è salvare un record, ma *spostare* i dati — ingerirli, validarli contro le soglie, filtrarli per
+non è salvare un record, ma *spostare* i dati: ingerirli, validarli contro le soglie, filtrarli per
 edificio e farli arrivare al browser nel giro di un attimo. È su questo che abbiamo speso la maggior
 parte del lavoro.
 
@@ -104,8 +104,8 @@ In concreto, un utente del sistema deve poter:
 
 - **Tempo reale.** Una lettura presa da un sensore deve arrivare allo schermo dell'operatore in pochi
   istanti, non al refresh manuale. È il requisito che ha guidato quasi tutte le scelte tecniche.
-- **Scalabilità.** La sfida non è il browser che disegna un piano o un campus — quella è una
-  questione di prestazioni — ma il fatto di essere un'applicazione **multi-tenant**: una sola
+- **Scalabilità.** La sfida non è tanto il browser che disegna un piano o un campus, perché quella
+  è una questione di prestazioni, quanto il fatto di essere un'applicazione **multi-tenant**: una sola
   installazione gestisce più organizzazioni, ognuna con più edifici, e ogni edificio con il suo
   flusso di dati dai sensori da ingerire, validare e distribuire. Tenere in piedi tutto questo
   contemporaneamente è complesso, e ci ha spinti verso parti che possono scalare in modo indipendente.
@@ -130,8 +130,9 @@ funzionalità servivano davvero e quali erano superflue.
 Il lavoro è stato organizzato in modo **iterativo e incrementale**, con uno spirito vicino ad AGILE:
 piccoli giri di sviluppo in cui sceglievamo cosa implementare in base alla priorità, lo costruivamo
 e lo testavamo. Nello scrivere sia il codice sia le interfacce abbiamo cercato di stare attaccati ai
-principi **KISS** e **DRY** — la soluzione più semplice che funziona, e non ripetere due volte la
-stessa cosa — e ai principi del **responsive design** per l'accessibilità da dispositivi diversi.
+principi **KISS** e **DRY**, cioè scegliere la soluzione più semplice che funziona e non ripetere
+due volte la stessa cosa, e ai principi del **responsive design** per l'accessibilità da dispositivi
+diversi.
 
 Le interfacce sono state disegnate per intero su **Figma** come mockup ad alta fedeltà prima di
 toccare il frontend, così da fissare linguaggio visivo, navigazione e gerarchia delle informazioni
@@ -160,7 +161,7 @@ esposte come risorse. Le principali sono:
     - - **Notification / Alert**
       - Un avviso generato quando una lettura supera una soglia.
 
-A differenza dei progetti d'esempio "classici" — un backend monolitico e un frontend — abbiamo scelto
+A differenza dei progetti d'esempio "classici", un backend monolitico e un frontend, abbiamo scelto
 un'architettura a **microservizi event-driven**, con il frontend completamente separato dal backend e
 i servizi isolati l'uno dall'altro. Ogni servizio possiede un pezzo di dominio e il proprio database
 (*database-per-service*): nessun servizio legge il database di un altro, i dati attraversano un
@@ -209,8 +210,8 @@ direttamente con un microservizio. I servizi comunicano tra loro in due modi, sc
 - **Asincrono, publish/subscribe su Redis**, per il flusso continuo di letture e avvisi, dove chi
   produce un dato non deve mai essere rallentato da chi lo ascolta.
 
-Il comportamento che ci stava più a cuore — una lettura del mondo reale che arriva al browser mentre
-succede — attraversa la catena `sensor-service → contracts-service → socket-service → browser`,
+Il comportamento che ci stava più a cuore, una lettura del mondo reale che arriva al browser mentre
+succede, attraversa la catena `sensor-service → contracts-service → socket-service → browser`,
 mentre in parallelo `notification-service` solleva gli avvisi di soglia.
 
 .box {Per approfondire} type:{tip}
@@ -223,22 +224,22 @@ mentre in parallelo `notification-service` solleva gli avvisi di soglia.
 Riportiamo qui i mockup principali disegnati in fase di analisi. Rappresentano la prima versione di
 ciò che ci aspettavamo dal sistema, e l'interfaccia finale gli è rimasta piuttosto fedele.
 
-**Dashboard** — la schermata principale per chi gestisce l'edificio: il flusso live dei sensori
+**Dashboard**: la schermata principale per chi gestisce l'edificio: il flusso live dei sensori
 riversato sul gemello digitale, con le metriche di affollamento a colpo d'occhio.
 
 ![Mockup della dashboard](images/dashboard.png)
 
-**Modello 3D** — il cuore del prodotto: il modello tridimensionale dell'edificio su cui vengono
+**Modello 3D**: il cuore del prodotto: il modello tridimensionale dell'edificio su cui vengono
 disegnate, direttamente sulla pianta, occupazione e letture in tempo reale.
 
 ![Mockup della vista 3D](images/model.png)
 
-**Domini** — la gestione delle organizzazioni, dei campus e degli ambienti fisici. Ogni account e
+**Domini**: la gestione delle organizzazioni, dei campus e degli ambienti fisici. Ogni account e
 ogni dato spaziale è agganciato a uno di questi domini.
 
 ![Mockup della gestione domini](images/domains.png)
 
-**Grafici** — la vista di analisi, dove i dati storici dei sensori e gli andamenti di affollamento
+**Grafici**: la vista di analisi, dove i dati storici dei sensori e gli andamenti di affollamento
 vengono messi a grafico per supportare il capacity planning.
 
 ![Mockup dei grafici](images/graphs.png)
@@ -270,7 +271,7 @@ pattern noti. I più rilevanti:
   instrada per prefisso, nasconde la topologia interna e centralizza l'accesso.
 - **Publish/Subscribe.** Redis come message broker: chi produce un evento (es. un avviso) non deve
   conoscere chi lo consuma. Per aggiungere un nuovo consumatore basta iscriverlo al canale, senza
-  toccare il produttore — è così che abbiamo tenuto il sistema estendibile.
+  toccare il produttore: è così che abbiamo tenuto il sistema estendibile.
 - **Strategy.** Nel sensor-service, ogni metrica (persone, temperatura, …) ha la sua strategia di
   validazione e normalizzazione, risolta a runtime: aggiungere una metrica non richiede di riscrivere
   il flusso di ingestione.
@@ -292,7 +293,7 @@ protegge da una buona fetta degli attacchi XSS rispetto a tenerlo, per dire, nel
 Il punto interessante è *cosa* mettiamo nel token. Dato che ogni servizio ha il suo database e non
 può leggere quello dell'auth, un servizio come il twin non avrebbe modo di sapere se l'utente è
 amministratore di un certo dominio. La soluzione "tradizionale" sarebbe fare una chiamata HTTP
-all'auth a ogni richiesta — ma significa rete in più sul percorso caldo, e mal si sposa con il
+all'auth a ogni richiesta, ma significa rete in più sul percorso caldo, e mal si sposa con il
 requisito di tempo reale. Allora **incorporiamo le appartenenze (memberships) dell'utente dentro il
 payload del token**: poiché tutti i servizi condividono lo stesso `JWT_SECRET`, ognuno verifica la
 firma in autonomia e legge i permessi dal payload, senza nessuna chiamata di rete. Il token è in
@@ -316,14 +317,14 @@ Due dettagli in più dal codice reale:
 Il frontend è una **single-page application in Vue 3** (con Vite come build tool e TypeScript). La
 struttura segue una separazione netta delle responsabilità:
 
-- **Components** — divisi per area (dashboard, modello 3D, domini, grafici, admin, chat), ognuno con
+- **Components**: divisi per area (dashboard, modello 3D, domini, grafici, admin, chat), ognuno con
   il suo template, stile e logica;
-- **Services** — la comunicazione con l'esterno: chiamate REST ai servizi e gestione della
+- **Services**: la comunicazione con l'esterno: chiamate REST ai servizi e gestione della
   connessione WebSocket per le notifiche;
-- **Stores (Pinia)** — lo stato condiviso tra i componenti (utente loggato, dati degli edifici,
+- **Stores (Pinia)**: lo stato condiviso tra i componenti (utente loggato, dati degli edifici,
   notifiche), così i componenti restano snelli e non si passano dati a mano;
-- **Router** — `vue-router` per la navigazione tra le viste in base all'URL;
-- **i18n** — `vue-i18n` per l'internazionalizzazione.
+- **Router**: `vue-router` per la navigazione tra le viste in base all'URL;
+- **i18n**: `vue-i18n` per l'internazionalizzazione.
 
 Il pezzo distintivo è la vista 3D: la costruiamo con **TresJS** (un wrapper dichiarativo di Three.js
 per Vue), così il modello dell'edificio è composto da componenti Vue come il resto dell'interfaccia,
@@ -366,7 +367,7 @@ Giulia vuole solo trovare un posto dove studiare senza fare il giro di tutte le 
 Nella proposta di progetto avevamo messo, tra i requisiti, un **assistente basato su LLM**: l'idea
 era abbassare la barriera per chi non è tecnico, lasciando che chiedesse a parole *"quanti posti
 liberi ci sono in biblioteca?"* invece di andare a cercarselo tra menù e tabelle. È un requisito che
-abbiamo effettivamente realizzato — c'è un servizio dedicato, l'`agent-service`.
+abbiamo effettivamente realizzato: c'è un servizio dedicato, l'`agent-service`.
 
 A differenza del resto del backend è scritto in **Python (FastAPI)**, perché passa quasi tutto il
 tempo in attesa di risposte dalla rete (il provider del modello, il database, il twin-service) e uno
@@ -378,7 +379,7 @@ eredita gratis lo "stateless trust" descritto nella sezione sulla sicurezza.
 Il punto interessante è che non è un singolo prompt buttato dentro al modello, ma un **ciclo di
 tool-calling**: al modello diamo la domanda più gli schemi degli strumenti che può usare, e a ogni
 giro lui decide se rispondere o se chiamare uno strumento. Gli strumenti sono cinque, tutti in **sola
-lettura** — cercare nella documentazione e interrogare edifici e stanze del twin-service — così
+lettura**: cercare nella documentazione e interrogare edifici e stanze del twin-service, così
 l'agente può concatenare le ricerche (risolve il nome di un edificio nel suo id, poi ne chiede le
 stanze) senza che noi gli si debba pre-cucinare la risposta.
 
@@ -471,7 +472,7 @@ Kubernetes in produzione.
 
 Riportiamo qualche frammento che riteniamo significativo per capire come funziona il sistema.
 
-## 5.1 Backend — generazione del token con i permessi dentro
+## 5.1 Backend: generazione del token con i permessi dentro
 
 Questo è il cuore dello "stateless trust": al login l'auth-service firma un token e gli **incorpora le
 appartenenze dell'account**, così gli altri servizi potranno autorizzare leggendo il payload, senza
@@ -517,7 +518,7 @@ export const generateDeviceToken = (payload: DeviceTokenPayload) => {
 };
 ```
 
-## 5.2 Backend — il middleware di autenticazione
+## 5.2 Backend: il middleware di autenticazione
 
 Sul fronte opposto, un middleware condiviso protegge le rotte: legge il token dal cookie httpOnly, lo
 verifica e attacca l'account decodificato alla richiesta, che da lì in poi è disponibile ai
@@ -539,7 +540,7 @@ export const requireAuthentication = (
 };
 ```
 
-## 5.3 Frontend — il servizio WebSocket
+## 5.3 Frontend: il servizio WebSocket
 
 Lato client, un piccolo servizio stabilisce la connessione Socket.IO e tiene uno stato **reattivo**:
 quando arriva un evento `notification`, lo store si aggiorna e l'interfaccia segue da sola, senza che
@@ -624,8 +625,8 @@ non come cancello.
 Costruire CrowdVision è stato soprattutto un esercizio sul **tempo reale**: far arrivare un dato dal
 sensore allo schermo nel giro di un attimo ha guidato quasi tutte le scelte, dall'architettura
 event-driven con Redis, al trasporto via WebSocket, fino alla reattività di Vue sul modello 3D.
-Lungo la strada abbiamo toccato con mano parecchie tecnologie del corso e qualcuna nuova — Rust per il
-servizio più critico, TresJS per il 3D — e le abbiamo messe a lavorare insieme nello stesso sistema.
+Lungo la strada abbiamo toccato con mano parecchie tecnologie del corso e qualcuna nuova, come Rust
+per il servizio più critico e TresJS per il 3D, mettendole a lavorare insieme nello stesso sistema.
 
 Se guardiamo indietro, le cose di cui siamo più soddisfatti sono tre: un'architettura a microservizi
 con confini tenuti onesti dall'isolamento dei database; un'autenticazione stateless con JWT che ci ha
