@@ -21,7 +21,7 @@ class SearchDocsTool:
         "Search the Crowd-Vision documentation knowledge base (concepts, how-tos, API "
         "references). Use for questions about how the platform works, what features exist, "
         "or how to use the UI. Do NOT use for live operational state — use the twin tools "
-        "(list_buildings, get_building, list_rooms, get_room) for that."
+        "for building structure and the sensor tools for live measurements."
     )
     Args = SearchDocsArgs
 

@@ -365,7 +365,83 @@ publish), alongside a `cd-registry` job that rebuilds and pushes only the images
 
 ---
 
-# 4 · A few decisions we are glad we made
+# 4 · Validation
+
+Automation is useful only if the checks say something meaningful about the software. We therefore
+validate CrowdVision at more than one level: fast, deterministic tests protect each service while a
+pull request is still open; broader integration checks exercise the boundaries between services; and
+the agent has its own evaluation loop because a plausible sentence is not necessarily a correct,
+grounded answer.
+
+## 4.1 Testing at the right level
+
+Each stack uses the tools native to it rather than forcing the whole monorepo through one test
+runner. The Node services use **Jest**, the Vue client uses **Vitest**, the Rust contracts service
+runs its tests through **cargo llvm-cov**, and the Python agent uses **pytest** for both unit and
+integration tests. The client suite is split across three parallel runners, while moon's
+affected-project detection keeps the backend fan-out focused on the services a pull request actually
+changed.
+
+Those service-level tests are the everyday gate, but they are not the whole story. A composed
+backend integration suite exercises real service boundaries, and the frontend has **Playwright**
+end-to-end tests alongside manual cross-browser and API-contract checks. The slower, environment-
+dependent checks are kept outside the normal pull-request fan-out; the fast deterministic suites are
+the ones that must pass before a change can merge. This gives us quick feedback without pretending
+that an isolated unit test proves the entire distributed path.
+
+.box {Read more} type:{tip}
+    The test runners, service workflows and local integration commands:
+    [CI/CD Pipeline → Service CI workflows](../../dev/Developer-Guide/cicd/#service-ci-workflows) ·
+    [Running the Application → Testing](../../dev/Developer-Guide/running/#testing).
+
+## 4.2 Coverage is a signal, not a target
+
+Every service measures coverage with its ecosystem's own instrumentation: Istanbul for Node and the
+client, LLVM coverage for Rust, and Cobertura output from pytest for Python. Pull requests expose the
+figures directly in their job summaries, and every push to `master` aggregates them into a single
+published summary and badge.
+
+We deliberately **do not enforce a minimum percentage**. A universal threshold across a Vue
+interface, a message relay, a Rust hot path and an LLM-backed service would reward hitting a number
+more than testing the risky behaviour. Failed tests still block the merge; coverage instead tells
+the reviewer where confidence may be thin and where another test is worth asking for. The trade-off
+is explicit: coverage can reveal a regression, but the percentage alone never turns a red change
+green or a green change red.
+
+.box {Read more} type:{tip}
+    The report formats, publication path and why the summary runs even after a failed test:
+    [CI/CD Pipeline → Code coverage](../../dev/Developer-Guide/cicd/#code-coverage).
+
+## 4.3 LLMOps for the agent
+
+The assistant needs a second kind of validation. Its deterministic shell — authentication,
+retrieval, citations and tool dispatch — is covered by the normal pytest suite, but the quality of a
+generated answer cannot be checked by comparing it with one fixed string. For that we maintain a
+**golden evaluation dataset** of hand-written questions paired with expected behaviour: which tool
+should run, which source should be cited, which facts should appear, and when the agent should say it
+does not know or refuse an out-of-scope request.
+
+Most assertions remain deterministic. Where the property is semantic, an **LLM-as-a-judge** grades
+the answer against a narrow rubric, using a different model family by default to reduce
+self-preference. Known gaps stay visible as reasoned `XFAIL` cases, while an unexpected `XPASS`
+signals that the marker has become stale. The same runner can sweep several models, which lets us
+compare behaviour before changing the provider or default model.
+
+These evaluations hit a real provider and an ingested corpus, so they are slower, cost money and are
+not hermetic. We run them on demand rather than disguising them as stable pull-request tests. In
+operation, **OpenTelemetry** traces exported to **Langfuse** complete the loop: each answer can be
+inspected as a tree of model calls, retrieval steps and tools, with latency, token use, cost and
+errors attached. Payload capture is off by default because prompts, documents and tool results may
+be sensitive; the structural trace remains available without them.
+
+.box {Read more} type:{tip}
+    The evaluation dataset, model sweeps and trace design:
+    [Agent Service → Evaluation](../../dev/Developer-Guide/agent/#evaluation) ·
+    [→ Langfuse Observability](../../dev/Developer-Guide/agent/#langfuse-observability).
+
+---
+
+# 5 · A few decisions we are glad we made
 
 Some choices shaped the *process* more than the product, and they're the ones worth lingering on.
 
@@ -386,7 +462,7 @@ Some choices shaped the *process* more than the product, and they're the ones wo
 
 ---
 
-# 5 · Conclusion
+# 6 · Conclusion
 
 Building CrowdVision was, more than anything, an exercise in **getting the process right first**. One
 polyglot build keeps Node, Python and Rust services behind a single interface; one CI gate checks

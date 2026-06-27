@@ -98,7 +98,7 @@ const onKeydown = (e: KeyboardEvent) => {
 </script>
 
 <template>
-  <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+  <div class="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-3">
     <transition
       enter-active-class="transition duration-300 ease-out"
       enter-from-class="opacity-0 translate-y-4 scale-95"
@@ -109,7 +109,7 @@ const onKeydown = (e: KeyboardEvent) => {
     >
       <div
         v-if="isOpen"
-        class="w-[22rem] sm:w-96 h-[32rem] origin-bottom-right rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200 shadow-2xl flex flex-col overflow-hidden"
+        class="w-[22rem] sm:w-96 h-[32rem] origin-bottom-left rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200 shadow-2xl flex flex-col overflow-hidden"
       >
         <!-- Header -->
         <div

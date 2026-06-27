@@ -1,18 +1,40 @@
 from __future__ import annotations
 
+from urllib.parse import quote
+
 import httpx
 from pydantic import BaseModel, Field
 
+from app.agent.tools.access import (
+    accessible_domains,
+    can_access_domain,
+    get_authorized_building,
+)
 from app.agent.tools.base import ToolContext, ToolResult
-from app.config import get_settings
+from app.agent.tools.downstream import downstream_error, get_twin_client, get_with_retry
 
 
-def _client() -> httpx.AsyncClient:
-    settings = get_settings()
-    return httpx.AsyncClient(
-        base_url=settings.twin_service_url,
-        timeout=settings.twin_timeout_seconds,
-    )
+def _room_payload(room: dict) -> dict:
+    return {
+        "id": room.get("id"),
+        "name": room.get("name"),
+        "capacity": room.get("capacity"),
+        "dimensions": room.get("dimensions"),
+        "position": room.get("position"),
+    }
+
+
+def _building_payload(building: dict, ctx: ToolContext) -> dict:
+    raw_domains = building.get("domains", [])
+    domains = [str(domain) for domain in raw_domains] if isinstance(raw_domains, list) else []
+    raw_rooms = building.get("rooms", [])
+    rooms = raw_rooms if isinstance(raw_rooms, list) else []
+    return {
+        "id": building.get("id"),
+        "name": building.get("name"),
+        "domains": accessible_domains(ctx.user, domains),
+        "rooms": [_room_payload(room) for room in rooms if isinstance(room, dict)],
+    }
 
 
 # ─── list_buildings ─────────────────────────────────────────────────────────
@@ -37,23 +59,45 @@ class ListBuildingsTool:
     Args = ListBuildingsArgs
 
     async def run(self, args: ListBuildingsArgs, ctx: ToolContext) -> ToolResult:
-        async with _client() as c:
-            r = await c.get(f"/buildings/{args.domain}")
+        if not can_access_domain(ctx.user, args.domain):
+            return ToolResult(content="domain unavailable or inaccessible", is_error=True)
+
+        try:
+            domain = quote(args.domain, safe="")
+            r = await get_with_retry(get_twin_client(), f"/buildings/{domain}")
+        except httpx.HTTPError:
+            return ToolResult(content="twin-service is unavailable", is_error=True)
         if r.status_code >= 400:
             return ToolResult(
-                content=f"twin-service error {r.status_code}: {r.text}", is_error=True
+                content=downstream_error("twin-service", r),
+                is_error=True,
             )
-        data = r.json() or []
+        try:
+            data = r.json() or []
+        except ValueError:
+            return ToolResult(content="twin-service returned invalid data", is_error=True)
+        if not isinstance(data, list):
+            return ToolResult(content="twin-service returned invalid data", is_error=True)
         # Project to keep payload small for the LLM.
-        slim = [
-            {
-                "id": b.get("id"),
-                "name": b.get("name"),
-                "domains": b.get("domains", []),
-                "room_count": len(b.get("rooms", [])),
-            }
-            for b in data
-        ]
+        slim = []
+        for building in data:
+            if not isinstance(building, dict):
+                continue
+            raw_domains = building.get("domains")
+            if not isinstance(raw_domains, list):
+                continue
+            domains = [str(domain) for domain in raw_domains]
+            if args.domain not in domains:
+                continue
+            rooms = building.get("rooms")
+            slim.append(
+                {
+                    "id": building.get("id"),
+                    "name": building.get("name"),
+                    "domains": accessible_domains(ctx.user, domains),
+                    "room_count": len(rooms) if isinstance(rooms, list) else 0,
+                }
+            )
         return ToolResult(content={"buildings": slim})
 
 
@@ -67,21 +111,18 @@ class GetBuildingArgs(BaseModel):
 class GetBuildingTool:
     name = "get_building"
     description = (
-        "Fetch a single building's full details (name, domains, rooms with capacity, "
-        "occupancy, dimensions, position). Use when you have a specific building_id."
+        "Fetch a single building's structural details (name and rooms with capacity, "
+        "dimensions, and position). Use when you have a specific building_id. For live "
+        "occupancy, temperature, or air quality, use get_latest_sensor_data."
     )
     Args = GetBuildingArgs
 
     async def run(self, args: GetBuildingArgs, ctx: ToolContext) -> ToolResult:
-        async with _client() as c:
-            r = await c.get(f"/building/{args.building_id}")
-        if r.status_code == 404:
-            return ToolResult(content=f"building {args.building_id} not found", is_error=True)
-        if r.status_code >= 400:
-            return ToolResult(
-                content=f"twin-service error {r.status_code}: {r.text}", is_error=True
-            )
-        return ToolResult(content=r.json())
+        building, error = await get_authorized_building(args.building_id, ctx)
+        if error is not None:
+            return error
+        assert building is not None
+        return ToolResult(content=_building_payload(building, ctx))
 
 
 # ─── list_rooms ─────────────────────────────────────────────────────────────
@@ -94,34 +135,20 @@ class ListRoomsArgs(BaseModel):
 class ListRoomsTool:
     name = "list_rooms"
     description = (
-        "List all rooms in a building with their id, name, capacity, and current "
-        "occupancy (no_person). Use to answer 'which rooms are full', 'how many "
-        "rooms in building X', or to find a room id by name."
+        "List a building's rooms with structural data: id, name, capacity, dimensions, "
+        "and position. Use to count rooms or resolve a room name to an id. This does not "
+        "return live measurements; use get_latest_sensor_data for those."
     )
     Args = ListRoomsArgs
 
     async def run(self, args: ListRoomsArgs, ctx: ToolContext) -> ToolResult:
-        async with _client() as c:
-            r = await c.get(f"/building/{args.building_id}")
-        if r.status_code == 404:
-            return ToolResult(content=f"building {args.building_id} not found", is_error=True)
-        if r.status_code >= 400:
-            return ToolResult(
-                content=f"twin-service error {r.status_code}: {r.text}", is_error=True
-            )
-        building = r.json() or {}
-        rooms = building.get("rooms", [])
-        slim = [
-            {
-                "id": room.get("id"),
-                "name": room.get("name"),
-                "capacity": room.get("capacity"),
-                "no_person": room.get("no_person"),
-                "temperature": room.get("temperature"),
-                "max_temperature": room.get("maxTemperature"),
-            }
-            for room in rooms
-        ]
+        building, error = await get_authorized_building(args.building_id, ctx)
+        if error is not None:
+            return error
+        assert building is not None
+        raw_rooms = building.get("rooms", [])
+        rooms = raw_rooms if isinstance(raw_rooms, list) else []
+        slim = [_room_payload(room) for room in rooms if isinstance(room, dict)]
         return ToolResult(
             content={
                 "building_id": building.get("id"),
@@ -142,25 +169,23 @@ class GetRoomArgs(BaseModel):
 class GetRoomTool:
     name = "get_room"
     description = (
-        "Fetch a single room's full state: capacity, current occupancy, temperature, "
-        "dimensions, position. Use after locating the room id via list_rooms."
+        "Fetch one room's structural state: name, capacity, dimensions, and position. "
+        "Use after locating the room id via list_rooms. For live measurements, use "
+        "get_latest_sensor_data with this room id."
     )
     Args = GetRoomArgs
 
     async def run(self, args: GetRoomArgs, ctx: ToolContext) -> ToolResult:
-        async with _client() as c:
-            r = await c.get(f"/building/{args.building_id}")
-        if r.status_code == 404:
-            return ToolResult(content=f"building {args.building_id} not found", is_error=True)
-        if r.status_code >= 400:
-            return ToolResult(
-                content=f"twin-service error {r.status_code}: {r.text}", is_error=True
-            )
-        building = r.json() or {}
-        for room in building.get("rooms", []):
-            if room.get("id") == args.room_id:
-                return ToolResult(content=room)
+        building, error = await get_authorized_building(args.building_id, ctx)
+        if error is not None:
+            return error
+        assert building is not None
+        raw_rooms = building.get("rooms", [])
+        rooms = raw_rooms if isinstance(raw_rooms, list) else []
+        for room in rooms:
+            if isinstance(room, dict) and room.get("id") == args.room_id:
+                return ToolResult(content=_room_payload(room))
         return ToolResult(
-            content=f"room {args.room_id} not found in building {args.building_id}",
+            content="room unavailable or inaccessible",
             is_error=True,
         )

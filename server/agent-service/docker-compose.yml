@@ -10,6 +10,8 @@ services:
       - EMBEDDING_DIM=${EMBEDDING_DIM:-768}
       - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.2}
       - TWIN_TIMEOUT_SECONDS=${TWIN_TIMEOUT_SECONDS:-10}
+      - SENSOR_SERVICE_URL=${SENSOR_SERVICE_URL:-http://sensor-service:3000}
+      - SENSOR_TIMEOUT_SECONDS=${SENSOR_TIMEOUT_SECONDS:-10}
       - JWT_SECRET=${JWT_SECRET}
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=${RERANKER:-noop}
