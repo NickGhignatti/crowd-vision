@@ -1,26 +1,21 @@
 # Agent Service Future Work
 
-## Enforce caller authorization in twin tools
+## Move live-data authorization into downstream services
 
-The current `list_buildings`, `get_building`, `list_rooms`, and `get_room` tools call
-`twin-service` without forwarding the caller JWT and without authorizing against
-`ToolContext.user`. The model is prompted to use the caller's domains, but prompt guidance is
-not an authorization boundary.
+The agent tools now authorize requested domains and building IDs against `ToolContext.user`
+before returning Twin or Sensor data to the model. Twin Service and Sensor Service still expose
+their internal endpoints without caller authentication, so this is an agent-side boundary rather
+than defense in depth.
 
-Before treating live building and room data as tenant-isolated, implement one of these designs:
-
-- Forward the caller's signed JWT to protected twin-service endpoints and let twin-service
-  enforce access.
-- Enforce access inside each tool using `ctx.user`, backed by trusted ownership/domain data.
+When cross-service authentication is available, retain the agent checks and also forward a
+short-lived caller or service token to protected downstream endpoints.
 
 Acceptance criteria:
 
-- A caller cannot list or fetch buildings and rooms outside their authorized domains.
-- Direct-ID tools reject inaccessible building and room IDs without revealing their existence.
-- Authorization is enforced before live data is returned to the model.
-- Unit and integration tests cover allowed access, cross-domain denial, guessed IDs, and missing
-  or invalid identity.
-- Tool traces and errors do not expose unauthorized live data.
+- Twin Service and Sensor Service reject unauthenticated direct requests.
+- Both services enforce the same domain/building scope as the agent.
+- Direct-ID requests do not reveal whether an inaccessible building or room exists.
+- Integration tests cover mismatched, expired, and service-to-service credentials.
 
 ## Build a trusted knowledge-base ingestion lifecycle
 
@@ -63,15 +58,9 @@ failures or inconsistent behavior.
 
 Harden the agent boundary and execution path:
 
-- Explicitly instruct the model that retrieved documents and tool results are data, never
-  instructions, and cannot override the system prompt or caller authorization.
-- Keep tool responses structured and minimized; sanitize fields that are not needed by the
-  model.
 - Add adversarial evaluations containing prompt-injection instructions in documents and tool
   responses.
-- Reuse long-lived HTTP clients instead of creating a new client for every twin-service call.
-- Add bounded retries with backoff only for safe transient failures, respecting the overall
-  request deadline.
+- Extend the existing bounded GET retries with an overall per-answer deadline.
 - Return structured decisions/errors that distinguish timeout, upstream failure, refusal, IDK,
   and tool-loop exhaustion.
 

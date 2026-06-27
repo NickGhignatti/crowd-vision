@@ -3,7 +3,7 @@
   "info": {
     "title": "agent-service",
     "summary": "RAG-based Q&A agent for Crowd-Vision.",
-    "description": "Tool-calling RAG agent for Crowd-Vision.\n\nThe agent answers questions by orchestrating tools \u2014 `search_docs` (hybrid\nretrieval over ingested documentation) and the `twin-*` tools (live data from\nthe digital-twin service). Answers come back with inline `[^chunk_id]` citation\nmarkers that resolve to the `citations` array in the response.\n\n**Authentication.** Protected endpoints require a JWT in the `authentication_token`\ncookie (issued by `auth-service`). `/health` is public.",
+    "description": "Tool-calling RAG agent for Crowd-Vision.\n\nThe agent answers questions by orchestrating tools \u2014 `search_docs` (hybrid\nretrieval over ingested documentation), structural building tools backed by\nthe digital-twin service, and live/historical measurement tools backed by the\nsensor service. Answers come back with inline `[^chunk_id]` citation markers\nthat resolve to the `citations` array in the response.\n\n**Authentication.** Protected endpoints require a JWT in the `authentication_token`\ncookie (issued by `auth-service`). `/health` is public.",
     "version": "2.10.2"
   },
   "paths": {

@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=30.0, alias="LLM_TIMEOUT_SECONDS", gt=0)
     embed_timeout_seconds: float = Field(default=15.0, alias="EMBED_TIMEOUT_SECONDS", gt=0)
     twin_timeout_seconds: float = Field(default=10.0, alias="TWIN_TIMEOUT_SECONDS", gt=0)
+    sensor_timeout_seconds: float = Field(default=10.0, alias="SENSOR_TIMEOUT_SECONDS", gt=0)
     max_tool_hops: int = Field(default=6, alias="MAX_TOOL_HOPS", ge=1)
     # Cap on generated tokens per LLM call. Besides bounding cost, sending an
     # explicit max_tokens keeps OpenRouter's credit/affordability pre-check happy:
@@ -90,12 +91,15 @@ class Settings(BaseSettings):
 
     # Networking
     twin_service_url: str = Field(default="http://twin-service:3000", alias="TWIN_SERVICE_URL")
+    sensor_service_url: str = Field(
+        default="http://sensor-service:3000", alias="SENSOR_SERVICE_URL"
+    )
     cors_origins: str = Field(
         default="http://localhost,http://localhost:80,http://localhost:8080,http://localhost:5173",
         alias="CORS_ORIGINS",
     )
 
-    @field_validator("llm_base_url", "twin_service_url")
+    @field_validator("llm_base_url", "twin_service_url", "sensor_service_url")
     @classmethod
     def validate_http_url(cls, value: str) -> str:
         if not value.startswith(("http://", "https://")):

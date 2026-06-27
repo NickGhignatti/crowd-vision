@@ -3,7 +3,9 @@
 Tool-calling RAG agent for CrowdVision. It answers questions using:
 
 - `search_docs`: permission-filtered hybrid search over ingested documentation.
-- `list_buildings`, `get_building`, `list_rooms`, `get_room`: live data from `twin-service`.
+- `list_buildings`, `get_building`, `list_rooms`, `get_room`: structural data from `twin-service`.
+- `get_latest_sensor_data`, `get_sensor_history`: current and historical measurements from
+  `sensor-service`.
 - An OpenAI-compatible provider for chat, tool calling, and embeddings.
 - Inline citations, token/cost usage, tool-call traces, and OpenTelemetry spans.
 
@@ -161,7 +163,7 @@ app/
     loop.py               tool-calling loop, usage, citations, streaming
     prompts.py            system prompt and IDK contract
     llm/                  OpenAI-compatible client and pricing
-    tools/                registry, document search, and twin-service tools
+    tools/                registry, authorization, and downstream read tools
   chunking/               Markdown-aware chunking
   embeddings/             embedding provider adapter
   retrieval/              vector, keyword, RRF, and reranking pipeline
@@ -284,7 +286,8 @@ an `xfail` row.
 | `JWT_SECRET` | empty | Must match `auth-service` |
 | `JWT_COOKIE_NAME` | `authentication_token` | JWT cookie read by protected routes |
 | `REQUIRE_AUTH` | `true` | Protect `/ask` and `/ingest` |
-| `TWIN_SERVICE_URL` / `TWIN_TIMEOUT_SECONDS` | `http://twin-service:3000` / `10` | Live-data backend and request timeout |
+| `TWIN_SERVICE_URL` / `TWIN_TIMEOUT_SECONDS` | `http://twin-service:3000` / `10` | Structural building backend and request timeout |
+| `SENSOR_SERVICE_URL` / `SENSOR_TIMEOUT_SECONDS` | `http://sensor-service:3000` / `10` | Sensor-data backend and request timeout |
 | `TOP_K_VECTOR` / `TOP_K_KEYWORD` / `TOP_K_FINAL` | `20` / `20` / `6` | Retrieval depths |
 | `RERANKER` | `noop` | Retrieval reranker implementation |
 | `MAX_TOOL_HOPS` | `6` | Maximum agent loop iterations |
@@ -356,11 +359,14 @@ domains. Empty document permissions are visible to every authenticated caller.
 The database schema currently stores `vector(768)`. `EMBEDDING_DIM` must match it. Changing
 the dimension requires a schema migration and re-ingestion, not only an environment change.
 
-### Live Building Or Room Tools Fail
+### Building Or Sensor Tools Fail
 
 Confirm `twin-service` is running and `TWIN_SERVICE_URL` is reachable from where the agent
 runs. The Docker default `http://twin-service:3000` does not resolve from a host process;
 override it with the host-accessible twin-service URL when debugging outside Docker.
+For occupancy, temperature, air quality, or trend questions, also confirm `sensor-service`
+is reachable through `SENSOR_SERVICE_URL`. A `429` tool result means the downstream read
+rate limit was reached.
 
 ### Model Override Returns `400` Or `403`
 

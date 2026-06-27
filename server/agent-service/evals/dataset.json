@@ -175,23 +175,34 @@
     "id": "cv-live-002",
     "category": "live_data",
     "question": "Which rooms are the most crowded right now?",
-    "expected_tool": "list_rooms",
+    "expected_tool": "get_latest_sensor_data",
     "expected_sources": [],
     "must_cite": false,
     "expected_keywords": [],
-    "key_facts": "Agent should locate a building (list_buildings to get an id, since it must never invent ids) then call list_rooms and compare each room's current occupancy (no_person) against capacity, reporting the busiest rooms from live tool output. No fabricated numbers.",
-    "ideal_answer": "Resolves a building via list_buildings, then calls list_rooms and ranks rooms by current occupancy (no_person) relative to capacity, naming the most crowded rooms using only the numbers from the tool output."
+    "key_facts": "Agent should locate a building (list_buildings to get an id, since it must never invent ids), then call get_latest_sensor_data with peopleCount and rank the returned room readings. No fabricated numbers.",
+    "ideal_answer": "Resolves a building via list_buildings, calls get_latest_sensor_data for peopleCount, and ranks named rooms using only the latest readings and their timestamps."
   },
   {
     "id": "cv-live-003",
     "category": "live_data",
     "question": "For a building I can access, what is each room's current occupancy compared to its capacity?",
-    "expected_tool": "list_rooms",
+    "expected_tool": "get_latest_sensor_data",
     "expected_sources": [],
     "must_cite": false,
     "expected_keywords": [],
-    "key_facts": "Agent must call list_buildings to obtain a real building id, then list_rooms for that building, and present each room's no_person vs capacity from the tool result. Ids and numbers must come from tool output, never prior knowledge.",
-    "ideal_answer": "Picks an accessible building (via list_buildings), calls list_rooms, and lists each room with its current occupancy (no_person) versus capacity straight from the tool output."
+    "key_facts": "Agent must call list_buildings to obtain a real building id, then combine get_latest_sensor_data peopleCount readings with structural room capacities. Ids and numbers must come from tool output, never prior knowledge.",
+    "ideal_answer": "Picks an accessible building, obtains structural capacities and latest peopleCount readings, and lists occupancy versus capacity with timestamps."
+  },
+  {
+    "id": "cv-live-004",
+    "category": "live_data",
+    "question": "What was the highest temperature across this building over the last week?",
+    "expected_tool": "get_sensor_history",
+    "expected_sources": [],
+    "must_cite": false,
+    "expected_keywords": [],
+    "key_facts": "Agent must resolve an accessible building and use get_sensor_history with metric temperature, time_range 1W, and aggregation max. It must not use documentation retrieval or invent temperatures.",
+    "ideal_answer": "Uses the weekly maximum temperature series returned by get_sensor_history and reports the peak value with its timestamp, making clear when no readings are available."
   },
   {
     "id": "cv-conv-001",

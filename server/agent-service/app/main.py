@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+from app.agent.tools.downstream import close_downstream_clients
 from app.config import get_settings, validate_startup_settings
 from app.db import dispose_engine, get_engine
 from app.logging import configure_logging, get_logger
@@ -16,9 +17,10 @@ API_DESCRIPTION = """
 Tool-calling RAG agent for Crowd-Vision.
 
 The agent answers questions by orchestrating tools — `search_docs` (hybrid
-retrieval over ingested documentation) and the `twin-*` tools (live data from
-the digital-twin service). Answers come back with inline `[^chunk_id]` citation
-markers that resolve to the `citations` array in the response.
+retrieval over ingested documentation), structural building tools backed by
+the digital-twin service, and live/historical measurement tools backed by the
+sensor service. Answers come back with inline `[^chunk_id]` citation markers
+that resolve to the `citations` array in the response.
 
 **Authentication.** Protected endpoints require a JWT in the `authentication_token`
 cookie (issued by `auth-service`). `/health` is public.
@@ -49,6 +51,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await close_downstream_clients()
         await dispose_engine()
 
 
