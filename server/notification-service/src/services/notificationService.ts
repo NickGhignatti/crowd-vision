@@ -1,6 +1,4 @@
 import redisClient from "../config/redis.js";
-import { sendPushToDomain } from "./pushService.js";
-import { NotificationType } from "../models/notificationSubscription.js";
 
 // Internal gateway base for server-to-server calls (routed through Caddy).
 export const getGatewayUrl = () =>
@@ -31,27 +29,9 @@ export const publishNotification = async (
   await redisClient.publish("notifications", JSON.stringify(payload));
 };
 
-export const startNotificationLoop = () => {
-  const demoDomainId = process.env.DEMO_NOTIFICATION_DOMAIN_ID;
-
-  setInterval(async () => {
-    await publishNotification(
-      `System Status Check: ${new Date().toLocaleTimeString()}`,
-      "info",
-    );
-    if (demoDomainId) {
-      await sendPushToDomain(
-        { title: "Critical Alert", message: "HALLO" },
-        demoDomainId,
-        NotificationType.TEMPERATURE,
-      );
-    }
-  }, 10000);
-};
-
 export const sendTemperatureAlert = async (
   message: string,
-  timestamp: Date,
+  timestamp: Date | number,
   dangerLevel: string = "info",
 ) => {
   await redisClient.publish(
@@ -60,7 +40,10 @@ export const sendTemperatureAlert = async (
       id: Date.now().toString(),
       message,
       type: dangerLevel,
-      timestamp,
+      // Upstream events carry a Unix-ms number; normalise to a Date so the
+      // serialized payload matches publishNotification (ISO string) and the
+      // client's `timestamp: Date` contract.
+      timestamp: new Date(timestamp),
     }),
   );
 };

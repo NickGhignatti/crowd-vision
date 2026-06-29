@@ -14,7 +14,6 @@ jest.mock("../src/config/redis.js", () => ({
 
 jest.mock("../src/services/notificationService.js", () => ({
   __esModule: true,
-  startNotificationLoop: jest.fn(),
   publishNotification: jest.fn(),
   getGatewayUrl: jest.fn(() => "http://localhost:3000"),
 }));
@@ -108,7 +107,7 @@ describe("Notification controller branches", () => {
     } as any);
 
     expect(preference).toBeTruthy();
-    expect((preference as any)?.preferences).toEqual([
+    expect(preference?.preferences).toEqual([
       expect.objectContaining({
         notificationType: "temperature",
         isSubscribed: false,

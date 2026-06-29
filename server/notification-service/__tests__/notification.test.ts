@@ -13,7 +13,6 @@ jest.mock("../src/config/redis.js", () => ({
 }));
 
 jest.mock("../src/services/notificationService.js", () => ({
-  startNotificationLoop: jest.fn(),
   publishNotification: jest.fn(), // Verify this is called
   getGatewayUrl: jest.fn(() => "http://localhost:3000"),
 }));
@@ -203,7 +202,7 @@ describe("Notification Service API", () => {
         domainName: "domain-1",
       });
       expect(preference).toBeTruthy();
-      expect((preference as any)?.preferences).toEqual([
+      expect(preference?.preferences).toEqual([
         expect.objectContaining({
           notificationType: "temperature",
           isSubscribed: false,
@@ -246,7 +245,7 @@ describe("Notification Service API", () => {
         domainName: "domain-1",
       });
       expect(preference).toBeTruthy();
-      expect((preference as any)?.preferences).toEqual([
+      expect(preference?.preferences).toEqual([
         expect.objectContaining({
           notificationType: "temperature",
           isSubscribed: false,
