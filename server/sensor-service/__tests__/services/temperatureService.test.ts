@@ -138,4 +138,35 @@ describe("TemperatureService.evaluateThresholds (via persistSignal)", () => {
     await svc.persistSignal("b1", "r1", NOW, 40);
     expect(redisMock.publish).not.toHaveBeenCalled();
   });
+
+  const publishedPayload = () =>
+    JSON.parse(redisMock.publish.mock.calls[0]?.[1] as string);
+
+  it("tags an over-max breach as a high alert with the breached threshold", async () => {
+    await svc.updateBuildingThresholds("b1", 25, 15);
+    await svc.persistSignal("b1", "r1", NOW, 40);
+    expect(publishedPayload()).toMatchObject({
+      type: "temperature",
+      direction: "high",
+      threshold: 25,
+      temperature: 40,
+    });
+  });
+
+  it("tags an under-min breach as a low alert with the breached threshold", async () => {
+    await svc.updateBuildingThresholds("b1", 25, 15);
+    await svc.persistSignal("b1", "r1", NOW, 5);
+    expect(publishedPayload()).toMatchObject({
+      type: "temperature",
+      direction: "low",
+      threshold: 15,
+      temperature: 5,
+    });
+  });
+
+  it("does not publish when the reading sits within the threshold band", async () => {
+    await svc.updateBuildingThresholds("b1", 25, 15);
+    await svc.persistSignal("b1", "r1", NOW, 20);
+    expect(redisMock.publish).not.toHaveBeenCalled();
+  });
 });
