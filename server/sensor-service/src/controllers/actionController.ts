@@ -138,7 +138,10 @@ export function createActionHandler(_kernel: SensorKernel) {
       }
     } catch (err) {
       console.error(
-        `[actionController] Request to ${endpoint.url} failed for action='${actionName}' sensor='${sensorId}':`,
+        "[actionController] Request to %s failed for action='%s' sensor='%s':",
+        endpoint.url,
+        actionName,
+        sensorId,
         err,
       );
       res.status(502).json({ error: "Downstream endpoint is unreachable." });
