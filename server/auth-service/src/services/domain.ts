@@ -129,8 +129,13 @@ export const addSubdomainToDomain = async (
   domainName: string,
   subDomain: IDomain,
 ) => {
+  // Domain names are case-insensitive (RFC 4343). The client may send a
+  // lowercased parent name that differs in case from what's stored, so match
+  // case-insensitively. The input is regex-escaped and anchored to keep it an
+  // exact match and block regex/operator injection.
+  const escaped = domainName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   await Domain.findOneAndUpdate(
-    { name: { $eq: domainName } },
+    { name: { $regex: `^${escaped}$`, $options: "i" } },
     { $addToSet: { subdomains: subDomain._id } },
   );
 };

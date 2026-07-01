@@ -23,7 +23,7 @@ import {
   requireHmacSignature,
 } from "./middlewares/authentication.js";
 import { provideEnterpriseAccount } from "./controller/administration.js";
-import { requireAuthorization } from "./models/role.js";
+import { requireAuthorization } from "./middlewares/authorization.js";
 import { checkHealth } from "./controller/status.js";
 import { register } from "./config/registry.js";
 
@@ -42,12 +42,11 @@ router.post("/logout", logout);
 
 // --- Domains ---
 router.get("/domains", requireAuthentication, getAllAllowedDomains);
-router.post(
-  "/domains",
-  requireAuthentication,
-  requireAuthorization("business_admin"),
-  createDomain,
-);
+// Creating a top-level domain has no parent to authorize against, and the creator
+// is made its business_admin (see addDomain). Gating this on business_admin of some
+// *other* domain would make a user's first domain impossible to create, so only
+// authentication is required here. Subdomains still require admin of the parent.
+router.post("/domains", requireAuthentication, createDomain);
 router.get(
   "/domains/member-counts",
   requireAuthentication,

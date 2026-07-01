@@ -94,10 +94,18 @@ const getAllSubdomains = async () => {
     })
   })
 
+  // Hide groups that are really a subdomain of another group (they're already
+  // nested under their parent). Domain names are case-insensitive, so compare
+  // lowercased — otherwise "sub.kubeet" wouldn't match parent "Kubeet" and would
+  // show both nested and as its own top-level row.
   const allDomainNames = Object.keys(groups)
   unifiedDomains.value = Object.values(groups)
     .filter(
-      (g) => !allDomainNames.some((other) => other !== g.name && g.name.endsWith(`.${other}`)),
+      (g) =>
+        !allDomainNames.some(
+          (other) =>
+            other !== g.name && g.name.toLowerCase().endsWith(`.${other.toLowerCase()}`),
+        ),
     )
     .sort((a, b) => a.name.localeCompare(b.name))
 }
