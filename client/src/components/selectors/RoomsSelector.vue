@@ -162,7 +162,7 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
                 @edit="handleOpenEdit"
               />
 
-              <RoomSensorsPanel
+              <RoomSensorsPanel v-if="userCanEdit"
                 :room-id="r.room.id"
                 :room-name="r.room.name"
                 :sensors="sensorsByRoom[r.room.id] ?? []"

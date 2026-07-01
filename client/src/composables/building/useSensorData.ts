@@ -63,7 +63,6 @@ export function getBuildingData(
             'GET',
             {
               signal: abortController.signal,
-              credentials: 'omit',
             },
           )
 
