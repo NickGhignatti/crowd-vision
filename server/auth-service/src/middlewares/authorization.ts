@@ -1,14 +1,17 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import type { StandardTokenPayload } from "../models/token.js";
 import { Account } from "../models/account.js";
 import { hasRequiredRole, type Role } from "../models/role.js";
-import { getTokenSecret } from "../config/config.js";
 
 /**
  * Guards a route on a minimum role. When the route carries a `:domainName`, the
  * check is scoped to that domain; otherwise it considers all of the caller's
  * memberships.
+ *
+ * Identity comes solely from `req.account`, the payload of the JWT already
+ * verified by `requireAuthentication` (which every route using this guard runs
+ * first). This middleware never re-parses a request-supplied token, so a caller
+ * cannot influence the authorization decision through headers.
  *
  * Authorization reads the caller's CURRENT memberships from the DB rather than
  * the snapshot embedded in the JWT at login. Tokens live for hours, so a user
@@ -18,33 +21,7 @@ import { getTokenSecret } from "../config/config.js";
 export const requireAuthorization = (requiredLevel: Role) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      let tokenFields: StandardTokenPayload | null = null;
-
-      // Prefer the already-verified payload set by requireAuthentication
-      if (req.account) {
-        tokenFields = req.account as StandardTokenPayload;
-      } else {
-        const authHeader = req.headers.authorization;
-
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-          return res
-            .status(401)
-            .json({ error: "Authentication token missing or malformed" });
-        }
-
-        const token = authHeader.split(" ")[1];
-
-        if (!token) {
-          throw new Error("token missing");
-        }
-
-        const secret = getTokenSecret();
-        if (!secret) {
-          throw new Error("server configuration error");
-        }
-
-        tokenFields = jwt.verify(token, secret) as StandardTokenPayload;
-      }
+      const tokenFields = req.account as StandardTokenPayload | undefined;
 
       if (!tokenFields?.accountName) {
         throw new Error("invalid token payload");
