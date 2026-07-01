@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { start, stop, isRunning } from "./controller/simController.js";
+import { start, stop, isRunning, isReceivingAction } from "./controller/simController.js";
 import { Simulator } from "./services/simulatorService.js";
 
 const router = Router();
@@ -15,6 +15,10 @@ router.post("/control/stop", (req, res) => {
 
 router.get("/control/status", (req, res) => {
   isRunning(simulator, req, res);
+});
+
+router.post("/control/receive", (req, res) => {
+  isReceivingAction(req, res);
 });
 
 export default router;

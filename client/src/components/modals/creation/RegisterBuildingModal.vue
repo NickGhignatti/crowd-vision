@@ -178,10 +178,10 @@ const handleCancel = () => {
                   unit="°C"
                   active-color="#f43f5e"
                   @update:min-value="
-                    updateBuilding({ thresholds: { ...draft.thresholds, minTemp: $event } })
+                    updateBuilding({ thresholds: { ...draft!.thresholds, minTemp: $event } })
                   "
                   @update:max-value="
-                    updateBuilding({ thresholds: { ...draft.thresholds, maxTemp: $event } })
+                    updateBuilding({ thresholds: { ...draft!.thresholds, maxTemp: $event } })
                   "
                 />
               </div>
@@ -203,7 +203,7 @@ const handleCancel = () => {
                   active-color="#3b82f6"
                   @update:min-value="cosmeticBuildingAqiMin = $event"
                   @update:max-value="
-                    updateBuilding({ thresholds: { ...draft.thresholds, maxAqi: $event } })
+                    updateBuilding({ thresholds: { ...draft!.thresholds, maxAqi: $event } })
                   "
                 />
               </div>

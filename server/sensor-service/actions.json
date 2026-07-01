@@ -1,0 +1,20 @@
+{
+  "increase": {
+    "123": {
+      "url": "http://gateway/simulator/tp/control/receive",
+      "method": "POST",
+      "arguments": {
+        "0": "value"
+      }
+    }
+  },
+  "decrease": {
+    "123": {
+      "url": "http://gateway/simulator/tp/control/receive",
+      "method": "POST",
+      "arguments": {
+        "0": "value"
+      }
+    }
+  }
+}

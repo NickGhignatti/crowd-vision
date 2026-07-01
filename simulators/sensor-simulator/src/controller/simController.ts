@@ -50,3 +50,11 @@ export const isRunning = async (
     res.status(400).json({ error: error.message });
   }
 };
+
+export const isReceivingAction = async (
+  req: Request,
+  res: Response,
+) => {
+  console.log(req.body);
+  res.status(202);
+};

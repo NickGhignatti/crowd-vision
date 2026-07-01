@@ -183,7 +183,7 @@ const handleRegisterSensor = async () => {
                   @click.stop="handleSendAction(
                     sensor.sensorId, 
                     sensor.sensorType,
-                    'increase',
+                    'decrease',
                     ['1'])"
                 >
                   <i class="ph-bold ph-minus text-[10px]"></i>
@@ -196,7 +196,7 @@ const handleRegisterSensor = async () => {
                   @click.stop="handleSendAction(
                     sensor.sensorId, 
                     sensor.sensorType,
-                    'decrease',
+                    'increase',
                     ['1'])"
                 >
                   <i class="ph-bold ph-plus text-[10px]"></i>

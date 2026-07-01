@@ -1,6 +1,7 @@
 FROM node:26-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
+COPY actions.json ./
 # @crowdvision/eslint-config is a lint-only dep that resolves via file:../../tooling/eslint-config,
 # a path that does not exist inside this Docker build context. Strip it and the stale lock file
 # before installing so npm does not fail with EMISSINGTARGET.
