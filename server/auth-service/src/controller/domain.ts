@@ -129,7 +129,9 @@ export const createSubdomain = async (req: Request, res: Response) => {
 
   await DomainService.addSubdomainToDomain(domainName as string, subdomain);
 
-  res.status(200).send();
+  // Return the created subdomain (like createDomain) so the client can parse the
+  // response body instead of choking on an empty one.
+  res.status(201).json(subdomain);
 };
 
 export const getDomainTOTPQr = async (req: Request, res: Response) => {
