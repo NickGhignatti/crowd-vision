@@ -1,7 +1,12 @@
 import { ref, computed } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
-import type { BuildingDraft, BuildingThresholdDraft, RoomDraft } from '@/models/buildingDraft.ts'
+import type {
+  BuildingDraft,
+  BuildingThresholdDraft,
+  RoomDraft,
+  SensorRegistrationDraft,
+} from '@/models/buildingDraft.ts'
 
 const DEFAULT_THRESHOLDS: BuildingThresholdDraft = {
   minTemp: 18,
@@ -50,7 +55,10 @@ export function useBuildingDraft() {
     draft.value = null
   }
 
-  const submit = async (domainName: string): Promise<void> => {
+  const submit = async (
+    domainName: string,
+    sensorsToRegister: SensorRegistrationDraft[] = [],
+  ): Promise<void> => {
     if (!draft.value) return
     isSubmitting.value = true
 
@@ -91,6 +99,41 @@ export function useBuildingDraft() {
             { body: JSON.stringify({ maxPeople: room.thresholds.maxPeople }) },
           ),
         ),
+      )
+
+      await Promise.all(
+        sensorsToRegister.map(async (sensor) => {
+          const registerResponse = await makeRequest('/sensor/sensor', 'POST', {
+            body: JSON.stringify({
+              sensorData: {
+                buildingId,
+                roomId: sensor.roomId,
+                sensorType: sensor.sensorType,
+                sensorId: sensor.sensorId,
+              },
+            }),
+          })
+
+          if (!registerResponse.ok) {
+            throw new Error('Failed to register sensor')
+          }
+
+          const actionPayload = {
+            sensorType: sensor.sensorType,
+            buildingId,
+            roomId: sensor.roomId,
+            timestamp: Date.now(),
+            temperature: draft.value?.thresholds.minTemp ?? 0,
+          }
+
+          const actionResponse = await makeRequest('/sensor/executeAction', 'POST', {
+            body: JSON.stringify({ actionData: actionPayload }),
+          })
+
+          if (!actionResponse.ok) {
+            throw new Error('Failed to execute sensor action')
+          }
+        }),
       )
     } finally {
       isSubmitting.value = false

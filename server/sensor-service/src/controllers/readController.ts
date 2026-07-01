@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { SensorKernel } from "../kernel/sensorKernel.js";
+import { Sensors } from "../models/sensor.js";
 
 // Reject non-string query values so an object can't reach a Mongo filter as a
 // query operator (NoSQL injection).
@@ -69,6 +70,35 @@ export function createReadHandlers(kernel: SensorKernel) {
             : asString(req.query.aggMode, "aggMode"),
         );
         res.status(200).json({ data });
+      } catch (error: any) {
+        res.status(400).json({ error: error.message });
+      }
+    },
+
+    getRoomSensors: async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { buildingId, roomId } = req.params as {
+          buildingId: string;
+          roomId: string;
+        };
+
+        const sensors = await Sensors.find({ buildingId, roomId })
+          .lean()
+          .exec();
+
+        res.status(200).json({ data: sensors });
+      } catch (error: any) {
+        res.status(400).json({ error: error.message });
+      }
+    },
+
+    getBuildingSensors: async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { buildingId } = req.params as {
+          buildingId: string;
+        };
+        const sensors = await Sensors.find({ buildingId }).lean().exec();
+        res.status(200).json({ data: sensors });
       } catch (error: any) {
         res.status(400).json({ error: error.message });
       }

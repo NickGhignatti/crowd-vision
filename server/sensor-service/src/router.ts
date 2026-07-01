@@ -3,6 +3,8 @@ import type { RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import type { SensorKernel } from "./kernel/sensorKernel.js";
 import { createReadHandlers } from "./controllers/readController.js";
+import { createActionHandler } from "./controllers/actionController.js";
+import { createWriteHandler } from "./controllers/writerController.js";
 import { SENSOR_METRICS_CONTRACT } from "./models/metrics.js";
 import { createThresholdHandlers } from "./controllers/thresholdController.js";
 import { requireAuthentication } from "./middlewares/authentication.js";
@@ -23,7 +25,9 @@ export function createRouter(
 ): Router {
   const router = Router();
   const reader = createReadHandlers(kernel);
+  const writer = createWriteHandler(kernel);
   const thresholds = createThresholdHandlers(kernel);
+  const action = createActionHandler(kernel);
 
   // Unthrottled + unauthenticated: telemetry ingestion hot path (device-facing,
   // guarded separately) + infra endpoints.
@@ -43,6 +47,16 @@ export function createRouter(
   router.get("/:sensorType/latest", reader.getLatestSingle);
   router.get("/:sensorType/entireBuilding", reader.getAllLatestBuilding);
   router.get("/:sensorType/dashboard", reader.getDashboard);
+
+  router.get("/sensors/buildings/:buildingId", reader.getBuildingSensors);
+  router.get(
+    "/sensors/buildings/:buildingId/rooms/:roomId",
+    reader.getRoomSensors,
+  );
+
+  router.post("/sensor", writer)
+
+  router.post("/executeAction", action)
 
   router.put("/thresholds/buildings/:buildingId", thresholds.registerBuilding);
   router.get(

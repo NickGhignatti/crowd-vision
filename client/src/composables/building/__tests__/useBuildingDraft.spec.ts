@@ -150,6 +150,37 @@ describe('useBuildingDraft', () => {
       expect(isSubmitting.value).toBe(false)
     })
 
+    it('registers all provided sensors', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse() as unknown as Response)
+      const { loadFromJson, submit } = useBuildingDraft()
+      loadFromJson(rawJson)
+
+      await submit('acme', [
+        { roomId: 'room-1', sensorId: 'temp-001', sensorType: 'temperature' },
+        { roomId: 'room-2', sensorId: 'temp-002', sensorType: 'temperature' },
+      ])
+
+      const sensorCalls = vi
+        .mocked(makeRequest)
+        .mock.calls.filter((c) => c[0] === '/sensor/sensor' && c[1] === 'POST')
+
+      expect(sensorCalls).toHaveLength(2)
+    })
+
+    it('calls executeAction for each provided sensor', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse() as unknown as Response)
+      const { loadFromJson, submit } = useBuildingDraft()
+      loadFromJson(rawJson)
+
+      await submit('acme', [{ roomId: 'room-1', sensorId: 'temp-001', sensorType: 'temperature' }])
+
+      const actionCalls = vi
+        .mocked(makeRequest)
+        .mock.calls.filter((c) => c[0] === '/sensor/executeAction' && c[1] === 'POST')
+
+      expect(actionCalls).toHaveLength(1)
+    })
+
     it('does nothing when draft is null', async () => {
       const { submit } = useBuildingDraft()
       await submit('acme')

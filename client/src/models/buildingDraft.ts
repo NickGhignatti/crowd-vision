@@ -28,3 +28,11 @@ export interface BuildingDraft {
   thresholds: BuildingThresholdDraft
   rooms: RoomDraft[]
 }
+
+export type SensorDraftType = 'temperature'
+
+export interface SensorRegistrationDraft {
+  roomId: string
+  sensorId: string
+  sensorType: SensorDraftType
+}

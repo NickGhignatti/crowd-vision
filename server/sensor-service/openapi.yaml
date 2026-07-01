@@ -1,643 +1,566 @@
 openapi: 3.1.0
 info:
   title: Sensor Service API
-  description: API for managing and retrieving sensor signals (people count and temperature).
-  version: 1.0.0
+  description: >
+    Ingests IoT telemetry on a fast path, serves latest/aggregated reads,
+    manages per-building thresholds, and now maintains a registry of physical
+    sensors and dispatches commands (actions) to their actuator APIs.
+
+    Sensor types are resolved dynamically by a microkernel; the currently
+    registered types are `temperature`, `peopleCount`, and `airQuality`.
+  version: 2.0.0
 servers:
-  - url: http://localhost:80/sensor/
-    description: Local development server
+  - url: http://localhost/sensor
+    description: Gateway endpoint for the Sensor Service
+
+# Everything is JWT-protected (browser cookie, or a bearer forwarded by the
+# twin-service) except the device-facing hot path and infra endpoints, which
+# override this with `security: []`.
+security:
+  - cookieAuth: []
+
+tags:
+  - name: Ingestion
+  - name: Reads
+  - name: Registry
+  - name: Actions
+  - name: Thresholds
+  - name: Discovery
+
 paths:
-  /metrics:
+  /ingest:
+    post:
+      summary: Ingest a sensor reading
+      description: >
+        Validates the payload synchronously and returns `202` immediately;
+        persistence and telemetry publishing happen on a background slow path.
+        Public — device-facing hot path.
+      tags: [Ingestion]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestionPayload"
+      responses:
+        "202":
+          description: Accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+                  type: { type: string, example: "temperature" }
+        "400":
+          description: Missing or invalid `type` field
+        "404":
+          description: No module registered for the given sensor type
+        "422":
+          description: Payload validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Payload validation failed." }
+                  details:
+                    type: array
+                    items: { type: string }
+
+  /contracts:
     get:
-      summary: Get metric contracts exposed by sensor service
-      tags:
-        - Metrics
+      summary: Metric catalog
+      description: Self-describing list of the metrics this service produces. Public.
+      tags: [Discovery]
+      security: []
       responses:
         "200":
-          description: Successful response
+          description: The service metric contract
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ServiceMetricsContract"
 
-  /peopleCount:
+  /health:
+    get:
+      summary: Liveness probe
+      tags: [Discovery]
+      security: []
+      responses:
+        "200":
+          description: Service is up
+
+  /{sensorType}/latest:
+    get:
+      summary: Latest reading for one room
+      tags: [Reads]
+      parameters:
+        - $ref: "#/components/parameters/SensorType"
+        - in: query
+          name: building
+          required: true
+          schema: { type: string }
+        - in: query
+          name: roomId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The most recent reading
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Unknown sensor type
+
+  /{sensorType}/entireBuilding:
+    get:
+      summary: Latest reading for every room in a building
+      tags: [Reads]
+      parameters:
+        - $ref: "#/components/parameters/SensorType"
+        - in: query
+          name: building
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: One latest reading per room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { type: object }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Unknown sensor type
+
+  /{sensorType}/dashboard:
+    get:
+      summary: Bucketed time-series for the dashboard
+      tags: [Reads]
+      parameters:
+        - $ref: "#/components/parameters/SensorType"
+        - in: query
+          name: building
+          required: true
+          schema: { type: string }
+        - in: query
+          name: timeRange
+          required: true
+          schema: { type: string, example: "24h" }
+        - in: query
+          name: roomId
+          required: false
+          schema: { type: string }
+        - in: query
+          name: aggMode
+          required: false
+          schema: { type: string, example: "avg" }
+      responses:
+        "200":
+          description: Aggregated buckets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp: { type: integer }
+                        value: { type: number }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Unknown sensor type
+
+  /sensor:
     post:
-      summary: Create a people count signal
-      tags:
-        - People Count
+      summary: Register a physical sensor
+      description: >
+        Resolves the module by `sensorType` and records the sensor in the
+        registry. Validates the type synchronously and returns `202` without
+        waiting on the write.
+      tags: [Registry]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required:
-                - buildingId
-                - roomId
-                - timestamp
-                - peopleCount
+              required: [sensorData]
               properties:
-                buildingId:
-                  type: string
-                  example: "building-123"
-                roomId:
-                  type: string
-                  example: "room-A"
-                timestamp:
-                  type: integer
-                  description: Unix timestamp in milliseconds
-                  example: 1712836800000
-                peopleCount:
-                  type: integer
-                  example: 42
+                sensorData:
+                  $ref: "#/components/schemas/SensorRegistration"
       responses:
-        "201":
-          description: People count signal created
+        "202":
+          description: Accepted for registration
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
-                    example: "People count signal created"
+                  accepted: { type: boolean, example: true }
+                  type: { type: string, example: "temperature" }
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: Missing or invalid `sensorType`
+        "404":
+          description: No module registered for the given sensor type
+
+  /sensors/buildings/{buildingId}:
     get:
-      summary: Get latest people count signal for a specific room
-      tags:
-        - People Count
+      summary: List every sensor registered in a building
+      tags: [Registry]
       parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
-          name: roomId
-          schema:
-            type: string
-          required: true
-          description: Room ID
+        - $ref: "#/components/parameters/BuildingId"
       responses:
         "200":
-          description: Successful response
+          description: Registered sensors for the building
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  peopleCount:
-                    type: object
-                    description: Latest people count data
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Sensor"
         "400":
           $ref: "#/components/responses/BadRequest"
 
-  /temperature:
+  /sensors/buildings/{buildingId}/rooms/{roomId}:
+    get:
+      summary: List sensors registered in a single room
+      tags: [Registry]
+      parameters:
+        - $ref: "#/components/parameters/BuildingId"
+        - in: path
+          name: roomId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Registered sensors for the room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Sensor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /executeAction:
     post:
-      summary: Create a temperature signal
-      tags:
-        - Temperature
+      summary: Dispatch a command to a sensor's actuator
+      description: >
+        Looks up `actionName -> sensorId` in the service's `actions.json`
+        routing table, maps the positional `actionArguments` to the field names
+        that endpoint expects, and calls it. Synchronous: the response reflects
+        the downstream outcome.
+      tags: [Actions]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required:
-                - buildingId
-                - roomId
-                - timestamp
-                - temperature
+              required: [actionData]
               properties:
-                buildingId:
-                  type: string
-                  example: "building-123"
-                roomId:
-                  type: string
-                  example: "room-A"
-                timestamp:
-                  type: integer
-                  description: Unix timestamp in milliseconds
-                  example: 1712836800000
-                temperature:
-                  type: number
-                  example: 22.5
-      responses:
-        "201":
-          description: Temperature signal created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Temperature signal created"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-    get:
-      summary: Get latest temperature signal for a specific room
-      tags:
-        - Temperature
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
-          name: roomId
-          schema:
-            type: string
-          required: true
-          description: Room ID
+                actionData:
+                  $ref: "#/components/schemas/ActionRequest"
       responses:
         "200":
-          description: Successful response
+          description: The downstream endpoint accepted the command
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  temperature:
-                    type: object
-                    description: Latest temperature data
+                  accepted: { type: boolean, example: true }
+                  actionName: { type: string, example: "increase" }
+                  sensorId: { type: string, example: "123" }
         "400":
-          $ref: "#/components/responses/BadRequest"
+          description: "`actionData`, `actionName`, or `sensorId` missing/invalid"
+        "404":
+          description: No route configured for that action/sensor pair
+        "502":
+          description: The downstream actuator endpoint errored or was unreachable
 
-  /air-quality:
-    post:
-      summary: Create an air quality signal
-      tags:
-        - Air Quality
+  /thresholds/buildings/{buildingId}:
+    parameters:
+      - $ref: "#/components/parameters/BuildingId"
+    put:
+      summary: Register/update a building clone
+      description: Called by the twin-service to seed threshold records for every registered module.
+      tags: [Thresholds]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - buildingId
-                - roomId
-                - timestamp
-                - pm25
-                - pm10
-                - co2
-                - voc
-                - temperature
-                - humidity
-                - aqi
-                - indoor_aqi
-              properties:
-                buildingId:
-                  type: string
-                  example: "building-123"
-                roomId:
-                  type: string
-                  example: "room-A"
-                timestamp:
-                  type: integer
-                  description: Unix timestamp in milliseconds
-                  example: 1712836800000
-                scenario:
-                  type: string
-                  example: "clean_indoor"
-                pm25:
-                  type: number
-                  example: 6.2
-                pm10:
-                  type: number
-                  example: 12.5
-                co2:
-                  type: number
-                  example: 520
-                voc:
-                  type: number
-                  example: 120
-                temperature:
-                  type: number
-                  example: 21.8
-                humidity:
-                  type: number
-                  example: 45
-                aqi:
-                  type: number
-                  example: 32
-                indoor_aqi:
-                  type: number
-                  example: 45.5
+              $ref: "#/components/schemas/ThresholdClone"
       responses:
-        "201":
-          description: Air quality signal created
+        "200":
+          description: Building registered
+    get:
+      summary: Get the threshold clone for the twin view
+      tags: [Thresholds]
+      responses:
+        "200":
+          description: The clone, or null if none exists
+          content:
+            application/json:
+              schema:
+                type: [object, "null"]
+
+  /thresholds/{sensorType}/buildings/{buildingId}:
+    parameters:
+      - $ref: "#/components/parameters/SensorType"
+      - $ref: "#/components/parameters/BuildingId"
+    get:
+      summary: Get a metric's thresholds for a building
+      tags: [Thresholds]
+      responses:
+        "200":
+          description: Threshold document slice
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
-                    example: "Air quality signal created"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-    get:
-      summary: Get latest air quality signal for a specific room
-      tags:
-        - Air Quality
+                  data: { type: object }
+        "404":
+          description: Unknown sensor type
+    patch:
+      summary: Update a metric's building-level thresholds
+      tags: [Thresholds]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Updated thresholds
+        "404":
+          description: Unknown sensor type
+
+  /thresholds/{sensorType}/buildings/{buildingId}/rooms/{roomId}:
+    patch:
+      summary: Update a metric's room-level thresholds
+      tags: [Thresholds]
       parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
+        - $ref: "#/components/parameters/SensorType"
+        - $ref: "#/components/parameters/BuildingId"
+        - in: path
           name: roomId
-          schema:
-            type: string
           required: true
-          description: Room ID
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
       responses:
         "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  airQuality:
-                    type: object
-                    description: Latest air quality data
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /peopleCount/entireBuilding:
-    get:
-      summary: Get all latest people count signals for an entire building
-      tags:
-        - People Count
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  peopleCount:
-                    type: array
-                    items:
-                      type: object
-                    description: Array of latest people count signals for the building
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /temperature/entireBuilding:
-    get:
-      summary: Get all latest temperature signals for an entire building
-      tags:
-        - Temperature
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  temperature:
-                    type: array
-                    items:
-                      type: object
-                    description: Array of latest temperature signals for the building
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /air-quality/entireBuilding:
-    get:
-      summary: Get all latest air quality signals for an entire building
-      tags:
-        - Air Quality
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  airQuality:
-                    type: array
-                    items:
-                      type: object
-                    description: Array of latest air quality signals for the building
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /peopleCount/dashboard:
-    get:
-      summary: Get people count dashboard data for a room
-      tags:
-        - People Count
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
-          name: roomId
-          schema:
-            type: string
-          required: true
-          description: Room ID
-        - in: query
-          name: timeRange
-          schema:
-            type: string
-          required: true
-          description: Time range for dashboard data
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  peopleCount:
-                    type: array
-                    items:
-                      type: object
-                    description: Aggregated people count data
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /temperature/dashboard:
-    get:
-      summary: Get temperature dashboard data for a room
-      tags:
-        - Temperature
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
-          name: roomId
-          schema:
-            type: string
-          required: true
-          description: Room ID
-        - in: query
-          name: timeRange
-          schema:
-            type: string
-          required: true
-          description: Time range for dashboard data
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  temperature:
-                    type: array
-                    items:
-                      type: object
-                    description: Aggregated temperature data
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /air-quality/dashboard:
-    get:
-      summary: Get air quality dashboard data for a room
-      tags:
-        - Air Quality
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
-          name: roomId
-          schema:
-            type: string
-          required: true
-          description: Room ID
-        - in: query
-          name: timeRange
-          schema:
-            type: string
-          required: true
-          description: Time range for dashboard data
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  airQuality:
-                    type: array
-                    items:
-                      type: object
-                    description: Aggregated air quality data
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /peopleCount/dashboard/entireBuilding:
-    get:
-      summary: Get people count dashboard data for an entire building
-      tags:
-        - People Count
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
-          name: timeRange
-          schema:
-            type: string
-          required: true
-          description: Time range for dashboard data
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  peopleCount:
-                    type: array
-                    items:
-                      type: object
-                    description: Aggregated people count data for the building
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /temperature/dashboard/entireBuilding:
-    get:
-      summary: Get temperature dashboard data for an entire building
-      tags:
-        - Temperature
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
-          name: timeRange
-          schema:
-            type: string
-          required: true
-          description: Time range for dashboard data
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  temperature:
-                    type: array
-                    items:
-                      type: object
-                    description: Aggregated temperature data for the building
-        "400":
-          $ref: "#/components/responses/BadRequest"
-
-  /air-quality/dashboard/entireBuilding:
-    get:
-      summary: Get air quality dashboard data for an entire building
-      tags:
-        - Air Quality
-      parameters:
-        - in: query
-          name: building
-          schema:
-            type: string
-          required: true
-          description: Buildings ID
-        - in: query
-          name: timeRange
-          schema:
-            type: string
-          required: true
-          description: Time range for dashboard data
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  airQuality:
-                    type: array
-                    items:
-                      type: object
-                    description: Aggregated air quality data for the building
-        "400":
-          $ref: "#/components/responses/BadRequest"
+          description: Updated room thresholds
+        "404":
+          description: Unknown sensor type
 
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: >
+        JWT issued at login. The twin-service may instead forward the caller's
+        `Authorization: Bearer` token; both are accepted.
+
+  parameters:
+    SensorType:
+      in: path
+      name: sensorType
+      required: true
+      description: The metric discriminant; must match a registered module.
+      schema:
+        type: string
+        enum: [temperature, peopleCount, airQuality]
+    BuildingId:
+      in: path
+      name: buildingId
+      required: true
+      schema:
+        type: string
+
   schemas:
-    MetricFieldContract:
+    TemperatureReading:
       type: object
-      required:
-        - name
-        - type
-        - required
+      required: [buildingId, roomId, timestamp, temperature]
       properties:
-        name:
-          type: string
+        buildingId: { type: string, example: "building-123" }
+        roomId: { type: string, example: "room-A" }
+        timestamp:
+          type: integer
+          description: Unix timestamp in milliseconds
+          example: 1712836800000
+        temperature: { type: number, example: 22.5 }
+
+    PeopleCountReading:
+      type: object
+      required: [buildingId, roomId, timestamp, peopleCount]
+      properties:
+        buildingId: { type: string }
+        roomId: { type: string }
+        timestamp:
+          type: integer
+          description: Unix timestamp in milliseconds
+        peopleCount: { type: integer, example: 42 }
+
+    AirQualityReading:
+      type: object
+      required: [buildingId, roomId, timestamp, pm25, pm10, co2, voc, temperature, humidity, aqi, indoor_aqi]
+      properties:
+        buildingId: { type: string }
+        roomId: { type: string }
+        timestamp:
+          type: integer
+          description: Unix timestamp in milliseconds
+        scenario: { type: string, description: "Optional simulation scenario identifier" }
+        pm25: { type: number }
+        pm10: { type: number }
+        co2: { type: number }
+        voc: { type: number }
+        temperature: { type: number }
+        humidity: { type: number }
+        aqi: { type: number }
+        indoor_aqi: { type: number }
+
+    IngestionPayload:
+      description: >
+        A reading. The `type` field selects the module; the remaining fields are
+        the metric-specific reading body.
+      type: object
+      required: [type]
+      properties:
         type:
           type: string
-          enum:
-            - string
-            - number
-            - boolean
-            - integer
-        required:
-          type: boolean
-        description:
+          enum: [temperature, peopleCount, airQuality]
+      oneOf:
+        - $ref: "#/components/schemas/TemperatureReading"
+        - $ref: "#/components/schemas/PeopleCountReading"
+        - $ref: "#/components/schemas/AirQualityReading"
+
+    SensorRegistration:
+      type: object
+      required: [buildingId, roomId, sensorId, sensorType]
+      properties:
+        buildingId: { type: string, example: "building-123" }
+        roomId: { type: string, example: "room-A" }
+        sensorId: { type: string, example: "123" }
+        sensorType:
           type: string
+          enum: [temperature, peopleCount, airQuality]
+
+    Sensor:
+      description: A registered physical sensor.
+      type: object
+      properties:
+        buildingId: { type: string }
+        roomId: { type: string }
+        sensorId: { type: string }
+        sensorType: { type: string }
+
+    ActionRequest:
+      description: >
+        A command to send to a sensor. `actionArguments` is positional; each
+        index is mapped to a named field by the matching entry in `actions.json`.
+      type: object
+      required: [sensorId, actionName]
+      properties:
+        buildingId: { type: string, example: "building-123" }
+        roomId: { type: string, example: "room-A" }
+        sensorId: { type: string, example: "123" }
+        sensorType: { type: string, example: "temperature" }
+        timestamp:
+          type: integer
+          description: Unix timestamp in milliseconds
+          example: 1712836800000
+        actionName:
+          type: string
+          description: The action key looked up in the routing table.
+          example: "increase"
+        actionArguments:
+          type: array
+          items: { type: string }
+          example: ["1"]
+
+    ThresholdClone:
+      description: Building clone pushed by the twin-service on registration/update.
+      type: object
+      properties:
+        name: { type: string }
+        maxTemperature: { type: number }
+        rooms:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+
+    MetricFieldContract:
+      type: object
+      required: [name, type, required]
+      properties:
+        name: { type: string }
+        type:
+          type: string
+          enum: [string, number, boolean, integer]
+        required: { type: boolean }
+        description: { type: string }
+
     MetricContract:
       type: object
-      required:
-        - metricKey
-        - label
-        - interfaceName
-        - fields
+      required: [metricKey, label, interfaceName, fields]
       properties:
-        metricKey:
-          type: string
-          example: temperature
-        label:
-          type: string
-          example: Temperature
-        interfaceName:
-          type: string
-          example: ITemperature
-        unit:
-          type: string
-          example: C
+        metricKey: { type: string, example: temperature }
+        label: { type: string, example: Temperature }
+        interfaceName: { type: string, example: ITemperature }
+        unit: { type: string, example: C }
         fields:
           type: array
           items:
             $ref: "#/components/schemas/MetricFieldContract"
+
     ServiceMetricsContract:
       type: object
-      required:
-        - service
-        - metrics
+      required: [service, metrics]
       properties:
-        service:
-          type: string
-          example: sensor-service
+        service: { type: string, example: sensor-service }
         metrics:
           type: array
           items:
             $ref: "#/components/schemas/MetricContract"
+
   responses:
     BadRequest:
       description: Bad request

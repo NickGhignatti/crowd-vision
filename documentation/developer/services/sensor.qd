@@ -24,10 +24,14 @@ A Node.js / Express service in strict TypeScript. It ingests sensor readings fro
       - Concrete strategies: `TemperatureModule`, `PeopleCountModule`, `AirQualityModule`.
     - - `src/services/*ModuleService.ts`
       - Per-metric persistence, aggregation, and threshold logic.
+    - - `src/services/ActionService.ts`
+      - Resolves a registered `sensorId` from its `{ roomId, buildingId }` location.
     - - `src/controllers/`
-      - `ingestionController.ts`, `readController.ts`, `thresholdController.ts`.
+      - `ingestionController.ts`, `readController.ts`, `thresholdController.ts`, `writerController.ts` (sensor registration), `actionController.ts` (command dispatch).
     - - `src/models/`
-      - Signal schemas, `buildingThreshold.ts`, and the metric catalog.
+      - Signal schemas, `buildingThreshold.ts`, `sensor.ts` (the registry), `actionSignal.ts`, and the metric catalog.
+    - - `actions.json`
+      - Data-driven routing table for the action path (see *Sensor Registry & Actions*).
     - - `src/config/`
       - `db.ts` (Mongo), `redis.ts` (broker).
 
@@ -127,6 +131,13 @@ async process(payload: unknown): Promise<void> {
 
 A child therefore implements only what is unique: `type`, `model`, `validate`, `persist`, `buildTelemetryEvent`, `getAllLatest`, `getDashboardData`.
 
+### Lifecycle methods: `create` and `apply`
+
+Two contract methods extend a module beyond pure ingestion:
+
+- `create(buildingId, roomId, sensorType, sensorId)` — registers a physical sensor. The base class supplies the default: it inserts a `Sensors` document, so no module needs to reimplement it.
+- `apply()` — the hook a module overrides to actuate a received command against its hardware. It defaults to a no-op in the base class and is currently still a stub in `TemperatureModule`; the action path (below) presently dispatches through `actions.json` rather than through `apply()`.
+
 ---
 
 ## Data Models
@@ -163,6 +174,17 @@ Two secondary indexes support dashboard queries that filter on the measurement `
 
 One document per building (`buildingId` unique). It holds building-level default bounds and an array of per-room overrides, each with optional `temperature { minTemp, maxTemp }`, `peopleCount { maxPeople }`, and `airQuality { maxAqi, maxCo2 }`.
 
+### `Sensor`
+
+The registry of physical sensors, written by the module `create()` path: `{ buildingId, roomId, sensorId, sensorType }`. A plain (non-time-series) collection. `sensorId` is unique.
+
+.box {One sensor per building} type:{note}
+    The schema currently also marks `buildingId` as `unique`, which limits registration to a single sensor per building. This is a known constraint to revisit — the intended key is `sensorId`.
+
+### `Action`
+
+The shape of a dispatched command (`actionSignal.ts`): `{ buildingId, roomId, sensorId, sensorType, timestamp, actionName, actionArguments }`, available for persisting/auditing actions sent to a sensor.
+
 ---
 
 ## HTTP API
@@ -176,6 +198,12 @@ One document per building (`buildingId` unique). It holds building-level default
       - Ingest a reading. `202` on accept, `422` on validation failure, `404` on unknown type. **Public** (device-facing hot path).
     - - `GET` read endpoints
       - Latest-per-room, all-latest-per-building, and bucketed dashboard time-series, served by `readController`. **JWT.**
+    - - `POST /sensor`
+      - Register a physical sensor (`writerController` → `module.create`). `202` on accept, `404` on unknown type. **JWT.**
+    - - `GET /sensors/buildings/:buildingId[/rooms/:roomId]`
+      - List the sensors registered for a building, optionally scoped to a room. **JWT.**
+    - - `POST /executeAction`
+      - Dispatch a command to a sensor's actuator API, routed via `actions.json`. `200` on success, `502` on downstream failure, `404` when no route matches. **JWT.**
     - - `PATCH /thresholds/...`
       - Update building- or room-level thresholds, served by `thresholdController`. **JWT.**
     - - `PUT /thresholds/buildings/:id`
@@ -203,6 +231,61 @@ A room-level bound, when present, overrides the building default for that room d
 ## Read-Path Caching
 
 `getAllLatest(buildingId)` — which drives the initial dashboard load — runs a MongoDB aggregation. To collapse duplicate work when many users open the same building, results are cached in Redis under `sensor:latest:{type}:{buildingId}` with a **10-second TTL**. The live telemetry path bypasses the cache entirely: every write publishes to `telemetry:raw`, so the frontend receives real-time updates via the socket without waiting for cache expiry.
+
+---
+
+## Sensor Registry & Actions
+
+Beyond ingesting readings, the service now tracks *which* sensors exist and can dispatch *commands* back to them. These are the write and command counterparts to the read/ingest paths.
+
+### Registration
+
+`POST /sensor` registers a physical sensor. `writerController` resolves the module by `sensorType` and calls `module.create()`, which the base class implements by inserting a `Sensor` document. As with ingestion, the handler validates the type synchronously and returns `202 Accepted` without waiting on the write. Registered sensors are then listable via the `GET /sensors/...` endpoints and are what the frontend's room-sensor panel renders.
+
+### Actions: a data-driven command path
+
+`POST /executeAction` sends a command — e.g. `increase`, `decrease` — to the actuator API that fronts a sensor. Unlike ingestion, this path is **synchronous**: it `await`s the downstream call and reports the real outcome (`200` on success, `502` when the endpoint errors or is unreachable, `404` when no route matches). The frontend supplies `{ sensorId, actionName, actionArguments }`.
+
+Routing is entirely driven by `actions.json`, so onboarding a new sensor or action is a config edit, never a code change. The table is keyed **`actionName → sensorId → endpoint`**:
+
+```json
+{
+  "increase": {
+    "123": {
+      "url": "http://gateway/simulator/tp/control/receive",
+      "method": "POST",
+      "arguments": { "0": "value" }
+    }
+  }
+}
+```
+
+- `url` / `method` — the downstream API to call for that (action, sensor) pair.
+- `arguments` maps each **positional index** of the frontend's `actionArguments` array to the **field name** the target API expects. `{ "0": "value" }` with `actionArguments: ["1"]` produces the request body `{ "value": "1" }`. This lets different sensors name the same positional argument differently.
+
+The file is resolved relative to the compiled module (the package root, independent of the working directory) and re-read on every request, so edits take effect without a restart. `ActionService.getSensorId(roomId, buildingId)` is available to resolve a sensor id from its location when a caller does not pass one directly.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant UI as Frontend
+        participant AC as actionController
+        participant J as actions.json
+        participant API as Actuator API
+        UI->>AC: POST /executeAction { sensorId, actionName, actionArguments }
+        AC->>J: lookup actionName → sensorId
+        alt no route
+            AC-->>UI: 404
+        else route found
+            AC->>AC: map positional args to named fields
+            AC->>API: method url { ...mappedArgs }
+            alt ok
+                API-->>AC: 2xx
+                AC-->>UI: 200 accepted
+            else error / unreachable
+                AC-->>UI: 502
+            end
+        end
 
 ---
 

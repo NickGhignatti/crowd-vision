@@ -236,6 +236,20 @@ const messages = {
         temperature: 'Temperature',
         occupancy: 'Occupancy',
         updateFailed: 'Failed to update room',
+        sensors: {
+          title: 'Sensors',
+          add: 'Add sensor',
+          sensorId: 'Sensor ID',
+          sensorIdPlaceholder: 'Enter sensor ID',
+          sensorType: 'Sensor type',
+          empty: 'No sensors registered in this room yet.',
+          loading: 'Loading room sensors...',
+          error: 'Failed to load room sensors.',
+          registerError: 'Failed to register the sensor.',
+          types: {
+            temperature: 'Temperature',
+          },
+        },
       },
       controls: {
         buttons: {
@@ -263,6 +277,21 @@ const messages = {
         temperature: 'Building temperature',
         indoorAqi: 'Building indoor AQI',
         rooms: 'Rooms',
+        sensors: {
+          title: 'Sensors',
+          add: 'Add sensor',
+          hint: 'Add the sensors to register for this building.',
+          sensorId: 'Sensor ID',
+          sensorIdPlaceholder: 'Enter sensor ID',
+          room: 'Room',
+          selectRoom: 'Select room',
+          type: 'Sensor type',
+          remove: 'Remove sensor',
+          invalidConfig: 'Each sensor must include a sensor ID and a room.',
+          types: {
+            temperature: 'Temperature',
+          },
+        },
         saving: 'Saving...',
         invalidJson: 'Invalid JSON file. Please check the format and try again.',
         room: {
@@ -518,6 +547,20 @@ const messages = {
         temperature: 'Temperatura',
         occupancy: 'Occupazione',
         updateFailed: 'Aggiornamento stanza non riuscito',
+        sensors: {
+          title: 'Sensori',
+          add: 'Aggiungi sensore',
+          sensorId: 'ID Sensore',
+          sensorIdPlaceholder: 'Inserisci ID sensore',
+          sensorType: 'Tipo sensore',
+          empty: 'Nessun sensore registrato in questa stanza.',
+          loading: 'Caricamento sensori stanza...',
+          error: 'Caricamento sensori stanza non riuscito.',
+          registerError: 'Registrazione sensore non riuscita.',
+          types: {
+            temperature: 'Temperatura',
+          },
+        },
       },
       controls: {
         buttons: {
@@ -545,6 +588,21 @@ const messages = {
         temperature: 'Temperatura edificio',
         indoorAqi: 'AQI interno edificio',
         rooms: 'Stanze',
+        sensors: {
+          title: 'Sensori',
+          add: 'Aggiungi sensore',
+          hint: "Aggiungi i sensori da registrare per questo edificio.",
+          sensorId: 'ID Sensore',
+          sensorIdPlaceholder: "Inserisci l'ID del sensore",
+          room: 'Stanza',
+          selectRoom: 'Seleziona stanza',
+          type: 'Tipo sensore',
+          remove: 'Rimuovi sensore',
+          invalidConfig: 'Ogni sensore deve avere ID sensore e stanza.',
+          types: {
+            temperature: 'Temperatura',
+          },
+        },
         saving: 'Salvataggio...',
         invalidJson: 'File JSON non valido. Verifica il formato e riprova.',
         room: {

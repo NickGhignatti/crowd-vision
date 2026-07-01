@@ -173,7 +173,7 @@ describe('RegisterBuildingModal', () => {
       await saveBtn.trigger('click')
       await flushPromises()
 
-      expect(mockSubmit).toHaveBeenCalledWith('acme.org')
+      expect(mockSubmit).toHaveBeenCalledWith('acme.org', [])
       expect(wrapper.emitted('close')).toBeTruthy()
     })
   })
