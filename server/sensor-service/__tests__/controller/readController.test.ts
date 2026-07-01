@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import type { Request, Response } from "express";
 

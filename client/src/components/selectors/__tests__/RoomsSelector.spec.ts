@@ -18,8 +18,8 @@ vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn(),
 }))
 
-vi.mock('@/composables/building/useBuildingSensor', () => ({
-  useBuildingSensor: vi.fn(() => ({
+vi.mock('@/composables/building/useSensorData', () => ({
+  getBuildingData: vi.fn(() => ({
     data: ref([]),
     isLoading: ref(false),
     error: ref(null),
@@ -30,6 +30,7 @@ vi.mock('@/composables/building/useBuildingSensor', () => ({
     error: ref(null),
     refresh: vi.fn(),
     registerSensor: vi.fn().mockResolvedValue(undefined),
+    sendAction: vi.fn().mockResolvedValue(undefined),
   })),
 }))
 
