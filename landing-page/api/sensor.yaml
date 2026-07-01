@@ -12,6 +12,15 @@ servers:
     description: Gateway endpoint for the Sensor Service
 
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: >
+        JWT issued at login. The twin-service may instead forward the caller's
+        `Authorization: Bearer` token; both are accepted.
+
   parameters:
     SensorType:
       in: path
@@ -79,6 +88,42 @@ components:
         - $ref: "#/components/schemas/PeopleCountReading"
         - $ref: "#/components/schemas/AirQualityReading"
 
+    SensorRegistration:
+      type: object
+      required: [buildingId, roomId, sensorId, sensorType]
+      properties:
+        buildingId: { type: string, example: "hq-01" }
+        roomId: { type: string, example: "room-03" }
+        sensorId: { type: string, example: "123" }
+        sensorType: { type: string, enum: [temperature, peopleCount, airQuality] }
+
+    Sensor:
+      description: A registered physical sensor.
+      type: object
+      properties:
+        buildingId: { type: string }
+        roomId: { type: string }
+        sensorId: { type: string }
+        sensorType: { type: string }
+
+    ActionRequest:
+      description: >
+        A command to send to a sensor. `actionArguments` is positional; each
+        index is mapped to a named field by the matching entry in `actions.json`.
+      type: object
+      required: [sensorId, actionName]
+      properties:
+        buildingId: { type: string }
+        roomId: { type: string }
+        sensorId: { type: string, example: "123" }
+        sensorType: { type: string, example: "temperature" }
+        timestamp: { type: integer, description: "Unix timestamp in milliseconds" }
+        actionName: { type: string, description: "The action key looked up in the routing table.", example: "increase" }
+        actionArguments:
+          type: array
+          items: { type: string }
+          example: ["1"]
+
     ThresholdClone:
       description: Building clone pushed by the twin-service on registration/update.
       type: object
@@ -111,9 +156,11 @@ components:
                 items:
                   type: object
 
-# Sensor endpoints are not behind JWT authentication; they are reached over the
-# internal network or from hardware clients via the gateway.
-security: []
+# All endpoints are JWT-protected (browser cookie, or a bearer forwarded by the
+# twin-service) except the device-facing ingest hot path and the public
+# discovery endpoints, which override this with `security: []`.
+security:
+  - cookieAuth: []
 
 paths:
   /ingest:
@@ -123,6 +170,7 @@ paths:
         Validates the payload synchronously and returns `202` immediately;
         persistence and telemetry publishing happen on a background slow path.
       tags: [Ingestion]
+      security: []
       requestBody:
         required: true
         content:
@@ -154,6 +202,115 @@ paths:
                   details:
                     type: array
                     items: { type: string }
+
+  /sensor:
+    post:
+      summary: Register a physical sensor
+      description: >
+        Resolves the module by `sensorType` and records the sensor in the
+        registry. Returns `202` without waiting on the write.
+      tags: [Registry]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sensorData]
+              properties:
+                sensorData:
+                  $ref: "#/components/schemas/SensorRegistration"
+      responses:
+        "202":
+          description: Accepted for registration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+                  type: { type: string, example: "temperature" }
+        "400":
+          description: Missing or invalid `sensorType`
+        "404":
+          description: No module registered for the given sensor type
+
+  /sensors/buildings/{buildingId}:
+    get:
+      summary: List every sensor registered in a building
+      tags: [Registry]
+      parameters:
+        - $ref: "#/components/parameters/BuildingId"
+      responses:
+        "200":
+          description: Registered sensors for the building
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Sensor" }
+
+  /sensors/buildings/{buildingId}/rooms/{roomId}:
+    get:
+      summary: List sensors registered in a single room
+      tags: [Registry]
+      parameters:
+        - $ref: "#/components/parameters/BuildingId"
+        - in: path
+          name: roomId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Registered sensors for the room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Sensor" }
+
+  /executeAction:
+    post:
+      summary: Dispatch a command to a sensor's actuator
+      description: >
+        Looks up `actionName -> sensorId` in the service's `actions.json`
+        routing table, maps the positional `actionArguments` to the field names
+        that endpoint expects, and calls it. Synchronous: the response reflects
+        the downstream outcome.
+      tags: [Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actionData]
+              properties:
+                actionData:
+                  $ref: "#/components/schemas/ActionRequest"
+      responses:
+        "200":
+          description: The downstream endpoint accepted the command
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+                  actionName: { type: string, example: "increase" }
+                  sensorId: { type: string, example: "123" }
+        "400":
+          description: "`actionData`, `actionName`, or `sensorId` missing/invalid"
+        "404":
+          description: No route configured for that action/sensor pair
+        "502":
+          description: The downstream actuator endpoint errored or was unreachable
 
   /{sensorType}/latest:
     get:
@@ -343,6 +500,7 @@ paths:
       summary: Metric catalog
       description: Self-describing list of the metrics this service produces.
       tags: [Discovery]
+      security: []
       responses:
         "200":
           description: The service metric contract
