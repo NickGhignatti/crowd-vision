@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Contracts Service Architecture</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a></li><li data-target-id="internal-structure" data-depth="2"><a href="#internal-structure">Internal Structure</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture" aria-current="page">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a></li><li data-target-id="internal-structure" data-depth="2"><a href="#internal-structure">Internal Structure</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav></div><h1 id="contracts-service-architecture" data-decorative="">Contracts Service Architecture</h1><p><strong>Bounded context:</strong> <a href="../telemetry-distribution">Telemetry Distribution</a> · <strong>Stack:</strong> Rust / Axum · <strong>Code-level walkthrough:</strong> <a href="../contracts">Contracts Service</a></p><p>The contracts-service realises the <a href="../telemetry-distribution">Telemetry Distribution</a> context. It sits between the raw reading stream and the browser feed, routing each reading to its building&rsquo;s live feed. It is the one service written in Rust, chosen for throughput on a hot path that inspects every reading.</p><hr /><h2 id="architectural-style">Architectural Style</h2><p>Not a layered REST service. It runs two concurrent components in one process: an <strong>HTTP API</strong> for managing preferences, and a <strong>background stream processor</strong> that routes telemetry per building. Its frequently-read state is kept <strong>in memory</strong>, with a database behind it for durability.</p><hr /><h2 id="internal-structure">Internal Structure</h2><figure><pre class="mermaid">graph TD
+    subgraph contracts-service
+        API[Axum HTTP API]
+        TUNNEL[Background Telemetry Tunnel]
+        CACHE[In-memory preference projection]
+    end
+    API --&gt; CACHE
+    TUNNEL --&gt; CACHE
+    API -.-&gt; DB[(durable store)]
+    BR1[(broker: raw readings)] --&gt; TUNNEL
+    TUNNEL --&gt; BR2[(broker: per-building feeds)]</pre></figure><hr /><h2 id="key-architectural-decisions">Key Architectural Decisions</h2><ul><li><strong>Rust on the hot path.</strong> The router inspects a high-frequency stream; the language choice is an architectural decision to keep that path cheap and predictable.</li><li><strong>In-memory projection.</strong> The set of known buildings (and their column preferences) is read on every reading but changed rarely, so it is held in a concurrent in-memory structure for lock-free reads; the database is touched only on startup (hydration) and on change (cold path).</li><li><strong>Route by building.</strong> A reading is forwarded to its own building&rsquo;s feed, keyed on the event&rsquo;s <span class="codespan-content"><code>buildingId</code></span> — one O(1) lookup, never a cross-building fan-out. Metric type is <strong>not</strong> gated: the dashboard&rsquo;s column preferences are display-only and no longer decide what telemetry flows, so views like the 3D model stay live regardless of the table&rsquo;s columns.</li><li><strong>Gather, do not define, the catalog.</strong> The service discovers each upstream service&rsquo;s self-describing metric catalog and aggregates it, so new metrics appear without any change here — an Open Host Service consuming each upstream&rsquo;s Published Language.</li><li><strong>Organised by role, not by layer.</strong> The crate root holds the composition root (<span class="codespan-content"><code>main</code></span>) and the shared kernel (<span class="codespan-content"><code>state</code></span>, <span class="codespan-content"><code>models</code></span>); the two inbound adapters live in <span class="codespan-content"><code>api/</code></span> (HTTP) and <span class="codespan-content"><code>tunnel.rs</code></span> (the Redis stream worker); outbound integrations and cross-cutting infrastructure — Mongo, peer discovery, Prometheus metrics — are grouped under <span class="codespan-content"><code>infra/</code></span>. Dependencies point inward: <span class="codespan-content"><code>api</code></span> and <span class="codespan-content"><code>tunnel</code></span> use <span class="codespan-content"><code>infra</code></span>, never the reverse.</li></ul><hr /><h2 id="integration">Integration</h2><ul><li>Subscribes to the raw-reading channel and publishes per-building feeds on the broker — see <a href="../data-flow">Communication &amp; Data Flow</a>.</li><li>Discovers metric catalogs from sensor-service and twin-service; receives default preferences seeded by twin-service.</li></ul><p>For the concurrency model, the tunnel internals, persistence status, and the API, see the <a href="../contracts">Contracts Service</a> internals page.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

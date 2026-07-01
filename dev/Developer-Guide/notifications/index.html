@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Notifications</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="-two-delivery-channels" data-depth="2"><a href="#-two-delivery-channels">📡 Two Delivery Channels</a></li><li data-target-id="-the-two-model-design" data-depth="2"><a href="#-the-two-model-design">🗃️ The Two-Model Design</a></li><li data-target-id="-the-subscription-setup-flow" data-depth="2"><a href="#-the-subscription-setup-flow">🔔 The Subscription Setup Flow</a></li><li data-target-id="-alert-dispatch-automated-vs-manual" data-depth="2"><a href="#-alert-dispatch-automated-vs-manual">📤 Alert Dispatch: Automated vs. Manual</a><ol><li data-target-id="automated-temperature-alert-post-notificationpushtemperature" data-depth="3"><a href="#automated-temperature-alert-post-notificationpushtemperature">Automated: Temperature Alert (POST /notification/push/temperature)</a></li><li data-target-id="manual-general-alert-post-notificationtrigger" data-depth="3"><a href="#manual-general-alert-post-notificationtrigger">Manual: General Alert (POST /notification/trigger)</a></li></ol></li><li data-target-id="-server-side-domain-filtering-a-gap" data-depth="2"><a href="#-server-side-domain-filtering-a-gap">🔇 Server-Side Domain Filtering: A Gap</a></li><li data-target-id="-stale-subscription-cleanup" data-depth="2"><a href="#-stale-subscription-cleanup">🧹 Stale Subscription Cleanup</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications" aria-current="page">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="-two-delivery-channels" data-depth="2"><a href="#-two-delivery-channels">📡 Two Delivery Channels</a></li><li data-target-id="-the-two-model-design" data-depth="2"><a href="#-the-two-model-design">🗃️ The Two-Model Design</a></li><li data-target-id="-the-subscription-setup-flow" data-depth="2"><a href="#-the-subscription-setup-flow">🔔 The Subscription Setup Flow</a></li><li data-target-id="-alert-dispatch-automated-vs-manual" data-depth="2"><a href="#-alert-dispatch-automated-vs-manual">📤 Alert Dispatch: Automated vs. Manual</a><ol><li data-target-id="automated-temperature-alert-post-notificationpushtemperature" data-depth="3"><a href="#automated-temperature-alert-post-notificationpushtemperature">Automated: Temperature Alert (POST /notification/push/temperature)</a></li><li data-target-id="manual-general-alert-post-notificationtrigger" data-depth="3"><a href="#manual-general-alert-post-notificationtrigger">Manual: General Alert (POST /notification/trigger)</a></li></ol></li><li data-target-id="-server-side-domain-filtering-a-gap" data-depth="2"><a href="#-server-side-domain-filtering-a-gap">🔇 Server-Side Domain Filtering: A Gap</a></li><li data-target-id="-stale-subscription-cleanup" data-depth="2"><a href="#-stale-subscription-cleanup">🧹 Stale Subscription Cleanup</a></li></ol></nav></div><h1 id="notifications" data-decorative="">Notifications</h1><p>CrowdVision&rsquo;s notification system is designed around a fundamental distinction: users who are <strong>actively watching the dashboard</strong> need a different delivery mechanism than users who are <strong>away from their browser</strong>. The system addresses both with two parallel, independently-managed channels.</p><hr /><h2 id="-two-delivery-channels">📡 Two Delivery Channels</h2><figure><pre class="mermaid">graph TD
+    Event[&quot;Alert Event&lt;br/&gt;(sensor threshold exceeded or manual trigger)&quot;]
+
+    Event --&gt; Redis[&quot;Redis pub/sub&lt;br/&gt;channel: 'notifications'&quot;]
+    Event --&gt; Push[&quot;Web Push (VAPID)&lt;br/&gt;pushService.ts&quot;]
+
+    Redis --&gt; Socket[&quot;Socket Service&lt;br/&gt;io.emit to all connected clients&quot;]
+    Socket --&gt; ActiveBrowser[&quot;Active Browser&lt;br/&gt;(in-app notification bell)&quot;]
+
+    Push --&gt; SW[&quot;Browser Service Worker&lt;br/&gt;(service-worker.js)&quot;]
+    SW --&gt; OS[&quot;OS Notification&lt;br/&gt;(works when tab is closed)&quot;]</pre></figure><p><strong>Channel 1 — WebSocket (active users):</strong> The Notification Service publishes the alert payload to a Redis <span class="codespan-content"><code>notifications</code></span> channel. The Socket Service, which holds the persistent Socket.IO connections, subscribes to this channel and forwards every message to all connected browsers via <span class="codespan-content"><code>io.emit('notification', data)</code></span>. The client stores incoming events in a reactive <span class="codespan-content"><code>socketState.notifications</code></span> array, incrementing an unread badge counter on the notification bell.</p><p><strong>Channel 2 — Web Push / VAPID (offline users):</strong> The Notification Service uses the <span class="codespan-content"><code>web-push</code></span> library and VAPID keys to push an encrypted payload directly to the browser&rsquo;s push endpoint. A registered service worker (<span class="codespan-content"><code>/service-worker.js</code></span>) wakes up to display an OS-level notification, even if the CrowdVision tab is closed or the browser is minimized.</p><p>Both channels fire on every alert. A user who is actively watching the dashboard receives both a real-time in-app update and an OS notification simultaneously.</p><hr /><h2 id="-the-two-model-design">🗃️ The Two-Model Design</h2><p>The Notification Service stores two separate documents per user in <span class="codespan-content"><code>notification-db</code></span>, deliberately kept apart.</p><figure><pre class="mermaid">classDiagram
+    class WebPushSubscription {
+        +String accountName
+        +String endpoint
+        +String keys.p256dh
+        +String keys.auth
+    }
+
+    class NotificationSubscription {
+        +String accountName
+        +String domainName
+        +SubscriptionPreference[] preferences
+    }
+
+    class SubscriptionPreference {
+        &lt;&lt;Value Object&gt;&gt;
+        +NotificationType notificationType
+        +Boolean isSubscribed
+    }
+
+    NotificationSubscription &quot;1&quot; *-- &quot;many&quot; SubscriptionPreference</pre></figure><p><strong><span class="codespan-content"><code>WebPushSubscription</code></span></strong> answers <em>&ldquo;what device can I push to?&rdquo;</em> — it stores the browser-issued push endpoint URL and the VAPID encryption keys (<span class="codespan-content"><code>p256dh</code></span> and <span class="codespan-content"><code>auth</code></span>). The <span class="codespan-content"><code>endpoint</code></span> field is unique. A single user can have multiple records if they use multiple browsers or devices.</p><p><strong><span class="codespan-content"><code>NotificationSubscription</code></span></strong> answers <em>&ldquo;what does this user want to receive?&rdquo;</em> — it stores per-domain, per-type opt-in preferences. The compound index <span class="codespan-content"><code>{ accountName, domainName }</code></span> is unique, so there is exactly one preferences document per user per domain.</p><p>The separation is intentional. A user can disable temperature alerts for a specific domain without losing their push endpoint registration. Conversely, if a user&rsquo;s push subscription expires, only <span class="codespan-content"><code>WebPushSubscription</code></span> needs to be rebuilt — their domain preferences are untouched.</p><div class="box warning"><header><h4>Warning</h4></header><div class="box-content"><p><strong>Known interface mismatch:</strong> The <span class="codespan-content"><code>INotificationSubscription</code></span> TypeScript interface declares the field as <span class="codespan-content"><code>notificationTypes: SubscriptionPreference[]</code></span>, but the Mongoose schema defines it as <span class="codespan-content"><code>preferences</code></span>. All runtime queries and upserts use <span class="codespan-content"><code>preferences</code></span>, so the interface declaration is stale. It should be renamed to match.</p></div></div><hr /><h2 id="-the-subscription-setup-flow">🔔 The Subscription Setup Flow</h2><p>A user subscribing to push notifications follows this sequence entirely client-side before any server call is made:</p><figure><pre class="mermaid">sequenceDiagram
+    participant U as User
+    participant Vue as Vue Frontend
+    participant SW as Browser (Service Worker)
+    participant NS as Notification Service
+
+    U-&gt;&gt;Vue: Clicks &quot;Enable Alerts&quot;
+    Vue-&gt;&gt;NS: GET /notification/public-key
+    NS--&gt;&gt;Vue: { publicVapidKey }
+    Vue-&gt;&gt;SW: navigator.serviceWorker.register('/service-worker.js')
+    Vue-&gt;&gt;SW: pushManager.getSubscription()
+
+    alt VAPID key has changed
+        SW--&gt;&gt;Vue: existing subscription (old key)
+        Vue-&gt;&gt;SW: subscription.unsubscribe()
+        Vue-&gt;&gt;SW: pushManager.subscribe({ applicationServerKey: newKey })
+    else No existing subscription
+        Vue-&gt;&gt;SW: pushManager.subscribe({ applicationServerKey })
+    end
+
+    SW--&gt;&gt;Vue: PushSubscription { endpoint, keys }
+    Vue-&gt;&gt;NS: POST /notification/subscribe&lt;br/&gt;{ accountName, subscription }
+    NS-&gt;&gt;NS: Upsert WebPushSubscription
+    NS-&gt;&gt;NS: Set default preferences (temperature: enabled)</pre></figure><p>The VAPID key rotation check (<span class="codespan-content"><code>areKeysEqual</code></span>) prevents stale subscriptions from silently failing. If the server&rsquo;s public key has changed since the user last subscribed (e.g., after a key rotation), the old subscription is discarded and rebuilt before being sent to the server.</p><hr /><h2 id="-alert-dispatch-automated-vs-manual">📤 Alert Dispatch: Automated vs. Manual</h2><p>Two distinct code paths produce alerts, with different triggering logic and throttling behaviour.</p><h3 id="automated-temperature-alert-post-notificationpushtemperature">Automated: Temperature Alert (<span class="codespan-content"><code>POST /notification/push/temperature</code></span>)</h3><p>Called internally by the Sensor Service whenever a temperature reading exceeds a room&rsquo;s threshold. This path has a <strong>5-minute Redis TTL cooldown</strong> per <span class="codespan-content"><code>buildingId + roomId</code></span> pair, preventing notification spam from high-frequency sensor readings.</p><p>The cache key format is: <span class="codespan-content"><code>temp_alert:{buildingId}:{roomId}</code></span></p><p>If the key exists in Redis, the request is silently acknowledged with <span class="codespan-content"><code>200 OK</code></span> and no push is sent. After a successful dispatch, the key is written with <span class="codespan-content"><code>EX 300</code></span>.</p><p>When no <span class="codespan-content"><code>domainName</code></span> is provided in the request body, the service resolves the target domains by calling <span class="codespan-content"><code>GET /twin/domain/:buildingId</code></span> on the Twin Service through the internal gateway.</p><h3 id="manual-general-alert-post-notificationtrigger">Manual: General Alert (<span class="codespan-content"><code>POST /notification/trigger</code></span>)</h3><p>Triggered by an administrator from the dashboard. This path has <strong>no cooldown</strong> — every call dispatches immediately. It:</p><ol><li>Resolves the building&rsquo;s domains via the Twin Service (<span class="codespan-content"><code>GET /twin/domain/:buildingName</code></span>).</li><li>Publishes to the Redis <span class="codespan-content"><code>notifications</code></span> channel for live WebSocket delivery.</li><li>Sends a Web Push to all opted-in users in each resolved domain.</li></ol><hr /><h2 id="-server-side-domain-filtering-a-gap">🔇 Server-Side Domain Filtering: A Gap</h2><p>The Socket Service broadcasts all Redis messages to <strong>every connected client</strong> with a single <span class="codespan-content"><code>io.emit('notification', data)</code></span>:</p><pre><code class="language-typescript">// socket-service/src/index.ts
+await redisSubscriber.subscribe('notifications', (message) =&gt; {
+    const data = JSON.parse(message);
+    io.emit('notification', data);  // &larr; no domain filter
+});</code></pre><p>The notification payload includes a <span class="codespan-content"><code>domainName</code></span> field, but the Socket Service does not use it to route messages to specific rooms or namespaces. Every connected user receives every notification regardless of domain membership. <strong>Domain-based filtering is the responsibility of the frontend.</strong></p><div class="box warning"><header><h4>Warning</h4></header><div class="box-content"><p><strong>Roadmap Fix:</strong> The Socket Service should be extended to use Socket.IO rooms keyed by <span class="codespan-content"><code>domainName</code></span>. On connection, the frontend would emit <span class="codespan-content"><code>join_room(domainName)</code></span> for each of the user&rsquo;s memberships (the <span class="codespan-content"><code>join_room</code></span> handler already exists in the socket service). The broadcast would then become <span class="codespan-content"><code>io.to(domainName).emit('notification', data)</code></span>, eliminating cross-domain notification leakage.</p></div></div><hr /><h2 id="-stale-subscription-cleanup">🧹 Stale Subscription Cleanup</h2><p>The <span class="codespan-content"><code>webpush.sendNotification</code></span> call can fail with two meaningful HTTP status codes from the push provider:</p><ul><li><strong><span class="codespan-content"><code>410 Gone</code></span></strong> — the browser has permanently unregistered this endpoint (user revoked permission or cleared site data).</li><li><strong><span class="codespan-content"><code>403 Forbidden</code></span></strong> — the subscription is invalid or the VAPID credentials are wrong.</li></ul><p>In both cases, <span class="codespan-content"><code>pushService.ts</code></span> automatically calls <span class="codespan-content"><code>Subscription.deleteOne({ endpoint })</code></span> to remove the stale record from <span class="codespan-content"><code>notification-db</code></span>. No manual cleanup is needed.</p><p>All other push errors (network failures, server-side 500s) are logged but do not remove the subscription, since they may be transient.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

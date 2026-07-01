@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Service Anatomy</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-shared-layered-architecture" data-depth="2"><a href="#the-shared-layered-architecture">The Shared Layered Architecture</a><ol><li data-target-id="layer-responsibilities" data-depth="3"><a href="#layer-responsibilities">Layer Responsibilities</a></li></ol></li><li data-target-id="deliberate-exceptions" data-depth="2"><a href="#deliberate-exceptions">Deliberate Exceptions</a></li><li data-target-id="cross-cutting-concerns" data-depth="2"><a href="#cross-cutting-concerns">Cross-Cutting Concerns</a></li><li data-target-id="the-services" data-depth="2"><a href="#the-services">The Services</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices" aria-current="page">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-shared-layered-architecture" data-depth="2"><a href="#the-shared-layered-architecture">The Shared Layered Architecture</a><ol><li data-target-id="layer-responsibilities" data-depth="3"><a href="#layer-responsibilities">Layer Responsibilities</a></li></ol></li><li data-target-id="deliberate-exceptions" data-depth="2"><a href="#deliberate-exceptions">Deliberate Exceptions</a></li><li data-target-id="cross-cutting-concerns" data-depth="2"><a href="#cross-cutting-concerns">Cross-Cutting Concerns</a></li><li data-target-id="the-services" data-depth="2"><a href="#the-services">The Services</a></li></ol></nav></div><h1 id="service-anatomy" data-decorative="">Service Anatomy</h1><p>At the macro level CrowdVision is a distributed system; at the micro level, <strong>most services are internally a small, layered, monolithic application</strong>. Standardising that internal shape means a developer can move between the Auth, Twin, Notification, and Sensor services and immediately know where the routing, the business logic, and the data access live.</p><p>This page describes the shared anatomy and the deliberate exceptions to it. Each service then has its own architecture page (linked below) for its structure and key decisions; the code-level walkthrough and API for each live in the <a href="../authentication">Implementation Reference</a> section.</p><hr /><h2 id="the-shared-layered-architecture">The Shared Layered Architecture</h2><p>The REST services follow a strict four-tier internal layering. Data flows in one direction: a request enters at the Router, passes to the Controller, is processed by the Service, and reaches the database through the Model.</p><figure><pre class="mermaid">graph TD
+    subgraph Single Microservice Boundary
+        R[&quot;Router Layer (router.ts)&quot;] --&gt; C[&quot;Controller Layer (controller/)&quot;]
+        C --&gt; S[&quot;Service Layer (services/)&quot;]
+        S --&gt; M[&quot;Model Layer (models/)&quot;]
+        M -.-&gt; DB[(Dedicated database)]
+    end</pre></figure><h3 id="layer-responsibilities">Layer Responsibilities</h3><ul><li><strong>Router</strong> — the entry point. Declares HTTP methods and paths, attaches middleware (such as authorization), and delegates to a Controller.</li><li><strong>Controller</strong> — HTTP concerns only. Reads the body, params, and headers, calls the Service, and shapes the JSON response or error. It contains no business logic.</li><li><strong>Service</strong> — the heart of the service. All business logic, threshold evaluation, and orchestration lives here.</li><li><strong>Model</strong> — the schemas and data access. It maps the aggregates from the <a href="../strategic-design">Domain model</a> onto storage and validates data.</li></ul><hr /><h2 id="deliberate-exceptions">Deliberate Exceptions</h2><p>Not every service fits the four-tier mould — and that is by design.</p><table><thead><tr><th>Service</th><th>Why it differs</th></tr></thead><tbody><tr><td>sensor-service</td><td>Layered, but the Controllers are generic: a microkernel resolves a per-metric module (Strategy) at request time, so new sensor types plug in without touching the core. It also splits a fast validation path from a slow persistence path.</td></tr><tr><td>contracts-service</td><td>Written in Rust/Axum, not Node. It pairs an HTTP API with a background task that routes the telemetry stream to each reading&rsquo;s building, and keeps its hot state in memory, backed by its own database for durability.</td></tr><tr><td>socket-service</td><td>A functional core / imperative shell instead of Controller/Service/Model, and no database — pure relay logic and event handlers wired by a thin composition root that only bridges the broker to WebSocket clients.</td></tr></tbody></table><hr /><h2 id="cross-cutting-concerns">Cross-Cutting Concerns</h2><p>Two concerns are factored out of every Express service into middleware rather than repeated in each controller:</p><ul><li><strong>Authorization.</strong> A middleware verifies the identity token and evaluates the principal&rsquo;s role for the requested context. See <a href="../middlewares">Auth Service: Middleware</a>.</li><li><strong>Error handling.</strong> Controllers and services throw typed errors; a single middleware at the bottom of the stack formats them into a consistent JSON shape. Also covered in <a href="../middlewares">Auth Service: Middleware</a>.</li></ul><hr /><h2 id="the-services">The Services</h2><p>Each service realises exactly one bounded context. Its architecture page covers internal structure and key decisions; the matching <a href="../authentication">Implementation Reference</a> page covers the code-level flows and API.</p><table><thead><tr><th>Service</th><th>Bounded Context</th><th>Stack</th><th>Page</th></tr></thead><tbody><tr><td>auth-service</td><td>Identity &amp; Access</td><td>Node.js / Express</td><td><a href="../auth-architecture">Authentication Service</a></td></tr><tr><td>twin-service</td><td>Building Management</td><td>Node.js / Express</td><td><a href="../twin-architecture">Digital Twin Service</a></td></tr><tr><td>sensor-service</td><td>Telemetry Ingestion</td><td>Node.js / Express</td><td><a href="../sensor-architecture">Sensor Service</a></td></tr><tr><td>contracts-service</td><td>Telemetry Distribution</td><td>Rust / Axum</td><td><a href="../contracts-architecture">Contracts Service</a></td></tr><tr><td>notification-service</td><td>Alerting</td><td>Node.js / Express</td><td><a href="../notification-architecture">Notification Service</a></td></tr><tr><td>socket-service</td><td>Real-time transport (generic)</td><td>Node.js / Socket.IO</td><td><a href="../socket-architecture">Socket Service</a></td></tr></tbody></table>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

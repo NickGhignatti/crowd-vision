@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Communication &amp; Data Flow</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="synchronous-communication" data-depth="2"><a href="#synchronous-communication">Synchronous Communication</a></li><li data-target-id="asynchronous-communication" data-depth="2"><a href="#asynchronous-communication">Asynchronous Communication</a></li><li data-target-id="path-1-live-telemetry-to-the-browser" data-depth="2"><a href="#path-1-live-telemetry-to-the-browser">Path 1: Live Telemetry to the Browser</a></li><li data-target-id="path-2-threshold-alert-to-the-user" data-depth="2"><a href="#path-2-threshold-alert-to-the-user">Path 2: Threshold Alert to the User</a></li><li data-target-id="why-two-styles" data-depth="2"><a href="#why-two-styles">Why Two Styles</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow" aria-current="page">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="synchronous-communication" data-depth="2"><a href="#synchronous-communication">Synchronous Communication</a></li><li data-target-id="asynchronous-communication" data-depth="2"><a href="#asynchronous-communication">Asynchronous Communication</a></li><li data-target-id="path-1-live-telemetry-to-the-browser" data-depth="2"><a href="#path-1-live-telemetry-to-the-browser">Path 1: Live Telemetry to the Browser</a></li><li data-target-id="path-2-threshold-alert-to-the-user" data-depth="2"><a href="#path-2-threshold-alert-to-the-user">Path 2: Threshold Alert to the User</a></li><li data-target-id="why-two-styles" data-depth="2"><a href="#why-two-styles">Why Two Styles</a></li></ol></nav></div><h1 id="communication-amp-data-flow" data-decorative="">Communication &amp; Data Flow</h1><p>CrowdVision uses two communication styles, chosen deliberately per interaction:</p><ul><li><strong>Synchronous (request/response)</strong> over HTTP through the gateway — for user-driven actions and for the few service-to-service calls that need an immediate answer.</li><li><strong>Asynchronous (publish/subscribe)</strong> over Redis — for the high-frequency telemetry and alert flows, where producers must not be coupled to, or blocked by, consumers.</li></ul><p>This page maps both, and then walks the two end-to-end real-time paths.</p><hr /><h2 id="synchronous-communication">Synchronous Communication</h2><p>All external requests enter through the single gateway, which routes by URL prefix (see the routing table in the <a href="overview.qd)">Overview</a>. A handful of <strong>service-to-service</strong> calls also happen over HTTP on the internal network:</p><table><thead><tr><th>Caller</th><th>Callee</th><th>Purpose</th></tr></thead><tbody><tr><td>twin-service</td><td>sensor-service</td><td>On building creation/update, push a threshold baseline for the building&rsquo;s rooms.</td></tr><tr><td>twin-service</td><td>contracts-service</td><td>Seed a new building&rsquo;s default display preferences.</td></tr><tr><td>sensor-service</td><td>notification-service</td><td>Forward a temperature reading that may warrant an alert.</td></tr><tr><td>notification-service</td><td>twin-service</td><td>Resolve which domains a building belongs to before selecting recipients.</td></tr><tr><td>contracts-service</td><td>sensor-service / twin-service</td><td>Discover each service&rsquo;s self-describing metric catalog.</td></tr></tbody></table><p>These calls are intentionally few. The design keeps the request path short and avoids synchronous chains on the hot path; anything high-frequency goes over the broker instead.</p><div class="box note"><header><h4>Identity travels with the request</h4></header><div class="box-content"><p>There is no central session store. <span class="codespan-content"><code>auth-service</code></span> mints a signed identity token; every other service verifies it <strong>locally</strong> and reads the principal&rsquo;s memberships, roles, and domains from it. No service calls <span class="codespan-content"><code>auth-service</code></span> to authorize a request.</p></div></div><hr /><h2 id="asynchronous-communication">Asynchronous Communication</h2><p>Redis is the publish/subscribe backbone. Three channels carry the event flow:</p><table><thead><tr><th>Channel</th><th>Publisher</th><th>Subscriber</th><th>Carries</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry:raw</code></span></td><td>sensor-service</td><td>contracts-service</td><td>Every accepted reading, as a normalized event.</td></tr><tr><td><span class="codespan-content"><code>telemetry:filtered:{buildingId}</code></span></td><td>contracts-service</td><td>socket-service</td><td>Every reading for that building, routed by the event&rsquo;s own <span class="codespan-content"><code>buildingId</code></span>.</td></tr><tr><td><span class="codespan-content"><code>notifications</code></span></td><td>notification-service</td><td>socket-service</td><td>Alert events for delivery to the browser.</td></tr></tbody></table><p>Publishers never know who (if anyone) is listening, and the broker absorbs bursts, so a slow or restarting consumer cannot back-pressure a sensor.</p><hr /><h2 id="path-1-live-telemetry-to-the-browser">Path 1: Live Telemetry to the Browser</h2><p>The defining flow: a reading becomes a live update on the dashboard, shaped per building.</p><figure><pre class="mermaid">sequenceDiagram
+    participant Sensor as Sensor source
+    participant SS as sensor-service
+    participant R as Redis
+    participant CS as contracts-service
+    participant WS as socket-service
+    participant UI as Vue client
+
+    Sensor-&gt;&gt;SS: submit reading
+    Note over SS: validate, persist, normalize
+    SS-&gt;&gt;R: PUBLISH telemetry:raw
+    R--&gt;&gt;CS: telemetry:raw event
+    Note over CS: read the event's own buildingId &rarr; route
+    CS-&gt;&gt;R: PUBLISH telemetry:filtered:{buildingId}
+    R--&gt;&gt;WS: telemetry:filtered:{buildingId} event
+    WS-&gt;&gt;UI: emit &quot;telemetry&quot; to room building:{id}</pre></figure><p><span class="codespan-content"><code>contracts-service</code></span> is the routing stage: it republishes each reading to its own building&rsquo;s channel (an O(1) lookup on the event&rsquo;s <span class="codespan-content"><code>buildingId</code></span>), so a reading reaches exactly one building&rsquo;s feed and never leaks into another&rsquo;s. It does <strong>not</strong> filter by metric type — every metric a building produces is forwarded, and the dashboard&rsquo;s column preferences only decide what the table <em>displays</em>, client-side. <span class="codespan-content"><code>socket-service</code></span> then delivers it to exactly the clients watching that building (see <a href="../services/socket.qd)">Socket Service</a>.</p><hr /><h2 id="path-2-threshold-alert-to-the-user">Path 2: Threshold Alert to the User</h2><p>When a reading crosses a configured bound, the alert path runs in parallel to the telemetry path.</p><figure><pre class="mermaid">sequenceDiagram
+    participant SS as sensor-service
+    participant NS as notification-service
+    participant TW as twin-service
+    participant R as Redis
+    participant WS as socket-service
+    participant U as User
+
+    SS-&gt;&gt;NS: temperature reading worth checking
+    Note over NS: throttle repeats (per-room cooldown)
+    NS-&gt;&gt;TW: which domains is this building in?
+    TW--&gt;&gt;NS: domain names
+    Note over NS: select opted-in recipients
+    NS-&gt;&gt;R: PUBLISH notifications
+    NS-&gt;&gt;U: Web Push to registered devices
+    R--&gt;&gt;WS: notifications event (domainName)
+    WS-&gt;&gt;U: emit &quot;notification&quot; to that domain's room</pre></figure><p>The alert path is owned by <a href="../notification">notification-service</a>: it suppresses repeats with a short cooldown, resolves recipients via <span class="codespan-content"><code>twin-service</code></span>, and fans out over two channels — an in-app event through the broker and socket, and a Web Push to offline devices. The in-app event carries the resolved <span class="codespan-content"><code>domainName</code></span>, so socket-service delivers it only to that domain&rsquo;s connected members rather than broadcasting.</p><hr /><h2 id="why-two-styles">Why Two Styles</h2><table><thead><tr><th>Concern</th><th>Style</th><th>Reason</th></tr></thead><tbody><tr><td>User actions (login, CRUD)</td><td>Synchronous</td><td>The caller needs an immediate, ordered result.</td></tr><tr><td>Provisioning between services</td><td>Synchronous (best-effort)</td><td>Simple to reason about; failures are tolerated and re-tried later.</td></tr><tr><td>Telemetry &amp; alerts</td><td>Asynchronous</td><td>High volume, many consumers, and producers that must never block.</td></tr></tbody></table>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

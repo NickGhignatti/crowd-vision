@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision user guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content=".">
+    <meta name="quarkdown:search-index" content="./search-index.json">
+    <title>User Guide</title>
+    <script src="./script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="./lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="./lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="./theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="what-you-can-do" data-depth="2"><a href="#what-you-can-do">What you can do</a></li><li data-target-id="who-it-is-for" data-depth="2"><a href="#who-it-is-for">Who it is for</a></li><li data-target-id="how-to-use-this-guide" data-depth="2"><a href="#how-to-use-this-guide">How to use this guide</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>User Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="getting-started" data-decorative="">Getting Started</h3><ul><li><a href="./registration">Account Registration</a></li><li><a href="./login">Login</a></li><li><a href="./sso-login">Enterprise Login (SSO)</a></li></ul><h3 id="using-the-platform" data-decorative="">Using the Platform</h3><ul><li><a href="./dashboard">Dashboard</a></li><li><a href="./building-table">Customizing the Data Table</a></li><li><a href="./sensors">Charts &amp; Simulator</a></li><li><a href="./twin">The Digital Twin</a></li><li><a href="./building-data">Upload a Digital Twin</a></li><li><a href="./domains">Domains</a></li><li><a href="./domain-admin">Domain Administration</a></li><li><a href="./assistant">Using the Assistant</a></li></ul><h2 id="information" data-decorative="">Information</h2><ul><li><a href="./notifications">Notifications</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="what-you-can-do" data-depth="2"><a href="#what-you-can-do">What you can do</a></li><li data-target-id="who-it-is-for" data-depth="2"><a href="#who-it-is-for">Who it is for</a></li><li data-target-id="how-to-use-this-guide" data-depth="2"><a href="#how-to-use-this-guide">How to use this guide</a></li></ol></nav></div><h1 id="user-guide" data-decorative="">User Guide</h1><p>Welcome to the <strong>CrowdVision</strong> User Guide.</p><p>CrowdVision is a digital twin and crowd-analytics platform. It helps you monitor building occupancy, environmental conditions, and safety alerts in real time — from a single office floor to an entire campus.</p><figure><img src="media/app-overview@216628908.png" alt="The CrowdVision dashboard after signing in" /></figure><p><em>Figure 1 — The dashboard you reach after signing in.</em></p><hr /><h2 id="what-you-can-do">What you can do</h2><table><thead><tr><th>Capability</th><th>What it gives you</th></tr></thead><tbody><tr><td>3D Digital Twin</td><td>A live, interactive 3D replica of your buildings and rooms.</td></tr><tr><td>Analytics Dashboard</td><td>Real-time tables and charts of occupancy and environmental data.</td></tr><tr><td>Smart Notifications</td><td>Instant alerts for overcrowding or high temperature, in-app and as browser push.</td></tr><tr><td>Data Management</td><td>Tools to manage domains, buildings, and room data.</td></tr></tbody></table><hr /><h2 id="who-it-is-for">Who it is for</h2><ul><li><strong>Facility managers</strong> — a bird&rsquo;s-eye view of building health, with rapid response to alerts.</li><li><strong>Administrators</strong> — manage access, configure domains, and maintain the digital twin.</li><li><strong>General users</strong> — check room availability and stay informed about the spaces they use.</li></ul><div class="box note"><header><h4>Account access</h4></header><div class="box-content"><p>Some views can be browsed as a guest, but actions such as editing rooms or managing domains require a registered account with the right role.</p></div></div><hr /><h2 id="how-to-use-this-guide">How to use this guide</h2><p>The guide follows the order you will naturally use the product: create an account, sign in, then explore each view. Use the navigation on the left to jump to any topic.</p><figure><pre class="mermaid">flowchart LR
+    A[&quot;Create an account&quot;] --&gt; B[&quot;Sign in&quot;]
+    B --&gt; C[&quot;Dashboard&quot;]
+    C --&gt; D[&quot;Customise the table&quot;]
+    C --&gt; E[&quot;Charts &amp; simulator&quot;]
+    B --&gt; F[&quot;Digital Twin (3D)&quot;]
+    B --&gt; G[&quot;Domains&quot;]
+    G --&gt; H[&quot;Administration&quot;]</pre></figure><div class="box tip"><header><h4>About the figures</h4></header><div class="box-content"><p>Every image in this guide is currently a <strong>placeholder</strong> that describes the screen it represents. To replace one with a real screenshot, drop your image into <span class="codespan-content"><code>documentation/user/assets/figures/</code></span> using the file name shown in the placeholder and recompile. See <span class="codespan-content"><code>assets/README.md</code></span> for the full shot list.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

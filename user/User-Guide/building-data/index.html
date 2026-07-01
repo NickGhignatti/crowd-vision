@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision user guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Upload a Digital Twin</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="how-to-upload" data-depth="2"><a href="#how-to-upload">How to upload</a></li><li data-target-id="the-building-json" data-depth="2"><a href="#the-building-json">The building JSON</a><ol><li data-target-id="building-fields" data-depth="3"><a href="#building-fields">Building fields</a></li><li data-target-id="room-fields" data-depth="3"><a href="#room-fields">Room fields</a></li><li data-target-id="coordinate-system" data-depth="3"><a href="#coordinate-system">Coordinate system</a></li></ol></li><li data-target-id="private-domains" data-depth="2"><a href="#private-domains">Private domains</a><ol><li data-target-id="joining-a-private-domain" data-depth="3"><a href="#joining-a-private-domain">Joining a private domain</a></li><li data-target-id="administrators-creating-a-private-domain" data-depth="3"><a href="#administrators-creating-a-private-domain">Administrators: creating a private domain</a></li></ol></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>User Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="getting-started" data-decorative="">Getting Started</h3><ul><li><a href="../registration">Account Registration</a></li><li><a href="../login">Login</a></li><li><a href="../sso-login">Enterprise Login (SSO)</a></li></ul><h3 id="using-the-platform" data-decorative="">Using the Platform</h3><ul><li><a href="../dashboard">Dashboard</a></li><li><a href="../building-table">Customizing the Data Table</a></li><li><a href="../sensors">Charts &amp; Simulator</a></li><li><a href="../twin">The Digital Twin</a></li><li><a href="../building-data" aria-current="page">Upload a Digital Twin</a></li><li><a href="../domains">Domains</a></li><li><a href="../domain-admin">Domain Administration</a></li><li><a href="../assistant">Using the Assistant</a></li></ul><h2 id="information" data-decorative="">Information</h2><ul><li><a href="../notifications">Notifications</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="how-to-upload" data-depth="2"><a href="#how-to-upload">How to upload</a></li><li data-target-id="the-building-json" data-depth="2"><a href="#the-building-json">The building JSON</a><ol><li data-target-id="building-fields" data-depth="3"><a href="#building-fields">Building fields</a></li><li data-target-id="room-fields" data-depth="3"><a href="#room-fields">Room fields</a></li><li data-target-id="coordinate-system" data-depth="3"><a href="#coordinate-system">Coordinate system</a></li></ol></li><li data-target-id="private-domains" data-depth="2"><a href="#private-domains">Private domains</a><ol><li data-target-id="joining-a-private-domain" data-depth="3"><a href="#joining-a-private-domain">Joining a private domain</a></li><li data-target-id="administrators-creating-a-private-domain" data-depth="3"><a href="#administrators-creating-a-private-domain">Administrators: creating a private domain</a></li></ol></li></ol></nav></div><h1 id="upload-a-digital-twin" data-decorative="">Upload a Digital Twin</h1><p>A building is created by uploading a single JSON file that describes its rooms and 3D layout. This page covers that file format and how to upload it, then explains private domains.</p><hr /><h2 id="how-to-upload">How to upload</h2><ol><li>Open the <strong>Digital Twin</strong> view.</li><li>In the left menu, click <strong>Register Building</strong>.</li><li>Select your <span class="codespan-content"><code>.json</code></span> file.</li><li>Review the name, thresholds, and per-room capacity, then save. The building appears in the 3D scene.</li></ol><p>Alternatively, from the <strong>Administrator Panel</strong>, select a domain and use <strong>Upload Building Data (JSON)</strong> to attach the building to that domain at the same time.</p><figure><img src="media/register-building@1806569550.png" alt="The Register Building modal" /></figure><p><em>Figure 1 — The Register Building modal: upload the JSON, then review name, thresholds, and capacities.</em></p><hr /><h2 id="the-building-json">The building JSON</h2><p>A building cannot be built room by room in the UI; the whole structure is one file.</p><pre><code class="language-json">{
+  &quot;id&quot;: &quot;building-main&quot;,
+  &quot;name&quot;: &quot;Main Campus Building&quot;,
+  &quot;rooms&quot;: [
+    {
+      &quot;id&quot;: &quot;room-101&quot;,
+      &quot;name&quot;: &quot;Lecture Hall A&quot;,
+      &quot;capacity&quot;: 120,
+      &quot;color&quot;: &quot;#4f86c6&quot;,
+      &quot;position&quot;: { &quot;x&quot;: 0, &quot;y&quot;: 0, &quot;z&quot;: 0 },
+      &quot;dimensions&quot;: { &quot;width&quot;: 20, &quot;height&quot;: 4, &quot;depth&quot;: 15 }
+    },
+    {
+      &quot;id&quot;: &quot;room-102&quot;,
+      &quot;name&quot;: &quot;Study Room B&quot;,
+      &quot;capacity&quot;: 30,
+      &quot;position&quot;: { &quot;x&quot;: 25, &quot;y&quot;: 0, &quot;z&quot;: 0 },
+      &quot;dimensions&quot;: { &quot;width&quot;: 10, &quot;height&quot;: 4, &quot;depth&quot;: 8 }
+    }
+  ]
+}</code></pre><h3 id="building-fields">Building fields</h3><table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>id</code></span></td><td>string</td><td>Yes</td><td>Stable, human-readable identifier (e.g. <span class="codespan-content"><code>main-campus</code></span>).</td></tr><tr><td><span class="codespan-content"><code>name</code></span></td><td>string</td><td>No</td><td>Display name. Defaults to <span class="codespan-content"><code>id</code></span> if omitted.</td></tr><tr><td><span class="codespan-content"><code>rooms</code></span></td><td>array</td><td>Yes</td><td>At least one room object.</td></tr></tbody></table><h3 id="room-fields">Room fields</h3><table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>id</code></span></td><td>string</td><td>Yes</td><td>Unique room id within the building.</td></tr><tr><td><span class="codespan-content"><code>name</code></span></td><td>string</td><td>No</td><td>Display name. Defaults to <span class="codespan-content"><code>id</code></span>.</td></tr><tr><td><span class="codespan-content"><code>capacity</code></span></td><td>number</td><td>Yes</td><td>Maximum safe occupancy; drives the dashboard status indicators.</td></tr><tr><td><span class="codespan-content"><code>position</code></span></td><td>object</td><td>Yes</td><td><span class="codespan-content"><code>{ x, y, z }</code></span> — the room&rsquo;s centre point in the 3D scene.</td></tr><tr><td><span class="codespan-content"><code>dimensions</code></span></td><td>object</td><td>Yes</td><td><span class="codespan-content"><code>{ width, height, depth }</code></span> — the room&rsquo;s size, same unit as <span class="codespan-content"><code>position</code></span>.</td></tr><tr><td><span class="codespan-content"><code>color</code></span></td><td>string (hex)</td><td>No</td><td>Default room colour (e.g. <span class="codespan-content"><code>#4f86c6</code><span style="background-color: rgba(79, 134, 198, 1.0);" class="color-preview"></span></span>).</td></tr></tbody></table><h3 id="coordinate-system">Coordinate system</h3><p>Rooms are placed by their <span class="codespan-content"><code>position</code></span> (centre) and <span class="codespan-content"><code>dimensions</code></span> (size). The origin <span class="codespan-content"><code>{ x: 0, y: 0, z: 0 }</code></span> is the centre of the scene.</p><ul><li><strong>x</strong> — left/right.</li><li><strong>y</strong> — floor level. Ground floor uses <span class="codespan-content"><code>y: 0</code></span>; upper floors use positive <span class="codespan-content"><code>y</code></span> spaced by floor height.</li><li><strong>z</strong> — front/back.</li></ul><p>To place rooms side by side without overlap, offset <span class="codespan-content"><code>x</code></span> or <span class="codespan-content"><code>z</code></span> by at least <span class="codespan-content"><code>width / 2 + neighbour_width / 2</code></span>.</p><div class="box note"><header><h4>Thresholds are set after upload</h4></header><div class="box-content"><p>Temperature limits are <strong>not</strong> part of the JSON. Set them per room or per building after upload, through Edit Room / Edit Building (see <a href="twin.qd)">The Digital Twin</a>.</p></div></div><hr /><h2 id="private-domains">Private domains</h2><p>Every domain is either <strong>public</strong> or <strong>private</strong>:</p><ul><li><strong>Public</strong> domains are discoverable — any signed-in user can find them in the Domains list and request to join.</li><li><strong>Private</strong> domains are hidden — they do not appear in the list and cannot be searched. Only invited users who know the domain can join. Private is the default.</li></ul><h3 id="joining-a-private-domain">Joining a private domain</h3><ul><li><strong>OTP invite</strong> — your administrator shares an invite QR code; you enter the six-digit code during registration (see <a href="../getting-started/registration.qd)">Account Registration</a>.</li><li><strong>SSO</strong> — for enterprise domains, you join through Single Sign-On, no OTP needed (see <a href="../getting-started/sso-login.qd)">Enterprise Login (SSO)</a>.</li></ul><h3 id="administrators-creating-a-private-domain">Administrators: creating a private domain</h3><p>When creating a domain in the Administrator Panel, leave <strong>Visible from outside</strong> off (the default). Share the invite QR code only with the people you want to onboard.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

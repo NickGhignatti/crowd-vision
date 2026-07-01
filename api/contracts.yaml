@@ -1,0 +1,134 @@
+openapi: 3.1.0
+info:
+  title: Contracts Service API
+  description: >
+    Telemetry distribution control plane. Stores each building's allowed metric
+    columns (used by the background tunnel to filter the live feed) and exposes
+    the aggregated metric catalog discovered from the other services.
+    Implemented in Rust (Axum).
+  version: 1.0.0
+servers:
+  - url: http://localhost/contracts
+    description: Gateway endpoint for the Contracts Service
+
+components:
+  parameters:
+    BuildingId:
+      in: path
+      name: building_id
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    GetPreferencesResponse:
+      type: object
+      properties:
+        building_id:
+          type: string
+          example: "hq-01"
+        allowed_columns:
+          type: array
+          items: { type: string }
+          example: ["roomName", "roomMaxOccupancy", "temperature"]
+
+    UpdatePreferencesRequest:
+      type: object
+      required: [allowed_columns]
+      properties:
+        allowed_columns:
+          type: array
+          items: { type: string }
+          example: ["roomName", "peopleCount", "airQuality"]
+
+    UpdatePreferencesResponse:
+      type: object
+      properties:
+        status: { type: string, example: "success" }
+        building_id: { type: string, example: "hq-01" }
+        active_columns: { type: integer, example: 3 }
+
+    MetricCatalog:
+      type: object
+      properties:
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              metricKey: { type: string, example: "temperature" }
+              label: { type: string, example: "Temperature" }
+              interfaceName: { type: string, example: "ITemperature" }
+              unit: { type: string, example: "C" }
+              sourceService: { type: string, example: "sensor-service" }
+              fields:
+                type: array
+                items: { type: object }
+
+# Contracts endpoints are not behind JWT authentication.
+security: []
+
+paths:
+  /:
+    get:
+      summary: Aggregated metric catalog
+      description: >
+        Discovers every service exposing a `*_METRICS_URL`, fetches each
+        `/contracts` endpoint, and returns the de-duplicated union of metrics.
+      tags: [Discovery]
+      responses:
+        "200":
+          description: The combined catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricCatalog"
+
+  /preferences/{building_id}:
+    parameters:
+      - $ref: "#/components/parameters/BuildingId"
+    get:
+      summary: Get a building's allowed columns
+      tags: [Preferences]
+      responses:
+        "200":
+          description: The building's preference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetPreferencesResponse"
+        "404":
+          $ref: "error.yaml#/components/responses/NotFound"
+    post:
+      summary: Replace a building's allowed columns
+      description: >
+        Mutates the in-memory projection immediately and persists to the
+        database on a fire-and-forget background task.
+      tags: [Preferences]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePreferencesRequest"
+      responses:
+        "200":
+          description: Preference updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdatePreferencesResponse"
+
+  /preferences/init/{building_id}:
+    post:
+      summary: Seed default preferences for a new building
+      description: >
+        Idempotently inserts the default columns (`roomName`,
+        `roomMaxOccupancy`) when the building has no entry yet. Safe to call
+        repeatedly. Invoked by the twin-service on building creation.
+      tags: [Preferences]
+      parameters:
+        - $ref: "#/components/parameters/BuildingId"
+      responses:
+        "200":
+          description: Defaults seeded (or already present)

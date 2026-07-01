@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Socket Service Architecture</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a></li><li data-target-id="internal-structure" data-depth="2"><a href="#internal-structure">Internal Structure</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture" aria-current="page">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a></li><li data-target-id="internal-structure" data-depth="2"><a href="#internal-structure">Internal Structure</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav></div><h1 id="socket-service-architecture" data-decorative="">Socket Service Architecture</h1><p><strong>Bounded context:</strong> real-time transport (generic) · <strong>Stack:</strong> Node.js / Socket.IO · <strong>Code-level walkthrough:</strong> <a href="../socket">Socket Service</a></p><p>The socket-service is the bridge between the broker and the browser. It carries per-building telemetry and alerts to connected clients over WebSockets. It is classified as a <strong>generic subdomain</strong> (see <a href="../domain/telemetry-distribution.qd)">Telemetry Distribution</a>: pure transport, with no domain model and no database.</p><hr /><h2 id="architectural-style">Architectural Style</h2><p>Deliberately the simplest service in the system: <strong>no persistence and no domain model</strong>. Rather than Controller/Service/Model layering it follows a <em>functional core / imperative shell</em> split — pure relay logic (channel-to-room mapping) and JWT verification in a small core, broker- and socket-event handlers that receive their dependencies as arguments, and a thin composition root (<span class="codespan-content"><code>index.ts</code></span>) that wires them together and starts listening. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.</p><p>Although a generic subdomain, it is <strong>not anonymous</strong>: a handshake middleware verifies the auth-service JWT (carried by the <span class="codespan-content"><code>authentication_token</code></span> cookie) before any event runs, so every socket has a known account and domain set. This is what lets the relay scope delivery per tenant rather than blindly broadcasting.</p><hr /><h2 id="internal-structure">Internal Structure</h2><figure><pre class="mermaid">graph LR
+    BR[(broker)] --&gt;|alerts + per-building feeds| SUB[Broker subscriber]
+    SUB --&gt; IO[Socket.IO server]
+    IO --&gt;|room-scoped / broadcast| CL[Connected clients]</pre></figure><hr /><h2 id="key-architectural-decisions">Key Architectural Decisions</h2><ul><li><strong>Pure transport, no model.</strong> Treating real-time delivery as a generic subdomain keeps all domain logic out of it and concentrates modelling effort on the core services.</li><li><strong>Authenticated at the edge.</strong> The JWT is verified once on the handshake, not per message; the resulting identity is server-held, so a client can never join a domain or building room it isn&rsquo;t entitled to.</li><li><strong>Room-scoped telemetry, domain-scoped notifications.</strong> Clients receive readings only for buildings they have joined, and notifications only for their own domain; tenants stay isolated. Only a notification with no domain (a system-wide message) is broadcast.</li><li><strong>Stateless relay.</strong> The service holds no durable state, so an instance can be replaced freely.</li><li><strong>Scaling is an explicit concern.</strong> Running more than one instance requires sticky sessions for the handshake and a broker-backed adapter to deliver across instances — a known extension point rather than a current capability.</li></ul><hr /><h2 id="integration">Integration</h2><ul><li>Subscribes to the alert channel and the per-building telemetry feeds (<span class="codespan-content"><code>telemetry:filtered:&lt;id&gt;</code></span>), and emits them to clients — see <a href="../data-flow">Communication &amp; Data Flow</a>.</li><li>Holds no database and calls no other service synchronously.</li></ul><p>For the channel-to-event mapping, the client subscription protocol, and scaling notes, see the <a href="../socket">Socket Service</a> internals page.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

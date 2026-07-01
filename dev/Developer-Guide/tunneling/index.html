@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Sensor Data Communication</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="core-components" data-depth="2"><a href="#core-components">Core Components</a></li><li data-target-id="sequence-diagram" data-depth="2"><a href="#sequence-diagram">Sequence Diagram</a></li><li data-target-id="why-per-building-routing" data-depth="2"><a href="#why-per-building-routing">Why Per-Building Routing?</a></li><li data-target-id="frontend-subscription-pattern" data-depth="2"><a href="#frontend-subscription-pattern">Frontend Subscription Pattern</a></li><li data-target-id="channel-naming-convention" data-depth="2"><a href="#channel-naming-convention">Channel Naming Convention</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Authentication Service</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../authentication">Authentication Service</a></li><li><a href="../middlewares">Authentication Service: Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling" aria-current="page">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="core-components" data-depth="2"><a href="#core-components">Core Components</a></li><li data-target-id="sequence-diagram" data-depth="2"><a href="#sequence-diagram">Sequence Diagram</a></li><li data-target-id="why-per-building-routing" data-depth="2"><a href="#why-per-building-routing">Why Per-Building Routing?</a></li><li data-target-id="frontend-subscription-pattern" data-depth="2"><a href="#frontend-subscription-pattern">Frontend Subscription Pattern</a></li><li data-target-id="channel-naming-convention" data-depth="2"><a href="#channel-naming-convention">Channel Naming Convention</a></li></ol></nav></div><h1 id="sensor-data-communication" data-decorative="">Sensor Data Communication</h1><p>To ensure high throughput and low latency, the system utilizes a unidirectional data tunnel orchestrated via <strong>Redis Pub/Sub</strong>. The architecture strictly separates concerns: production, routing, and distribution are handled by three independent services that never call each other directly.</p><hr /><h2 id="core-components">Core Components</h2><ol><li><p><strong>Sensor Service (The Producer)</strong> — Blindly emits the absolute truth of the physical world.</p><ul><li>Publishes full telemetry payloads to <span class="codespan-content"><code>telemetry:raw</code></span>.</li><li>Each message includes a <span class="codespan-content"><code>type</code></span> field identifying the metric (<span class="codespan-content"><code>&quot;temperature&quot;</code></span>, <span class="codespan-content"><code>&quot;peopleCount&quot;</code></span>, <span class="codespan-content"><code>&quot;airQuality&quot;</code></span>).</li></ul></li><li><p><strong>Contracts Service (The Router)</strong> — A Rust/Axum microservice that routes each reading to the building it belongs to.</p><ul><li>Subscribes to <span class="codespan-content"><code>telemetry:raw</code></span>.</li><li>Maintains an O(1) in-memory <span class="codespan-content"><code>DashMap</code></span> of known buildings (and their dashboard column preferences, used by the HTTP API).</li><li>For each message it reads the event&rsquo;s <strong>own</strong> <span class="codespan-content"><code>buildingId</code></span> and republishes the payload to that one building&rsquo;s channel — a single O(1) lookup, never a fan-out across buildings.</li><li>Publishes the payload to <span class="codespan-content"><code>telemetry:filtered:&lt;building_id&gt;</code></span>.</li></ul></li><li><p><strong>Socket Service (The Distributor)</strong> — Stateless WebSocket relay.</p><ul><li>When a client connects via WebSocket, it subscribes to <span class="codespan-content"><code>telemetry:filtered:&lt;building_id&gt;</code></span>.</li><li>Pushes data directly down the TCP socket to the browser.</li></ul></li></ol><hr /><h2 id="sequence-diagram">Sequence Diagram</h2><figure><pre class="mermaid">sequenceDiagram
+    participant S as Sensor Service
+    participant R1 as Redis (telemetry:raw)
+    participant C as Contracts Service (Rust)
+    participant R2 as Redis (telemetry:filtered:*)
+    participant W as Socket Service
+    participant FE as Vue Frontend
+
+    Note over FE, W: 1. Connection &amp; Subscription
+    FE-&gt;&gt;W: Connect WebSocket (buildingId: alpha)
+    W-&gt;&gt;R2: SUBSCRIBE telemetry:filtered:alpha
+    FE-&gt;&gt;C: GET /preferences/alpha
+    Note over C: Returns DashMap entry for &quot;alpha&quot;
+    Note over FE: Renders table columns from allowed_columns
+
+    Note over S, FE: 2. High-Frequency Telemetry Loop
+    loop Every Sensor Tick
+        S-&gt;&gt;R1: PUBLISH { type:&quot;temperature&quot;, buildingId:&quot;alpha&quot;, roomId:&quot;r1&quot;, value:22 }
+        R1--&gt;&gt;C: Message received
+        Note over C: Read buildingId = &quot;alpha&quot; (building known? ✓)&lt;br/&gt;No metric-type gate &mdash; every metric is forwarded
+        C-&gt;&gt;R2: PUBLISH telemetry:filtered:alpha { type:&quot;temperature&quot;, ... }
+        R2--&gt;&gt;W: Message received
+        W-&gt;&gt;FE: WebSocket push { type:&quot;temperature&quot;, roomId:&quot;r1&quot;, value:22 }
+        Note over FE: telemetryHandler mutates data in-place&lt;br/&gt;triggerRef() batched to next animation frame
+    end
+
+    Note over FE, C: 3. Preference Update (User Saves Column Changes)
+    FE-&gt;&gt;C: POST /preferences/alpha { allowed_columns: [&quot;roomName&quot;,&quot;temperature&quot;,&quot;airQuality&quot;] }
+    Note over C: DashMap.insert &mdash; O(1) shard lock&lt;br/&gt;Changes dashboard columns only; tunnel routing is unaffected
+    C--&gt;&gt;FE: 200 OK</pre></figure><hr /><h2 id="why-per-building-routing">Why Per-Building Routing?</h2><p>The raw telemetry payload is a flat JSON object carrying its own <span class="codespan-content"><code>buildingId</code></span>:</p><pre><code class="language-json">{ &quot;type&quot;: &quot;temperature&quot;, &quot;buildingId&quot;: &quot;alpha&quot;, &quot;roomId&quot;: &quot;r1&quot;, &quot;timestamp&quot;: 1718000000, &quot;value&quot;: 22.4 }</code></pre><p>The Contracts Service reads <span class="codespan-content"><code>payload[&quot;buildingId&quot;]</code></span> and, if that building is known, forwards the <strong>entire payload unchanged</strong> to <span class="codespan-content"><code>telemetry:filtered:&lt;buildingId&gt;</code></span>. This approach:</p><ul><li><strong>Routes to exactly one building</strong>: keying on the event&rsquo;s own <span class="codespan-content"><code>buildingId</code></span> means a reading reaches only that building&rsquo;s feed — no cross-building leak, no iterating every preference.</li><li><strong>Preserves context</strong>: Downstream consumers always receive <span class="codespan-content"><code>roomId</code></span>, <span class="codespan-content"><code>timestamp</code></span>, and <span class="codespan-content"><code>buildingId</code></span> — they never need to re-fetch spatial context.</li><li><strong>Stays O(1)</strong>: a single <span class="codespan-content"><code>DashMap</code></span> lookup per event, regardless of how many buildings exist.</li></ul><div class="box note"><header><h4>No metric-type gate</h4></header><div class="box-content"><p>Telemetry is <strong>not</strong> filtered by the dashboard&rsquo;s column selection. Every metric a building produces is forwarded; which columns the dashboard table <em>shows</em> is decided client-side from the same preferences. This keeps other consumers — notably the 3D model view, which always needs temperature and air-quality — live regardless of the table&rsquo;s column setup.</p></div></div><hr /><h2 id="frontend-subscription-pattern">Frontend Subscription Pattern</h2><p>The Vue client listens for telemetry on a single <span class="codespan-content"><code>&quot;telemetry&quot;</code></span> Socket.IO event (not per-channel). The socket-service emits this event only to the <span class="codespan-content"><code>building:&lt;id&gt;</code></span> room, so each client only receives data for buildings it has joined.</p><p>Subscription and live data are owned by a shared Pinia store (<span class="codespan-content"><code>stores/sensorData.ts</code></span>), consumed through the <span class="codespan-content"><code>useBuildingSensor(buildingId, type)</code></span> composable. Many components can want the same building&rsquo;s metric (e.g. the 3D model and the room list both read temperature); they share <strong>one</strong> reference-counted bucket instead of each opening its own fetch + subscription + handler.</p><p><strong>Lifecycle, centralised in the store:</strong></p><ol><li>The first <span class="codespan-content"><code>acquire</code></span> of a <span class="codespan-content"><code>(type, building)</code></span> creates a bucket, REST-fetches the latest snapshot, and — if it&rsquo;s the building&rsquo;s first metric — emits <span class="codespan-content"><code>subscribe_building</code></span> to join the room.</li><li>A <strong>single</strong> global <span class="codespan-content"><code>socket.on('telemetry', &hellip;)</code></span> handler dispatches each event to its bucket via an O(1) <span class="codespan-content"><code>(type, buildingId)</code></span> map lookup — there are no per-component handlers to accumulate.</li><li>The last <span class="codespan-content"><code>release</code></span> of a bucket tears it down; once a building has no buckets left, the store emits <span class="codespan-content"><code>unsubscribe_building</code></span>.</li><li>Data mutations are batched to the next <span class="codespan-content"><code>requestAnimationFrame</code></span> via <span class="codespan-content"><code>triggerRef()</code></span> on a <span class="codespan-content"><code>shallowRef</code></span>, decoupling Vue&rsquo;s scheduler from the Three.js render loop — critical for the digital twin&rsquo;s 60fps camera animation.</li><li>On socket reconnect the store re-emits <span class="codespan-content"><code>subscribe_building</code></span> for every active building and refetches, recovering anything missed while disconnected.</li></ol><hr /><h2 id="channel-naming-convention">Channel Naming Convention</h2><table><thead><tr><th align="left">Channel</th><th align="left">Publisher</th><th align="left">Subscriber</th><th align="left">Content</th></tr></thead><tbody><tr><td align="left"><span class="codespan-content"><code>telemetry:raw</code></span></td><td align="left">sensor-service</td><td align="left">contracts-service</td><td align="left">Full sensor payload for all buildings</td></tr><tr><td align="left"><span class="codespan-content"><code>telemetry:filtered:&lt;building_id&gt;</code></span></td><td align="left">contracts-service</td><td align="left">socket-service</td><td align="left">Per-building payload (all of that building&rsquo;s metrics)</td></tr><tr><td align="left"><span class="codespan-content"><code>alerts:temperature</code></span></td><td align="left">sensor-service</td><td align="left">notification-service</td><td align="left">Threshold violation events</td></tr></tbody></table>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>
