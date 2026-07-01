@@ -1,0 +1,220 @@
+.docname {Adding an Agent Tool}
+.include {docs}
+
+A "tool" is a capability the language model can call — search docs, fetch a building, send a
+notification. For how the agent uses tools at runtime, see [Agent Service](../services/agent.qd).
+
+The agent loop (`app/agent/loop.py`) discovers tools through a `REGISTRY`, validates the
+model's JSON arguments through your Pydantic `Args` model, calls `run`, and feeds the result
+back into the conversation. The whole contract is structural: a tool is any object that
+exposes the right attributes, so you never inherit from a base class. This guide walks through
+adding one end-to-end.
+
+---
+
+## 1. Pick The Shape
+
+Before writing code, answer four questions:
+
+1. **What does the tool do, in one sentence?** This becomes the `description` the model reads.
+2. **What inputs does it need?** Each input becomes a field on the `Args` Pydantic model.
+3. **What does it return?** Keep payloads small — the result is fed back into the model's
+   context as JSON, where it costs tokens and can distract the model. Project away fields it
+   does not need.
+4. **Read-only or write?** The current agent has no confirmation flow for write actions. Keep
+   tools read-only unless authorization, confirmation, audit logging, and retry behavior are
+   explicitly designed.
+
+.box type:{warning}
+    The current twin tools do not forward the caller JWT or enforce `ToolContext`
+    authorization. Do not copy that behavior for sensitive tools: authorize against `ctx.user`,
+    or call a downstream endpoint that enforces the caller's identity.
+
+---
+
+## 2. Where The File Lives
+
+- **Single tool, focused domain** → a new file in `app/agent/tools/<name>.py`.
+- **Cluster of related tools sharing a backend** → group them in one file (see
+  `app/agent/tools/twin.py` — four tools sharing the same twin-service backend and client
+  factory).
+
+Use `# ─── tool_name ──...` divider comments inside multi-tool files to keep them scannable.
+
+---
+
+## 3. Write The `Args` Model
+
+```python
+from pydantic import BaseModel, Field
+
+
+class GetRoomArgs(BaseModel):
+    building_id: str = Field(description="Building containing the room.")
+    room_id: str = Field(description="Id of the room within the building.")
+```
+
+The reason every field is a Pydantic field with a description is that the agent turns this
+class into a JSON Schema (`Args.model_json_schema()`) and hands it to the model — so this class
+*is* the model-facing contract, not just internal validation.
+
+- **Every field gets a `Field(description=...)`.** The model sees the complete generated JSON
+  Schema — argument names, types, required fields, defaults, enums, constraints, and
+  descriptions. Descriptions explain the semantics those structural fields cannot express, so
+  vague descriptions still cause vague tool calls.
+- **Use the right primitive** (`str`, `int`, `bool`, `Literal[...]`, enums). Pydantic enforces
+  it and the model sees it in the schema.
+- **Add constraints** where they help: `Field(default=5, ge=1, le=10)` (see `search_docs.py`).
+- **Keep names plain.** `building_id`, not `bldgIdentifier` — the model produces these names
+  from the schema.
+- **Resist making everything optional.** Required-by-default produces fewer "I forgot to pass
+  that" tool errors.
+
+---
+
+## 4. Write The Tool Class
+
+```python
+from app.agent.tools.base import ToolContext, ToolResult
+
+
+class GetRoomTool:
+    name = "get_room"
+    description = (
+        "Fetch a single room's full state: capacity, current occupancy, temperature, "
+        "dimensions, position. Use after locating the room id via list_rooms."
+    )
+    Args = GetRoomArgs
+
+    async def run(self, args: GetRoomArgs, ctx: ToolContext) -> ToolResult:
+        ...
+```
+
+.var {headers}
+   - Attribute
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `name`
+      - Stable identifier the model emits in `tool_calls`. Snake_case, unique.
+    - - `description`
+      - What the tool does *and when to use it* versus alternatives. See below.
+    - - `Args`
+      - The Pydantic class from step 3; the registry exposes it via `model_json_schema()`.
+    - - `run`
+      - Async method, signature `(self, args: <YourArgs>, ctx: ToolContext) -> ToolResult`.
+
+### Writing A Good `description`
+
+The model uses this to choose between tools, so state **what it does** *and* **when to pick it
+over neighbors**. Compare:
+
+- ❌ "Get a room." — too thin; the model will guess.
+- ✅ "Fetch a single room's full state... Use *after* locating the room id via `list_rooms`." —
+  names the precondition and steers the model away from calling with a guessed id.
+
+For a tool with a sibling that does something close (`search_docs` versus the twin tools),
+explicitly say what it is *not* for — see `SearchDocsTool` in `search_docs.py`.
+
+### About The Generic Protocol
+
+`Tool` in `app/agent/tools/base.py` is a `Protocol[ArgsT]` — generic over your `Args` type. You
+**do not** inherit from it: Python's structural typing means that as long as your class has
+`name`, `description`, `Args`, and a matching `run`, it already satisfies `Tool[YourArgs]`. The
+type variable is what lets the type checker see that `run(args: GetRoomArgs, ...)` is a valid
+implementation rather than a signature violation.
+
+.box type:{note}
+    Do not widen your `run` parameter to `BaseModel` to "match the protocol" — that defeats the
+    point and loses type safety. Keep it narrow.
+
+---
+
+## 5. Implement `run`
+
+```python
+async def run(self, args: GetRoomArgs, ctx: ToolContext) -> ToolResult:
+    async with _client() as c:
+        r = await c.get(f"/building/{args.building_id}")
+    if r.status_code == 404:
+        return ToolResult(content=f"building {args.building_id} not found", is_error=True)
+    if r.status_code >= 400:
+        return ToolResult(content=f"twin-service error {r.status_code}: {r.text}", is_error=True)
+    ...
+    return ToolResult(content=room)
+```
+
+- **Return errors as data, don't raise.** Use `ToolResult(content=<message>, is_error=True)`.
+  The loop catches uncaught exceptions anyway, but a clean `is_error` message is sent back to
+  the model so it can recover (try a different id, ask the user). Raising is for genuine bugs.
+- **Use `ctx`:** `ctx.session` is an async SQLAlchemy session; `ctx.user` is the authenticated
+  `AuthUser` (use it to enforce per-tool access control before touching sensitive data);
+  `ctx.citations` accumulates citation candidates — prefer returning new ones via
+  `ToolResult(citations=[...])`, which the loop appends (see `SearchDocsTool`).
+- **Project the response.** When wrapping an HTTP call, return only the fields the model needs.
+- **Treat tool results as untrusted data.** Downstream responses and retrieved documents may
+  contain instruction-like text. Return structured, minimized payloads, and never rely on the
+  model to enforce authorization or decide whether sensitive data should be exposed.
+- **No prints, use `structlog`:** `from app.logging import get_logger; log = get_logger(__name__)`.
+- **No per-call global state.** Module-level singletons (a shared `httpx.AsyncClient`, a
+  retriever) are fine; per-call state belongs in `ctx` or local variables.
+
+---
+
+## 6. Register The Tool
+
+Open `app/agent/tools/__init__.py` and add two lines:
+
+```python
+from app.agent.tools.twin import GetRoomTool
+...
+REGISTRY.register(GetRoomTool())
+```
+
+Order does not matter. Duplicate `name`s raise at startup — that is intentional, to catch
+copy-paste collisions early.
+
+---
+
+## 7. Test It
+
+Three layers, lightest first:
+
+- **Args model** — if you put non-trivial validation on the args (regex, ranges, custom
+  validators), unit-test it under `tests/unit/`. Skip it for trivial fields.
+- **`run` with a fake backend** — inject a fake client/session and assert on the `ToolResult`.
+  Mock the *boundary* (httpx, the SQLAlchemy session), not the tool itself.
+- **Through the agent loop** — the integration suite has no reusable scripted `LLMClient` yet,
+  so for now test `run` at the backend boundary and smoke-test dispatch through `/ask`. When a
+  reusable fake model is added, assert the full tool-call and recovery sequence through
+  `Agent.answer`.
+
+---
+
+## 8. Run The Checks
+
+```bash
+npm run lint       # ruff + pyright, must be clean
+npm run test       # unit + integration
+```
+
+The checks catch many common mistakes, including invalid return annotations and ordinary type
+errors inside `run`. The generic `Tool[ArgsT]` protocol documents the intended relationship
+between `Args` and the `run` parameter, but registration currently stores tools as `Tool[Any]`;
+do not rely on Pyright alone to catch every mismatch between those two attributes. Exercise
+schema generation and dispatch in tests for non-trivial tools.
+
+---
+
+## Quick Checklist
+
+- [ ] File in `app/agent/tools/<name>.py` (or grouped sensibly with siblings).
+- [ ] `Args` is a `BaseModel`; every field has a `Field(description=...)`.
+- [ ] Class has `name` (snake_case, unique), `description` (with *when to use*), `Args`, async `run`.
+- [ ] `run(args: <YourArgs>, ctx: ToolContext) -> ToolResult` — narrow types, no widening to `BaseModel`.
+- [ ] Errors returned as `ToolResult(..., is_error=True)`, not raised.
+- [ ] Sensitive operations explicitly authorize `ctx.user`; write tools have confirmation and audit behavior.
+- [ ] Response projected to the minimum the model needs.
+- [ ] Tool results treated as untrusted data; authorization is enforced before returning data.
+- [ ] Registered in `app/agent/tools/__init__.py`.
+- [ ] `npm run lint` and `npm run test` pass.

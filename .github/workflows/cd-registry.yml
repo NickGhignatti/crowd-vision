@@ -2,13 +2,17 @@ name: push images to ghcr
 
 on:
   workflow_dispatch:
+    inputs:
+      service:
+        description: "Image(s) to build: 'all' or comma-separated (e.g. crowdvision-auth,crowdvision-client)"
+        required: false
+        default: "all"
   push:
     branches: ["master"]
     paths:
-      - "docker/**"
       - "server/**"
+      - "simulators/**"
       - "client/**"
-      - "k8s/**"
       - ".github/workflows/cd-registry.yml"
 
 env:
@@ -19,7 +23,86 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      any: ${{ steps.set.outputs.any }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Detect changed services
+        if: github.event_name == 'push'
+        id: filter
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+        with:
+          filters: |
+            crowdvision-auth: 'server/auth-service/**'
+            crowdvision-chat: 'server/chat-service/**'
+            crowdvision-twin: 'server/twin-service/**'
+            crowdvision-notification: 'server/notification-service/**'
+            crowdvision-socket: 'server/socket-service/**'
+            crowdvision-agent: 'server/agent-service/**'
+            crowdvision-sensor: 'server/sensor-service/**'
+            crowdvision-contracts: 'server/contracts-service/**'
+            crowdvision-simulator: 'simulators/sensor-simulator/**'
+            crowdvision-aq-simulator: 'simulators/aq-simulator/**'
+            crowdvision-client: 'client/**'
+            workflow: '.github/workflows/cd-registry.yml'
+
+      - name: Build matrix
+        id: set
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT: ${{ github.event.inputs.service }}
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          # Single source of truth: image -> build context, in sync with the dorny context above.
+          CONTEXTS='{
+            "crowdvision-auth":"./server/auth-service",
+            "crowdvision-chat":"./server/chat-service",
+            "crowdvision-twin":"./server/twin-service",
+            "crowdvision-notification":"./server/notification-service",
+            "crowdvision-socket":"./server/socket-service",
+            "crowdvision-agent":"./server/agent-service",
+            "crowdvision-sensor":"./server/sensor-service",
+            "crowdvision-contracts":"./server/contracts-service",
+            "crowdvision-simulator":"./simulators/sensor-simulator",
+            "crowdvision-aq-simulator":"./simulators/aq-simulator",
+            "crowdvision-client":"./client"
+          }'
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ -z "$INPUT" ] || [ "$INPUT" = "all" ]; then
+              SELECTED=$(echo "$CONTEXTS" | jq -c 'keys')
+            else
+              SELECTED=$(echo "$INPUT" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$";""))')
+            fi
+          else
+            # push: the 'workflow' filter means cd-registry.yml itself changed -> rebuild all
+            if echo "$CHANGED" | jq -e 'index("workflow")' >/dev/null; then
+              SELECTED=$(echo "$CONTEXTS" | jq -c 'keys')
+            else
+              SELECTED=$(echo "$CHANGED" | jq -c 'map(select(. != "workflow"))')
+            fi
+          fi
+
+          MATRIX=$(jq -nc --argjson ctx "$CONTEXTS" --argjson sel "$SELECTED" \
+            '{include: ($sel | map(select($ctx[.] != null) | {image: ., context: $ctx[.]}))}')
+          if [ "$(echo "$MATRIX" | jq '.include | length')" -gt 0 ]; then ANY=true; else ANY=false; fi
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "any=$ANY" >> "$GITHUB_OUTPUT"
+          echo "Selected images: $MATRIX"
+
   build-and-push:
+    needs: changes
+    if: ${{ needs.changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,32 +111,13 @@ jobs:
       security-events: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - context: ./server/auth-service
-            image: crowdvision-auth
-          - context: ./server/twin-service
-            image: crowdvision-twin
-          - context: ./server/notification-service
-            image: crowdvision-notification
-          - context: ./server/socket-service
-            image: crowdvision-socket
-          - context: ./server/agent-service
-            image: crowdvision-agent
-          - context: ./server/sensor-service
-            image: crowdvision-sensor
-          - context: ./server/contracts-service
-            image: crowdvision-contracts
-          - context: ./simulators/sensor-simulator
-            image: crowdvision-simulator
-          - context: ./simulators/aq-simulator
-            image: crowdvision-aq-simulator
-          - context: ./client
-            image: crowdvision-client
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       - name: Set lowercase image prefix
         run: |
@@ -61,10 +125,10 @@ jobs:
           echo "IMAGE_PREFIX=ghcr.io/$OWNER_LOWERCASE" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -74,8 +138,60 @@ jobs:
         if: matrix.image == 'crowdvision-client'
         run: echo "BUILD_ARGS=VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}" >> $GITHUB_ENV
 
-      - name: Build and push ${{ matrix.image }}
-        uses: docker/build-push-action@v6
+      # Build into the runner's local daemon only (push: false + load: true).
+      # Publishing happens below, AFTER the Trivy gate passes, so a vulnerable
+      # image never reaches GHCR. load:true requires a single-platform build,
+      # which this is — revisit if `platforms:` is ever added.
+      - name: Build ${{ matrix.image }} (local, pre-scan)
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          load: true
+          build-args: ${{ env.BUILD_ARGS }}
+          tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Security scan (Trivy) ────────────────────────────────────────────────
+      # This scan gates the push step below: any finding fails the job BEFORE
+      # the image is published.
+      # Scope: OS packages ONLY (vuln-type: os). Application dependencies
+      # (npm/pip/cargo) are already gated PRE-MERGE by the per-service CI
+      # workflows (npm audit --audit-level=high --omit=dev, uv audit,
+      # cargo audit), so
+      # scanning libraries here too would duplicate that gate with a different DB —
+      # Trivy additionally flags bundled/vendored JS (e.g. swagger-ui-dist) that
+      # `overrides` cannot patch, producing unactionable failures. Trivy's job here
+      # is the OS layer the PR-time audits can't see.
+      #   - exit-code 1 + ignore-unfixed: block only on FIXABLE HIGH/CRITICAL OS CVEs.
+      #   - Base images run apk/apt upgrade at build time to keep this green.
+      #   - .trivyignore holds deliberate, justified CVE waivers.
+      - name: Scan image for vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+          format: sarif
+          output: trivy-results-${{ matrix.image }}.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          vuln-type: os # OS packages only — app deps gated by per-service CI
+
+      - name: Upload Trivy scan results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
+        continue-on-error: true
+        with:
+          sarif_file: trivy-results-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
+
+      # Same context/build-args/cache as the pre-scan build, so this resolves
+      # entirely from the still-warm gha cache (no recompilation) and pushes
+      # the exact layers that were just scanned, now also tagged :latest.
+      - name: Push ${{ matrix.image }} (scan passed)
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ${{ matrix.context }}
           push: true
@@ -84,39 +200,10 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # ── Security scan (Trivy) ────────────────────────────────────────────────
-      # Scope: OS packages ONLY (vuln-type: os). Application dependencies
-      # (npm/pip/cargo) are already gated PRE-MERGE by ci-audit.yml
-      # (npm audit --audit-level=high --omit=dev, uv audit, cargo audit), so
-      # scanning libraries here too would duplicate that gate with a different DB —
-      # Trivy additionally flags bundled/vendored JS (e.g. swagger-ui-dist) that
-      # `overrides` cannot patch, producing unactionable failures. Trivy's job here
-      # is the OS layer the PR-time audits can't see.
-      #   - exit-code 1 + ignore-unfixed: block only on FIXABLE HIGH/CRITICAL OS CVEs.
-      #   - Base images run apk/apt upgrade at build time to keep this green.
-      #   - .trivyignore holds deliberate, justified CVE waivers.
-      - name: 🔍 Scan image for vulnerabilities (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
-          format: sarif
-          output: trivy-results-${{ matrix.image }}.sarif
-          severity: HIGH,CRITICAL
-          exit-code: '1'
-          ignore-unfixed: true
-          trivyignores: .trivyignore
-          vuln-type: os                 # OS packages only — app deps gated by ci-audit
-
-      - name: Upload Trivy scan results to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        continue-on-error: true
-        with:
-          sarif_file: trivy-results-${{ matrix.image }}.sarif
-          category: trivy-${{ matrix.image }}
 
       - name: Print image tag
-        run: |
-          echo "Successfully pushed ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}"
+        # Pass expansions through env (set as a literal value), never inline
+        # them into the shell — avoids template-injection as a standing pattern.
+        env:
+          IMAGE_REF: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+        run: echo "Successfully pushed $IMAGE_REF"

@@ -12,6 +12,9 @@ class AuthUser:
     user_id: str
     roles: list[str] = field(default_factory=list)
     domains: list[str] = field(default_factory=list)
+    # Raw JWT, kept so downstream tools can forward the caller's identity to other
+    # services (e.g. twin-service, which now authenticates its routes).
+    raw_token: str | None = None
 
     @property
     def permissions(self) -> list[str]:
@@ -78,4 +81,6 @@ async def require_user(request: Request) -> AuthUser:
     if not token:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing auth token")
 
-    return _decode(token, settings.jwt_secret)
+    user = _decode(token, settings.jwt_secret)
+    user.raw_token = token
+    return user

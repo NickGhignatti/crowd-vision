@@ -1,7 +1,7 @@
 /**
- * Full lockfile reset behind `just clean-install`. For every JS workspace it
+ * Full lockfile reset behind `just setup clean-install`. For every JS workspace it
  * wipes node_modules + package-lock.json, then regenerates the lockfile; for
- * every Python workspace it regenerates uv.lock. `just install` then installs
+ * every Python workspace it regenerates uv.lock. `just setup install` then installs
  * from the fresh locks.
  *
  * Lockfiles are regenerated with --cpu=x64 --os=linux so platform-specific

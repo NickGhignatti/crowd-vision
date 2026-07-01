@@ -9,14 +9,15 @@ Identity and Access Management (IAM) in CrowdVision is handled exclusively by th
 
 The `Account` is the central identity record in the system. 
 
-.code lang:{typescript} 
-    export interface IAccount extends Document {
-        name: string;
-        email: string;
-        password: string;
-        memberships: IDomainMembership[];
-        totpSecret?: string;
-    }
+```typescript
+export interface IAccount extends Document {
+    name: string;
+    email: string;
+    password: string;
+    memberships: IDomainMembership[];
+    totpSecret?: string;
+}
+```
 
 ### The "Embedded Memberships" Design Choice
 Notice that an account's organizational permissions (memberships) are embedded directly as an array of subdocuments within the Account document itself.

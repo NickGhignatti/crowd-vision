@@ -52,20 +52,22 @@ spec:
           envFrom:
             # MONGO_URI moved from a hardcoded inline env var to a proper secret.
             - secretRef:
-                name: sensor-service-secret   # MONGO_URI
+                name: sensor-service-secret   # MONGO_URI, JWT_SECRET
             - configMapRef:
                 name: common-config           # PORT, REDIS_URL, TWIN_SERVICE_URL
           volumeMounts:
             - name: tmp
               mountPath: /tmp
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: 3000
             initialDelaySeconds: 20
             periodSeconds: 20

@@ -2,7 +2,6 @@
 import NavBar from '@/components/layouts/NavBar.vue'
 import AddDomainModalModal from '@/components/modals/creation/AddDomainModal.vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
-import type { Domain } from '@/models/domain'
 
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -16,11 +15,15 @@ const domainsStore = useDomainsStore()
 const searchQuery = ref('')
 const isSubmitting = ref(false)
 const isAddDomainModalOpen = ref(false)
-const domains = computed<Domain[]>(() => domainsStore.allDomains ?? [])
-const userMemberships = computed(() => domainsStore.memberships ?? [])
+const rows = computed(() => domainsStore.unifiedDomains)
 
-const fetchAllDomains = async () => {
-  await domainsStore.fetchAll()
+// Loads domains, memberships, then the counts scoped to the resolved row set.
+const loadDomains = async (force = false) => {
+  await Promise.all([domainsStore.fetchAll(force), domainsStore.fetchMemberships(force)])
+  await Promise.all([
+    domainsStore.fetchMemberCounts(),
+    domainsStore.fetchBuildingCounts(rows.value.map((r) => r.name)),
+  ])
 }
 
 const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
@@ -28,7 +31,7 @@ const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
 
   try {
     await domainsStore.createNewDomain(payload)
-    await Promise.all([domainsStore.fetchAll(true), domainsStore.fetchMemberships(true)])
+    await loadDomains(true)
     isAddDomainModalOpen.value = false
   } catch (error) {
     console.error(error)
@@ -38,9 +41,9 @@ const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
 }
 
 const filteredDomains = computed(() => {
-  if (!searchQuery.value) return domains.value
+  if (!searchQuery.value) return rows.value
   const query = searchQuery.value.toLowerCase()
-  return domains.value.filter((d) => d.name.toLowerCase().includes(query))
+  return rows.value.filter((d) => d.name.toLowerCase().includes(query))
 })
 
 const handlePrivateDomain = () => {
@@ -48,7 +51,7 @@ const handlePrivateDomain = () => {
 }
 
 onMounted(() => {
-  Promise.all([fetchAllDomains(), domainsStore.fetchMemberships()])
+  loadDomains()
 })
 </script>
 
@@ -90,11 +93,10 @@ onMounted(() => {
       class="flex-1 min-h-0 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col"
     >
       <DomainsTable
-        :domains="filteredDomains"
-        :user-memberships="userMemberships"
+        :rows="filteredDomains"
         @refresh="
           () => {
-            fetchAllDomains()
+            loadDomains(true)
           }
         "
       />

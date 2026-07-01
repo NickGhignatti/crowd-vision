@@ -7,7 +7,7 @@ Don't worry — we have provided scripts to automate the hardest parts.
 
 ---
 
-## 🛠️ 1. Prerequisites
+## 1. Prerequisites
 
 **Install these two tools first — everything else depends on them:**
 
@@ -27,19 +27,20 @@ Once `just` and `mise` are available, the remaining tools can be managed by `mis
 
 ---
 
-## 📦 2. Installation
+## 2. Installation
 
 Clone the repository, then install toolchain versions and all language-specific dependencies:
 
-.code lang:{bash}
-    git clone https://github.com/NickGhignatti/crowd-vision.git
-    cd crowd-vision
-    mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires mise)
-    just install
+```bash
+git clone https://github.com/NickGhignatti/crowd-vision.git
+cd crowd-vision
+mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires mise)
+just setup install
+```
 
-`just install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; the agent-service Python deps; and the Rust contracts-service. The exact set of packages is **derived from moon's project registry** (`.moon/workspace.yml`, via `moon query projects`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+`just setup install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; plus the Python and Rust services' dependencies. The exact set of packages is **derived from moon's project registry** (`.moon/workspace.yml`, via `moon query projects`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
 
-The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked` and Rust uses `cargo fetch`. Set `JOBS=N` to cap parallelism (default 4): `JOBS=2 just install`.
+The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked` and Rust uses `cargo fetch`. Set `JOBS=N` to cap parallelism (default 4): `JOBS=2 just setup install`.
 
 ### Lockfiles & Cross-Platform Regeneration
 
@@ -47,22 +48,24 @@ CrowdVision's CI runs on **Linux**, so every committed `package-lock.json` must 
 
 To avoid this, **never let a plain `npm install` rewrite a committed lockfile**. Regenerate locks only through the dedicated recipe, which forces Linux resolution:
 
-.code lang:{bash}
-    just clean-install   # wipes every node_modules + lock, regenerates for Linux, reinstalls
+```bash
+just setup clean-install   # wipes every node_modules + lock, regenerates for Linux, reinstalls
+```
 
 To regenerate just one service's lockfile (e.g. after adding a dependency) without the full wipe:
 
-.code lang:{bash}
-    npm install --prefix server/twin-service --package-lock-only --cpu=x64 --os=linux
+```bash
+npm install --prefix server/twin-service --package-lock-only --cpu=x64 --os=linux
+```
 
 The `--cpu=x64 --os=linux` flags make npm record the Linux optional tree even when you run the command on another OS; `--package-lock-only` updates the lock without touching `node_modules`.
 
 .box type:{warning}
-    **Never commit a Windows- or macOS-resolved lockfile.** If `git diff` shows optional `@emnapi/*` / `@unrs/*` entries being *removed* from a `package-lock.json`, you ran a plain `npm install` — discard it and regenerate with `just clean-install` (or the per-service command above). Run `just deps-check` before pushing to confirm every lockfile still passes `npm ci`.
+    **Never commit a Windows- or macOS-resolved lockfile.** If `git diff` shows optional `@emnapi/*` / `@unrs/*` entries being *removed* from a `package-lock.json`, you ran a plain `npm install` — discard it and regenerate with `just setup clean-install` (or the per-service command above). Run `just setup deps-check` before pushing to confirm every lockfile still passes `npm ci`.
 
 ---
 
-## 🔐 3. Environment Variables & Secrets
+## 3. Environment Variables & Secrets
 
 Microservices require secrets to communicate securely, encrypt tokens, and send push notifications. **Never commit `.env` files to version control.**
 
@@ -70,10 +73,11 @@ Microservices require secrets to communicate securely, encrypt tokens, and send 
 
 Run the interactive setup script. It skips any variable already present in `.env`, so it is safe to re-run at any time:
 
-.code lang:{bash}
-    just env
+```bash
+just stack env
+```
 
-You will be prompted for the following:
+These local-dev defaults are written to `.env` non-interactively (edit `.env` to override):
 
 .var {headers}
    - Variable
@@ -81,32 +85,19 @@ You will be prompted for the following:
    - Description
 
 .tablebyrows {.headers}
-    - - `MONGO_PORT`
-      - `27017`
-      - Exposed port for MongoDB containers (local Docker only).
+    - - `SERVER_PORT`
+      - `80`
+      - Host port the API gateway (Caddy) listens on.
     - - `CLIENT_PORT`
       - `8080`
       - Port the Vue client is served on.
-    - - `BACKEND_URL`
+    - - `DEV_URL`
       - `http://localhost`
-      - URL of the API gateway. Use `http://localhost` for Docker dev, `http://crowdvision.local` for k8s dev.
-    - - `CLIENT_URL`
-      - `http://localhost:8080`
-      - Browser origin used for CORS. Must match where you open the app.
-    - - `VITE_SIMULATOR_URL_AQ`
-      - `http://localhost/simulator/aq`
-      - Air quality simulator endpoint (external service).
-    - - `VITE_SIMULATOR_URL_TP`
-      - `http://localhost/simulator/tp`
-      - Temperature/presence simulator endpoint (external service).
-    - - `GOOGLE_API_KEY`
-      - *(empty)*
-      - Legacy agent key alias prompted by `just env`; optional.
-    - - `DEEPSEEK_API_KEY`
-      - *(empty)*
-      - Legacy agent key alias prompted by `just env`; optional.
+      - Base URL of the gateway; combined with the ports to build public-facing URLs.
 
-The following secrets are **generated automatically** by `just env` and written to `.env` — you do not need to supply them manually:
+The only interactive prompt is the optional `OPENROUTER_API_KEY` (leave empty to skip — the agent-service boots without it, but `/ask` fails on the first LLM hop).
+
+The following secrets are **generated automatically** by `just stack env` and written to `.env` — you do not need to supply them manually:
 
 *   `JWT_SECRET` — used by Auth, Twin, and Notification services to sign/verify JWTs.
 *   `INTERNAL_ADMIN_SECRET` — internal service-to-service credential.
@@ -115,118 +106,66 @@ The following secrets are **generated automatically** by `just env` and written 
 .box type:{warning}
     **Security Note:** All microservices that share `JWT_SECRET` must have the exact same value. If they differ, cross-service authorization will fail with `401 Unauthorized`.
 
-.box type:{note}
-    `just env` currently prompts for the legacy `GOOGLE_API_KEY` and
-    `DEEPSEEK_API_KEY` aliases. The recommended OpenRouter setup must be added manually:
-
-    .code lang:{bash}
-        OPENROUTER_API_KEY=<your-openrouter-key>
-        LLM_BASE_URL=https://openrouter.ai/api/v1
-        ANSWER_MODEL=openai/gpt-4o-mini
-        EMBEDDING_MODEL=openai/text-embedding-3-small
-
-    The key must authenticate against the configured `LLM_BASE_URL`. See the
-    [Agent Service](../services/agent.qd) guide for models, privileged overrides,
-    ingestion, evaluation, and observability.
-
-### Optional Langfuse Login Overrides
-
-The Docker Compose stack includes Langfuse for inspecting AI-agent traces, tool calls,
-tokens, cost, and latency. Its default local login is:
-
-*   Email: `admin@crowd-vision.local`
-*   Password: `langfuse-admin`
-
-For a shared development environment, add stronger credentials to the root `.env`
-**before the first Langfuse startup**:
-
-.code lang:{bash}
-    LANGFUSE_INIT_USER_EMAIL=your-email@example.com
-    LANGFUSE_INIT_USER_PASSWORD=use-a-strong-password
-
-These variables initialize the first account; changing them does not reset an account
-already stored in the Langfuse database. See [Running the Application](running.qd) for
-the access URL and operational notes.
-
-The current Compose stack also expects Langfuse project and infrastructure secrets in the
-root `.env`; `just env` does not generate them:
-
-.code lang:{bash}
-    LANGFUSE_PUBLIC_KEY=<project-public-key>
-    LANGFUSE_SECRET_KEY=<project-secret-key>
-    LANGFUSE_NEXTAUTH_SECRET=<random-secret>
-    LANGFUSE_SALT=<random-secret>
-    LANGFUSE_ENCRYPTION_KEY=<64-hex-character-key>
-    LANGFUSE_CLICKHOUSE_PASSWORD=<random-password>
-    LANGFUSE_MINIO_ROOT_PASSWORD=<random-password>
-
-To export agent traces to the Compose Langfuse instance, also configure the standard
-OpenTelemetry variables expected by `agent-service`:
-
-.code lang:{bash}
-    OTEL_EXPORTER_OTLP_ENDPOINT=http://langfuse-web:3000/api/public/otel
-    OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-    OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64-public-key-colon-secret-key>
-
 ### Manual VAPID Key Generation
 
 If you need to regenerate VAPID keys separately:
 
-.code lang:{bash}
-    node scripts/env/vapid.js
+```bash
+node scripts/env/vapid.js
+```
 
 Copy the output into your `.env` file.
 
 ---
 
-## 🐳 4. Running Locally with Docker Compose
+## 4. Running Locally with Docker Compose
 
 With your `.env` set up, start the full development stack:
 
-.code lang:{bash}
-    just dev
+```bash
+just stack dev
+```
 
 This starts all services with hot-reloading. When you save a source file, the change is reflected inside the running container instantly — no manual restart needed.
 
-**Skip heavy services you are not actively working on:**
+**Skip services you are not actively working on:**
 
-.code lang:{bash}
-    just dev exclude="agent"            # skip the Python AI service
-    just dev exclude="agent simulator"  # also skip simulator containers
+```bash
+just stack dev exclude="simulator"   # skip the simulator containers
+just stack dev exclude="client"      # skip the Vue client (e.g. run it separately via Vite)
+```
 
 See the [Running the Application](running.qd) page for the full Docker Compose reference.
 
 ---
 
-## 🌱 5. Bootstrapping the System (Provisioning)
+## 5. Bootstrapping the System (Provisioning)
 
 With empty databases you cannot log in. Run the provisioning script to create the initial Global Admin account and default Domain:
 
-.code lang:{bash}
-    node scripts/ops/provision.js
+```bash
+node scripts/ops/provision.js
+```
 
-Run this once after `just dev` reports all services as healthy. The script prompts you for the admin email, password, and domain name, then calls the live auth-service to register them.
-
-*(If you are working on the Python AI Agent, you can also re-ingest documentation into the
-knowledge base at any time with `just agent-ingest`. This does not remove stale versions of
-changed source files; see the [Agent Service](../services/agent.qd) guide.)*
+Run this once after `just stack dev` reports all services as healthy. The script prompts you for the admin email, password, and domain name, then calls the live auth-service to register them.
 
 ---
 
-## ☸️ 6. Kubernetes Deployment
+## 6. Kubernetes Deployment
 
 If you are deploying CrowdVision to a local or remote Kubernetes cluster, follow the steps below. For ongoing day-to-day k8s operations, see the [Kubernetes Configuration](kubernetes.qd) page.
 
 ### Step 1: Create the k3d Cluster (run once per machine)
 
-.code lang:{bash}
-    k3d cluster create crowdvision \
-      --servers 1 \
-      --agents 3 \
-      --api-port 127.0.0.1:6550 \
-      -p "80:80@loadbalancer" \
-      -p "443:443@loadbalancer" \
-      --k3s-arg "--disable=traefik@server:*"
+```bash
+k3d cluster create crowdvision \
+  --servers 1 \
+  --agents 3 \
+  --api-port 127.0.0.1:6550 \
+  -p "80:80@loadbalancer" \
+  -p "443:443@loadbalancer" \
+  --k3s-arg "--disable=traefik@server:*"
+```
 
 .var {headers}
    - Flag
@@ -246,16 +185,18 @@ If you are deploying CrowdVision to a local or remote Kubernetes cluster, follow
 
 Verify the cluster is reachable:
 
-.code lang:{bash}
-    kubectl cluster-info
-    kubectl get nodes
-    # All nodes should show STATUS: Ready
+```bash
+kubectl cluster-info
+kubectl get nodes
+# All nodes should show STATUS: Ready
+```
 
 ### Step 2: Configure Local DNS
 
-.code lang:{bash}
-    just k8s-hosts
-    # Prints: 127.0.0.1   crowdvision.local
+```bash
+just k8s hosts
+# Prints: 127.0.0.1   crowdvision.local
+```
 
 Open your hosts file as Administrator and add that line:
 *   Windows: `C:\Windows\System32\drivers\etc\hosts`
@@ -265,30 +206,32 @@ Open your hosts file as Administrator and add that line:
 
 The cluster needs credentials to pull images from GitHub Container Registry. Add to your `.env`:
 
-.code lang:{bash}
-    GHCR_USERNAME=nickghignatti
-    GHCR_TOKEN=<your GitHub PAT with read:packages scope>
+```bash
+GHCR_USERNAME=nickghignatti
+GHCR_TOKEN=<your GitHub PAT with read:packages scope>
+```
 
 Create a PAT at <https://github.com/settings/tokens> with `read:packages` scope.
 
 ### Step 4: Full Bootstrap
 
-.code lang:{bash}
-    just k8s-setup
+```bash
+just k8s setup
+```
 
 This single command runs in order:
 1. Installs the nginx Ingress Controller into `ingress-nginx` namespace.
 2. Waits until the Ingress controller pod is `Running`.
 3. Creates the `crowdvision` namespace.
-4. Runs `just k8s-secrets` — creates all Kubernetes Secret objects from your `.env`.
+4. Runs `just k8s secrets` — creates all Kubernetes Secret objects from your `.env`.
 5. Applies ConfigMaps, StatefulSets (databases), Deployments, Ingress, and monitoring.
 
 .box type:{warning}
-    `just k8s-secrets` must run after the namespace exists. `just k8s-setup` handles this ordering automatically. If you run `just k8s-secrets` manually before creating the namespace, it will fail with "namespaces not found".
+    `just k8s secrets` must run after the namespace exists. `just k8s setup` handles this ordering automatically. If you run `just k8s secrets` manually before creating the namespace, it will fail with "namespaces not found".
 
 ### Accessing the Platform
 
-After `just k8s-setup` completes, the platform is available at `http://crowdvision.local`. All services route through the nginx Ingress controller on port 80.
+After `just k8s setup` completes, the platform is available at `http://crowdvision.local`. All services route through the nginx Ingress controller on port 80.
 
 .var {headers}
    - Interface

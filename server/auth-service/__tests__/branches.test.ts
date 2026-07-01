@@ -21,7 +21,8 @@ jest.mock("../src/models/domain.js", () => ({
 jest.mock("../src/config/config.js", () => ({
   __esModule: true,
   getClientUrl: jest.fn(() => "http://client.example"),
-  getServerUrl: jest.fn(() => "http://auth.example"),
+  getGatewayUrl: jest.fn(() => "http://gateway.example"),
+  getPublicUrl: jest.fn(() => "http://public.example"),
   getTokenSecret: jest.fn(() => "test-token-secret"),
 }));
 
@@ -170,7 +171,7 @@ describe("Authentication service branches", () => {
     const parsedUrl = new URL(redirectUrl);
     const state = parsedUrl.searchParams.get("state");
     expect(parsedUrl.searchParams.get("redirect_uri")).toBe(
-      "http://auth.example/auth/sso/callback",
+      "http://public.example/auth/sso/callback",
     );
     expect(parsedUrl.searchParams.get("scope")).toBe(
       "openid email profile groups",
@@ -233,7 +234,7 @@ describe("Authentication service branches", () => {
     expect(mockedAccount.findOneAndUpdate).toHaveBeenNthCalledWith(
       1,
       {
-        name: "alice",
+        name: { $eq: "alice" },
       },
       {
         $pull: {
@@ -246,7 +247,7 @@ describe("Authentication service branches", () => {
     expect(mockedAccount.findOneAndUpdate).toHaveBeenNthCalledWith(
       2,
       {
-        name: "alice",
+        name: { $eq: "alice" },
       },
       {
         $push: {

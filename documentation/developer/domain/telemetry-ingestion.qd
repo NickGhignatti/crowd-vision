@@ -1,0 +1,148 @@
+.docname {Telemetry Ingestion Context}
+.include {docs}
+
+**Realised by:** sensor-service · **Subdomain type:** Core
+
+This page describes the design-time model of the Telemetry Ingestion context. How the service is structured to accept and route readings at runtime — the registry/dispatch mechanism that lets new sensor types be added — is an architectural concern and is covered in [Deep Dive into Microservices](../architecture/microservices.qd) and the [Sensor Service](../services/sensor.qd) page, not here.
+
+At the domain level, this context turns raw sensor input into validated, time-stamped readings, and holds the thresholds those readings are judged against.
+
+---
+
+## Ubiquitous Language
+
+.var {headers}
+   - Term
+   - Meaning in this context
+
+.tablebyrows {.headers}
+    - - Signal
+      - A single time-stamped reading from one room (people count, temperature, air quality).
+    - - Metric
+      - A category of signal, identified by a stable key.
+    - - Threshold
+      - A bound a metric is expected to stay within, for a building or a room.
+    - - Reading window
+      - The time range over which signals are aggregated for display.
+
+---
+
+## Signals as Aggregates
+
+We treat each metric as a small aggregate root of its own: an append-only reading that shares a common identity (which building, which room, when) plus its metric-specific values. Signals are conceptually immutable — a correction is a new reading, not an edit of an old one.
+
+.mermaid
+    classDiagram
+        class PeopleCountSignal {
+            <<Aggregate Root>>
+            +building
+            +roomId
+            +timestamp
+            +peopleCount
+        }
+        class TemperatureSignal {
+            <<Aggregate Root>>
+            +building
+            +roomId
+            +timestamp
+            +temperature
+        }
+        class AirQualitySignal {
+            <<Aggregate Root>>
+            +building
+            +roomId
+            +timestamp
+            +pollutants
+            +aqi
+        }
+
+We chose one aggregate per metric rather than a single generic "reading" so that each metric can carry its own fields and grow its own rules without entangling the others. Whether the set of metrics is fixed or open-ended was left flexible at this stage — the model is meant to accommodate metrics we have not designed yet.
+
+---
+
+## The Threshold Aggregate
+
+`BuildingThreshold` is the one mutable aggregate in this context: the consistency boundary around all of a Building's configured bounds, with optional per-room overrides modelled as value objects.
+
+.mermaid
+    classDiagram
+        class BuildingThreshold {
+            <<Aggregate Root>>
+            +buildingId
+            +Bound temperature
+            +Bound peopleCount
+            +Bound airQuality
+            +RoomThreshold[] rooms
+        }
+        class RoomThreshold {
+            <<Value Object>>
+            +roomId
+            +Bound temperature
+            +Bound peopleCount
+            +Bound airQuality
+        }
+        class Bound {
+            <<Value Object>>
+            +min
+            +max
+        }
+
+        BuildingThreshold "1" *-- "many" RoomThreshold : overrides
+        BuildingThreshold "1" *-- "many" Bound : building defaults
+        RoomThreshold "1" *-- "many" Bound : room overrides
+
+- We keep at most one threshold configuration per Building, so the aggregate owns the complete picture of that Building's bounds.
+- **Intended rule:** a room-level bound, when present, takes precedence over the building-level default for that room. Resolving the effective bound for a given reading is domain logic.
+
+### Value Objects: RoomThreshold and Bound
+
+The threshold aggregate is built from value objects. A **Bound** is a `min`/`max` pair with no identity — two bounds carrying the same numbers are the same bound — and a **RoomThreshold** is just a room's set of overriding bounds. Both are immutable descriptors owned by `BuildingThreshold`; we change them by replacing them on the aggregate, never by giving them a life of their own. The signals above, by contrast, are aggregate roots rather than value objects: each reading carries its own identity of *which room, when*.
+
+---
+
+## Validation as a Domain Rule
+
+Accepting a reading is a domain decision, not just a transport check. The intent is that an incoming reading is judged against the model *before* it is accepted, and that the outcome is a structured verdict the caller can act on — not an exception.
+
+```text
+validate(reading):
+    confirm the reading identifies a building, a room, and a time
+    confirm the metric-specific values are present and well-formed
+    return ok, or the list of reasons it was rejected
+```
+
+Designing validation to return a verdict (rather than throw) is a deliberate choice so that a rejected reading can be reported clearly to its source.
+
+The intended intake path is short: once a reading is validated, it is **normalized** into a canonical signal and **published into the platform** so it can flow on to the client; an invalid reading is rejected at the door and never enters the system.
+
+.mermaid
+    sequenceDiagram
+        participant S as Sensor source
+        participant I as Telemetry Ingestion
+        participant P as Rest of the platform
+        S->>I: submit a reading
+        Note over I: validate against the model
+        alt accepted
+            Note over I: normalize into a canonical signal
+            Note over I: record the signal
+            I->>P: publish the signal
+            Note over P: distributed and delivered to the client
+        else rejected
+            I-->>S: rejected, with reasons
+        end
+
+---
+
+## Published Language: the Metric description
+
+For the Telemetry Distribution context to make sense of readings without bespoke coupling, this context is meant to **describe its own metrics** — their key, label, unit, and fields — as a small, stable contract.
+
+```text
+Metric:
+    key         -- stable identifier, e.g. "temperature"
+    label       -- human-readable name
+    unit        -- optional unit of measure
+    fields[]    -- the shape of a reading of this metric
+```
+
+Publishing a self-describing metric is what allows a new metric type to become visible downstream without a coordinated change — an application of the Open Host Service / Published Language idea introduced in [Strategic Design](strategic-design.qd).

@@ -152,16 +152,25 @@ export class TemperatureService {
         (globalConfig as any).rooms?.get?.(roomId) ||
         (globalConfig as any).rooms?.[roomId];
       const activeThreshold = roomConfig || globalConfig;
+      const { maxTemp, minTemp } = activeThreshold;
 
-      if (
-        activeThreshold.maxTemp !== undefined &&
-        (temperature > activeThreshold.maxTemp || temperature < activeThreshold.minTemp)
-      ) {
+      // Evaluate each bound independently so the alert carries *which* limit was
+      // breached — downstream consumers can phrase/route high vs low differently.
+      const breach =
+        maxTemp !== undefined && temperature > maxTemp
+          ? { direction: "high", threshold: maxTemp }
+          : minTemp !== undefined && temperature < minTemp
+            ? { direction: "low", threshold: minTemp }
+            : undefined;
+
+      if (breach) {
         const eventPayload = JSON.stringify({
           buildingId,
           roomId,
           temperature,
           type: "temperature",
+          direction: breach.direction,
+          threshold: breach.threshold,
           timestamp: Date.now(),
         });
 

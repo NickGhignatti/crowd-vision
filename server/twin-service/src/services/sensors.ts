@@ -13,6 +13,13 @@ const syncThresholdClone = async (path: string, init: RequestInit) => {
   }
 };
 
+// sensor-service guards its threshold routes, so forward the caller's JWT as a
+// bearer token on this service-to-service call.
+const authHeaders = (authToken?: string): Record<string, string> => ({
+  "Content-Type": "application/json",
+  ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+});
+
 const createPayload = (
   building: Pick<IBuilding, "id" | "name" | "rooms">,
   maxTemperature?: number,
@@ -28,12 +35,13 @@ const createPayload = (
 export const syncBuildingClone = async (
   building: Pick<IBuilding, "id" | "name" | "rooms">,
   maxTemperature?: number,
+  authToken?: string,
 ) => {
   await syncThresholdClone(
     `/thresholds/buildings/${encodeURIComponent(building.id)}`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(authToken),
       body: JSON.stringify(createPayload(building, maxTemperature)),
     },
   );

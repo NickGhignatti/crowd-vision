@@ -1,0 +1,154 @@
+.docname {Identity & Access Context}
+.include {docs}
+
+**Realised by:** auth-service · **Subdomain type:** Supporting
+
+This page captures the *design-time* model of the Identity & Access context: the language, the aggregates, and the rules we committed to before writing code. It deliberately stays at the conceptual level — concrete routes, storage, and wire formats are decided later and documented in the [Services](../services/authentication.qd) section.
+
+The context answers three questions: *who is this principal*, *which organizations do they belong to*, and *what may they do there*. It is the upstream source of identity for the platform — it produces the identity token that every other context treats as a Published Language.
+
+---
+
+## Ubiquitous Language
+
+.var {headers}
+   - Term
+   - Meaning in this context
+
+.tablebyrows {.headers}
+    - - Account
+      - A principal (human or system) that can authenticate.
+    - - Domain
+      - An organization or tenant. The unit of multi-tenancy.
+    - - Membership
+      - The link that places an Account inside a Domain with a specific Role.
+    - - Role
+      - A ranked permission level used for authorization decisions.
+    - - Auth Strategy
+      - How a Domain verifies identity: managed internally, or delegated to an external identity provider.
+
+---
+
+## Aggregates
+
+We model two aggregate roots — `Account` and `Domain`. They are kept separate on purpose: an Account refers to a Domain only by its name (the shared identifier described in [Strategic Design](strategic-design.qd)), so the two can evolve independently rather than through a hard reference.
+
+.mermaid
+    classDiagram
+        class Account {
+            <<Aggregate Root>>
+            +name
+            +email
+            +credential
+            +secondFactorSeed
+            +Membership[] memberships
+        }
+        class Membership {
+            <<Value Object>>
+            +domainName
+            +Role role
+            +externalId
+        }
+        class Domain {
+            <<Aggregate Root>>
+            +name
+            +visibleFromOutside
+            +authStrategy
+            +Domain[] subdomains
+            +InviteSecrets inviteSecrets
+            +SSOConfig ssoConfig
+        }
+        class SSOConfig {
+            <<Value Object>>
+            +issuerUrl
+            +clientId
+            +clientSecret
+        }
+        class InviteSecrets {
+            <<Value Object>>
+            +perRoleSecret
+        }
+        class Role {
+            <<Value Object>>
+            +name
+            +rank
+        }
+
+        Account "1" *-- "many" Membership : holds
+        Membership "1" --> "1" Role : carries
+        Domain "1" *-- "0..1" SSOConfig : may hold
+        Domain "1" *-- "1" InviteSecrets : holds
+
+### Aggregate: Account
+
+The consistency boundary around a principal and its memberships.
+
+- We chose to keep `memberships` *inside* the Account aggregate rather than as a separate association. The intent is that resolving a principal also resolves everything needed to make an authorization decision, without consulting another aggregate.
+- Credential material (the secret used to authenticate, and any second-factor seed) lives on the aggregate but is treated as sensitive: it is part of the model, not part of what the context hands out.
+- **Intended invariant:** an Account holds at most one Membership per Domain. Joining a Domain a principal already belongs to updates the existing Membership rather than adding a second.
+
+### Aggregate: Domain
+
+The consistency boundary around an organization and the rules under which principals join it.
+
+- `authStrategy` is the central policy switch. It is expected to drive how a principal proves identity and which value objects a Domain carries.
+- `inviteSecrets` and `ssoConfig` hold confidential material. The model treats them as write-mostly: they participate in the Domain's behaviour but are not part of its public representation.
+- `subdomains` expresses an organizational hierarchy. We left the depth of that hierarchy open at this stage rather than fixing it to a single level.
+- **Intended invariant:** a Domain's strategy and its configuration agree — an internally-managed Domain carries no external-provider configuration, and an externally-federated Domain does not accept self-service joins.
+
+### Value Objects: Membership, SSO config, invite secrets
+
+The smaller concepts living inside these aggregates are modelled as immutable, identity-less value objects:
+
+- **Membership** places an Account inside a Domain with a Role. It has no identity of its own — it means something only as part of an Account — so we treat it as a value object the aggregate replaces wholesale rather than mutates in place.
+- **SSOConfig** and **InviteSecrets** describe *how* a Domain admits principals. They carry no identity and exist only to configure their Domain, so they are value objects held inside it.
+- **Role** is a value object too, but a load-bearing one: because its ranking is the single rule this context exposes, we give it its own section below.
+
+---
+
+## The Role policy
+
+`Role` is modelled as a ranked value object rather than a free-form label, so that authorization can be expressed as "at least this powerful" rather than an enumeration of cases. The comparison is the single rule the context exposes for permission checks:
+
+```text
+role_satisfies(held, required):
+    return rank(held) >= rank(required)
+
+ranking (high to low):
+    admin > business_admin > business_staff > standard_customer
+```
+
+How this rule is invoked at request time is an implementation concern, covered under [Middleware](../services/middlewares.qd).
+
+---
+
+## Domain Services
+
+Two pieces of behaviour do not belong to a single entity, so we foresee them as domain services:
+
+.var {headers}
+   - Service
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - Identity token issuance
+      - Assemble and sign the identity token, embedding the principal's memberships so downstream contexts can authorize on their own.
+    - - Role invitation
+      - Derive and validate the short, time-bounded codes that grant a Role within a Domain.
+
+---
+
+## Published Language: the identity token
+
+The output of this context is a signed identity token whose contents — the principal, their memberships, roles, and domains — are the contract every other context conforms to. Designing this payload as a stable Published Language is what lets the other contexts authorize locally without calling back here.
+
+.mermaid
+    sequenceDiagram
+        participant U as Client
+        participant A as Identity & Access
+        U->>A: authenticate (credentials)
+        Note over A: resolve the account and its memberships
+        Note over A: assemble identity token (memberships, roles, domains)
+        A-->>U: signed identity token
+
+The interaction above is intentionally generic: the exact endpoints, token format, and federation handshake are design decisions deferred to the implementation. What matters at the domain level is that authentication yields a self-contained statement of identity and authority.

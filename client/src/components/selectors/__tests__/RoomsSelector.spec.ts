@@ -18,8 +18,8 @@ vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn(),
 }))
 
-vi.mock('@/composables/building/useSensorData', () => ({
-  getBuildingData: vi.fn(() => ({
+vi.mock('@/composables/building/useBuildingSensor', () => ({
+  useBuildingSensor: vi.fn(() => ({
     data: ref([]),
     isLoading: ref(false),
     error: ref(null),

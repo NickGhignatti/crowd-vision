@@ -1,5 +1,6 @@
 import { computed, type Ref } from 'vue'
-import { getBuildingData, type ApiDataPoint } from './useSensorData.ts'
+import { useBuildingSensor } from './useBuildingSensor.ts'
+import { type ApiDataPoint } from './useSensorData.ts'
 
 function useRoomAverages(sensorData: Ref<ApiDataPoint[]>) {
   return computed(() => {
@@ -30,7 +31,7 @@ function useRoomAverages(sensorData: Ref<ApiDataPoint[]>) {
 }
 
 export function useBuildingTemperature(buildingId: Ref<string | undefined>) {
-  const { data, isLoading, error } = getBuildingData(buildingId, 'temperature')
+  const { data, isLoading, error } = useBuildingSensor(buildingId, 'temperature')
 
   const averages = useRoomAverages(data)
 
@@ -42,7 +43,7 @@ export function useBuildingTemperature(buildingId: Ref<string | undefined>) {
 }
 
 export function useBuildingAirQualitySensors(buildingId: Ref<string | undefined>) {
-  const { data, isLoading, error } = getBuildingData(buildingId, 'airQuality')
+  const { data, isLoading, error } = useBuildingSensor(buildingId, 'airQuality')
 
   const indoorAqi = computed(() => {
     const results: Record<string, number> = {}

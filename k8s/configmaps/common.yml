@@ -17,13 +17,14 @@ data:
   AUTH_SERVICE_URL: "http://auth-service:3000"
   CONTRACTS_SERVICE_URL: "http://contracts-service:3000"
 
-  # ── Public-facing URL (seen by browsers, used in generated links & CORS) ───
+  # ── Gateway / public-facing URLs ──────────────────────────────────────────
   # Local k3d:  http://crowdvision.local  (add to /etc/hosts → cluster ingress IP)
   # VPS:        https://your-domain.com
-  # Note: the VITE_ prefix is historical — backend services also read this value
-  # to construct public-facing links (e.g. push notification deep links).
-  VITE_SERVER_URL: "http://crowdvision.local"
+  # GATEWAY_URL: ingress used for backend server-to-server calls routed by path
+  # (e.g. /notification/preferences). PUBLIC_URL: browser-facing base for links
+  # and OIDC redirect URIs. In a single-domain setup both equal the ingress host.
+  GATEWAY_URL: "http://crowdvision.local"
+  PUBLIC_URL: "http://crowdvision.local"
 
   # URL of the frontend — used by backend services for CORS allowed origins.
-  # In a single-domain setup this equals VITE_SERVER_URL.
   CLIENT_URL: "http://crowdvision.local"

@@ -1,5 +1,5 @@
 # Shared dev tooling (semantic-release, commitlint, shared eslint config).
 # No build/test/lint pipeline — `language: javascript` keeps it out of
 # :build/:test/:lint while still giving it `deps` (see .moon/tasks/javascript.yml)
-# and making it visible to `moon query projects` (used by `just install`).
+# and making it visible to `moon query projects` (used by `just setup install`).
 language: 'javascript'

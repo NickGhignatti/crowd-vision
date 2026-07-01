@@ -52,7 +52,7 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
   // Wait for hydration before making any auth decision
@@ -62,9 +62,7 @@ router.beforeEach(async (to, from, next) => {
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/')
-  } else {
-    next()
+    return '/'
   }
 })
 

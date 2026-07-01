@@ -1,0 +1,108 @@
+.docname {Socket Service}
+.include {docs}
+
+Implementation reference for the `socket-service`. For its architectural role, see [Socket Service Architecture](../architecture/socket-architecture.qd).
+
+A small Node.js service built on **Socket.IO** and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split: pure relay helpers and token verification in `core/` and `auth.ts`, the broker- and socket-event handlers in `handlers/`, the metrics registry in `config/`, and a thin composition root in `index.ts` that wires them together.
+
+Connections are **authenticated**: a Socket.IO handshake middleware verifies the auth-service JWT before any event is processed, so the service knows which account and domains each socket belongs to.
+
+---
+
+## Configuration
+
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `REDIS_URL`
+      - empty
+      - Broker connection for the subscriber.
+    - - `CLIENT_URL`
+      - `http://localhost:5173`
+      - Allowed CORS origin for the Socket.IO server (credentials enabled).
+    - - `JWT_SECRET`
+      - empty
+      - Shared secret used to verify the auth-service token on the handshake. Must match the value auth-service signs with.
+
+The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs the Kubernetes probes.
+
+---
+
+## Authentication
+
+A Socket.IO handshake middleware (`io.use`) runs once per connection, before any event handler:
+
+- It reads the `authentication_token` cookie from the handshake headers. The cookie is httpOnly, so the browser sends it automatically with the WebSocket upgrade (the client sets `withCredentials`); client JavaScript never touches the token.
+- `authenticateToken` (in `auth.ts`, pure and unit-tested) verifies the JWT with `JWT_SECRET` and extracts a `SocketIdentity`: `accountId`, `accountName`, and the `domains` the account is a member of (from the token's `accountMemberships`).
+- A missing, malformed, expired, or wrong-secret token rejects the connection with `unauthorized`. On success the identity is attached to `socket.data` so the connection is **server-authoritative** — the client cannot claim rooms it has no right to.
+
+---
+
+## Broker Subscriptions and Emissions
+
+At startup the service connects a Redis subscriber and binds two channels to two Socket.IO events:
+
+.var {headers}
+   - Redis subscription
+   - Socket.IO emission
+   - Audience
+
+.tablebyrows {.headers}
+    - - `notifications`
+      - emit `notification` to room `domain:{name}`, or to every socket
+      - The targeted domain's members; unscoped messages broadcast to all.
+    - - `telemetry:filtered:*` (pattern)
+      - emit `telemetry` to room `building:{id}`
+      - Only clients in that building's room.
+
+For the pattern subscription, the building id is recovered from the channel name (stripping the `telemetry:filtered:` prefix) and used to target the room. Each incoming message is JSON-parsed before emission.
+
+Notifications are **domain-scoped**: if the payload carries a `domainName`, only that domain's room receives it, so members of one tenant never see another's alerts. A payload without a `domainName` (a system-wide message) is broadcast to every client.
+
+---
+
+## Client Subscription Protocol
+
+Domain rooms are **not** client-controlled: on connection the service reads the verified identity and joins the socket to a `domain:{name}` room for each of the account's memberships. The client only chooses which buildings to follow:
+
+.var {headers}
+   - Client event
+   - Handler effect
+
+.tablebyrows {.headers}
+    - - `subscribe_building(buildingId)`
+      - Joins room `building:{buildingId}` to start receiving that building's telemetry. Ignored if the account has no domain memberships.
+    - - `unsubscribe_building(buildingId)`
+      - Leaves room `building:{buildingId}` to stop receiving it.
+
+.mermaid
+    sequenceDiagram
+        participant UI as Vue client
+        participant WS as socket-service
+        participant R as Redis
+        UI->>WS: connect (authentication_token cookie)
+        Note over WS: verify JWT → join domain:{...} rooms
+        UI->>WS: subscribe_building(B)
+        Note over WS: member? → socket joins room building:B
+        R-->>WS: telemetry:filtered:B message
+        WS->>UI: emit "telemetry" (room building:B only)
+        R-->>WS: notifications message (domainName=D)
+        WS->>UI: emit "notification" (room domain:D only)
+
+Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Only a system-wide notification with no `domainName` is broadcast to everyone.
+
+> ⚠️ Per-building authorization (verifying the account's domain actually owns the requested building) needs a twin-service lookup and is deferred; today the guard is domain-membership presence.
+
+---
+
+## Scaling Considerations
+
+The service runs as a single Socket.IO process. Two changes are required to run multiple replicas:
+
+- **Sticky sessions.** The HTTP long-polling handshake must return to the same instance; the Kubernetes ingress sets cookie affinity for this (see [Deployment & Kubernetes](../architecture/deployment.qd)).
+- **Cross-instance rooms.** With multiple replicas a room spans instances, so emissions must propagate via the Socket.IO Redis adapter. This is a known extension point, not yet in place.
+
+For where this service sits in the end-to-end real-time path, see [Communication & Data Flow](../architecture/data-flow.qd).

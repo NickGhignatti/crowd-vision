@@ -3,8 +3,6 @@ services:
     build:
       context: .
     environment:
-      # Single OpenAI-compatible provider (OpenRouter by default) drives chat + embeddings.
-      # Falls back to the legacy DEEPSEEK_API_KEY/GOOGLE_API_KEY names if OPENROUTER_API_KEY is unset.
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-${DEEPSEEK_API_KEY:-${GOOGLE_API_KEY:-}}}
       - LLM_BASE_URL=${LLM_BASE_URL:-https://openrouter.ai/api/v1}
       - ANSWER_MODEL=${ANSWER_MODEL:-openai/gpt-4o-mini}
@@ -12,23 +10,21 @@ services:
       - EMBEDDING_DIM=${EMBEDDING_DIM:-768}
       - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.2}
       - TWIN_TIMEOUT_SECONDS=${TWIN_TIMEOUT_SECONDS:-10}
+      - SENSOR_SERVICE_URL=${SENSOR_SERVICE_URL:-http://sensor-service:3000}
+      - SENSOR_TIMEOUT_SECONDS=${SENSOR_TIMEOUT_SECONDS:-10}
       - JWT_SECRET=${JWT_SECRET}
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=${RERANKER:-noop}
-      # Privileged per-request model override (/ask `model`): min role + optional allowlist.
       - MODEL_OVERRIDE_MIN_ROLE=${MODEL_OVERRIDE_MIN_ROLE:-business_admin}
       - ALLOWED_MODELS=${ALLOWED_MODELS:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # OpenTelemetry → Langfuse (OTLP/HTTP). Unset the endpoint to fall back to
-      # the compact console span exporter (no trace backend required).
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-}
       - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
+      - OBSERVE_PAYLOADS=${OBSERVE_PAYLOADS:-false}
     depends_on:
       agent-db:
         condition: service_started
-      # Start Langfuse first when present, but don't block agent-service on it
-      # (traces are fire-and-forget; the app runs fine if the backend is absent).
       langfuse-web:
         condition: service_started
         required: false
@@ -52,7 +48,7 @@ services:
     image: node:20-alpine
     working_dir: /workspace
     environment:
-      - AGENT_URL=http://agent-service:3000
+      - AGENT_SERVICE_URL=http://agent-service:3000
     volumes:
       - ../../scripts:/workspace/scripts:ro
       - ../../documentation:/workspace/documentation:ro

@@ -3,7 +3,7 @@
   "info": {
     "title": "agent-service",
     "summary": "RAG-based Q&A agent for Crowd-Vision.",
-    "description": "Tool-calling RAG agent for Crowd-Vision.\n\nThe agent answers questions by orchestrating tools \u2014 `search_docs` (hybrid\nretrieval over ingested documentation) and the `twin-*` tools (live data from\nthe digital-twin service). Answers come back with inline `[^chunk_id]` citation\nmarkers that resolve to the `citations` array in the response.\n\n**Authentication.** Protected endpoints require a JWT in the `authentication_token`\ncookie (issued by `auth-service`). `/health` is public.",
+    "description": "Tool-calling RAG agent for Crowd-Vision.\n\nThe agent answers questions by orchestrating tools \u2014 `search_docs` (hybrid\nretrieval over ingested documentation), structural building tools backed by\nthe digital-twin service, and live/historical measurement tools backed by the\nsensor service. Answers come back with inline `[^chunk_id]` citation markers\nthat resolve to the `citations` array in the response.\n\n**Authentication.** Protected endpoints require a JWT in the `authentication_token`\ncookie (issued by `auth-service`). `/health` is public.",
     "version": "2.10.2"
   },
   "paths": {
@@ -169,6 +169,15 @@
             ],
             "title": "Model",
             "description": "Override the chat model for this request (an OpenRouter model id, e.g. 'google/gemini-2.5-flash'). Defaults to the server's ANSWER_MODEL. Embeddings/retrieval are unaffected \u2014 for A/B evaluating generators. **Privileged:** requires the MODEL_OVERRIDE_MIN_ROLE role (default business_admin) and, when configured, the model must be in ALLOWED_MODELS."
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChatTurn"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "History",
+            "description": "Previous user and assistant messages, ordered oldest to newest."
           }
         },
         "type": "object",
@@ -226,6 +235,30 @@
           "decision"
         ],
         "title": "AskResponse"
+      },
+      "ChatTurn": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ChatTurn"
       },
       "CitationModel": {
         "properties": {

@@ -11,7 +11,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const envPath = process.env.ENV_FILE || path.join(__dirname, "../..", ".env");
-const currentEnv = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
+let currentEnv = "";
+try {
+    currentEnv = fs.readFileSync(envPath, "utf8");
+} catch (e) {
+    if (e.code !== "ENOENT") throw e;
+}
 
 if (currentEnv.includes("LANGFUSE_PUBLIC_KEY")) {
     console.log("✅ Langfuse / OTEL config already present in .env. Skipping generation.");
@@ -58,11 +63,8 @@ OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 OTEL_EXPORTER_OTLP_HEADERS=${otelHeader}
 `;
 
-if (fs.existsSync(envPath)) {
-    fs.appendFileSync(envPath, block);
-} else {
-    fs.writeFileSync(envPath, block);
-}
+// appendFileSync creates the file if absent, so no existence check (avoids a TOCTOU race).
+fs.appendFileSync(envPath, block);
 
 console.log("✅ Langfuse + OTEL config appended to .env");
 console.log("   Langfuse UI: http://localhost:3030  (login: admin@crowd-vision.local / langfuse-admin)");

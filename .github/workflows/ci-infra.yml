@@ -1,0 +1,47 @@
+name: infra-ci
+
+on:
+  workflow_call:
+
+jobs:
+  scripts-and-tooling:
+    name: Scripts & Tooling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
+
+      - name: Syntax-check JavaScript
+        run: |
+          status=0
+          files=$(git ls-files scripts tooling | grep -E '\.(mjs|js)$' | grep -v '^tooling/eslint-config/' || true)
+          for f in $files; do
+            node --check "$f" || { echo "::error file=$f::JavaScript syntax error"; status=1; }
+          done
+          exit $status
+
+      - name: Syntax-check shell scripts
+        run: |
+          status=0
+          files=$(git ls-files scripts | grep -E '\.sh$' || true)
+          for f in $files; do
+            bash -n "$f" || { echo "::error file=$f::shell syntax error"; status=1; }
+          done
+          exit $status
+
+      - name: Validate tooling lockfile
+        working-directory: tooling
+        run: npm ci
+
+      - name: Install just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Validate Justfile parses
+        run: just --summary

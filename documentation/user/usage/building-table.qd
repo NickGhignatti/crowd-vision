@@ -1,96 +1,100 @@
 .docname {Customizing the Data Table}
 .include {docs}
 
-The data table on your Dashboard is a **live, fully customizable view** of all monitored rooms in your selected building. Every row corresponds to a physical space, and every column represents a measurement or property you care about. The columns you see, their order, and which sensor readings they display are entirely under your control.
+The dashboard table is a live, fully customizable view of every monitored room in the selected building. You control which columns appear, their order, and which sensor readings they show.
 
 ---
 
-## 📋 Reading the Table
+## Reading the table
 
-Each row in the table represents one room in the building. The data shown in each column updates automatically as long as sensors are active and transmitting for that space.
-
-**What "live" means in practice:** if a temperature sensor is installed in a room and is actively reporting, the temperature column for that row will refresh each time a new reading arrives — you do not need to reload the page. The same applies to occupancy counts and air quality readings. If a sensor is offline or not yet installed, the cell will show a placeholder (`--` or `0`) until data begins flowing.
+Each row is one room. Each cell updates automatically as new readings arrive — no page reload needed. If a sensor is offline or not yet installed, its cell shows a placeholder (`--` or `0`) until data starts flowing.
 
 ---
 
-## 🛠️ Entering Edit Mode
+## Entering edit mode
 
-To change which columns appear in your table, click the **Edit** button in the bottom control bar of the table. This button is only visible if you have administrator rights for the current building's domain.
+Click **Edit** in the table's bottom control bar. This is available only if you have administrator rights for the current building's domain.
 
-Once in edit mode you will notice:
-*   A **grip handle** (⠿) appears on the left side of each column header — this is your drag handle for reordering.
-*   A small **✕ button** appears in the top-right corner of each column header — click it to remove that column.
-*   A **▼ caret** appears next to each column title — click the header to open a swap menu.
-*   A **＋ button** appears at the far right of the header row — click it to add a new column.
+In edit mode each column header gains controls:
 
-When you are done making changes, use the controls at the bottom of the table to either **Save** your layout or **Cancel** to discard all changes and return to the previous configuration.
+.var {headers}
+   - Control
+   - Purpose
+
+.tablebyrows {.headers}
+    - - Grip handle (on the left)
+      - Drag to reorder the column.
+    - - ✕ badge (top-right)
+      - Remove the column.
+    - - ▼ caret (next to the title)
+      - Open the swap menu to replace the column.
+    - - ＋ button (far right of the header row)
+      - Add a new column.
+
+![A column header in edit mode](../assets/figures/table-edit-mode.png)
+
+*Figure 1 — In edit mode, each header shows a grip handle, a ✕ to remove, a ▼ to swap, and a ＋ to add.*
+
+When you are done, click **Save** to keep your layout or **Cancel** to discard changes.
 
 ---
 
-## ➕ Adding a Column
+## Adding a column
 
-1. Click **Edit** to enter edit mode.
-2. Click the **＋** button at the right end of the column header row. A panel will slide open above the table.
-3. The panel displays all available sensor types and data fields that have not yet been added to your table. Each option is shown as a chip.
-4. Click a chip to instantly append that column to the right of your current columns.
-5. Repeat for any additional columns you want to add.
-6. Click **Save** when finished.
+1. Click **Edit**.
+2. Click the **＋** at the right end of the header row. A panel slides open.
+3. The panel shows every metric not already in your table, as chips.
+4. Click a chip to append that column.
+5. Click **Save**.
 
-.box {Sensor data updates automatically} type:{note}
-    As soon as a column for a sensor metric (such as Temperature or Occupancy) is saved, the system immediately begins routing that data to your dashboard. If a sensor for that metric is active in the building, the new column will start populating with live readings right away.
+![The add-column panel](../assets/figures/add-column-panel.png)
+
+*Figure 2 — The add-column panel lists every available metric as a chip.*
+
+.box {Live data starts immediately} type:{note}
+    As soon as a sensor column is saved, CrowdVision begins routing that data to your dashboard. If a sensor for that metric is active in the building, the new column populates with live readings right away.
 
 ---
 
-## ✕ Removing a Column
+## Removing a column
 
 1. Enter edit mode.
-2. Click the small **✕ badge** in the top-right corner of the column header you want to remove.
-3. The column disappears immediately from the preview. The change is only applied permanently after you click **Save**.
+2. Click the **✕ badge** on the column header.
+3. The column disappears from the preview. Click **Save** to apply.
 
 ---
 
-## 🔄 Swapping a Column
+## Swapping a column
 
-If you want to **replace** an existing column with a different metric without disturbing the others:
+To replace one column with a different metric without disturbing the others:
 
 1. Enter edit mode.
-2. Click directly on the **column header title** (not the ✕, not the grip handle). A dropdown menu will appear positioned under that header.
-3. The dropdown shows every available metric that is not already shown in your table.
-4. Click any entry in the list to replace the current column with your selection.
-5. Click **Save** when finished.
+2. Click the column header **title** (not the ✕ or grip). A dropdown appears.
+3. The dropdown lists every metric not already shown (so you cannot create duplicates).
+4. Click an entry to replace the column.
+5. Click **Save**.
 
-The dropdown will not show metrics that are already present in your table — this prevents duplicate columns.
+![The swap-column dropdown](../assets/figures/swap-menu.png)
+
+*Figure 3 — Clicking a header title opens a menu of metrics you can swap in.*
 
 ---
 
-## ↕️ Reordering Columns
-
-You can change the display order of your columns using drag and drop:
+## Reordering columns
 
 1. Enter edit mode.
-2. Grab a column by its **grip handle** (⠿) on the left side of the header, or by clicking and holding anywhere on the header cell.
-3. Drag it left or right to the desired position. The column you are hovering over will highlight to indicate the new insertion point.
-4. Release to drop the column in place.
-5. Click **Save** when finished.
+2. Grab a column by its **grip handle** (or click and hold the header).
+3. Drag left or right; the target position highlights.
+4. Release to drop, then click **Save**.
 
-.box {Order is saved} type:{note}
-    The column order you define is saved as part of your building preferences. The next time you open the dashboard for this building — even after a page refresh or logging out and back in — your columns will appear in the exact order you last saved them.
-
----
-
-## 💾 Saving and Cancelling
-
-*   **Save** — Applies all pending changes (additions, removals, swaps, reordering) and persists them. From this point on, the table will always load with this configuration for the current building.
-*   **Cancel** — Discards all unsaved changes and restores the table to its last saved configuration.
-
-If you navigate away from the page without saving, your in-progress changes will be lost.
+.box {Your layout is remembered} type:{note}
+    Columns, their order, and your selected metrics are saved per building. The next time you open this building — even after a refresh or signing out and back in — the table loads exactly as you left it.
 
 ---
 
-## ⏩ Pagination and Autoplay
+## Pagination and autoplay
 
-If a building has many rooms, the table displays them in pages.
+When a building has many rooms, the table paginates.
 
-*   Use the **← Prev** and **Next →** buttons in the bottom bar to move between pages.
-*   Click the **Play** button to enable **Autoplay**: the table will automatically advance to the next page every few seconds, cycling back to the first page when it reaches the end. This is useful for large dashboards displayed on a wall monitor.
-*   Click **Play** again to stop autoplay.
+- Use **Prev** and **Next** in the bottom bar to move between pages.
+- Click **Play** to enable **autoplay**: the table advances every few seconds and loops back to the start — ideal for a wall monitor. Click **Play** again to stop.

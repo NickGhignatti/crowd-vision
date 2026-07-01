@@ -14,6 +14,7 @@ from app.config import Settings, validate_startup_settings
         ("LLM_TIMEOUT_SECONDS", "0"),
         ("EMBED_TIMEOUT_SECONDS", "-1"),
         ("TWIN_TIMEOUT_SECONDS", "0"),
+        ("SENSOR_TIMEOUT_SECONDS", "0"),
         ("MAX_OUTPUT_TOKENS", "0"),
         ("MAX_TOOL_HOPS", "0"),
         ("LLM_TEMPERATURE", "2.1"),
@@ -32,6 +33,7 @@ def test_invalid_numeric_settings_are_rejected(monkeypatch, name, value):
         ("LOG_FORMAT", "jsno"),
         ("LLM_BASE_URL", "openrouter.ai/api/v1"),
         ("TWIN_SERVICE_URL", "twin-service:3000"),
+        ("SENSOR_SERVICE_URL", "sensor-service:3000"),
         ("POSTGRES_URL", "mysql://agent-db/agentdb"),
     ],
 )
@@ -48,6 +50,7 @@ def test_settings_construction_does_not_require_runtime_secrets(monkeypatch):
     settings = Settings()
     assert settings.jwt_secret == ""
     assert settings.llm_api_key == ""
+    assert settings.observe_payloads is False
 
 
 def test_startup_rejects_missing_runtime_secrets(monkeypatch):

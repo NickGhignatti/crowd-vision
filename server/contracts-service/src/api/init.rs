@@ -1,4 +1,4 @@
-use crate::db;
+use crate::infra::db;
 use crate::state::AppState;
 use axum::{
     extract::{Path, State},

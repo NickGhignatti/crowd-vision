@@ -1,5 +1,6 @@
 import { jest } from "@jest/globals";
 import request from "supertest";
+import jwt from "jsonwebtoken";
 
 jest.mock("../src/config/redis.js", () => ({
   __esModule: true,
@@ -12,9 +13,8 @@ jest.mock("../src/config/redis.js", () => ({
 }));
 
 jest.mock("../src/services/notificationService.js", () => ({
-  startNotificationLoop: jest.fn(),
   publishNotification: jest.fn(), // Verify this is called
-  getServerUrl: jest.fn(() => "http://localhost:3000"),
+  getGatewayUrl: jest.fn(() => "http://localhost:3000"),
 }));
 
 jest.mock("../src/services/pushService.js", () => {
@@ -44,12 +44,28 @@ const mockedSendPushToDomain = sendPushToDomain as jest.MockedFunction<
 >;
 const mockedRedisClient = redisClient as any;
 
+// Mint a JWT the auth middleware accepts; the account is bound from this token.
+const tokenFor = (accountName: string) =>
+  jwt.sign(
+    { accountId: `u-${accountName}`, accountName },
+    process.env.JWT_SECRET || "test-jwt-secret",
+  );
+const auth = <T extends request.Test>(req: T, account = "alice"): T =>
+  req.set("Authorization", `Bearer ${tokenFor(account)}`) as T;
+
 describe("Notification Service API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedRedisClient.get.mockResolvedValue(null);
     mockedRedisClient.set.mockResolvedValue("OK");
     mockedRedisClient.publish.mockResolvedValue(1);
+  });
+
+  describe("authentication", () => {
+    it("rejects subscribe without a token", async () => {
+      const res = await request(app).post("/subscribe").send({});
+      expect(res.status).toBe(401);
+    });
   });
 
   describe("GET /public-key", () => {
@@ -65,7 +81,6 @@ describe("Notification Service API", () => {
 
   describe("POST /subscribe", () => {
     const mockSubscription = {
-      accountName: "alice",
       domainName: "domain-1",
       subscription: {
         endpoint: "https://fcm.googleapis.com/fcm/send/test-endpoint",
@@ -77,20 +92,22 @@ describe("Notification Service API", () => {
     };
 
     it("should save a new subscription successfully", async () => {
-      const res = await request(app).post("/subscribe").send(mockSubscription);
+      const res = await auth(request(app).post("/subscribe")).send(
+        mockSubscription,
+      );
 
       expect(res.status).toBe(201);
 
-      // Verify DB persistence
+      // Verify DB persistence — account bound from the token, not the body.
       const sub = await Subscription.findOne({
         endpoint: mockSubscription.subscription.endpoint,
       });
       expect(sub).toBeTruthy();
-      expect(sub?.accountName).toBe(mockSubscription.accountName);
+      expect(sub?.accountName).toBe("alice");
       expect(sub?.keys.p256dh).toBe("test-key");
 
       const preference = await NotificationSubscription.findOne({
-        accountName: mockSubscription.accountName,
+        accountName: "alice",
         domainName: mockSubscription.domainName,
       });
       expect(preference).toBeTruthy();
@@ -104,7 +121,9 @@ describe("Notification Service API", () => {
       });
 
       // Send update
-      const res = await request(app).post("/subscribe").send(mockSubscription);
+      const res = await auth(request(app).post("/subscribe")).send(
+        mockSubscription,
+      );
 
       expect(res.status).toBe(201);
 
@@ -120,7 +139,7 @@ describe("Notification Service API", () => {
       const initialPreferences =
         await NotificationSubscription.countDocuments();
 
-      const res = await request(app).post("/subscribe").send({}); // Empty body
+      const res = await auth(request(app).post("/subscribe")).send({}); // Empty body
 
       expect(res.status).toBe(400);
       expect(res.body.type).toBe("Validation Error");
@@ -134,7 +153,6 @@ describe("Notification Service API", () => {
 
     it("should accept flat payload shape without creating preference when domain is missing", async () => {
       const flatPayload = {
-        accountName: "bob",
         endpoint: "https://fcm.googleapis.com/fcm/send/bob-endpoint",
         keys: {
           p256dh: "bob-key",
@@ -142,17 +160,19 @@ describe("Notification Service API", () => {
         },
       };
 
-      const res = await request(app).post("/subscribe").send(flatPayload);
+      const res = await auth(request(app).post("/subscribe"), "bob").send(
+        flatPayload,
+      );
 
       expect(res.status).toBe(201);
 
       const sub = await Subscription.findOne({
         endpoint: flatPayload.endpoint,
       });
-      expect(sub?.accountName).toBe(flatPayload.accountName);
+      expect(sub?.accountName).toBe("bob");
 
       const preference = await NotificationSubscription.findOne({
-        accountName: flatPayload.accountName,
+        accountName: "bob",
       });
       expect(preference).toBeNull();
     });
@@ -163,20 +183,17 @@ describe("Notification Service API", () => {
         domainName: "domain-1",
       });
 
-      const res = await request(app)
-        .post("/subscribe")
-        .send({
-          accountName: "alice",
-          domainName: "domain-1",
-          enabled: false,
-          subscription: {
-            endpoint: "https://fcm.googleapis.com/fcm/send/test-endpoint-2",
-            keys: {
-              p256dh: "test-key-2",
-              auth: "test-auth-2",
-            },
+      const res = await auth(request(app).post("/subscribe")).send({
+        domainName: "domain-1",
+        enabled: false,
+        subscription: {
+          endpoint: "https://fcm.googleapis.com/fcm/send/test-endpoint-2",
+          keys: {
+            p256dh: "test-key-2",
+            auth: "test-auth-2",
           },
-        });
+        },
+      });
 
       expect(res.status).toBe(201);
 
@@ -185,7 +202,7 @@ describe("Notification Service API", () => {
         domainName: "domain-1",
       });
       expect(preference).toBeTruthy();
-      expect((preference as any)?.preferences).toEqual([
+      expect(preference?.preferences).toEqual([
         expect.objectContaining({
           notificationType: "temperature",
           isSubscribed: false,
@@ -196,9 +213,10 @@ describe("Notification Service API", () => {
 
   describe("POST /preferences", () => {
     it("should allow user to enable domain notifications (upsert)", async () => {
-      const res = await request(app)
-        .post("/preferences")
-        .send({ accountName: "alice", domainName: "domain-1", enabled: true });
+      const res = await auth(request(app).post("/preferences")).send({
+        domainName: "domain-1",
+        enabled: true,
+      });
 
       expect(res.status).toBe(200);
 
@@ -215,9 +233,10 @@ describe("Notification Service API", () => {
         domainName: "domain-1",
       });
 
-      const res = await request(app)
-        .post("/preferences")
-        .send({ accountName: "alice", domainName: "domain-1", enabled: false });
+      const res = await auth(request(app).post("/preferences")).send({
+        domainName: "domain-1",
+        enabled: false,
+      });
 
       expect(res.status).toBe(200);
 
@@ -226,7 +245,7 @@ describe("Notification Service API", () => {
         domainName: "domain-1",
       });
       expect(preference).toBeTruthy();
-      expect((preference as any)?.preferences).toEqual([
+      expect(preference?.preferences).toEqual([
         expect.objectContaining({
           notificationType: "temperature",
           isSubscribed: false,
@@ -235,9 +254,9 @@ describe("Notification Service API", () => {
     });
 
     it("should reject invalid preference payload", async () => {
-      const res = await request(app)
-        .post("/preferences")
-        .send({ accountName: "alice", domainName: "domain-1" });
+      const res = await auth(request(app).post("/preferences")).send({
+        domainName: "domain-1",
+      });
 
       expect(res.status).toBe(400);
       expect(res.body.type).toBe("Validation Error");
@@ -259,7 +278,7 @@ describe("Notification Service API", () => {
         notificationType: "temperature",
       };
 
-      const res = await request(app).post("/trigger").send(payload);
+      const res = await auth(request(app).post("/trigger")).send(payload);
 
       expect(res.status).toBe(200);
 
@@ -276,7 +295,7 @@ describe("Notification Service API", () => {
     });
 
     it("should require buildingName", async () => {
-      const res = await request(app).post("/trigger").send({});
+      const res = await auth(request(app).post("/trigger")).send({});
 
       expect(res.status).toBe(400);
       expect(res.body.type).toBe("Validation Error");
@@ -292,9 +311,11 @@ describe("Notification Service API", () => {
         new Error("publish failed"),
       );
 
-      const res = await request(app)
-        .post("/trigger")
-        .send({ message: "x", type: "info", buildingName: "building-1" });
+      const res = await auth(request(app).post("/trigger")).send({
+        message: "x",
+        type: "info",
+        buildingName: "building-1",
+      });
 
       expect(res.status).toBe(500);
       expect(res.body.type).toBe("Internal Server Error");
@@ -311,7 +332,9 @@ describe("Notification Service API", () => {
         temperature: 38,
       };
 
-      const res = await request(app).post("/push/temperature").send(payload);
+      const res = await auth(request(app).post("/push/temperature")).send(
+        payload,
+      );
 
       expect(res.status).toBe(200);
       expect(mockedPublishNotification).toHaveBeenCalledWith(
@@ -335,9 +358,10 @@ describe("Notification Service API", () => {
         json: async () => ["domain-from-building"],
       } as any);
 
-      const res = await request(app)
-        .post("/push/temperature")
-        .send({ buildingId: "building-2", temperature: 35 });
+      const res = await auth(request(app).post("/push/temperature")).send({
+        buildingId: "building-2",
+        temperature: 35,
+      });
 
       expect(res.status).toBe(200);
       expect(mockedPublishNotification).toHaveBeenCalledWith(
@@ -356,9 +380,9 @@ describe("Notification Service API", () => {
     });
 
     it("should return 400 when both domainId and buildingId are missing", async () => {
-      const res = await request(app)
-        .post("/push/temperature")
-        .send({ temperature: 30 });
+      const res = await auth(request(app).post("/push/temperature")).send({
+        temperature: 30,
+      });
 
       expect(res.status).toBe(400);
       expect(res.body.type).toBe("Validation Error");

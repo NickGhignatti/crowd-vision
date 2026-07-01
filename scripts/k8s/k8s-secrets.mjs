@@ -15,7 +15,7 @@ const NS = 'crowdvision'
 // ── Parse .env ────────────────────────────────────────────────────────────────
 
 if (!existsSync(envPath)) {
-  console.error('❌  .env not found. Run `just env` first.')
+  console.error('❌  .env not found. Run `just stack env` first.')
   process.exit(1)
 }
 
@@ -27,7 +27,7 @@ for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
 
 function need(key) {
   if (!env[key]) {
-    console.error(`❌  Missing ${key} in .env. Run \`just env\` to (re)generate it.`)
+    console.error(`❌  Missing ${key} in .env. Run \`just stack env\` to (re)generate it.`)
     process.exit(1)
   }
   return env[key]
@@ -104,18 +104,31 @@ applySecret('authentication-service-secret', {
   MONGO_URI: 'mongodb://auth-db:27017/authdb',
 })
 
+applySecret('chat-service-secret', {
+  // chat-service verifies the same user JWTs as auth/agent — shared secret.
+  JWT_SECRET: need('JWT_SECRET'),
+  // MongoDB has no password — internal cluster only
+  MONGO_URI: 'mongodb://chat-db:27017/chatdb',
+})
+
 applySecret('twin-service-secret', {
   MONGO_URI: 'mongodb://twin-db:27017/twindb',
+  // twin-service authenticates its routes against the same user JWTs.
+  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('sensor-service-secret', {
   MONGO_URI: 'mongodb://sensor-db:27017/sensordb',
+  // sensor-service authenticates its read/threshold routes — shared secret.
+  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('notification-service-secret', {
   MONGO_URI: 'mongodb://notification-db:27017/notificationdb',
   VAPID_PUBLIC_KEY: need('VAPID_PUBLIC_KEY'),
   VAPID_PRIVATE_KEY: need('VAPID_PRIVATE_KEY'),
+  // notification-service authenticates its routes — shared secret.
+  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('agent-service-secret', {

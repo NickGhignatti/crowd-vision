@@ -7,6 +7,7 @@ import { makeRequest } from '@/composables/core/useApi'
 
 interface TableHeader {
   key: keyof TableBody
+  metricKey?: string
   label: string
   cellClass?: string
 }
@@ -25,8 +26,8 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/composables/building/useSensorData', () => ({
-  getBuildingData: () => ({
+vi.mock('@/composables/building/useBuildingSensor', () => ({
+  useBuildingSensor: () => ({
     data: ref([]),
     isLoading: ref(false),
     error: ref(null),
@@ -204,8 +205,8 @@ describe('BuildingTable', () => {
 
     it('applies temperature color styling for temp cells', () => {
       const tempHeaders: TableHeader[] = [
-        { key: 'room', label: 'Room' },
-        { key: 'temp', label: 'Temp' },
+        { key: 'room', metricKey: 'roomName', label: 'Room' },
+        { key: 'temp', metricKey: 'temperature', label: 'Temp' },
       ]
       const wrapper = createWrapper({
         headers: tempHeaders,
@@ -213,6 +214,8 @@ describe('BuildingTable', () => {
         itemsPerPage: 5,
       })
 
+      // The temperature metric routes to the gauge cell, which tints its value
+      // span with the descriptor's colour function (mocked above).
       const temperatureCell = wrapper.find('tbody td:nth-child(2) span')
       expect(temperatureCell.attributes('style')).toContain('color: rgb(1, 2, 3)')
     })

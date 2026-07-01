@@ -81,12 +81,24 @@ async def ask(
     if payload.stream:
 
         async def sse():
-            async for event in _agent.stream_answer(session, payload.question, user, llm=llm):
+            async for event in _agent.stream_answer(
+                session,
+                payload.question,
+                user,
+                llm=llm,
+                history=[turn.model_dump() for turn in payload.history],
+            ):
                 yield f"data: {json.dumps(event)}\n\n"
 
         return StreamingResponse(sse(), media_type="text/event-stream")
 
-    result = await _agent.answer(session, payload.question, user, llm=llm)
+    result = await _agent.answer(
+        session,
+        payload.question,
+        user,
+        llm=llm,
+        history=[turn.model_dump() for turn in payload.history],
+    )
     return AskResponse(
         answer=result.answer,
         citations=[

@@ -1,14 +1,40 @@
 ###! Requirements
+- [User Stories](./requirements/user-stories.qd)
 - [Functional Requirements](./requirements/functional-requirements.qd)
 - [Non-Functional Requirements](./requirements/non-functional-requirements.qd)
 
 ###! Domain model
-- [Entities](./domain/entities.qd)
+- [Strategic Design](./domain/strategic-design.qd)
+- [Identity & Access Context](./domain/identity-access.qd)
+- [Building Management Context](./domain/building-management.qd)
+- [Telemetry Ingestion Context](./domain/telemetry-ingestion.qd)
+- [Telemetry Distribution Context](./domain/telemetry-distribution.qd)
+- [Alerting Context](./domain/alerting.qd)
 
-###! Architecture
+###! System Architecture
 - [Overview](./architecture/overview.qd)
-- [The Microservices](./architecture/microservices.qd)
-- [Kubernetes Architecture](./architecture/kubernetes.qd)
+- [Communication & Data Flow](./architecture/data-flow.qd)
+- [Deployment & Kubernetes](./architecture/deployment.qd)
+
+###! Microservices Architecture
+- [Service Anatomy](./architecture/microservices.qd)
+- [Authentication Service](./architecture/auth-architecture.qd)
+- [Digital Twin Service](./architecture/twin-architecture.qd)
+- [Notification Service](./architecture/notification-architecture.qd)
+- [Sensor Service](./architecture/sensor-architecture.qd)
+- [Contracts Service](./architecture/contracts-architecture.qd)
+- [Socket Service](./architecture/socket-architecture.qd)
+
+###! Implementation Reference
+- [Authentication Service](./services/authentication.qd)
+- [Authentication Service: Middleware](./services/middlewares.qd)
+- [Digital Twin Service](./services/digital-twin.qd)
+- [Notification Service](./services/notification.qd)
+- [Sensor Service](./services/sensor.qd)
+- [Contracts Service](./services/contracts.qd)
+- [Socket Service](./services/socket.qd)
+- [Agent Service](./services/agent.qd)
+- [Chat Service](./services/chat.qd)
 
 ###! Design
 - [Communication Schema](./design/communication.qd)
@@ -18,20 +44,17 @@
 - [Notifications](./design/notifications.qd)
 - [Sensor Data Communication](./design/tunneling.qd)
 
-###! Configuration & Working on
+###! Configuration
 - [Setting Up Your Environment](./config/setting-up.qd)
-- [The Toolchain: mise & moon](./config/toolchain.qd)
-- [Configuring Kubernetes](./config/kubernetes.qd)
+- [The Toolchain: mise, moon & just](./config/toolchain.qd)
+- [Docker Compose Orchestration](./config/docker-compose.qd)
+- [Kubernetes Configuration](./config/kubernetes.qd)
 - [Running the Application](./config/running.qd)
 - [External Simulators](./config/sensor-simulator.qd)
-- [Contributing](./config/contributing.qd)
-- [Release & CI/CD Pipeline](./config/cicd.qd)
 
-##! Services
-- [Authentication Service](./services/authentication.qd)
-- [Authentication Service: Middleware](./services/middlewares.qd)
-- [Digital Twin Service](./services/digital-twin.qd)
-- [Notification Service](./services/notification.qd)
-- [Sensor Service](./services/sensor.qd)
-- [Agent Service](./services/agent.qd)
-- [Contracts Service](./services/contracts.qd)
+###! Contributing
+- [Contributing & Golden Rules](./contributing/contributing.qd)
+- [Naming Conventions](./contributing/naming-conventions.qd)
+- [Commits & Semantic Release](./contributing/semantic-release.qd)
+- [CI/CD Pipeline](./contributing/cicd.qd)
+- [Adding an Agent Tool](./contributing/adding-agent-tools.qd)

@@ -3,6 +3,7 @@
 .idea
 .DS_Store
 CLAUDE.md
+.zed
 
 # Python stuff
 __pycache__/
@@ -16,15 +17,25 @@ __pycache__/
 # node
 node_modules
 
+# Coverage reports
+coverage/
+*.lcov
+coverage.xml
+coverage.json
+.coverage
+
 # Kubernetes
 k8s/secrets
 
 # Documentation
 landing-page/user
 landing-page/dev
+landing-page/reports
+output/
 
 # Agents
 .claude
+.agents
 
 # Auto-generated runtime compose file (scripts/compose-run.mjs)
 compose.runtime.yml

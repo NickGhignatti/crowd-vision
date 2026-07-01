@@ -12,6 +12,7 @@ export const addBuilding = async (
   name: string | undefined,
   rooms: any,
   domains: string[],
+  authToken?: string,
 ) => {
   const normalizedBuildingName = normalizeBuildingName(name, undefined);
   const normalizedRooms = normalizeRoomNames(rooms as Room[]);
@@ -21,7 +22,7 @@ export const addBuilding = async (
     domains,
   });
   await building.save();
-  await syncBuildingClone(building.toObject());
+  await syncBuildingClone(building.toObject(), undefined, authToken);
   await initBuildingPreferences(building.id);
   return building;
 };
@@ -31,6 +32,7 @@ export const updateBuilding = async (
   updates: Partial<Pick<IBuilding, "name" | "domains">> & {
     maxTemperature?: number;
   },
+  authToken?: string,
 ) => {
   const building = await getBuildingById(buildingId);
 
@@ -44,13 +46,18 @@ export const updateBuilding = async (
 
   await building.save();
 
-  await syncBuildingClone(building.toObject(), updates.maxTemperature);
+  await syncBuildingClone(
+    building.toObject(),
+    updates.maxTemperature,
+    authToken,
+  );
 
   return building;
 };
 
 export const getBuildingById = async (id: string) => {
-  const building = await Building.findOne({ id });
+  // $eq blocks NoSQL operator injection (applied to all user-derived filters).
+  const building = await Building.findOne({ id: { $eq: id } });
 
   if (!building) {
     throw new NotFoundError(`Building with id: "${id}" not found`);
@@ -61,7 +68,7 @@ export const getBuildingById = async (id: string) => {
 };
 
 export const getBuildingsByDomain = async (domain: string) => {
-  const buildings = await Building.find({ domains: domain });
+  const buildings = await Building.find({ domains: { $eq: domain } });
 
   if (buildings.length === 0) {
     return [];
@@ -75,6 +82,7 @@ export const updateRoom = async (
   buildingId: string,
   roomId: string,
   updates: Partial<Pick<Room, "name" | "color" | "capacity">>,
+  authToken?: string,
 ) => {
   const building = await getBuildingById(buildingId);
 
@@ -90,11 +98,27 @@ export const updateRoom = async (
   if (updates.capacity !== undefined) room.capacity = updates.capacity;
 
   await building.save();
-  await syncBuildingClone(building.toObject());
+  await syncBuildingClone(building.toObject(), undefined, authToken);
   return room;
 };
 
+// Counts buildings per domain, restricted to the explicit names supplied by the
+// caller so this route can't be used to enumerate every domain in the system.
+export const getBuildingCountsFor = async (domainNames: string[]) => {
+  if (domainNames.length === 0) return {} as Record<string, number>;
+
+  const rows = await Building.aggregate([
+    { $unwind: "$domains" },
+    { $match: { domains: { $in: domainNames } } },
+    { $group: { _id: "$domains", count: { $sum: 1 } } },
+  ]);
+
+  return Object.fromEntries(
+    rows.map((r) => [r._id as string, r.count as number]),
+  );
+};
+
 export const getDomainsByBuilding = async (buildingName: string) => {
-  const buildings = await Building.find({ name: buildingName });
+  const buildings = await Building.find({ name: { $eq: buildingName } });
   return buildings.flatMap((building) => building.domains);
 };

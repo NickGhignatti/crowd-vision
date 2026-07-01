@@ -5,37 +5,39 @@ CrowdVision can be run in two distinct modes: **Docker Compose** for everyday lo
 
 ---
 
-## 🐳 Docker Compose Mode
+## Docker Compose Mode
 
 ### Development (Hot-Reloading)
 
 For active development with live code reloading, use:
 
-.code lang:{bash}
-    just dev
+```bash
+just stack dev
+```
 
 **What happens:**
-1. `just env` runs first to verify your `.env` and generate any missing keys.
+1. `just stack env` runs first to verify your `.env` and generate any missing keys.
 2. A runtime compose file is generated that includes all service compose files.
 3. Docker Compose launches with `--watch` — saving a file triggers an instant hot-reload inside the running container.
 4. All services start: Caddy proxy, Redis, all MongoDB instances, all backend microservices, and the Vue client.
 
 ### Excluding Services
 
-The `agent-service` is the heaviest service (Python + model loading). Skip it when you are not working on AI features:
+Run a lighter stack by excluding services you are not working on:
 
-.code lang:{bash}
-    # Exclude by substring of folder name:
-    just dev exclude="agent"
+```bash
+# Exclude by substring of folder name:
+just stack dev exclude="simulator"
 
-    # Exclude multiple services (space-separated):
-    just dev exclude="agent simulator"
+# Exclude multiple services (space-separated):
+just stack dev exclude="simulator client"
 
-    # Exclude the client (useful when running it separately with Vite):
-    just dev exclude="client"
+# Exclude the client (useful when running it separately with Vite):
+just stack dev exclude="client"
+```
 
 .box type:{note}
-    Exclusion matches by **folder name substring**. `"agent"` will skip `server/agent-service`, `agent-db`, and any folder containing "agent". Use a more specific substring if needed.
+    Exclusion matches by **folder name substring**. `"simulator"` will skip `aq-simulator` and `sensor-simulator`. Use a more specific substring to target a single service.
 
 ### Accessing the Application (Docker mode)
 
@@ -51,9 +53,6 @@ The `agent-service` is the heaviest service (Python + model loading). Skip it wh
     - - API Gateway
       - `http://localhost:80`
       - Caddy proxy — routes to all microservices.
-    - - Agent API Docs
-      - `http://localhost/agent/docs`
-      - FastAPI/OpenAPI reference for `/ask`, `/ingest`, and `/health`.
     - - Auth DB GUI
       - `http://localhost/auth-db-gui/`
       - Mongo Express for the auth database. Dev mode only.
@@ -66,283 +65,232 @@ The `agent-service` is the heaviest service (Python + model loading). Skip it wh
     - - Prometheus
       - `http://localhost/prometheus/`
       - Raw metrics scraper. Dev mode only.
-    - - Langfuse
-      - `http://localhost:3030`
-      - AI-agent traces, tool calls, tokens, cost, and latency. Docker mode only.
-
-### Langfuse Login
-
-Langfuse is the trace UI for `agent-service`. Open `http://localhost:3030` directly, or
-open `http://localhost/langfuse` to be redirected there.
-
-The Docker Compose development defaults are:
-
-.var {headers}
-   - Field
-   - Default
-
-.tablebyrows {.headers}
-    - - Email
-      - `admin@crowd-vision.local`
-    - - Password
-      - `langfuse-admin`
-
-Override the defaults in the root `.env` before starting Langfuse for the first time:
-
-.code lang:{bash}
-    LANGFUSE_INIT_USER_EMAIL=your-email@example.com
-    LANGFUSE_INIT_USER_PASSWORD=use-a-strong-password
-
-.box type:{warning}
-    The `LANGFUSE_INIT_USER_*` values provision the initial account when the Langfuse
-    database is first created. Changing them later does not update an existing user's
-    login. For any shared or externally reachable deployment, replace the development
-    password before first startup.
-
-.box type:{note}
-    Langfuse is currently included in the Docker Compose stack only. The repository's
-    Kubernetes manifests do not deploy or expose Langfuse.
-
-### Agent Operations
-
-.code lang:{bash}
-    just logs agent-service       # follow application logs and console traces
-    just agent-ingest             # ingest developer + user documentation
-    just test-agent               # Moon-managed agent pytest task
-    just test-agent-integration   # Testcontainers/Postgres integration suite
-    just eval                     # evaluate the configured answer model
-    just eval models="a,b"        # compare answer models end to end
-
-The automatic `agent-ingester` runs once during Docker Compose startup after
-`agent-service` becomes healthy. Kubernetes does not deploy this ingester, so documents
-must be ingested manually after deployment.
-
-For provider verification, model evaluation, API examples, permissions, and current
-limitations, see the [Agent Service](../services/agent.qd) guide.
-
-`just eval` makes real provider requests and requires a running, already-ingested stack.
-Local runs mint a fresh JWT for every request from the repository `.env`. `just eval`
-reports scored `FAIL`, `XFAIL`, and `XPASS` results without failing the recipe; setup and
-preflight errors still fail. Direct runner invocations exit non-zero on unexpected
-failures and can use `--strict` to also fail on stale `XPASS` markers.
 
 ### Production / Detached Mode
 
-.code lang:{bash}
-    just start
+```bash
+just stack start
+```
 
 Runs the stack using the base compose configuration in detached mode (`-d`). No hot-reloading, no database GUIs. Same `exclude=` syntax works here too.
 
 ### Stopping & Resetting
 
-.code lang:{bash}
-    # Graceful shutdown — stops all containers and removes orphans:
-    just down
+```bash
+# Graceful shutdown — stops all containers and removes orphans:
+just stack down
 
-    # Follow logs for all services:
-    just logs
+# Follow logs for all services:
+just stack logs
 
-    # Follow logs for one service:
-    just logs auth-service
+# Follow logs for one service:
+just stack logs auth-service
 
-    # Wipe all databases (destructive — you will need to re-provision):
-    just db-clear
+# Wipe all databases (destructive — you will need to re-provision):
+just db clear
 
-    # Wipe only the sensor database:
-    just db-clear-sensor
+# Wipe only the sensor database:
+just db clear-sensor
+```
 
 .box type:{warning}
-    `just db-clear` permanently deletes all persistent Docker volumes. You will need to run `node scripts/ops/provision.js` again after a clear to recreate the admin account.
+    `just db clear` permanently deletes all persistent Docker volumes. You will need to run `node scripts/ops/provision.js` again after a clear to recreate the admin account.
 
 ---
 
-## 🌱 Bootstrapping (First-Time Provisioning)
+## Bootstrapping (First-Time Provisioning)
 
 With empty databases you cannot log in. Use the provisioning script to seed the initial Global Admin account and default Domain:
 
-.code lang:{bash}
-    node scripts/ops/provision.js
+```bash
+node scripts/ops/provision.js
+```
 
 Run this once after your services are healthy. The script prompts you for the admin email, password, and domain name, then calls the running auth-service to register them.
 
 ---
 
-## ☸️ Kubernetes Mode
+## Kubernetes Mode
 
 See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Quick summary:
 
 ### First Time: Creating the Cluster
 
-.code lang:{bash}
-    k3d cluster create crowdvision \
-      --servers 1 \
-      --agents 3 \
-      --api-port 127.0.0.1:6550 \
-      -p "80:80@loadbalancer" \
-      -p "443:443@loadbalancer" \
-      --k3s-arg "--disable=traefik@server:*"
+```bash
+k3d cluster create crowdvision \
+  --servers 1 \
+  --agents 3 \
+  --api-port 127.0.0.1:6550 \
+  -p "80:80@loadbalancer" \
+  -p "443:443@loadbalancer" \
+  --k3s-arg "--disable=traefik@server:*"
+```
 
 ### Deploying (Production images from GHCR)
 
-.code lang:{bash}
-    # First-time full setup (ingress controller → namespace → secrets → manifests):
-    just k8s-setup
+```bash
+# First-time full setup (ingress controller → namespace → secrets → manifests):
+just k8s setup
 
-    # Subsequent deploys — re-apply manifests:
-    just k8s-apply
+# Subsequent deploys — re-apply manifests:
+just k8s apply
+```
 
 ### Deploying with Locally Built Images (k3d dev)
 
-.code lang:{bash}
-    just k8s-build      # build all images locally
-    just k8s-load       # import into k3d — no GHCR needed
-    just k8s-apply      # apply manifests
+```bash
+just k8s build      # build all images locally
+just k8s load       # import into k3d — no GHCR needed
+just k8s apply      # apply manifests
+```
 
 ### Updating a Single Service
 
-.code lang:{bash}
-    # After code changes — rebuild the image, then rolling restart:
-    docker build -t ghcr.io/nickghignatti/crowdvision-auth:latest ./server/auth-service
-    just k8s-load
-    just k8s-restart auth-service
+```bash
+# After code changes — rebuild the image, then rolling restart:
+docker build -t ghcr.io/nickghignatti/crowdvision-auth:latest ./server/auth-service
+just k8s load
+just k8s restart auth-service
 
-    # Watch the rollout:
-    just k8s-rollout auth-service
+# Watch the rollout:
+just k8s rollout auth-service
+```
 
 ### Managing Cluster Lifecycle
 
-.code lang:{bash}
-    # Pause the cluster (preserves all pods, volumes, and secrets):
-    just k8s-stop
+```bash
+# Pause the cluster (preserves all pods, volumes, and secrets):
+just k8s stop
 
-    # Resume from exactly where you left off (~30 seconds):
-    just k8s-start
+# Resume from exactly where you left off (~30 seconds):
+just k8s start
 
-    # Verify everything came back up:
-    just k8s-status
+# Verify everything came back up:
+just k8s status
 
-    # Destroy the cluster completely (data is permanently lost):
-    just k8s-delete
+# Destroy the cluster completely (data is permanently lost):
+just k8s delete
+```
 
 .box type:{note}
-    Use `just k8s-stop` at the end of your working day. All pod state and persistent volume data survives the stop/start cycle — your databases are intact.
+    Use `just k8s stop` at the end of your working day. All pod state and persistent volume data survives the stop/start cycle — your databases are intact.
 
 ### Verifying Cluster Health
 
-.code lang:{bash}
-    # All pods should show 1/1 Running:
-    just k8s-status
+```bash
+# All pods should show 1/1 Running:
+just k8s status
 
-    # Check persistent volumes are Bound:
-    kubectl get pvc -n crowdvision
+# Check persistent volumes are Bound:
+kubectl get pvc -n crowdvision
 
-    # Check Ingress has an ADDRESS:
-    kubectl get ingress -n crowdvision
+# Check Ingress has an ADDRESS:
+kubectl get ingress -n crowdvision
 
-    # Tail logs for a service:
-    just k8s-logs auth-service
+# Tail logs for a service:
+just k8s logs auth-service
 
-    # Describe a pod for detailed events (useful for debugging):
-    kubectl describe pod <pod-name> -n crowdvision
+# Describe a pod for detailed events (useful for debugging):
+kubectl describe pod <pod-name> -n crowdvision
+```
 
 ---
 
-## 🧪 Testing
+## Testing
 
-.code lang:{bash}
-    # Run all unit tests across all services (moon caches results — unchanged services are instant):
-    just test
+```bash
+# Run all unit tests across all services (moon caches results — unchanged services are instant):
+just test all
 
-    # Run only tests for services touched by your current branch:
-    just test-affected
+# Run only tests for services touched by your current branch:
+just test affected
 
-    # Per-service unit tests:
-    just test-auth
-    just test-twin
-    just test-sensor
-    just test-notification
-    just test-socket
-    just test-client
-    just test-agent
+# Per-service unit tests:
+just test auth
+just test twin
+just test sensor
+just test notification
+just test socket
+just test client
 
-    # Full backend integration tests (spins up a composed stack, then tears it down):
-    just test-integration
+# Full backend integration tests (spins up a composed stack, then tears it down):
+just test integration
+```
 
 .box type:{note}
-    `just test` and `just lint` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test-affected` / `just lint-affected` on a feature branch to only process the services your changes actually touch.
+    `just test all` and `just lint all` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test affected` / `just lint affected` on a feature branch to only process the services your changes actually touch.
 
 ---
 
-## 🔒 Auditing & Dependency Checks
+## Auditing & Dependency Checks
 
 Two recipes run a security audit and a lockfile-sync check across every project. Both delegate to **moon** (`moon run :audit` / `:deps`), so they are cached and accept `--affected` to scope to the projects changed on your branch. See [The Toolchain: mise & moon](toolchain.qd) for how these tasks are defined.
 
-.code lang:{bash}
-    # Security audit — npm audit (--audit-level=high --omit=dev) + uv audit + cargo audit:
-    just audit
+```bash
+# Security audit — npm audit (--audit-level=high --omit=dev) + uv audit + cargo audit:
+just setup audit
 
-    # Lockfile-sync check — npm ci + uv sync --locked + cargo check:
-    just deps-check
+# Lockfile-sync check — npm ci + uv sync --locked + cargo check:
+just setup deps-check
 
-    # Scope either to only the projects changed on your branch:
-    mise exec -- moon run :audit --affected
+# Scope either to only the projects changed on your branch:
+mise exec -- moon run :audit --affected
+```
 
 .box type:{note}
-    `just deps-check` is the fastest way to catch a lockfile drift before pushing (the classic `npm ci can only install packages when your package.json and package-lock.json are in sync`). If it fails, regenerate the offending lockfile with `just clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). The Rust `cargo audit` leg is marked **allow-failure**: if `cargo-audit` isn't installed it is reported but does not fail the run (`cargo install cargo-audit` to enable it).
+    `just setup deps-check` is the fastest way to catch a lockfile drift before pushing (the classic `npm ci can only install packages when your package.json and package-lock.json are in sync`). If it fails, regenerate the offending lockfile with `just setup clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). The Rust `cargo audit` leg is marked **allow-failure**: if `cargo-audit` isn't installed it is reported but does not fail the run (`cargo install cargo-audit` to enable it).
 
 ---
 
-## 📋 Full Just Reference — Docker Compose
+## Full Just Reference — Docker Compose
 
 .var {headers}
    - Recipe
    - What it does
 
 .tablebyrows {.headers}
-    - - `just dev [exclude="..."]`
+    - - `just stack dev [exclude="..."]`
       - Full stack with hot-reloading. Optionally exclude services.
-    - - `just start [exclude="..."]`
+    - - `just stack start [exclude="..."]`
       - Full stack in detached/production mode.
-    - - `just down`
+    - - `just stack down`
       - Graceful shutdown, removes orphan containers.
-    - - `just logs [service]`
+    - - `just stack logs [service]`
       - Follow logs. Omit service to tail all.
-    - - `just db-clear`
+    - - `just db clear`
       - Drop all databases (destructive).
-    - - `just db-clear-sensor`
+    - - `just db clear-sensor`
       - Drop only the sensor database.
-    - - `just test`
+    - - `just test all`
       - Run all unit tests (moon-cached; unchanged services are instant).
-    - - `just test-affected`
+    - - `just test affected`
       - Run unit tests only for services changed on the current branch.
-    - - `just test-<service>`
+    - - `just test <service>`
       - Run unit tests for one service.
-    - - `just test-integration`
+    - - `just test integration`
       - Run backend integration tests.
-    - - `just lint`
+    - - `just lint all`
       - Lint every service (moon-cached).
-    - - `just lint-affected`
+    - - `just lint affected`
       - Lint only services changed on the current branch.
-    - - `just lint-fix`
+    - - `just lint fix`
       - Auto-fix linting issues across every service.
-    - - `just agent-ingest`
-      - Re-ingest documentation into the AI agent knowledge base.
-    - - `just audit`
+    - - `just setup audit`
       - Security audit across all projects via `moon run :audit` (npm + uv + cargo).
-    - - `just deps-check`
+    - - `just setup deps-check`
       - Lockfile-sync check across all projects via `moon run :deps` (npm ci + uv sync --locked + cargo check).
-    - - `just clean-install`
+    - - `just setup clean-install`
       - Wipe all node_modules + lockfiles and regenerate them for Linux, then reinstall.
-    - - `just docs`
+    - - `just docs build`
       - Compile both Quarkdown guides to `landing-page/{user,dev}` (mirrors CI).
-    - - `just docs-preview [dir=...]`
+    - - `just docs preview [dir=...]`
       - Quarkdown live-reloading server for one guide while editing.
-    - - `just docs-serve`
+    - - `just docs serve`
       - Build both guides, then live-serve the whole `landing-page/` site at `:8080`.
 
 ---
 
-## 🔍 Debugging Tips
+## Debugging Tips
 
 ### A service is responding with 502 Bad Gateway
 
@@ -351,55 +299,59 @@ The Caddy proxy forwards to the service container but nothing is listening. Most
 **1. The `dev` script in `package.json` points to a non-existent file.**
 Every Node.js/TypeScript service must reference `src/index.ts` via `ts-node/esm`, not a compiled `.js` file. Check the service's `package.json`:
 
-.code lang:{bash}
-    # Correct pattern (all TypeScript services):
-    "dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts"
+```bash
+# Correct pattern (all TypeScript services):
+"dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts"
+```
 
 If it says `src/index.js` and that file does not exist, nodemon exits silently and the service never starts — manifesting as 502.
 
 **2. Environment variable is empty or wrong.**
-Open the service logs: `just logs <service-name>`. Look for connection errors to MongoDB or Redis at startup.
+Open the service logs: `just stack logs <service-name>`. Look for connection errors to MongoDB or Redis at startup.
 
 **3. Missing `.env` variable.**
-Run `just env` to fill any gaps. The script skips variables already present, so it is safe to re-run.
+Run `just stack env` to fill any gaps. The script skips variables already present, so it is safe to re-run.
 
 ---
 
-### `just dev exclude="..."` is not excluding the service
+### `just stack dev exclude="..."` is not excluding the service
 
 Exclusion works by matching the **folder name substring**. Examples:
 
-.code lang:{bash}
-    just dev exclude="agent"          # skips server/agent-service, agent-db, agent-ingester
-    just dev exclude="agent simulator"  # also skips aq-simulator, sensor-simulator
+```bash
+just stack dev exclude="simulator"         # skips aq-simulator and sensor-simulator
+just stack dev exclude="simulator client"  # also skips the Vue client
+```
 
 If exclusion suddenly stops working after editing the Justfile: verify that `dev` still takes only ONE parameter (`exclude=""`). Adding a second parameter before `exclude` in the recipe definition breaks named-argument resolution in `just`.
 
 ---
 
-### Windows: `kubectl` fails to connect after `just k8s-start`
+### Windows: `kubectl` fails to connect after `just k8s start`
 
 After a cluster restart the kubeconfig may point to a stale port. Fix it:
 
-.code lang:{bash}
-    # Find the actual port the k3d load balancer is using:
-    docker ps --filter name=k3d-crowdvision-serverlb
-    # Look for the port mapped to 6443 in the PORTS column, e.g. 0.0.0.0:32774->6443/tcp
+```bash
+# Find the actual port the k3d load balancer is using:
+docker ps --filter name=k3d-crowdvision-serverlb
+# Look for the port mapped to 6443 in the PORTS column, e.g. 0.0.0.0:32774->6443/tcp
 
-    # Update the kubeconfig to use the correct port:
-    kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<PORT>
+# Update the kubeconfig to use the correct port:
+kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<PORT>
+```
 
 ---
 
-### `just k8s-secrets` fails: "namespaces not found"
+### `just k8s secrets` fails: "namespaces not found"
 
 Secrets are scoped to the `crowdvision` namespace — it must exist first. Create it manually:
 
-.code lang:{bash}
-    kubectl apply -f k8s/namespace.yml
-    just k8s-secrets
+```bash
+kubectl apply -f k8s/namespace.yml
+just k8s secrets
+```
 
-Or use `just k8s-setup` which handles the ordering automatically.
+Or use `just k8s setup` which handles the ordering automatically.
 
 ---
 
@@ -407,53 +359,13 @@ Or use `just k8s-setup` which handles the ordering automatically.
 
 If pods are stuck in `ImagePullBackOff`, Kubernetes is trying to pull from GHCR instead of using the locally loaded image.
 
-.code lang:{bash}
-    # Load images from your local Docker daemon into k3d:
-    just k8s-build
-    just k8s-load
+```bash
+# Load images from your local Docker daemon into k3d:
+just k8s build
+just k8s load
+```
 
 Also check that the deployment manifest sets `imagePullPolicy: IfNotPresent`, not `Always` — `Always` forces a remote pull even when the image exists locally.
-
----
-
-### agent-service fails to start (database migration error)
-
-The agent-service reads its Postgres connection string from `POSTGRES_URL` (not `DATABASE_URL`). Verify the secret was created correctly:
-
-.code lang:{bash}
-    kubectl get secret agent-service-secret -n crowdvision \
-      -o jsonpath='{.data.POSTGRES_URL}' | base64 -d
-
-If it is empty or missing, check your `.env` for `POSTGRES_URL` and re-run `just k8s-secrets`.
-
----
-
-### agent-service provider requests return `401`, `402`, or model errors
-
-The agent uses one OpenAI-compatible endpoint for chat and embeddings. Verify that the
-provider key matches the endpoint:
-
-.code lang:{bash}
-cd server/agent-service
-OPENROUTER_API_KEY=<your-key> uv run python scripts/verify_provider.py
-
-For the default OpenRouter endpoint, configure `OPENROUTER_API_KEY`. A `402` commonly means
-the OpenRouter account lacks credit for the selected model; lower `MAX_OUTPUT_TOKENS` or use
-a cheaper allowed model.
-
----
-
-### agent answers documentation questions with no useful sources
-
-Re-ingest the documentation and inspect the agent logs:
-
-.code lang:{bash}
-    just agent-ingest
-    just logs agent-service
-
-The Docker ingester loads `documentation/user` and `documentation/developer`. Kubernetes
-does not run it automatically. Retrieval also filters documents against JWT roles/domains;
-empty document permissions are visible to every authenticated caller.
 
 ---
 
@@ -461,12 +373,14 @@ empty document permissions are visible to every authenticated caller.
 
 Newer versions of the nginx Ingress Controller disable snippet annotations by default. If you see:
 
-.code lang:{text}
-    annotation nginx.ingress.kubernetes.io/configuration-snippet is not allowed
+```text
+annotation nginx.ingress.kubernetes.io/configuration-snippet is not allowed
+```
 
 Re-install the ingress controller with snippets enabled:
 
-.code lang:{bash}
-    helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
-      --namespace ingress-nginx \
-      --set controller.allowSnippetAnnotations=true
+```bash
+helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --set controller.allowSnippetAnnotations=true
+```

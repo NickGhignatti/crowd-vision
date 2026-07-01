@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -36,6 +38,11 @@ class IngestResponse(BaseModel):
     )
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=8000)
+
+
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural-language question for the agent.")
     top_k: int | None = Field(
@@ -52,6 +59,11 @@ class AskRequest(BaseModel):
         "Embeddings/retrieval are unaffected — for A/B evaluating generators. "
         "**Privileged:** requires the MODEL_OVERRIDE_MIN_ROLE role (default "
         "business_admin) and, when configured, the model must be in ALLOWED_MODELS.",
+    )
+    history: list[ChatTurn] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Previous user and assistant messages, ordered oldest to newest.",
     )
 
     model_config = ConfigDict(

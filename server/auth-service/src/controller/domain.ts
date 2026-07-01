@@ -6,6 +6,14 @@ import { Account } from "../models/account.js";
 import { hasRequiredRole, type Role } from "../models/role.js";
 import { NotFoundError, UnauthorizedError } from "../models/error.js";
 
+// The verified account name from the JWT — the only trustworthy source of the
+// caller's identity. Routes must use this, not a body/URL-supplied account name.
+const tokenAccountName = (req: Request): string => {
+  const accountName = (req.account as { accountName?: string })?.accountName;
+  if (!accountName) throw new UnauthorizedError("Invalid account name");
+  return accountName;
+};
+
 export const createDomain = async (req: Request, res: Response) => {
   const { name, subdomains, authStrategy, ssoConfig, isVisibleFromOutside } =
     req.body;
@@ -35,18 +43,46 @@ export const getAllAllowedDomains = async (req: Request, res: Response) => {
   res.json({ domains });
 };
 
-export const getDomainsByAccount = async (req: Request, res: Response) => {
-  const { accountName } = req.params;
-  const memberships = await DomainService.getAccountMemberships(
-    accountName as string,
+export const getDomainMemberCounts = async (req: Request, res: Response) => {
+  const accountName: string | undefined = (
+    req.account as { accountName?: string }
+  )?.accountName;
+
+  if (!accountName) {
+    throw new UnauthorizedError("Invalid account name");
+  }
+
+  // Scope counts to what the caller may see: public domains plus their own
+  // memberships. Identity comes from the token, never from a request param.
+  const [publicDomains, memberships] = await Promise.all([
+    DomainService.getPublicDomains(),
+    DomainService.getAccountMemberships(accountName),
+  ]);
+
+  const visibleNames = Array.from(
+    new Set([
+      ...publicDomains.map((d) => d.name),
+      ...memberships.map((m) => m.domainName),
+    ]),
   );
+
+  const counts = await DomainService.getMemberCountsFor(visibleNames);
+  res.json({ counts });
+};
+
+export const getDomainsByAccount = async (req: Request, res: Response) => {
+  // Identity comes from the token, never the :accountName URL param — otherwise
+  // any logged-in user could read another account's memberships (IDOR).
+  const accountName = tokenAccountName(req);
+  const memberships = await DomainService.getAccountMemberships(accountName);
   res.json({ domains: memberships });
 };
 
 export const subscribeAccountToDomain = async (req: Request, res: Response) => {
-  const { accountName } = req.params;
+  // Subscribe only the authenticated caller; the :accountName param is ignored.
+  const accountName = tokenAccountName(req);
   const { domainName } = req.body;
-  await DomainService.subscribe(accountName as string, domainName);
+  await DomainService.subscribe(accountName, domainName);
   res.status(200).send();
 };
 
@@ -54,9 +90,10 @@ export const unsubscribeAccountFromDomain = async (
   req: Request,
   res: Response,
 ) => {
-  const { accountName } = req.params;
+  // Unsubscribe only the authenticated caller; the :accountName param is ignored.
+  const accountName = tokenAccountName(req);
   const { domainName } = req.body;
-  await DomainService.unsubscribe(accountName as string, domainName);
+  await DomainService.unsubscribe(accountName, domainName);
   res.status(200).send();
 };
 

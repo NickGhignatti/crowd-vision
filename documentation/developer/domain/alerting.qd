@@ -1,0 +1,108 @@
+.docname {Alerting Context}
+.include {docs}
+
+**Realised by:** notification-service · **Subdomain type:** Supporting
+
+This page describes the design-time model of the Alerting context. Delivery mechanics and concrete APIs are documented in the [Notification Service](../services/notification.qd) page.
+
+The context owns everything about *delivering alerts to people*. Its defining design decision is to separate two concerns that are easy to conflate: **where** a principal can be reached, and **what** a principal wants to hear about.
+
+---
+
+## Ubiquitous Language
+
+.var {headers}
+   - Term
+   - Meaning in this context
+
+.tablebyrows {.headers}
+    - - Delivery Channel
+      - A single device or endpoint an alert can be pushed to.
+    - - Alert Preference
+      - A principal's per-domain choices about which kinds of alert to receive.
+    - - Alert Type
+      - A category of alert (for example, a temperature alert).
+    - - Recipient
+      - A principal eligible to receive a given alert, within a domain.
+
+---
+
+## Two Aggregates, Two Questions
+
+We model the context as two separate aggregate roots so that the two concerns can change independently — a principal can revoke a device without losing their choices, and change their choices without touching their devices.
+
+.mermaid
+    classDiagram
+        class DeliveryChannel {
+            <<Aggregate Root>>
+            +principal
+            +endpoint
+            +DeliveryKeys keys
+        }
+        class DeliveryKeys {
+            <<Value Object>>
+            +keyMaterial
+        }
+        class AlertPreference {
+            <<Aggregate Root>>
+            +principal
+            +domainName
+            +TypePreference[] preferences
+        }
+        class TypePreference {
+            <<Value Object>>
+            +AlertType type
+            +subscribed
+        }
+
+        DeliveryChannel "1" *-- "1" DeliveryKeys : secured by
+        AlertPreference "1" *-- "many" TypePreference : holds
+
+### Aggregate: Delivery Channel — *"where can I reach this principal?"*
+
+- Represents one place an alert can be delivered, together with the material needed to deliver to it securely.
+- A principal may have **many** channels — one per device. This is intentional, so reaching a principal can fan out across their devices.
+- **Intended rule:** a channel that becomes permanently undeliverable is pruned from the model rather than kept around.
+
+### Aggregate: Alert Preference — *"what does this principal want?"*
+
+- Scoped to a principal within a domain (the shared identifier again), so choices are tenant-specific.
+- **Intended invariant:** at most one Alert Preference per principal per domain.
+- `AlertType` is modelled as an extensible set. We expect to start with a small number of types and add more, so the model is built to grow rather than fixed to today's list.
+
+### Value Objects: DeliveryKeys and TypePreference
+
+Each aggregate carries one immutable, identity-less value object. **DeliveryKeys** is the key material that lets a Delivery Channel be reached securely — it belongs to its channel and nowhere else. A **TypePreference** is a single *(alert type, subscribed?)* choice held inside an Alert Preference. Neither has meaning on its own, so both are modelled as value objects their aggregate replaces rather than tracks by identity.
+
+---
+
+## How Alerting Fits In
+
+The context is downstream of two others and feeds the platform's real-time flow. The interaction is drawn generically — the concrete trigger and delivery details are implementation decisions.
+
+.mermaid
+    sequenceDiagram
+        participant Src as Reading source
+        participant Al as Alerting
+        participant BM as Building Management
+        participant U as Users
+        Src->>Al: a reading worth alerting on
+        Note over Al: decide whether it crosses an alert threshold
+        Al->>BM: which domains is this building in?
+        BM-->>Al: domain names
+        Note over Al: select recipients who opted in
+        Al->>U: deliver the alert
+
+.var {headers}
+   - Relationship
+   - Pattern
+
+.tablebyrows {.headers}
+    - - Consumes identity from Identity & Access
+      - Conformist (reads the identity token, never reshapes it)
+    - - Resolves a building's domains from Building Management
+      - Customer / Supplier, translated into this context's own terms
+    - - Emits alerts into the real-time flow
+      - Domain Event published to the platform
+
+Resolving a building's domains from another context, rather than storing its own copy, keeps this context's model focused on *delivery and intent* and leaves the structural truth where it belongs.

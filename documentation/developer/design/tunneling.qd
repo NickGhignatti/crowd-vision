@@ -1,7 +1,7 @@
 .docname {Sensor Data Communication}
 .include {docs}
 
-To ensure high throughput and low latency, the system utilizes a unidirectional data tunnel orchestrated via **Redis Pub/Sub**. The architecture strictly separates concerns: production, filtering, and distribution are handled by three independent services that never call each other directly.
+To ensure high throughput and low latency, the system utilizes a unidirectional data tunnel orchestrated via **Redis Pub/Sub**. The architecture strictly separates concerns: production, routing, and distribution are handled by three independent services that never call each other directly.
 
 ---
 
@@ -11,11 +11,11 @@ To ensure high throughput and low latency, the system utilizes a unidirectional 
    - Publishes full telemetry payloads to `telemetry:raw`.
    - Each message includes a `type` field identifying the metric (`"temperature"`, `"peopleCount"`, `"airQuality"`).
 
-2. **Contracts Service (The Filter)** — A Rust/Axum microservice that acts as the intelligent gatekeeper.
+2. **Contracts Service (The Router)** — A Rust/Axum microservice that routes each reading to the building it belongs to.
    - Subscribes to `telemetry:raw`.
-   - Maintains an O(1) in-memory `DashMap` mapping each Building ID to its list of allowed metric types.
-   - For each incoming message, looks up which buildings have subscribed to that metric type and republishes the payload to their dedicated channel.
-   - Publishes the tailored payload to `telemetry:filtered:<building_id>`.
+   - Maintains an O(1) in-memory `DashMap` of known buildings (and their dashboard column preferences, used by the HTTP API).
+   - For each message it reads the event's **own** `buildingId` and republishes the payload to that one building's channel — a single O(1) lookup, never a fan-out across buildings.
+   - Publishes the payload to `telemetry:filtered:<building_id>`.
 
 3. **Socket Service (The Distributor)** — Stateless WebSocket relay.
    - When a client connects via WebSocket, it subscribes to `telemetry:filtered:<building_id>`.
@@ -45,7 +45,7 @@ To ensure high throughput and low latency, the system utilizes a unidirectional 
         loop Every Sensor Tick
             S->>R1: PUBLISH { type:"temperature", buildingId:"alpha", roomId:"r1", value:22 }
             R1-->>C: Message received
-            Note over C: Extract type = "temperature"<br/>DashMap lookup: "temperature" ∈ allowed_columns["alpha"]? ✓
+            Note over C: Read buildingId = "alpha" (building known? ✓)<br/>No metric-type gate — every metric is forwarded
             C->>R2: PUBLISH telemetry:filtered:alpha { type:"temperature", ... }
             R2-->>W: Message received
             W->>FE: WebSocket push { type:"temperature", roomId:"r1", value:22 }
@@ -54,23 +54,27 @@ To ensure high throughput and low latency, the system utilizes a unidirectional 
 
         Note over FE, C: 3. Preference Update (User Saves Column Changes)
         FE->>C: POST /preferences/alpha { allowed_columns: ["roomName","temperature","airQuality"] }
-        Note over C: DashMap.insert — O(1) shard lock<br/>Tunnel picks up new filter on next iteration
+        Note over C: DashMap.insert — O(1) shard lock<br/>Changes dashboard columns only; tunnel routing is unaffected
         C-->>FE: 200 OK
 
 ---
 
-## Why Type-Based Filtering?
+## Why Per-Building Routing?
 
-The raw telemetry payload is a flat JSON object with a `type` discriminator field:
+The raw telemetry payload is a flat JSON object carrying its own `buildingId`:
 
-.code lang:{json}
-    { "type": "temperature", "buildingId": "alpha", "roomId": "r1", "timestamp": 1718000000, "value": 22.4 }
+```json
+{ "type": "temperature", "buildingId": "alpha", "roomId": "r1", "timestamp": 1718000000, "value": 22.4 }
+```
 
-The Contracts Service checks whether `payload["type"]` is in the building's `allowed_columns` list. If it is, the **entire payload is forwarded unchanged**. This approach:
+The Contracts Service reads `payload["buildingId"]` and, if that building is known, forwards the **entire payload unchanged** to `telemetry:filtered:<buildingId>`. This approach:
 
+*   **Routes to exactly one building**: keying on the event's own `buildingId` means a reading reaches only that building's feed — no cross-building leak, no iterating every preference.
 *   **Preserves context**: Downstream consumers always receive `roomId`, `timestamp`, and `buildingId` — they never need to re-fetch spatial context.
-*   **Keeps the filter O(1)**: A `Vec::contains` on a short list of metric keys is faster than any field-by-field JSON manipulation.
-*   **Scales to N buildings**: Because fan-out is performed by iterating the `DashMap`, a single `telemetry:raw` message can be simultaneously forwarded to multiple buildings that share the same metric subscription — with no duplicate Redis subscriptions.
+*   **Stays O(1)**: a single `DashMap` lookup per event, regardless of how many buildings exist.
+
+.box {No metric-type gate} type:{note}
+    Telemetry is **not** filtered by the dashboard's column selection. Every metric a building produces is forwarded; which columns the dashboard table *shows* is decided client-side from the same preferences. This keeps other consumers — notably the 3D model view, which always needs temperature and air-quality — live regardless of the table's column setup.
 
 ---
 
@@ -78,11 +82,14 @@ The Contracts Service checks whether `payload["type"]` is in the building's `all
 
 The Vue client listens for telemetry on a single `"telemetry"` Socket.IO event (not per-channel). The socket-service emits this event only to the `building:<id>` room, so each client only receives data for buildings it has joined.
 
-**Lifecycle rules enforced in `useSensorData`:**
-1. On `buildingId` change: `emit('subscribe_building', id)` to join the Socket.IO room.
-2. Register handler via `socket.on('telemetry', telemetryHandler)` — always capturing the exact function reference.
-3. On cleanup: `socket.off('telemetry', telemetryHandler)` — must match the same reference to prevent listener accumulation.
-4. Data mutations are batched to the next `requestAnimationFrame` via `triggerRef()`, decoupling Vue's scheduler from the Three.js render loop. This is critical for the digital twin view's 60fps camera animation.
+Subscription and live data are owned by a shared Pinia store (`stores/sensorData.ts`), consumed through the `useBuildingSensor(buildingId, type)` composable. Many components can want the same building's metric (e.g. the 3D model and the room list both read temperature); they share **one** reference-counted bucket instead of each opening its own fetch + subscription + handler.
+
+**Lifecycle, centralised in the store:**
+1. The first `acquire` of a `(type, building)` creates a bucket, REST-fetches the latest snapshot, and — if it's the building's first metric — emits `subscribe_building` to join the room.
+2. A **single** global `socket.on('telemetry', …)` handler dispatches each event to its bucket via an O(1) `(type, buildingId)` map lookup — there are no per-component handlers to accumulate.
+3. The last `release` of a bucket tears it down; once a building has no buckets left, the store emits `unsubscribe_building`.
+4. Data mutations are batched to the next `requestAnimationFrame` via `triggerRef()` on a `shallowRef`, decoupling Vue's scheduler from the Three.js render loop — critical for the digital twin's 60fps camera animation.
+5. On socket reconnect the store re-emits `subscribe_building` for every active building and refetches, recovering anything missed while disconnected.
 
 ---
 
@@ -91,5 +98,5 @@ The Vue client listens for telemetry on a single `"telemetry"` Socket.IO event (
 | Channel | Publisher | Subscriber | Content |
 | :--- | :--- | :--- | :--- |
 | `telemetry:raw` | sensor-service | contracts-service | Full sensor payload for all buildings |
-| `telemetry:filtered:<building_id>` | contracts-service | socket-service | Filtered payload for one specific building |
+| `telemetry:filtered:<building_id>` | contracts-service | socket-service | Per-building payload (all of that building's metrics) |
 | `alerts:temperature` | sensor-service | notification-service | Threshold violation events |

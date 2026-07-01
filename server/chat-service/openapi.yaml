@@ -1,0 +1,458 @@
+openapi: 3.1.0
+info:
+  title: Chat Service API
+  summary: Persistent conversation history for the Crowd-Vision assistant.
+  description: |
+    The chat service owns authenticated users' conversation history and forwards new
+    messages, with recent history, to the Crowd-Vision agent.
+
+    Protected endpoints require a signed JWT in the `authentication_token` cookie.
+    Conversation lookups are always scoped to the authenticated account. A missing,
+    invalid, or another user's conversation therefore returns `404`.
+  version: 1.0.0
+servers:
+  - url: http://localhost/chat
+    description: Local development gateway
+  - url: http://chat-service:3000
+    description: Internal Docker network
+tags:
+  - name: Health
+  - name: Metrics
+  - name: Conversations
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags:
+        - Health
+      summary: Check service liveness
+      security: []
+      responses:
+        "200":
+          description: The service process is running.
+
+  /metrics:
+    get:
+      operationId: getMetrics
+      tags:
+        - Metrics
+      summary: Get Prometheus metrics
+      security: []
+      responses:
+        "200":
+          description: Prometheus text exposition.
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /conversations:
+    post:
+      operationId: createConversation
+      tags:
+        - Conversations
+      summary: Create a conversation
+      description: Creates an empty conversation. The title defaults to `New chat`.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversationRequest"
+      responses:
+        "201":
+          description: Conversation created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listConversations
+      tags:
+        - Conversations
+      summary: List the authenticated user's conversations
+      description: Returns conversation summaries without messages, newest first.
+      responses:
+        "200":
+          description: Conversation summaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - conversations
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationSummary"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /conversations/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    get:
+      operationId: getConversation
+      tags:
+        - Conversations
+      summary: Get a conversation
+      responses:
+        "200":
+          description: Conversation including its saved messages.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/ConversationNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: renameConversation
+      tags:
+        - Conversations
+      summary: Rename a conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameConversationRequest"
+      responses:
+        "200":
+          description: Renamed conversation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/ConversationNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteConversation
+      tags:
+        - Conversations
+      summary: Delete a conversation permanently
+      responses:
+        "204":
+          description: Conversation deleted.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/ConversationNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /conversations/{id}/messages:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    post:
+      operationId: sendMessage
+      tags:
+        - Conversations
+      summary: Send a message to the assistant
+      description: |
+        Sends the current question and the configured recent-history window to the
+        agent service. On success, both the user message and assistant response are
+        saved, while only the saved assistant message is returned.
+
+        If the conversation still has its default title, the first user message
+        becomes the title, truncated to 120 characters. Agent failures save neither
+        message and return `502`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "201":
+          description: Saved assistant response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistantMessage"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/ConversationNotFound"
+        "409":
+          $ref: "#/components/responses/MessageLimitReached"
+        "502":
+          $ref: "#/components/responses/AgentUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+security:
+  - cookieAuth: []
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: Signed HS256 JWT containing a non-empty `accountId` claim.
+
+  parameters:
+    ConversationId:
+      name: id
+      in: path
+      required: true
+      description: MongoDB ObjectId of a conversation owned by the authenticated user.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: 665f0d45a6ef2e29c42d1234
+
+  schemas:
+    CreateConversationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Optional initial title. Surrounding whitespace is removed.
+          example: Building occupancy questions
+
+    RenameConversationRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: New title. Surrounding whitespace is removed.
+          example: Campus occupancy
+
+    SendMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 8000
+          description: User question. Surrounding whitespace is removed before saving.
+          example: Which rooms are the most crowded right now?
+
+    ConversationSummary:
+      type: object
+      required:
+        - _id
+        - userId
+        - title
+        - createdAt
+        - updatedAt
+      properties:
+        _id:
+          $ref: "#/components/schemas/ObjectId"
+        userId:
+          type: string
+          description: Stable account identifier from the authentication token.
+          example: account-123
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Building occupancy questions
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Conversation:
+      allOf:
+        - $ref: "#/components/schemas/ConversationSummary"
+        - type: object
+          required:
+            - messages
+          properties:
+            messages:
+              type: array
+              maxItems: 100
+              items:
+                $ref: "#/components/schemas/ChatMessage"
+
+    ChatMessage:
+      oneOf:
+        - $ref: "#/components/schemas/UserMessage"
+        - $ref: "#/components/schemas/AssistantMessage"
+      discriminator:
+        propertyName: role
+        mapping:
+          user: "#/components/schemas/UserMessage"
+          assistant: "#/components/schemas/AssistantMessage"
+
+    UserMessage:
+      type: object
+      required:
+        - _id
+        - role
+        - content
+        - createdAt
+      properties:
+        _id:
+          $ref: "#/components/schemas/ObjectId"
+        role:
+          type: string
+          const: user
+        content:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        createdAt:
+          type: string
+          format: date-time
+
+    AssistantMessage:
+      type: object
+      required:
+        - _id
+        - role
+        - content
+        - citations
+        - createdAt
+      properties:
+        _id:
+          $ref: "#/components/schemas/ObjectId"
+        role:
+          type: string
+          const: assistant
+        content:
+          type: string
+          minLength: 1
+          maxLength: 8000
+          example: Room A is currently the most crowded.
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+        createdAt:
+          type: string
+          format: date-time
+
+    Citation:
+      type: object
+      required:
+        - chunk_id
+        - document_id
+        - source
+      properties:
+        chunk_id:
+          type: string
+          example: 82a56940-8bc1-42ee-99e7-aa166e41ecf5
+        document_id:
+          type: string
+          example: documentation/developer/design/buildings.qd
+        source:
+          type: string
+          example: documentation/developer/design/buildings.qd
+        section_path:
+          type:
+            - string
+            - "null"
+          example: Buildings / Rooms
+
+    ObjectId:
+      type: string
+      pattern: "^[0-9a-fA-F]{24}$"
+      example: 665f0d45a6ef2e29c42d1234
+
+    Error:
+      type: object
+      required:
+        - type
+        - message
+      properties:
+        type:
+          type: string
+          example: Validation Error
+        message:
+          type: string
+          example: content must be a non-empty string
+
+  responses:
+    ValidationError:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            type: Validation Error
+            message: content must be a non-empty string
+
+    UnauthorizedError:
+      description: Authentication cookie is missing, invalid, or lacks an account id.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            type: Unauthorized Error
+            message: Missing authentication token
+
+    ConversationNotFound:
+      description: Conversation does not exist or is not owned by the authenticated user.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            type: Not Found Error
+            message: Conversation not found
+
+    MessageLimitReached:
+      description: Saving the user and assistant messages would exceed 100 saved messages.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            type: Conflict Error
+            message: Conversation message limit reached
+
+    AgentUnavailable:
+      description: The agent service could not be reached or returned an invalid/error response.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            type: Bad Gateway Error
+            message: Could not reach agent-service
+
+    InternalError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            type: Internal Server Error
+            message: An unexpected error occurred. Please try again later.

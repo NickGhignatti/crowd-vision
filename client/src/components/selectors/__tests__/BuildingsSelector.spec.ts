@@ -40,13 +40,15 @@ describe('BuildingsSelector', () => {
     ],
   }
 
-  const createWrapper = () =>
+  const createWrapper = (
+    buildingOptions = [
+      { id: 'b-1', name: 'Main Campus', domains: ['unibo.it'] },
+      { id: 'b-2', name: 'Annex', domains: ['unibo.it'] },
+    ],
+  ) =>
     mount(BuildingsSelector, {
       props: {
-        buildingOptions: [
-          { id: 'b-1', name: 'Main Campus' },
-          { id: 'b-2', name: 'Annex' },
-        ],
+        buildingOptions,
         selectedId: 'b-1',
         buildingModel,
         activeFloor: null,
@@ -72,12 +74,55 @@ describe('BuildingsSelector', () => {
     expect(firstCard.props('availableFloors')).toEqual([1, 2])
   })
 
-  it('emits change-building when a building card emits select', async () => {
+  it('emits change-building with the building id when a card emits select', async () => {
     const wrapper = createWrapper()
 
     await wrapper.findAllComponents({ name: 'BuildingCard' })[1]?.vm.$emit('select')
 
-    expect(wrapper.emitted('change-building')?.[0]).toEqual([1])
+    expect(wrapper.emitted('change-building')?.[0]).toEqual(['b-2'])
+  })
+
+  it('groups buildings under a collapsible header per domain', () => {
+    const wrapper = createWrapper([
+      { id: 'b-1', name: 'Main Campus', domains: ['unibo.it'] },
+      { id: 'b-2', name: 'Annex', domains: ['polimi.it'] },
+    ])
+
+    const groups = wrapper.findAllComponents({ name: 'DomainBuildingGroup' })
+    expect(groups).toHaveLength(2)
+    // domains are sorted alphabetically
+    expect(groups[0]?.props('name')).toBe('polimi.it')
+    expect(groups[1]?.props('name')).toBe('unibo.it')
+  })
+
+  it('lists a building under every domain it belongs to', () => {
+    const wrapper = createWrapper([
+      { id: 'b-1', name: 'Shared', domains: ['unibo.it', 'polimi.it'] },
+    ])
+
+    const groups = wrapper.findAllComponents({ name: 'DomainBuildingGroup' })
+    expect(groups).toHaveLength(2)
+    expect(groups.every((g) => g.props('count') === 1)).toBe(true)
+  })
+
+  it('falls back to the "Other" group for buildings without a domain', () => {
+    const wrapper = createWrapper([{ id: 'b-1', name: 'Orphan', domains: [] }])
+
+    const group = wrapper.findComponent({ name: 'DomainBuildingGroup' })
+    // vue-i18n is globally mocked to echo the key
+    expect(group.props('name')).toBe('model.ungrouped')
+  })
+
+  it('collapses and reopens a domain group on header toggle', async () => {
+    const wrapper = createWrapper()
+    const group = wrapper.findComponent({ name: 'DomainBuildingGroup' })
+    expect(group.props('open')).toBe(true)
+
+    await group.vm.$emit('toggle')
+    expect(wrapper.findComponent({ name: 'DomainBuildingGroup' }).props('open')).toBe(false)
+
+    await group.vm.$emit('toggle')
+    expect(wrapper.findComponent({ name: 'DomainBuildingGroup' }).props('open')).toBe(true)
   })
 
   it('emits change-floor when building card updates active-floor model', async () => {

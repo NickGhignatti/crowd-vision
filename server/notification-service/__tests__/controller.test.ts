@@ -1,5 +1,6 @@
 import { jest } from "@jest/globals";
 import request from "supertest";
+import jwt from "jsonwebtoken";
 
 jest.mock("../src/config/redis.js", () => ({
   __esModule: true,
@@ -13,9 +14,8 @@ jest.mock("../src/config/redis.js", () => ({
 
 jest.mock("../src/services/notificationService.js", () => ({
   __esModule: true,
-  startNotificationLoop: jest.fn(),
   publishNotification: jest.fn(),
-  getServerUrl: jest.fn(() => "http://localhost:3000"),
+  getGatewayUrl: jest.fn(() => "http://localhost:3000"),
 }));
 
 jest.mock("../src/services/pushService.js", () => {
@@ -44,6 +44,16 @@ const mockedSendPushToDomain = sendPushToDomain as jest.MockedFunction<
 >;
 const mockedRedisClient = redisClient as any;
 
+// Mint a JWT the auth middleware accepts; the account is bound from this token,
+// not from the request body/URL.
+const tokenFor = (accountName: string) =>
+  jwt.sign(
+    { accountId: `u-${accountName}`, accountName },
+    process.env.JWT_SECRET || "test-jwt-secret",
+  );
+const auth = <T extends request.Test>(req: T, account = "alice"): T =>
+  req.set("Authorization", `Bearer ${tokenFor(account)}`) as T;
+
 describe("Notification controller branches", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -56,7 +66,12 @@ describe("Notification controller branches", () => {
     jest.restoreAllMocks();
   });
 
-  it("returns stored notification preferences for an account", async () => {
+  it("rejects unauthenticated preference reads", async () => {
+    const res = await request(app).get("/preferences/alice");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns stored notification preferences for the authenticated account", async () => {
     await NotificationSubscription.create({
       accountName: "alice",
       domainName: "domain-1",
@@ -68,7 +83,9 @@ describe("Notification controller branches", () => {
       ],
     } as any);
 
-    const res = await request(app).get("/preferences/alice");
+    // The :accountName param is "bob" but the token is alice — the handler must
+    // serve alice's preferences (param ignored), proving the IDOR is closed.
+    const res = await auth(request(app).get("/preferences/bob"));
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -77,13 +94,10 @@ describe("Notification controller branches", () => {
   });
 
   it("supports explicit preference arrays", async () => {
-    const res = await request(app)
-      .post("/preferences")
-      .send({
-        accountName: "alice",
-        domainName: "domain-1",
-        preferences: [{ type: "temperature", enabled: false }],
-      });
+    const res = await auth(request(app).post("/preferences")).send({
+      domainName: "domain-1",
+      preferences: [{ type: "temperature", enabled: false }],
+    });
 
     expect(res.status).toBe(200);
 
@@ -93,7 +107,7 @@ describe("Notification controller branches", () => {
     } as any);
 
     expect(preference).toBeTruthy();
-    expect((preference as any)?.preferences).toEqual([
+    expect(preference?.preferences).toEqual([
       expect.objectContaining({
         notificationType: "temperature",
         isSubscribed: false,
@@ -102,18 +116,35 @@ describe("Notification controller branches", () => {
   });
 
   it("rejects a types array when enabled is missing", async () => {
-    const res = await request(app)
-      .post("/preferences")
-      .send({
-        accountName: "alice",
-        domainName: "domain-1",
-        types: ["temperature"],
-      });
+    const res = await auth(request(app).post("/preferences")).send({
+      domainName: "domain-1",
+      types: ["temperature"],
+    });
 
     expect(res.status).toBe(400);
     expect(res.body.type).toBe("Validation Error");
     expect(res.body.message).toBe(
       "enabled boolean is required when passing a types array",
+    );
+  });
+
+  it("forwards the caller's token to the twin domain lookup", async () => {
+    const token = tokenFor("alice");
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ["domain-a"],
+    } as any);
+
+    await request(app)
+      .post("/trigger")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ buildingName: "building-1", notificationType: "temperature" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/twin/domain/building-1");
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      `Bearer ${token}`,
     );
   });
 
@@ -123,7 +154,7 @@ describe("Notification controller branches", () => {
       json: async () => ["domain-a", "domain-b"],
     } as any);
 
-    const res = await request(app).post("/trigger").send({
+    const res = await auth(request(app).post("/trigger")).send({
       message: "Multi-domain alert",
       type: "danger",
       buildingName: "building-1",
@@ -154,7 +185,7 @@ describe("Notification controller branches", () => {
       text: async () => "bad gateway",
     } as any);
 
-    const res = await request(app).post("/trigger").send({
+    const res = await auth(request(app).post("/trigger")).send({
       message: "Alert",
       type: "danger",
       buildingName: "building-1",
@@ -170,7 +201,7 @@ describe("Notification controller branches", () => {
   it("skips push delivery while cooldown is active", async () => {
     mockedRedisClient.get.mockResolvedValueOnce("1");
 
-    const res = await request(app).post("/push/temperature").send({
+    const res = await auth(request(app).post("/push/temperature")).send({
       roomId: "A-01",
       buildingId: "building-1",
       domainId: "domain-1",
@@ -189,7 +220,7 @@ describe("Notification controller branches", () => {
       json: async () => ["domain-a", "domain-a", "domain-b"],
     } as any);
 
-    const res = await request(app).post("/push/temperature").send({
+    const res = await auth(request(app).post("/push/temperature")).send({
       buildingId: "building-2",
       temperature: 35,
     });

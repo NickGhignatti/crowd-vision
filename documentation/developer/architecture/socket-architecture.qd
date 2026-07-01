@@ -1,0 +1,43 @@
+.docname {Socket Service Architecture}
+.include {docs}
+
+**Bounded context:** real-time transport (generic) · **Stack:** Node.js / Socket.IO · **Code-level walkthrough:** [Socket Service](../services/socket.qd)
+
+The socket-service is the bridge between the broker and the browser. It carries per-building telemetry and alerts to connected clients over WebSockets. It is classified as a **generic subdomain** (see [Telemetry Distribution](../domain/telemetry-distribution.qd)): pure transport, with no domain model and no database.
+
+---
+
+## Architectural Style
+
+Deliberately the simplest service in the system: **no persistence and no domain model**. Rather than Controller/Service/Model layering it follows a *functional core / imperative shell* split — pure relay logic (channel-to-room mapping) and JWT verification in a small core, broker- and socket-event handlers that receive their dependencies as arguments, and a thin composition root (`index.ts`) that wires them together and starts listening. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.
+
+Although a generic subdomain, it is **not anonymous**: a handshake middleware verifies the auth-service JWT (carried by the `authentication_token` cookie) before any event runs, so every socket has a known account and domain set. This is what lets the relay scope delivery per tenant rather than blindly broadcasting.
+
+---
+
+## Internal Structure
+
+.mermaid
+    graph LR
+        BR[(broker)] -->|alerts + per-building feeds| SUB[Broker subscriber]
+        SUB --> IO[Socket.IO server]
+        IO -->|room-scoped / broadcast| CL[Connected clients]
+
+---
+
+## Key Architectural Decisions
+
+- **Pure transport, no model.** Treating real-time delivery as a generic subdomain keeps all domain logic out of it and concentrates modelling effort on the core services.
+- **Authenticated at the edge.** The JWT is verified once on the handshake, not per message; the resulting identity is server-held, so a client can never join a domain or building room it isn't entitled to.
+- **Room-scoped telemetry, domain-scoped notifications.** Clients receive readings only for buildings they have joined, and notifications only for their own domain; tenants stay isolated. Only a notification with no domain (a system-wide message) is broadcast.
+- **Stateless relay.** The service holds no durable state, so an instance can be replaced freely.
+- **Scaling is an explicit concern.** Running more than one instance requires sticky sessions for the handshake and a broker-backed adapter to deliver across instances — a known extension point rather than a current capability.
+
+---
+
+## Integration
+
+- Subscribes to the alert channel and the per-building telemetry feeds (`telemetry:filtered:<id>`), and emits them to clients — see [Communication & Data Flow](data-flow.qd).
+- Holds no database and calls no other service synchronously.
+
+For the channel-to-event mapping, the client subscription protocol, and scaling notes, see the [Socket Service](../services/socket.qd) internals page.

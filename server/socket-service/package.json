@@ -6,8 +6,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
-    "dev": "nodemon --watch src --exec node --no-warnings=ExperimentalWarning --loader ts-node/esm src/index.ts",
+    "dev": "nodemon --watch src --exec tsx src/index.ts",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "lint": "eslint .",
     "lint:fix": "prettier --write src tsconfig.json tsconfig.build.json package.json && eslint . --fix"
   },
@@ -17,23 +18,26 @@
   "type": "module",
   "dependencies": {
     "express": "^5.2.1",
-    "redis": "^5.10.0",
+    "jsonwebtoken": "^9.0.3",
+    "prom-client": "^15.1.3",
+    "redis": "^6.0.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@crowdvision/eslint-config": "file:../../tooling/eslint-config",
     "@types/express": "^5.0.6",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^25.0.10",
+    "@types/jest": "^30.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.0.0",
     "@types/supertest": "^7.2.0",
-    "eslint": "^9.39.1",
-    "jest": "^29.7.0",
-    "nodemon": "^3.1.11",
-    "prettier": "3.6.2",
-    "supertest": "^7.1.4",
-    "ts-jest": "^29.1.2",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "eslint": "^10.5.0",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "prettier": "3.8.4",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.11",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
   },
   "overrides": {
     "path-to-regexp": ">=8.3.1",
@@ -66,6 +70,17 @@
     },
     "setupFilesAfterEnv": [
       "./__tests__/setup.ts"
+    ],
+    "coverageProvider": "v8",
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/index.ts",
+      "!src/**/*.d.ts"
+    ],
+    "coverageReporters": [
+      "text-summary",
+      "json-summary",
+      "lcov"
     ]
   }
 }

@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* v4 replaces the JS plugin config: declare the custom `fullscreen` variant here. */
+@custom-variant fullscreen (&:fullscreen, :fullscreen &);
 
 html, body, #app {
   margin: 0;

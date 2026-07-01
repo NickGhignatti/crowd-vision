@@ -1,0 +1,282 @@
+.docname {CI/CD Pipeline}
+.include {docs}
+
+CrowdVision uses a fully automated CI/CD pipeline on GitHub Actions. Every pull request to `master` is gated by a suite of checks — builds, tests, linting, security audits, Docker and Kubernetes validation, and a guard that refuses to let any unreviewed path merge unchecked. Merging to `master` automatically triggers a versioned release and pushes Docker images to GHCR. This page documents the workflows; the commit format and release mechanics that drive them are covered in [Commits & Semantic Release](semantic-release.qd).
+
+---
+
+## Workflow naming
+
+All workflow files live in `.github/workflows/` and use a three-prefix convention that mirrors their purpose.
+
+.var {headers}
+   - Prefix
+   - Category
+   - When it runs
+
+.tablebyrows {.headers}
+    - - `ci-*`
+      - Continuous integration checks
+      - On every pull request to `master`
+    - - `cd-*`
+      - Continuous delivery
+      - On every push to `master`
+    - - `maint-*`
+      - Maintenance
+      - Weekly schedule or manual dispatch
+
+---
+
+## The CI gate
+
+Every pull request must pass `CI Gate / CI Passed` — the single aggregated check that covers all the fast CI. The gate (`ci-gate.yml`) detects what changed, fans out to the relevant checks in parallel, and reports one result. The only other check worth requiring in branch protection is **CodeQL** (the *Static security analysis* section below), which runs as a separate workflow because it needs wider permissions than the gate's read-only token.
+
+.mermaid
+    graph LR
+        PR[Pull Request] --> CHANGES[changes<br/>path filter]
+        CHANGES --> SVC[Service legs<br/>auth · chat · agent · client<br/>contracts · notification<br/>sensor · socket · twin]
+        CHANGES --> DOCKER[docker<br/>hadolint + build]
+        CHANGES --> K8S[k8s<br/>kubeconform · pluto · kube-score]
+        CHANGES --> LINT[workflows-lint<br/>actionlint]
+        CHANGES --> INFRA[infra<br/>scripts + tooling]
+        SVC --> PASSED[CI Passed]
+        DOCKER --> PASSED
+        K8S --> PASSED
+        LINT --> PASSED
+        INFRA --> PASSED
+        PASSED --> MERGE[merge allowed]
+
+### How the gate decides
+
+The `changes` job runs `dorny/paths-filter` once and emits a boolean per area. Every downstream leg is guarded by an `if:` on those booleans, so a leg runs **only** when a path it owns actually changed. Service legs and the cross-cutting checks are called as reusable workflows (`uses: ./.github/workflows/ci-*.yml`); the gate itself stays a thin orchestrator — detect, fan out, aggregate.
+
+.box {Unaffected legs are skipped, not failed} type:{note}
+    A leg whose paths did not change resolves as `skipped`, which the aggregator counts as a pass. This is what keeps the pipeline fast — a one-line change to one service does not rebuild the world.
+
+The final `ci-passed` job depends on every leg and runs with `if: always()`, so it reports even when a leg was skipped. Its verdict logic is deliberately strict:
+
+- **Whitelist, not blacklist.** Each leg's result must be `success` **or** `skipped`. Anything else — `failure`, `cancelled`, or any future result value — fails the gate. A blacklist that only checked for `failure` would let an unknown state slip through green.
+- **The fan-out root must have succeeded.** If the `changes` job itself failed or was cancelled, every leg was skipped *without ever being evaluated* — a green gate there would be a false pass. So `ci-passed` hard-fails unless `changes` ended in `success`.
+
+---
+
+## Service CI workflows
+
+Each service has a dedicated reusable workflow that the gate calls when that service's directory (or its own workflow file) changes. Each installs dependencies, lints, builds, runs tests, and audits its dependencies.
+
+.var {headers}
+   - Workflow
+   - Service
+   - Language / test runner
+
+.tablebyrows {.headers}
+    - - `ci-auth.yml`
+      - `server/auth-service`
+      - Node.js 24 / Jest
+    - - `ci-chat.yml`
+      - `server/chat-service`
+      - Node.js 24 / Jest
+    - - `ci-twin.yml`
+      - `server/twin-service`
+      - Node.js 24 / Jest
+    - - `ci-sensor.yml`
+      - `server/sensor-service`
+      - Node.js 24 / Jest
+    - - `ci-socket.yml`
+      - `server/socket-service`
+      - Node.js 24 / Jest
+    - - `ci-notification.yml`
+      - `server/notification-service`
+      - Node.js 24 / Jest
+    - - `ci-contracts.yml`
+      - `server/contracts-service`
+      - Rust stable / cargo llvm-cov
+    - - `ci-client.yml`
+      - `client`
+      - Node.js 24 / Vitest
+    - - `ci-agent.yml`
+      - `server/agent-service`
+      - Python 3.12 / pytest
+
+The **Node services** share the same shape: `npm ci`, install the shared `tooling/eslint-config/`, lint, build, test with coverage, then audit. The **client** splits into a `quality` job (lint, type-check, audit), a `test` job that shards Vitest across three parallel runners, and a `coverage` job that runs the suite unsharded to produce a single coverage report. The **contracts** service runs `cargo fmt --check` and `cargo clippy -- -D warnings` before `cargo llvm-cov` (its tests run under coverage instrumentation), then a `rustsec/audit-check`. The **agent** runs `ruff check`, `ruff format --check`, and `pyright` in a `quality` job, with `pytest` (unit + integration, with `--cov`) in a separate `tests` job. Coverage reporting is detailed in the **Code coverage** section below.
+
+.box {The dependency audit is split into two steps} type:{note}
+    Every Node service runs the audit twice. **`npm audit --audit-level=high --omit=dev`** is **blocking** — a fixable high/critical vulnerability in a *production* dependency fails the build. **`npm audit --audit-level=high`** (the full tree, including dev deps) runs straight after with `continue-on-error: true`, so dev-only advisories are surfaced in the log without blocking a merge. The split keeps the gate honest about what ships to users while still reporting everything.
+
+---
+
+## Code coverage
+
+Every service CI workflow now measures **code coverage** as part of its test run and reports it on each pull request — collected with each stack's native tooling, with no external coverage service involved.
+
+.var {headers}
+   - Stack
+   - Command
+   - Report format
+
+.tablebyrows {.headers}
+    - - Node.js services + client
+      - `jest --coverage` · `vitest run --coverage`
+      - Istanbul `coverage-summary.json`
+    - - `contracts-service`
+      - `cargo llvm-cov --json`
+      - LLVM JSON
+    - - `agent-service`
+      - `pytest --cov`
+      - Cobertura `coverage.xml`
+
+The Node and Rust services write a coverage summary into the GitHub **job summary** (rendered from the report with `jq`); the agent surfaces its figures directly in the `pytest` log via `--cov-report=term-missing`.
+
+.box {The coverage summary runs always} type:{note}
+    The step that publishes the coverage table is guarded by **`if: always()`**, so it runs **even when a test fails** — by default a failed step skips every step after it, yet the coverage of a red run is often exactly when you want to read it. This does **not** weaken the gate: `always()` governs only that one reporting step, so a failing test still fails the job. Coverage is **report-only for now** — no minimum threshold is enforced, so it surfaces the numbers on every run but cannot itself block a merge.
+
+---
+
+## Simulator CI
+
+The two device simulators ship as GHCR images but are not application services, so they get a dedicated `ci-simulators.yml` — one job each, gated on `simulators/`.
+
+.var {headers}
+   - Job
+   - Runtime
+   - Checks
+
+.tablebyrows {.headers}
+    - - `sensor-simulator`
+      - Node.js 24 / TypeScript
+      - ESLint (shared config) + `tsc` build. No test suite exists yet, so there is no test step — a bare Jest with zero tests would fail.
+    - - `aq-simulator`
+      - Python 3.12
+      - `py_compile` parses every module (smoke.py is **not** executed — it performs network I/O), then `ruff check` runs with default rules, which catch real defects such as undefined names and unused imports.
+
+Both were previously ungated despite shipping images until this workflow gave them a real bucket.
+
+---
+
+## Cross-cutting checks
+
+These legs validate properties that span the codebase rather than a single service. They are gated by their own path filters and join the same `ci-passed` aggregator.
+
+.var {headers}
+   - Leg
+   - What it validates
+
+.tablebyrows {.headers}
+    - - `ci-docker.yml`
+      - The `docker` leg. For each **changed** service that ships an image: hadolint on its `Dockerfile`, then a `push: false` Docker build (a PR-time build check — `cd-registry` does the real publish on `master`). The gha layer cache is scoped per image so services reuse their own layers without evicting each other.
+    - - `ci-k8s.yml`
+      - The `k8s` leg. Validates `k8s/` with **kubeconform** (schema, against Kubernetes 1.32.0, `-strict`), **pluto** (deprecated/removed API versions), and **kube-score** (best-practice scoring, with a curated set of ignored tests).
+    - - `workflows-lint`
+      - A job defined inline in `ci-gate.yml` that validates the workflow files themselves whenever anything under the `&#46;github/` tree changes. **actionlint** (digest-pinned container) catches malformed expressions and invalid action inputs; shellcheck is bundled but disabled (`-shellcheck=`) until its `run:`-block findings are triaged. **zizmor** (pinned version, run `--offline --min-severity medium`) then audits for security smells actionlint misses: template injection in `run:` blocks, credential persistence (it is why every read-only checkout sets `persist-credentials: false`), over-broad token permissions, and dangerous triggers.
+    - - `ci-infra.yml`
+      - The `infra` leg. Cheap, real validation for repo scripts and release tooling whenever `scripts/` or `tooling/` change: `node --check` parses every tracked `&#46;mjs`/`&#46;js`, `bash -n` checks every shell script, and `npm ci` in `tooling/` proves the release-tooling lockfile is still in sync. Keeps routine script edits green automatically.
+    - - `ci-dependency-review.yml`
+      - The `dependency-review` leg. On any PR that changes a dependency manifest or lockfile, it fails if the PR **introduces** a dependency carrying a known high/critical advisory (`fail-on-severity: high`). It complements the per-service audit steps: those see the merged lockfile state, whereas this diffs exactly what the PR adds, catching a vulnerable package at the moment it is introduced. Requires the repository's dependency graph (on by default for public repos).
+
+.box {Every third-party action is pinned to a commit SHA} type:{note}
+    Each `uses:` across every workflow references a full 40-character commit SHA (with the human-readable version kept as a trailing comment, e.g. `# v6`), never a moving tag like `@v4`. A tag can be silently repointed at malicious code by whoever controls the action; a commit SHA cannot. The repository setting **Settings → Actions → "Require actions to be pinned to a full-length commit SHA"** enforces this, so no future workflow can reintroduce an unpinned action. Local reusable workflows (`uses: ./.github/workflows/…`) are exempt — they live in this repo. Bumping a version means resolving the new tag to its SHA (`git ls-remote`) and updating both the SHA and the comment.
+
+---
+
+## CD workflows
+
+### cd-release
+
+Triggered on every push to `master`. Runs semantic-release from `tooling/`: it reads commits since the last tag, computes the next version, updates `CHANGELOG.md`, bumps every manifest, tags the repository, and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Semantic Release](semantic-release.qd).
+
+### cd-registry
+
+Triggered on push to `master` when source changes under `server/**`, `simulators/**`, `client/**`, or the workflow file itself. It publishes Docker images to GHCR tagged both `:latest` and `:<git-sha>`.
+
+The publish is **gated by a vulnerability scan that runs before anything reaches the registry**. Each image is built into the runner's local daemon (`push: false`, `load: true`), scanned by **Trivy**, and pushed **only if the scan passes** — so a vulnerable image is never published. The push step rebuilds from the still-warm gha cache, so it costs no recompilation.
+
+.box {Build → scan → push, not push → scan} type:{note}
+    Scanning *after* publishing would mean a flagged image is already live by the time the job fails. Ordering the scan as a gate before the push is the whole point. `aquasecurity/trivy-action` is pinned to a commit digest (not the moving `@master`) to remove that supply-chain risk.
+
+#### Selective builds: only changed services are pushed
+
+The workflow does **not** rebuild every image on every push. A `changes` job detects which services changed and emits a dynamic build matrix; a `build-and-push` job (`needs: changes`) then builds only the selected images, and is skipped entirely when nothing matches. Two cases force a full rebuild: a change to `cd-registry.yml` itself, and a manual `workflow_dispatch` with `service: all` (or a comma-separated list to target specific images).
+
+#### Scan scope
+
+The Trivy scan is deliberately scoped to **OS packages only** (`vuln-type: os`). Application dependencies are not re-scanned here because they are already gated pre-merge by the per-service audits. The division of labour is: **the service CI workflows own language dependencies at PR time; `cd-registry` Trivy owns the base-OS layer at push time** — the part the dependency audits cannot see.
+
+To keep the OS scan green, every production image upgrades its base-OS packages at build time (`apk upgrade` on Alpine images, `apt-get upgrade` on the Debian-based contracts, agent, and aq-simulator images). The Debian upgrade lines carry `# hadolint ignore=DL3005`. Any residual fixable CVE that cannot be patched in-build is waived in the repo-root `.trivyignore`, where each entry must carry a justifying comment.
+
+---
+
+## Static security analysis (CodeQL)
+
+`ci-codeql.yml` runs GitHub's SAST for `javascript-typescript`, `python`, and `rust` with the `security-extended` query suite. It runs automatically on **every pull request to `master`**, on **every push to `master`** (to refresh the Security tab's default-branch baseline), and on a **weekly schedule** (Monday 03:00 UTC) to catch CVEs newly disclosed against unchanged code. Manual `workflow_dispatch` is retained for on-demand re-scans, and a concurrency guard cancels a scan superseded by a newer commit.
+
+All three languages use **`build-mode: none`** — CodeQL extracts from source without a compile. For `javascript-typescript` and `python` that is the natural mode; for `rust` (`contracts-service`) it means no Rust toolchain or mold-linker setup is needed, and the crate is found under `server/contracts-service` without a root `Cargo.toml`.
+
+It runs as a **standalone workflow rather than a leg of the gate**, on purpose: CodeQL needs `security-events: write` to upload results, whereas the gate's token is deliberately read-only, and a reusable workflow cannot hold more permission than its caller. Keeping CodeQL separate preserves the gate's least-privilege token. Add **CodeQL** as a second required status check in branch protection (alongside `CI Gate / CI Passed`) to block merges on new high-severity findings.
+
+---
+
+## Maintenance
+
+`maint-cleanup` runs every Sunday at 02:00 UTC (or on manual dispatch). It removes old package versions from GHCR, keeping a minimum of three versions per image and protecting the `:latest` tag, so the registry does not grow unbounded.
+
+---
+
+## Dependency updates
+
+Dependency upgrades are made manually (there is no Dependabot). Bump the version in the relevant manifest, then verify and regenerate locks locally before opening a pull request:
+
+```bash
+just setup deps-check   # every lockfile in sync (npm ci / uv sync --locked / cargo check)
+just setup audit        # no known vulnerabilities (npm / uv / cargo audit)
+```
+
+Both checks also run inside the per-service CI workflows on every pull request, so a drifted or vulnerable dependency blocks the merge regardless.
+
+---
+
+## Docker image registry
+
+All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and `:<git-sha>`. The Kubernetes deployment manifests reference `:latest`.
+
+.var {headers}
+   - Service
+   - GHCR image
+
+.tablebyrows {.headers}
+    - - `auth-service`
+      - `ghcr.io/nickghignatti/crowdvision-auth`
+    - - `chat-service`
+      - `ghcr.io/nickghignatti/crowdvision-chat`
+    - - `twin-service`
+      - `ghcr.io/nickghignatti/crowdvision-twin`
+    - - `sensor-service`
+      - `ghcr.io/nickghignatti/crowdvision-sensor`
+    - - `notification-service`
+      - `ghcr.io/nickghignatti/crowdvision-notification`
+    - - `socket-service`
+      - `ghcr.io/nickghignatti/crowdvision-socket`
+    - - `contracts-service`
+      - `ghcr.io/nickghignatti/crowdvision-contracts`
+    - - `agent-service`
+      - `ghcr.io/nickghignatti/crowdvision-agent`
+    - - `client`
+      - `ghcr.io/nickghignatti/crowdvision-client`
+    - - `sensor-simulator`
+      - `ghcr.io/nickghignatti/crowdvision-simulator`
+    - - `aq-simulator`
+      - `ghcr.io/nickghignatti/crowdvision-aq-simulator`
+
+---
+
+## Reproducing the gates locally
+
+Run the same checks CI runs before pushing, to avoid a slow round-trip through a failed pipeline:
+
+```bash
+just test all            # all unit tests (moon-cached); or just test affected
+just lint affected   # ESLint / Ruff on changed projects
+just setup deps-check      # lockfile sync
+just setup audit           # vulnerability audit
+```
+
+Per-service tests are available as `just test auth`, `just test chat`, `just test twin`, `just test sensor`, `just test notification`, `just test socket`, `just test client`, and `just test agent`. Full backend integration tests run via `just test integration` (it composes the full stack — see [Docker Compose Orchestration](../config/docker-compose.qd)).

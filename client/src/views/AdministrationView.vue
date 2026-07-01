@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authentication.ts'
 import { useBuildingsStore } from '@/stores/buildings.ts'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domain.ts'
 import { useNotificationStore } from '@/stores/notification.ts'
+import { canManageDomain } from '@/helpers/roles.ts'
 
 const selectedDomain = ref<string | null>(null)
 const domains = ref<string[]>([])
@@ -65,7 +66,9 @@ const triggerUpload = (domainName: string) => {
 
 const getAllSubdomains = async () => {
   await domainsStore.fetchMemberships()
-  const memberships = domainsStore.memberships ?? []
+  // The administration panel is for managing domains, so only surface the ones
+  // where the user holds a role that can actually act on them (not standard_customer).
+  const memberships = (domainsStore.memberships ?? []).filter((m: any) => canManageDomain(m.role))
 
   await subdomainsStore.fetch(memberships)
 
@@ -76,7 +79,7 @@ const getAllSubdomains = async () => {
     groups[m.domainName] = {
       name: m.domainName,
       role: m.role,
-      canUpload: ['admin', 'business_admin', 'business_staff'].includes(m.role),
+      canUpload: canManageDomain(m.role),
       subdomains: [],
     }
   })

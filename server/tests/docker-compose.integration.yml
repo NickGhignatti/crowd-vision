@@ -134,7 +134,7 @@ services:
 
   notification-service:
     environment:
-      - VITE_SERVER_URL=http://gateway
+      - GATEWAY_URL=http://gateway
       - VAPID_PUBLIC_KEY=
       - VAPID_PRIVATE_KEY=
     depends_on:

@@ -2,6 +2,15 @@ import type { Request, Response } from "express";
 import type { SensorKernel } from "../kernel/sensorKernel.js";
 import { Sensors } from "../models/sensor.js";
 
+// Reject non-string query values so an object can't reach a Mongo filter as a
+// query operator (NoSQL injection).
+const asString = (value: unknown, name: string): string => {
+  if (typeof value !== "string") {
+    throw new Error(`Query parameter '${name}' must be a string`);
+  }
+  return value;
+};
+
 export function createReadHandlers(kernel: SensorKernel) {
   const resolveModule = (sensorType: string, res: Response) => {
     const module = kernel.resolve(sensorType);
@@ -18,11 +27,10 @@ export function createReadHandlers(kernel: SensorKernel) {
         const module = resolveModule(req.params.sensorType as string, res);
         if (!module) return;
 
-        const { building, roomId } = req.query as {
-          building: string;
-          roomId: string;
-        };
-        const data = await module.getLatest(building, roomId);
+        const data = await module.getLatest(
+          asString(req.query.building, "building"),
+          asString(req.query.roomId, "roomId"),
+        );
         res.status(200).json({ data });
       } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -37,8 +45,9 @@ export function createReadHandlers(kernel: SensorKernel) {
         const module = resolveModule(req.params.sensorType as string, res);
         if (!module) return;
 
-        const { building } = req.query as { building: string };
-        const data = await module.getAllLatest(building);
+        const data = await module.getAllLatest(
+          asString(req.query.building, "building"),
+        );
         res.status(200).json({ data });
       } catch (error: any) {
         res.status(400).json({ error: error.message });
@@ -50,17 +59,15 @@ export function createReadHandlers(kernel: SensorKernel) {
         const module = resolveModule(req.params.sensorType as string, res);
         if (!module) return;
 
-        const { building, timeRange, roomId, aggMode } = req.query as {
-          building: string;
-          timeRange: string;
-          roomId?: string;
-          aggMode?: string;
-        };
         const data = await module.getDashboardData(
-          building,
-          timeRange,
-          roomId,
-          aggMode,
+          asString(req.query.building, "building"),
+          asString(req.query.timeRange, "timeRange"),
+          req.query.roomId === undefined
+            ? undefined
+            : asString(req.query.roomId, "roomId"),
+          req.query.aggMode === undefined
+            ? undefined
+            : asString(req.query.aggMode, "aggMode"),
         );
         res.status(200).json({ data });
       } catch (error: any) {

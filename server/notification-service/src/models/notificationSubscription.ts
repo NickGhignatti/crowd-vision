@@ -28,7 +28,8 @@ const SubscriptionPreferenceSchema = new Schema(
 export interface INotificationSubscription extends Document {
   accountName: string;
   domainName: string;
-  notificationTypes: SubscriptionPreference[];
+  // Must match the schema field below; the client store reads `preferences` too.
+  preferences: SubscriptionPreference[];
   createdAt: Date;
 }
 

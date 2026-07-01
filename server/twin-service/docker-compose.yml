@@ -7,6 +7,7 @@ services:
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
       - SENSOR_SERVICE_URL=http://sensor-service:3000
       - CONTRACTS_SERVICE_URL=http://contracts-service:3000
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       - twin-db
 

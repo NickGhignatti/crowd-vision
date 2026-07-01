@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import * as client from "openid-client";
 import { Account } from "../models/account.js";
 import { Domain } from "../models/domain.js";
-import { getClientUrl, getServerUrl } from "../config/config.js";
+import { getClientUrl, getPublicUrl } from "../config/config.js";
 import type { Role } from "../models/role.js";
 import {
   ConflictError,
@@ -15,8 +15,9 @@ export const addAccount = async (
   email: string,
   password: string,
 ) => {
+  // $eq blocks NoSQL operator injection.
   const account = await Account.findOne({
-    $or: [{ email }, { name: accountName }],
+    $or: [{ email: { $eq: email } }, { name: { $eq: accountName } }],
   });
 
   if (account) {
@@ -38,7 +39,8 @@ export const authenticateAccount = async (
   accountName: string,
   password: string,
 ) => {
-  const account = await Account.findOne({ name: accountName });
+  // $eq blocks NoSQL injection that could otherwise bypass authentication.
+  const account = await Account.findOne({ name: { $eq: accountName } });
 
   if (!account) {
     throw new NotFoundError("Account with this name doesn't exist");
@@ -57,7 +59,7 @@ export const generateSSOLoginUrl = async (
   accountName: string,
 ) => {
   // Fetch domain with secret
-  const domain = await Domain.findOne({ name: domainName }).select(
+  const domain = await Domain.findOne({ name: { $eq: domainName } }).select(
     "+ssoConfig.clientSecret",
   );
 
@@ -88,7 +90,7 @@ export const generateSSOLoginUrl = async (
 
   // Build URL
   const redirectUrl = client.buildAuthorizationUrl(config, {
-    redirect_uri: `${getServerUrl()}/auth/sso/callback`,
+    redirect_uri: `${getPublicUrl()}/auth/sso/callback`,
     scope: "openid email profile groups",
     code_challenge,
     code_challenge_method: "S256",
@@ -99,7 +101,7 @@ export const generateSSOLoginUrl = async (
 };
 
 export const processSSOCallback = async (fullUrl: string) => {
-  const currentUrl = new URL(fullUrl, getServerUrl());
+  const currentUrl = new URL(fullUrl, getPublicUrl());
   const stateParam = currentUrl.searchParams.get("state");
 
   if (!stateParam) {
@@ -112,7 +114,7 @@ export const processSSOCallback = async (fullUrl: string) => {
   );
 
   // Re-fetch Config
-  const domainDoc = await Domain.findOne({ name: domain }).select(
+  const domainDoc = await Domain.findOne({ name: { $eq: domain } }).select(
     "+ssoConfig.clientSecret",
   );
   if (!domainDoc || !domainDoc.ssoConfig) {
@@ -147,12 +149,12 @@ export const processSSOCallback = async (fullUrl: string) => {
 
   // Update Account Membership (Upsert)
   await Account.findOneAndUpdate(
-    { name: cv_username },
+    { name: { $eq: cv_username } },
     { $pull: { memberships: { domainName: domain } } }, // Remove old
   );
 
   await Account.findOneAndUpdate(
-    { name: cv_username },
+    { name: { $eq: cv_username } },
     {
       $push: {
         memberships: {

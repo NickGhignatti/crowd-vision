@@ -29,9 +29,9 @@ Whether you are a user learning how to navigate the dashboard, or a developer lo
 CrowdVision is a polyglot monorepo (JavaScript, Python, Rust) orchestrated by [`just`](https://just.systems/). There is no root `package.json` — each service manages its own dependencies; shared JS dev tooling lives in `tooling/`.
 
 ```bash
-just install    # install all dependencies (npm per-service + Python uv + Rust cargo)
-just env        # generate .env (prompts for secrets, skips existing values)
-just dev        # start the full dev stack with hot-reload
+just setup install    # install all dependencies (npm per-service + Python uv + Rust cargo)
+just stack env        # generate .env (prompts for secrets, skips existing values)
+just stack dev        # start the full dev stack with hot-reload
 ```
 
 See the [Developer Setup Guide](documentation/developer/config/setting-up.qd) for full instructions.
@@ -58,12 +58,13 @@ For the full reference, see the [Agent Service Guide](documentation/developer/se
 
 ## 📄 License
 
-Copyright © 2026 Ghignatti Nicolò. All rights reserved.
+Copyright © 2026 the CrowdVision project owner. All rights reserved.
 
-CrowdVision is proprietary software. This repository is public so you can view
-the code — it is not open source. You're welcome to read and explore it for
-personal, non-commercial evaluation, but copying, forking, modifying, running,
-distributing, or using it commercially isn't permitted.
+CrowdVision is **source-available, not open source**. This repository is public so
+you can read and evaluate the code. GitHub's Terms of Service let you view and fork
+it on GitHub — but any fork stays under this license, and running it, building a
+product from it, redistributing it outside GitHub, or using it commercially isn't
+permitted.
 
 See the full [LICENSE](LICENSE) for the details. For commercial use or any
 permission not covered there, just reach out: **nick.ghignatti@gmail.com**.

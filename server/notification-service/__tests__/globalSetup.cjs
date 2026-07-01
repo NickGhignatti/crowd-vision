@@ -13,6 +13,9 @@ module.exports = async () => {
   // Share the URI with all Jest workers (env vars are inherited by child processes).
   process.env.MONGO_URI = mongoServer.getUri();
 
+  // Deterministic secret so tests can mint JWTs the auth middleware accepts.
+  process.env.JWT_SECRET = process.env.JWT_SECRET || "test-jwt-secret";
+
   // Store the instance on `global` so globalTeardown can stop it.
   // globalSetup and globalTeardown run in the same main process, so `global` is shared.
   global.__MONGOD__ = mongoServer;

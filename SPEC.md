@@ -1,0 +1,238 @@
+# SPEC - Simple persistent chat sessions
+
+> Status: draft. Scope: basic chatbot-style conversation history.
+
+## 1. Goal
+
+Let authenticated users keep multiple chat sessions.
+
+When a user sends a message, the application sends the recent messages from that
+conversation to the existing agent `/ask` endpoint as context. The agent remains
+stateless; chat history is owned by a small `chat-service`.
+
+This is intentionally a simple v1. It does not include streaming, archives,
+sharing, real-time sync, summaries, usage tracking, trace links, or advanced
+retrieval changes.
+
+## 2. User experience
+
+A user can:
+
+- Start a new chat.
+- See their saved chats, newest first.
+- Open a chat and see its messages.
+- Rename or delete a chat.
+- Continue a chat and have the agent use its recent messages as context.
+
+The existing client chat widget should call `chat-service` instead of calling
+`agent-service` directly.
+
+## 3. Request flow
+
+When the user sends a message:
+
+1. `chat-service` verifies the user's JWT cookie and ownership of the conversation.
+2. It loads the recent messages from the conversation.
+3. It calls `agent-service POST /ask`, forwarding the caller's JWT cookie, with:
+
+```json
+{
+  "question": "What about building B?",
+  "history": [
+    { "role": "user", "content": "Tell me about building A." },
+    { "role": "assistant", "content": "Building A has..." }
+  ],
+  "stream": false
+}
+```
+
+4. It saves the new user message and the returned assistant answer.
+5. It returns the saved assistant message to the client.
+
+Only the most recent `HISTORY_MAX_MESSAGES` messages are sent to `/ask`. The
+default is `10`. The current user message is sent as `question`, not duplicated in
+`history`.
+
+If the agent call fails, no new messages are saved and `chat-service` returns
+`502 Bad Gateway`. The user can send the message again.
+
+## 4. Data model
+
+Use MongoDB with one `conversations` collection. Messages are embedded to keep v1
+simple.
+
+```ts
+{
+  _id: ObjectId,
+  userId: string,
+  title: string,
+  messages: [
+    {
+      role: "user" | "assistant",
+      content: string,
+      citations?: Array<{
+        chunk_id: string,
+        document_id: string,
+        source: string,
+        section_path?: string | null
+      }>,
+      createdAt: Date
+    }
+  ],
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+Index:
+
+```ts
+{ userId: 1, updatedAt: -1 }
+```
+
+Limits:
+
+- Maximum message content length: `8,000` characters.
+- Maximum saved messages per conversation: `100`.
+- If saving the next user and assistant message would exceed the limit, sending
+  returns `409 Conflict` and the user must start a new chat.
+
+These limits keep embedded conversation documents comfortably below MongoDB's
+document size limit.
+
+## 5. Chat service API
+
+All routes require the existing JWT cookie. Every conversation query must include
+the authenticated user's `userId`. Requests for another user's conversation return
+`404 Not Found`.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/conversations` | Create a chat. Body may contain an optional `title`. |
+| `GET` | `/conversations` | List the user's chats without their messages, newest first. |
+| `GET` | `/conversations/:id` | Return one chat including its messages. |
+| `POST` | `/conversations/:id/messages` | Send a message and return the assistant reply. |
+| `PATCH` | `/conversations/:id` | Rename a chat. |
+| `DELETE` | `/conversations/:id` | Permanently delete a chat. |
+| `GET` | `/health/` | Liveness check. |
+| `GET` | `/metrics/` | Prometheus metrics. |
+
+`POST /conversations/:id/messages` body:
+
+```json
+{ "content": "What about building B?" }
+```
+
+The title defaults to `"New chat"`. When the first message is saved, an unchanged
+default title is replaced with a truncated version of that message.
+
+## 6. Agent service change
+
+Extend the existing `AskRequest` with optional validated history:
+
+```python
+from typing import Literal
+
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=8000)
+
+
+class AskRequest(BaseModel):
+    # Existing fields remain unchanged.
+    history: list[ChatTurn] = Field(default_factory=list, max_length=20)
+```
+
+Thread `history` through the `/ask` route and the agent's `answer` and
+`stream_answer` methods. Build model messages in this order:
+
+1. Existing system prompt and authenticated user scope.
+2. History messages, oldest first.
+3. Current question as the final user message.
+
+`history` is untrusted input. It must not accept `system` or `tool` roles, and the
+system prompt remains authoritative.
+
+Retrieval and tool calls continue to use the current question. Query rewriting is
+out of scope.
+
+## 7. Implementation scope
+
+Create `server/chat-service` by following the existing `auth-service` conventions:
+
+- Express, TypeScript, Mongoose, and the shared JWT secret.
+- Thin controllers and a conversation service containing the main logic.
+- One conversation model.
+- Central error handling and Prometheus metrics.
+- A service-local `docker-compose.yml` and `docker-compose.dev.yml`.
+
+Add:
+
+- `handle_path /chat/*` to `Caddyfile`.
+- `chat-service` and `chat-db` through the service-local Compose files. The repo's
+  existing Compose runner will discover them automatically.
+- A Prometheus scrape target for `chat-service`.
+- A Moon project file so build, test, and lint run with the other services.
+
+Update `client/src/components/layouts/ChatWidget.vue` to:
+
+- Use `/chat/conversations` instead of `/agent/ask`.
+- Create and switch chats.
+- Load saved messages when a chat is opened.
+- Rename and delete chats.
+
+The client sends one message at a time and disables sending while waiting for the
+assistant response.
+
+## 8. Tests
+
+### Chat service
+
+- A user can create, list, open, rename, and delete their chats.
+- A user receives `404` for another user's chat on every `:id` route.
+- Sending a message forwards recent history in oldest-first order.
+- The current message is sent as `question` and is not duplicated in `history`.
+- Successful agent responses save both messages and citations.
+- Failed agent requests save neither message.
+- Content and conversation message limits are enforced.
+
+Mock the agent `/ask` request in chat-service tests.
+
+### Agent service
+
+- `/ask` works unchanged when `history` is omitted.
+- Valid history is inserted between the system prompt and current question.
+- Invalid roles, oversized history, and oversized content return `422`.
+
+### Client
+
+- Opening a chat loads its saved messages.
+- Sending a message uses the selected conversation.
+- Creating, renaming, and deleting chats update the visible chat list.
+
+## 9. Acceptance criteria
+
+The work is complete when:
+
+1. An authenticated user can create, list, open, rename, delete, and continue chat
+   sessions from the client.
+2. Chats remain available after refreshing the page.
+3. Each send includes recent messages from the selected chat in the `/ask`
+   `history` field.
+4. The agent uses history as model context while keeping existing authentication,
+   scoping, retrieval, and tool behavior.
+5. Users cannot access another user's chats.
+6. Build, lint, and relevant tests pass.
+
+## 10. Out of scope
+
+- SSE or token streaming.
+- Pagination.
+- Archived chats or soft deletion.
+- Separate message collection.
+- Concurrent sends to the same conversation.
+- LLM-generated titles or summaries.
+- Storing usage, model, retrieval diagnostics, or Langfuse trace IDs.
+- Retry, regenerate, edit-message, and branching features.
+- Kubernetes deployment for `chat-service`.

@@ -27,9 +27,6 @@ export function getBuildingHistory(
       const response = await makeRequest(
         `/sensor/${apiType}/dashboard?building=${buildingId.value}&timeRange=${range.value}&aggMode=${aggMode.value}`,
         'GET',
-        {
-          credentials: 'omit',
-        },
       )
 
       if (!response.ok) {

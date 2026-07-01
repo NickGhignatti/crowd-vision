@@ -43,7 +43,7 @@ spec:
             - containerPort: 5432
           envFrom:
             # Injects POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-            # Created by: just k8s-secrets
+            # Created by: just k8s secrets
             - secretRef:
                 name: agent-db-secret
           volumeMounts:

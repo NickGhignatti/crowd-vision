@@ -1,6 +1,3 @@
-# Shared infrastructure only.
-# Service compose files are assembled dynamically by scripts/compose-run.mjs
-# (invoked via the Justfile).
 services:
   gateway:
     image: caddy:latest
@@ -10,8 +7,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    # required: false ⇒ if a service is excluded from the run, gateway still
-    # starts (Caddy will retry connections when the service eventually appears).
     depends_on:
       auth-service:
         condition: service_started
@@ -25,20 +20,38 @@ services:
       socket-server:
         condition: service_started
         required: false
+      chat-service:
+        condition: service_started
+        required: false
 
   redis:
     image: redis:alpine
-    container_name: crowd-vision-broker
-    ports:
-      - "6379:6379"
+    container_name: services-broker
+    restart: always
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis-langfuse:
+    image: redis:alpine
+    container_name: langfuse-broker
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   prometheus:
     image: prom/prometheus:latest
     container_name: crowd-vision-prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--web.external-url=${DEV_URL}/prometheus/'
-      - '--web.route-prefix=/'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.external-url=${DEV_URL}/prometheus/"
+      - "--web.route-prefix=/"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
@@ -53,12 +66,6 @@ services:
     depends_on:
       - prometheus
 
-  # ── Langfuse (LLM observability / trace backend) ────────────────────────────
-  # Self-hosted Langfuse v3. agent-service exports OpenTelemetry traces here over
-  # OTLP/HTTP (see OTEL_EXPORTER_OTLP_* in .env). Adapted from the upstream
-  # docker-compose: we reuse the shared `redis` above (so no langfuse redis), and
-  # the project/user + API keys are provisioned headlessly via LANGFUSE_INIT_*.
-  # UI on host port 3030 (http://localhost:3030 or /langfuse via the gateway).
   langfuse-web:
     image: docker.io/langfuse/langfuse:3
     container_name: crowd-vision-langfuse
@@ -86,7 +93,6 @@ services:
       CLICKHOUSE_USER: clickhouse
       CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD}
       CLICKHOUSE_CLUSTER_ENABLED: "false"
-      # Object storage (event + media blobs) → minio.
       LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
       LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
       LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
@@ -101,11 +107,9 @@ services:
       LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
-      # Reuse the shared redis (no password) defined above.
-      REDIS_HOST: redis
+      REDIS_HOST: redis-langfuse
       REDIS_PORT: "6379"
       REDIS_AUTH: ""
-      # Headless provisioning so agent-service can auth on first boot.
       LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-crowd-vision}
       LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Crowd-Vision}
       LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-agent-service}
@@ -159,14 +163,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 1s
+      start_period: 60s
 
   minio:
     image: cgr.dev/chainguard/minio
     container_name: crowd-vision-minio
     restart: always
     entrypoint: sh
-    # Create the 'langfuse' bucket before starting the server.
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:
       MINIO_ROOT_USER: minio

@@ -1,84 +1,173 @@
 .docname {Notification Service}
 .include {docs}
 
-The `notification-service` acts as the rule engine and dispatcher for all CrowdVision alerts. It receives threshold breach signals from the Sensor Service, manages Web Push subscriptions, evaluates per-user opt-in preferences, and fans out alerts across two delivery channels simultaneously.
+Implementation reference for the `notification-service`. For its architectural role, see [Notification Service Architecture](../architecture/notification-architecture.qd); for the domain model, see [Alerting](../domain/alerting.qd).
 
-For the design rationale behind the two-model architecture, the VAPID subscription lifecycle, and the server-side domain filtering gap, see [Notifications Design](../design/notifications.qd).
-
----
-
-## 🏗️ Architecture Overview
-
-*   **Controllers (`notificationController.ts`, `preferencesController.ts`):** `notificationController` handles alert dispatch and push subscription management. `preferencesController` handles per-domain, per-type opt-in preferences.
-*   **Services (`notificationService.ts`, `pushService.ts`):** `notificationService` owns Redis publishing and domain resolution. `pushService` owns VAPID encryption and delivery to browser push endpoints.
-*   **Models (`webPushSubscription.ts`, `notificationSubscription.ts`):** Two separate collections. See [Notifications Design](../design/notifications.qd) for the rationale for keeping them apart.
+A Node.js / Express service. It receives candidate alert events, debounces them, resolves recipients, and delivers through two channels: an in-app event over the Redis broker and a Web Push to registered devices.
 
 ---
 
-## 🚦 The Redis Throttle (Temperature Alerts)
-
-The most important implementation detail of this service is the debounce mechanism on `POST /notification/push/temperature`. Because the Sensor Service fires on every incoming reading (every ~10 seconds), an alert would be sent repeatedly until the temperature drops. The Notification Service acts as a smart gateway and absorbs the noise.
-
-.mermaid
-    sequenceDiagram
-        participant SS as Sensor Service
-        participant NS as Notification Service
-        participant R as Redis
-
-        SS->>NS: POST /notification/push/temperature<br/>{ buildingId, roomId, temperature, type }
-        NS->>R: GET temp_alert:{buildingId}:{roomId}
-        alt Key exists (cooldown active)
-            R-->>NS: "1"
-            NS-->>SS: 200 OK (silently throttled)
-        else Key missing (first alert or cooldown expired)
-            R-->>NS: null
-            NS->>NS: Resolve domains → send WebSocket + WebPush
-            NS->>R: SET temp_alert:{buildingId}:{roomId} "1" EX 300
-            NS-->>SS: 200 OK (dispatched)
-        end
-
-The cache key format is `temp_alert:{buildingId}:{roomId}`. The TTL is **300 seconds (5 minutes)**. After the cooldown expires, the next breach triggers a new alert cycle.
-
----
-
-## 📋 Full API Reference
+## Source Layout
 
 .var {headers}
-   - Method
-   - Endpoint
+   - Path
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - `src/router.ts`
+      - Routes for VAPID key, subscription, preferences, manual trigger, and the automated temperature push.
+    - - `src/controller/notificationController.ts`
+      - HTTP adapters; owns the temperature-alert throttle and request normalisation.
+    - - `src/services/notificationService.ts`
+      - Redis publishing to the `notifications` channel.
+    - - `src/services/pushService.ts`
+      - VAPID Web Push delivery, preference resolution, and stale-subscription cleanup.
+    - - `src/models/webSubscription.ts`
+      - `WebPushSubscription` schema (device endpoint + keys).
+    - - `src/models/notificationSubscription.ts`
+      - `NotificationSubscription` schema (per-domain opt-in preferences).
+    - - `src/config/redis.ts`
+      - Shared Redis client.
+
+---
+
+## Configuration
+
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`
+      - empty
+      - VAPID key pair; when both are set, `web-push` is configured for delivery.
+    - - `GATEWAY_URL`
+      - `http://localhost:3000`
+      - Internal gateway base; used to resolve a building's domains via the twin-service.
+    - - `REDIS_URL`
+      - —
+      - Broker connection for publishing `notifications`.
+    - - `DEMO_NOTIFICATION_DOMAIN_ID`
+      - —
+      - When set, the optional demo loop pushes a periodic test alert to that domain.
+
+---
+
+## Data Model
+
+Two collections, kept separate by design (see [Alerting](../domain/alerting.qd)).
+
+```typescript
+// webSubscription.ts — "where can I reach this account?"
+interface IWebPushSubscription {
+  accountName: string;          // indexed
+  endpoint: string;             // unique
+  keys: { p256dh: string; auth: string };
+}
+// compound unique index { accountName, endpoint }
+
+// notificationSubscription.ts — "what does this account want?"
+interface INotificationSubscription {
+  accountName: string;
+  domainName: string;
+  preferences: { notificationType: NotificationType; isSubscribed: boolean }[];
+  createdAt: Date;
+}
+// compound unique index { accountName, domainName }
+
+enum NotificationType { TEMPERATURE = "temperature" }
+```
+
+A single account may own several `WebPushSubscription` records (one per device) but exactly one `NotificationSubscription` per domain.
+
+---
+
+## HTTP API
+
+.var {headers}
+   - Method · Path
    - Auth
    - Description
 
 .tablebyrows {.headers}
-    - - `GET`
-      - `/notification/public-key`
+    - - `GET /public-key`
       - Public
-      - Returns `{ publicVapidKey }`. Called by the frontend before creating a push subscription.
-    - - `POST`
-      - `/notification/subscribe`
-      - Public
-      - Upserts a `WebPushSubscription` (browser endpoint + VAPID keys). Also creates a default `NotificationSubscription` with `temperature` alerts enabled.
-    - - `GET`
-      - `/notification/preferences/:accountName`
-      - Authenticated
-      - Returns all `NotificationSubscription` records for the given account (one per domain).
-    - - `POST`
-      - `/notification/preferences`
-      - Authenticated
-      - Toggle a specific notification type on or off for a domain. Body: `{ accountName, domainName, type, enabled }`.
-    - - `POST`
-      - `/notification/trigger`
-      - Authenticated
-      - Manual alert dispatch. No cooldown. Resolves the building's domains via the Twin Service, publishes to Redis, and sends Web Push to all opted-in users. Body: `{ buildingId, message?, type? }`.
-    - - `POST`
-      - `/notification/push/temperature`
-      - Internal (Sensor Service only)
-      - Automated temperature threshold alert. Subject to 5-minute Redis cooldown per room. Body: `{ buildingId, roomId, temperature, type, domainName? }`.
+      - Returns `{ publicVapidKey }` for the browser to create a push subscription.
+    - - `POST /subscribe`
+      - JWT
+      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences. `201`.
+    - - `GET /preferences/:accountName`
+      - JWT
+      - Returns the **caller's own** `NotificationSubscription` records. The `:accountName` param is ignored (identity from the token).
+    - - `POST /preferences`
+      - JWT
+      - Sets one or more per-domain, per-type opt-in flags for the **caller**. `200`.
+    - - `POST /trigger`
+      - JWT
+      - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `200`.
+    - - `POST /push/temperature`
+      - JWT
+      - Automated threshold alert; subject to the per-room cooldown below. `200`.
+
+Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified JWT, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array.
+
+.box {Auth boundary} type:{note}
+    Only `/health` and `/public-key` (the non-secret VAPID key) stay public; `requireAuthentication` guards everything else. `/trigger` and `/push/temperature` fan out push notifications to a whole domain, so leaving them open was an abuse vector — they now require a valid token like the rest.
 
 ---
 
-## 🧹 Stale Subscription Auto-Cleanup
+## The Temperature-Alert Throttle
 
-When `pushService.sendNotification` receives a `410 Gone` or `403 Forbidden` from the browser's push provider, the subscription is permanently invalid. The service automatically calls `Subscription.deleteOne({ endpoint })` in both cases. No manual cleanup or scheduled job is required.
+The sensor-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, `pushTemperatureAlert` debounces per room using a Redis key with a fixed TTL.
 
-All other errors (network failures, 5xx from the provider) are logged but leave the subscription intact, as they may be transient.
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant SS as sensor-service
+        participant NS as notification-service
+        participant R as Redis
+        participant TW as twin-service
+        SS->>NS: POST /push/temperature { buildingId, roomId, temperature }
+        NS->>R: GET temp_alert:{buildingId}:{roomId}
+        alt cooldown active
+            R-->>NS: "1"
+            NS-->>SS: 200 (silently throttled)
+        else first alert / expired
+            opt domain not supplied
+                NS->>TW: GET /twin/domain/:buildingId
+                TW-->>NS: domain names
+            end
+            Note over NS: publish "notifications" + Web Push to opted-in recipients
+            NS->>R: SET temp_alert:{buildingId}:{roomId} "1" EX 300
+            NS-->>SS: 200 (dispatched)
+        end
+
+The key is `temp_alert:{buildingId}:{roomId}`; the cooldown is **300 seconds**. After it expires, the next breach starts a new cycle.
+
+---
+
+## Recipient Resolution and Delivery
+
+`pushService` separates *who to notify* from *how to reach them*.
+
+- `sendPushToDomain(payload, domainName, type)` queries `NotificationSubscription` for records in the domain whose `preferences` contain an enabled entry for `type` (`$elemMatch`), reduces to a unique set of account names, and delegates to `sendPushToUsers`.
+- `sendPushToUsers(payload, accountNames)` loads every `WebPushSubscription` for those accounts and sends the encrypted payload to each endpoint via `web-push`.
+- The in-app channel is independent: `publishNotification` posts `{ id, message, type, timestamp, domainName? }` to the Redis `notifications` channel, which the socket-service relays to browsers.
+
+### Preference upserts
+
+`setUserNotificationPreference` is idempotent per type: it first `$pull`s any existing entry for that `notificationType`, then `$push`es the new `{ notificationType, isSubscribed }`, using `$setOnInsert` to create the document on first write.
+
+### Stale-subscription cleanup
+
+When `web-push` returns `410 Gone` or `403 Forbidden`, the endpoint is permanently invalid and the subscription is deleted automatically (`Subscription.deleteOne({ endpoint })`). All other errors (network, 5xx) are logged but leave the subscription intact, as they may be transient.
+
+.box {Demo loop} type:{note}
+    `startNotificationLoop` publishes a periodic "System Status Check" (and, if `DEMO_NOTIFICATION_DOMAIN_ID` is set, a demo push) every 10 seconds. It is a development aid and should be disabled in production.
+
+---
+
+## Error Handling
+
+The service uses the shared `BaseError` hierarchy and global error middleware (see [Auth Service: Middleware](middlewares.qd)). Missing `accountName`/`domainName` and malformed push payloads raise `ValidationError` (400); a failed twin lookup surfaces as a `500`.

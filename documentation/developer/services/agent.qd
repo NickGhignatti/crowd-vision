@@ -1,18 +1,73 @@
 .docname {Agent Service}
 .include {docs}
 
-The Python `agent-service` is CrowdVision's tool-calling assistant. It combines a
-permission-filtered documentation knowledge base with live building and room data from
-`twin-service`.
+The Python `agent-service` is CrowdVision's tool-calling assistant. It answers questions
+by combining a permission-filtered documentation knowledge base with live building and
+room data from `twin-service`.
 
-For the code-level guides, see `server/agent-service/README.md`,
-`server/agent-service/ARCHITECTURE.md`, and `server/agent-service/ADDING_TOOLS.md`.
+It is built on **FastAPI** — an async Python web framework chosen because the agent spends
+most of its time waiting on network I/O (the language-model provider, the database, the
+twin-service), and an async stack lets one worker handle many in-flight requests instead of
+blocking a thread per call. For local commands and troubleshooting, see the service
+`README.md`. For writing a new tool, see [Adding an Agent Tool](../contributing/adding-agent-tools.qd).
+
+---
+
+## How It Works
+
+A request to `POST /ask` is not a single model call. The agent runs a **tool-calling loop**:
+the language model is given the question plus the JSON schemas of the available tools, and on
+each turn it may either answer or ask to call one or more tools. We run the requested tools,
+feed their results back, and let the model decide again. This "agentic" pattern is preferred
+over stuffing everything into one prompt because the model itself decides *what* data it needs
+and can chain lookups (for example, resolve a building name to an ID, then fetch that
+building's rooms).
+
+.mermaid
+    flowchart TD
+        A[question + AuthUser] --> B[bootstrap system + user messages]
+        B --> C[LLM chat with tool schemas]
+        C -->|tool calls| D[validate args, run tools, append results]
+        D --> C
+        C -->|final text| E[validate citations, strip invented markers]
+        E --> F[response]
+
+The loop is bounded by `MAX_TOOL_HOPS` so a confused model cannot spin forever; hitting the
+limit returns the IDK marker with `decision=tool_loop_exhausted`. Tool errors are handed back
+to the model as ordinary tool-result messages rather than raised, so the model gets a chance
+to recover (retry with different arguments, or give up cleanly).
+
+`stream=true` runs the same loop and then emits the finished answer as a single Server-Sent
+Events `token` event followed by `done`. It is **not** per-token streaming yet — the event
+shape exists so the client contract is stable when true streaming is added later.
+
+---
+
+## Scope
+
+The assistant is deliberately **not** a general-purpose chatbot. Its system prompt restricts
+it to CrowdVision topics — buildings and rooms, live occupancy and sensor state, and how the
+platform works — and instructs it to decline anything else (general knowledge, math, coding,
+translation, writing, other products, personal advice) in one short sentence, without calling
+a tool.
+
+The motivation is product trust and cost: a building-occupancy assistant that also writes
+poems or answers trivia invites misuse, leaks the fact that it is "just an LLM", and spends
+the shared provider budget on off-topic work. Two refusal behaviors are intentionally kept
+distinct:
+
+- **Out of scope** → a brief scoped refusal ("I can only help with CrowdVision…"), no tool call.
+- **In scope but unanswerable** → the prompt instructs the model to return the exact IDK marker
+  after tools come up empty. The service also returns that marker when the tool-loop limit is
+  exhausted; it does not enforce that every model-emitted IDK was preceded by a tool call.
+
+Greetings are treated as in scope and answered directly.
 
 ---
 
 ## Capabilities
 
-The model can choose from five read-only tools:
+The model can choose from five **read-only** tools:
 
 .var {headers}
    - Tool
@@ -39,10 +94,73 @@ The model can choose from five read-only tools:
 The agent answers with validated documentation citations, a tool-call trace, token usage,
 estimated/provider-reported cost, an `idk` flag, and a final decision.
 
-.box type:{warning}
-    The current twin tools do not forward the caller JWT or perform their own
-    `ToolContext` authorization. Do not add sensitive or write-capable tools without
-    explicit authorization, confirmation, and audit behavior.
+.box type:{note}
+    The twin tools now **forward the caller's JWT** to twin-service: `require_user` stashes the
+    raw token on `AuthUser.raw_token`, and the twin tool's httpx client sends it as
+    `Authorization: Bearer …` so the read happens as the asking user (twin-service authenticates
+    its routes). The tools still rely on twin-service for authorization rather than performing their
+    own `ToolContext` checks — do not add sensitive or write-capable tools without explicit
+    authorization, confirmation, and audit behavior.
+
+---
+
+## Knowledge Base And Retrieval
+
+In Docker Compose, the one-shot `agent-ingester` waits for the service to become healthy,
+then ingests `.qd`, `.md`, and `.markdown` files from `documentation/user` and
+`documentation/developer`.
+
+```bash
+just agent ingest
+```
+
+Ingestion is **idempotent by global content hash**: identical content is skipped. It does not
+replace or delete an older document when a source file changes, so a clean rebuild requires
+clearing the agent tables before re-ingesting. Each source is split by a Markdown-aware
+chunker that keeps headings, fenced code, and tables intact, because a chunk that splits a
+code block or a table mid-row retrieves badly.
+
+`search_docs` runs **hybrid retrieval**:
+
+1. Embed the query into a vector.
+2. Run a pgvector cosine-similarity search (semantic match).
+3. Run a PostgreSQL full-text search via `tsvector` and `websearch_to_tsquery` (exact-term match).
+4. Merge the two ranked lists with Reciprocal Rank Fusion.
+5. Pass the merged candidates through the configured reranker (`noop` is the only current implementation).
+6. Return the top `TOP_K_FINAL` chunks.
+
+The reason for running *both* searches is that they fail in opposite ways: vector search
+understands meaning but can miss a rare exact token (an error code, a config key), while
+full-text search nails exact tokens but is blind to paraphrase. **Reciprocal Rank Fusion**
+combines them without the usual problem of incompatible score scales — instead of trying to
+add a cosine similarity to a `ts_rank`, it scores each document by `1 / (k + rank)` summed
+across the lists, so only the *position* in each list matters and documents that both methods
+rank highly rise to the top.
+
+Both searches filter chunks against the caller's JWT roles and domains at the SQL boundary, so
+a user never even retrieves a chunk they are not allowed to see:
+
+```text
+chunk permissions are empty            (visible to every authenticated caller)
+OR
+chunk permissions overlap the caller's JWT roles/domains
+```
+
+---
+
+## Citations
+
+The system prompt asks the model to mark any claim drawn from `search_docs` with a
+`[^<chunk-id>]` footnote. After the model answers, the service **validates** those markers
+against the chunks actually returned:
+
+1. `extract_citations` resolves each marker to a real retrieved chunk.
+2. Valid markers become structured citation objects in the response.
+3. Unknown markers are reported in `retrieval.hallucinated_citations`.
+4. `strip_hallucinated` removes the invented markers from the displayed answer.
+
+This guards against a model citing a source it never saw. Note the limit: it proves a marker
+points at a real retrieved chunk, not that the chunk actually supports the sentence.
 
 ---
 
@@ -71,145 +189,158 @@ uses the same `/agent` ingress prefix. Inside the service network it listens on 
       - Interactive OpenAPI documentation.
 
 .box type:{warning}
-    `/ingest` is authenticated but currently does not enforce an administrator role.
-    Treat it as an internal endpoint.
-
-SSE currently emits the completed answer as one `token` event followed by a `done` event;
-it is not true per-token model streaming.
+    `/ingest` is authenticated but currently does not enforce an administrator role. Treat it
+    as an internal endpoint.
 
 The request schema currently exposes `top_k`, but it is not wired into retrieval. Retrieval
 depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
 
 ---
 
+## Authentication And Permissions
+
+Protected routes accept either the configured JWT cookie (`authentication_token` by default)
+or an `Authorization: Bearer <jwt>` header. Tokens are verified with HS256 against
+`JWT_SECRET`. CrowdVision uses **stateless JWTs** so the agent can authorize a caller without
+a network round-trip to the auth-service — roles and domains travel inside the signed token.
+
+Roles and domains are collected from the token's direct claims and `accountMemberships`, then
+combined into `AuthUser.permissions` and used both for retrieval filtering and role gates.
+Role-sensitive operations use the same weighted hierarchy as `auth-service`:
+`standard_customer` (10), `business_staff` (60), `business_admin` (80), `admin` (100). The one
+role-gated operation today is the per-request answer-model override.
+
+`REQUIRE_AUTH=false` creates an anonymous user and is intended only for isolated local use.
+
+---
+
 ## Provider And Models
 
-One OpenAI-compatible endpoint drives both chat/tool-calling and embeddings. OpenRouter is
-the default:
+One OpenAI-compatible endpoint drives both chat/tool-calling and embeddings. Using a single
+OpenAI-compatible contract (rather than a vendor SDK) means the model can be swapped — between
+OpenRouter, a local server, or another gateway — by changing configuration, not code.
+OpenRouter is the default:
 
-.code lang:{bash}
-    OPENROUTER_API_KEY=<your-openrouter-key>
-    LLM_BASE_URL=https://openrouter.ai/api/v1
-    ANSWER_MODEL=openai/gpt-4o-mini
-    EMBEDDING_MODEL=openai/text-embedding-3-small
-    EMBEDDING_DIM=768
-    MAX_OUTPUT_TOKENS=2048
+```bash
+OPENROUTER_API_KEY=<your-openrouter-key>
+LLM_BASE_URL=https://openrouter.ai/api/v1
+ANSWER_MODEL=openai/gpt-4o-mini
+EMBEDDING_MODEL=openai/text-embedding-3-small
+EMBEDDING_DIM=768
+MAX_OUTPUT_TOKENS=2048
+```
 
 `LLM_API_KEY`, `DEEPSEEK_API_KEY`, and `GOOGLE_API_KEY` are accepted as legacy key aliases,
 but the supplied key must authenticate against `LLM_BASE_URL`.
 
 Privileged callers may override the answer model per `/ask` request:
 
-.code lang:{bash}
-    MODEL_OVERRIDE_MIN_ROLE=business_admin
-    ALLOWED_MODELS=openai/gpt-4o-mini,google/gemini-2.5-flash
+```bash
+MODEL_OVERRIDE_MIN_ROLE=business_admin
+ALLOWED_MODELS=openai/gpt-4o-mini,google/gemini-2.5-flash
+```
 
-The override spends the server's shared provider balance. It is rejected with `403` below
-the configured role and with `400` when a non-empty allowlist excludes the model. An empty
-`ALLOWED_MODELS` permits any model for callers that pass the role gate.
-
----
-
-## Knowledge Base And Retrieval
-
-In Docker Compose, the one-shot `agent-ingester` waits for the service to become healthy,
-then ingests `.qd`, `.md`, and `.markdown` files from `documentation/user` and
-`documentation/developer`.
-
-.code lang:{bash}
-    just agent-ingest
-
-Ingestion is idempotent by global content hash. It does not replace or delete an older
-document when a source file changes, so a clean rebuild requires clearing the agent tables
-before re-ingesting.
-
-`search_docs`:
-
-1. Embeds the query.
-2. Runs pgvector cosine search.
-3. Runs PostgreSQL full-text search.
-4. Merges rankings with Reciprocal Rank Fusion.
-5. Applies the configured reranker (`noop` is the only current implementation).
-6. Returns the highest-ranked chunks.
-
-Both searches filter chunks against the caller's JWT roles and domains. Empty document
-permissions make a document visible to every authenticated caller.
+The override spends the server's shared provider balance, which is why it is gated: it is
+rejected with `403` below the configured role and with `400` when a non-empty allowlist
+excludes the model. An empty `ALLOWED_MODELS` permits any model for callers that pass the role
+gate. The embedding model is never changed by an answer-model override, because changing it
+would invalidate the indexed vectors.
 
 ---
 
-## Evaluation And Development Commands
+## Database
 
-Run these from `server/agent-service` unless marked as repository-root commands:
+Alembic (the schema-migration tool for SQLAlchemy) creates two tables:
 
-.code lang:{bash}
-    uv run python scripts/verify_provider.py     # real chat/tool + embedding smoke test
-    uv run pytest tests/unit                     # fast, hermetic tests
-    npm test                                     # full pytest suite
-    npm run lint                                 # Ruff format/lint + Pyright
-    npm run openapi                              # regenerate openapi.json and openapi.yaml
+- `documents`: source, content hash, metadata, permissions.
+- `chunks`: document relation, text, section, kind, embedding, generated `tsvector`,
+  permissions, and metadata.
 
-    # Repository root:
-    just test-agent
-    just test-agent-integration
-    just agent-ingest
-    just eval
-    just eval models="model-a,model-b"
+plus pgvector, full-text GIN, permission GIN, and relation indexes. **pgvector** is the
+Postgres extension that adds a `vector` column type and similarity operators, which is what
+lets semantic search live in the same database as everything else instead of a separate vector
+store.
 
-The golden-dataset runner calls the real service and may incur provider cost:
+The initial migration defines `embedding vector(768)`. The vector dimension is fixed in the
+schema, so changing `EMBEDDING_DIM` requires a matching migration *and* re-ingestion — an
+environment-variable change alone is not enough. Runtime queries use async SQLAlchemy with
+`asyncpg`; Alembic uses a synchronous driver for migrations.
 
-.code lang:{bash}
-    uv run python evals/run_evals.py
+---
 
-    # Remote/CI evaluation requires an explicit cookie:
-    AGENT_URL=https://example.com/agent \
-    AUTH_COOKIE="authentication_token=<privileged-jwt>" \
-      uv run python evals/run_evals.py --models model-a,model-b
+## Evaluation
 
-Model sweeps compare the full agent behavior: each model independently chooses tools and
-retrieval queries. They do not compare generators over frozen context.
+Behavior is checked with a **golden dataset**: hand-written questions, each paired with the
+behavior we expect rather than one exact answer string. A row can assert which tool should
+fire, which documentation source should be cited, which keywords the answer must contain,
+whether the response should be the IDK marker, and — for scope — that an off-topic question is
+declined. Pinning *behavior* instead of wording keeps the checks robust to harmless rephrasing
+while still catching real regressions.
 
-For local URLs, the runner reads `JWT_SECRET` from the environment or repository `.env`
-and mints a fresh short-lived JWT for every request. Automatic minting is disabled for
-remote URLs, which must use `AUTH_COOKIE`. Before each model run, the harness checks
-service/database health, authentication, and model-override authorization with one model
-request whose cost is included in the total.
+These evaluations are deliberately separate from the unit tests. They drive the *real* running
+stack against a *real* provider and depend on an already-ingested corpus, so they are slow,
+cost money, and are not hermetic — the opposite trade-off from the fast unit tests, and the
+reason they are run on demand rather than in the normal test run.
 
-Direct local invocation supports `--role`, `--domain`, and `--cookie-name`. `AUTH_COOKIE`
-always takes precedence, while `MODELS` and `EVAL_TIMEOUT_SECONDS` configure model sweeps
-and request timeouts.
+Most assertions are **deterministic**: a tool name appears in the trace, a citation source
+matches, a substring is present. But some behavior is semantic and substring matching cannot
+capture it — the clearest case is *"did the assistant decline an off-topic question, or did it
+actually answer it?"* Those rows opt into an **LLM-as-a-judge**: a second model grades the
+answer against a rubric. The judge defaults to a **different model family** than the answer
+model, because a model asked to grade output in its own style tends to favour it, and an
+independent family reduces that self-preference bias.
 
-.code lang:{bash}
-    cd server/agent-service
-    uv run python evals/run_evals.py --role admin --domain unibo.it
-    EVAL_TIMEOUT_SECONDS=240 uv run python evals/run_evals.py
+Not every failure is a regression. Some rows test behavior the agent is *known* not to handle
+yet — an accepted, tracked gap. Marking such a row `xfail` ("expected to fail", a convention
+borrowed from pytest) keeps it in the suite without turning the run red: when it fails as
+predicted it is reported as **XFAIL** and the build stays green. The point is that the gap stays
+*visible* and counted on every run instead of being deleted and forgotten — and every `xfail`
+must carry a written reason, so an accepted gap is never silent debt. If an `xfail` row ever
+starts *passing* — because the gap was actually fixed — it is reported as **XPASS**, the signal
+that its marker is now stale and should be removed so the row goes back to guarding the
+behavior normally.
 
-Rows report `PASS`, `FAIL`, `XFAIL` for accepted known gaps, or `XPASS` when a known gap
-now passes. `just eval` is report-only for scored results, so those statuses do not
-produce a recipe failure; setup and preflight errors still do. Direct runner invocations
-exit non-zero on unexpected failures and can use `--strict` to also fail on stale
-`XPASS` markers. Reported total cost includes preflight requests; average latency covers
-scored dataset rows.
+For the dataset schema, the scoring and exit-code contract, model sweeps, and how to configure
+the judge, see the agent-service `README.md`.
 
 ---
 
 ## Langfuse Observability
 
-The Docker Compose stack deploys Langfuse and sends agent OpenTelemetry traces to it.
-Traces include model generations, tool calls, retrieval stages, latency, tokens, and cost.
+The agent is instrumented with **OpenTelemetry** (OTel), a vendor-neutral tracing standard, so
+each request produces a trace tree of spans. The motivation is that an agent's behavior is
+otherwise opaque — you cannot tell from the final answer alone which tools ran, what retrieval
+returned, or where the time and tokens went. **Langfuse** is the backend that ingests those
+traces and renders them with LLM-specific views (token counts, cost, generations):
 
-*   URL: `http://localhost:3030` (`http://localhost/langfuse` redirects there)
-*   Default email: `admin@crowd-vision.local`
-*   Default password: `langfuse-admin`
+```text
+agent.answer
+  agent.hop.N
+    gen_ai.chat <model>
+  tool.<name>
+    retrieve.embed / retrieve.vector / retrieve.keyword / retrieve.rerank
+```
 
-Set `LANGFUSE_INIT_USER_EMAIL` and `LANGFUSE_INIT_USER_PASSWORD` before the first Langfuse
-startup to change the initial login. Changing them later does not update an existing user.
+Spans are *typed* so Langfuse renders them meaningfully: generation spans carry model, tokens,
+and cost; retriever spans carry the query and the ranked documents; tool spans carry arguments
+and results, and failed tools get an error status plus the exception.
 
-The current Compose stack also requires Langfuse project/infrastructure secrets and the
-agent's `OTEL_EXPORTER_OTLP_*` variables in the root `.env`; `just env` does not generate
-them. See [Setting Up Your Environment](../config/setting-up.qd) for the variable list.
+Capturing the actual query, document text, and tool I/O is gated by `OBSERVE_PAYLOADS`, which
+**defaults to off** because that content can be sensitive; the development Compose override
+turns it on for useful local traces. Span types, counts, and error statuses are still emitted
+when payload capture is disabled.
 
-Langfuse is not deployed by the current Kubernetes manifests. Without an
-`OTEL_EXPORTER_OTLP_ENDPOINT`, the agent prints compact trace summaries to its logs instead.
+.box {Local Langfuse login} type:{note}
+    URL `http://localhost:3030` (`http://localhost/langfuse` redirects there); default email
+    `admin@crowd-vision.local`, password `langfuse-admin`. Set `LANGFUSE_INIT_USER_EMAIL` and
+    `LANGFUSE_INIT_USER_PASSWORD` before the first Langfuse startup to change the initial
+    login; changing them later does not update an existing user.
+
+With `OTEL_EXPORTER_OTLP_ENDPOINT` set, spans are exported over OTLP. Without it, the agent
+prints compact one-line span summaries to its logs. Langfuse and the OTLP variables are part
+of the Compose stack but are not generated by `just stack env` — see
+[Setting Up Your Environment](../config/setting-up.qd). Langfuse is not deployed by the current
+Kubernetes manifests.
 
 ---
 
@@ -235,10 +366,8 @@ Langfuse is not deployed by the current Kubernetes manifests. Without an
       - Verify `agent-service-secret`; current secret generation still uses legacy key names
 
 The source of truth for runtime settings is `server/agent-service/app/config.py`.
-`LLM_TEMPERATURE` controls the default generation temperature, while
-`TWIN_TIMEOUT_SECONDS` controls live-data request timeouts. Invalid numeric bounds,
-unsupported model-override roles or log formats, and malformed service URL schemes fail
-during settings loading. Startup also fails when the provider key is missing, or when
-authentication is enabled without `JWT_SECRET`.
-
+`LLM_TEMPERATURE` controls the default generation temperature, while `TWIN_TIMEOUT_SECONDS`
+controls live-data request timeouts. Invalid numeric bounds, unsupported model-override roles
+or log formats, and malformed service URL schemes fail during settings loading. Startup also
+fails when the provider key is missing, or when authentication is enabled without `JWT_SECRET`.
 `CORS_ORIGINS` is currently defined there but is not consumed by FastAPI middleware.

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import {
-  getServerUrl,
+  getGatewayUrl,
   publishNotification,
 } from "../services/notificationService.js";
 import {
@@ -12,6 +12,7 @@ import {
 import { ValidationError } from "../models/error.js";
 import redisClient from "../config/redis.js";
 import { NotificationType } from "../models/notificationSubscription.js";
+import { callerAccountName } from "../middlewares/authentication.js";
 
 type SubscriptionRequestBody = {
   accountName?: string;
@@ -54,20 +55,8 @@ const isValidSubscription = (subscription: IncomingSubscription) =>
     subscription.keys?.auth,
   );
 
-const getAccountName = (body: { accountName?: string; userId?: string }) =>
-  body.accountName || body.userId;
-
 const getDomainName = (body: { domainName?: string; domainId?: string }) =>
   body.domainName || body.domainId;
-
-/** Resolves accountName (or its deprecated alias userId) and throws if absent. */
-const requireAccountName = (
-  body: { accountName?: string; userId?: string },
-): string => {
-  const name = body.accountName || body.userId;
-  if (!name) throw new ValidationError("accountName is required");
-  return name;
-};
 
 /** Resolves domainName (or its deprecated alias domainId) and throws if absent. */
 const requireDomainName = (
@@ -78,9 +67,16 @@ const requireDomainName = (
   return domain;
 };
 
-const getDomainsForBuilding = async (buildingName: string) => {
+const getDomainsForBuilding = async (
+  buildingName: string,
+  authToken?: string,
+) => {
+  // twin-service authenticates its routes now; forward the caller's JWT.
   const response = await fetch(
-    `${getServerUrl()}/twin/domain/${encodeURIComponent(buildingName)}`,
+    `${getGatewayUrl()}/twin/domain/${encodeURIComponent(buildingName)}`,
+    authToken
+      ? { headers: { Authorization: `Bearer ${authToken}` } }
+      : undefined,
   );
 
   if (!response.ok) {
@@ -105,7 +101,7 @@ export const triggerAlert = async (req: Request, res: Response) => {
     throw new ValidationError("Missing required field: buildingName");
   }
 
-  const domains = await getDomainsForBuilding(buildingName);
+  const domains = await getDomainsForBuilding(buildingName, req.authToken);
 
   for (const domainName of domains) {
     await publishNotification(normalizedMessage, normalizedType, domainName);
@@ -129,7 +125,8 @@ export const publicKey = async (_req: Request, res: Response) => {
 
 export const subscribe = async (req: Request, res: Response) => {
   const body = req.body as SubscriptionRequestBody;
-  const accountName = getAccountName(body);
+  // Bind the subscription to the authenticated caller, never to a body field.
+  const accountName = callerAccountName(req);
   const domainName = getDomainName(body);
   const subscription: IncomingSubscription = body.subscription?.endpoint
     ? body.subscription
@@ -137,10 +134,6 @@ export const subscribe = async (req: Request, res: Response) => {
       ...(body.endpoint ? { endpoint: body.endpoint } : {}),
       ...(body.keys ? { keys: body.keys } : {}),
     };
-
-  if (!accountName) {
-    throw new ValidationError("Missing required field: accountName");
-  }
 
   if (!isValidSubscription(subscription)) {
     throw new ValidationError("Invalid push subscription payload");
@@ -193,15 +186,11 @@ export const subscribe = async (req: Request, res: Response) => {
 };
 
 export const getPreferences = async (req: Request, res: Response) => {
-  const { accountName } = req.params;
+  // Always the authenticated caller — the :accountName URL param is ignored so a
+  // user can't read another account's preferences (previously an IDOR).
+  const accountName = callerAccountName(req);
 
-  if (!accountName) {
-    throw new ValidationError("Missing required field: accountName");
-  }
-
-  const accountPreferences = await getAccountNotificationPreference(
-    accountName as string,
-  );
+  const accountPreferences = await getAccountNotificationPreference(accountName);
 
   res.status(200).json({ success: true, accountPreferences });
 };
@@ -209,7 +198,7 @@ export const getPreferences = async (req: Request, res: Response) => {
 export const updatePreference = async (req: Request, res: Response) => {
   const body = req.body as SubscriptionRequestBody;
 
-  const accountName = requireAccountName(body);
+  const accountName = callerAccountName(req);
   const domainName = requireDomainName(body);
 
   if (body.preferences && body.preferences.length > 0) {
@@ -284,7 +273,7 @@ export const pushTemperatureAlert = async (req: Request, res: Response) => {
   const targetDomainNames = directDomainName
     ? [directDomainName]
     : buildingId
-      ? await getDomainsForBuilding(buildingId)
+      ? await getDomainsForBuilding(buildingId, req.authToken)
       : [];
 
   const uniqueDomainNames = [...new Set(targetDomainNames.filter(Boolean))];
