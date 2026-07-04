@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Image(s) to build: 'all' or comma-separated (e.g. crowdvision-auth,crowdvision-client)"
+        description: "Image(s) to build: 'all' or comma-separated (e.g. crowdvision-twin,crowdvision-client)"
         required: false
         default: "all"
   push:
@@ -42,7 +42,6 @@ jobs:
         uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         with:
           filters: |
-            crowdvision-auth: 'server/auth-service/**'
             crowdvision-chat: 'server/chat-service/**'
             crowdvision-twin: 'server/twin-service/**'
             crowdvision-notification: 'server/notification-service/**'
@@ -64,7 +63,6 @@ jobs:
         run: |
           # Single source of truth: image -> build context, in sync with the dorny context above.
           CONTEXTS='{
-            "crowdvision-auth":"./server/auth-service",
             "crowdvision-chat":"./server/chat-service",
             "crowdvision-twin":"./server/twin-service",
             "crowdvision-notification":"./server/notification-service",

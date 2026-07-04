@@ -1,29 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import LogInModal from '@/components/modals/authentication/LogInModal.vue'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-const mockLogin = vi.fn()
-vi.mock('@/stores/authentication.ts', () => ({
-  useAuthStore: () => ({
-    login: mockLogin,
+const mockBeginLogin = vi.fn()
+vi.mock('@/composables/auth/useKeycloakAuth.ts', () => ({
+  useKeycloakAuth: () => ({
+    beginLogin: mockBeginLogin,
   }),
 }))
 
 import StandardModal from '@/components/modals/StandardModal.vue'
-import UsernameInput from '@/components/inputs/authentication/UsernameInput.vue'
-import PasswordInput from '@/components/inputs/authentication/PasswordInput.vue'
 
 const stubs = {
   StandardModal: {
     template: '<div><slot /></div>',
     props: ['isOpen'],
   },
-  UsernameInput: true,
-  PasswordInput: true,
 }
 
 describe('LogInModal', () => {
@@ -49,8 +45,18 @@ describe('LogInModal', () => {
       })
 
       expect(wrapper.text()).toContain('authentication.welcomeBack')
-      expect(wrapper.text()).toContain('authentication.login')
+      expect(wrapper.text()).toContain('authentication.continueWithOrg')
       expect(wrapper.text()).toContain('authentication.register')
+    })
+
+    it('renders no password or username inputs (login is a Keycloak redirect)', () => {
+      const wrapper = mount(LogInModal, {
+        props: { isOpen: true },
+        global: { stubs },
+      })
+
+      expect(wrapper.find('input[type="password"]').exists()).toBe(false)
+      expect(wrapper.find('form').exists()).toBe(false)
     })
   })
 
@@ -74,7 +80,7 @@ describe('LogInModal', () => {
       })
 
       const buttons = wrapper.findAll('button')
-      const registerBtn = buttons.find(b => b.text().includes('authentication.register'))
+      const registerBtn = buttons.find((b) => b.text().includes('authentication.register'))
 
       await registerBtn?.trigger('click')
 
@@ -83,55 +89,18 @@ describe('LogInModal', () => {
     })
   })
 
-  describe('form submission', () => {
-    it('calls authStore.login with the provided credentials and emits close on success', async () => {
-      mockLogin.mockResolvedValueOnce(undefined)
-
+  describe('login', () => {
+    it('redirects to Keycloak via beginLogin when the continue button is clicked', async () => {
       const wrapper = mount(LogInModal, {
         props: { isOpen: true },
         global: { stubs },
       })
 
-      await wrapper.findComponent(UsernameInput).vm.$emit('update:name', 'alice')
-      await wrapper.findComponent(PasswordInput).vm.$emit('update:password', 'supersecret')
+      const buttons = wrapper.findAll('button')
+      const continueBtn = buttons.find((b) => b.text().includes('authentication.continueWithOrg'))
+      await continueBtn?.trigger('click')
 
-      await wrapper.find('form').trigger('submit')
-      await flushPromises() // Wait for the async try/catch block to resolve
-
-      expect(mockLogin).toHaveBeenCalledTimes(1)
-      expect(mockLogin).toHaveBeenCalledWith('alice', 'supersecret')
-
-      // If login succeeds, the modal should command itself to close
-      expect(wrapper.emitted('close')).toBeTruthy()
-    })
-
-    it('catches the error, reports it, and does NOT emit close on failure', async () => {
-      // Suppress the expected console output to keep test output clean
-      const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      const expectedError = new Error('Invalid credentials')
-      mockLogin.mockRejectedValueOnce(expectedError)
-
-      const wrapper = mount(LogInModal, {
-        props: { isOpen: true },
-        global: { stubs },
-      })
-
-      await wrapper.findComponent(UsernameInput).vm.$emit('update:name', 'bob')
-      await wrapper.findComponent(PasswordInput).vm.$emit('update:password', 'wrongpassword')
-
-      await wrapper.find('form').trigger('submit')
-      await flushPromises()
-
-      expect(mockLogin).toHaveBeenCalledTimes(1)
-
-      // Expect the error to be reported as per the catch(e) block
-      expect(logSpy).toHaveBeenCalledWith(expectedError)
-
-      // The modal should stay open
-      expect(wrapper.emitted('close')).toBeUndefined()
-
-      logSpy.mockRestore()
+      expect(mockBeginLogin).toHaveBeenCalledTimes(1)
     })
   })
 })

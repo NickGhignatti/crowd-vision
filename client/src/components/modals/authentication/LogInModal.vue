@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import StandardModal from '@/components/modals/StandardModal.vue'
-import UsernameInput from '@/components/inputs/authentication/UsernameInput.vue'
-import PasswordInput from '@/components/inputs/authentication/PasswordInput.vue'
 
-import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useKeycloakAuth } from '@/composables/auth/useKeycloakAuth.ts'
 
 const { t } = useI18n()
-const authStore = useAuthStore()
+const { beginLogin } = useKeycloakAuth()
 
 defineProps<{
   isOpen: boolean
@@ -19,16 +16,11 @@ const emit = defineEmits<{
   (e: 'switch-to-signup'): void
 }>()
 
-const account = reactive({ accountName: '', password: '' })
-
-const handleLogin = async () => {
-  try {
-    await authStore.login(account.accountName, account.password)
-    emit('close')
-  } catch (e) {
-    console.error(e)
-  }
-}
+// Login is a full-page redirect to Keycloak (authorization code + PKCE) —
+// there is no in-app password form anymore, see useKeycloakAuth.ts. The
+// modal never actually "closes" on success in the old sense: the page
+// navigates away and the app re-mounts on /auth/callback.
+const handleLogin = () => beginLogin(window.location.pathname)
 </script>
 
 <template>
@@ -45,16 +37,15 @@ const handleLogin = async () => {
       <p class="text-sm text-slate-500 mt-2">{{ t('authentication.signInToContinue') }}</p>
     </div>
 
-    <form @submit.prevent="handleLogin" class="relative z-10 space-y-5">
-      <UsernameInput v-model:name="account.accountName" />
-      <PasswordInput v-model:password="account.password" />
+    <div class="relative z-10 space-y-5">
       <button
-        type="submit"
+        type="button"
+        @click="handleLogin"
         class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
       >
-        {{ t('authentication.login') }}
+        {{ t('authentication.continueWithOrg') }}
       </button>
-    </form>
+    </div>
 
     <div class="relative z-10 mt-6 text-center">
       <p class="text-xs text-slate-500">

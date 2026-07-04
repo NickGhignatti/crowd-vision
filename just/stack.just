@@ -7,14 +7,15 @@ set working-directory := '..'
 default:
     @just --list stack
 
-[doc("Generate .env (VAPID keys, JWT tokens, admin credentials).")]
+[doc("Generate .env (VAPID keys, local-dev eval JWT secret, Keycloak/Langfuse/control-plane config).")]
 env:
     mise exec -- node scripts/env/create.js
     mise exec -- node scripts/env/vapid.js
     mise exec -- node scripts/env/token.js
     mise exec -- node scripts/env/config.js
-    mise exec -- node scripts/env/admin.js
     mise exec -- node scripts/env/langfuse.js
+    mise exec -- node scripts/env/keycloak.js
+    mise exec -- node scripts/env/controlplane.js
 
 # Start dev stack with hot-reload. Exclude services by substring of folder name:
 #   just stack dev exclude="agent"            → skip agent-service, agent-db, agent-ingester
@@ -35,6 +36,6 @@ start exclude="": env
 down:
     mise exec -- node scripts/compose/compose-run.mjs down
 
-[doc("Follow logs for all services, or one: just stack logs auth-service.")]
+[doc("Follow logs for all services, or one: just stack logs twin-service.")]
 logs service="":
     docker compose -f compose.runtime.yml logs -f {{service}}

@@ -53,9 +53,6 @@ just stack dev exclude="client"
     - - API Gateway
       - `http://localhost:80`
       - Caddy proxy — routes to all microservices.
-    - - Auth DB GUI
-      - `http://localhost/auth-db-gui/`
-      - Mongo Express for the auth database. Dev mode only.
     - - Twin DB GUI
       - `http://localhost/twin-db-gui/`
       - Mongo Express for the twin database. Dev mode only.
@@ -84,7 +81,7 @@ just stack down
 just stack logs
 
 # Follow logs for one service:
-just stack logs auth-service
+just stack logs twin-service
 
 # Wipe all databases (destructive — you will need to re-provision):
 just db clear
@@ -94,19 +91,13 @@ just db clear-sensor
 ```
 
 .box type:{warning}
-    `just db clear` permanently deletes all persistent Docker volumes. You will need to run `node scripts/ops/provision.js` again after a clear to recreate the admin account.
+    `just db clear` permanently deletes all persistent Docker volumes.
 
 ---
 
 ## Bootstrapping (First-Time Provisioning)
 
-With empty databases you cannot log in. Use the provisioning script to seed the initial Global Admin account and default Domain:
-
-```bash
-node scripts/ops/provision.js
-```
-
-Run this once after your services are healthy. The script prompts you for the admin email, password, and domain name, then calls the running auth-service to register them.
+Login and registration are Keycloak's hosted UI now — there is no seed script for an admin account. To bootstrap a fresh stack: register through the client's normal sign-in flow (redirects to Keycloak), then create your own domain through the Domains page (`POST /tenancy/domains`); the creator automatically becomes that domain's `business_admin`. The old `scripts/ops/provision.js` (which called auth-service's `/business/register`) has been removed along with `auth-service` — enterprise self-registration has no current equivalent, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 ---
 
@@ -148,12 +139,12 @@ just k8s apply      # apply manifests
 
 ```bash
 # After code changes — rebuild the image, then rolling restart:
-docker build -t ghcr.io/nickghignatti/crowdvision-auth:latest ./server/auth-service
+docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest ./server/twin-service
 just k8s load
-just k8s restart auth-service
+just k8s restart twin-service
 
 # Watch the rollout:
-just k8s rollout auth-service
+just k8s rollout twin-service
 ```
 
 ### Managing Cluster Lifecycle
@@ -188,7 +179,7 @@ kubectl get pvc -n crowdvision
 kubectl get ingress -n crowdvision
 
 # Tail logs for a service:
-just k8s logs auth-service
+just k8s logs twin-service
 
 # Describe a pod for detailed events (useful for debugging):
 kubectl describe pod <pod-name> -n crowdvision

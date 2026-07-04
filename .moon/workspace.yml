@@ -6,7 +6,6 @@ vcs:
 
 projects:
   client: "client"
-  auth-service: "server/auth-service"
   chat-service: "server/chat-service"
   twin-service: "server/twin-service"
   sensor-service: "server/sensor-service"
@@ -14,6 +13,12 @@ projects:
   socket-service: "server/socket-service"
   agent-service: "server/agent-service"
   contracts-service: "server/contracts-service"
+  auth-contracts: "server/auth-contracts"
+  auth-middleware: "server/auth-middleware"
+  tenancy-service: "server/tenancy-service"
+  claims-gateway: "server/claims-gateway"
+  registry-service: "server/registry-service"
+  provisioner: "server/provisioner"
   sensor-simulator: "simulators/sensor-simulator"
   # Support packages: deps-only (see .moon/tasks/javascript.yml), no build/test/lint.
   tooling: "tooling"

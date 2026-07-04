@@ -1,9 +1,9 @@
 .docname {Identity & Access Context}
 .include {docs}
 
-**Realised by:** auth-service · **Subdomain type:** Supporting
+**Realised by:** Keycloak + claims-gateway + tenancy-service · **Subdomain type:** Supporting
 
-This page captures the *design-time* model of the Identity & Access context: the language, the aggregates, and the rules we committed to before writing code. It deliberately stays at the conceptual level — concrete routes, storage, and wire formats are decided later and documented in the [Services](../services/authentication.qd) section.
+This page captures the *design-time* model of the Identity & Access context: the language, the aggregates, and the rules we committed to before writing code. It deliberately stays at the conceptual level — concrete routes, storage, and wire formats are decided later and documented in [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 The context answers three questions: *who is this principal*, *which organizations do they belong to*, and *what may they do there*. It is the upstream source of identity for the platform — it produces the identity token that every other context treats as a Published Language.
 

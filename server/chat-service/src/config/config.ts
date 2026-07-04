@@ -11,11 +11,15 @@ const readPositiveInteger = (name: string, fallback: number) => {
 export const COOKIE_NAME =
   process.env.JWT_COOKIE_NAME ?? "authentication_token";
 
-export const getTokenSecret = () => {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new InternalError("Missing JWT_SECRET configuration");
-  return secret;
+// claims-gateway's RS256 JWKS + issuer — the sole verification path (see
+// middlewares/authentication.ts). auth-service, the old HS256 minter, has
+// been decommissioned.
+export const getGatewayJwksUri = () => {
+  const uri = process.env.GATEWAY_JWKS_URI;
+  if (!uri) throw new InternalError("Missing GATEWAY_JWKS_URI configuration");
+  return uri;
 };
+export const getGatewayIssuer = () => process.env.GATEWAY_ISSUER || "cv-gateway";
 
 export const getAgentBaseUrl = () =>
   process.env.AGENT_SERVICE_URL ?? "http://agent-service:3000";

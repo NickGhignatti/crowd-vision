@@ -1,0 +1,18 @@
+# Only the Go services (tenancy-service, claims-gateway, registry-service,
+# provisioner) build with a repo-root context — they need sibling Go modules
+# (auth-contracts, auth-middleware) that a per-service context can't reach.
+# Everything else still builds with its own directory as context and never
+# sees this file. Keep this list tight: it's the difference between a
+# multi-GB and a multi-MB build context for those four Dockerfiles.
+.git
+node_modules
+**/node_modules
+**/dist
+**/target
+**/coverage
+client
+landing-page
+documentation
+simulators
+k8s
+**/*.md

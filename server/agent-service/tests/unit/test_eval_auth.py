@@ -26,12 +26,12 @@ def test_read_env_value_handles_export_quotes_and_comments(tmp_path):
             [
                 "# ignored",
                 "export OTHER=value",
-                'export JWT_SECRET="quoted secret" # comment',
+                'export EVAL_JWT_SECRET="quoted secret" # comment',
                 "PLAIN=value # comment",
             ]
         )
     )
-    assert run_evals._read_env_value(env, "JWT_SECRET") == "quoted secret"
+    assert run_evals._read_env_value(env, "EVAL_JWT_SECRET") == "quoted secret"
     assert run_evals._read_env_value(env, "PLAIN") == "value"
 
 

@@ -1,71 +1,44 @@
-.docname {Auth Service: Middleware}
+.docname {Shared Auth Middleware}
 .include {docs}
 
-Implementation reference for the cross-cutting Express middleware shared by the Node services. Controllers and services hold business logic; **authorization, request authentication, and error shaping** are delegated to the middleware documented here. The canonical implementations live in the `auth-service`.
+Implementation reference for the cross-cutting Express middleware shared by the Node services (`twin-service`, `notification-service`, `sensor-service`, `chat-service`, `socket-service`). Controllers and services hold business logic; **request authentication and error shaping** are delegated to the middleware documented here. For the design rationale, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 ---
 
 ## 1. Authentication — `requireAuthentication`
 
-**File:** `src/middlewares/authentication.ts`
+**File:** `src/middlewares/authentication.ts` (each service has its own copy; `socket-service` has the equivalent logic in `src/auth.ts`)
 
-Verifies the caller's identity token and attaches it to the request. It performs **authentication only** — it does not evaluate roles.
+Verifies the caller's JWT against `claims-gateway`'s published JWKS (RS256) and attaches the decoded claims to the request. There is no shared secret anywhere in this path — the legacy `auth-service` that used to mint an HS256 token has been deleted.
 
 ```typescript
-export const requireAuthentication = (req, _res, next) => {
-  const token = req.cookies?.[COOKIE_NAME];        // "authentication_token"
-  if (!token) throw new NotFoundError("Could not find token for the cookie");
-  req.account = TokenService.verifyToken(token);   // throws if invalid/expired
+export const requireAuthentication = async (req, _res, next) => {
+  const token = extractToken(req);           // cookie, or a forwarded Bearer header
+  if (!token) throw new UnauthorizedError("Missing authentication token");
+
+  const header = jwt.decode(token, { complete: true })?.header;
+  const key = await getGatewaySigningKey(header?.kid);
+  const payload = jwt.verify(token, key, { algorithms: ["RS256"], issuer: getGatewayIssuer() });
+
+  req.account = normalizeGatewayClaims(payload); // {accountId, accountMemberships:[{domainName,role}]}
+  req.authToken = token;
   next();
 };
 ```
 
-- The token is read from the `httpOnly` cookie `authentication_token`, **not** from an `Authorization` header.
-- On success the decoded payload (`accountId`, `accountName`, `accountMemberships`) is attached to `req.account` for downstream handlers.
-- A missing token raises `NotFoundError`; an invalid or expired signature throws from `verifyToken` and is converted to a `500`-class response by the error handler unless caught earlier.
+- The JWKS itself is fetched and cached briefly by a small hand-rolled client in `src/config/gatewayJwks.ts` (deliberately not the `jwks-rsa` npm package, which drags in an ESM-only transitive dependency incompatible with this repo's Jest transform config).
+- `normalizeGatewayClaims` maps claims-gateway's `{sub, memberships:[{domain,role,externalId?}]}` shape onto `{accountId, accountMemberships:[{domainName,role,externalId?}]}` — the shape every route already reads, a holdover from the migration that stuck because nothing downstream needed to change.
+- A missing token, an untrusted issuer, or a signature that doesn't verify against the JWKS all throw `UnauthorizedError` (401) — never a 500, so a caller can't distinguish "expired" from "network error fetching JWKS" and probe for the latter.
 
-.box {Cookie *or* bearer in the downstream services} type:{note}
-    The `twin-service`, `sensor-service`, and `notification-service` each carry their own copy of `requireAuthentication` that accepts the JWT from **either** the `authentication_token` cookie (browser) **or** an `Authorization: Bearer` header. The bearer path lets a trusted service forward the caller's identity on a service-to-service hop — the agent-service forwards the asking user's token to twin reads, and twin/notification forward `req.authToken` on their own calls back into twin/sensor. The token is always verified; "bearer" is just the transport, not a bypass.
+.box {Cookie *or* bearer in every service} type:{note}
+    Each service accepts the JWT from **either** the `authentication_token` cookie (browser) **or** an `Authorization: Bearer` header. The bearer path lets a trusted service forward the caller's identity on a service-to-service hop — `agent-service` forwards the asking user's token to twin reads, and twin/notification forward `req.authToken` on their own calls back into twin/sensor. The token is always verified; "bearer" is just the transport, not a bypass.
 
 .box {Always trust `req.account`, never the body or URL} type:{note}
-    Controllers must read the caller identity from `req.account`. A `userId`/`accountName` in the request body **or URL path** is attacker-controlled and must never be used for authorization — doing so was the IDOR fixed on the auth-service `/domains/:accountName` family and the notification-service `/preferences/:accountName` route.
+    Controllers must read the caller identity from `req.account`. A `userId`/`accountName` in the request body **or URL path** is attacker-controlled and must never be used for authorization — doing so was the IDOR fixed on the old auth-service `/domains/:accountName` family and the notification-service `/preferences/:accountName` route (both since re-derived from the verified token instead).
 
 ---
 
-## 2. Authorization — `requireAuthorization(level)`
-
-**File:** `src/models/role.ts`
-
-A middleware factory that enforces a minimum role. It is contextual: when the route carries a `:domainName` parameter, the check is scoped to the caller's role *in that domain*.
-
-```typescript
-router.get("/domains",  requireAuthentication, getAllAllowedDomains);
-router.post("/domains", requireAuthentication,
-            requireAuthorization("business_admin"), createDomain);
-```
-
-Evaluation pipeline:
-
-1. **Resolve the payload.** Prefer `req.account` (set by `requireAuthentication`); otherwise parse a `Bearer` token from the `Authorization` header and verify it.
-2. **Select memberships.** If `:domainName` is present, keep only memberships for that domain; otherwise consider all.
-3. **Compare weights.** Pass if any selected membership satisfies `hasRequiredRole(role, level)` — i.e. its weight is at least the required weight (`admin` 100, `business_admin` 80, `business_staff` 60, `standard_customer` 10).
-4. **Reject** with `401` when the token is missing or malformed, and `403` when no membership meets the threshold.
-
----
-
-## 3. Internal Signature — `requireHmacSignature`
-
-**File:** `src/middlewares/authentication.ts`
-
-Guards the internal provisioning endpoint (`POST /business/register`) for service-to-service calls that are not user-authenticated.
-
-- The client sends `x-signature`, the hex HMAC-SHA256 of the **raw request body** keyed by `INTERNAL_ADMIN_SECRET`.
-- The server recomputes the HMAC over `req.rawBody` (captured by the JSON body parser in `index.ts`) and compares with `crypto.timingSafeEqual` to avoid timing leaks.
-- Any mismatch, malformed signature, or missing secret raises `ForbiddenError` / `InternalError`.
-
----
-
-## 4. Global Error Handling — `errorHandler`
+## 2. Global Error Handling — `errorHandler`
 
 **File:** `src/middlewares/error.ts`
 
@@ -116,4 +89,4 @@ Any error that is not a `BaseError` is scrubbed to a generic `500`, so stack tra
 Every error carries an HTTP `code` and a human-readable `type`, producing a stable `{ type, message }` envelope the frontend can branch on.
 
 .box {Convention} type:{tip}
-    This authentication/authorization/error pattern is shared across the Node services (auth, twin, sensor, notification, chat). New endpoints should attach `requireAuthentication` (and `requireAuthorization` where a role is needed) and throw typed errors rather than handling HTTP status codes inline. Exceptions that stay public are narrow and deliberate: liveness/metrics, metric `/contracts` catalogs, the notification VAPID `/public-key`, and the sensor `/ingest` hot path (device-facing, slated for device-token auth).
+    This authentication/error pattern is shared across the Node services. New endpoints should attach `requireAuthentication` and throw typed errors rather than handling HTTP status codes inline. Exceptions that stay public are narrow and deliberate: liveness/metrics, metric `/contracts` catalogs, the notification VAPID `/public-key`, and the sensor `/ingest` hot path (device-facing, slated for device-token auth). Role-based route gating now lives in each domain's own service — `tenancy-service`'s `claims.CanIn(domain, role)` for domain-scoped actions — not in a shared Node middleware the way `auth-service`'s `requireAuthorization` used to work.

@@ -147,4 +147,4 @@ A building's structure is mirrored to two services. The two paths have **differe
 
 ## Error Handling
 
-The service uses the same `BaseError` hierarchy and global error middleware as the auth-service (`ValidationError` 400, `NotFoundError` 404, …) — see [Auth Service: Middleware](middlewares.qd). Building/room lookups raise `NotFoundError` when the target does not exist.
+The service uses the same `BaseError` hierarchy and global error middleware shared across the Node services (`ValidationError` 400, `NotFoundError` 404, …) — see [Shared Auth Middleware](middlewares.qd). Building/room lookups raise `NotFoundError` when the target does not exist.

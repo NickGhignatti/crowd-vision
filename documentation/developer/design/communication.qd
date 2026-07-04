@@ -53,29 +53,29 @@ CrowdVision uses **Redis** as a central message broker implementing the Publish/
 
 ## 3. Stateless Trust (Cross-Service Authorization)
 
-A major challenge in a Database-per-Service architecture is Authorization. 
+A major challenge in a Database-per-Service architecture is Authorization.
 
-If a user asks the Twin Service to delete a building, the Twin Service needs to know if the user has Admin privileges. However, the Twin Service cannot query the Auth Database due to strict data isolation boundaries. 
+If a user asks the Twin Service to delete a building, the Twin Service needs to know if the user has Admin privileges. However, the Twin Service cannot query the Tenancy Database due to strict data isolation boundaries.
 
-To solve this without making synchronous HTTP calls back to the Auth Service on every request, CrowdVision uses **Stateless JSON Web Tokens (JWTs)**.
+To solve this without making synchronous HTTP calls back to claims-gateway or tenancy-service on every request, CrowdVision uses **Stateless JSON Web Tokens (JWTs)**.
 
-.mermaid 
+.mermaid
     sequenceDiagram
         participant Client as Vue Client
-        participant Auth as Auth Service
+        participant CG as claims-gateway
         participant Twin as Twin Service
 
-        Client->>Auth: POST /auth/login
-        Note over Auth: Verifies DB, generates JWT with<br/>embedded Domain Memberships
-        Auth-->>Client: Returns JWT
-        
+        Client->>CG: POST /gateway/exchange (Keycloak ID token)
+        Note over CG: Verifies against Keycloak, resolves<br/>memberships (once, at login), mints RS256 JWT
+        CG-->>Client: Returns JWT
+
         Client->>Twin: DELETE /twin/buildings/123<br/>Header: Bearer {JWT}
-        Note over Twin: Validates JWT signature locally<br/>using shared secret
-        Note over Twin: Reads memberships from payload.<br/>No DB call to Auth required!
+        Note over Twin: Validates JWT signature locally<br/>against claims-gateway's published JWKS
+        Note over Twin: Reads memberships from payload.<br/>No DB or network call required!
         Twin-->>Client: 200 OK (Building Deleted)
 
 ### The Embedded Payload Pattern
-When the Auth Service mints a token, it embeds the user's `IDomainMembership` array directly into the JWT payload. Because the backend services share the same cryptographic `JWT_SECRET`, they can mathematically verify the token's authenticity. Once verified, the receiving service simply reads the memberships from the payload to authorize the request—entirely eliminating network overhead.
+When claims-gateway mints a token, it embeds the user's `memberships` array directly into the JWT payload. Because every service verifies the token's RS256 signature against claims-gateway's published public key (JWKS) — not a shared secret — they can mathematically verify the token's authenticity without either side holding the same key material. Once verified, the receiving service simply reads the memberships from the payload to authorize the request — entirely eliminating network overhead on the hot path.
 
 ---
 
@@ -86,7 +86,7 @@ When the Auth Service mints a token, it embeds the user's `IDomainMembership` ar
 While Pub/Sub and Stateless JWTs handle events and authorization, there are instances in the current codebase where services must perform synchronous reads across bounded contexts (e.g., Service A immediately needs specific entity details owned by Service B to complete a transaction).
 
 In these specific cases, services communicate directly via **Internal HTTP REST calls**.
-* These calls are made using internal Docker/Kubernetes DNS resolution (e.g., `http://auth-service:3000`).
+* These calls are made using internal Docker/Kubernetes DNS resolution (e.g., `http://twin-service:3000`).
 * They never traverse the public internet.
 * **Future Roadmap:** We are actively evaluating strategies to phase this out.
 

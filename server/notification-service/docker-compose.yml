@@ -9,7 +9,8 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
-      - JWT_SECRET=${JWT_SECRET}
+      - GATEWAY_JWKS_URI=http://claims-gateway:3000/.well-known/jwks.json
+      - GATEWAY_ISSUER=cv-gateway
     depends_on:
       - notification-db
 

@@ -1,0 +1,29 @@
+services:
+  registry-service:
+    build:
+      context: ../..
+      dockerfile: server/registry-service/Dockerfile
+    environment:
+      - ADDR=:3000
+      - DATABASE_URL=postgres://registry:${REGISTRY_DB_PASSWORD}@registry-db:5432/registry?sslmode=disable
+      - INTERNAL_SIGNING_SECRET=${INTERNAL_SIGNING_SECRET}
+    depends_on:
+      registry-db:
+        condition: service_healthy
+
+  registry-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: registry
+      POSTGRES_PASSWORD: ${REGISTRY_DB_PASSWORD}
+      POSTGRES_DB: registry
+    volumes:
+      - registry-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  registry-data:

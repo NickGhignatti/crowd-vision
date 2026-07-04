@@ -8,23 +8,10 @@ vi.mock('vue-i18n', () => ({
 }))
 
 const DomainInputStub = {
-  props: [
-    'mainDomain',
-    'masterDomainChoices',
-    'selectedMasterDomain',
-    'authStrategy',
-    'issuerUrl',
-    'clientId',
-    'clientSecret',
-    'isVisibleFromOutside',
-  ],
+  props: ['mainDomain', 'masterDomainChoices', 'selectedMasterDomain', 'isVisibleFromOutside'],
   emits: [
     'update-main-domain',
     'update-selected-master-domain',
-    'update-auth-strategy',
-    'update-issuer-url',
-    'update-client-id',
-    'update-client-secret',
     'update-is-visible-from-outside',
     'next',
   ],
@@ -101,21 +88,6 @@ describe('AddDomainModal', () => {
       expect(wrapper.findComponent(DomainInputStub).exists()).toBe(true)
     })
 
-    it('shows an error if authStrategy is OIDC but required fields are missing', async () => {
-      const wrapper = mount(AddDomainModal, {
-        props: { isOpen: true },
-        global: { stubs },
-      })
-
-      const domainInput = wrapper.findComponent(DomainInputStub)
-      await domainInput.vm.$emit('update-main-domain', 'valid.com')
-      await domainInput.vm.$emit('update-auth-strategy', 'oidc')
-
-      await domainInput.vm.$emit('next')
-
-      expect(wrapper.text()).toContain('domains.modal.errorInvalidMain')
-    })
-
     it('progresses to step 2 and clears errors if validation passes', async () => {
       const wrapper = mount(AddDomainModal, {
         props: { isOpen: true },
@@ -134,7 +106,7 @@ describe('AddDomainModal', () => {
   })
 
   describe('submission payload formatting', () => {
-    it('emits "add" with the correct internal strategy payload and closes the modal', async () => {
+    it('emits "add" with the correct payload and closes the modal', async () => {
       const wrapper = mount(AddDomainModal, {
         props: { isOpen: true, masterDomainChoices: ['hub.com'] },
         global: { stubs },
@@ -148,22 +120,18 @@ describe('AddDomainModal', () => {
       const createBtn = wrapper.findAll('button').find((b) => b.text().includes('commons.create'))
       await createBtn?.trigger('click')
 
-      // 1. Verify 'add' event payload
       const emittedPayload = wrapper.emitted('add')?.[0]?.[0] as DomainToAddWithVisibilityPayload
 
       expect(emittedPayload).toEqual({
         name: 'sub-domain.hub.com', // correctly concatenated, lowercased, and trimmed
-        subdomains: [],
-        authStrategy: 'internal',
         isVisibleFromOutside: true,
         masterDomain: 'hub.com',
       })
 
-      // 2. Verify 'close' was emitted
       expect(wrapper.emitted('close')).toBeTruthy()
     })
 
-    it('emits "add" with the correct OIDC strategy payload (including ssoConfig)', async () => {
+    it('emits "add" without a masterDomain key when no master domain is chosen', async () => {
       const wrapper = mount(AddDomainModal, {
         props: { isOpen: true }, // No master domain choices
         global: { stubs },
@@ -171,10 +139,6 @@ describe('AddDomainModal', () => {
 
       const domainInput = wrapper.findComponent(DomainInputStub)
       await domainInput.vm.$emit('update-main-domain', 'unibo.it')
-      await domainInput.vm.$emit('update-auth-strategy', 'oidc')
-      await domainInput.vm.$emit('update-issuer-url', 'https://idp.unibo.it')
-      await domainInput.vm.$emit('update-client-id', 'client-123')
-      await domainInput.vm.$emit('update-client-secret', 'secret-456')
 
       const createBtn = wrapper.findAll('button').find((b) => b.text().includes('commons.create'))
       await createBtn?.trigger('click')
@@ -183,14 +147,7 @@ describe('AddDomainModal', () => {
 
       expect(emittedPayload).toEqual({
         name: 'unibo.it',
-        subdomains: [],
-        authStrategy: 'oidc',
         isVisibleFromOutside: false,
-        ssoConfig: {
-          issuerUrl: 'https://idp.unibo.it',
-          clientId: 'client-123',
-          clientSecret: 'secret-456',
-        },
       })
     })
   })
@@ -206,7 +163,6 @@ describe('AddDomainModal', () => {
 
       // Dirty the state
       await domainInput.vm.$emit('update-main-domain', 'dirty.com')
-      await domainInput.vm.$emit('update-auth-strategy', 'oidc')
       await domainInput.vm.$emit('next') // Move to step 2
 
       // Trigger close
@@ -219,7 +175,6 @@ describe('AddDomainModal', () => {
       // the props passed down to it should be back to defaults.
       const resetDomainInput = wrapper.findComponent(DomainInputStub)
       expect(resetDomainInput.props('mainDomain')).toBe('')
-      expect(resetDomainInput.props('authStrategy')).toBe('internal')
     })
 
     it('emits close when the backdrop is clicked', async () => {

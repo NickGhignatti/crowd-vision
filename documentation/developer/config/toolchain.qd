@@ -130,7 +130,6 @@ Every package is registered once in `.moon/workspace.yml`. This is the single li
 ```yaml
 projects:
   client: "client"
-  auth-service: "server/auth-service"
   twin-service: "server/twin-service"
   # … the other services …
   contracts-service: "server/contracts-service"
@@ -204,7 +203,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
 These read-only commands print resolved configuration without running anything:
 
 ```bash
-mise exec -- moon task auth-service:test   # one task: command, inputs, inheritance
+mise exec -- moon task twin-service:test   # one task: command, inputs, inheritance
 mise exec -- moon query projects           # every project moon knows (id + language)
 mise exec -- moon query tasks              # which projects expose each task
 ```

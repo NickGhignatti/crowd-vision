@@ -18,7 +18,7 @@
 
 ###! Microservices Architecture
 - [Service Anatomy](./architecture/microservices.qd)
-- [Authentication Service](./architecture/auth-architecture.qd)
+- [Identity & Tenancy Architecture](./architecture/auth-architecture.qd)
 - [Digital Twin Service](./architecture/twin-architecture.qd)
 - [Notification Service](./architecture/notification-architecture.qd)
 - [Sensor Service](./architecture/sensor-architecture.qd)
@@ -26,8 +26,7 @@
 - [Socket Service](./architecture/socket-architecture.qd)
 
 ###! Implementation Reference
-- [Authentication Service](./services/authentication.qd)
-- [Authentication Service: Middleware](./services/middlewares.qd)
+- [Shared Auth Middleware](./services/middlewares.qd)
 - [Digital Twin Service](./services/digital-twin.qd)
 - [Notification Service](./services/notification.qd)
 - [Sensor Service](./services/sensor.qd)

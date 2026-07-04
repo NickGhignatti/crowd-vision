@@ -1,89 +1,84 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
-import SignInModal from '../../authentication/SignInModal.vue'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { mount } from '@vue/test-utils'
+import SignInModal from '@/components/modals/authentication/SignInModal.vue'
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => key,
+  useI18n: () => ({ t: (key: string) => key }),
+}))
+
+const mockBeginRegister = vi.fn()
+vi.mock('@/composables/auth/useKeycloakAuth.ts', () => ({
+  useKeycloakAuth: () => ({
+    beginRegister: mockBeginRegister,
   }),
 }))
 
-global.fetch = vi.fn()
+import StandardModal from '@/components/modals/StandardModal.vue'
 
 const stubs = {
-  Teleport: true,
-  Transition: true,
-  UsernameInput: {
-    template:
-      '<input class="name-stub" :value="name" @input="$emit(\'update:name\', $event.target.value)" />',
-    props: ['name'],
-  },
-  MailInput: {
-    template:
-      '<input class="mail-stub" :value="mail" @input="$emit(\'update:mail\', $event.target.value)" />',
-    props: ['mail'],
-  },
-  PasswordInput: {
-    template:
-      '<input class="password-stub" :value="password" @input="$emit(\'update:password\', $event.target.value)" />',
-    props: ['password'],
+  StandardModal: {
+    template: '<div><slot /></div>',
+    props: ['isOpen'],
   },
 }
 
 describe('SignInModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.clear()
-    ;(global.fetch as Mock).mockReset()
   })
 
-  it('does not render when isOpen is false', () => {
-    const wrapper = mount(SignInModal, {
-      props: { isOpen: false },
-      global: { stubs },
-    })
-
-    // Actually assert that the form isn't there
-    expect(wrapper.find('form').exists()).toBe(false)
-  })
-
-  it('submits signup form and updates auth store on success', async () => {
-    // 3. Provide the full expected response structure, including the token
-    ;(global.fetch as Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        token: 'fake-jwt-token',
-        account: { accountName: 'my-account' },
-      }),
-    })
-
+  it('passes the isOpen prop directly to the StandardModal', () => {
     const wrapper = mount(SignInModal, {
       props: { isOpen: true },
       global: { stubs },
     })
 
-    await wrapper.find('.name-stub').setValue('my-account')
-    await wrapper.find('.mail-stub').setValue('mymail')
-    await wrapper.find('.password-stub').setValue('mypass')
+    expect(wrapper.findComponent(StandardModal).props('isOpen')).toBe(true)
+  })
 
-    await wrapper.find('form').trigger('submit')
+  it('renders no password, email, or OTP inputs (registration is a Keycloak redirect)', () => {
+    const wrapper = mount(SignInModal, {
+      props: { isOpen: true },
+      global: { stubs },
+    })
 
-    // 4. Wait for ALL pending promises (fetch & .json()) to resolve
-    await flushPromises()
+    expect(wrapper.find('input').exists()).toBe(false)
+    expect(wrapper.find('form').exists()).toBe(false)
+  })
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/auth/register'),
-      expect.objectContaining({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountName: 'my-account', email: 'mymail', password: 'mypass' }),
-      }),
-    )
+  it('redirects to Keycloak registration when the create-account button is clicked', async () => {
+    const wrapper = mount(SignInModal, {
+      props: { isOpen: true },
+      global: { stubs },
+    })
 
-    const authStore = useAuthStore()
-    expect(authStore.isAuthenticated).toBe(true)
-    expect(authStore.accountName).toBe('my-account')
+    const buttons = wrapper.findAll('button')
+    const createBtn = buttons.find((b) => b.text().includes('authentication.createAnAccount'))
+    await createBtn?.trigger('click')
+
+    expect(mockBeginRegister).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits "switch-to-login" when the login link is clicked', async () => {
+    const wrapper = mount(SignInModal, {
+      props: { isOpen: true },
+      global: { stubs },
+    })
+
+    const buttons = wrapper.findAll('button')
+    const loginBtn = buttons.find((b) => b.text().includes('authentication.login'))
+    await loginBtn?.trigger('click')
+
+    expect(wrapper.emitted('switch-to-login')).toBeTruthy()
+  })
+
+  it('emits "close" when the StandardModal emits "close"', async () => {
+    const wrapper = mount(SignInModal, {
+      props: { isOpen: true },
+      global: { stubs },
+    })
+
+    await wrapper.findComponent(StandardModal).vm.$emit('close')
 
     expect(wrapper.emitted('close')).toBeTruthy()
   })

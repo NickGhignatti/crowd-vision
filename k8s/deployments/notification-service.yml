@@ -74,9 +74,9 @@ spec:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: notification-service-secret   # MONGO_URI, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, JWT_SECRET
+                name: notification-service-secret   # MONGO_URI, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
             - configMapRef:
-                name: common-config                 # PORT, REDIS_URL, CLIENT_URL
+                name: common-config                 # PORT, REDIS_URL, CLIENT_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
           volumeMounts:
             - name: tmp
               mountPath: /tmp

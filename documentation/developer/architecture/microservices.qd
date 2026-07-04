@@ -1,9 +1,9 @@
 .docname {Service Anatomy}
 .include {docs}
 
-At the macro level CrowdVision is a distributed system; at the micro level, **most services are internally a small, layered, monolithic application**. Standardising that internal shape means a developer can move between the Auth, Twin, Notification, and Sensor services and immediately know where the routing, the business logic, and the data access live.
+At the macro level CrowdVision is a distributed system; at the micro level, **most services are internally a small, layered, monolithic application**. Standardising that internal shape means a developer can move between the Twin, Notification, and Sensor services and immediately know where the routing, the business logic, and the data access live.
 
-This page describes the shared anatomy and the deliberate exceptions to it. Each service then has its own architecture page (linked below) for its structure and key decisions; the code-level walkthrough and API for each live in the [Implementation Reference](../services/authentication.qd) section.
+This page describes the shared anatomy and the deliberate exceptions to it. Each service then has its own architecture page (linked below) for its structure and key decisions; the code-level walkthrough and API for each live in the [Implementation Reference](../services/middlewares.qd) section.
 
 ---
 
@@ -52,13 +52,13 @@ Not every service fits the four-tier mould — and that is by design.
 Two concerns are factored out of every Express service into middleware rather than repeated in each controller:
 
 - **Authorization.** A middleware verifies the identity token and evaluates the principal's role for the requested context. See [Auth Service: Middleware](../services/middlewares.qd).
-- **Error handling.** Controllers and services throw typed errors; a single middleware at the bottom of the stack formats them into a consistent JSON shape. Also covered in [Auth Service: Middleware](../services/middlewares.qd).
+- **Error handling.** Controllers and services throw typed errors; a single middleware at the bottom of the stack formats them into a consistent JSON shape. Also covered in [Shared Auth Middleware](../services/middlewares.qd).
 
 ---
 
 ## The Services
 
-Each service realises exactly one bounded context. Its architecture page covers internal structure and key decisions; the matching [Implementation Reference](../services/authentication.qd) page covers the code-level flows and API.
+Each service realises exactly one bounded context. Its architecture page covers internal structure and key decisions; the matching [Implementation Reference](../services/middlewares.qd) section covers the code-level flows and API.
 
 .var {headers}
    - Service
@@ -67,10 +67,10 @@ Each service realises exactly one bounded context. Its architecture page covers 
    - Page
 
 .tablebyrows {.headers}
-    - - auth-service
+    - - Keycloak + claims-gateway + tenancy-service
       - Identity & Access
-      - Node.js / Express
-      - [Authentication Service](auth-architecture.qd)
+      - Go (control plane) + Keycloak
+      - [Identity & Tenancy Architecture](auth-architecture.qd)
     - - twin-service
       - Building Management
       - Node.js / Express

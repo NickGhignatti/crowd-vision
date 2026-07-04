@@ -51,9 +51,9 @@ spec:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: twin-service-secret   # MONGO_URI, JWT_SECRET
+                name: twin-service-secret   # MONGO_URI
             - configMapRef:
-                name: common-config         # PORT, CLIENT_URL, SENSOR_SERVICE_URL
+                name: common-config         # PORT, CLIENT_URL, SENSOR_SERVICE_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
           volumeMounts:
             - name: tmp
               mountPath: /tmp

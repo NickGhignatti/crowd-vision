@@ -1,0 +1,33 @@
+services:
+  tenancy-service:
+    build:
+      context: ../..
+      dockerfile: server/tenancy-service/Dockerfile
+    environment:
+      - ADDR=:3000
+      - DATABASE_URL=postgres://tenancy:${TENANCY_DB_PASSWORD}@tenancy-db:5432/tenancy?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - GATEWAY_JWKS_URL=http://claims-gateway:3000/.well-known/jwks.json
+      - GATEWAY_ISSUER=cv-gateway
+      - INTERNAL_SIGNING_SECRET=${INTERNAL_SIGNING_SECRET}
+      - CV_TENANCY=${CV_TENANCY:-enabled}
+    depends_on:
+      tenancy-db:
+        condition: service_healthy
+
+  tenancy-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: tenancy
+      POSTGRES_PASSWORD: ${TENANCY_DB_PASSWORD}
+      POSTGRES_DB: tenancy
+    volumes:
+      - tenancy-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tenancy"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  tenancy-data:

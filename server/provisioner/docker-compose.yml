@@ -1,0 +1,12 @@
+services:
+  provisioner:
+    build:
+      context: ../..
+      dockerfile: server/provisioner/Dockerfile
+    environment:
+      - REGISTRY_URL=http://registry-service:3000
+      - TENANCY_URL=http://tenancy-service:3000
+      - INTERNAL_SIGNING_SECRET=${INTERNAL_SIGNING_SECRET}
+    depends_on:
+      - registry-service
+      - tenancy-service

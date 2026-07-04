@@ -15,7 +15,7 @@ Two structural facts shape everything you do:
 - **Every package is registered once** in `.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
 
 .box {Dependencies are not hoisted} type:{note}
-    When you add a dependency, install it inside that service's directory (`cd server/auth-service && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-service `npm install --prefix server/auth-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing.
+    When you add a dependency, install it inside that service's directory (`cd server/twin-service && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-service `npm install --prefix server/twin-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing.
 
 ---
 

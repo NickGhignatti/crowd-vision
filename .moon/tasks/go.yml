@@ -1,0 +1,36 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+inheritedBy:
+  language: 'go'
+
+tasks:
+  build:
+    command: 'go build ./...'
+    inputs:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+
+  test:
+    command: 'go test ./...'
+    inputs:
+      - '**/*.go'
+      - 'go.mod'
+
+  # No golangci-lint in this environment yet; `go vet` is stdlib and catches
+  # the same class of suspicious-construct bugs without a new dependency or
+  # cross-shell quoting games (Windows/Unix `bash -c` nesting broke here).
+  # Swap to golangci-lint if/when it's adopted.
+  lint:
+    command: 'go vet ./...'
+    inputs:
+      - '**/*.go'
+      - 'go.mod'
+
+  deps:
+    command: 'go mod download'
+    inputs:
+      - 'go.mod'
+      - 'go.sum'
+    options:
+      cache: false

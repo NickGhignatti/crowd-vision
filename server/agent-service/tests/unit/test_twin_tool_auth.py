@@ -34,11 +34,15 @@ def test_auth_headers_empty_without_token():
 
 
 async def test_require_user_keeps_raw_token_for_forwarding(monkeypatch):
-    monkeypatch.setenv("JWT_SECRET", SECRET)
+    # Uses the eval-bypass HS256 path (see app/auth.py) rather than a real
+    # gateway RS256 token — simpler here since this test only cares that
+    # require_user preserves the raw token, not which path verified it.
+    monkeypatch.setenv("EVAL_JWT_SECRET", SECRET)
+    monkeypatch.setenv("GATEWAY_JWKS_URI", "http://gateway.test/.well-known/jwks.json")
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     get_settings.cache_clear()
     try:
-        token = jwt.encode({"accountId": "u1", "accountName": "alice"}, SECRET, algorithm="HS256")
+        token = jwt.encode({"sub": "u1"}, SECRET, algorithm="HS256")
 
         user = await require_user(_request({"authorization": f"Bearer {token}"}))
 

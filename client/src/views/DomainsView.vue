@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import NavBar from '@/components/layouts/NavBar.vue'
 import AddDomainModalModal from '@/components/modals/creation/AddDomainModal.vue'
+import JoinWithCodeModal from '@/components/modals/creation/JoinWithCodeModal.vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
 
 import { onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { DomainToAddWithMaster } from '@/interfaces/domain.ts'
+import type { DomainToAddWithVisibilityPayload } from '@/interfaces/domain.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
 import LongSearchInput from '@/components/inputs/search/LongSearchInput.vue'
 
@@ -15,6 +16,7 @@ const domainsStore = useDomainsStore()
 const searchQuery = ref('')
 const isSubmitting = ref(false)
 const isAddDomainModalOpen = ref(false)
+const isJoinWithCodeModalOpen = ref(false)
 const rows = computed(() => domainsStore.unifiedDomains)
 
 // Loads domains, memberships, then the counts scoped to the resolved row set.
@@ -26,7 +28,7 @@ const loadDomains = async (force = false) => {
   ])
 }
 
-const handleCreateDomain = async (payload: DomainToAddWithMaster) => {
+const handleCreateDomain = async (payload: DomainToAddWithVisibilityPayload) => {
   isSubmitting.value = true
 
   try {
@@ -46,8 +48,9 @@ const filteredDomains = computed(() => {
   return rows.value.filter((d) => d.name.toLowerCase().includes(query))
 })
 
-const handlePrivateDomain = () => {
-  console.log('Open Private DomainInput Modal - To Be Implemented')
+const handleJoinedWithCode = async () => {
+  isJoinWithCodeModalOpen.value = false
+  await loadDomains(true)
 }
 
 onMounted(() => {
@@ -72,7 +75,7 @@ onMounted(() => {
         <div class="h-6 w-px bg-slate-300 hidden sm:block mx-1"></div>
 
         <button
-          @click="handlePrivateDomain"
+          @click="isJoinWithCodeModalOpen = true"
           class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 hover:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors shadow-sm"
         >
           <i class="ph-bold ph-lock-key text-lg"></i>
@@ -107,6 +110,12 @@ onMounted(() => {
       :is-submitting="isSubmitting"
       @close="isAddDomainModalOpen = false"
       @add="handleCreateDomain"
+    />
+
+    <JoinWithCodeModal
+      :is-open="isJoinWithCodeModalOpen"
+      @close="isJoinWithCodeModalOpen = false"
+      @joined="handleJoinedWithCode"
     />
   </div>
 </template>

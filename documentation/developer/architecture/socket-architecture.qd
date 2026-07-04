@@ -11,7 +11,7 @@ The socket-service is the bridge between the broker and the browser. It carries 
 
 Deliberately the simplest service in the system: **no persistence and no domain model**. Rather than Controller/Service/Model layering it follows a *functional core / imperative shell* split — pure relay logic (channel-to-room mapping) and JWT verification in a small core, broker- and socket-event handlers that receive their dependencies as arguments, and a thin composition root (`index.ts`) that wires them together and starts listening. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.
 
-Although a generic subdomain, it is **not anonymous**: a handshake middleware verifies the auth-service JWT (carried by the `authentication_token` cookie) before any event runs, so every socket has a known account and domain set. This is what lets the relay scope delivery per tenant rather than blindly broadcasting.
+Although a generic subdomain, it is **not anonymous**: a handshake middleware verifies the claims-gateway-minted JWT (carried by the `authentication_token` cookie), against the gateway's published JWKS, before any event runs — so every socket has a known account and domain set. This is what lets the relay scope delivery per tenant rather than blindly broadcasting.
 
 ---
 

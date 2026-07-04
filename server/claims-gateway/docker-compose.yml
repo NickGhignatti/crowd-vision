@@ -1,0 +1,20 @@
+services:
+  claims-gateway:
+    build:
+      context: ../..
+      dockerfile: server/claims-gateway/Dockerfile
+    environment:
+      - ADDR=:3000
+      - OIDC_DISCOVERY_URL=http://keycloak:8080/realms/crowdvision
+      - OIDC_ISSUER=${KEYCLOAK_PUBLIC_URL:-http://localhost:8090}/realms/crowdvision
+      # cv-web, not cv-gateway: the real caller presenting ID tokens here is
+      # the browser (public client, PKCE), which is what the gateway must
+      # validate the token's audience against. cv-gateway (confidential,
+      # direct-grant) exists only for service-level testing.
+      - OIDC_CLIENT_ID=cv-web
+      - TENANCY_URL=http://tenancy-service:3000
+      - INTERNAL_SIGNING_SECRET=${INTERNAL_SIGNING_SECRET}
+      - GATEWAY_ISSUER=cv-gateway
+    depends_on:
+      - keycloak
+      - tenancy-service

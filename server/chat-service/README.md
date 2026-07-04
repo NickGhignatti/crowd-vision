@@ -35,7 +35,8 @@ Run from `server/chat-service` unless marked **root**.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `AGENT_SERVICE_URL` | `http://agent-service:3000` | Where to reach the agent's `/ask` endpoint |
-| `JWT_SECRET` | — | HS256 secret; must match `auth-service` |
+| `GATEWAY_JWKS_URI` | — | claims-gateway's published JWKS endpoint, used to verify the RS256 token |
+| `GATEWAY_ISSUER` | `cv-gateway` | Expected `iss` claim on the verified token |
 | `JWT_COOKIE_NAME` | `authentication_token` | Cookie the JWT is read from |
 | `HISTORY_MAX_MESSAGES` | `10` | Recent turns sent to the agent as context |
 

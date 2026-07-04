@@ -97,38 +97,23 @@ function applyDockerSecret(name, server, username, password) {
 
 console.log(`Creating secrets in namespace "${NS}"...\n`)
 
-applySecret('authentication-service-secret', {
-  JWT_SECRET: need('JWT_SECRET'),
-  INTERNAL_ADMIN_SECRET: need('INTERNAL_ADMIN_SECRET'),
-  // MongoDB has no password — internal cluster only
-  MONGO_URI: 'mongodb://auth-db:27017/authdb',
-})
-
 applySecret('chat-service-secret', {
-  // chat-service verifies the same user JWTs as auth/agent — shared secret.
-  JWT_SECRET: need('JWT_SECRET'),
   // MongoDB has no password — internal cluster only
   MONGO_URI: 'mongodb://chat-db:27017/chatdb',
 })
 
 applySecret('twin-service-secret', {
   MONGO_URI: 'mongodb://twin-db:27017/twindb',
-  // twin-service authenticates its routes against the same user JWTs.
-  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('sensor-service-secret', {
   MONGO_URI: 'mongodb://sensor-db:27017/sensordb',
-  // sensor-service authenticates its read/threshold routes — shared secret.
-  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('notification-service-secret', {
   MONGO_URI: 'mongodb://notification-db:27017/notificationdb',
   VAPID_PUBLIC_KEY: need('VAPID_PUBLIC_KEY'),
   VAPID_PRIVATE_KEY: need('VAPID_PRIVATE_KEY'),
-  // notification-service authenticates its routes — shared secret.
-  JWT_SECRET: need('JWT_SECRET'),
 })
 
 applySecret('agent-service-secret', {
@@ -136,8 +121,6 @@ applySecret('agent-service-secret', {
   DEEPSEEK_API_KEY: env['DEEPSEEK_API_KEY'] ?? '',
   // app/config.py and alembic/env.py both read POSTGRES_URL (not DATABASE_URL)
   POSTGRES_URL: 'postgresql+asyncpg://agent:agent@agent-db:5432/agentdb',
-  // agent-service verifies user JWTs — must match auth-service's secret
-  JWT_SECRET: need('JWT_SECRET'),
 })
 
 // Credentials used by the agent-db StatefulSet to initialise the database.

@@ -25,9 +25,14 @@
     header Access-Control-Allow-Origin "{http.request.header.Origin}"
     header Access-Control-Allow-Credentials "true"
 
-    # ── Auth Service ──────────────────────────────────────────────────────────
-    handle_path /auth/* {
-        reverse_proxy auth-service:3000
+    # ── Claims Gateway (Keycloak token exchange, /me, JWKS) ─────────────────────
+    handle_path /gateway/* {
+        reverse_proxy claims-gateway:3000
+    }
+
+    # ── Tenancy Service (domains, subdomains, invite codes) ─────────────────────
+    handle_path /tenancy/* {
+        reverse_proxy tenancy-service:3000
     }
 
     # ── Digital Twin service ──────────────────────────────────────────────────
@@ -83,10 +88,6 @@
     }
 
     # ── Mongo Express GUIs ────────────────────────────────────────────────────
-    handle /auth-db-gui/* {
-        reverse_proxy auth-db-express:8081
-    }
-
     handle /twin-db-gui/* {
         reverse_proxy twin-db-express:8081
     }

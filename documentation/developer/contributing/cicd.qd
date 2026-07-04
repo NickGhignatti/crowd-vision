@@ -70,9 +70,6 @@ Each service has a dedicated reusable workflow that the gate calls when that ser
    - Language / test runner
 
 .tablebyrows {.headers}
-    - - `ci-auth.yml`
-      - `server/auth-service`
-      - Node.js 24 / Jest
     - - `ci-chat.yml`
       - `server/chat-service`
       - Node.js 24 / Jest
@@ -243,8 +240,6 @@ All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and 
    - GHCR image
 
 .tablebyrows {.headers}
-    - - `auth-service`
-      - `ghcr.io/nickghignatti/crowdvision-auth`
     - - `chat-service`
       - `ghcr.io/nickghignatti/crowdvision-chat`
     - - `twin-service`

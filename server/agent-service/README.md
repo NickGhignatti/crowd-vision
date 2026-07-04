@@ -80,9 +80,9 @@ and troubleshooting. The design-level documentation lives in the Quarkdown **Dev
 
 ## API
 
-`/health` is public. `/ask` and `/ingest` require the JWT issued by `auth-service`, supplied
-as the `authentication_token` cookie or a Bearer token. Set `REQUIRE_AUTH=false` only for
-isolated local development.
+`/health` is public. `/ask` and `/ingest` require the JWT issued by `claims-gateway` (RS256,
+verified against its JWKS), supplied as the `authentication_token` cookie or a Bearer token.
+Set `REQUIRE_AUTH=false` only for isolated local development.
 
 ### Ask With JSON
 
@@ -201,9 +201,9 @@ AGENT_URL=https://example.com/agent AUTH_COOKIE="authentication_token=<jwt>" \
   uv run python evals/run_evals.py
 ```
 
-For local URLs the runner mints a fresh short-lived JWT per request from `JWT_SECRET` (env or
-root `.env`); remote URLs require `AUTH_COOKIE`. `EVAL_TIMEOUT_SECONDS` raises the per-request
-timeout for slow sweeps.
+For local URLs the runner mints a fresh short-lived JWT per request from `EVAL_JWT_SECRET` (env
+or root `.env` — the local-dev-only bypass, never set in any deployed environment); remote URLs
+require `AUTH_COOKIE`. `EVAL_TIMEOUT_SECONDS` raises the per-request timeout for slow sweeps.
 
 ### Dataset fields
 
@@ -284,7 +284,9 @@ an `xfail` row.
 | `ALLOWED_MODELS` | empty | Optional comma-separated override allowlist; empty permits any model for privileged callers |
 | `LLM_TIMEOUT_SECONDS` / `EMBED_TIMEOUT_SECONDS` | `30` / `15` | Provider request timeouts |
 | `POSTGRES_URL` | Docker-local agent DB | Async SQLAlchemy connection URL |
-| `JWT_SECRET` | empty | Must match `auth-service` |
+| `GATEWAY_JWKS_URI` | empty | claims-gateway's published JWKS endpoint, used to verify the RS256 token |
+| `GATEWAY_ISSUER` | `cv-gateway` | Expected `iss` claim on the verified token |
+| `EVAL_JWT_SECRET` | empty | Local-dev-only HS256 bypass for `evals/run_evals.py`; never set in any deployed environment |
 | `JWT_COOKIE_NAME` | `authentication_token` | JWT cookie read by protected routes |
 | `REQUIRE_AUTH` | `true` | Protect `/ask` and `/ingest` |
 | `TWIN_SERVICE_URL` / `TWIN_TIMEOUT_SECONDS` | `http://twin-service:3000` / `10` | Structural building backend and request timeout |
@@ -304,7 +306,7 @@ LLM traces, tool calls, latency, tokens, and cost are visible in Langfuse at
 `CORS_ORIGINS` exists in settings but is not currently consumed by FastAPI middleware.
 Invalid numeric bounds, unsupported role/log-format values, and malformed service URL schemes
 fail during settings loading. Service startup also fails when the provider key is missing, or
-when authentication is enabled without `JWT_SECRET`.
+when authentication is enabled without `GATEWAY_JWKS_URI`.
 
 ### Langfuse Login
 
@@ -326,7 +328,9 @@ secrets and `OTEL_EXPORTER_OTLP_*` variables; `just stack env` does not currentl
 ### `/ask` Or `/ingest` Returns `401`
 
 - Confirm the request includes `authentication_token=<jwt>` or a Bearer token.
-- Confirm `JWT_SECRET` matches the secret used by `auth-service`.
+- Confirm `GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` point at a reachable claims-gateway, and the token
+  was actually minted by it (an eval-minted HS256 token only works if `EVAL_JWT_SECRET` matches
+  on both sides).
 - Regenerate the local environment with `just stack env` if the token or secret is stale.
 
 ### Provider Requests Fail

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import * as BuildingService from "../services/buildings.js";
-import { ValidationError } from "../models/error.js";
+import { ForbiddenError, ValidationError } from "../models/error.js";
+import { isMemberOf, scopeToMemberships } from "../services/tenantScope.js";
 
 const MAX_DOMAIN_NAMES = 500;
 
@@ -22,10 +23,11 @@ export const getBuildingById = async (req: Request, res: Response) => {
 };
 
 export const getBuildingByDomain = async (req: Request, res: Response) => {
-  const domain = req.params.domain;
-  const buildings = await BuildingService.getBuildingsByDomain(
-    domain as string,
-  );
+  const domain = req.params.domain as string;
+  if (!isMemberOf(req.account, domain)) {
+    throw new ForbiddenError("Not a member of this domain");
+  }
+  const buildings = await BuildingService.getBuildingsByDomain(domain);
   res.status(200).json(buildings);
 };
 
@@ -68,7 +70,9 @@ export const getBuildingCounts = async (req: Request, res: Response) => {
     );
   }
 
-  const counts = await BuildingService.getBuildingCountsFor(domains);
+  const counts = await BuildingService.getBuildingCountsFor(
+    scopeToMemberships(domains, req.account),
+  );
   res.status(200).json({ counts });
 };
 

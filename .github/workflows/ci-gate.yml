@@ -17,7 +17,6 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      auth: ${{ steps.filter.outputs.auth }}
       chat: ${{ steps.filter.outputs.chat }}
       agent: ${{ steps.filter.outputs.agent }}
       client: ${{ steps.filter.outputs.client }}
@@ -42,9 +41,6 @@ jobs:
         id: filter
         with:
           filters: |
-            auth:
-              - 'server/auth-service/**'
-              - '.github/workflows/ci-auth.yml'
             chat:
               - 'server/chat-service/**'
               - '.github/workflows/ci-chat.yml'
@@ -102,7 +98,6 @@ jobs:
         run: |
           inc='[]'
           add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" '$a + [{context:$c, image:$i}]'); }
-          if [ "${{ steps.filter.outputs.auth }}" = "true" ];         then add "./server/auth-service"         "crowdvision-auth"; fi
           if [ "${{ steps.filter.outputs.chat }}" = "true" ];         then add "./server/chat-service"         "crowdvision-chat"; fi
           if [ "${{ steps.filter.outputs.twin }}" = "true" ];         then add "./server/twin-service"         "crowdvision-twin"; fi
           if [ "${{ steps.filter.outputs.notification }}" = "true" ]; then add "./server/notification-service" "crowdvision-notification"; fi
@@ -117,11 +112,6 @@ jobs:
           else
             echo "has_images=true" >> "$GITHUB_OUTPUT"
           fi
-
-  auth:
-    needs: changes
-    if: needs.changes.outputs.auth == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/ci-auth.yml
 
   chat:
     needs: changes
@@ -225,7 +215,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - changes
-      - auth
       - chat
       - agent
       - client

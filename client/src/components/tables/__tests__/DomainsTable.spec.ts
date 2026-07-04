@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref } from 'vue'
 import DomainsTable from '@/components/tables/DomainsTable.vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import type { DomainRow } from '@/interfaces/domain'
@@ -13,13 +12,8 @@ vi.mock('@/composables/core/useApi.ts', () => ({
   makeRequest: vi.fn(),
 }))
 
-const mockAccountName = ref<string | null>('alice')
 vi.mock('@/stores/authentication.ts', () => ({
-  useAuthStore: () => ({
-    get accountName() {
-      return mockAccountName.value
-    },
-  }),
+  useAuthStore: () => ({ accountName: 'alice', accountId: 'acc-alice' }),
 }))
 
 const DomainRowStub = {
@@ -34,7 +28,6 @@ const stubs = {
 
 const makeRow = (name: string, overrides: Partial<DomainRow> = {}): DomainRow => ({
   name,
-  authStrategy: 'internal',
   isPrivate: false,
   isSubscribed: false,
   ...overrides,
@@ -43,28 +36,12 @@ const makeRow = (name: string, overrides: Partial<DomainRow> = {}): DomainRow =>
 const makeResponse = (ok: boolean, body: unknown = {}) => ({
   ok,
   json: vi.fn().mockResolvedValue(body),
+  text: vi.fn().mockResolvedValue(''),
 })
 
 describe('DomainsTable', () => {
-  const originalLocation = window.location
-
   beforeEach(() => {
     vi.clearAllMocks()
-    mockAccountName.value = 'alice'
-
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      enumerable: true,
-      value: { href: '' },
-    })
-  })
-
-  afterEach(() => {
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      enumerable: true,
-      value: originalLocation,
-    })
   })
 
   describe('rendering', () => {
@@ -110,20 +87,22 @@ describe('DomainsTable', () => {
     })
   })
 
-  describe('subscribe (Internal Strategy)', () => {
-    it('calls the subscribe API and emits refresh on success', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
+  describe('subscribe', () => {
+    it('calls the tenancy join endpoint and emits refresh on success', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response) // join
+        .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response) // fetchMemberships refresh
 
       const wrapper = mount(DomainsTable, {
-        props: { rows: [makeRow('acme', { authStrategy: 'internal' })] },
+        props: { rows: [makeRow('acme')] },
         global: { stubs },
       })
 
       await wrapper.findComponent(DomainRowStub).vm.$emit('subscribe', 0)
       await flushPromises()
 
-      expect(makeRequest).toHaveBeenCalledWith('/auth/domains/alice/subscribe', 'POST', {
-        body: JSON.stringify({ domainName: 'acme' }),
+      expect(makeRequest).toHaveBeenNthCalledWith(1, '/tenancy/domains/acme/join', 'POST', {
+        body: JSON.stringify({ role: 'standard_customer' }),
       })
       expect(wrapper.emitted('refresh')).toBeTruthy()
     })
@@ -133,7 +112,7 @@ describe('DomainsTable', () => {
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
 
       const wrapper = mount(DomainsTable, {
-        props: { rows: [makeRow('acme', { authStrategy: 'internal' })] },
+        props: { rows: [makeRow('acme')] },
         global: { stubs },
       })
 
@@ -145,29 +124,11 @@ describe('DomainsTable', () => {
     })
   })
 
-  describe('subscribe (OIDC Strategy)', () => {
-    it('calls the SSO login endpoint and redirects to the Identity Provider', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { redirectUrl: 'https://sso.provider.com/login' }) as unknown as Response,
-      )
-
-      const wrapper = mount(DomainsTable, {
-        props: { rows: [makeRow('unibo', { authStrategy: 'oidc' })] },
-        global: { stubs },
-      })
-
-      await wrapper.findComponent(DomainRowStub).vm.$emit('subscribe', 0)
-      await flushPromises()
-
-      expect(makeRequest).toHaveBeenCalledWith('/auth/sso/login/unibo?accountName=alice')
-      expect(window.location.href).toBe('https://sso.provider.com/login')
-      expect(wrapper.emitted('refresh')).toBeFalsy()
-    })
-  })
-
   describe('unsubscribe', () => {
     it('calls the unsubscribe API and emits refresh on success', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response)
 
       const wrapper = mount(DomainsTable, {
         props: { rows: [makeRow('acme', { isSubscribed: true })] },
@@ -177,9 +138,11 @@ describe('DomainsTable', () => {
       await wrapper.findComponent(DomainRowStub).vm.$emit('unsubscribe', 0)
       await flushPromises()
 
-      expect(makeRequest).toHaveBeenCalledWith('/auth/domains/alice/unsubscribe', 'DELETE', {
-        body: JSON.stringify({ domainName: 'acme' }),
-      })
+      expect(makeRequest).toHaveBeenNthCalledWith(
+        1,
+        '/tenancy/domains/acme/members/acc-alice',
+        'DELETE',
+      )
       expect(wrapper.emitted('refresh')).toBeTruthy()
     })
   })

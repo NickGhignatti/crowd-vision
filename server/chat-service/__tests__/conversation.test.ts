@@ -1,10 +1,53 @@
 import jwt from "jsonwebtoken";
+import { generateKeyPairSync } from "crypto";
 import request from "supertest";
 import { app } from "../src/index.js";
 import { Conversation } from "../src/models/conversation.js";
+import { resetGatewayJwksCacheForTests } from "../src/config/gatewayJwks.js";
+
+const GATEWAY_ISSUER = "cv-gateway";
+const GATEWAY_JWKS_URI = "http://gateway.test/.well-known/jwks.json";
+const KID = "test-kid";
+const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+
+const signGateway = (payload: object) =>
+  jwt.sign(payload, privateKey, {
+    algorithm: "RS256",
+    keyid: KID,
+    issuer: GATEWAY_ISSUER,
+    expiresIn: "1h",
+  });
 
 const cookieFor = (accountId: string) =>
-  `authentication_token=${jwt.sign({ accountId }, "test-secret")}`;
+  `authentication_token=${signGateway({ sub: accountId })}`;
+
+beforeAll(() => {
+  process.env.GATEWAY_JWKS_URI = GATEWAY_JWKS_URI;
+  process.env.GATEWAY_ISSUER = GATEWAY_ISSUER;
+  resetGatewayJwksCacheForTests();
+});
+
+beforeEach(() => {
+  // Overrides setup.ts's blanket fetch mock: this file's requests hit BOTH
+  // claims-gateway (auth) and agent-service (/ask) through global.fetch, so
+  // the mock has to route by URL instead of returning one fixed shape.
+  const jwk = publicKey.export({ format: "jwk" }) as { n: string; e: string };
+  jest.spyOn(global, "fetch").mockImplementation(async (url) => {
+    if (String(url).includes("jwks")) {
+      return {
+        ok: true,
+        json: async () => ({
+          keys: [{ kty: "RSA", kid: KID, use: "sig", alg: "RS256", n: jwk.n, e: jwk.e }],
+        }),
+      } as Response;
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ answer: "Agent reply", citations: [] }),
+    } as Response;
+  });
+});
 
 describe("conversation API", () => {
   it("creates, lists, opens, renames, and deletes a conversation", async () => {
@@ -203,7 +246,7 @@ describe("conversation API", () => {
 
   it("rejects tokens without the stable accountId claim", async () => {
     const nameOnlyCookie =
-      `authentication_token=${jwt.sign({ accountName: "mutable-name" }, "test-secret")}`;
+      `authentication_token=${signGateway({ accountName: "mutable-name" })}`;
 
     const response = await request(app)
       .get("/conversations")

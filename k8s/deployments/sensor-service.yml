@@ -52,9 +52,9 @@ spec:
           envFrom:
             # MONGO_URI moved from a hardcoded inline env var to a proper secret.
             - secretRef:
-                name: sensor-service-secret   # MONGO_URI, JWT_SECRET
+                name: sensor-service-secret   # MONGO_URI
             - configMapRef:
-                name: common-config           # PORT, REDIS_URL, TWIN_SERVICE_URL
+                name: common-config           # PORT, REDIS_URL, TWIN_SERVICE_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
           volumeMounts:
             - name: tmp
               mountPath: /tmp

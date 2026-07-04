@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 import request from "supertest";
-import jwt from "jsonwebtoken";
+import { signGatewayToken, installGatewayJwksMock, restoreFetch } from "./gatewayTestAuth.js";
 
 jest.mock("../src/config/redis.js", () => ({
   __esModule: true,
@@ -46,14 +46,19 @@ const mockedRedisClient = redisClient as any;
 
 // Mint a JWT the auth middleware accepts; the account is bound from this token.
 const tokenFor = (accountName: string) =>
-  jwt.sign(
-    { accountId: `u-${accountName}`, accountName },
-    process.env.JWT_SECRET || "test-jwt-secret",
-  );
+  signGatewayToken({ sub: `u-${accountName}`, accountName });
 const auth = <T extends request.Test>(req: T, account = "alice"): T =>
   req.set("Authorization", `Bearer ${tokenFor(account)}`) as T;
 
 describe("Notification Service API", () => {
+  beforeAll(() => {
+    installGatewayJwksMock();
+  });
+
+  afterAll(() => {
+    restoreFetch();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockedRedisClient.get.mockResolvedValue(null);

@@ -145,9 +145,12 @@ so a freshly created chat gets a meaningful name without a separate request.
     - - `AGENT_SERVICE_URL`
       - `http://agent-service:3000`
       - Where to reach the agent's `/ask` endpoint.
-    - - `JWT_SECRET`
+    - - `GATEWAY_JWKS_URI`
       - —
-      - HS256 secret; must match the issuing auth-service. Authenticated requests fail if missing.
+      - claims-gateway's published JWKS endpoint, used to verify the token's RS256 signature. Authenticated requests fail if missing.
+    - - `GATEWAY_ISSUER`
+      - `cv-gateway`
+      - Expected `iss` claim on the verified token.
     - - `JWT_COOKIE_NAME`
       - `authentication_token`
       - Cookie the JWT is read from.
@@ -162,13 +165,13 @@ in-code limits that bound document growth and reject oversized input.
 
 ## Authentication
 
-`requireAuthentication` reads the JWT from the configured cookie, verifies it with HS256, and
-extracts `accountId` as the owning `userId`. The token is verified locally with no call to the
-auth-service. The implementation follows the repository's Node-service middleware conventions,
-but chat-service owns its authentication middleware and error classes rather than importing
-the auth-service implementation; see [Auth Service: Middleware](middlewares.qd) for the broader
-pattern. A failure to reach the agent surfaces as a `502 Bad Gateway`, distinguishing an
-upstream agent problem from a client error.
+`requireAuthentication` reads the JWT from the configured cookie, verifies its RS256 signature
+against claims-gateway's JWKS, and extracts `accountId` as the owning `userId`. The token is
+verified locally with no call to claims-gateway itself per request. The implementation follows
+the repository's Node-service middleware conventions, but chat-service owns its authentication
+middleware and error classes rather than sharing a package; see
+[Shared Auth Middleware](middlewares.qd) for the broader pattern. A failure to reach the agent
+surfaces as a `502 Bad Gateway`, distinguishing an upstream agent problem from a client error.
 
 ---
 

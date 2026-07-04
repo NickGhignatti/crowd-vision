@@ -33,10 +33,17 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("LLM_BASE_URL", "OPENROUTER_BASE_URL"),
     )
 
-    # Authentication
-    jwt_secret: str = Field(default="", alias="JWT_SECRET")
+    # Authentication — claims-gateway mints an RS256 token, verified against
+    # its published JWKS (see app/gateway_jwks.py). No shared secret here.
+    gateway_jwks_uri: str = Field(default="", alias="GATEWAY_JWKS_URI")
+    gateway_issuer: str = Field(default="cv-gateway", alias="GATEWAY_ISSUER")
     jwt_cookie_name: str = Field(default="authentication_token", alias="JWT_COOKIE_NAME")
     require_auth: bool = Field(default=True, alias="REQUIRE_AUTH")
+    # Local-dev-only bypass for evals/run_evals.py's auto-minted tokens — an
+    # HS256 secret that exists nowhere in any deployed environment (never set
+    # in docker-compose.yml or k8s secrets). Empty ⇒ disabled; see
+    # app/auth.py's `_decode` for how this is scoped away from real traffic.
+    eval_jwt_secret: str = Field(default="", alias="EVAL_JWT_SECRET")
 
     # Models
     embedding_model: str = Field(default="openai/text-embedding-3-small", alias="EMBEDDING_MODEL")
@@ -125,8 +132,8 @@ class Settings(BaseSettings):
 def validate_startup_settings(settings: Settings) -> None:
     """Reject missing runtime secrets without making Settings construction stateful."""
     missing: list[str] = []
-    if settings.require_auth and not settings.jwt_secret:
-        missing.append("JWT_SECRET (required when REQUIRE_AUTH=true)")
+    if settings.require_auth and not settings.gateway_jwks_uri:
+        missing.append("GATEWAY_JWKS_URI (required when REQUIRE_AUTH=true)")
     if not settings.llm_api_key:
         missing.append("OPENROUTER_API_KEY or LLM_API_KEY")
     if missing:
