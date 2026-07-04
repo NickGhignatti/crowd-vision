@@ -77,7 +77,20 @@ func Load() (Config, error) {
 // used past a single process lifetime, which an ephemeral key can't be by
 // construction.
 func loadOrGenerateKey() (*rsa.PrivateKey, string, error) {
-	if pemStr := os.Getenv("GATEWAY_PRIVATE_KEY"); pemStr != "" {
+	pemStr := os.Getenv("GATEWAY_PRIVATE_KEY")
+	// GATEWAY_PRIVATE_KEY_FILE points at a mounted PEM file — the practical way
+	// to supply a stable key in dev/compose, where a multi-line PEM can't live
+	// in a .env value. The inline env var still wins if both are set.
+	if pemStr == "" {
+		if path := os.Getenv("GATEWAY_PRIVATE_KEY_FILE"); path != "" {
+			b, err := os.ReadFile(path)
+			if err != nil {
+				return nil, "", fmt.Errorf("reading GATEWAY_PRIVATE_KEY_FILE: %w", err)
+			}
+			pemStr = string(b)
+		}
+	}
+	if pemStr != "" {
 		block, _ := pem.Decode([]byte(pemStr))
 		if block == nil {
 			return nil, "", fmt.Errorf("GATEWAY_PRIVATE_KEY is not valid PEM")

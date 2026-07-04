@@ -21,6 +21,10 @@ var (
 	ErrInviteOnly        = errors.New("domain is invite-only")
 	ErrDomainNameTaken   = errors.New("domain name is already taken")
 	ErrInviteCodeInvalid = store.ErrInviteCodeInvalid
+	// ErrLastAdminCannotLeave blocks removing the final admin of a domain
+	// (whether they leave themselves or an admin removes them), so a domain is
+	// never orphaned with no one able to manage it. Promote another admin first.
+	ErrLastAdminCannotLeave = errors.New("cannot remove the last admin of the domain")
 )
 
 const defaultInviteCodeTTL = 7 * 24 * time.Hour
@@ -291,6 +295,28 @@ func (s *Service) Leave(ctx context.Context, accountID, domainName string) error
 	if err != nil {
 		return err
 	}
+
+	// A domain must always keep at least one admin. Block removing the last
+	// admin — self-leave or admin-initiated — so it can never be left with
+	// nobody able to manage it. Non-admins, and admins with a co-admin, leave
+	// freely. Higher roles (e.g. platform admin) count as admins too, via Can.
+	members, err := s.store.MembersOf(ctx, d.ID)
+	if err != nil {
+		return err
+	}
+	admins, targetIsAdmin := 0, false
+	for _, m := range members {
+		if authcontracts.Can(m.Role, "business_admin") {
+			admins++
+			if m.AccountID == accountID {
+				targetIsAdmin = true
+			}
+		}
+	}
+	if targetIsAdmin && admins <= 1 {
+		return ErrLastAdminCannotLeave
+	}
+
 	return s.store.DeleteMembership(ctx, accountID, d.ID)
 }
 

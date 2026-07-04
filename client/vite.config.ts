@@ -41,7 +41,11 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // Helper to avoid repeating code.
         // 'secure: false' is recommended for local dev to avoid SSL errors.
-        ...['/auth', '/twin', '/agent', '/gateway', '/tenancy'].reduce(
+        // NB: no '/auth' here — '/auth/callback' is a client-side route (the
+        // Keycloak OIDC redirect target). Proxying '/auth' would hijack it and
+        // send the callback to the backend. Login talks to Keycloak directly
+        // (absolute URL) and to claims-gateway via '/gateway'.
+        ...['/twin', '/agent', '/gateway', '/tenancy'].reduce(
           (acc, route) => ({
             ...acc,
             [route]: { target, changeOrigin: true, secure: false },

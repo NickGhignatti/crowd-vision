@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/service"
+	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/store"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/storefake"
 )
 
@@ -464,5 +465,69 @@ func TestPublicDomains_OnlyListsPublicDomainsWithMemberCounts(t *testing.T) {
 	}
 	if domains[0].MemberCount != 2 {
 		t.Fatalf("got member count %d, want 2 (creator + joiner)", domains[0].MemberCount)
+	}
+}
+
+func TestLeave_LastAdminIsBlocked(t *testing.T) {
+	svc, _ := newSvc()
+	ctx := context.Background()
+	// The creator is the sole business_admin.
+	if _, err := svc.CreateOwnDomain(ctx, service.CreateOwnDomainInput{
+		AccountID: "admin-1", Name: "acme", DisplayName: "Acme",
+	}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	err := svc.Leave(ctx, "admin-1", "acme")
+	if !errors.Is(err, service.ErrLastAdminCannotLeave) {
+		t.Fatalf("got %v, want ErrLastAdminCannotLeave", err)
+	}
+	// The blocked admin must still be a member.
+	if ms, _ := svc.MembershipsFor(ctx, "admin-1"); len(ms) != 1 {
+		t.Fatalf("last admin should not have been removed, got %+v", ms)
+	}
+}
+
+func TestLeave_AdminWithCoAdminIsAllowed(t *testing.T) {
+	svc, fake := newSvc()
+	ctx := context.Background()
+	d, err := svc.CreateOwnDomain(ctx, service.CreateOwnDomainInput{
+		AccountID: "admin-1", Name: "acme", DisplayName: "Acme",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	// A second admin exists, so the domain keeps an admin after admin-1 leaves.
+	_ = fake.UpsertMembership(ctx, store.Membership{
+		AccountID: "admin-2", DomainID: d.ID, DomainName: d.Name, Role: "business_admin",
+	})
+
+	if err := svc.Leave(ctx, "admin-1", "acme"); err != nil {
+		t.Fatalf("an admin with a co-admin should be able to leave: %v", err)
+	}
+	if ms, _ := svc.MembershipsFor(ctx, "admin-1"); len(ms) != 0 {
+		t.Fatalf("admin-1 should have been removed, got %+v", ms)
+	}
+}
+
+func TestLeave_NonAdminIsAllowed(t *testing.T) {
+	svc, fake := newSvc()
+	ctx := context.Background()
+	d, err := svc.CreateOwnDomain(ctx, service.CreateOwnDomainInput{
+		AccountID: "admin-1", Name: "acme", DisplayName: "Acme",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	// A non-admin member leaves even though admin-1 is the only admin.
+	_ = fake.UpsertMembership(ctx, store.Membership{
+		AccountID: "member-2", DomainID: d.ID, DomainName: d.Name, Role: "standard_customer",
+	})
+
+	if err := svc.Leave(ctx, "member-2", "acme"); err != nil {
+		t.Fatalf("a non-admin should be able to leave: %v", err)
+	}
+	if ms, _ := svc.MembershipsFor(ctx, "member-2"); len(ms) != 0 {
+		t.Fatalf("member-2 should have been removed, got %+v", ms)
 	}
 }

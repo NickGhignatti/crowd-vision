@@ -107,6 +107,8 @@ func writeErr(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusForbidden)
 	case errors.Is(err, service.ErrDomainNameTaken):
 		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, service.ErrLastAdminCannotLeave):
+		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, service.ErrInviteCodeInvalid):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:

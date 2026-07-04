@@ -102,5 +102,19 @@ describe('LogInModal', () => {
 
       expect(mockBeginLogin).toHaveBeenCalledTimes(1)
     })
+
+    it('routes straight to Google (kc_idp_hint) when the Google button is clicked', async () => {
+      const wrapper = mount(LogInModal, {
+        props: { isOpen: true },
+        global: { stubs },
+      })
+
+      const buttons = wrapper.findAll('button')
+      const googleBtn = buttons.find((b) => b.text().includes('authentication.continueWithGoogle'))
+      await googleBtn?.trigger('click')
+
+      expect(mockBeginLogin).toHaveBeenCalledTimes(1)
+      expect(mockBeginLogin).toHaveBeenCalledWith(expect.any(String), 'google')
+    })
   })
 })

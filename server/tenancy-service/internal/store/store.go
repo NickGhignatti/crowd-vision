@@ -86,4 +86,9 @@ type Store interface {
 	// domain's name — an empty slice (not an error) for a brand-new user is
 	// the expected, valid state that JIT provisioning reacts to.
 	MembershipsFor(ctx context.Context, accountID string) ([]Membership, error)
+
+	// MembersOf returns every membership in a domain — used to enforce the
+	// "a domain must keep at least one admin" rule when someone leaves or is
+	// removed.
+	MembersOf(ctx context.Context, domainID string) ([]Membership, error)
 }

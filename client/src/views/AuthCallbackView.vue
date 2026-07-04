@@ -21,12 +21,18 @@ onMounted(async () => {
     return
   }
 
-  const { ok, redirectPath } = await completeLogin(code, state)
-  if (!ok) {
+  try {
+    const { ok, redirectPath } = await completeLogin(code, state)
+    if (!ok) {
+      failed.value = true
+      return
+    }
+    await router.replace(redirectPath)
+  } catch {
+    // A network-level failure in the token/exchange calls throws rather than
+    // returning ok:false — surface it instead of spinning forever.
     failed.value = true
-    return
   }
-  await router.replace(redirectPath)
 })
 </script>
 

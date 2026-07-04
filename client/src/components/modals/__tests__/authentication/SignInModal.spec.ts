@@ -59,6 +59,20 @@ describe('SignInModal', () => {
     expect(mockBeginRegister).toHaveBeenCalledTimes(1)
   })
 
+  it('routes registration straight to Google (kc_idp_hint) when the Google button is clicked', async () => {
+    const wrapper = mount(SignInModal, {
+      props: { isOpen: true },
+      global: { stubs },
+    })
+
+    const buttons = wrapper.findAll('button')
+    const googleBtn = buttons.find((b) => b.text().includes('authentication.continueWithGoogle'))
+    await googleBtn?.trigger('click')
+
+    expect(mockBeginRegister).toHaveBeenCalledTimes(1)
+    expect(mockBeginRegister).toHaveBeenCalledWith(expect.any(String), 'google')
+  })
+
   it('emits "switch-to-login" when the login link is clicked', async () => {
     const wrapper = mount(SignInModal, {
       props: { isOpen: true },

@@ -16,6 +16,24 @@
     ]
   },
   "requiredActions": [],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${GOOGLE_CLIENT_ID}",
+        "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+        "useJwksUrl": "true",
+        "syncMode": "IMPORT",
+        "defaultScope": "openid profile email"
+      }
+    }
+  ],
   "defaultRole": {
     "name": "default-roles-crowdvision",
     "composite": true,
@@ -68,10 +86,12 @@
       },
       "redirectUris": [
         "http://localhost:5173/*",
+        "http://localhost:8080/*",
         "http://localhost/*"
       ],
       "webOrigins": [
         "http://localhost:5173",
+        "http://localhost:8080",
         "http://localhost"
       ],
       "defaultClientScopes": ["profile", "email", "roles", "organization"],

@@ -208,4 +208,26 @@ func (p *Postgres) MembershipsFor(ctx context.Context, accountID string) ([]Memb
 	return out, rows.Err()
 }
 
+func (p *Postgres) MembersOf(ctx context.Context, domainID string) ([]Membership, error) {
+	rows, err := p.pool.Query(ctx, `
+		select m.account_id, m.domain_id, d.name, m.role, coalesce(m.external_id, ''), m.joined_via
+		from memberships m
+		join domains d on d.id = m.domain_id
+		where m.domain_id = $1`, domainID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Membership
+	for rows.Next() {
+		var m Membership
+		if err := rows.Scan(&m.AccountID, &m.DomainID, &m.DomainName, &m.Role, &m.ExternalID, &m.JoinedVia); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
 var _ Store = (*Postgres)(nil)

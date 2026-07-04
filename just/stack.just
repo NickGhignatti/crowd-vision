@@ -16,6 +16,7 @@ env:
     mise exec -- node scripts/env/langfuse.js
     mise exec -- node scripts/env/keycloak.js
     mise exec -- node scripts/env/controlplane.js
+    mise exec -- node scripts/env/gateway-key.js
 
 # Start dev stack with hot-reload. Exclude services by substring of folder name:
 #   just stack dev exclude="agent"            → skip agent-service, agent-db, agent-ingester

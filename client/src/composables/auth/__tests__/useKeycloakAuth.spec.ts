@@ -66,6 +66,21 @@ describe('useKeycloakAuth', () => {
       expect(sessionStorage.getItem('cv.pkce.state')).toBe('test-state')
       expect(sessionStorage.getItem('cv.pkce.redirect')).toBe('/dashboards')
     })
+
+    it('omits kc_idp_hint when no identity provider is requested', async () => {
+      const { beginLogin } = useKeycloakAuth()
+      await beginLogin('/')
+
+      expect(window.location.href).not.toContain('kc_idp_hint')
+    })
+
+    it('adds kc_idp_hint to route straight to a brokered provider (e.g. google)', async () => {
+      const { beginLogin } = useKeycloakAuth()
+      await beginLogin('/dashboards', 'google')
+
+      expect(window.location.href).toContain('kc_idp_hint=google')
+      expect(window.location.href).toContain('/protocol/openid-connect/auth')
+    })
   })
 
   describe('beginRegister', () => {
@@ -76,6 +91,13 @@ describe('useKeycloakAuth', () => {
       expect(window.location.href).toContain(
         '/realms/crowdvision/protocol/openid-connect/registrations',
       )
+    })
+
+    it('adds kc_idp_hint on registration when a provider is requested', async () => {
+      const { beginRegister } = useKeycloakAuth()
+      await beginRegister('/', 'google')
+
+      expect(window.location.href).toContain('kc_idp_hint=google')
     })
   })
 

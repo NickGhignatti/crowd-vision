@@ -196,7 +196,12 @@ export const useDomainsStore = defineStore('domains', {
         'DELETE',
       )
 
-      if (!response.ok) throw new Error(`Failed to unsubscribe from ${domainName}`)
+      if (!response.ok) {
+        const error = new Error(`Failed to unsubscribe from ${domainName}`)
+        // 409 = tenancy-service blocked removing the domain's last admin.
+        if (response.status === 409) (error as Error & { code?: string }).code = 'LAST_ADMIN'
+        throw error
+      }
 
       await this.fetchMemberships(true)
     },

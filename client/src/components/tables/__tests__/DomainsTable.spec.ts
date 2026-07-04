@@ -145,6 +145,28 @@ describe('DomainsTable', () => {
       )
       expect(wrapper.emitted('refresh')).toBeTruthy()
     })
+
+    it('shows the last-admin warning (no refresh) when the API blocks it with 409', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.mocked(makeRequest).mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: vi.fn().mockResolvedValue({}),
+        text: vi.fn().mockResolvedValue(''),
+      } as unknown as Response)
+
+      const wrapper = mount(DomainsTable, {
+        props: { rows: [makeRow('acme', { isSubscribed: true, role: 'business_admin' })] },
+        global: { stubs },
+      })
+
+      await wrapper.findComponent(DomainRowStub).vm.$emit('unsubscribe', 0)
+      await flushPromises()
+
+      expect(wrapper.emitted('refresh')).toBeFalsy()
+      expect(wrapper.text()).toContain('domains.errors.lastAdmin')
+      errorSpy.mockRestore()
+    })
   })
 
   describe('private rows', () => {

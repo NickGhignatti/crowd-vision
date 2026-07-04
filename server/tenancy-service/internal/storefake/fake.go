@@ -139,4 +139,14 @@ func (f *Fake) MembershipsFor(_ context.Context, accountID string) ([]store.Memb
 	return out, nil
 }
 
+func (f *Fake) MembersOf(_ context.Context, domainID string) ([]store.Membership, error) {
+	var out []store.Membership
+	for _, m := range f.memberships {
+		if m.DomainID == domainID {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
+
 var _ store.Store = (*Fake)(nil)

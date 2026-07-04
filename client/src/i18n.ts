@@ -56,6 +56,8 @@ const messages = {
       signInToContinue: 'Sign in to continue to CrowdVision',
       noAccount: "Don't have an account?",
       continueWithOrg: 'Continue with your organization',
+      continueWithGoogle: 'Continue with Google',
+      or: 'or',
       signingIn: 'Signing you in…',
       callbackFailed: 'Sign-in did not complete. Please try again.',
       backToHome: 'Back to home',
@@ -147,6 +149,9 @@ const messages = {
       },
     },
     domains: {
+      errors: {
+        lastAdmin: "You're the last admin of this domain — promote another admin before leaving.",
+      },
       table: {
         title: 'Domains',
         headers: {
@@ -363,6 +368,8 @@ const messages = {
       signInToContinue: 'Accedi per continuare su CrowdVision',
       noAccount: 'Non hai un account?',
       continueWithOrg: 'Continua con la tua organizzazione',
+      continueWithGoogle: 'Continua con Google',
+      or: 'oppure',
       signingIn: 'Accesso in corso…',
       callbackFailed: 'Accesso non riuscito. Riprova.',
       backToHome: 'Torna alla home',
@@ -454,6 +461,10 @@ const messages = {
       },
     },
     domains: {
+      errors: {
+        lastAdmin:
+          'Sei l’ultimo amministratore di questo dominio: promuovi un altro amministratore prima di uscire.',
+      },
       table: {
         title: 'Domini',
         headers: {

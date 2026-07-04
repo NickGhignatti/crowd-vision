@@ -12,7 +12,7 @@ const REDIRECT_KEY = 'cv.pkce.redirect'
 
 const callbackUri = () => `${window.location.origin}/auth/callback`
 
-function authorizationUrl(challenge: string, state: string, extraPath = ''): string {
+function authorizationUrl(challenge: string, state: string, extraPath = '', idpHint = ''): string {
   const params = new URLSearchParams({
     client_id: KEYCLOAK_CLIENT_ID,
     response_type: 'code',
@@ -22,6 +22,9 @@ function authorizationUrl(challenge: string, state: string, extraPath = ''): str
     code_challenge_method: 'S256',
     state,
   })
+  // kc_idp_hint tells Keycloak to skip its own login page and jump straight to
+  // a brokered identity provider (e.g. 'google'). Omitted → Keycloak's own form.
+  if (idpHint) params.set('kc_idp_hint', idpHint)
   return `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect${extraPath}?${params.toString()}`
 }
 
@@ -29,18 +32,20 @@ export function useKeycloakAuth() {
   // Redirects the whole page to Keycloak. redirectPath is where the app
   // lands after a successful callback (e.g. the page the user was on when
   // a protected route bounced them to login).
-  async function beginLogin(redirectPath = '/'): Promise<void> {
-    await startRedirect(redirectPath, '/auth')
+  // idpHint (optional) routes straight to a brokered provider like 'google',
+  // bypassing Keycloak's own login form.
+  async function beginLogin(redirectPath = '/', idpHint = ''): Promise<void> {
+    await startRedirect(redirectPath, '/auth', idpHint)
   }
 
   // Same PKCE flow, but straight to Keycloak's registration form instead of
   // login — Keycloak's own hosted UI handles account creation; there is no
   // client-side registration form anymore (see LogInModal/SignInModal).
-  async function beginRegister(redirectPath = '/'): Promise<void> {
-    await startRedirect(redirectPath, '/registrations')
+  async function beginRegister(redirectPath = '/', idpHint = ''): Promise<void> {
+    await startRedirect(redirectPath, '/registrations', idpHint)
   }
 
-  async function startRedirect(redirectPath: string, path: string): Promise<void> {
+  async function startRedirect(redirectPath: string, path: string, idpHint = ''): Promise<void> {
     const verifier = generateCodeVerifier()
     const challenge = await generateCodeChallenge(verifier)
     const state = generateState()
@@ -49,7 +54,7 @@ export function useKeycloakAuth() {
     sessionStorage.setItem(STATE_KEY, state)
     sessionStorage.setItem(REDIRECT_KEY, redirectPath)
 
-    window.location.href = authorizationUrl(challenge, state, path)
+    window.location.href = authorizationUrl(challenge, state, path, idpHint)
   }
 
   // Called from the /auth/callback view with the query params Keycloak

@@ -2,10 +2,15 @@
 import DomainRecord from '@/components/records/DomainRecord.vue'
 import type { DomainRow } from '@/interfaces/domain'
 
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDomainsStore } from '@/stores/domain.ts'
 
 const { t } = useI18n()
+
+// Inline feedback for a blocked leave — the app has no toast system, and a
+// silently-failing button is confusing. Cleared on the next action.
+const actionError = ref<string | null>(null)
 
 const props = defineProps<{
   rows: DomainRow[]
@@ -41,10 +46,14 @@ const handleUnsubscribe = async (index: number) => {
   const domain = props.rows[index]
   if (!domain || domain.isPrivate) return
 
+  actionError.value = null
   try {
     await domainsStore.unsubscribeFromDomain(domain.name)
     emit('refresh')
   } catch (error) {
+    if ((error as { code?: string })?.code === 'LAST_ADMIN') {
+      actionError.value = t('domains.errors.lastAdmin')
+    }
     console.error(error)
   }
 }
@@ -52,6 +61,16 @@ const handleUnsubscribe = async (index: number) => {
 
 <template>
   <div class="h-full overflow-auto relative custom-scrollbar">
+    <div
+      v-if="actionError"
+      class="sticky top-0 z-20 m-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
+    >
+      <i class="ph-bold ph-warning-circle text-lg"></i>
+      <span class="flex-1">{{ actionError }}</span>
+      <button class="text-amber-600 hover:text-amber-800" @click="actionError = null">
+        <i class="ph-bold ph-x"></i>
+      </button>
+    </div>
     <table class="w-full text-left border-collapse">
       <thead class="sticky top-0 z-10 bg-emerald-600 text-white shadow-md">
         <tr>
