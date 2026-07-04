@@ -10,12 +10,13 @@ import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
 } from '@/composables/building/useRoomsData.ts'
-import { computed, onMounted, shallowRef, watchEffect } from 'vue'
+import { computed, onMounted, shallowRef, watch, watchEffect } from 'vue'
 import { TresCanvas } from '@tresjs/core'
-import type { Intersection } from 'three'
+import { Color, type Intersection, type InstancedMesh } from 'three'
 import { OrbitControls } from '@tresjs/cientos'
-import { roomColorByTemperature, roomOpacity } from '@/helpers/colors.ts'
+import { roomColorByTemperature, roomColorStandard, roomOpacity } from '@/helpers/colors.ts'
 import { useModes } from '@/composables/scene/useModes.ts'
+import { buildRoomMatrix, useInstancedRooms } from '@/composables/scene/useInstancedRooms.ts'
 
 interface TresEvent extends Intersection {
   stopPropagation: () => void
@@ -58,6 +59,44 @@ watchEffect(() => {
   roomColors.value = out
 })
 
+// The selected room needs its own opacity and the exploded room needs its own
+// render-order/edge outline, neither of which an InstancedMesh can express
+// per-instance — so both are pulled out of the shared batch and rendered
+// individually, same as before instancing existed.
+const selectedRoomIdRef = computed(() => buildingModel.selectedRoomId.value)
+const explodedRoomIdRef = computed(() => buildingModel.explodedRoomId.value)
+const { instancedRooms, overlayRoom, roomIdByInstanceIndex } = useInstancedRooms(
+  buildingModel.visibleRooms,
+  selectedRoomIdRef,
+  explodedRoomIdRef,
+)
+const explodedRoom = computed(() => {
+  const id = buildingModel.explodedRoomId.value
+  if (!id) return null
+  return buildingModel.visibleRooms.value.find((room) => room.id === id) ?? null
+})
+
+const instancedMeshRef = shallowRef<InstancedMesh | null>(null)
+const scratchColor = new Color()
+
+// Imperative buffer writes, not reactive props: matches the "mutate existing
+// objects, don't rebuild the scene" rule for the telemetry-driven color path.
+watch(
+  [instancedMeshRef, instancedRooms, roomColors],
+  ([mesh, rooms]) => {
+    if (!mesh) return
+    rooms.forEach((room, index) => {
+      mesh.setMatrixAt(index, buildRoomMatrix(room))
+      scratchColor.set(roomColors.value[room.id] ?? roomColorStandard())
+      mesh.setColorAt(index, scratchColor)
+    })
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.computeBoundingSphere()
+  },
+  { immediate: true, flush: 'post' },
+)
+
 const handleExplodeToggle = () => {
   const result = triggerExplodeView(
     buildingModel.selectedRoomId.value,
@@ -71,12 +110,11 @@ const handleExplodeToggle = () => {
 const onRoomClick = (event: TresEvent) => {
   if (isRotating.value) return
   event?.stopPropagation?.()
-  const id = (event.object?.userData as { roomId?: string })?.roomId
+  const id =
+    event.instanceId !== undefined
+      ? roomIdByInstanceIndex.value[event.instanceId]
+      : (event.object?.userData as { roomId?: string })?.roomId
   if (id) buildingModel.toggleRoom(id)
-}
-
-const isExplodedRoom = (roomId: string) => {
-  return buildingModel.isExploded.value && buildingModel.explodedRoomId.value === roomId
 }
 
 onMounted(() => {
@@ -116,34 +154,58 @@ onMounted(() => {
           <AutoRotate :active="isRotating" :camera="cameraRef" />
 
           <template v-if="buildingModel.building.value">
-            <TresGroup
-              v-for="room in buildingModel.visibleRooms.value"
-              :key="room.id"
-              :position="[room.position.x, room.position.y, room.position.z]"
+            <TresInstancedMesh
+              v-if="instancedRooms.length > 0"
+              :key="`${currentBuildingId}:${buildingModel.selectedFloor.value}:${instancedRooms.length}`"
+              ref="instancedMeshRef"
+              :args="[undefined, undefined, instancedRooms.length]"
+              @click="onRoomClick"
             >
-              <TresMesh
-                :user-data="{ roomId: room.id }"
-                @click="onRoomClick"
-                :render-order="isExplodedRoom(room.id) ? -1 : 0"
-                :visible="!isExplodedRoom(room.id)"
-              >
+              <TresBoxGeometry :args="[1, 1, 1]" />
+              <TresMeshLambertMaterial
+                :transparent="true"
+                :opacity="roomOpacity(false)"
+                :depth-write="false"
+                :depth-test="true"
+                :side="2"
+              />
+            </TresInstancedMesh>
+
+            <TresGroup
+              v-if="overlayRoom"
+              :position="[overlayRoom.position.x, overlayRoom.position.y, overlayRoom.position.z]"
+            >
+              <TresMesh :user-data="{ roomId: overlayRoom.id }" @click="onRoomClick">
                 <TresBoxGeometry
-                  :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
+                  :args="[
+                    overlayRoom.dimensions.width,
+                    overlayRoom.dimensions.height,
+                    overlayRoom.dimensions.depth,
+                  ]"
                 />
                 <TresMeshLambertMaterial
-                  :color="roomColors[room.id]"
+                  :color="roomColors[overlayRoom.id]"
                   :transparent="true"
-                  :opacity="roomOpacity(room.id === buildingModel.selectedRoomId.value)"
+                  :opacity="roomOpacity(true)"
                   :depth-write="false"
                   :depth-test="true"
                   :side="2"
                 />
               </TresMesh>
+            </TresGroup>
 
-              <TresLineSegments v-if="isExplodedRoom(room.id)" :render-order="10">
+            <TresGroup
+              v-if="explodedRoom"
+              :position="[explodedRoom.position.x, explodedRoom.position.y, explodedRoom.position.z]"
+            >
+              <TresLineSegments :render-order="10">
                 <TresEdgesGeometry>
                   <TresBoxGeometry
-                    :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
+                    :args="[
+                      explodedRoom.dimensions.width,
+                      explodedRoom.dimensions.height,
+                      explodedRoom.dimensions.depth,
+                    ]"
                   />
                 </TresEdgesGeometry>
                 <TresLineBasicMaterial color="#475569" :line-width="2" :depth-test="true" />
