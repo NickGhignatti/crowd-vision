@@ -12,11 +12,16 @@ import {
 } from '@/composables/building/useRoomsData.ts'
 import { computed, onMounted, shallowRef, watch, watchEffect } from 'vue'
 import { TresCanvas } from '@tresjs/core'
-import { Color, type Intersection, type InstancedMesh } from 'three'
+import { Color, NoToneMapping, type Intersection, type InstancedMesh } from 'three'
 import { OrbitControls } from '@tresjs/cientos'
 import { roomColorByTemperature, roomColorStandard, roomOpacity } from '@/helpers/colors.ts'
 import { useModes } from '@/composables/scene/useModes.ts'
 import { buildRoomMatrix, useInstancedRooms } from '@/composables/scene/useInstancedRooms.ts'
+import {
+  createWebGPURenderer,
+  isWebGPUSupported,
+  SCENE_CLEAR_COLOR,
+} from '@/composables/scene/useWebGPURenderer.ts'
 
 interface TresEvent extends Intersection {
   stopPropagation: () => void
@@ -36,6 +41,10 @@ const {
 } = useSceneControls()
 
 const modes = useModes()
+
+// No automatic WebGL fallback from TresJS if the custom renderer factory is
+// wired in on an unsupported browser, so only pass it when the API exists.
+const rendererFactory = isWebGPUSupported() ? createWebGPURenderer : undefined
 
 const currentBuildingId = computed(() => buildingModel.building.value?.id)
 const { temperatures: roomTemperatures } = useBuildingTemperature(currentBuildingId)
@@ -138,7 +147,12 @@ onMounted(() => {
       />
 
       <main class="flex-1 relative bg-slate-50 z-0 min-w-0">
-        <TresCanvas clear-color="#f8fafc" window-size>
+        <TresCanvas
+          :clear-color="SCENE_CLEAR_COLOR"
+          :tone-mapping="NoToneMapping"
+          window-size
+          :renderer="rendererFactory"
+        >
           <TresPerspectiveCamera ref="cameraRef" :position="[10, 10, 10]" :look-at="[0, 0, 0]" />
 
           <OrbitControls
