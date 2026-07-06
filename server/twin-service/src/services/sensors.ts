@@ -46,3 +46,31 @@ export const syncBuildingClone = async (
     },
   );
 };
+
+// Best-effort default-threshold init for a newly created room. Never throws —
+// a room with no threshold row yet just means telemetry has nothing to alert
+// on until an admin sets one, which is harmless; a failed geometry save is not.
+export const initRoomThresholds = async (
+  buildingId: string,
+  room: Pick<IBuilding["rooms"][number], "id" | "capacity">,
+  authToken?: string,
+): Promise<void> => {
+  if (!shouldSyncThresholds()) return;
+  try {
+    await fetch(
+      `${getSensorServiceUrl()}/thresholds/peopleCount/buildings/${encodeURIComponent(
+        buildingId,
+      )}/rooms/${encodeURIComponent(room.id)}`,
+      {
+        method: "PATCH",
+        headers: authHeaders(authToken),
+        body: JSON.stringify({ maxPeople: room.capacity }),
+      },
+    );
+  } catch (err) {
+    console.error(
+      `[sensors] failed to init thresholds for room "${room.id}":`,
+      err,
+    );
+  }
+};

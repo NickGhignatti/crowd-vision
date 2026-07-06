@@ -89,3 +89,89 @@ Authorized users can also edit a whole building via **Edit Building**:
 - **Global Max Temp (°C)** — a default temperature limit for the building. A room without its own limit inherits this value.
 
 Changes at the building level sync immediately across the 3D model and the dashboard analytics.
+
+---
+
+## Editing the building's shape
+
+Beyond names, capacities, and colours, administrators and staff can reshape the building itself — move rooms, resize them, add or remove rooms, duplicate a layout, or merge two rooms into one — directly in the 3D view, or in a simpler 2D floor plan.
+
+### Entering Edit Mode
+
+If you have an editing role in the building's domain, an **Edit Model** button appears in the top-right of the viewer. Selecting it:
+
+- Freezes the live temperature/air-quality colouring — rooms show a neutral colour while you edit, so live data doesn't distract from geometry (an overlapping room tints red as a warning instead).
+- Replaces the toolbar with editing controls.
+- Disables **Focus on Room** for the duration of the session.
+
+Nothing is sent to the server until you press **Save** — **Cancel** discards every change instantly.
+
+### Move and Resize
+
+Select a room to reveal its move/resize handles.
+
+.var {headers}
+   - Tool
+   - What it does
+
+.tablebyrows {.headers}
+    - - Move
+      - Drag the room across its own floor. It snaps to a grid and to nearby rooms' edges (a pink guide line shows the alignment) — hold **Alt** to move freely without snapping.
+    - - Resize
+      - Drag a face of the room to grow or shrink it.
+    - - Inspector panel
+      - Type exact X/Y/Z and Width/Height/Depth values instead of dragging. The Y (floor) field is a dropdown of the building's existing floor levels, or "Custom" for a new one.
+
+Two rooms are allowed to overlap while editing — it's a warning, never a block. Fix it before saving, or leave it and come back later.
+
+### The 2D floor plan
+
+For laying out a whole floor quickly, switch the toolbar's view toggle from **3D** to **Plan**. The floor plan shows the current floor from directly above: drag a room to move it, drag its corner or edge handles to resize it, or drag on empty space to draw a brand-new room. This is the exact same draft as the 3D view — switch back any time to see your changes in 3D.
+
+### Add, Delete, Duplicate, Merge
+
+.var {headers}
+   - Action
+   - What it does
+
+.tablebyrows {.headers}
+    - - Add Room
+      - Drops a default-sized room in the nearest free spot on the current floor.
+    - - Delete
+      - Removes the selected room. You'll be asked to confirm if the room has live sensor readings, and a building's very last room can't be deleted.
+    - - Duplicate
+      - Clones the selected room, offset slightly — a fast way to build out a repetitive layout.
+    - - Merge
+      - Arms merge mode on the selected room — click a second room to combine them into one (the first room's name and colour are kept; capacities are summed). You'll be warned if the two rooms don't actually share a wall.
+
+### Undo, Redo, and keyboard shortcuts
+
+Every move, resize, add, delete, duplicate, and merge is a single undo step.
+
+.var {headers}
+   - Shortcut
+   - Action
+
+.tablebyrows {.headers}
+    - - `M`
+      - Switch to the Move tool
+    - - `S`
+      - Switch to the Resize tool
+    - - `Ctrl` + `Z`
+      - Undo
+    - - `Ctrl` + `Shift` + `Z`
+      - Redo
+    - - Arrow keys
+      - Nudge the selected room (hold `Shift` for a bigger step)
+    - - `Ctrl` + `D`
+      - Duplicate the selected room
+    - - `Delete` / `Backspace`
+      - Delete the selected room
+    - - `Alt` (held)
+      - Move freely, ignoring snapping
+    - - `Esc`
+      - Cancel a pending merge
+
+### Saving
+
+**Save** writes every change from the session in one request. If it fails — for example, a lost connection — your edits are kept locally so you can simply try again; nothing is lost. Trying to leave the page (or closing the tab) with unsaved changes asks you to confirm first.

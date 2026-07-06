@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { makeRequest } from '@/composables/core/useApi.ts'
-import type { Building } from '@/models/building'
+import type { Building, Room } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
 
 export const useBuildingsStore = defineStore('buildings', {
@@ -156,6 +156,52 @@ export const useBuildingsStore = defineStore('buildings', {
         if (building) {
           Object.assign(building, updates)
         }
+      }
+    },
+
+    async createRoom(buildingId: string, room: Partial<Room>): Promise<Room> {
+      const res = await makeRequest(`/twin/building/${buildingId}/room`, 'POST', {
+        body: JSON.stringify(room),
+      })
+      if (!res.ok) {
+        throw new Error('Failed to create room')
+      }
+      const created: Room = await res.json()
+
+      for (const domain in this.byDomain) {
+        const building = this.byDomain[domain]?.find((b) => b.id === buildingId)
+        if (building) building.rooms.push(created)
+      }
+
+      return created
+    },
+
+    async deleteRoom(buildingId: string, roomId: string): Promise<void> {
+      const res = await makeRequest(`/twin/building/${buildingId}/room/${roomId}`, 'DELETE')
+      if (!res.ok) {
+        throw new Error('Failed to delete room')
+      }
+
+      for (const domain in this.byDomain) {
+        const building = this.byDomain[domain]?.find((b) => b.id === buildingId)
+        if (building) building.rooms = building.rooms.filter((r) => r.id !== roomId)
+      }
+    },
+
+    // The editor's atomic Save path — replaces the whole rooms array in one
+    // request so move/resize/add/delete/merge in a single session persist together.
+    async saveRooms(buildingId: string, rooms: Room[]): Promise<void> {
+      const res = await makeRequest(`/twin/building/${buildingId}/rooms`, 'PUT', {
+        body: JSON.stringify({ rooms }),
+      })
+      if (!res.ok) {
+        throw new Error('Failed to save rooms')
+      }
+      const updatedBuilding = await res.json()
+
+      for (const domain in this.byDomain) {
+        const building = this.byDomain[domain]?.find((b) => b.id === buildingId)
+        if (building) building.rooms = updatedBuilding.rooms ?? rooms
       }
     },
 

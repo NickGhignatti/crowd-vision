@@ -327,6 +327,128 @@ describe('useBuildingsStore', () => {
     })
   })
 
+  describe('createRoom', () => {
+    const newRoom = {
+      name: 'New Room',
+      capacity: 10,
+      position: { x: 0, y: 0, z: 0 },
+      dimensions: { width: 2, height: 2, depth: 2 },
+    }
+
+    it('POSTs to /twin/building/:id/room and returns the created room', async () => {
+      const created = { id: 'server-generated-id', ...newRoom }
+      vi.mocked(makeRequest).mockResolvedValueOnce(
+        makeResponse(true, created) as unknown as Response,
+      )
+
+      const room = await useBuildingsStore().createRoom('b1', newRoom)
+
+      expect(makeRequest).toHaveBeenCalledWith('/twin/building/b1/room', 'POST', {
+        body: JSON.stringify(newRoom),
+      })
+      expect(room).toEqual(created)
+    })
+
+    it('appends the created room to the cached building', async () => {
+      const created = { id: 'server-generated-id', ...newRoom }
+      vi.mocked(makeRequest).mockResolvedValueOnce(
+        makeResponse(true, created) as unknown as Response,
+      )
+
+      const store = useBuildingsStore()
+      const building = makeBuilding('b1')
+      store.byDomain = { acme: [building] }
+
+      await store.createRoom('b1', newRoom)
+
+      expect(store.byDomain['acme']?.[0]?.rooms).toEqual([created])
+    })
+
+    it('throws when the request fails', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(false) as unknown as Response)
+
+      await expect(useBuildingsStore().createRoom('b1', newRoom)).rejects.toThrow(
+        'Failed to create room',
+      )
+    })
+  })
+
+  describe('deleteRoom', () => {
+    it('DELETEs /twin/building/:id/room/:roomId', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+
+      await useBuildingsStore().deleteRoom('b1', 'r1')
+
+      expect(makeRequest).toHaveBeenCalledWith('/twin/building/b1/room/r1', 'DELETE')
+    })
+
+    it('removes the room from the cached building', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+
+      const store = useBuildingsStore()
+      const building = { ...makeBuilding('b1'), rooms: [{ id: 'r1' }, { id: 'r2' }] as any }
+      store.byDomain = { acme: [building] }
+
+      await store.deleteRoom('b1', 'r1')
+
+      expect(store.byDomain['acme']?.[0]?.rooms.map((r) => r.id)).toEqual(['r2'])
+    })
+
+    it('throws when the request fails', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(false) as unknown as Response)
+
+      await expect(useBuildingsStore().deleteRoom('b1', 'r1')).rejects.toThrow(
+        'Failed to delete room',
+      )
+    })
+  })
+
+  describe('saveRooms', () => {
+    const rooms = [
+      {
+        id: 'r1',
+        name: 'Room 1',
+        capacity: 10,
+        position: { x: 1, y: 0, z: 1 },
+        dimensions: { width: 2, height: 2, depth: 2 },
+      },
+    ]
+
+    it('PUTs the full rooms array to /twin/building/:id/rooms', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(
+        makeResponse(true, { id: 'b1', name: 'B1', rooms, domains: [] }) as unknown as Response,
+      )
+
+      await useBuildingsStore().saveRooms('b1', rooms as any)
+
+      expect(makeRequest).toHaveBeenCalledWith('/twin/building/b1/rooms', 'PUT', {
+        body: JSON.stringify({ rooms }),
+      })
+    })
+
+    it('syncs the cached building with the server response', async () => {
+      const serverBuilding = { id: 'b1', name: 'B1', rooms, domains: ['acme'] }
+      vi.mocked(makeRequest).mockResolvedValueOnce(
+        makeResponse(true, serverBuilding) as unknown as Response,
+      )
+
+      const store = useBuildingsStore()
+      store.byDomain = { acme: [makeBuilding('b1')] }
+
+      await store.saveRooms('b1', rooms as any)
+
+      expect(store.byDomain['acme']?.[0]?.rooms).toEqual(rooms)
+    })
+
+    it('throws when the request fails', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(false) as unknown as Response)
+
+      await expect(useBuildingsStore().saveRooms('b1', rooms as any)).rejects.toThrow(
+        'Failed to save rooms',
+      )
+    })
+  })
+
   describe('invalidate', () => {
     it('clears all cached domains', () => {
       const store = useBuildingsStore()

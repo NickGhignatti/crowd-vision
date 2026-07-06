@@ -22,3 +22,9 @@ export function roomColorByAirQuality(iaqi: number): string {
 export function roomOpacity(isSelected: boolean): number {
   return isSelected ? 0.17 : 0.1
 }
+
+// Non-blocking warning tint for two rooms whose boxes overlap while editing —
+// a guardrail, not a wall: it never prevents Save.
+export function roomColorOverlapWarning(): string {
+  return '#f87171'
+}
