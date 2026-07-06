@@ -32,7 +32,10 @@ const { t } = useI18n()
 const { canEdit } = useUserPermissions()
 const buildingsStore = useBuildingsStore()
 
-const isRightOpen = ref(true)
+// A v-model (not a local ref) so ModelView can shift its own floating panels
+// (the edit toolbar) clear of CollapsiblePanel's reopen button, which occupies
+// the same top-right corner once this panel is collapsed.
+const isRightOpen = defineModel<boolean>('open', { default: true })
 const searchQuery = ref('')
 const searchBar = ref<InstanceType<typeof ShortSearchInput> | null>(null)
 const isEditModalOpen = ref(false)

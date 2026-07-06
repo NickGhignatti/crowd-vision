@@ -33,11 +33,16 @@ const z = ref(0)
 const width = ref(1)
 const height = ref(1)
 const depth = ref(1)
-const isCustomFloor = ref(false)
 
+// Watches a serialized snapshot, not `props.room` itself: the draft's
+// moveRoom/resizeRoom/updateRoomFields mutate the room object in place
+// (same reference) rather than replacing it, so a reference-based watch
+// never re-fires after a gizmo drag or undo/redo — the panel would show
+// stale X/Y/Z/W/H/D forever after the first selection.
 watch(
-  () => props.room,
-  (room) => {
+  () => (props.room ? JSON.stringify(props.room) : null),
+  () => {
+    const room = props.room
     if (!room) return
     name.value = room.name
     capacity.value = room.capacity
@@ -48,7 +53,6 @@ watch(
     width.value = room.dimensions.width
     height.value = room.dimensions.height
     depth.value = room.dimensions.depth
-    isCustomFloor.value = !props.floorLevels.includes(room.position.y)
   },
   { immediate: true },
 )
@@ -62,18 +66,22 @@ const commitWidth = () => emit('commit', { dimensions: { width: Number(width.val
 const commitHeight = () => emit('commit', { dimensions: { height: Number(height.value) } })
 const commitDepth = () => emit('commit', { dimensions: { depth: Number(depth.value) } })
 
+// Floors are discrete PLANS, not a draggable height: the field shows
+// "Floor 0/1/2…" (index into the sorted distinct Y levels) and picking one
+// moves the room to that floor's Y. "New floor above" stacks a fresh floor
+// on top of the current highest, spaced by this room's own height so it sits
+// flush above rather than overlapping. Raw world-Y is never exposed.
+const floorLabel = (index: number) => `${t('model.editor.floorLabel')} ${index}`
+
 const onFloorSelectChange = (event: Event) => {
   const value = (event.target as HTMLSelectElement).value
-  if (value === 'custom') {
-    isCustomFloor.value = true
+  if (value === 'new') {
+    const top = props.floorLevels.length ? Math.max(...props.floorLevels) : y.value
+    emit('commit', { position: { y: top + height.value } })
     return
   }
-  isCustomFloor.value = false
-  y.value = Number(value)
-  emit('commit', { position: { y: y.value } })
+  emit('commit', { position: { y: Number(value) } })
 }
-
-const commitCustomFloor = () => emit('commit', { position: { y: Number(y.value) } })
 </script>
 
 <template>
@@ -116,7 +124,22 @@ const commitCustomFloor = () => emit('commit', { position: { y: Number(y.value) 
       </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-2">
+    <div>
+      <label class="block text-xs text-slate-500 mb-1">{{ t('model.editor.floorLabel') }}</label>
+      <select
+        data-testid="floor-select"
+        :value="String(y)"
+        class="w-full border border-slate-200 rounded px-1 py-1"
+        @change="onFloorSelectChange"
+      >
+        <option v-for="(level, index) in floorLevels" :key="level" :value="String(level)">
+          {{ floorLabel(index) }}
+        </option>
+        <option value="new">{{ t('model.editor.newFloorAbove') }}</option>
+      </select>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2">
       <div>
         <label class="block text-xs text-slate-500 mb-1">X</label>
         <input
@@ -125,26 +148,6 @@ const commitCustomFloor = () => emit('commit', { position: { y: Number(y.value) 
           type="number"
           class="w-full border border-slate-200 rounded px-2 py-1"
           @change="commitX"
-        />
-      </div>
-      <div>
-        <label class="block text-xs text-slate-500 mb-1">Y</label>
-        <select
-          data-testid="y-select"
-          :value="isCustomFloor ? 'custom' : String(y)"
-          class="w-full border border-slate-200 rounded px-1 py-1"
-          @change="onFloorSelectChange"
-        >
-          <option v-for="level in floorLevels" :key="level" :value="String(level)">{{ level }}</option>
-          <option value="custom">{{ t('model.editor.customFloor') }}</option>
-        </select>
-        <input
-          v-if="isCustomFloor"
-          data-testid="y-custom-input"
-          v-model.number="y"
-          type="number"
-          class="w-full border border-slate-200 rounded px-2 py-1 mt-1"
-          @change="commitCustomFloor"
         />
       </div>
       <div>

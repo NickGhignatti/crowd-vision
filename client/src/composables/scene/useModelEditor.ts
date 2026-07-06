@@ -128,25 +128,32 @@ export function useModelEditor() {
     draft.value.rooms = future.value.pop()!
   }
 
-  // Phase 1's move gizmo is floor-plane constrained: only X/Z change, Y (the
-  // room's floor) stays put so a drag can never accidentally reassign a room
-  // to a different floor. Each axis grid-snaps by default; callers pass
-  // snapX/snapZ: false for an axis that neighbor-snapping already resolved
-  // (Phase 3) or when the free-move modifier is held, so grid-snap doesn't
-  // override a more precise value.
+  // X/Z always move (grid-snapped by default). Y is optional — omitting it
+  // preserves the room's current floor (the historical floor-plane-only
+  // behavior); passing it moves the room vertically too. Callers pass
+  // snapX/snapZ/snapY: false for an axis that neighbor- or floor-level-
+  // snapping already resolved (see ModelView's applySnappedMove), or when the
+  // free-move modifier is held, so grid-snap doesn't override a more precise
+  // value.
   const moveRoom = (
     id: string,
-    position: { x: number; z: number },
-    options: { snapX?: boolean; snapZ?: boolean } = {},
+    position: { x: number; z: number; y?: number },
+    options: { snapX?: boolean; snapZ?: boolean; snapY?: boolean } = {},
   ) => {
     if (!draft.value) return
     const room = draft.value.rooms.find((r) => r.id === id)
     if (!room) return
     const snapX = options.snapX ?? true
     const snapZ = options.snapZ ?? true
+    const snapY = options.snapY ?? true
     room.position = {
-      ...room.position,
       x: snapX ? snapToGrid(position.x, MOVE_GRID_STEP) : position.x,
+      y:
+        position.y === undefined
+          ? room.position.y
+          : snapY
+            ? snapToGrid(position.y, MOVE_GRID_STEP)
+            : position.y,
       z: snapZ ? snapToGrid(position.z, MOVE_GRID_STEP) : position.z,
     }
   }

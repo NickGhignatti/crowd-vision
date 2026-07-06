@@ -17,6 +17,9 @@ const editingProps = {
   viewMode: '3d' as const,
   hasSelection: false,
   isMergePending: false,
+  rightPanelOpen: true,
+  currentFloor: 0 as number | null,
+  floorLevels: [0, 3],
 }
 
 describe('EditToolbar', () => {
@@ -106,6 +109,64 @@ describe('EditToolbar', () => {
     it('does not render the tool switch outside edit mode', () => {
       const wrapper = mount(EditToolbar, { props: { ...editingProps, isEditing: false } })
       expect(wrapper.find('[data-testid="tool-move"]').exists()).toBe(false)
+    })
+  })
+
+  describe('right-panel-collapsed offset', () => {
+    it('sits at the default offset when the right panel is open', () => {
+      const wrapper = mount(EditToolbar, { props: { ...editingProps, rightPanelOpen: true } })
+      expect(wrapper.find('[data-testid="edit-toolbar"]').classes()).toContain('right-4')
+    })
+
+    it('shifts left to clear the reopen button when the right panel is collapsed', () => {
+      const wrapper = mount(EditToolbar, { props: { ...editingProps, rightPanelOpen: false } })
+      const classes = wrapper.find('[data-testid="edit-toolbar"]').classes()
+      expect(classes).not.toContain('right-4')
+      expect(classes.some((c) => c.startsWith('right-'))).toBe(true)
+    })
+  })
+
+  describe('floor indicator/switcher', () => {
+    it('lists every floor as a plan index (Floor N) plus an "all floors" option, current selected', () => {
+      const wrapper = mount(EditToolbar, { props: { ...editingProps, currentFloor: 3 } })
+
+      const select = wrapper.find('[data-testid="edit-floor-select"]')
+      // Values stay as the raw Y (what set-floor emits); labels are plan-based.
+      const values = select.findAll('option').map((o) => o.element.value)
+      expect(values).toEqual(['0', '3', 'all'])
+      const labels = select.findAll('option').map((o) => o.text())
+      // sorted distinct Y [0,3] -> "Floor 0", "Floor 1"
+      expect(labels[0]).toContain('0')
+      expect(labels[0]?.toLowerCase()).not.toBe('0')
+      expect(labels[1]).toContain('1')
+      expect((select.element as HTMLSelectElement).value).toBe('3')
+    })
+
+    it('selects "all" when currentFloor is null', () => {
+      const wrapper = mount(EditToolbar, { props: { ...editingProps, currentFloor: null } })
+      const select = wrapper.find('[data-testid="edit-floor-select"]')
+      expect((select.element as HTMLSelectElement).value).toBe('all')
+    })
+
+    it('emits "set-floor" with a number when a floor level is picked', async () => {
+      const wrapper = mount(EditToolbar, { props: editingProps })
+
+      await wrapper.find('[data-testid="edit-floor-select"]').setValue('3')
+
+      expect(wrapper.emitted('set-floor')?.[0]).toEqual([3])
+    })
+
+    it('emits "set-floor" with null when "all floors" is picked', async () => {
+      const wrapper = mount(EditToolbar, { props: editingProps })
+
+      await wrapper.find('[data-testid="edit-floor-select"]').setValue('all')
+
+      expect(wrapper.emitted('set-floor')?.[0]).toEqual([null])
+    })
+
+    it('does not render the floor switcher outside edit mode', () => {
+      const wrapper = mount(EditToolbar, { props: { ...editingProps, isEditing: false } })
+      expect(wrapper.find('[data-testid="edit-floor-select"]').exists()).toBe(false)
     })
   })
 

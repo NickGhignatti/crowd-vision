@@ -52,6 +52,36 @@ describe('FloorPlanEditor', () => {
     expect(rect.attributes('height')).toBe('120') // 6 * 20
   })
 
+  it('projects rooms using the actual measured container size, not a fixed 800x600 box', async () => {
+    // Stubbed BEFORE mount, on the prototype: onMounted's initial measurement
+    // reads this the instant the component mounts. This is the responsive-
+    // sizing fix for a real bug: a hardcoded 800x600 canvas sat in the corner
+    // of a much larger viewport, and floating panels (RoomInspector) could
+    // overlap and block dragging wherever a room happened to land in that box.
+    const getRectSpy = vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 1200,
+      height: 700,
+      right: 1200,
+      bottom: 700,
+      x: 0,
+      y: 0,
+      toJSON: () => '',
+    } as DOMRect)
+
+    const room = makeRoom('r1', { position: { x: 0, y: 0, z: 0 }, dimensions: { width: 4, height: 3, depth: 6 } })
+    const wrapper = mount(FloorPlanEditor, { props: { rooms: [room], floorY: 0, selectedId: null } })
+    await wrapper.vm.$nextTick()
+
+    // Center is now (600, 350), not (400, 300): topLeft.x = 600 + (0-2)*20 = 560
+    const rect = wrapper.find('[data-testid="plan-room-r1"]')
+    expect(rect.attributes('x')).toBe('560')
+    expect(rect.attributes('y')).toBe('290') // 350 + (0-3)*20
+
+    getRectSpy.mockRestore()
+  })
+
   it('emits select with the room id when a room is clicked', async () => {
     const room = makeRoom('r1')
     const wrapper = mount(FloorPlanEditor, { props: { rooms: [room], floorY: 0, selectedId: null } })
@@ -148,6 +178,44 @@ describe('FloorPlanEditor', () => {
     expect(seed.position).toEqual({ x: 0, y: 4, z: 0 })
     expect(seed.dimensions.width).toBe(4)
     expect(seed.dimensions.depth).toBe(6)
+  })
+
+  it('emits dragging(true) on drag start and dragging(false) on drag end (move)', async () => {
+    const room = makeRoom('r1')
+    const wrapper = mount(FloorPlanEditor, { props: { rooms: [room], floorY: 0, selectedId: 'r1' } })
+    stubBoundingRect(wrapper)
+
+    await wrapper.find('[data-testid="plan-room-r1"]').trigger('pointerdown')
+    expect(wrapper.emitted('dragging')?.[0]).toEqual([true])
+
+    dispatchWindowPointer('pointerup')
+    const draggingEvents = wrapper.emitted('dragging') ?? []
+    expect(draggingEvents[draggingEvents.length - 1]).toEqual([false])
+  })
+
+  it('emits dragging(true)/(false) around a handle resize drag', async () => {
+    const room = makeRoom('r1')
+    const wrapper = mount(FloorPlanEditor, { props: { rooms: [room], floorY: 0, selectedId: 'r1' } })
+    stubBoundingRect(wrapper)
+
+    await wrapper.find('[data-testid="plan-handle-r1-e"]').trigger('pointerdown')
+    expect(wrapper.emitted('dragging')?.[0]).toEqual([true])
+
+    dispatchWindowPointer('pointerup')
+    const draggingEvents = wrapper.emitted('dragging') ?? []
+    expect(draggingEvents[draggingEvents.length - 1]).toEqual([false])
+  })
+
+  it('emits dragging(true)/(false) around drawing a new room', async () => {
+    const wrapper = mount(FloorPlanEditor, { props: { rooms: [], floorY: 0, selectedId: null } })
+    stubBoundingRect(wrapper)
+
+    await wrapper.find('[data-testid="floor-plan"]').trigger('pointerdown', { clientX: 400, clientY: 300 })
+    expect(wrapper.emitted('dragging')?.[0]).toEqual([true])
+
+    dispatchWindowPointer('pointerup', 440, 360)
+    const draggingEvents = wrapper.emitted('dragging') ?? []
+    expect(draggingEvents[draggingEvents.length - 1]).toEqual([false])
   })
 
   it('removes its window pointer listeners on unmount (no leak if unmounted mid-drag)', async () => {

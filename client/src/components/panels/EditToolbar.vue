@@ -15,11 +15,14 @@ interface Props {
   viewMode: EditorViewMode
   hasSelection: boolean
   isMergePending: boolean
+  rightPanelOpen: boolean
+  currentFloor: number | null
+  floorLevels: number[]
 }
 
 defineProps<Props>()
 
-defineEmits<{
+const emit = defineEmits<{
   enter: []
   save: []
   cancel: []
@@ -31,16 +34,29 @@ defineEmits<{
   'delete-room': []
   'duplicate-room': []
   'toggle-merge': []
+  'set-floor': [floor: number | null]
 }>()
 
 const { t } = useI18n()
+
+// Floors are presented as plan indices ("Floor 0" = lowest) rather than raw
+// world-height Y values — see MODEL_EDITOR_PLAN / the plan-based floors
+// redesign. The option's *value* stays the underlying Y (what set-floor and
+// buildingModel.setFloor speak); only the label is index-based.
+const floorLabel = (index: number) => `${t('model.editor.floorLabel')} ${index}`
+
+const onFloorSelectChange = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  emit('set-floor', value === 'all' ? null : Number(value))
+}
 </script>
 
 <template>
   <div
     v-if="canEdit"
     data-testid="edit-toolbar"
-    class="absolute top-4 right-4 z-10 flex items-center gap-2 bg-white/90 backdrop-blur rounded-full px-4 py-2 shadow-xl border border-slate-200/50"
+    class="absolute top-4 z-10 flex items-center gap-2 bg-white/90 backdrop-blur rounded-full px-4 py-2 shadow-xl border border-slate-200/50"
+    :class="rightPanelOpen ? 'right-4' : 'right-20'"
   >
     <button
       v-if="!isEditing"
@@ -53,6 +69,21 @@ const { t } = useI18n()
     </button>
 
     <template v-else>
+      <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
+        <label class="text-xs text-slate-500">{{ t('model.editor.floor') }}</label>
+        <select
+          data-testid="edit-floor-select"
+          :value="currentFloor === null ? 'all' : String(currentFloor)"
+          class="text-xs border border-slate-200 rounded px-1 py-1"
+          @change="onFloorSelectChange"
+        >
+          <option v-for="(level, index) in floorLevels" :key="level" :value="String(level)">
+            {{ floorLabel(index) }}
+          </option>
+          <option value="all">{{ t('model.controls.allFloors') }}</option>
+        </select>
+      </div>
+
       <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
         <button
           data-testid="tool-move"

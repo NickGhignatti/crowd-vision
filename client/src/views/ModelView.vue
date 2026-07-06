@@ -71,6 +71,11 @@ const modes = useModes()
 
 const canEditCurrentBuilding = computed(() => canEdit(buildingModel.building.value?.domains ?? []))
 
+// RoomsSelector's own reopen button occupies the same top-right corner once
+// it's collapsed (CollapsiblePanel positions it independently of layout flow)
+// — EditToolbar shifts itself left to clear it when this is false.
+const isRightPanelOpen = ref(true)
+
 // The 2D plan is only ever meaningful mid-edit-session — reset to 3D whenever
 // editing ends so a later Edit re-entry doesn't start on a stale view.
 const viewMode = ref<'3d' | 'plan'>('3d')
@@ -91,7 +96,17 @@ const requestFrame = () => {
   frameRequestTick.value++
 }
 
-const renderMode = computed(() => selectRenderMode(isRotating.value || editor.isEditing.value))
+// NOT `|| editor.isEditing.value` — see the git history / memory note on this
+// line. Forcing 'always' mode for the whole edit session froze the canvas
+// whenever the on-demand frame counter had already idled to 0 at the moment
+// editing began: TresJS's internal render-loop only checks whether it's in
+// 'always' mode from *inside* a render that's already happening, so
+// switching modes while the counter is at 0 never kicks anything off, and
+// invalidate() (which is what requestFrame() below calls into) is a no-op
+// outside 'on-demand' mode — a permanent, silent deadlock. Every editing
+// interaction below already calls requestFrame() explicitly on every
+// meaningful change, so plain on-demand mode is sufficient.
+const renderMode = computed(() => selectRenderMode(isRotating.value))
 
 const handleEnterEdit = () => {
   if (!buildingModel.building.value) return
@@ -314,9 +329,23 @@ const SCALE_EPSILON = 0.001
 const isSnapBypassed = ref(false)
 const activeGuides = ref<SnapGuide[]>([])
 
-// Shared by the 3D move gizmo and the 2D plan's drag-to-move: smart-guide
-// (neighbor) snapping takes priority over the plain grid, so only an axis
-// neighbor-snapping *didn't* resolve falls back to grid-snap.
+// Switches the viewed floor to `newY`. Only ever called on a *discrete*,
+// one-shot action (an inspector "move to floor" commit) — NEVER during a live
+// gizmo drag: setFloor changes `selectedFloor`, which is baked into the
+// instanced mesh's :key, so calling it 60x/second mid-drag would destroy and
+// recreate the mesh out from under TransformControls and crash the renderer.
+const followRoomToFloor = (newY: number) => {
+  if (buildingModel.selectedFloor.value !== null) {
+    buildingModel.setFloor(newY)
+  }
+}
+
+// Shared by the 3D move gizmo and the 2D plan's drag-to-move: floor-plane only
+// (X/Z), Y never changes here — a room's floor is a discrete plan you assign
+// via the inspector, not something you drag continuously (that both confused
+// users and crashed the renderer). Smart-guide (neighbor) snapping takes
+// priority over the plain grid, so only an axis neighbor-snapping *didn't*
+// resolve falls back to grid-snap.
 const applySnappedMove = (roomId: string, rawX: number, rawZ: number) => {
   if (isSnapBypassed.value) {
     editor.moveRoom(roomId, { x: rawX, z: rawZ }, { snapX: false, snapZ: false })
@@ -351,7 +380,11 @@ const applySnappedMove = (roomId: string, rawX: number, rawZ: number) => {
 const onGizmoObjectChange = () => {
   if (editor.activeTool.value !== 'move') return
   if (!overlayRoom.value || !overlayGroupRef.value) return
-  applySnappedMove(overlayRoom.value.id, overlayGroupRef.value.position.x, overlayGroupRef.value.position.z)
+  applySnappedMove(
+    overlayRoom.value.id,
+    overlayGroupRef.value.position.x,
+    overlayGroupRef.value.position.z,
+  )
 }
 
 const onGizmoDragging = (dragging: boolean) => {
@@ -466,6 +499,7 @@ const handleInspectorCommit = (patch: {
   if (!id) return
   editor.beginGesture()
   editor.updateRoomFields(id, patch)
+  if (patch.position?.y !== undefined) followRoomToFloor(patch.position.y)
   requestFrame()
 }
 
@@ -817,6 +851,9 @@ onUnmounted(() => {
           :view-mode="viewMode"
           :has-selection="!!editor.selectedId.value"
           :is-merge-pending="!!editor.mergeCandidateId.value"
+          :right-panel-open="isRightPanelOpen"
+          :current-floor="buildingModel.selectedFloor.value"
+          :floor-levels="inspectorFloorLevels"
           @enter="handleEnterEdit"
           @save="handleSaveEdit"
           @cancel="handleCancelEdit"
@@ -828,6 +865,7 @@ onUnmounted(() => {
           @delete-room="handleDeleteRoom"
           @duplicate-room="handleDuplicateRoom"
           @toggle-merge="handleToggleMerge"
+          @set-floor="buildingModel.setFloor"
         />
 
         <RoomInspector
@@ -850,6 +888,7 @@ onUnmounted(() => {
       </main>
 
       <RoomsSelector
+        v-model:open="isRightPanelOpen"
         :buildingModel="buildingModel.displayedBuilding.value"
         :selectedRoomId="buildingModel.selectedRoomId.value"
         @toggle-select="buildingModel.toggleRoom"

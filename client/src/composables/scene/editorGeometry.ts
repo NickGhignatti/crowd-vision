@@ -172,6 +172,35 @@ export function boxesAreAdjacent(a: Room, b: Room, tolerance = 0.1): boolean {
   return touchingOnX || touchingOnZ
 }
 
+const DEFAULT_FLOOR_SNAP_THRESHOLD = 1.5
+
+/**
+ * Magnetic Y snapping for vertical moves: within `threshold` of an existing
+ * floor level, snap exactly onto it (moving a room a little vertically
+ * shouldn't create a sliver half-floor); beyond that, pass the raw value
+ * through so a deliberate large vertical drag can create a genuinely new
+ * floor.
+ */
+export function snapToNearestFloorLevel(
+  y: number,
+  levels: number[],
+  threshold: number = DEFAULT_FLOOR_SNAP_THRESHOLD,
+): number {
+  if (levels.length === 0) return y
+
+  let closest = levels[0]!
+  let closestDistance = Math.abs(y - closest)
+  for (const level of levels) {
+    const distance = Math.abs(y - level)
+    if (distance < closestDistance) {
+      closest = level
+      closestDistance = distance
+    }
+  }
+
+  return closestDistance <= threshold ? closest : y
+}
+
 const MAX_PLACEMENT_ATTEMPTS = 40
 
 /**

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onUnmounted, ref, shallowRef } from 'vue'
+import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import type { Room } from '@/models/building.ts'
 import {
   computeDrawnRoomSeed,
@@ -23,16 +23,52 @@ const emit = defineEmits<{
   move: [id: string, position: { x: number; z: number }]
   resize: [id: string, result: HandleResizeResult]
   'add-room': [seed: { position: Room['position']; dimensions: Room['dimensions'] }]
+  dragging: [value: boolean]
 }>()
 
-// Fixed logical pixel size (not measured from the container): keeps the
-// screen<->world math simple and, unlike a getScreenCTM-based approach,
-// stays testable under jsdom, which doesn't implement SVG geometry APIs.
-const viewport: PlanViewport = { width: 800, height: 600, scale: 20, centerX: 0, centerZ: 0 }
+const SCALE = 20
+// Only used before the SVG has ever been measured (first synchronous render,
+// or under jsdom where layout never actually happens).
+const FALLBACK_SIZE = { width: 800, height: 600 }
 
 const HANDLES: HandleId[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
 const svgRef = shallowRef<SVGSVGElement | null>(null)
+
+// The SVG fills its container (see the template's width/height="100%"), so
+// its real pixel size depends on the surrounding layout, not a fixed
+// constant — a hardcoded 800x600 box sitting in the corner of a much larger
+// viewport was the previous design, and it left rooms un-draggable wherever
+// a floating panel (e.g. RoomInspector) happened to overlap that box. This
+// is a real `ref`, not a plain function reading the DOM ad hoc, so resizing
+// correctly re-renders every room's projected position.
+const svgSize = ref<{ width: number; height: number }>({ ...FALLBACK_SIZE })
+let resizeObserver: ResizeObserver | null = null
+
+const measureSvgSize = () => {
+  const rect = svgRef.value?.getBoundingClientRect()
+  if (rect && rect.width > 0 && rect.height > 0) {
+    svgSize.value = { width: rect.width, height: rect.height }
+  }
+}
+
+onMounted(() => {
+  measureSvgSize()
+  resizeObserver = new ResizeObserver(measureSvgSize)
+  if (svgRef.value) resizeObserver.observe(svgRef.value)
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+})
+
+const getViewport = (): PlanViewport => ({
+  width: svgSize.value.width,
+  height: svgSize.value.height,
+  scale: SCALE,
+  centerX: 0,
+  centerZ: 0,
+})
 
 type DragMode = 'move' | 'handle' | 'draw' | null
 const dragMode = ref<DragMode>(null)
@@ -41,10 +77,14 @@ const dragHandle = ref<HandleId | null>(null)
 const drawStart = ref<{ x: number; z: number } | null>(null)
 const drawCurrent = ref<{ x: number; z: number } | null>(null)
 
+// Pointer math always re-reads the live rect (not the reactive svgSize)
+// for the *offset* (rect.left/top can shift from scrolling even when size
+// hasn't changed), but borrows svgSize for width/height/scale so it can
+// never disagree with what's actually being rendered.
 const pointerToWorld = (event: PointerEvent): { x: number; z: number } | null => {
   const rect = svgRef.value?.getBoundingClientRect()
   if (!rect) return null
-  return screenToWorld(viewport, event.clientX - rect.left, event.clientY - rect.top)
+  return screenToWorld(getViewport(), event.clientX - rect.left, event.clientY - rect.top)
 }
 
 const endDrag = () => {
@@ -55,6 +95,7 @@ const endDrag = () => {
   dragHandle.value = null
   drawStart.value = null
   drawCurrent.value = null
+  emit('dragging', false)
 }
 
 function onPointerMove(event: PointerEvent) {
@@ -82,6 +123,7 @@ const beginDrag = (mode: DragMode) => {
   dragMode.value = mode
   window.addEventListener('pointermove', onPointerMove)
   window.addEventListener('pointerup', onPointerUp)
+  emit('dragging', true)
 }
 
 // Guards against unmounting mid-drag (e.g. the toolbar's 3D/Plan toggle is
@@ -115,6 +157,7 @@ const onBackgroundPointerDown = (event: PointerEvent) => {
 }
 
 const roomRect = (room: Room) => {
+  const viewport = getViewport()
   const topLeft = {
     x: viewport.width / 2 + (room.position.x - room.dimensions.width / 2 - viewport.centerX) * viewport.scale,
     y: viewport.height / 2 + (room.position.z - room.dimensions.depth / 2 - viewport.centerZ) * viewport.scale,
@@ -155,15 +198,20 @@ const drawRect = () => {
   <svg
     ref="svgRef"
     data-testid="floor-plan"
-    :width="viewport.width"
-    :height="viewport.height"
-    class="bg-slate-50"
+    width="100%"
+    height="100%"
+    class="absolute inset-0 bg-slate-50"
     @pointerdown="onBackgroundPointerDown"
   >
     <defs>
-      <pattern id="plan-grid" :width="viewport.scale" :height="viewport.scale" patternUnits="userSpaceOnUse">
+      <pattern
+        id="plan-grid"
+        :width="getViewport().scale"
+        :height="getViewport().scale"
+        patternUnits="userSpaceOnUse"
+      >
         <path
-          :d="`M ${viewport.scale} 0 L 0 0 0 ${viewport.scale}`"
+          :d="`M ${getViewport().scale} 0 L 0 0 0 ${getViewport().scale}`"
           fill="none"
           stroke="#e2e8f0"
           stroke-width="1"
@@ -175,8 +223,8 @@ const drawRect = () => {
       data-testid="plan-background"
       x="0"
       y="0"
-      :width="viewport.width"
-      :height="viewport.height"
+      :width="getViewport().width"
+      :height="getViewport().height"
       fill="url(#plan-grid)"
     />
 

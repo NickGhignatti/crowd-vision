@@ -8,6 +8,7 @@ import {
   mergeBoxes,
   boxesAreAdjacent,
   findFreeSpot,
+  snapToNearestFloorLevel,
 } from '@/composables/scene/editorGeometry.ts'
 import type { Room } from '@/models/building.ts'
 
@@ -309,5 +310,27 @@ describe('findFreeSpot', () => {
       makeRoom('b', { position: { x: 2, y: 0, z: 0 }, dimensions: dims }),
     ]
     expect(findFreeSpot(rooms, 0, dims, 2)).toEqual({ x: 4, y: 0, z: 0 })
+  })
+})
+
+describe('snapToNearestFloorLevel', () => {
+  it('snaps to the nearest existing level within threshold', () => {
+    expect(snapToNearestFloorLevel(3.4, [0, 3, 6])).toBe(3)
+  })
+
+  it('picks whichever existing level is actually closest', () => {
+    expect(snapToNearestFloorLevel(4.6, [0, 3, 6])).toBe(6)
+  })
+
+  it('passes the raw value through when no level is within threshold (a genuinely new floor)', () => {
+    expect(snapToNearestFloorLevel(10, [0, 3, 6], 1.5)).toBe(10)
+  })
+
+  it('passes the raw value through when there are no existing levels at all', () => {
+    expect(snapToNearestFloorLevel(5, [])).toBe(5)
+  })
+
+  it('snaps exactly onto a level that matches already', () => {
+    expect(snapToNearestFloorLevel(3, [0, 3, 6])).toBe(3)
   })
 })

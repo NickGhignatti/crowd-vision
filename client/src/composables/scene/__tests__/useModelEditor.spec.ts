@@ -118,6 +118,33 @@ describe('useModelEditor', () => {
       expect(room?.position.x).toBe(1.5) // grid-snapped
       expect(room?.position.z).toBe(4.56) // passed through raw
     })
+
+    it('leaves Y untouched when no y is given (the historical floor-plane-only behavior)', () => {
+      const editor = useModelEditor()
+      editor.beginEdit(makeBuilding([makeRoom('r1', { position: { x: 0, y: 2, z: 0 } })]))
+
+      editor.moveRoom('r1', { x: 1, z: 1 })
+
+      expect(editor.draft.value?.rooms.find((r) => r.id === 'r1')?.position.y).toBe(2)
+    })
+
+    it('updates Y (grid-snapped by default) when a y is given', () => {
+      const editor = useModelEditor()
+      editor.beginEdit(makeBuilding([makeRoom('r1', { position: { x: 0, y: 2, z: 0 } })]))
+
+      editor.moveRoom('r1', { x: 0, z: 0, y: 5.3 })
+
+      expect(editor.draft.value?.rooms.find((r) => r.id === 'r1')?.position.y).toBe(5.5)
+    })
+
+    it('bypasses grid snap on Y when snapY is false (used for floor-level snapping)', () => {
+      const editor = useModelEditor()
+      editor.beginEdit(makeBuilding([makeRoom('r1', { position: { x: 0, y: 2, z: 0 } })]))
+
+      editor.moveRoom('r1', { x: 0, z: 0, y: 5.3 }, { snapY: false })
+
+      expect(editor.draft.value?.rooms.find((r) => r.id === 'r1')?.position.y).toBe(5.3)
+    })
   })
 
   describe('select', () => {
