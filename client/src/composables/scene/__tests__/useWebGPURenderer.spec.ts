@@ -1,11 +1,18 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { NoToneMapping, SRGBColorSpace } from 'three'
 import type { TresRendererSetupContext } from '@tresjs/core'
-import { isWebGPUSupported, createWebGPURenderer, SCENE_CLEAR_COLOR } from '../useWebGPURenderer'
+import {
+  isWebGPUSupported,
+  createWebGPURenderer,
+  SCENE_CLEAR_COLOR,
+  clampPixelRatio,
+  MAX_PIXEL_RATIO,
+} from '../useWebGPURenderer'
 
 vi.mock('three/webgpu', () => {
   class MockWebGPURenderer {
     setClearColor = vi.fn()
+    setPixelRatio = vi.fn()
     init = vi.fn().mockResolvedValue(undefined)
   }
   return { WebGPURenderer: vi.fn(MockWebGPURenderer) }
@@ -54,5 +61,44 @@ describe('createWebGPURenderer', () => {
     const renderer = createWebGPURenderer(ctx)
     await vi.waitFor(() => expect(renderer.outputColorSpace).toBe(SRGBColorSpace))
     expect(renderer.toneMapping).toBe(NoToneMapping)
+  })
+
+  describe('pixel ratio clamping', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('clamps the device pixel ratio once the backend is initialized', async () => {
+      vi.stubGlobal('devicePixelRatio', 3)
+      const canvas = document.createElement('canvas')
+      const ctx = { canvas } as unknown as TresRendererSetupContext
+
+      const renderer = createWebGPURenderer(ctx)
+      await vi.waitFor(() => expect(renderer.setPixelRatio).toHaveBeenCalledWith(MAX_PIXEL_RATIO))
+    })
+
+    it('leaves an already-reasonable device pixel ratio untouched', async () => {
+      vi.stubGlobal('devicePixelRatio', 1.5)
+      const canvas = document.createElement('canvas')
+      const ctx = { canvas } as unknown as TresRendererSetupContext
+
+      const renderer = createWebGPURenderer(ctx)
+      await vi.waitFor(() => expect(renderer.setPixelRatio).toHaveBeenCalledWith(1.5))
+    })
+  })
+})
+
+describe('clampPixelRatio', () => {
+  it('clamps values above the max down to MAX_PIXEL_RATIO', () => {
+    expect(clampPixelRatio(3)).toBe(MAX_PIXEL_RATIO)
+  })
+
+  it('leaves values within [1, MAX_PIXEL_RATIO] untouched', () => {
+    expect(clampPixelRatio(1.5)).toBe(1.5)
+    expect(clampPixelRatio(MAX_PIXEL_RATIO)).toBe(MAX_PIXEL_RATIO)
+  })
+
+  it('clamps values below 1 up to 1', () => {
+    expect(clampPixelRatio(0.5)).toBe(1)
   })
 })

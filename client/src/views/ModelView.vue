@@ -10,18 +10,24 @@ import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
 } from '@/composables/building/useRoomsData.ts'
-import { computed, onMounted, shallowRef, watch, watchEffect } from 'vue'
+import { computed, onMounted, ref, shallowRef, watch, watchEffect } from 'vue'
 import { TresCanvas } from '@tresjs/core'
-import { Color, NoToneMapping, type Intersection, type InstancedMesh } from 'three'
+import { Color, Matrix4, NoToneMapping, type Intersection, type InstancedMesh } from 'three'
 import { OrbitControls } from '@tresjs/cientos'
 import { roomColorByTemperature, roomColorStandard, roomOpacity } from '@/helpers/colors.ts'
 import { useModes } from '@/composables/scene/useModes.ts'
-import { buildRoomMatrix, useInstancedRooms } from '@/composables/scene/useInstancedRooms.ts'
+import {
+  applyRoomColors,
+  applyRoomMatrices,
+  useInstancedRooms,
+} from '@/composables/scene/useInstancedRooms.ts'
 import {
   createWebGPURenderer,
   isWebGPUSupported,
   SCENE_CLEAR_COLOR,
 } from '@/composables/scene/useWebGPURenderer.ts'
+import { selectRenderMode } from '@/composables/scene/useRenderMode.ts'
+import RenderInvalidator from '@/components/scene/RenderInvalidator.vue'
 
 interface TresEvent extends Intersection {
   stopPropagation: () => void
@@ -87,21 +93,39 @@ const explodedRoom = computed(() => {
 
 const instancedMeshRef = shallowRef<InstancedMesh | null>(null)
 const scratchColor = new Color()
+const scratchMatrix = new Matrix4()
+
+// Bumped whenever a repaint is needed (on-demand render mode won't draw otherwise);
+// read by RenderInvalidator, which is the only place `invalidate()` is legal to call.
+const frameRequestTick = ref(0)
+const requestFrame = () => {
+  frameRequestTick.value++
+}
+
+const renderMode = computed(() => selectRenderMode(isRotating.value))
+
+// Room positions/sizes are static per building+floor, so the matrix rebuild (and the
+// bounding-sphere recompute it needs) only has to run when the instanced room set
+// changes — not on every telemetry tick, which is what the color-only watch below is for.
+watch(
+  [instancedMeshRef, instancedRooms],
+  ([mesh, rooms]) => {
+    if (!mesh) return
+    applyRoomMatrices(mesh, rooms, scratchMatrix)
+    applyRoomColors(mesh, rooms, roomColors.value, scratchColor, roomColorStandard())
+    requestFrame()
+  },
+  { immediate: true, flush: 'post' },
+)
 
 // Imperative buffer writes, not reactive props: matches the "mutate existing
 // objects, don't rebuild the scene" rule for the telemetry-driven color path.
 watch(
-  [instancedMeshRef, instancedRooms, roomColors],
-  ([mesh, rooms]) => {
+  [instancedMeshRef, roomColors],
+  ([mesh]) => {
     if (!mesh) return
-    rooms.forEach((room, index) => {
-      mesh.setMatrixAt(index, buildRoomMatrix(room))
-      scratchColor.set(roomColors.value[room.id] ?? roomColorStandard())
-      mesh.setColorAt(index, scratchColor)
-    })
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-    mesh.computeBoundingSphere()
+    applyRoomColors(mesh, instancedRooms.value, roomColors.value, scratchColor, roomColorStandard())
+    requestFrame()
   },
   { immediate: true, flush: 'post' },
 )
@@ -114,6 +138,7 @@ const handleExplodeToggle = () => {
   )
   buildingModel.isExploded.value = result.exploded
   buildingModel.explodedRoomId.value = result.roomId
+  requestFrame()
 }
 
 const onRoomClick = (event: TresEvent) => {
@@ -124,6 +149,24 @@ const onRoomClick = (event: TresEvent) => {
       ? roomIdByInstanceIndex.value[event.instanceId]
       : (event.object?.userData as { roomId?: string })?.roomId
   if (id) buildingModel.toggleRoom(id)
+  requestFrame()
+}
+
+// Direct camera.position mutations (unlike OrbitControls drag) don't necessarily emit
+// an OrbitControls `change` event, so on-demand mode needs an explicit frame request.
+const handleResetView = () => {
+  resetView()
+  requestFrame()
+}
+
+const handleZoomIn = () => {
+  zoomIn()
+  requestFrame()
+}
+
+const handleZoomOut = () => {
+  zoomOut()
+  requestFrame()
 }
 
 onMounted(() => {
@@ -150,9 +193,13 @@ onMounted(() => {
         <TresCanvas
           :clear-color="SCENE_CLEAR_COLOR"
           :tone-mapping="NoToneMapping"
+          :dpr="[1, 2]"
+          :render-mode="renderMode"
           window-size
           :renderer="rendererFactory"
         >
+          <RenderInvalidator :trigger="frameRequestTick" />
+
           <TresPerspectiveCamera ref="cameraRef" :position="[10, 10, 10]" :look-at="[0, 0, 0]" />
 
           <OrbitControls
@@ -232,10 +279,10 @@ onMounted(() => {
           :selected-room-id="buildingModel.selectedRoomId.value"
           :is-exploded="buildingModel.isExploded.value"
           :disabled="isRotating"
-          @reset-view="resetView"
+          @reset-view="handleResetView"
           @toggle-explode="handleExplodeToggle"
-          @zoom-in="zoomIn"
-          @zoom-out="zoomOut"
+          @zoom-in="handleZoomIn"
+          @zoom-out="handleZoomOut"
           @toggle-panorama="togglePanorama"
         />
       </main>

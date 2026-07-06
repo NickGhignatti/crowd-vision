@@ -17,6 +17,13 @@ export function isWebGPUSupported(nav: Navigator = navigator): boolean {
 // a custom one supplied via the `renderer` factory.
 export const SCENE_CLEAR_COLOR = '#ffffff'
 
+// Above 2x, the extra fragment cost buys negligible sharpness on flat room boxes.
+export const MAX_PIXEL_RATIO = 2
+
+export function clampPixelRatio(dpr: number): number {
+  return Math.min(Math.max(dpr, 1), MAX_PIXEL_RATIO)
+}
+
 export function createWebGPURenderer(ctx: TresRendererSetupContext) {
   const renderer = new WebGPURenderer({
     canvas: toValue(ctx.canvas),
@@ -33,6 +40,7 @@ export function createWebGPURenderer(ctx: TresRendererSetupContext) {
       renderer.setClearColor(SCENE_CLEAR_COLOR, 1)
       renderer.outputColorSpace = SRGBColorSpace
       renderer.toneMapping = NoToneMapping
+      renderer.setPixelRatio(clampPixelRatio(window.devicePixelRatio ?? 1))
     })
     .catch((err) => console.error('[webgpu] renderer init failed', err))
   return renderer
