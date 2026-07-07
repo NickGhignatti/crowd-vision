@@ -179,6 +179,25 @@ export function useBuildingModel() {
     building.value = allBuildings.value.find((b) => b.id === id) || null
   }
 
+  // Pushes a just-saved room set (from the model editor's atomic Save) into the
+  // live building so the scene reflects it immediately, no reload needed.
+  // `building.value` is a threshold-merged copy detached from the buildings
+  // store, so persisting via the store alone leaves this stale until a refetch.
+  // Updated in place (not a fresh building ref) so the watch above doesn't
+  // reset selectedFloor/selection out from under the user right after a save.
+  const applySavedRooms = (rooms: Building['rooms']) => {
+    if (!building.value) return
+    // Deep copy (JSON round-trip, matching useModelEditor's cloneRooms): the
+    // caller passes the still-live edit draft, which keeps mutating if the user
+    // carries on editing after saving — a shared reference (even a shallow one,
+    // whose nested position/dimensions would still alias) would let post-save
+    // drags leak straight into the committed view.
+    const copied = JSON.parse(JSON.stringify(rooms)) as Building['rooms']
+    building.value.rooms = copied
+    const listed = allBuildings.value.find((b) => b.id === building.value?.id)
+    if (listed && listed !== building.value) listed.rooms = copied
+  }
+
   const toggleRoom = (id: string) => {
     selectedRoomId.value = selectedRoomId.value === id ? null : id
   }
@@ -200,6 +219,7 @@ export function useBuildingModel() {
     displayedBuilding,
     fetchBuildings,
     setBuildingById,
+    applySavedRooms,
     toggleRoom,
     setFloor,
   }

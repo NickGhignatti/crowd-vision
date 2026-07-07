@@ -385,6 +385,60 @@ describe('useBuildingModel', () => {
     })
   })
 
+  describe('applySavedRooms', () => {
+    it('replaces the live building rooms so the scene reflects a save without a reload', () => {
+      const { building, visibleRooms, applySavedRooms } = useBuildingModel()
+      building.value = makeBuilding('hq', [makeRoom('r1', 0, 0, 0)])
+
+      const savedRooms = [makeRoom('r1', 5, 0, 5), makeRoom('r2', 0, 1, 0)]
+      applySavedRooms(savedRooms)
+
+      expect(visibleRooms.value).toHaveLength(2)
+      expect(visibleRooms.value.find((r) => r.id === 'r1')?.position).toEqual({ x: 5, y: 0, z: 5 })
+      expect(visibleRooms.value.find((r) => r.id === 'r2')).toBeDefined()
+    })
+
+    it('does not keep a live reference to the passed-in array (defensive copy)', () => {
+      const { building, applySavedRooms } = useBuildingModel()
+      building.value = makeBuilding('hq', [makeRoom('r1', 0, 0, 0)])
+
+      const savedRooms = [makeRoom('r1', 5, 0, 5)]
+      applySavedRooms(savedRooms)
+      savedRooms[0]!.position.x = 999
+
+      expect(building.value?.rooms[0]?.position.x).toBe(5)
+    })
+
+    it('does not reset selectedFloor (the update is in place, not a new building ref)', async () => {
+      const { building, selectedFloor, applySavedRooms } = useBuildingModel()
+      building.value = makeBuilding('hq', [makeRoom('r1', 0, 1, 0)])
+      await nextTick()
+      selectedFloor.value = 1
+
+      applySavedRooms([makeRoom('r1', 5, 1, 5)])
+      await nextTick()
+
+      expect(selectedFloor.value).toBe(1)
+    })
+
+    it('also updates the matching allBuildings entry so re-selecting the building shows the save', () => {
+      const { building, allBuildings, applySavedRooms } = useBuildingModel()
+      const hq = makeBuilding('hq', [makeRoom('r1', 0, 0, 0)])
+      allBuildings.value = [hq]
+      building.value = hq
+
+      applySavedRooms([makeRoom('r1', 5, 0, 5), makeRoom('r2', 0, 0, 0)])
+
+      expect(allBuildings.value.find((b) => b.id === 'hq')?.rooms).toHaveLength(2)
+    })
+
+    it('is a no-op when there is no active building', () => {
+      const { applySavedRooms, visibleRooms } = useBuildingModel()
+      expect(() => applySavedRooms([makeRoom('r1', 0, 0, 0)])).not.toThrow()
+      expect(visibleRooms.value).toEqual([])
+    })
+  })
+
   describe('fetchBuildings', () => {
     it('calls domainsStore.fetchMemberships()', async () => {
       await useBuildingModel().fetchBuildings()

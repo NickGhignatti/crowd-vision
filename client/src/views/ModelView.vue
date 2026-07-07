@@ -132,6 +132,10 @@ const handleSaveEdit = async () => {
   saveFeedback.value = null
   try {
     await editor.save()
+    // Push the saved rooms into the live building so exiting edit mode (Cancel)
+    // shows the saved layout immediately — the building model is a copy detached
+    // from the store, so the store-level save alone left it stale until reload.
+    if (editor.draft.value) buildingModel.applySavedRooms(editor.draft.value.rooms)
     saveFeedback.value = { type: 'success', message: t('model.editor.saveSuccess') }
     saveFeedbackTimeout = setTimeout(() => {
       saveFeedback.value = null
