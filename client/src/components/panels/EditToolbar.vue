@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { EditorTool } from '@/composables/scene/useModelEditor.ts'
+import type { EditorTool, PlanTool } from '@/composables/scene/useModelEditor.ts'
 
 export type EditorViewMode = '3d' | 'plan'
 
@@ -18,6 +18,7 @@ interface Props {
   rightPanelOpen: boolean
   currentFloor: number | null
   floorLevels: number[]
+  planTool: PlanTool
 }
 
 defineProps<Props>()
@@ -27,6 +28,7 @@ const emit = defineEmits<{
   save: []
   cancel: []
   'set-tool': [tool: EditorTool]
+  'set-plan-tool': [tool: PlanTool]
   'set-view-mode': [mode: EditorViewMode]
   undo: []
   redo: []
@@ -123,6 +125,29 @@ const onFloorSelectChange = (event: Event) => {
           @click="$emit('set-view-mode', 'plan')"
         >
           {{ t('model.editor.viewPlan') }}
+        </button>
+      </div>
+
+      <div v-if="viewMode === 'plan'" class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
+        <button
+          data-testid="plan-tool-select"
+          :aria-pressed="planTool === 'select'"
+          :title="t('model.editor.selectPlanTool')"
+          class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
+          :class="planTool === 'select' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
+          @click="$emit('set-plan-tool', 'select')"
+        >
+          <i class="ph-bold ph-cursor text-lg"></i>
+        </button>
+        <button
+          data-testid="plan-tool-add"
+          :aria-pressed="planTool === 'add'"
+          :title="t('model.editor.addPlanTool')"
+          class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
+          :class="planTool === 'add' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
+          @click="$emit('set-plan-tool', 'add')"
+        >
+          <i class="ph-bold ph-square text-lg"></i>
         </button>
       </div>
 

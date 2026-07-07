@@ -227,6 +227,36 @@ describe('useModelEditor', () => {
     })
   })
 
+  describe('planTool (2D floor-plan editor)', () => {
+    it('defaults to select and can be switched to add', () => {
+      const editor = useModelEditor()
+      expect(editor.planTool.value).toBe('select')
+
+      editor.setPlanTool('add')
+      expect(editor.planTool.value).toBe('add')
+    })
+
+    it('resets to select when a new edit session begins', () => {
+      const editor = useModelEditor()
+      editor.beginEdit(makeBuilding([makeRoom('r1')]))
+      editor.setPlanTool('add')
+
+      editor.beginEdit(makeBuilding([makeRoom('r1')]))
+
+      expect(editor.planTool.value).toBe('select')
+    })
+
+    it('resets to select on cancel', () => {
+      const editor = useModelEditor()
+      editor.beginEdit(makeBuilding([makeRoom('r1')]))
+      editor.setPlanTool('add')
+
+      editor.cancel()
+
+      expect(editor.planTool.value).toBe('select')
+    })
+  })
+
   describe('resizeRoom', () => {
     const makeResizableRoom = () =>
       makeRoom('r1', { position: { x: 0, y: 0, z: 0 }, dimensions: { width: 4, height: 2, depth: 4 } })

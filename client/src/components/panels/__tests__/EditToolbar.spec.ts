@@ -20,6 +20,7 @@ const editingProps = {
   rightPanelOpen: true,
   currentFloor: 0 as number | null,
   floorLevels: [0, 3],
+  planTool: 'select' as const,
 }
 
 describe('EditToolbar', () => {
@@ -189,6 +190,37 @@ describe('EditToolbar', () => {
     it('does not render the view toggle outside edit mode', () => {
       const wrapper = mount(EditToolbar, { props: { ...editingProps, isEditing: false } })
       expect(wrapper.find('[data-testid="view-3d"]').exists()).toBe(false)
+    })
+  })
+
+  describe('plan tool switch (cursor vs draw)', () => {
+    it('is only shown in plan view', () => {
+      const threeD = mount(EditToolbar, { props: { ...editingProps, viewMode: '3d' } })
+      expect(threeD.find('[data-testid="plan-tool-select"]').exists()).toBe(false)
+
+      const plan = mount(EditToolbar, { props: { ...editingProps, viewMode: 'plan' } })
+      expect(plan.find('[data-testid="plan-tool-select"]').exists()).toBe(true)
+      expect(plan.find('[data-testid="plan-tool-add"]').exists()).toBe(true)
+    })
+
+    it('marks the active plan tool button', () => {
+      const wrapper = mount(EditToolbar, { props: { ...editingProps, viewMode: 'plan', planTool: 'add' } })
+
+      expect(wrapper.find('[data-testid="plan-tool-select"]').attributes('aria-pressed')).toBe('false')
+      expect(wrapper.find('[data-testid="plan-tool-add"]').attributes('aria-pressed')).toBe('true')
+    })
+
+    it('emits "set-plan-tool" when a plan tool button is clicked', async () => {
+      const wrapper = mount(EditToolbar, { props: { ...editingProps, viewMode: 'plan' } })
+
+      await wrapper.find('[data-testid="plan-tool-add"]').trigger('click')
+
+      expect(wrapper.emitted('set-plan-tool')?.[0]).toEqual(['add'])
+    })
+
+    it('does not render the plan tool switch outside edit mode', () => {
+      const wrapper = mount(EditToolbar, { props: { ...editingProps, viewMode: 'plan', isEditing: false } })
+      expect(wrapper.find('[data-testid="plan-tool-select"]').exists()).toBe(false)
     })
   })
 

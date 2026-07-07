@@ -11,6 +11,12 @@ const MIN_ROOM_DIMENSION = 0.5
 const MAX_HISTORY = 50
 
 export type EditorTool = 'move' | 'resize'
+// The 2D floor-plan editor's own tool, deliberately separate from the 3D
+// gizmo's EditorTool — 'select' (click/drag existing rooms, the default) vs
+// 'add' (drag on empty space to draw a new room) gate fundamentally different
+// pointer behavior than 3D's move/resize, so merging them into one type would
+// just create meaningless cross-combinations (e.g. "resize" + "add").
+export type PlanTool = 'select' | 'add'
 export type ResizeAxis = 'width' | 'height' | 'depth'
 export type ResizeAnchor = 'min' | 'max' | 'center'
 
@@ -41,6 +47,7 @@ export function useModelEditor() {
   const selectedId = ref<string | null>(null)
   const isSaving = ref(false)
   const activeTool = ref<EditorTool>('move')
+  const planTool = ref<PlanTool>('select')
   // Set while the user is picking the second room for a merge (the toolbar's
   // Merge button arms this on the currently-selected room; the *next* room
   // click completes the merge instead of just re-selecting — see ModelView).
@@ -72,6 +79,7 @@ export function useModelEditor() {
     selectedId.value = null
     isEditing.value = true
     activeTool.value = 'move'
+    planTool.value = 'select'
     history.value = []
     future.value = []
     mergeCandidateId.value = null
@@ -82,6 +90,7 @@ export function useModelEditor() {
     draft.value = null
     original.value = null
     selectedId.value = null
+    planTool.value = 'select'
     history.value = []
     future.value = []
     mergeCandidateId.value = null
@@ -105,6 +114,10 @@ export function useModelEditor() {
 
   const setTool = (tool: EditorTool) => {
     activeTool.value = tool
+  }
+
+  const setPlanTool = (tool: PlanTool) => {
+    planTool.value = tool
   }
 
   // Marks the start of one undoable user gesture. Call once per drag/edit/
@@ -309,6 +322,7 @@ export function useModelEditor() {
     dirty,
     isSaving,
     activeTool,
+    planTool,
     canUndo,
     canRedo,
     mergeCandidateId,
@@ -316,6 +330,7 @@ export function useModelEditor() {
     cancel,
     select,
     setTool,
+    setPlanTool,
     beginGesture,
     undo,
     redo,
