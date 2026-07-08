@@ -105,8 +105,8 @@ class SimulationBuilding:
     def target_url(self) -> str:
         url = self.config.targetUrl.rstrip("/")
         # Docker-internal host remapping (mirrors the TypeScript behaviour)
-        url = url.replace("localhost", "host.docker.internal")
-        url = url.replace("127.0.0.1", "host.docker.internal")
+        url = url.replace("localhost", "gateway")
+        url = url.replace("127.0.0.1", "gateway")
         return url
 
     @property

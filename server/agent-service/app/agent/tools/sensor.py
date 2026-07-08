@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, Field, model_validator
 
 from app.agent.tools.access import get_authorized_building
 from app.agent.tools.base import ToolContext, ToolResult
-from app.agent.tools.downstream import downstream_error, get_sensor_client, get_with_retry
+from app.agent.tools.downstream import (
+    auth_headers,
+    downstream_error,
+    get_sensor_client,
+    get_with_retry,
+)
 
 SensorMetric = Literal["peopleCount", "temperature", "airQuality"]
 TimeRange = Literal["1D", "1W", "1M"]
@@ -148,7 +154,12 @@ class GetLatestSensorDataTool:
             params["roomId"] = args.room_id
 
         try:
-            response = await get_with_retry(get_sensor_client(), path, params=params)
+            response = await get_with_retry(
+                get_sensor_client(),
+                path,
+                params=params,
+                headers=auth_headers(ctx.user),
+            )
         except httpx.HTTPError:
             return ToolResult(content="sensor-service is unavailable", is_error=True)
 
@@ -193,6 +204,89 @@ class GetLatestSensorDataTool:
                 "unit": metadata["unit"],
                 "readings": readings,
                 **({"note": "no sensor data available"} if not readings else {}),
+            }
+        )
+
+
+class ListSensorsArgs(BaseModel):
+    building_id: str = Field(description="Building whose installed sensor devices are needed.")
+    room_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional room id. Omit it to list the sensor devices installed in every room "
+            "of the building."
+        ),
+    )
+
+
+class ListSensorsTool:
+    name = "list_sensors"
+    description = (
+        "List the physical sensor devices registered in one room or every room of an "
+        "authorized building: sensor id and sensor type (temperature, peopleCount, "
+        "airQuality). Use to check what a room can measure — e.g. whether it has a "
+        "temperature sensor. This returns the device inventory only; for actual "
+        "measurements use get_latest_sensor_data or get_sensor_history."
+    )
+    Args = ListSensorsArgs
+
+    async def run(self, args: ListSensorsArgs, ctx: ToolContext) -> ToolResult:
+        building, error = await get_authorized_building(args.building_id, ctx)
+        if error is not None:
+            return error
+        assert building is not None
+
+        rooms, error = _validate_room(building, args.room_id)
+        if error is not None:
+            return error
+
+        path = f"/sensors/buildings/{quote(args.building_id, safe='')}"
+        if args.room_id is not None:
+            path += f"/rooms/{quote(args.room_id, safe='')}"
+
+        try:
+            response = await get_with_retry(
+                get_sensor_client(),
+                path,
+                headers=auth_headers(ctx.user),
+            )
+        except httpx.HTTPError:
+            return ToolResult(content="sensor-service is unavailable", is_error=True)
+
+        if response.status_code >= 400:
+            return ToolResult(
+                content=downstream_error("sensor-service", response),
+                is_error=True,
+            )
+        try:
+            body = response.json()
+        except ValueError:
+            return ToolResult(content="sensor-service returned invalid data", is_error=True)
+        if not isinstance(body, dict):
+            return ToolResult(content="sensor-service returned invalid data", is_error=True)
+
+        raw_sensors = body.get("data")
+        sensors = [
+            {
+                "sensor_id": device.get("sensorId"),
+                "sensor_type": device.get("sensorType"),
+                "room_id": str(device.get("roomId")),
+                "room_name": rooms.get(str(device.get("roomId")), {}).get("name"),
+            }
+            for device in (raw_sensors if isinstance(raw_sensors, list) else [])
+            if isinstance(device, dict)
+            and str(device.get("buildingId", "")) == args.building_id
+            and str(device.get("roomId", "")) in rooms
+            and (args.room_id is None or str(device.get("roomId", "")) == args.room_id)
+        ]
+
+        return ToolResult(
+            content={
+                "building_id": building.get("id"),
+                "building_name": building.get("name"),
+                "room_id": args.room_id,
+                "sensors": sensors,
+                **({"note": "no sensors registered"} if not sensors else {}),
             }
         )
 
@@ -251,6 +345,7 @@ class GetSensorHistoryTool:
                 get_sensor_client(),
                 f"/{args.metric}/dashboard",
                 params=params,
+                headers=auth_headers(ctx.user),
             )
         except httpx.HTTPError:
             return ToolResult(content="sensor-service is unavailable", is_error=True)
