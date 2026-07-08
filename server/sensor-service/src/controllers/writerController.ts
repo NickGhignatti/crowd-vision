@@ -23,14 +23,26 @@ export function createWriteHandler(kernel: SensorKernel) {
       return;
     }
 
-    module.create(
-      sensorData.buildingId,
-      sensorData.roomId,
-      type,
-      sensorData.sensorId
-    );
+    try {
+      await module.create(
+        sensorData.buildingId,
+        sensorData.roomId,
+        type,
+        sensorData.sensorId
+      );
+    } catch (err: unknown) {
+      // Mongo duplicate-key violation on the compound (building, room, sensor) index.
+      if ((err as { code?: number })?.code === 11000) {
+        res.status(409).json({
+          error: `Sensor '${sensorData.sensorId}' is already registered in this room.`,
+        });
+        return;
+      }
+      console.error("Failed to register sensor:", err);
+      res.status(500).json({ error: "Failed to register sensor." });
+      return;
+    }
 
-    // ── The Fast Path ────────────────────────────────────────────────────────
-    res.status(202).json({ accepted: true, type });
+    res.status(201).json({ created: true, type });
   };
 }

@@ -67,7 +67,7 @@ Greetings are treated as in scope and answered directly.
 
 ## Capabilities
 
-The model can choose from five **read-only** tools:
+The model can choose from eight **read-only** tools:
 
 .var {headers}
    - Tool
@@ -90,17 +90,49 @@ The model can choose from five **read-only** tools:
     - - `get_room`
       - Twin Service
       - Fetch one room by ID.
+    - - `get_latest_sensor_data`
+      - Sensor Service
+      - Latest people-count, temperature, or air-quality reading for a room or building.
+    - - `get_sensor_history`
+      - Sensor Service
+      - Bucketed historical readings (1D/1W/1M, avg/sum/min/max).
+    - - `list_sensors`
+      - Sensor Service
+      - The sensor devices registered in a room or building (id and type).
 
 The agent answers with validated documentation citations, a tool-call trace, token usage,
 estimated/provider-reported cost, an `idk` flag, and a final decision.
 
 .box type:{note}
-    The twin tools now **forward the caller's JWT** to twin-service: `require_user` stashes the
-    raw token on `AuthUser.raw_token`, and the twin tool's httpx client sends it as
-    `Authorization: Bearer …` so the read happens as the asking user (twin-service authenticates
-    its routes). The tools still rely on twin-service for authorization rather than performing their
-    own `ToolContext` checks — do not add sensitive or write-capable tools without explicit
-    authorization, confirmation, and audit behavior.
+    The twin and sensor tools **forward the caller's JWT** downstream: `require_user` stashes the
+    raw token on `AuthUser.raw_token`, and the tools' httpx clients send it as
+    `Authorization: Bearer …` so the read happens as the asking user (twin-service and
+    sensor-service authenticate their routes). The tools still rely on the downstream service for
+    authorization rather than performing their own `ToolContext` checks — do not add sensitive or
+    write-capable tools without explicit authorization, confirmation, and audit behavior.
+
+### `list_sensors`: The Device Inventory
+
+The reading tools tell you the *values*; `list_sensors` tells you what *hardware exists*. It
+answers "which sensors does room X have — does it even measure temperature?" and lets the agent
+distinguish "no reading right now" from "no sensor installed", instead of guessing from an empty
+readings list.
+
+Given a `building_id` and an optional `room_id`, the tool:
+
+1. Fetches the building from **twin-service** (forwarding the caller's JWT) and rejects
+   inaccessible or unknown buildings without revealing whether they exist; an unknown `room_id`
+   is rejected before any sensor request is made.
+2. Calls **sensor-service** `GET /sensors/buildings/{buildingId}` — or
+   `…/rooms/{roomId}` when a room is given — again as the asking user. Sensor-service reads its
+   Mongo-backed device registry (`buildingId`, `roomId`, `sensorId`, `sensorType`).
+3. Filters the response to rooms that actually belong to the authorized building (downstream
+   data is untrusted) and projects each device to `sensor_id`, `sensor_type`, `room_id`, and the
+   room name resolved from the twin.
+
+Two services are involved: twin-service for authorization and room names, sensor-service for the
+device registry itself. The tool is read-only and returns an inventory, never measurements — the
+system prompt steers the model to `get_latest_sensor_data` / `get_sensor_history` for those.
 
 ---
 

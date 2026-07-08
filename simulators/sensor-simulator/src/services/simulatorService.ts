@@ -30,8 +30,8 @@ export class Simulator {
       let parsedUrl = building.targetUrl.replace(/\/$/, "");
       if (parsedUrl.includes("localhost") || parsedUrl.includes("127.0.0.1")) {
         parsedUrl = parsedUrl
-          .replace(/localhost/g, "host.docker.internal")
-          .replace(/127\.0\.0\.1/g, "host.docker.internal");
+          .replace(/localhost/g, "gateway")
+          .replace(/127\.0\.0\.1/g, "gateway");
       }
 
       building.targetUrl = parsedUrl;

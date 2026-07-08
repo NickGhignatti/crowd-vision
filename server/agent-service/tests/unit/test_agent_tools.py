@@ -17,6 +17,8 @@ from app.agent.tools.sensor import (
     GetLatestSensorDataTool,
     GetSensorHistoryArgs,
     GetSensorHistoryTool,
+    ListSensorsArgs,
+    ListSensorsTool,
 )
 from app.agent.tools.twin import (
     GetBuildingArgs,
@@ -32,9 +34,14 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def _context(*, roles: list[str] | None = None, domains: list[str] | None = None) -> ToolContext:
+def _context(
+    *,
+    roles: list[str] | None = None,
+    domains: list[str] | None = None,
+    raw_token: str | None = None,
+) -> ToolContext:
     return ToolContext(
-        user=AuthUser("user-1", roles=roles or [], domains=domains or []),
+        user=AuthUser("user-1", roles=roles or [], domains=domains or [], raw_token=raw_token),
         session=cast("AsyncSession", object()),
     )
 
@@ -144,6 +151,7 @@ async def test_latest_sensor_data_projects_and_names_building_readings(monkeypat
     def sensor_handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/peopleCount/entireBuilding"
         assert request.url.params["building"] == "building-1"
+        assert request.headers["Authorization"] == "Bearer caller-jwt"
         return httpx.Response(
             200,
             json={
@@ -165,7 +173,7 @@ async def test_latest_sensor_data_projects_and_names_building_readings(monkeypat
     try:
         result = await GetLatestSensorDataTool().run(
             GetLatestSensorDataArgs(building_id="building-1", metric="peopleCount"),
-            _context(domains=["unibo.it"]),
+            _context(domains=["unibo.it"], raw_token="caller-jwt"),
         )
     finally:
         await twin_client.aclose()
@@ -258,6 +266,7 @@ async def test_sensor_history_forwards_validated_query_and_projects_points(monke
         assert request.url.params["roomId"] == "room-1"
         assert request.url.params["timeRange"] == "1W"
         assert request.url.params["aggMode"] == "max"
+        assert request.headers["Authorization"] == "Bearer caller-jwt"
         return httpx.Response(
             200,
             json={
@@ -279,7 +288,7 @@ async def test_sensor_history_forwards_validated_query_and_projects_points(monke
                 time_range="1W",
                 aggregation="max",
             ),
-            _context(domains=["unibo.it"]),
+            _context(domains=["unibo.it"], raw_token="caller-jwt"),
         )
     finally:
         await twin_client.aclose()
@@ -288,6 +297,113 @@ async def test_sensor_history_forwards_validated_query_and_projects_points(monke
     assert result.is_error is False
     assert result.content["room_name"] == "Lab"
     assert result.content["points"] == [{"timestamp": 1710000000000, "value": 24.5}]
+
+
+@pytest.mark.asyncio
+async def test_list_sensors_projects_room_devices_and_forwards_auth(monkeypatch):
+    twin_client = _client(lambda request: httpx.Response(200, json=_building()))
+
+    def sensor_handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/sensors/buildings/building-1/rooms/room-1"
+        assert request.headers["Authorization"] == "Bearer caller-jwt"
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "buildingId": "building-1",
+                        "roomId": "room-1",
+                        "sensorId": "temp-01",
+                        "sensorType": "temperature",
+                        "_id": "internal",
+                    }
+                ]
+            },
+        )
+
+    sensor_client = _client(sensor_handler)
+    monkeypatch.setattr(access_module, "get_twin_client", lambda: twin_client)
+    monkeypatch.setattr(sensor_module, "get_sensor_client", lambda: sensor_client)
+    try:
+        result = await ListSensorsTool().run(
+            ListSensorsArgs(building_id="building-1", room_id="room-1"),
+            _context(domains=["unibo.it"], raw_token="caller-jwt"),
+        )
+    finally:
+        await twin_client.aclose()
+        await sensor_client.aclose()
+
+    assert result.is_error is False
+    assert result.content["building_name"] == "Engineering"
+    assert result.content["sensors"] == [
+        {
+            "sensor_id": "temp-01",
+            "sensor_type": "temperature",
+            "room_id": "room-1",
+            "room_name": "Lab",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_list_sensors_discards_out_of_scope_devices(monkeypatch):
+    twin_client = _client(lambda request: httpx.Response(200, json=_building()))
+    sensor_client = _client(
+        lambda request: httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "buildingId": "other-building",
+                        "roomId": "room-1",
+                        "sensorId": "temp-01",
+                        "sensorType": "temperature",
+                    },
+                    {
+                        "buildingId": "building-1",
+                        "roomId": "unknown-room",
+                        "sensorId": "temp-02",
+                        "sensorType": "temperature",
+                    },
+                ]
+            },
+        )
+    )
+    monkeypatch.setattr(access_module, "get_twin_client", lambda: twin_client)
+    monkeypatch.setattr(sensor_module, "get_sensor_client", lambda: sensor_client)
+    try:
+        result = await ListSensorsTool().run(
+            ListSensorsArgs(building_id="building-1"),
+            _context(domains=["unibo.it"]),
+        )
+    finally:
+        await twin_client.aclose()
+        await sensor_client.aclose()
+
+    assert result.is_error is False
+    assert result.content["sensors"] == []
+    assert result.content["note"] == "no sensors registered"
+
+
+@pytest.mark.asyncio
+async def test_list_sensors_checks_room_before_sensor_request(monkeypatch):
+    twin_client = _client(lambda request: httpx.Response(200, json=_building()))
+
+    def unexpected_sensor_client():
+        raise AssertionError("unknown rooms must not reach sensor-service")
+
+    monkeypatch.setattr(access_module, "get_twin_client", lambda: twin_client)
+    monkeypatch.setattr(sensor_module, "get_sensor_client", unexpected_sensor_client)
+    try:
+        result = await ListSensorsTool().run(
+            ListSensorsArgs(building_id="building-1", room_id="missing-room"),
+            _context(domains=["unibo.it"]),
+        )
+    finally:
+        await twin_client.aclose()
+
+    assert result.is_error is True
+    assert result.content == "room unavailable or inaccessible"
 
 
 def test_sensor_history_rejects_sum_for_non_additive_metrics():
@@ -302,7 +418,7 @@ def test_sensor_history_rejects_sum_for_non_additive_metrics():
 
 def test_registry_exposes_sensor_tools():
     names = {schema.name for schema in REGISTRY.schemas()}
-    assert {"get_latest_sensor_data", "get_sensor_history"} <= names
+    assert {"get_latest_sensor_data", "get_sensor_history", "list_sensors"} <= names
 
 
 @pytest.mark.asyncio

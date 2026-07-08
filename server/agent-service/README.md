@@ -6,6 +6,7 @@ Tool-calling RAG agent for CrowdVision. It answers questions using:
 - `list_buildings`, `get_building`, `list_rooms`, `get_room`: structural data from `twin-service`.
 - `get_latest_sensor_data`, `get_sensor_history`: current and historical measurements from
   `sensor-service`.
+- `list_sensors`: the sensor devices (id and type) registered in a room or building.
 - An OpenAI-compatible provider for chat, tool calling, and embeddings.
 - Inline citations, token/cost usage, tool-call traces, and OpenTelemetry spans.
 
