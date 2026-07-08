@@ -36,11 +36,16 @@ func Mount(gw *service.Gateway, jwks jwksProvider, verifyKeys keyfunc.Keyfunc, i
 		_, _ = w.Write(jwks.JWKS())
 	})
 	r.Post("/exchange", exchangeHandler(gw))
+	r.Post("/login", loginHandler(gw))
+	r.Post("/register", registerHandler(gw))
 	r.Post("/logout", logoutHandler)
 
 	r.Group(func(r chi.Router) {
 		r.Use(authmiddleware.RequireAuthentication(verifyKeys, issuer))
 		r.Get("/me", meHandler)
+		r.Get("/profile", profileHandler(gw))
+		r.Patch("/profile", updateProfileHandler(gw))
+		r.Post("/profile/password", changePasswordHandler(gw))
 	})
 	return r
 }
@@ -82,29 +87,165 @@ func exchangeHandler(gw *service.Gateway) http.HandlerFunc {
 
 		token, err := gw.Exchange(r.Context(), body.IDToken)
 		if err != nil {
-			writeExchangeError(w, err)
+			writeAuthError(w, err)
 			return
 		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name: CookieName, Value: token, Path: "/",
-			HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
-		})
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"token": token})
+		writeSessionCookieAndToken(w, token)
 	}
 }
 
-// writeExchangeError distinguishes "you are not who you claim to be" (401)
-// from "we can't currently verify tenancy, try again" (503) — both are
-// failures, but only one is the caller's fault, and a client should retry
-// the second, never the first.
-func writeExchangeError(w http.ResponseWriter, err error) {
+// loginHandler is the in-app equivalent of exchangeHandler for the password
+// login path: the browser sends credentials straight to us (never to
+// Keycloak — see internal/keycloakadmin), and gw.Login does the direct
+// grant + the same verify/lookup/sign pipeline exchangeHandler uses.
+func loginHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Username == "" || body.Password == "" {
+			http.Error(w, "username and password are required", http.StatusBadRequest)
+			return
+		}
+
+		token, err := gw.Login(r.Context(), body.Username, body.Password)
+		if err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		writeSessionCookieAndToken(w, token)
+	}
+}
+
+// registerHandler creates the Keycloak user and logs it in within the same
+// request — one client-visible call for the whole "create account" flow.
+func registerHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
+			Name     string `json:"name"` // optional — a display name, not part of the account's identity
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Email == "" || body.Password == "" {
+			http.Error(w, "email and password are required", http.StatusBadRequest)
+			return
+		}
+
+		token, err := gw.Register(r.Context(), body.Email, body.Password, body.Name)
+		if err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		writeSessionCookieAndToken(w, token)
+	}
+}
+
+// profileHandler returns the caller's own current email/display name, read
+// live from Keycloak — this is deliberately not part of the JWT (see
+// claims-gateway/CLAUDE.md on keeping StandardClaims frozen), so account
+// settings fetches it on demand instead.
+func profileHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := authmiddleware.FromContext(r.Context())
+		if !ok {
+			http.Error(w, "unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
+		email, name, err := gw.Profile(r.Context(), claims.Sub)
+		if err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"email": email, "name": name})
+	}
+}
+
+// updateProfileHandler changes the caller's own email and/or display name.
+// Both fields are optional — omitting one leaves it untouched (see
+// keycloakadmin.Client.UpdateUser).
+func updateProfileHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := authmiddleware.FromContext(r.Context())
+		if !ok {
+			http.Error(w, "unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			Email string `json:"email"`
+			Name  string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if err := gw.UpdateProfile(r.Context(), claims.Sub, body.Email, body.Name); err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// changePasswordHandler is a sensitive-change re-auth flow: the caller must
+// present their current password (verified server-side against Keycloak via
+// the same primitive /login uses) before the new one is set — see
+// service.Gateway.ChangePassword.
+func changePasswordHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := authmiddleware.FromContext(r.Context())
+		if !ok {
+			http.Error(w, "unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			CurrentPassword string `json:"currentPassword"`
+			NewPassword     string `json:"newPassword"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.CurrentPassword == "" || body.NewPassword == "" {
+			http.Error(w, "currentPassword and newPassword are required", http.StatusBadRequest)
+			return
+		}
+
+		if err := gw.ChangePassword(r.Context(), claims.Sub, body.CurrentPassword, body.NewPassword); err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func writeSessionCookieAndToken(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name: CookieName, Value: token, Path: "/",
+		HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
+	})
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+
+// writeAuthError maps every failure mode across /exchange, /login, and
+// /register onto the right status: caller-at-fault rejections (bad ID
+// token/credentials, taken email) are never retried by a client, while
+// unavailable-dependency failures (tenancy-service, Keycloak) are — that
+// distinction is why this isn't a flat 400/500 split.
+func writeAuthError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, service.ErrInvalidIDToken):
 		http.Error(w, "invalid id token", http.StatusUnauthorized)
-	case errors.Is(err, service.ErrTenancyUnavailable):
-		http.Error(w, "tenancy unavailable, try again", http.StatusServiceUnavailable)
+	case errors.Is(err, service.ErrInvalidCredentials):
+		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+	case errors.Is(err, service.ErrEmailTaken):
+		http.Error(w, "email already registered", http.StatusConflict)
+	case errors.Is(err, service.ErrUserNotFound):
+		http.Error(w, "account not found", http.StatusNotFound)
+	case errors.Is(err, service.ErrTenancyUnavailable), errors.Is(err, service.ErrKeycloakUnavailable):
+		http.Error(w, "service unavailable, try again", http.StatusServiceUnavailable)
 	default:
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	}

@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import StandardModal from '@/components/modals/StandardModal.vue'
 
 import { useI18n } from 'vue-i18n'
 import { useKeycloakAuth } from '@/composables/auth/useKeycloakAuth.ts'
 
 const { t } = useI18n()
-const { beginLogin } = useKeycloakAuth()
+const { beginLogin, loginWithPassword } = useKeycloakAuth()
 
-const handleGoogleLogin = () => beginLogin(window.location.pathname, 'google')
+const username = ref('')
+const password = ref('')
+const isSubmitting = ref(false)
+const errorKey = ref<string | null>(null)
 
 defineProps<{
   isOpen: boolean
@@ -18,11 +22,23 @@ const emit = defineEmits<{
   (e: 'switch-to-signup'): void
 }>()
 
-// Login is a full-page redirect to Keycloak (authorization code + PKCE) —
-// there is no in-app password form anymore, see useKeycloakAuth.ts. The
-// modal never actually "closes" on success in the old sense: the page
-// navigates away and the app re-mounts on /auth/callback.
-const handleLogin = () => beginLogin(window.location.pathname)
+const handleGoogleLogin = () => beginLogin(window.location.pathname, 'google')
+
+// The form submits straight to our own claims-gateway (see
+// useKeycloakAuth.loginWithPassword) — the browser never talks to Keycloak
+// directly for this flow, unlike the Google button below.
+async function handleSubmit() {
+  errorKey.value = null
+  isSubmitting.value = true
+  const result = await loginWithPassword(username.value, password.value)
+  isSubmitting.value = false
+
+  if (result.ok) {
+    emit('close')
+  } else {
+    errorKey.value = result.error ?? 'authErrorGeneric'
+  }
+}
 </script>
 
 <template>
@@ -39,28 +55,58 @@ const handleLogin = () => beginLogin(window.location.pathname)
       <p class="text-sm text-slate-500 mt-2">{{ t('authentication.signInToContinue') }}</p>
     </div>
 
-    <div class="relative z-10 space-y-5">
-      <button
-        type="button"
-        @click="handleLogin"
-        class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0"
-      >
-        {{ t('authentication.continueWithOrg') }}
-      </button>
-
-      <div class="flex items-center gap-3">
-        <span class="h-px flex-1 bg-slate-200"></span>
-        <span class="text-xs text-slate-400 uppercase tracking-wide">{{ t('authentication.or') }}</span>
-        <span class="h-px flex-1 bg-slate-200"></span>
+    <form class="relative z-10 space-y-4" @submit.prevent="handleSubmit">
+      <div>
+        <label class="sr-only" for="login-username">{{ t('authentication.input.username') }}</label>
+        <input
+          id="login-username"
+          v-model="username"
+          type="text"
+          autocomplete="username"
+          :placeholder="t('authentication.input.usernamePlaceholder')"
+          required
+          class="w-full py-3 px-4 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        />
+      </div>
+      <div>
+        <label class="sr-only" for="login-password">{{ t('authentication.input.password') }}</label>
+        <input
+          id="login-password"
+          v-model="password"
+          type="password"
+          autocomplete="current-password"
+          :placeholder="t('authentication.input.passwordPlaceholder')"
+          required
+          class="w-full py-3 px-4 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        />
       </div>
 
+      <p v-if="errorKey" class="text-sm text-red-600 text-center">{{ t(`authentication.${errorKey}`) }}</p>
+
+      <button
+        type="submit"
+        :disabled="isSubmitting"
+        class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
+      >
+        {{ isSubmitting ? t('authentication.signingIn') : t('authentication.login') }}
+      </button>
+    </form>
+
+    <div class="relative z-10 mt-5 flex items-center gap-3">
+      <span class="h-px flex-1 bg-slate-200"></span>
+      <span class="text-xs text-slate-400 uppercase tracking-wide">{{ t('authentication.or') }}</span>
+      <span class="h-px flex-1 bg-slate-200"></span>
+    </div>
+
+    <div class="relative z-10 mt-5 flex justify-center">
       <button
         type="button"
         @click="handleGoogleLogin"
-        class="w-full py-3 px-4 flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border border-slate-200 shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
+        :aria-label="t('authentication.continueWithGoogle')"
+        :title="t('authentication.continueWithGoogle')"
+        class="w-12 h-12 flex items-center justify-center bg-white hover:bg-slate-50 text-slate-700 rounded-full border border-slate-200 shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
       >
-        <i class="ph-bold ph-google-logo text-lg"></i>
-        {{ t('authentication.continueWithGoogle') }}
+        <i class="ph-bold ph-google-logo text-xl"></i>
       </button>
     </div>
 

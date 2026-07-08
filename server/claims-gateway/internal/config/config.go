@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,14 @@ type Config struct {
 	TokenTTL         time.Duration
 	SigningKey       *rsa.PrivateKey
 	SigningKeyID     string
+
+	// Password login/registration (internal/keycloakadmin) — all
+	// server-side calls to Keycloak's token endpoint and Admin REST API, the
+	// browser never talks to Keycloak directly for these flows.
+	KeycloakBaseURL          string // OIDCDiscoveryURL with the "/realms/<realm>" suffix stripped
+	KeycloakRealm            string
+	RegistrationClientID     string // the confidential client used for both grants, e.g. "cv-gateway"
+	RegistrationClientSecret string
 }
 
 func Load() (Config, error) {
@@ -47,6 +56,18 @@ func Load() (Config, error) {
 	if secret == "" {
 		return Config{}, fmt.Errorf("INTERNAL_SIGNING_SECRET is required")
 	}
+	keycloakRealm := os.Getenv("KEYCLOAK_REALM")
+	if keycloakRealm == "" {
+		return Config{}, fmt.Errorf("KEYCLOAK_REALM is required")
+	}
+	registrationClientID := os.Getenv("REGISTRATION_CLIENT_ID")
+	if registrationClientID == "" {
+		return Config{}, fmt.Errorf("REGISTRATION_CLIENT_ID is required")
+	}
+	registrationClientSecret := os.Getenv("REGISTRATION_CLIENT_SECRET")
+	if registrationClientSecret == "" {
+		return Config{}, fmt.Errorf("REGISTRATION_CLIENT_SECRET is required")
+	}
 
 	key, kid, err := loadOrGenerateKey()
 	if err != nil {
@@ -62,11 +83,18 @@ func Load() (Config, error) {
 		gwIssuer = "cv-gateway"
 	}
 
+	// The admin/token base Keycloak calls need is the discovery URL with its
+	// "/realms/<realm>" suffix stripped — keycloakadmin.New re-appends the
+	// realm-specific paths itself, so this must not double up on it.
+	keycloakBaseURL := strings.TrimSuffix(discoveryURL, "/realms/"+keycloakRealm)
+
 	return Config{
 		Addr: addr, OIDCDiscoveryURL: discoveryURL, OIDCIssuer: issuer, OIDCClientID: clientID,
 		TenancyURL: tenancyURL, InternalSecret: []byte(secret),
 		Issuer: gwIssuer, TokenTTL: 15 * time.Minute,
 		SigningKey: key, SigningKeyID: kid,
+		KeycloakBaseURL: keycloakBaseURL, KeycloakRealm: keycloakRealm,
+		RegistrationClientID: registrationClientID, RegistrationClientSecret: registrationClientSecret,
 	}, nil
 }
 

@@ -107,6 +107,38 @@ func TestVerify_AcceptsAValidIDToken(t *testing.T) {
 	}
 }
 
+func TestVerify_ReadsNameClaimForDisplayName(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	srv := fakeIdP(t, key)
+	defer srv.Close()
+	v, _ := oidcverifier.New(context.Background(), srv.URL, srv.URL, clientID)
+
+	tok := signIDToken(t, key, srv.URL, jwt.MapClaims{"name": "Mario Rossi"})
+	claims, err := v.Verify(context.Background(), tok)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if claims.Name != "Mario Rossi" {
+		t.Fatalf("got name %q, want Mario Rossi", claims.Name)
+	}
+}
+
+func TestVerify_NoNameClaim_IsEmptyNotError(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	srv := fakeIdP(t, key)
+	defer srv.Close()
+	v, _ := oidcverifier.New(context.Background(), srv.URL, srv.URL, clientID)
+
+	tok := signIDToken(t, key, srv.URL, jwt.MapClaims{"preferred_username": "mario@unibo.it"})
+	claims, err := v.Verify(context.Background(), tok)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if claims.Name != "" {
+		t.Fatalf("got name %q, want empty (no display name set for this account yet)", claims.Name)
+	}
+}
+
 func TestVerify_NoOrganizationClaim_IsEmptyNotError(t *testing.T) {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	srv := fakeIdP(t, key)

@@ -1,4 +1,4 @@
-import { makeExternalRequest } from '@/composables/core/useApi.ts'
+import { makeExternalRequest, makeRequest } from '@/composables/core/useApi.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
 import { generateCodeVerifier, generateCodeChallenge, generateState } from '@/composables/auth/pkce.ts'
 
@@ -99,5 +99,44 @@ export function useKeycloakAuth() {
     return { ok, redirectPath }
   }
 
-  return { beginLogin, beginRegister, completeLogin }
+  // In-app password login: the browser only ever calls our own
+  // claims-gateway, never Keycloak directly — claims-gateway holds the
+  // confidential client secret and does the direct grant server-side (see
+  // internal/keycloakadmin), then sets the session cookie in this same
+  // response. hydrate(true) just re-reads that cookie into the store.
+  async function loginWithPassword(
+    username: string,
+    password: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const res = await makeRequest('/gateway/login', 'POST', {
+      body: JSON.stringify({ username, password }),
+    })
+    if (!res.ok) {
+      return { ok: false, error: res.status === 401 ? 'invalidCredentials' : 'authErrorGeneric' }
+    }
+    const authStore = useAuthStore()
+    await authStore.hydrate(true)
+    return { ok: authStore.isAuthenticated }
+  }
+
+  // In-app registration: claims-gateway creates the Keycloak user and logs
+  // it in within the same request (see service.Gateway.Register) — one call
+  // both creates the account and establishes its session.
+  async function registerWithPassword(
+    email: string,
+    password: string,
+    name = '',
+  ): Promise<{ ok: boolean; error?: string }> {
+    const res = await makeRequest('/gateway/register', 'POST', {
+      body: JSON.stringify({ email, password, name }),
+    })
+    if (!res.ok) {
+      return { ok: false, error: res.status === 409 ? 'emailAlreadyRegistered' : 'authErrorGeneric' }
+    }
+    const authStore = useAuthStore()
+    await authStore.hydrate(true)
+    return { ok: authStore.isAuthenticated }
+  }
+
+  return { beginLogin, beginRegister, completeLogin, loginWithPassword, registerWithPassword }
 }

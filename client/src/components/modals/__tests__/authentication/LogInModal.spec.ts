@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import LogInModal from '@/components/modals/authentication/LogInModal.vue'
 
 vi.mock('vue-i18n', () => ({
@@ -7,9 +7,11 @@ vi.mock('vue-i18n', () => ({
 }))
 
 const mockBeginLogin = vi.fn()
+const mockLoginWithPassword = vi.fn()
 vi.mock('@/composables/auth/useKeycloakAuth.ts', () => ({
   useKeycloakAuth: () => ({
     beginLogin: mockBeginLogin,
+    loginWithPassword: mockLoginWithPassword,
   }),
 }))
 
@@ -45,18 +47,30 @@ describe('LogInModal', () => {
       })
 
       expect(wrapper.text()).toContain('authentication.welcomeBack')
-      expect(wrapper.text()).toContain('authentication.continueWithOrg')
+      expect(wrapper.text()).toContain('authentication.login')
       expect(wrapper.text()).toContain('authentication.register')
     })
 
-    it('renders no password or username inputs (login is a Keycloak redirect)', () => {
+    it('renders an in-app username/password form', () => {
       const wrapper = mount(LogInModal, {
         props: { isOpen: true },
         global: { stubs },
       })
 
-      expect(wrapper.find('input[type="password"]').exists()).toBe(false)
-      expect(wrapper.find('form').exists()).toBe(false)
+      expect(wrapper.find('form').exists()).toBe(true)
+      expect(wrapper.find('input[type="password"]').exists()).toBe(true)
+      expect(wrapper.findAll('input').length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('renders Google as an icon-only circular button, not a labeled one', () => {
+      const wrapper = mount(LogInModal, {
+        props: { isOpen: true },
+        global: { stubs },
+      })
+
+      const googleBtn = wrapper.find('[aria-label="authentication.continueWithGoogle"]')
+      expect(googleBtn.exists()).toBe(true)
+      expect(googleBtn.text()).toBe('')
     })
   })
 
@@ -89,29 +103,59 @@ describe('LogInModal', () => {
     })
   })
 
-  describe('login', () => {
-    it('redirects to Keycloak via beginLogin when the continue button is clicked', async () => {
+  describe('password login', () => {
+    it('submits the entered username/password via loginWithPassword', async () => {
+      mockLoginWithPassword.mockResolvedValue({ ok: true })
       const wrapper = mount(LogInModal, {
         props: { isOpen: true },
         global: { stubs },
       })
 
-      const buttons = wrapper.findAll('button')
-      const continueBtn = buttons.find((b) => b.text().includes('authentication.continueWithOrg'))
-      await continueBtn?.trigger('click')
+      await wrapper.find('input[type="text"]').setValue('mario')
+      await wrapper.find('input[type="password"]').setValue('correct-password')
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
 
-      expect(mockBeginLogin).toHaveBeenCalledTimes(1)
+      expect(mockLoginWithPassword).toHaveBeenCalledWith('mario', 'correct-password')
     })
 
+    it('emits "close" once the login succeeds', async () => {
+      mockLoginWithPassword.mockResolvedValue({ ok: true })
+      const wrapper = mount(LogInModal, {
+        props: { isOpen: true },
+        global: { stubs },
+      })
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      expect(wrapper.emitted('close')).toBeTruthy()
+    })
+
+    it('shows the mapped error message and does not close on failure', async () => {
+      mockLoginWithPassword.mockResolvedValue({ ok: false, error: 'invalidCredentials' })
+      const wrapper = mount(LogInModal, {
+        props: { isOpen: true },
+        global: { stubs },
+      })
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('authentication.invalidCredentials')
+      expect(wrapper.emitted('close')).toBeFalsy()
+    })
+  })
+
+  describe('google login', () => {
     it('routes straight to Google (kc_idp_hint) when the Google button is clicked', async () => {
       const wrapper = mount(LogInModal, {
         props: { isOpen: true },
         global: { stubs },
       })
 
-      const buttons = wrapper.findAll('button')
-      const googleBtn = buttons.find((b) => b.text().includes('authentication.continueWithGoogle'))
-      await googleBtn?.trigger('click')
+      const googleBtn = wrapper.find('[aria-label="authentication.continueWithGoogle"]')
+      await googleBtn.trigger('click')
 
       expect(mockBeginLogin).toHaveBeenCalledTimes(1)
       expect(mockBeginLogin).toHaveBeenCalledWith(expect.any(String), 'google')

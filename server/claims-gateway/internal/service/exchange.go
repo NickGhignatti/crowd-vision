@@ -40,6 +40,7 @@ var (
 type IDTokenClaims struct {
 	Sub               string
 	PreferredUsername string
+	Name              string // Keycloak's "full name" claim; "" if the account has no first/last name set
 	EmailVerified     bool
 	Organization      string   // Keycloak Organizations claim; "" if the user belongs to none yet
 	Roles             []string // realm roles, noisy (includes Keycloak's own defaults)
@@ -70,6 +71,19 @@ type Gateway struct {
 	tenancy  TenancyClient
 	signer   Signer
 	ttl      time.Duration
+
+	// authenticator/registrar back the in-app password login/registration
+	// path (see register.go's WithPasswordAuth) — nil unless wired, since
+	// only claims-gateway's real main.go needs them.
+	authenticator PasswordAuthenticator
+	registrar     UserRegistrar
+
+	// profileReader/profileUpdater/passwordChanger back the self-service
+	// account settings path (see profile.go's WithProfileManagement) — nil
+	// unless wired, same reasoning as above.
+	profileReader   ProfileReader
+	profileUpdater  ProfileUpdater
+	passwordChanger PasswordChanger
 }
 
 func New(v Verifier, t TenancyClient, s Signer, ttl time.Duration) *Gateway {
@@ -99,10 +113,20 @@ func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, erro
 
 	return g.signer.Sign(authcontracts.StandardClaims{
 		Sub:         kc.Sub,
-		AccountName: kc.PreferredUsername,
+		AccountName: accountName(kc),
 		SID:         uuid.NewString(),
 		Memberships: memberships,
 	}, g.ttl)
+}
+
+// accountName prefers the display name (Keycloak's "full name" claim) over
+// the bare username/email — falling back cleanly for any account that
+// doesn't have one set yet.
+func accountName(kc IDTokenClaims) string {
+	if kc.Name != "" {
+		return kc.Name
+	}
+	return kc.PreferredUsername
 }
 
 // provisionOnFirstLogin is the lazy-provisioning decision (G-MEMBERSHIP):

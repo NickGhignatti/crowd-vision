@@ -2,6 +2,7 @@
 import NavbarLink from '@/components/links/NavbarLink.vue'
 import LogInModal from '@/components/modals/authentication/LogInModal.vue'
 import SignInModal from '@/components/modals/authentication/SignInModal.vue'
+import AccountSettingsModal from '@/components/modals/AccountSettingsModal.vue'
 import ProfileDropdown from '@/components/dropdowns/ProfileDropdown.vue'
 import LanguageDropdown from '@/components/dropdowns/LanguageDropdown.vue'
 import NotificationButton from '@/components/buttons/NotificationButton.vue'
@@ -14,7 +15,7 @@ const { t } = useI18n()
 const { isLoggedIn, handleLogout } = useAuth()
 const { links } = useNavLinks()
 
-const activeModal = ref<'login' | 'signup' | null>(null)
+const activeModal = ref<'login' | 'signup' | 'settings' | null>(null)
 const isMobileMenuOpen = ref(false)
 const isUserDropdownOpen = ref(false)
 
@@ -23,6 +24,9 @@ const openLogin = () => {
 }
 const openSignUp = () => {
   activeModal.value = 'signup'
+}
+const openSettings = () => {
+  activeModal.value = 'settings'
 }
 const closeAll = () => {
   activeModal.value = null
@@ -90,6 +94,7 @@ const handleLockedClick = () => {
             :is-mobile-menu-open="false"
             @close-drop-down="isUserDropdownOpen = !isUserDropdownOpen"
             @handle-logout="handleLogout"
+            @open-settings="openSettings"
           />
         </div>
 
@@ -144,6 +149,7 @@ const handleLockedClick = () => {
             :is-mobile-menu-open="true"
             @close-drop-down="isUserDropdownOpen = !isUserDropdownOpen"
             @handle-logout="handleLogout"
+            @open-settings="openSettings"
           />
         </div>
       </div>
@@ -159,5 +165,6 @@ const handleLockedClick = () => {
       @close="closeAll"
       @switch-to-login="openLogin"
     />
+    <AccountSettingsModal :is-open="activeModal === 'settings'" @close="closeAll" />
   </nav>
 </template>

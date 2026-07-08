@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useKeycloakAuth } from '@/composables/auth/useKeycloakAuth.ts'
-import { makeExternalRequest } from '@/composables/core/useApi.ts'
+import { makeExternalRequest, makeRequest } from '@/composables/core/useApi.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
 
 vi.mock('@/composables/auth/pkce.ts', () => ({
@@ -12,6 +12,7 @@ vi.mock('@/composables/auth/pkce.ts', () => ({
 
 vi.mock('@/composables/core/useApi.ts', () => ({
   makeExternalRequest: vi.fn(),
+  makeRequest: vi.fn(),
 }))
 
 vi.mock('@/stores/authentication.ts', () => ({
@@ -201,6 +202,121 @@ describe('useKeycloakAuth', () => {
 
       expect(result.ok).toBe(false)
       expect(useAuthStore).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('loginWithPassword', () => {
+    it('posts credentials to gateway/login and hydrates the store on success', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
+      const mockHydrate = vi.fn().mockResolvedValue(undefined)
+      vi.mocked(useAuthStore).mockReturnValue({
+        isAuthenticated: true,
+        hydrate: mockHydrate,
+      } as unknown as ReturnType<typeof useAuthStore>)
+
+      const { loginWithPassword } = useKeycloakAuth()
+      const result = await loginWithPassword('mario', 'correct-password')
+
+      expect(makeRequest).toHaveBeenCalledWith(
+        '/gateway/login',
+        'POST',
+        expect.objectContaining({ body: JSON.stringify({ username: 'mario', password: 'correct-password' }) }),
+      )
+      expect(mockHydrate).toHaveBeenCalledWith(true)
+      expect(result).toEqual({ ok: true })
+    })
+
+    it('reports invalid credentials on a 401 without hydrating the store', async () => {
+      vi.mocked(makeRequest).mockResolvedValue({
+        ok: false,
+        status: 401,
+      } as unknown as Response)
+
+      const { loginWithPassword } = useKeycloakAuth()
+      const result = await loginWithPassword('mario', 'wrong-password')
+
+      expect(result).toEqual({ ok: false, error: 'invalidCredentials' })
+      expect(useAuthStore).not.toHaveBeenCalled()
+    })
+
+    it('reports a generic error for any other failure status', async () => {
+      vi.mocked(makeRequest).mockResolvedValue({
+        ok: false,
+        status: 503,
+      } as unknown as Response)
+
+      const { loginWithPassword } = useKeycloakAuth()
+      const result = await loginWithPassword('mario', 'x')
+
+      expect(result).toEqual({ ok: false, error: 'authErrorGeneric' })
+    })
+  })
+
+  describe('registerWithPassword', () => {
+    it('posts the new account to gateway/register and hydrates the store on success', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
+      const mockHydrate = vi.fn().mockResolvedValue(undefined)
+      vi.mocked(useAuthStore).mockReturnValue({
+        isAuthenticated: true,
+        hydrate: mockHydrate,
+      } as unknown as ReturnType<typeof useAuthStore>)
+
+      const { registerWithPassword } = useKeycloakAuth()
+      const result = await registerWithPassword('new@unibo.it', 's3cret!', 'Mario Rossi')
+
+      expect(makeRequest).toHaveBeenCalledWith(
+        '/gateway/register',
+        'POST',
+        expect.objectContaining({
+          body: JSON.stringify({ email: 'new@unibo.it', password: 's3cret!', name: 'Mario Rossi' }),
+        }),
+      )
+      expect(mockHydrate).toHaveBeenCalledWith(true)
+      expect(result).toEqual({ ok: true })
+    })
+
+    it('registers without a name (display name is optional)', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
+      vi.mocked(useAuthStore).mockReturnValue({
+        isAuthenticated: true,
+        hydrate: vi.fn().mockResolvedValue(undefined),
+      } as unknown as ReturnType<typeof useAuthStore>)
+
+      const { registerWithPassword } = useKeycloakAuth()
+      await registerWithPassword('new@unibo.it', 's3cret!')
+
+      expect(makeRequest).toHaveBeenCalledWith(
+        '/gateway/register',
+        'POST',
+        expect.objectContaining({
+          body: JSON.stringify({ email: 'new@unibo.it', password: 's3cret!', name: '' }),
+        }),
+      )
+    })
+
+    it('reports an already-registered error on a 409 without hydrating the store', async () => {
+      vi.mocked(makeRequest).mockResolvedValue({
+        ok: false,
+        status: 409,
+      } as unknown as Response)
+
+      const { registerWithPassword } = useKeycloakAuth()
+      const result = await registerWithPassword('taken@unibo.it', 's3cret!')
+
+      expect(result).toEqual({ ok: false, error: 'emailAlreadyRegistered' })
+      expect(useAuthStore).not.toHaveBeenCalled()
+    })
+
+    it('reports a generic error for any other failure status', async () => {
+      vi.mocked(makeRequest).mockResolvedValue({
+        ok: false,
+        status: 503,
+      } as unknown as Response)
+
+      const { registerWithPassword } = useKeycloakAuth()
+      const result = await registerWithPassword('new@unibo.it', 's3cret!')
+
+      expect(result).toEqual({ ok: false, error: 'authErrorGeneric' })
     })
   })
 })

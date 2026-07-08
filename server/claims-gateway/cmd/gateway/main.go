@@ -13,6 +13,7 @@ import (
 
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/api"
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/config"
+	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/keycloakadmin"
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/oidcverifier"
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/signer"
@@ -35,7 +36,13 @@ func main() {
 	tenancy := tenancyclient.New(cfg.TenancyURL, cfg.InternalSecret)
 	sign := signer.New(cfg.SigningKey, cfg.SigningKeyID, cfg.Issuer)
 
-	gw := service.New(verifier, tenancy, sign, cfg.TokenTTL)
+	// keycloakadmin holds the confidential cv-gateway client secret and is
+	// the only thing that ever talks to Keycloak's token/admin endpoints for
+	// password login/registration — the browser never does.
+	kcAdmin := keycloakadmin.New(cfg.KeycloakBaseURL, cfg.KeycloakRealm, cfg.RegistrationClientID, cfg.RegistrationClientSecret)
+	gw := service.New(verifier, tenancy, sign, cfg.TokenTTL).
+		WithPasswordAuth(kcAdmin, kcAdmin).
+		WithProfileManagement(kcAdmin, kcAdmin, kcAdmin)
 
 	// /me verifies the gateway's OWN minted tokens — built directly from the
 	// Signer's own JWKS bytes, never over HTTP to itself.

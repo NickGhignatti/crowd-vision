@@ -22,9 +22,9 @@ func (f *fakeVerifier) Verify(_ context.Context, _ string) (service.IDTokenClaim
 }
 
 type fakeTenancy struct {
-	memberships   []authcontracts.Membership
-	lookupErr     error
-	provisionErr  error
+	memberships    []authcontracts.Membership
+	lookupErr      error
+	provisionErr   error
 	provisionedReq *service.ProvisionRequest
 }
 
@@ -67,6 +67,34 @@ func TestExchange_ExistingMember_SignsWithCurrentMemberships(t *testing.T) {
 	}
 	if len(signer.lastClaims.Memberships) != 1 || signer.lastClaims.Memberships[0].Domain != "unibo" {
 		t.Fatalf("got %+v, want the existing unibo membership", signer.lastClaims.Memberships)
+	}
+}
+
+func TestExchange_PrefersNameOverPreferredUsernameForAccountName(t *testing.T) {
+	verifier := &fakeVerifier{claims: service.IDTokenClaims{Sub: "acc-1", PreferredUsername: "mario@unibo.it", Name: "Mario Rossi"}}
+	tenancy := &fakeTenancy{memberships: []authcontracts.Membership{{Domain: "unibo", Role: "standard_customer"}}}
+	signer := &fakeSigner{}
+	gw := service.New(verifier, tenancy, signer, time.Hour)
+
+	if _, err := gw.Exchange(context.Background(), "raw-id-token"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if signer.lastClaims.AccountName != "Mario Rossi" {
+		t.Fatalf("got AccountName %q, want the display name over the bare username", signer.lastClaims.AccountName)
+	}
+}
+
+func TestExchange_FallsBackToPreferredUsername_WhenNameIsAbsent(t *testing.T) {
+	verifier := &fakeVerifier{claims: service.IDTokenClaims{Sub: "acc-1", PreferredUsername: "mario@unibo.it"}}
+	tenancy := &fakeTenancy{memberships: []authcontracts.Membership{{Domain: "unibo", Role: "standard_customer"}}}
+	signer := &fakeSigner{}
+	gw := service.New(verifier, tenancy, signer, time.Hour)
+
+	if _, err := gw.Exchange(context.Background(), "raw-id-token"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if signer.lastClaims.AccountName != "mario@unibo.it" {
+		t.Fatalf("got AccountName %q, want the fallback username (no display name set yet)", signer.lastClaims.AccountName)
 	}
 }
 

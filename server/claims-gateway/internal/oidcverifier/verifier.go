@@ -95,10 +95,15 @@ func (v *Verifier) Verify(ctx context.Context, rawIDToken string) (service.IDTok
 	}
 
 	var raw struct {
-		PreferredUsername string   `json:"preferred_username"`
-		EmailVerified     bool     `json:"email_verified"`
-		Organization      []string `json:"organization"`
-		Roles             []string `json:"roles"`
+		PreferredUsername string `json:"preferred_username"`
+		// Name is Keycloak's built-in "full name" mapper output
+		// (trim(firstName+" "+lastName)) — present whenever the user has a
+		// first/last name set, which Google brokering already populates
+		// automatically and registration now sets too (see keycloakadmin).
+		Name          string   `json:"name"`
+		EmailVerified bool     `json:"email_verified"`
+		Organization  []string `json:"organization"`
+		Roles         []string `json:"roles"`
 	}
 	if err := tok.Claims(&raw); err != nil {
 		return service.IDTokenClaims{}, fmt.Errorf("decoding id token claims: %w", err)
@@ -107,6 +112,7 @@ func (v *Verifier) Verify(ctx context.Context, rawIDToken string) (service.IDTok
 	return service.IDTokenClaims{
 		Sub:               tok.Subject,
 		PreferredUsername: raw.PreferredUsername,
+		Name:              raw.Name,
 		EmailVerified:     raw.EmailVerified,
 		Organization:      firstOrganizationName(raw.Organization),
 		Roles:             raw.Roles,
