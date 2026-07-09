@@ -29,6 +29,7 @@ function signRS256(payload: object, overrides: { iss?: string } = {}) {
 function buildApp() {
   const app = express();
   app.use(cookieParser());
+  // codeql[js/missing-rate-limiting] -- test-only harness route, never deployed/routed to.
   app.get("/protected", requireAuthentication, (req, res) => {
     res.status(200).json({ account: req.account, userId: req.userId });
   });

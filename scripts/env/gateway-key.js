@@ -11,11 +11,6 @@ const secretsDir = path.join(__dirname, "../..", "secrets");
 const keyPath = path.join(secretsDir, "gateway-dev-key.pem");
 
 function generateGatewayKey() {
-    if (fs.existsSync(keyPath)) {
-        console.log("✅ Gateway signing key already present. Skipping generation.");
-        return;
-    }
-
     console.log("🔑 Generating stable gateway signing key (dev)...");
     const { privateKey } = crypto.generateKeyPairSync("rsa", {
         modulusLength: 2048,
@@ -23,9 +18,19 @@ function generateGatewayKey() {
     });
 
     fs.mkdirSync(secretsDir, { recursive: true });
-    fs.writeFileSync(keyPath, privateKey, { mode: 0o600 });
-
-    console.log(`✅ Gateway signing key written to secrets/gateway-dev-key.pem`);
+    try {
+        // 'wx' creates exclusively and fails with EEXIST if the file already
+        // exists — atomic, so there's no check-then-write race between two
+        // concurrent invocations (e.g. two `just stack dev` runs).
+        fs.writeFileSync(keyPath, privateKey, { mode: 0o600, flag: "wx" });
+        console.log(`✅ Gateway signing key written to secrets/gateway-dev-key.pem`);
+    } catch (err) {
+        if (err.code === "EEXIST") {
+            console.log("✅ Gateway signing key already present. Skipping generation.");
+            return;
+        }
+        throw err;
+    }
 }
 
 generateGatewayKey();
