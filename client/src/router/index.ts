@@ -4,6 +4,7 @@ import DomainsView from '@/views/DomainsView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import AdministrationView from '@/views/AdministrationView.vue'
 import AuthCallbackView from '@/views/AuthCallbackView.vue'
+import WebGpuSmokeView from '@/views/_WebGpuSmokeView.vue'
 
 import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authentication.ts'
@@ -54,6 +55,11 @@ const router = createRouter({
       path: '/auth/callback',
       name: 'auth-callback',
       component: AuthCallbackView,
+    },
+    {
+      path: '/_webgpu-smoke',
+      name: 'webgpu-smoke',
+      component: WebGpuSmokeView,
     },
   ],
 })
