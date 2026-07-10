@@ -153,19 +153,21 @@ func profileHandler(gw *service.Gateway) http.HandlerFunc {
 			return
 		}
 
-		email, name, err := gw.Profile(r.Context(), claims.Sub)
+		email, name, picture, err := gw.Profile(r.Context(), claims.Sub)
 		if err != nil {
 			writeAuthError(w, err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"email": email, "name": name})
+		_ = json.NewEncoder(w).Encode(map[string]string{"email": email, "name": name, "picture": picture})
 	}
 }
 
 // updateProfileHandler changes the caller's own email and/or display name.
 // Both fields are optional — omitting one leaves it untouched (see
-// keycloakadmin.Client.UpdateUser).
+// keycloakadmin.Client.UpdateUser). On success it also refreshes the session
+// cookie (see service.Gateway.UpdateProfile) so a changed name shows up
+// immediately instead of waiting for the caller's next full login.
 func updateProfileHandler(gw *service.Gateway) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := authmiddleware.FromContext(r.Context())
@@ -183,10 +185,12 @@ func updateProfileHandler(gw *service.Gateway) http.HandlerFunc {
 			return
 		}
 
-		if err := gw.UpdateProfile(r.Context(), claims.Sub, body.Email, body.Name); err != nil {
+		token, err := gw.UpdateProfile(r.Context(), claims, body.Email, body.Name)
+		if err != nil {
 			writeAuthError(w, err)
 			return
 		}
+		setSessionCookie(w, token)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -220,11 +224,15 @@ func changePasswordHandler(gw *service.Gateway) http.HandlerFunc {
 	}
 }
 
-func writeSessionCookieAndToken(w http.ResponseWriter, token string) {
+func setSessionCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name: CookieName, Value: token, Path: "/",
 		HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
 	})
+}
+
+func writeSessionCookieAndToken(w http.ResponseWriter, token string) {
+	setSessionCookie(w, token)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"token": token})
 }

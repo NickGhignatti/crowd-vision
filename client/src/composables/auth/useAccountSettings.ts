@@ -6,11 +6,16 @@ import { useAuthStore } from '@/stores/authentication.ts'
 // claims-gateway's /gateway/profile on demand, never carried in the session
 // cookie every request sends.
 export function useAccountSettings() {
-  async function fetchProfile(): Promise<{ ok: boolean; email?: string; name?: string }> {
+  async function fetchProfile(): Promise<{
+    ok: boolean
+    email?: string
+    name?: string
+    picture?: string
+  }> {
     const res = await makeRequest('/gateway/profile')
     if (!res.ok) return { ok: false }
     const data = await res.json()
-    return { ok: true, email: data.email, name: data.name }
+    return { ok: true, email: data.email, name: data.name, picture: data.picture }
   }
 
   async function updateProfile(

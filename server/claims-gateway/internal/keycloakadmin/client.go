@@ -43,6 +43,14 @@ func New(baseURL, realm, clientID, clientSecret string) *Client {
 // Resource Owner Password Credentials grant. This is safe here because
 // cv-gateway is a confidential client whose secret never leaves this process
 // — the same grant on the public, browser-held cv-web client would not be.
+//
+// The resulting ID token's `aud` is cv-gateway, not cv-web — but
+// oidcverifier.Verify always checks for cv-web (the one audience every token
+// this gateway accepts must carry, since that's who the browser's PKCE flow
+// requests tokens for). realm-export.json's cv-gateway client carries a
+// "cv-web-audience" protocol mapper specifically so its tokens also satisfy
+// that check; without it every password login/registration 401s with
+// "invalid id token" despite correct credentials.
 func (c *Client) PasswordGrant(ctx context.Context, username, password string) (string, error) {
 	resp, err := c.postForm(ctx, url.Values{
 		"grant_type":    {"password"},
@@ -128,41 +136,52 @@ func (c *Client) CreateUser(ctx context.Context, email, password, name string) e
 	}
 }
 
-// GetUser reads a Keycloak user's current email/display name via the Admin
-// REST API — used to prefill the account settings form and to look up the
-// username needed to re-verify a password change (see service.Gateway.ChangePassword).
-func (c *Client) GetUser(ctx context.Context, userID string) (email, name string, err error) {
+// GetUser reads a Keycloak user's current email/display name/picture via the
+// Admin REST API — used to prefill the account settings form and to look up
+// the username needed to re-verify a password change (see
+// service.Gateway.ChangePassword). picture is Keycloak's "picture" user
+// attribute — populated by the google-picture identity provider mapper on
+// federated logins (see keycloak/realm-export.json), empty for
+// password-signup accounts that never linked a social IdP.
+func (c *Client) GetUser(ctx context.Context, userID string) (email, name, picture string, err error) {
 	adminToken, err := c.adminToken(ctx)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.usersURL+"/"+userID, nil)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+adminToken)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("keycloak admin API unreachable: %w", err)
+		return "", "", "", fmt.Errorf("keycloak admin API unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
 		var user struct {
-			Email     string `json:"email"`
-			FirstName string `json:"firstName"`
+			Email      string `json:"email"`
+			FirstName  string `json:"firstName"`
+			Attributes struct {
+				Picture []string `json:"picture"`
+			} `json:"attributes"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-			return "", "", fmt.Errorf("decoding user response: %w", err)
+			return "", "", "", fmt.Errorf("decoding user response: %w", err)
 		}
-		return user.Email, user.FirstName, nil
+		var pic string
+		if len(user.Attributes.Picture) > 0 {
+			pic = user.Attributes.Picture[0]
+		}
+		return user.Email, user.FirstName, pic, nil
 	case http.StatusNotFound:
-		return "", "", service.ErrUserNotFound
+		return "", "", "", service.ErrUserNotFound
 	default:
-		return "", "", fmt.Errorf("keycloak admin API returned %d", resp.StatusCode)
+		return "", "", "", fmt.Errorf("keycloak admin API returned %d", resp.StatusCode)
 	}
 }
 

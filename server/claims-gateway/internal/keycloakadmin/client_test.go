@@ -196,11 +196,30 @@ func adminTokenHandler(w http.ResponseWriter, _ *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"access_token": "admin-token"})
 }
 
-func TestGetUser_ReturnsEmailAndName(t *testing.T) {
+func TestGetUser_ReturnsEmailNameAndPicture(t *testing.T) {
 	srv := fakeKeycloak(t, adminTokenHandler, nil, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/admin/realms/"+realm+"/users/"+testUserID {
 			t.Fatalf("got path %q", r.URL.Path)
 		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"email": "mario@unibo.it", "firstName": "Mario Rossi",
+			"attributes": map[string][]string{"picture": {"https://lh3.googleusercontent.com/a/abc"}},
+		})
+	})
+	defer srv.Close()
+
+	c := keycloakadmin.New(srv.URL, realm, clientID, clientSecret)
+	email, name, picture, err := c.GetUser(context.Background(), testUserID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if email != "mario@unibo.it" || name != "Mario Rossi" || picture != "https://lh3.googleusercontent.com/a/abc" {
+		t.Fatalf("got (%q, %q, %q)", email, name, picture)
+	}
+}
+
+func TestGetUser_MissingPictureAttributeIsEmptyString(t *testing.T) {
+	srv := fakeKeycloak(t, adminTokenHandler, nil, func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"email": "mario@unibo.it", "firstName": "Mario Rossi",
 		})
@@ -208,12 +227,12 @@ func TestGetUser_ReturnsEmailAndName(t *testing.T) {
 	defer srv.Close()
 
 	c := keycloakadmin.New(srv.URL, realm, clientID, clientSecret)
-	email, name, err := c.GetUser(context.Background(), testUserID)
+	_, _, picture, err := c.GetUser(context.Background(), testUserID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if email != "mario@unibo.it" || name != "Mario Rossi" {
-		t.Fatalf("got (%q, %q)", email, name)
+	if picture != "" {
+		t.Fatalf("got picture %q, want empty for a password-signup account with no picture attribute", picture)
 	}
 }
 
@@ -224,7 +243,7 @@ func TestGetUser_NotFoundIs404(t *testing.T) {
 	defer srv.Close()
 
 	c := keycloakadmin.New(srv.URL, realm, clientID, clientSecret)
-	_, _, err := c.GetUser(context.Background(), testUserID)
+	_, _, _, err := c.GetUser(context.Background(), testUserID)
 	if !errors.Is(err, service.ErrUserNotFound) {
 		t.Fatalf("got %v, want ErrUserNotFound", err)
 	}
@@ -232,7 +251,7 @@ func TestGetUser_NotFoundIs404(t *testing.T) {
 
 func TestGetUser_KeycloakUnavailableIsNotMistakenForNotFound(t *testing.T) {
 	c := keycloakadmin.New("http://127.0.0.1:1", realm, clientID, clientSecret)
-	_, _, err := c.GetUser(context.Background(), testUserID)
+	_, _, _, err := c.GetUser(context.Background(), testUserID)
 	if err == nil || errors.Is(err, service.ErrUserNotFound) {
 		t.Fatalf("got %v, want a plain unavailable error", err)
 	}

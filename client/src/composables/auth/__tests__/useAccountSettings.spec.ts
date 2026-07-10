@@ -34,7 +34,27 @@ describe('useAccountSettings', () => {
       const result = await fetchProfile()
 
       expect(makeRequest).toHaveBeenCalledWith('/gateway/profile')
-      expect(result).toEqual({ ok: true, email: 'mario@unibo.it', name: 'Mario Rossi' })
+      expect(result).toEqual({ ok: true, email: 'mario@unibo.it', name: 'Mario Rossi', picture: undefined })
+    })
+
+    it('includes the picture URL when the account has one', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, 200, {
+          email: 'mario@unibo.it',
+          name: 'Mario Rossi',
+          picture: 'https://lh3.googleusercontent.com/a/abc',
+        }) as unknown as Response,
+      )
+
+      const { fetchProfile } = useAccountSettings()
+      const result = await fetchProfile()
+
+      expect(result).toEqual({
+        ok: true,
+        email: 'mario@unibo.it',
+        name: 'Mario Rossi',
+        picture: 'https://lh3.googleusercontent.com/a/abc',
+      })
     })
 
     it('reports failure without throwing', async () => {

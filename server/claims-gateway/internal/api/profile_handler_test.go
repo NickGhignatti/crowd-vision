@@ -18,12 +18,12 @@ import (
 )
 
 type fakeProfileReader struct {
-	email, name string
-	err         error
+	email, name, picture string
+	err                  error
 }
 
-func (f *fakeProfileReader) GetUser(context.Context, string) (string, string, error) {
-	return f.email, f.name, f.err
+func (f *fakeProfileReader) GetUser(context.Context, string) (string, string, string, error) {
+	return f.email, f.name, f.picture, f.err
 }
 
 type fakeProfileUpdater struct{ err error }
@@ -64,8 +64,8 @@ func authedRequest(t *testing.T, method, path, body string, key *rsa.PrivateKey)
 	return req
 }
 
-func TestProfileHandler_ReturnsEmailAndName(t *testing.T) {
-	gw, key := gatewayWithProfileManagement(&fakeProfileReader{email: "mario@unibo.it", name: "Mario Rossi"}, &fakeProfileUpdater{}, &fakePasswordChanger{})
+func TestProfileHandler_ReturnsEmailNameAndPicture(t *testing.T) {
+	gw, key := gatewayWithProfileManagement(&fakeProfileReader{email: "mario@unibo.it", name: "Mario Rossi", picture: "https://lh3.googleusercontent.com/a/abc"}, &fakeProfileUpdater{}, &fakePasswordChanger{})
 	r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
 
 	req := authedRequest(t, http.MethodGet, "/profile", "", key)
@@ -75,10 +75,25 @@ func TestProfileHandler_ReturnsEmailAndName(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("got %d, want 200: %s", rec.Code, rec.Body.String())
 	}
-	var resp struct{ Email, Name string }
+	var resp struct{ Email, Name, Picture string }
 	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	if resp.Email != "mario@unibo.it" || resp.Name != "Mario Rossi" {
+	if resp.Email != "mario@unibo.it" || resp.Name != "Mario Rossi" || resp.Picture != "https://lh3.googleusercontent.com/a/abc" {
 		t.Fatalf("got %+v", resp)
+	}
+}
+
+func TestProfileHandler_OmitsPictureWhenAccountHasNone(t *testing.T) {
+	gw, key := gatewayWithProfileManagement(&fakeProfileReader{email: "mario@unibo.it", name: "Mario Rossi"}, &fakeProfileUpdater{}, &fakePasswordChanger{})
+	r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
+
+	req := authedRequest(t, http.MethodGet, "/profile", "", key)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	var resp struct{ Email, Name, Picture string }
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Picture != "" {
+		t.Fatalf("got picture %q, want empty for a password-signup account", resp.Picture)
 	}
 }
 
@@ -106,6 +121,32 @@ func TestUpdateProfileHandler_UpdatesAndReturnsNoContent(t *testing.T) {
 
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("got %d, want 204: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestUpdateProfileHandler_RefreshesTheSessionCookie is the regression test
+// for the stale-NavBar-name bug: a successful profile update must set a new
+// session cookie (see service.Gateway.UpdateProfile), not just 204 with the
+// old one left in place — otherwise /me keeps re-serving the pre-edit name
+// until the caller's next full login.
+func TestUpdateProfileHandler_RefreshesTheSessionCookie(t *testing.T) {
+	updater := &fakeProfileUpdater{}
+	gw, key := gatewayWithProfileManagement(&fakeProfileReader{}, updater, &fakePasswordChanger{})
+	r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
+
+	req := authedRequest(t, http.MethodPatch, "/profile", `{"name":"Mario Bianchi"}`, key)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	cookies := rec.Result().Cookies()
+	var sessionCookie *http.Cookie
+	for _, c := range cookies {
+		if c.Name == api.CookieName {
+			sessionCookie = c
+		}
+	}
+	if sessionCookie == nil || sessionCookie.Value == "" {
+		t.Fatalf("expected a refreshed %q cookie, got %+v", api.CookieName, cookies)
 	}
 }
 

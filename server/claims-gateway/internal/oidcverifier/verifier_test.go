@@ -155,6 +155,25 @@ func TestVerify_NoOrganizationClaim_IsEmptyNotError(t *testing.T) {
 	}
 }
 
+// TestVerify_AcceptsMultiValueAudienceContainingClientID protects the
+// mechanism the cv-gateway password-login flow depends on: its ID tokens
+// carry `aud: [cv-gateway, cv-web]` (via realm-export.json's
+// "cv-web-audience" protocol mapper — see keycloakadmin.Client.PasswordGrant)
+// specifically so they still pass this verifier's cv-web check despite being
+// requested by a different client. If this ever regressed to a strict
+// single-value match, every password login/registration would 401.
+func TestVerify_AcceptsMultiValueAudienceContainingClientID(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	srv := fakeIdP(t, key)
+	defer srv.Close()
+	v, _ := oidcverifier.New(context.Background(), srv.URL, srv.URL, clientID)
+
+	tok := signIDToken(t, key, srv.URL, jwt.MapClaims{"aud": []string{"some-other-client", clientID}})
+	if _, err := v.Verify(context.Background(), tok); err != nil {
+		t.Fatalf("expected a multi-value audience containing %q to verify: %v", clientID, err)
+	}
+}
+
 func TestVerify_RejectsWrongAudience(t *testing.T) {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	srv := fakeIdP(t, key)
