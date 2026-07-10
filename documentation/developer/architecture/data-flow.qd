@@ -35,11 +35,17 @@ All external requests enter through the single gateway, which routes by URL pref
     - - contracts-service
       - sensor-service / twin-service
       - Discover each service's self-describing metric catalog.
+    - - claims-gateway
+      - tenancy-service
+      - Once per login (never per request): resolve — or first-login-provision — the caller's memberships before minting the internal token.
+    - - provisioner
+      - registry-service / tenancy-service
+      - Reconcile loop: list pending organizations, create the tenancy domain, report the org back to ready/failed.
 
 These calls are intentionally few. The design keeps the request path short and avoids synchronous chains on the hot path; anything high-frequency goes over the broker instead.
 
 .box {Identity travels with the request} type:{note}
-    There is no central session store. `auth-service` mints a signed identity token; every other service verifies it **locally** and reads the principal's memberships, roles, and domains from it. No service calls `auth-service` to authorize a request.
+    There is no central session store. `claims-gateway` verifies the caller against Keycloak (or an on-prem customer's own IdP), calls `tenancy-service` **once, at login**, and mints a signed internal token; every other service verifies that token **locally** and reads the principal's memberships, roles, and domains from it. No service calls `claims-gateway` or `tenancy-service` to authorize an individual request — the hot path has zero network hops for auth. See [Identity & Tenancy Architecture](auth-architecture.qd).
 
 ---
 

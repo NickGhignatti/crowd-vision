@@ -14,6 +14,7 @@ defineProps<{
 defineEmits<{
   (e: 'handleLogout'): void
   (e: 'closeDropDown'): void
+  (e: 'openSettings'): void
 }>()
 
 const accountName = computed(() => authStore.accountName || 'Account')
@@ -45,6 +46,13 @@ const accountName = computed(() => authStore.accountName || 'Account')
       </div>
 
       <button
+        @click="$emit('openSettings')"
+        class="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center gap-2"
+      >
+        <i class="ph-bold ph-gear text-lg"></i>
+        {{ t('authentication.settings') }}
+      </button>
+      <button
         @click="$emit('handleLogout')"
         class="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-rose-600 transition-colors flex items-center gap-2"
       >
@@ -67,6 +75,13 @@ const accountName = computed(() => authStore.accountName || 'Account')
         <span class="font-bold text-slate-900">{{ accountName }}</span>
       </div>
     </div>
+    <button
+      @click="$emit('openSettings')"
+      class="w-full text-center py-2.5 mb-2 text-slate-600 font-bold border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+    >
+      <i class="ph-bold ph-gear"></i>
+      {{ t('authentication.settings') }}
+    </button>
     <button
       @click="$emit('handleLogout')"
       class="w-full text-center py-2.5 text-rose-600 font-bold border border-rose-100 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"

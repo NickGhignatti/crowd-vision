@@ -1,0 +1,161 @@
+{
+  "realm": "crowdvision",
+  "enabled": true,
+  "organizationsEnabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Platform-wide administrator" },
+      { "name": "business_admin", "description": "Manages a domain's users and settings" },
+      { "name": "business_staff", "description": "Operates within a domain" },
+      { "name": "standard_customer", "description": "Default member role" }
+    ]
+  },
+  "requiredActions": [],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${GOOGLE_CLIENT_ID}",
+        "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+        "useJwksUrl": "true",
+        "syncMode": "IMPORT",
+        "defaultScope": "openid profile email"
+      }
+    }
+  ],
+  "identityProviderMappers": [
+    {
+      "name": "google-picture",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "FORCE",
+        "claim": "picture",
+        "user.attribute": "picture"
+      }
+    }
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"picture\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false}],\"groups\":[]}"
+          ]
+        }
+      }
+    ]
+  },
+  "defaultRole": {
+    "name": "default-roles-crowdvision",
+    "composite": true,
+    "composites": {
+      "realm": ["standard_customer"]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "cv-gateway",
+      "name": "claims-gateway (service testing only)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "dev-only-not-for-production",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "defaultClientScopes": ["profile", "email", "roles", "organization"],
+      "protocolMappers": [
+        {
+          "name": "realm-roles-to-claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "cv-web-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cv-web",
+            "id.token.claim": "true",
+            "access.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "cv-web",
+      "name": "CrowdVision client (browser)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:8080/*",
+        "http://localhost/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "http://localhost"
+      ],
+      "defaultClientScopes": ["profile", "email", "roles", "organization"],
+      "protocolMappers": [
+        {
+          "name": "realm-roles-to-claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-cv-gateway",
+      "serviceAccountClientId": "cv-gateway",
+      "enabled": true,
+      "clientRoles": {
+        "realm-management": ["manage-users"]
+      }
+    }
+  ]
+}

@@ -1,5 +1,3 @@
-import type { SSODomain } from '@/models/domain.ts'
-
 export interface SubdomainItem {
   name: string
   displayName: string
@@ -12,7 +10,8 @@ export interface UnifiedDomainGroup {
   subdomains: SubdomainItem[]
 }
 
-export interface DomainToAddWithMaster extends SSODomain {
+export interface DomainToAddWithMaster {
+  name: string
   masterDomain?: string
 }
 
@@ -24,7 +23,6 @@ export interface DomainToAddWithVisibilityPayload extends DomainToAddWithMaster 
 // domains the user belongs to, with role and counts overlaid.
 export interface DomainRow {
   name: string
-  authStrategy?: 'internal' | 'oidc'
   isPrivate: boolean
   role?: string
   isSubscribed: boolean

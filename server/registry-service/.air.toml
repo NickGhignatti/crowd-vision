@@ -1,0 +1,11 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/registry-service ./cmd/registry"
+bin = "./tmp/registry-service"
+include_ext = ["go"]
+exclude_dir = ["tmp", "migrations"]
+
+[misc]
+clean_on_exit = true

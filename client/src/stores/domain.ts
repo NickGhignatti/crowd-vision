@@ -2,7 +2,13 @@ import { defineStore } from 'pinia'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import { useAuthStore } from './authentication'
 import type { DomainMembership, Domain } from '@/models/domain'
-import type { DomainRow } from '@/interfaces/domain'
+import type { DomainRow, DomainToAddWithVisibilityPayload } from '@/interfaces/domain'
+
+// Roles a business_admin can mint an invite code for — mirrors auth-contracts'
+// role ladder minus the platform-level "admin" role, which is never
+// domain-scoped. tenancy-service itself enforces who may actually redeem
+// each code; this list only decides which QR tabs getDomainQRs offers.
+const INVITABLE_ROLES = ['business_admin', 'business_staff', 'standard_customer']
 
 export const useDomainsStore = defineStore('domains', {
   state: () => ({
@@ -35,7 +41,6 @@ export const useDomainsStore = defineStore('domains', {
       const publicRows: DomainRow[] = publicDomains.map((d) =>
         withCounts({
           name: d.name,
-          authStrategy: d.authStrategy,
           isPrivate: false,
           role: roleByName.get(d.name),
           isSubscribed: roleByName.has(d.name),
@@ -65,10 +70,19 @@ export const useDomainsStore = defineStore('domains', {
       this.loading = true
       this._membershipsPromise = (async () => {
         try {
-          const { accountName } = useAuthStore()
-          const res = await makeRequest(`/auth/domains/${accountName}`)
-          const data = await res.json()
-          this.memberships = res.ok ? (data.domains ?? []) : []
+          const res = await makeRequest('/tenancy/me/memberships')
+          if (!res.ok) {
+            this.memberships = []
+            return
+          }
+          const data: { domain: string; role: string; externalId?: string }[] = await res.json()
+          this.memberships = Array.isArray(data)
+            ? data.map((m) => ({
+                domainName: m.domain,
+                role: m.role,
+                externalId: m.externalId,
+              }))
+            : []
         } finally {
           this.loading = false
           this._membershipsPromise = null
@@ -85,9 +99,13 @@ export const useDomainsStore = defineStore('domains', {
       this.loadingAll = true
       this._allDomainsPromise = (async () => {
         try {
-          const res = await makeRequest('/auth/domains')
-          const data = await res.json()
-          this.allDomains = res.ok ? (data.domains ?? []) : []
+          const res = await makeRequest('/tenancy/domains')
+          if (!res.ok) {
+            this.allDomains = []
+            return
+          }
+          const data: Domain[] = await res.json()
+          this.allDomains = Array.isArray(data) ? data : []
         } finally {
           this.loadingAll = false
           this._allDomainsPromise = null
@@ -97,14 +115,14 @@ export const useDomainsStore = defineStore('domains', {
       return this._allDomainsPromise
     },
 
+    // No network call: tenancy-service's GET /domains already embeds each
+    // domain's live member count, so fetchAll has everything this needs.
     async fetchMemberCounts() {
-      try {
-        const res = await makeRequest('/auth/domains/member-counts')
-        const data = await res.json()
-        this.memberCounts = res.ok ? (data.counts ?? {}) : {}
-      } catch {
-        this.memberCounts = {}
+      const counts: Record<string, number> = {}
+      for (const d of this.allDomains ?? []) {
+        counts[d.name] = d.memberCount ?? 0
       }
+      this.memberCounts = counts
     },
 
     async fetchBuildingCounts(domainNames: string[]) {
@@ -123,14 +141,11 @@ export const useDomainsStore = defineStore('domains', {
       }
     },
 
-    async createNewDomain(payload: any) {
-      const accountName = this._authStore.accountName
-      if (!accountName) throw new Error('Missing account name in auth store')
-
+    async createNewDomain(payload: DomainToAddWithVisibilityPayload) {
       const masterDomain = payload.masterDomain?.trim().toLowerCase()
       const endpoint = masterDomain
-        ? `/auth/subdomains/${encodeURIComponent(masterDomain)}`
-        : '/auth/domains'
+        ? `/tenancy/domains/${encodeURIComponent(masterDomain)}/subdomains`
+        : '/tenancy/domains'
 
       const normalizedName = payload.name.trim().toLowerCase()
       const domainName =
@@ -138,47 +153,34 @@ export const useDomainsStore = defineStore('domains', {
           ? `${normalizedName}.${masterDomain}`
           : normalizedName
 
-      const body = {
-        ...payload,
-        name: domainName,
-        creatorUsername: accountName,
-      }
-
-      delete body.masterDomain
-
       const response = await makeRequest(endpoint, 'POST', {
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          name: domainName,
+          // No separate display-name field in the creation UI (yet) — the
+          // submitted name doubles as both, same as the old auth-service form.
+          displayName: domainName,
+          isPublic: payload.isVisibleFromOutside,
+        }),
       })
 
       if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error || 'Failed to creation domain')
+        // tenancy-service's error body is plain text (http.Error), not JSON.
+        const message = await response.text().catch(() => '')
+        throw new Error(message || 'Failed to create domain')
       }
 
       return await response.json()
     },
 
-    async subscribeToDomain(domain: { name: string; authStrategy?: 'internal' | 'oidc' }) {
-      const accountName = this._authStore.accountName
-      if (!accountName) throw new Error('Missing account name in auth store')
-
-      if (domain.authStrategy === 'oidc') {
-        const response = await makeRequest(
-          `/auth/sso/login/${domain.name}?accountName=${accountName}`,
-        )
-        if (!response.ok) throw new Error('Failed to initiate SSO')
-
-        const data = await response.json()
-        if (data.redirectUrl) {
-          window.location.href = data.redirectUrl
-        }
-        return
-      }
-
-      // Internal Strategy
-      const response = await makeRequest(`/auth/domains/${accountName}/subscribe`, 'POST', {
-        body: JSON.stringify({ domainName: domain.name }),
-      })
+    // Self-service join for a domain whose join_policy allows it
+    // (open-via-idp) — replaces the old internal/OIDC branch entirely; OIDC
+    // per-domain login no longer exists, Keycloak is the only IdP now.
+    async subscribeToDomain(domain: { name: string }) {
+      const response = await makeRequest(
+        `/tenancy/domains/${encodeURIComponent(domain.name)}/join`,
+        'POST',
+        { body: JSON.stringify({ role: 'standard_customer' }) },
+      )
 
       if (!response.ok) throw new Error(`Failed to subscribe to ${domain.name}`)
 
@@ -186,24 +188,67 @@ export const useDomainsStore = defineStore('domains', {
     },
 
     async unsubscribeFromDomain(domainName: string) {
-      const accountName = this._authStore.accountName
-      if (!accountName) throw new Error('Missing account name in auth store')
+      const accountId = this._authStore.accountId
+      if (!accountId) throw new Error('Missing account id in auth store')
 
-      const response = await makeRequest(`/auth/domains/${accountName}/unsubscribe`, 'DELETE', {
-        body: JSON.stringify({ domainName }),
-      })
+      const response = await makeRequest(
+        `/tenancy/domains/${encodeURIComponent(domainName)}/members/${accountId}`,
+        'DELETE',
+      )
 
-      if (!response.ok) throw new Error(`Failed to unsubscribe from ${domainName}`)
+      if (!response.ok) {
+        const error = new Error(`Failed to unsubscribe from ${domainName}`)
+        // 409 = tenancy-service blocked removing the domain's last admin.
+        if (response.status === 409) (error as Error & { code?: string }).code = 'LAST_ADMIN'
+        throw error
+      }
 
       await this.fetchMemberships(true)
     },
 
+    // Replaces the old TOTP-QR flow: mints one invite code per grantable role
+    // and hands the raw codes back keyed by role. QrCodeCard already turns any
+    // string into a QR image, so an invite code works as a drop-in payload for
+    // what used to be an otpauth:// URI — no changes needed there.
     async getDomainQRs(domainName: string) {
-      const accountName = this._authStore.accountName
-      const response = await makeRequest(`/auth/domains/${domainName}/totp/qr/${accountName}`)
-      if (!response.ok) throw new Error('Failed to fetch QrCodeCard codes')
-      const data = await response.json()
-      return data.qrCodes
+      const qrCodes: Record<string, string> = {}
+
+      await Promise.all(
+        INVITABLE_ROLES.map(async (role) => {
+          try {
+            const response = await makeRequest(
+              `/tenancy/domains/${encodeURIComponent(domainName)}/invite-codes`,
+              'POST',
+              { body: JSON.stringify({ role }) },
+            )
+            if (!response.ok) return
+            const data = await response.json()
+            qrCodes[role] = data.code
+          } catch {
+            // Best-effort per role — e.g. a caller who isn't business_admin
+            // of this domain simply won't get any code back.
+          }
+        }),
+      )
+
+      return qrCodes
+    },
+
+    // The joining-side counterpart to getDomainQRs — redeems a code minted by
+    // a business_admin, replacing the old TOTP-QR "scan to join" flow with
+    // "paste the code you were given".
+    async redeemInviteCode(code: string) {
+      const response = await makeRequest(
+        `/tenancy/invite-codes/${encodeURIComponent(code.trim())}/redeem`,
+        'POST',
+      )
+
+      if (!response.ok) {
+        const message = await response.text().catch(() => '')
+        throw new Error(message || 'Failed to redeem invite code')
+      }
+
+      await this.fetchMemberships(true)
     },
 
     invalidate() {
@@ -241,8 +286,11 @@ export const useSubdomainsStore = defineStore('subdomains', {
           await Promise.allSettled(
             missing.map(async (m) => {
               try {
-                const res = await makeRequest(`/auth/subdomains/${m.domainName}`)
-                this.byDomain[m.domainName] = res.ok ? await res.json() : []
+                const res = await makeRequest(
+                  `/tenancy/domains/${encodeURIComponent(m.domainName)}/subdomains`,
+                )
+                const data: { name: string }[] = res.ok ? await res.json() : []
+                this.byDomain[m.domainName] = Array.isArray(data) ? data.map((d) => d.name) : []
               } catch {
                 this.byDomain[m.domainName] = []
               }

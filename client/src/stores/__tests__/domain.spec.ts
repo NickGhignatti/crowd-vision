@@ -14,15 +14,19 @@ const makeMembership = (domainName: string, role = 'standard_customer'): DomainM
   role,
 })
 
-const makeDomain = (name: string): Domain => ({
+const makeDomain = (name: string, overrides: Partial<Domain> = {}): Domain => ({
+  id: `id-${name}`,
   name,
-  subdomains: [],
-  authStrategy: 'internal',
+  displayName: name,
+  joinPolicy: 'invite-only',
+  isPublic: true,
+  ...overrides,
 })
 
 const makeResponse = (ok: boolean, body: unknown = {}) => ({
   ok,
   json: vi.fn().mockResolvedValue(body),
+  text: vi.fn().mockResolvedValue(typeof body === 'string' ? body : ''),
 })
 
 describe('useDomainsStore', () => {
@@ -30,8 +34,8 @@ describe('useDomainsStore', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
 
-    // Provide a default account name so fetchMemberships can build its URL
     useAuthStore().accountName = 'alice'
+    useAuthStore().accountId = 'acc-alice'
   })
 
   describe('initial state', () => {
@@ -53,41 +57,40 @@ describe('useDomainsStore', () => {
   })
 
   describe('fetchMemberships', () => {
-    it('calls makeRequest with the account-scoped URL', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: [] }) as unknown as Response,
-      )
+    it('calls makeRequest with the my-memberships endpoint', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, []) as unknown as Response)
 
       await useDomainsStore().fetchMemberships()
 
-      expect(makeRequest).toHaveBeenCalledWith('/auth/domains/alice')
+      expect(makeRequest).toHaveBeenCalledWith('/tenancy/me/memberships')
     })
 
-    it('uses the current accountName from the auth store at call time', async () => {
-      useAuthStore().accountName = 'bob'
+    it('maps the domain field to domainName', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: [] }) as unknown as Response,
-      )
-
-      await useDomainsStore().fetchMemberships()
-
-      expect(makeRequest).toHaveBeenCalledWith('/auth/domains/bob')
-    })
-
-    it('stores the returned domains array on success', async () => {
-      const memberships = [makeMembership('acme'), makeMembership('globex')]
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: memberships }) as unknown as Response,
+        makeResponse(true, [{ domain: 'acme', role: 'business_admin' }]) as unknown as Response,
       )
 
       const store = useDomainsStore()
       await store.fetchMemberships()
 
-      expect(store.memberships).toEqual(memberships)
+      expect(store.memberships).toEqual([{ domainName: 'acme', role: 'business_admin', externalId: undefined }])
     })
 
-    it('stores an empty array when the response payload has no domains key', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, {}) as unknown as Response)
+    it('carries externalId through when present', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, [
+          { domain: 'unibo', role: 'standard_customer', externalId: 'eppn:mario@unibo.it' },
+        ]) as unknown as Response,
+      )
+
+      const store = useDomainsStore()
+      await store.fetchMemberships()
+
+      expect(store.memberships?.[0]?.externalId).toBe('eppn:mario@unibo.it')
+    })
+
+    it('stores an empty array on a non-ok response', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
 
       const store = useDomainsStore()
       await store.fetchMemberships()
@@ -105,9 +108,7 @@ describe('useDomainsStore', () => {
     })
 
     it('only calls makeRequest once when multiple fetches happen concurrently', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: [] }) as unknown as Response,
-      )
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, []) as unknown as Response)
       const store = useDomainsStore()
 
       const fetch1 = store.fetchMemberships()
@@ -118,7 +119,6 @@ describe('useDomainsStore', () => {
     })
 
     it('does not overwrite an existing empty-array cache', async () => {
-      // memberships !== null means it IS cached (even if empty)
       const store = useDomainsStore()
       store.memberships = []
 
@@ -133,7 +133,7 @@ describe('useDomainsStore', () => {
 
       vi.mocked(makeRequest).mockImplementation(async () => {
         loadingDuringFetch.push(useDomainsStore().loading)
-        return makeResponse(true, { domains: [] }) as unknown as Response
+        return makeResponse(true, []) as unknown as Response
       })
 
       const store = useDomainsStore()
@@ -163,21 +163,17 @@ describe('useDomainsStore', () => {
   })
 
   describe('fetchAll', () => {
-    it('calls makeRequest with the shared domains endpoint', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: [] }) as unknown as Response,
-      )
+    it('calls makeRequest with the tenancy domains endpoint', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, []) as unknown as Response)
 
       await useDomainsStore().fetchAll()
 
-      expect(makeRequest).toHaveBeenCalledWith('/auth/domains')
+      expect(makeRequest).toHaveBeenCalledWith('/tenancy/domains')
     })
 
     it('stores the returned domains array on success', async () => {
       const domains = [makeDomain('acme'), makeDomain('globex')]
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains }) as unknown as Response,
-      )
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, domains) as unknown as Response)
 
       const store = useDomainsStore()
       await store.fetchAll()
@@ -185,8 +181,8 @@ describe('useDomainsStore', () => {
       expect(store.allDomains).toEqual(domains)
     })
 
-    it('stores an empty array when the response payload has no domains key', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, {}) as unknown as Response)
+    it('stores an empty array on a non-ok response', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
 
       const store = useDomainsStore()
       await store.fetchAll()
@@ -204,9 +200,7 @@ describe('useDomainsStore', () => {
     })
 
     it('only calls makeRequest once when multiple fetchAll happen concurrently', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: [] }) as unknown as Response,
-      )
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, []) as unknown as Response)
       const store = useDomainsStore()
 
       const fetch1 = store.fetchAll()
@@ -231,7 +225,7 @@ describe('useDomainsStore', () => {
 
       vi.mocked(makeRequest).mockImplementation(async () => {
         loadingDuringFetch.push(useDomainsStore().loadingAll)
-        return makeResponse(true, { domains: [] }) as unknown as Response
+        return makeResponse(true, []) as unknown as Response
       })
 
       const store = useDomainsStore()
@@ -260,9 +254,7 @@ describe('useDomainsStore', () => {
     })
 
     it('does not interfere with fetchMemberships loading flag', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: [] }) as unknown as Response,
-      )
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, []) as unknown as Response)
 
       const store = useDomainsStore()
       await store.fetchAll()
@@ -303,7 +295,7 @@ describe('useDomainsStore', () => {
 
     it('allows fetchMemberships to run again after invalidation', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: [makeMembership('acme')] }) as unknown as Response,
+        makeResponse(true, [{ domain: 'acme', role: 'standard_customer' }]) as unknown as Response,
       )
 
       const store = useDomainsStore()
@@ -317,9 +309,8 @@ describe('useDomainsStore', () => {
     })
 
     it('allows fetchAll to run again after invalidation', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { domains: [makeDomain('acme')] }) as unknown as Response,
-      )
+      const domains = [makeDomain('acme')]
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, domains) as unknown as Response)
 
       const store = useDomainsStore()
       store.allDomains = [makeDomain('globex')]
@@ -328,7 +319,7 @@ describe('useDomainsStore', () => {
       await store.fetchAll()
 
       expect(makeRequest).toHaveBeenCalledTimes(1)
-      expect(store.allDomains).toEqual([makeDomain('acme')])
+      expect(store.allDomains).toEqual(domains)
     })
 
     it('clears member and building counts', () => {
@@ -344,31 +335,28 @@ describe('useDomainsStore', () => {
   })
 
   describe('fetchMemberCounts', () => {
-    it('calls the scoped member-counts endpoint and stores the map', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { counts: { acme: 4 } }) as unknown as Response,
-      )
-
+    it('derives counts from allDomains without a network call', async () => {
       const store = useDomainsStore()
+      store.allDomains = [makeDomain('acme', { memberCount: 4 }), makeDomain('globex', { memberCount: 1 })]
+
       await store.fetchMemberCounts()
 
-      expect(makeRequest).toHaveBeenCalledWith('/auth/domains/member-counts')
-      expect(store.memberCounts).toEqual({ acme: 4 })
+      expect(makeRequest).not.toHaveBeenCalled()
+      expect(store.memberCounts).toEqual({ acme: 4, globex: 1 })
     })
 
-    it('defaults to an empty map on a non-ok response', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
-
+    it('defaults an unset memberCount to 0', async () => {
       const store = useDomainsStore()
+      store.allDomains = [makeDomain('acme')]
+
       await store.fetchMemberCounts()
 
-      expect(store.memberCounts).toEqual({})
+      expect(store.memberCounts).toEqual({ acme: 0 })
     })
 
-    it('defaults to an empty map when the request throws', async () => {
-      vi.mocked(makeRequest).mockRejectedValue(new Error('Network error'))
-
+    it('produces an empty map when allDomains is null', async () => {
       const store = useDomainsStore()
+
       await store.fetchMemberCounts()
 
       expect(store.memberCounts).toEqual({})
@@ -405,6 +393,239 @@ describe('useDomainsStore', () => {
       await store.fetchBuildingCounts(['acme'])
 
       expect(store.buildingCounts).toEqual({})
+    })
+  })
+
+  describe('createNewDomain', () => {
+    it('POSTs a top-level domain to /tenancy/domains', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, makeDomain('acme')) as unknown as Response,
+      )
+
+      await useDomainsStore().createNewDomain({
+        name: 'Acme',
+        isVisibleFromOutside: true,
+      })
+
+      expect(makeRequest).toHaveBeenCalledWith('/tenancy/domains', 'POST', {
+        body: JSON.stringify({ name: 'acme', displayName: 'acme', isPublic: true }),
+      })
+    })
+
+    it('POSTs a subdomain to /tenancy/domains/{master}/subdomains when masterDomain is set', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, makeDomain('eng.acme')) as unknown as Response,
+      )
+
+      await useDomainsStore().createNewDomain({
+        name: 'eng',
+        masterDomain: 'acme',
+        isVisibleFromOutside: false,
+      })
+
+      expect(makeRequest).toHaveBeenCalledWith('/tenancy/domains/acme/subdomains', 'POST', {
+        body: JSON.stringify({ name: 'eng.acme', displayName: 'eng.acme', isPublic: false }),
+      })
+    })
+
+    it('does not double-append the master suffix when already present', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, makeDomain('eng.acme')) as unknown as Response,
+      )
+
+      await useDomainsStore().createNewDomain({
+        name: 'eng.acme',
+        masterDomain: 'acme',
+        isVisibleFromOutside: false,
+      })
+
+      expect(makeRequest).toHaveBeenCalledWith('/tenancy/domains/acme/subdomains', 'POST', {
+        body: JSON.stringify({ name: 'eng.acme', displayName: 'eng.acme', isPublic: false }),
+      })
+    })
+
+    it('throws using the plain-text error body on failure', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(false, 'domain name is already taken') as unknown as Response,
+      )
+
+      await expect(
+        useDomainsStore().createNewDomain({
+          name: 'acme',
+          isVisibleFromOutside: false,
+        }),
+      ).rejects.toThrow('domain name is already taken')
+    })
+
+    it('falls back to a generic message when the error body is empty', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false, '') as unknown as Response)
+
+      await expect(
+        useDomainsStore().createNewDomain({
+          name: 'acme',
+          isVisibleFromOutside: false,
+        }),
+      ).rejects.toThrow('Failed to create domain')
+    })
+  })
+
+  describe('subscribeToDomain', () => {
+    it('POSTs to the join endpoint as standard_customer', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response) // join
+        .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response) // fetchMemberships refresh
+
+      await useDomainsStore().subscribeToDomain({ name: 'unibo' })
+
+      expect(makeRequest).toHaveBeenNthCalledWith(1, '/tenancy/domains/unibo/join', 'POST', {
+        body: JSON.stringify({ role: 'standard_customer' }),
+      })
+    })
+
+    it('refreshes memberships after a successful join', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response)
+
+      await useDomainsStore().subscribeToDomain({ name: 'unibo' })
+
+      expect(makeRequest).toHaveBeenCalledTimes(2)
+      expect(makeRequest).toHaveBeenNthCalledWith(2, '/tenancy/me/memberships')
+    })
+
+    it('throws when the join fails and does not refresh memberships', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(false) as unknown as Response)
+
+      await expect(useDomainsStore().subscribeToDomain({ name: 'unibo' })).rejects.toThrow(
+        'Failed to subscribe to unibo',
+      )
+      expect(makeRequest).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('unsubscribeFromDomain', () => {
+    it('DELETEs the caller-own membership using accountId from the auth store', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response)
+
+      await useDomainsStore().unsubscribeFromDomain('unibo')
+
+      expect(makeRequest).toHaveBeenNthCalledWith(
+        1,
+        '/tenancy/domains/unibo/members/acc-alice',
+        'DELETE',
+      )
+    })
+
+    it('refreshes memberships after a successful unsubscribe', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response)
+
+      await useDomainsStore().unsubscribeFromDomain('unibo')
+
+      expect(makeRequest).toHaveBeenCalledTimes(2)
+    })
+
+    it('throws when accountId is missing from the auth store', async () => {
+      useAuthStore().accountId = null
+
+      await expect(useDomainsStore().unsubscribeFromDomain('unibo')).rejects.toThrow(
+        'Missing account id in auth store',
+      )
+      expect(makeRequest).not.toHaveBeenCalled()
+    })
+
+    it('throws when the request fails', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(false) as unknown as Response)
+
+      await expect(useDomainsStore().unsubscribeFromDomain('unibo')).rejects.toThrow(
+        'Failed to unsubscribe from unibo',
+      )
+    })
+  })
+
+  describe('getDomainQRs', () => {
+    it('mints one invite code per invitable role and returns them keyed by role', async () => {
+      vi.mocked(makeRequest).mockImplementation(async (_url, _method, options) => {
+        const { role } = JSON.parse((options as { body: string }).body)
+        return makeResponse(true, { code: `code-${role}` }) as unknown as Response
+      })
+
+      const codes = await useDomainsStore().getDomainQRs('acme')
+
+      expect(codes).toEqual({
+        business_admin: 'code-business_admin',
+        business_staff: 'code-business_staff',
+        standard_customer: 'code-standard_customer',
+      })
+    })
+
+    it('omits a role whose request fails, keeping the others', async () => {
+      vi.mocked(makeRequest).mockImplementation(async (_url, _method, options) => {
+        const { role } = JSON.parse((options as { body: string }).body)
+        if (role === 'business_admin') return makeResponse(false) as unknown as Response
+        return makeResponse(true, { code: `code-${role}` }) as unknown as Response
+      })
+
+      const codes = await useDomainsStore().getDomainQRs('acme')
+
+      expect(codes).not.toHaveProperty('business_admin')
+      expect(codes.business_staff).toBe('code-business_staff')
+      expect(codes.standard_customer).toBe('code-standard_customer')
+    })
+
+    it('returns an empty map instead of throwing when every role fails', async () => {
+      vi.mocked(makeRequest).mockRejectedValue(new Error('Network error'))
+
+      await expect(useDomainsStore().getDomainQRs('acme')).resolves.toEqual({})
+    })
+  })
+
+  describe('redeemInviteCode', () => {
+    it('POSTs to the redeem endpoint and refreshes memberships on success', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response) // redeem
+        .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response) // fetchMemberships refresh
+
+      await useDomainsStore().redeemInviteCode('abc123')
+
+      expect(makeRequest).toHaveBeenNthCalledWith(1, '/tenancy/invite-codes/abc123/redeem', 'POST')
+      expect(makeRequest).toHaveBeenNthCalledWith(2, '/tenancy/me/memberships')
+    })
+
+    it('trims and URL-encodes the code', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response)
+
+      await useDomainsStore().redeemInviteCode('  weird code/slash  ')
+
+      expect(makeRequest).toHaveBeenNthCalledWith(
+        1,
+        '/tenancy/invite-codes/weird%20code%2Fslash/redeem',
+        'POST',
+      )
+    })
+
+    it('throws using the plain-text error body and does not refresh memberships', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(
+        makeResponse(false, 'invite code is invalid, already redeemed, or expired') as unknown as Response,
+      )
+
+      await expect(useDomainsStore().redeemInviteCode('bad-code')).rejects.toThrow(
+        'invite code is invalid, already redeemed, or expired',
+      )
+      expect(makeRequest).toHaveBeenCalledTimes(1)
+    })
+
+    it('falls back to a generic message when the error body is empty', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(false, '') as unknown as Response)
+
+      await expect(useDomainsStore().redeemInviteCode('bad-code')).rejects.toThrow(
+        'Failed to redeem invite code',
+      )
     })
   })
 
@@ -467,7 +688,9 @@ describe('useSubdomainsStore', () => {
 
   describe('fetch', () => {
     it('does not call makeRequest when already loading', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, ['sub1']) as unknown as Response)
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, [{ name: 'sub1' }]) as unknown as Response,
+      )
 
       const store = useSubdomainsStore()
       const memberships = [makeMembership('acme')]
@@ -496,32 +719,31 @@ describe('useSubdomainsStore', () => {
 
     it('calls makeRequest with the correct URL for each missing domain', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, ['sub1']) as unknown as Response,
+        makeResponse(true, [{ name: 'sub1' }]) as unknown as Response,
       )
 
       await useSubdomainsStore().fetch([makeMembership('acme'), makeMembership('globex')])
 
       const urls = vi.mocked(makeRequest).mock.calls.map((c) => c[0])
-      expect(urls).toContain('/auth/subdomains/acme')
-      expect(urls).toContain('/auth/subdomains/globex')
+      expect(urls).toContain('/tenancy/domains/acme/subdomains')
+      expect(urls).toContain('/tenancy/domains/globex/subdomains')
     })
 
     it('uses Promise.allSettled — all domains are attempted even when one fetch rejects', async () => {
       vi.mocked(makeRequest)
         .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValueOnce(makeResponse(true, ['sub1']) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, [{ name: 'sub1' }]) as unknown as Response)
 
       const store = useSubdomainsStore()
       await store.fetch([makeMembership('broken'), makeMembership('acme')])
 
-      // Both keys must be written — allSettled never short-circuits
       expect(store.byDomain).toHaveProperty('broken')
       expect(store.byDomain).toHaveProperty('acme')
     })
 
-    it('stores the returned subdomains under the correct domain key', async () => {
+    it('stores the returned subdomain names under the correct domain key', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, ['sub-a', 'sub-b']) as unknown as Response,
+        makeResponse(true, [{ name: 'sub-a' }, { name: 'sub-b' }]) as unknown as Response,
       )
 
       const store = useSubdomainsStore()
@@ -550,7 +772,7 @@ describe('useSubdomainsStore', () => {
 
     it('does not re-fetch domains already present in the cache', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, ['sub-new']) as unknown as Response,
+        makeResponse(true, [{ name: 'sub-new' }]) as unknown as Response,
       )
 
       const store = useSubdomainsStore()
@@ -559,13 +781,13 @@ describe('useSubdomainsStore', () => {
       await store.fetch([makeMembership('acme'), makeMembership('globex')])
 
       expect(makeRequest).toHaveBeenCalledTimes(1)
-      expect(makeRequest).toHaveBeenCalledWith('/auth/subdomains/globex')
-      expect(store.byDomain['acme']).toEqual(['sub-cached']) // untouched
+      expect(makeRequest).toHaveBeenCalledWith('/tenancy/domains/globex/subdomains')
+      expect(store.byDomain['acme']).toEqual(['sub-cached'])
     })
 
     it('handles a partial failure — successful domains are stored, failed ones get []', async () => {
       vi.mocked(makeRequest)
-        .mockResolvedValueOnce(makeResponse(true, ['sub-a']) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, [{ name: 'sub-a' }]) as unknown as Response)
         .mockRejectedValueOnce(new Error('Network error'))
 
       const store = useSubdomainsStore()
@@ -591,7 +813,6 @@ describe('useSubdomainsStore', () => {
     })
 
     it('resets loading to false even when Promise.allSettled itself throws', async () => {
-      // Force the outer try block to throw by making allSettled impossible to call
       const original = Promise.allSettled
       vi.spyOn(Promise, 'allSettled').mockRejectedValueOnce(new Error('allSettled failed'))
 
@@ -625,7 +846,7 @@ describe('useSubdomainsStore', () => {
 
     it('allows fetch to run again after invalidation', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, ['sub-fresh']) as unknown as Response,
+        makeResponse(true, [{ name: 'sub-fresh' }]) as unknown as Response,
       )
 
       const store = useSubdomainsStore()

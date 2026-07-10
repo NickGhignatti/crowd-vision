@@ -8,7 +8,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      auth-service:
+      claims-gateway:
         condition: service_started
         required: false
       twin-service:
@@ -44,6 +44,67 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  # Identity provider for every tier (Phase 1 of the auth/tenancy redesign).
+  # Own host port, not a Caddy subpath: Keycloak's own asset paths assume it
+  # owns the origin, the same reason langfuse-web gets a direct port below.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: crowd-vision-keycloak
+    command: ["start-dev", "--features=organization", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set in .env}
+      # Pinned (not dynamic per-request) so the `iss` claim Keycloak stamps
+      # into every token is stable — claims-gateway reaches Keycloak over the
+      # internal Docker hostname (OIDC_DISCOVERY_URL) but validates tokens
+      # against this externally-visible one (OIDC_ISSUER); see
+      # claims-gateway's oidcverifier package for why they can differ.
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8090}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set in .env}
+      # Enables ${ENV_VAR:default} substitution in the imported realm JSON so the
+      # Google identity provider's client id/secret come from the environment,
+      # not from git. Only the realm-import path reads these.
+      JAVA_OPTS_APPEND: -Dkeycloak.migration.replace-placeholders=true
+      # Google social login (brokered). Empty by default — set both in .env to
+      # activate the "Continue with Google" button; see keycloak/README-google.md.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-not-configured}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-not-configured}
+      # Serve /health/ready on the management port (9000) so the healthcheck
+      # below — and claims-gateway's depends_on service_healthy — actually work.
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  keycloak-db:
+    image: postgres:17-alpine
+    container_name: crowd-vision-keycloak-db
+    restart: always
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set in .env}
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   prometheus:
     image: prom/prometheus:latest
@@ -191,3 +252,4 @@ volumes:
   langfuse_clickhouse_data:
   langfuse_clickhouse_logs:
   langfuse_minio_data:
+  keycloak_postgres_data:

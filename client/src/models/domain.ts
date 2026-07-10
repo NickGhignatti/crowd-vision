@@ -1,20 +1,12 @@
+// Mirrors tenancy-service's domainResponse DTO (server/tenancy-service/internal/api/handler.go).
 export interface Domain {
+  id: string
   name: string
-  subdomains: string[]
-  authStrategy: 'internal' | 'oidc'
-}
-
-export interface SSODomain {
-  name: string
-  subdomains: string[]
-  authStrategy: 'internal' | 'oidc'
-  ssoConfig?: ISSOConfig
-}
-
-export interface ISSOConfig {
-  issuerUrl: string
-  clientId: string
-  clientSecret: string
+  displayName: string
+  joinPolicy: string
+  parentId?: string
+  isPublic: boolean
+  memberCount?: number
 }
 
 export interface DomainMembership {

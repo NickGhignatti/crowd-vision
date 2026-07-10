@@ -36,191 +36,71 @@ describe('useAuthStore', () => {
       const store = useAuthStore()
       expect(store.isHydrated).toBe(false)
     })
+
+    it('starts with accountId as null', () => {
+      const store = useAuthStore()
+      expect(store.accountId).toBeNull()
+    })
   })
 
-  describe('login', () => {
-    it('calls nonAuthenticatedFetch with the login endpoint and POST method', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'alice' } }) as unknown as Response,
-      )
+  describe('completeLogin', () => {
+    it('POSTs the id token to the gateway exchange endpoint', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response) // /gateway/exchange
+        .mockResolvedValueOnce(makeResponse(true, { accountName: 'alice' }) as unknown as Response) // /gateway/me
 
-      await useAuthStore().login('alice', 'secret')
+      await useAuthStore().completeLogin('raw-id-token')
 
-      expect(makeRequest).toHaveBeenCalledWith('/auth/login', 'POST', expect.any(Object))
+      expect(makeRequest).toHaveBeenNthCalledWith(1, '/gateway/exchange', 'POST', expect.any(Object))
+      const body = JSON.parse((vi.mocked(makeRequest).mock.calls[0]?.[2] as { body: string }).body)
+      expect(body).toEqual({ idToken: 'raw-id-token' })
     })
 
-    it('sends accountName and password serialized as JSON in the body', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'alice' } }) as unknown as Response,
-      )
-
-      await useAuthStore().login('alice', 'secret')
-
-      const body = JSON.parse(
-        (vi.mocked(makeRequest).mock.calls[0]?.[2] as { body: string }).body,
-      )
-      expect(body).toEqual({ accountName: 'alice', password: 'secret' })
-    })
-
-    it('sets accountName from the response payload on success', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'alice' } }) as unknown as Response,
-      )
+    it('hydrates from /gateway/me after a successful exchange', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, { accountName: 'alice' }) as unknown as Response)
 
       const store = useAuthStore()
-      await store.login('alice', 'secret')
+      await store.completeLogin('raw-id-token')
 
       expect(store.accountName).toBe('alice')
-    })
-
-    it('marks the user as authenticated on success', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'alice' } }) as unknown as Response,
-      )
-
-      const store = useAuthStore()
-      await store.login('alice', 'secret')
-
       expect(store.isAuthenticated).toBe(true)
     })
 
-    it('throws when the response is not ok', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(false, {
-          type: 'AuthError',
-          message: 'User already exists',
-        }) as unknown as Response,
-      )
-      await expect(
-        useAuthStore().login('bob', 'pass'),
-      ).resolves.toBeUndefined()
+    it('returns true on success', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(makeResponse(true, { accountName: 'alice' }) as unknown as Response)
 
+      await expect(useAuthStore().completeLogin('raw-id-token')).resolves.toBe(true)
     })
 
-    it('does not mutate state when the response is not ok', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
+    it('returns false and does not hydrate when the exchange fails', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(false) as unknown as Response)
 
       const store = useAuthStore()
-      await store.login('alice', 'wrong').catch(() => {})
+      const ok = await store.completeLogin('bad-token')
 
-      expect(store.accountName).toBeNull()
-      expect(store.isAuthenticated).toBe(false)
-    })
-  })
-
-  describe('register', () => {
-    it('calls nonAuthenticatedFetch with the register endpoint and POST method', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'bob' } }) as unknown as Response,
-      )
-
-      await useAuthStore().register('bob', 'bob@example.com', 'pass')
-
-      expect(makeRequest).toHaveBeenCalledWith(
-        '/auth/register',
-        'POST',
-        expect.any(Object),
-      )
-    })
-
-    it('sends accountName, email and password in the body', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'bob' } }) as unknown as Response,
-      )
-
-      await useAuthStore().register('bob', 'bob@example.com', 'pass')
-
-      const body = JSON.parse(
-        (vi.mocked(makeRequest).mock.calls[0]?.[2] as { body: string }).body,
-      )
-      expect(body).toEqual({ accountName: 'bob', email: 'bob@example.com', password: 'pass' })
-    })
-
-    it('includes otp in the payload when provided', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'bob' } }) as unknown as Response,
-      )
-
-      await useAuthStore().register('bob', 'bob@example.com', 'pass', '123456')
-
-      const body = JSON.parse(
-        (vi.mocked(makeRequest).mock.calls[0]?.[2] as { body: string }).body,
-      )
-      expect(body.otp).toBe('123456')
-    })
-
-    it('omits otp from the payload when not provided', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'bob' } }) as unknown as Response,
-      )
-
-      await useAuthStore().register('bob', 'bob@example.com', 'pass')
-
-      const body = JSON.parse(
-        (vi.mocked(makeRequest).mock.calls[0]?.[2] as { body: string }).body,
-      )
-      expect(body).not.toHaveProperty('otp')
-    })
-
-    it('sets accountName from the response payload on success', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'bob' } }) as unknown as Response,
-      )
-
-      const store = useAuthStore()
-      await store.register('bob', 'bob@example.com', 'pass')
-
-      expect(store.accountName).toBe('bob')
-    })
-
-    it('marks the user as authenticated on success', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, { account: { accountName: 'bob' } }) as unknown as Response,
-      )
-
-      const store = useAuthStore()
-      await store.register('bob', 'bob@example.com', 'pass')
-
-      expect(store.isAuthenticated).toBe(true)
-    })
-
-    it('throws when the response is not ok', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(false, {
-          type: 'AuthError',
-          message: 'User already exists',
-        }) as unknown as Response,
-      )
-      await expect(
-        useAuthStore().register('bob', 'bob@example.com', 'pass'),
-      ).resolves.toBeUndefined()
-    })
-
-    it('does not mutate state when the response is not ok', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
-
-      const store = useAuthStore()
-      await store.register('bob', 'bob@example.com', 'pass').catch(() => {})
-
-      expect(store.accountName).toBeNull()
+      expect(ok).toBe(false)
+      expect(makeRequest).toHaveBeenCalledTimes(1) // never reached /gateway/me
       expect(store.isAuthenticated).toBe(false)
     })
   })
 
   describe('logout', () => {
     beforeEach(() => {
-      // Pre-load an authenticated session
       const store = useAuthStore()
       store.accountName = 'alice'
       store.isAuthenticated = true
     })
 
-    it('calls authenticatedFetch with the logout endpoint and POST method', async () => {
+    it('calls the gateway logout endpoint', async () => {
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
 
       await useAuthStore().logout()
 
-      expect(makeRequest).toHaveBeenCalledWith('/auth/logout', 'POST')
+      expect(makeRequest).toHaveBeenCalledWith('/gateway/logout', 'POST')
     })
 
     it('clears accountName', async () => {
@@ -232,6 +112,16 @@ describe('useAuthStore', () => {
       expect(store.accountName).toBeNull()
     })
 
+    it('clears accountId', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
+
+      const store = useAuthStore()
+      store.accountId = 'sub-123'
+      await store.logout()
+
+      expect(store.accountId).toBeNull()
+    })
+
     it('sets isAuthenticated to false', async () => {
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
 
@@ -241,36 +131,20 @@ describe('useAuthStore', () => {
       expect(store.isAuthenticated).toBe(false)
     })
 
-    it('resets the domains store', async () => {
+    it('resets the domains, buildings, and subdomains stores', async () => {
       vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
 
       const domainsStore = useDomainsStore()
       domainsStore.memberships = [{ domainName: 'acme', role: 'admin' }]
-
-      await useAuthStore().logout()
-
-      expect(domainsStore.memberships).toBeNull()
-    })
-
-    it('resets the buildings store', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
-
       const buildingsStore = useBuildingsStore()
       buildingsStore.byDomain = { acme: [] }
-
-      await useAuthStore().logout()
-
-      expect(buildingsStore.byDomain).toEqual({})
-    })
-
-    it('resets the subdomains store', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
-
       const subdomainsStore = useSubdomainsStore()
       subdomainsStore.byDomain = { acme: ['sub1'] }
 
       await useAuthStore().logout()
 
+      expect(domainsStore.memberships).toBeNull()
+      expect(buildingsStore.byDomain).toEqual({})
       expect(subdomainsStore.byDomain).toEqual({})
     })
 
@@ -286,21 +160,20 @@ describe('useAuthStore', () => {
       const store = useAuthStore()
       await store.logout().catch(() => {})
 
-      // State is unchanged because the throw aborted execution before the resets
       expect(store.accountName).toBe('alice')
       expect(store.isAuthenticated).toBe(true)
     })
   })
 
   describe('hydrate', () => {
-    it('calls authenticatedFetch with the /auth/me endpoint', async () => {
+    it('calls makeRequest with the gateway /me endpoint', async () => {
       vi.mocked(makeRequest).mockResolvedValue(
         makeResponse(true, { accountName: 'alice' }) as unknown as Response,
       )
 
       await useAuthStore().hydrate()
 
-      expect(makeRequest).toHaveBeenCalledWith('/auth/me')
+      expect(makeRequest).toHaveBeenCalledWith('/gateway/me')
     })
 
     it('sets accountName from the response on a successful call', async () => {
@@ -312,6 +185,27 @@ describe('useAuthStore', () => {
       await store.hydrate()
 
       expect(store.accountName).toBe('alice')
+    })
+
+    it('sets accountId from the sub claim on a successful call', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, { accountName: 'alice', sub: 'sub-123' }) as unknown as Response,
+      )
+
+      const store = useAuthStore()
+      await store.hydrate()
+
+      expect(store.accountId).toBe('sub-123')
+    })
+
+    it('clears accountId when the response is not ok', async () => {
+      const store = useAuthStore()
+      store.accountId = 'sub-123'
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(false) as unknown as Response)
+
+      await store.hydrate(true)
+
+      expect(store.accountId).toBeNull()
     })
 
     it('marks the user as authenticated on a successful call', async () => {
@@ -378,6 +272,36 @@ describe('useAuthStore', () => {
       await store.hydrate()
 
       expect(store.isHydrated).toBe(true)
+    })
+
+    it('force=true re-runs the check even when already hydrated', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, { accountName: 'alice' }) as unknown as Response,
+      )
+      const store = useAuthStore()
+      await store.hydrate()
+      vi.clearAllMocks()
+
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, { accountName: 'bob' }) as unknown as Response,
+      )
+      await store.hydrate(true)
+
+      expect(makeRequest).toHaveBeenCalledWith('/gateway/me')
+      expect(store.accountName).toBe('bob')
+    })
+
+    it('without force, a second call after hydration is a no-op', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(
+        makeResponse(true, { accountName: 'alice' }) as unknown as Response,
+      )
+      const store = useAuthStore()
+      await store.hydrate()
+      vi.clearAllMocks()
+
+      await store.hydrate()
+
+      expect(makeRequest).not.toHaveBeenCalled()
     })
   })
 })

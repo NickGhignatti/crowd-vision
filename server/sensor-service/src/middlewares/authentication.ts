@@ -1,7 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
+import { getGatewaySigningKey, getGatewayIssuer } from "../config/gatewayJwks.js";
 
-// Same cookie/secret the rest of the fleet uses for the auth-service JWT.
+// Same cookie name claims-gateway uses across the fleet.
 const COOKIE_NAME = process.env.JWT_COOKIE_NAME ?? "authentication_token";
 
 declare global {
@@ -24,28 +25,60 @@ const extractToken = (req: Request): string | undefined => {
   return undefined;
 };
 
+interface GatewayMembership {
+  domain: string;
+  role: string;
+  externalId?: string;
+}
+
+// Maps claims-gateway's StandardClaims shape onto the legacy
+// {accountId, accountMemberships:[{domainName,role}]} shape this service
+// already reads — see twin-service's identical helper for the full rationale.
+const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
+  const memberships = (payload.memberships ?? []) as GatewayMembership[];
+  return {
+    ...payload,
+    accountId: payload.sub,
+    accountMemberships: memberships.map((m) => ({
+      domainName: m.domain,
+      role: m.role,
+      ...(m.externalId ? { externalId: m.externalId } : {}),
+    })),
+  };
+};
+
+const verifyGatewayToken = async (
+  token: string,
+  kid: string | undefined,
+): Promise<JwtPayload> => {
+  const key = await getGatewaySigningKey(kid);
+  const payload = jwt.verify(token, key, {
+    algorithms: ["RS256"],
+    issuer: getGatewayIssuer(),
+  });
+  if (typeof payload === "string") throw new Error("invalid token payload");
+  return normalizeGatewayClaims(payload);
+};
+
 // Responds directly (rather than throwing) because sensor-service has no global
 // error handler — each controller shapes its own response.
-export const requireAuthentication = (
+export const requireAuthentication = async (
   req: Request,
   res: Response,
   next: NextFunction,
-): void => {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    res.status(500).json({ error: "Missing JWT_SECRET configuration" });
-    return;
-  }
-
+): Promise<void> => {
   const token = extractToken(req);
   if (!token) {
     res.status(401).json({ error: "Missing authentication token" });
     return;
   }
 
+  const header = jwt.decode(token, { complete: true })?.header;
+
   try {
-    const payload = jwt.verify(token, secret, { algorithms: ["HS256"] });
-    if (typeof payload === "string" || !payload.accountId) {
+    const payload = await verifyGatewayToken(token, header?.kid);
+
+    if (!payload.accountId) {
       res.status(401).json({ error: "Invalid authentication token" });
       return;
     }

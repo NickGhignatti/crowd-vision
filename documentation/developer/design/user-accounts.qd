@@ -1,35 +1,25 @@
 .docname {Users and Account}
 .include {docs}
 
-Identity and Access Management (IAM) in CrowdVision is handled exclusively by the **Auth Service**. Because of our Database-per-Service architecture, it is critical that user identity and organizational permissions are perfectly structured so that other services can securely authorize actions without relying on cross-database queries.
+Identity and Access Management (IAM) in CrowdVision is handled by **Keycloak** (credentials, MFA, federation) plus **claims-gateway** (token minting) and **tenancy-service** (domains and memberships). The legacy Mongo-backed `auth-service` that used to own all of this has been decommissioned. Because of our Database-per-Service architecture, it is still critical that identity and organizational permissions are structured so other services can securely authorize actions without cross-database queries — that contract now travels inside the RS256 JWT claims-gateway mints, not inside a shared database.
 
 ---
 
-## 👤 The Account Entity
+## 👤 The Account and Membership Model
 
-The `Account` is the central identity record in the system. 
+Keycloak owns credentials and the account record itself; CrowdVision never stores a password. `tenancy-service` owns the relational projection of "who belongs to which domain, with what role" — a Postgres `memberships` table (`account_id`, `domain_id`, `role`, `external_id`), not an embedded array on an account document. A membership is written lazily: never at registration, but derived on first login (JIT provisioning) or via an invite-code redemption.
 
-```typescript
-export interface IAccount extends Document {
-    name: string;
-    email: string;
-    password: string;
-    memberships: IDomainMembership[];
-    totpSecret?: string;
-}
-```
+### Why memberships still travel inside the JWT
 
-### The "Embedded Memberships" Design Choice
-Notice that an account's organizational permissions (memberships) are embedded directly as an array of subdocuments within the Account document itself.
-* **Why we did this:** In standard SQL relational design, memberships would be a join table (e.g., `account_domains`). However, in CrowdVision, every single login or token refresh requires evaluating all of a user's permissions. By embedding them, a single `Account.findOne()` query retrieves the user's identity and their entire permission matrix instantly.
-* **The Trade-off:** We trade slight write-complexity (updating memberships requires array manipulation in Mongo) for massive read-performance. Given the low cardinality of memberships (a user rarely belongs to more than a few domains), this is the optimal design choice.
-* **Payload Ceiling:** *Note that because these memberships are later embedded into JWTs under the `accountMemberships` key, this design implies a hard ceiling on how many domains a single user can join before HTTP header size limits (usually ~8KB) are breached.*
+Every login (or token refresh) needs to evaluate a user's permissions without a database round-trip on the request hot path. `claims-gateway` resolves `tenancy-service`'s memberships **once, at login**, and bakes them into the signed token as a `memberships:[{domain, role, externalId?}]` claim — the same performance rationale the old design had (a single lookup gives the caller's entire permission matrix), just moved out of Mongo and into the token-minting step.
+
+* **The Trade-off:** unchanged from the original design — write-complexity (a membership change needs a fresh token before it's visible) traded for read-performance (zero-hop authorization on every other request).
+* **Payload Ceiling:** because memberships are embedded in the JWT, there's still a practical ceiling on how many domains a single user can belong to before header size limits (~8KB) are breached. Same constraint, different transport.
 
 ---
 
 ## ⚖️ Role-Based Access Control (RBAC)
-CrowdVision utilizes a *Hierarchical Weight System* to evaluate roles. Instead of explicitly defining what every single role can do, roles are assigned a numeric weight.
-If a route requires a `business_staff` role, the system checks if the user's role weight is greater than or equal to the required weight. The weights are defined as a `const` object in `server/auth-service/src/models/role.ts` and are shared across all services.
+CrowdVision utilizes a *Hierarchical Weight System* to evaluate roles. Instead of explicitly defining what every single role can do, roles are assigned a numeric weight. If an action requires a `business_staff` role, the system checks if the caller's role weight (in the relevant domain) is greater than or equal to the required weight. The weights are the single source of truth in `auth-contracts/roles.json` (Go) — every language that needs to evaluate a role (Node's `middlewares/authentication.ts` normalization, `agent-service`'s `app/roles.py`) mirrors this same table.
 
 .var {headers}
    - Role Name
@@ -52,67 +42,35 @@ If a route requires a `business_staff` role, the system checks if the user's rol
 
 ---
 
-## 🛡️ The Authorization Middleware
-To protect routes, developers use the `requireAuthorization(requiredLevel)` middleware, defined in `server/auth-service/src/models/role.ts`.
+## 🛡️ Authorization in Practice
 
-### How the Token is Read
-CrowdVision uses **httpOnly cookies** as the primary transport for JWTs. When `requireAuthentication` runs first in the middleware chain, it reads the token from the cookie and attaches the decoded payload to `req.account`. `requireAuthorization` then reads from `req.account` directly, bypassing the need to re-parse the header.
+Each Node service's `requireAuthentication` verifies the JWT (RS256, against claims-gateway's JWKS) and attaches the decoded, normalized claims to `req.account` — see [Shared Auth Middleware](../services/middlewares.qd) for the verification pipeline. There is no separate `requireAuthorization(level)` middleware shared across services anymore; role checks are either inline (`claims.CanIn(domain, role)` in Go's `tenancy-service`, using `auth-contracts`) or evaluated directly against `req.account.accountMemberships` where a route needs a domain-scoped check.
 
-If `requireAuthentication` has not run (e.g., on a public route using `requireAuthorization` standalone), the middleware falls back to reading a `Bearer` token from the `Authorization` header.
+### Contextual Evaluation (domain-scoped roles)
 
-.mermaid 
-    flowchart TD
-        A[Incoming Request<br/>e.g., DELETE /twin/buildings/:domainName] --> B{req.account set<br/>by requireAuthentication?}
-        B -- Yes --> E[Use existing token payload]
-        B -- No --> B2{Has Bearer Token<br/>in Authorization header?}
-        B2 -- No --> C[401 Unauthorized]
-        B2 -- Yes --> D{Verify JWT Signature}
-        
-        D -- Invalid/Expired --> F[403 Forbidden]
-        D -- Valid --> E
-        
-        E --> G{Is domainName<br/>in params?}
-        
-        G -- Yes --> H[Filter accountMemberships to<br/>only match requested domain]
-        G -- No --> I[Evaluate all accountMemberships<br/>for Global Admin]
-        
-        H --> J{Does ANY candidate membership<br/>have Weight >= Required Weight?}
-        I --> J
-        
-        J -- No --> F
-        J -- Yes --> K[Allow Access]
-
-### Contextual Evaluation (`domainName`)
-If the Express route includes `domainName` as a parameter (e.g., `/:domainName/rooms`), the middleware filters the user's embedded `accountMemberships` and ensures their weight is sufficient only for that specific domain context.
-
-A user might be a `business_admin` in the "Main Campus" domain, but only a `standard_customer` in the "Engineering Lab" domain. The same token is valid for both — the middleware evaluates the correct membership based on the URL.
+A user might be a `business_admin` in the "Main Campus" domain, but only a `standard_customer` in the "Engineering Lab" domain. The same token is valid for both — whichever service enforces the check filters the caller's memberships down to the domain the request concerns, then compares weight.
 
 > **⚠️ API Design Rule: URL Context**
-> Because the middleware is strictly stateless, it cannot query the database to find out which domain a `roomId` or `sensorId` belongs to. Therefore, **all protected API routes MUST be nested under the domain parameter.**
+> Because authorization is evaluated from the token alone, a service cannot look up which domain a resource belongs to it wasn't told. Therefore, **protected routes that need a domain-scoped check take the domain as an explicit parameter** rather than inferring it from another resource id.
 > * **DO:** `PATCH /domains/:domainName/rooms/:roomId`
-> * **DON'T:** `PATCH /rooms/:roomId` (The middleware will not know which domain to check permissions for).
+> * **DON'T:** `PATCH /rooms/:roomId` (nothing to check permissions against).
 
 ---
 
-## 🔑 Role Elevation (The Invite System)
-When a user signs up, they default to `standard_customer`. To be elevated to `business_staff` or `business_admin` without an Admin manually intervening, CrowdVision uses **Domain TOTP Secrets** (Time-Based One-Time Passwords).
+## 🔑 Role Elevation (Invite Codes)
 
-1. **Domain Creation:** When an organization is created, the system generates cryptographic `totpSecrets` for roles at or above `business_staff` — meaning a separate rotating secret is created for `business_staff` and `business_admin`.
-2. **Invite Generation:** A current Business Admin opens the QR generator in the dashboard. The client calls `GET /domains/:domainName/totp/qr/:accountName`, which uses the stored `totpSecret` to produce a live, rotating 6-digit OTP code encoded as a scannable QR code.
-3. **Role Claiming at Registration:** The only way to claim an elevated role is to submit the 6-digit OTP code in the `otp` field of the **registration request body** (`POST /register`). There is currently no endpoint to claim a role on an existing account after creation.
-4. **Validation:** The Auth Service scans every domain's `totpSecrets`, validates the submitted OTP against each role's secret (with a ±1 time-step window), and — if a match is found — **replaces** the account's existing membership for that domain with the matched role via `grantTOTPRoles`.
+When a user's membership is first provisioned (JIT, on login) it defaults to whatever the domain's join policy grants — typically `standard_customer` for an `open-via-idp` domain. To grant a higher role (or membership in an `invite-only` domain), `tenancy-service` mints single-use **invite codes**, replacing the old TOTP-based system entirely (see `tenancy-service/CLAUDE.md`'s note on why TOTP was dropped rather than ported):
+
+1. **Invite Generation:** A `business_admin` calls `POST /domains/{domain}/invite-codes` with the target role; `tenancy-service` mints a random code tied to that domain and role, with an expiry.
+2. **Redemption:** Any authenticated caller calls `POST /invite-codes/{code}/redeem`. The redemption is atomic at the database level (a single conditional `UPDATE ... RETURNING`, not a check-then-write in application code), so a code can only ever be consumed once even under concurrent attempts.
+3. **Role comes from the code, never the redeemer** — the same principle the old TOTP design had (the code encodes what the *inviter* authorized, not what the invitee claims).
+
+The client's QR-code UI still exists, but now encodes the raw invite code as its payload instead of a TOTP `otpauth://` URI — a drop-in replacement requiring no changes to the QR-rendering component itself.
 
 ---
 
-## 🛠️ Architecture Roadmap & Suggested Fixes
-*This section outlines technical debt and planned architectural updates for the IAM system.*
+## 🛠️ Architecture Notes
 
-1. **Implement Rate-Limiting on Role Claiming:**
-   * *Issue:* The TOTP invite system relies on a 6-digit code (1,000,000 combinations) valid for a short time window. Without rate-limiting, a malicious script could brute-force the `/register` endpoint with repeated OTP guesses.
-   * *Fix Required:* Implement an IP-based and Account-based rate limiter (e.g., using Redis) on the registration endpoint for requests that include an `otp` field. Lock out or apply progressive delays after 3–5 failed OTP attempts.
-2. **Post-Registration Role Claiming:**
-   * *Issue:* Users currently can only submit an OTP invite code at registration time. There is no way for an existing account to claim an elevated role (e.g., if they receive an invite link after already having signed up).
-   * *Fix Required:* Add a dedicated authenticated endpoint (e.g., `POST /me/claim-role`) that accepts an OTP and calls `grantTOTPRoles` on the authenticated user's account.
-3. **Evaluate Horizontal Permissions:**
-   * *Issue:* The current hierarchical weight system (10, 60, 80, 100) assumes higher roles always inherit lower role abilities.
-   * *Fix Required:* If we ever introduce actions that a `standard_customer` can perform but a `business_admin` cannot (or vice versa in specific contexts), we will need to transition from a pure weight system to a hybrid system using explicit feature flags or a permissions matrix.
+- **Rate-limiting invite-code redemption** is still worth doing — a malicious script could attempt many random codes against `/invite-codes/{code}/redeem`. Unlike the old TOTP design (a 6-digit code, ~1,000,000 combinations), invite codes are long random tokens, which makes brute-forcing impractical without rate-limiting being a hard requirement — but it's still good defense-in-depth.
+- **Per-domain BYO-IdP / OIDC federation** and **enterprise self-registration** (the old `auth-service`'s `/business/register`, `/auth/sso/*`) were deliberately not carried forward — they have no tenancy-service equivalent today. If needed again, they need a fresh design against Keycloak's Organizations/identity-brokering features, not a port of the old per-domain client-secret model.
+- **Horizontal permissions** (the hierarchical weight system assuming higher roles always inherit lower-role abilities) remains an open question, same as under the old design — evaluate if a future requirement needs role capabilities that don't nest cleanly.

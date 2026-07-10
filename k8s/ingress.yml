@@ -3,10 +3,10 @@
 # so services receive requests at their own root (e.g. /login, not /auth/login).
 #
 # How rewriting works:
-#   path: /auth(/|$)(.*)  with rewrite-target: /$2
-#   /auth        → /
-#   /auth/login  → /login
-#   /auth/u/x    → /u/x
+#   path: /twin(/|$)(.*)  with rewrite-target: /$2
+#   /twin              → /
+#   /twin/buildings    → /buildings
+#   /twin/u/x          → /u/x
 #
 # CORS note: in production all requests are same-origin (client and API share
 # the same domain through this ingress), so CORS headers are only needed for
@@ -34,13 +34,6 @@ spec:
     - host: crowdvision.local   # change to your VPS domain for production
       http:
         paths:
-          - path: /auth(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: auth-service
-                port:
-                  number: 3000
           - path: /chat(/|$)(.*)
             pathType: ImplementationSpecific
             backend:

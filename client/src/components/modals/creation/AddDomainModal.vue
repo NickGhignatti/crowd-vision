@@ -20,15 +20,10 @@ const { t } = useI18n()
 
 const step = ref(1)
 const error = ref<string | null>(null)
-const subDomainsList = ref<string[]>([])
 
 const formData = reactive({
   mainDomain: '',
   selectedMasterDomain: '',
-  authStrategy: 'internal' as 'internal' | 'oidc',
-  issuerUrl: '',
-  clientId: '',
-  clientSecret: '',
   isVisibleFromOutside: false,
 })
 
@@ -53,27 +48,11 @@ const fullDomain = computed(() => {
 
 const domainRegex = /^(?!:\/\/)([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,11}?$/
 
-const isValidMain = computed(() => {
-  const isNameValid = fullDomain.value.length > 0 && domainRegex.test(fullDomain.value)
-
-  if (!isNameValid) return false
-
-  if (formData.authStrategy === 'oidc') {
-    return (
-      formData.issuerUrl.trim() !== '' &&
-      formData.clientId.trim() !== '' &&
-      formData.clientSecret.trim() !== ''
-    )
-  }
-
-  return true
-})
+const isValidMain = computed(
+  () => fullDomain.value.length > 0 && domainRegex.test(fullDomain.value),
+)
 
 const updateMainDomain = (val: string) => (formData.mainDomain = val)
-const updateAuthStrategy = (val: 'internal' | 'oidc') => (formData.authStrategy = val)
-const updateIssuerUrl = (val: string) => (formData.issuerUrl = val)
-const updateClientId = (val: string) => (formData.clientId = val)
-const updateClientSecret = (val: string) => (formData.clientSecret = val)
 const updateIsVisibleFromOutside = (val: boolean) => (formData.isVisibleFromOutside = val)
 
 const nextStep = () => {
@@ -89,12 +68,7 @@ const handleClose = () => {
   step.value = 1
   formData.mainDomain = ''
   formData.selectedMasterDomain = props.masterDomainChoices?.[0] || ''
-  formData.authStrategy = 'internal'
-  formData.issuerUrl = ''
-  formData.clientId = ''
-  formData.clientSecret = ''
   formData.isVisibleFromOutside = false
-  subDomainsList.value = []
   error.value = null
   emit('close')
 }
@@ -102,22 +76,12 @@ const handleClose = () => {
 const handleSubmit = () => {
   const payload: DomainToAddWithVisibilityPayload = {
     name: fullDomain.value.trim().toLowerCase(),
-    subdomains: subDomainsList.value,
-    authStrategy: formData.authStrategy,
     isVisibleFromOutside: formData.isVisibleFromOutside,
   }
 
   const masterDomain = formData.selectedMasterDomain.trim().toLowerCase()
   if (masterDomain) {
     payload.masterDomain = masterDomain
-  }
-
-  if (formData.authStrategy === 'oidc') {
-    payload.ssoConfig = {
-      issuerUrl: formData.issuerUrl,
-      clientId: formData.clientId,
-      clientSecret: formData.clientSecret,
-    }
   }
 
   emit('add', payload)
@@ -179,17 +143,9 @@ const handleSubmit = () => {
               :main-domain="formData.mainDomain"
               :master-domain-choices="masterDomainChoices"
               :selected-master-domain="formData.selectedMasterDomain"
-              :auth-strategy="formData.authStrategy"
-              :issuer-url="formData.issuerUrl"
-              :client-id="formData.clientId"
-              :client-secret="formData.clientSecret"
               :is-visible-from-outside="formData.isVisibleFromOutside"
               @update-main-domain="updateMainDomain"
               @update-selected-master-domain="(val) => (formData.selectedMasterDomain = val)"
-              @update-auth-strategy="updateAuthStrategy"
-              @update-issuer-url="updateIssuerUrl"
-              @update-client-id="updateClientId"
-              @update-client-secret="updateClientSecret"
               @update-is-visible-from-outside="updateIsVisibleFromOutside"
               @next="nextStep"
             />

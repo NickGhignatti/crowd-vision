@@ -99,12 +99,11 @@ The only interactive prompt is the optional `OPENROUTER_API_KEY` (leave empty to
 
 The following secrets are **generated automatically** by `just stack env` and written to `.env` — you do not need to supply them manually:
 
-*   `JWT_SECRET` — used by Auth, Twin, and Notification services to sign/verify JWTs.
-*   `INTERNAL_ADMIN_SECRET` — internal service-to-service credential.
+*   `EVAL_JWT_SECRET` — local-dev-only HS256 secret for `evals/run_evals.py` and the docs-ingestion script; never used in any deployed environment. Production auth is RS256 against claims-gateway's JWKS, no shared secret involved.
 *   `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — web push notification keys.
 
-.box type:{warning}
-    **Security Note:** All microservices that share `JWT_SECRET` must have the exact same value. If they differ, cross-service authorization will fail with `401 Unauthorized`.
+.box type:{note}
+    There is no `JWT_SECRET`/`INTERNAL_ADMIN_SECRET` anymore — those belonged to the now-deleted `auth-service`. See [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) for the current auth design.
 
 ### Manual VAPID Key Generation
 
@@ -139,15 +138,9 @@ See the [Running the Application](running.qd) page for the full Docker Compose r
 
 ---
 
-## 5. Bootstrapping the System (Provisioning)
+## 5. Bootstrapping the System (First Login)
 
-With empty databases you cannot log in. Run the provisioning script to create the initial Global Admin account and default Domain:
-
-```bash
-node scripts/ops/provision.js
-```
-
-Run this once after `just stack dev` reports all services as healthy. The script prompts you for the admin email, password, and domain name, then calls the live auth-service to register them.
+There is no seed script anymore — login and registration go through Keycloak's hosted UI. Once `just stack dev` reports all services healthy, open the client and register normally; it redirects to Keycloak. To get a working domain, create one from the Domains page after logging in (`POST /tenancy/domains`) — the creator automatically becomes that domain's `business_admin`. See [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 ---
 

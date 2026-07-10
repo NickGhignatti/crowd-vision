@@ -12,7 +12,6 @@ import { authenticateToken, readCookie } from "./auth.js";
 // handlers to them, and start listening. No logic lives here — that's in
 // core/ and handlers/, which is why this file is excluded from coverage.
 
-const JWT_SECRET = process.env.JWT_SECRET || "";
 const PORT = 3000;
 const app = express();
 const server = http.createServer(app);
@@ -34,10 +33,13 @@ io.use((socket, next) => {
     socket.handshake.headers.cookie,
     "authentication_token",
   );
-  const identity = authenticateToken(token, JWT_SECRET);
-  if (!identity) return next(new Error("unauthorized"));
-  socket.data.identity = identity; // server-authoritative; client can't forge rooms
-  next();
+  authenticateToken(token)
+    .then((identity) => {
+      if (!identity) return next(new Error("unauthorized"));
+      socket.data.identity = identity; // server-authoritative; client can't forge rooms
+      next();
+    })
+    .catch(() => next(new Error("unauthorized")));
 });
 
 io.on("connection", handleConnection);

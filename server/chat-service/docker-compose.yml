@@ -4,7 +4,8 @@ services:
       context: .
     environment:
       - MONGO_URI=mongodb://chat-db:27017/chatdb
-      - JWT_SECRET=${JWT_SECRET}
+      - GATEWAY_JWKS_URI=http://claims-gateway:3000/.well-known/jwks.json
+      - GATEWAY_ISSUER=cv-gateway
       - AGENT_SERVICE_URL=http://agent-service:3000
       - HISTORY_MAX_MESSAGES=10
     depends_on:

@@ -29,7 +29,6 @@ from pathlib import Path
 
 # service key -> (format, report path relative to its artifact sub-directory)
 SERVICES: dict[str, tuple[str, str]] = {
-    "auth": ("istanbul", "coverage-summary.json"),
     "chat": ("istanbul", "coverage-summary.json"),
     "notification": ("istanbul", "coverage-summary.json"),
     "sensor": ("istanbul", "coverage-summary.json"),

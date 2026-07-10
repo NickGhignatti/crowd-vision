@@ -1,51 +1,65 @@
-.docname {Authentication Service Architecture}
+.docname {Identity & Tenancy Architecture}
 .include {docs}
 
-**Bounded context:** [Identity & Access](../domain/identity-access.qd) · **Stack:** Node.js / Express · **Code-level walkthrough:** [Authentication Service](../services/authentication.qd)
+**Bounded context:** [Identity & Access](../domain/identity-access.qd) · **Stack:** Keycloak (ops) + Go (control plane)
 
-The auth-service realises the [Identity & Access](../domain/identity-access.qd) context. Architecturally it is the platform's trust anchor: it authenticates principals and issues the signed identity token that every other service verifies on its own.
-
----
-
-## Architectural Style
-
-A layered Express service (see [Service Anatomy](microservices.qd)) built around a **stateless authorization** model. There is no server-side session — all the authority a request needs is carried in a signed token — so any instance can serve any request and no other service has to call back here to authorize.
+This page describes the **current, built** architecture — Keycloak owns authentication for every tier; `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` (all Go) own everything else. The legacy `auth-service` (Node.js/MongoDB) that used to do all of this has been fully decommissioned and deleted — see "The strangler migration" below for how the cutover happened.
 
 ---
 
-## Internal Structure
+## Why this replaced the original auth-service design
 
-The HTTP surface is split across several controllers by concern, with the heavier logic isolated in dedicated services.
+The previous architecture (still documented in git history) had `auth-service` doing three unrelated jobs: authenticating users, deciding authorization, and managing multi-tenancy. Splitting these along their real boundaries — **authentication is Keycloak's job; authorization + tenancy are ours** — deleted an entire class of code this platform no longer needs to build or secure: password storage, MFA, SSO protocol handling. What's left is small enough to be five focused services instead of one god-service.
+
+---
+
+## Component Structure
 
 .mermaid
     graph TD
-        R[Router] --> AC[Authentication Controller]
-        R --> DC[Domain Controller]
-        R --> ADC[Administration Controller]
-        AC --> TKS[Token Service]
-        AC --> TOS[TOTP Service]
-        DC --> TOS
-        AC --> M[Models: Account / Domain / Role]
-        DC --> M
-        ADC --> M
-        M -.-> DB[(auth-db)]
+        Browser["Browser / Vue Client"] -->|1: authenticate| KC["Keycloak"]
+        Browser -->|2: POST idToken| GW["claims-gateway"]
+        GW -->|verify| KC
+        GW -->|3: resolve/provision memberships, once per login| TS["tenancy-service"]
+        GW -->|4: mint internal JWT| Browser
+        Browser -->|5: internal JWT| Svc["twin / notification / socket / sensor / chat"]
+        Svc -->|verify locally, JWKS| GW
+
+        REG["registry-service"] -->|org lifecycle| PRV["provisioner"]
+        PRV -->|create domain| TS
+        Browser -.->|signup| REG
 
 ---
 
 ## Key Architectural Decisions
 
-- **Stateless JWT issuance.** Memberships are embedded in the token at sign-in, so authorization everywhere else is a local check rather than a call back to this service.
-- **Controllers split by concern** (authentication, domain, administration) to keep each cohesive and small.
-- **Specialised domain services.** Token handling and the TOTP invite-code logic are kept out of the controllers so they can be reasoned about and tested in isolation.
-- **Federation as account-linking.** External SSO augments an existing account rather than creating one — a deliberate limit on what federation is allowed to do.
-- **Cross-cutting concerns in middleware.** Authorization and error shaping are factored into middleware instead of being repeated per controller (see [Auth Service: Middleware](../services/middlewares.qd)).
+- **Keycloak is the IdP for every tier**, not just dedicated/on-prem. Pooled uses Keycloak's *Organizations* feature (one realm, many small orgs); dedicated uses realm-per-org; on-prem points at the customer's own IdP. Same broker code path for all three — `keycloak/realm-export.json` bootstraps the platform realm; per-org Organizations/IdP brokers are created dynamically (today: manually via the Admin API; `provisioner`'s BYO-IdP automation is future work, see its `CLAUDE.md`).
+- **The Stable Claims Contract.** Every service trusts one token shape — `{sub, accountName, sid, memberships:[{domain,role,externalId?}]}` — regardless of tier or which IdP authenticated the user. `auth-contracts` (Go) freezes this shape; `authcontracts.Membership`'s JSON tags (`domain`, `role`) are the source of truth other languages map onto.
+- **Zero network hops on the request hot path.** `claims-gateway` calls `tenancy-service` exactly once, at login (or first-login JIT-provisioning) — never per request. Every subsequent request is verified locally against `claims-gateway`'s published JWKS. This is *why* no Rust rewrite was needed for performance: there is no hot loop left to optimize once tokens are self-contained.
+- **RS256, not HS256, for the new token.** `claims-gateway` signs with a private key nothing else holds; every consumer verifies with the public JWKS. A compromised resource service can verify tokens but never mint one.
+- **Lazy JIT membership provisioning (G-MEMBERSHIP).** A membership is never written at registration — Keycloak is the source of truth, and `tenancy-service`'s row is a projection derived on first login. This avoids a distributed write across two systems with no shared transaction.
+- **Postgres, one database per service**, not shared. `tenancy-service` and `registry-service` each own their schema; there is no foreign key from a membership's `account_id` to a Keycloak user — that boundary is enforced by an `account.deleted` event (Redis Streams, at-least-once), not a database constraint.
+- **`registry-service` and `provisioner` never run inside a cell.** An organization (control-plane billing entity) is a different concept from a `tenancy-service` domain (in-cell tenant) — see the migration comment in `registry-service/migrations/0001_init.up.sql` for why these are deliberately separate tables, not one.
+- **The provisioner is a plain reconcile loop**, not a CRD operator, and — as of this writing — **only provisions the pooled tier**. Dedicated/on-prem provisioning (Helm cell stamping, per-org Keycloak realm/IdP automation) is a real, separately-sized piece of future work; see `server/provisioner/CLAUDE.md`.
+
+---
+
+## The strangler migration (complete — auth-service is deleted)
+
+The client no longer calls `auth-service` at all. Login/registration/session redirect to Keycloak (authorization code + PKCE) and talk to `claims-gateway`'s `/exchange`, `/me`, `/logout`. The Domains-management UI (`DomainInput.vue`, `AddDomainModal.vue`) was rewired to `tenancy-service`'s `/domains`, `/me/memberships`, `/domains/{domain}/subdomains`, join/leave, and invite-code endpoints; the old TOTP-QR flow was replaced by tenancy-service invite codes rendered through the same `QrCodeCard.vue` (a raw invite code works as a QR payload exactly like the old `otpauth://` URI did); a `JoinWithCodeModal.vue` redeems them.
+
+With every caller off `auth-service`, the HS256 fallback was removed from each resource service's `middlewares/authentication.ts` (`twin`, `notification`, `socket`, `sensor`, `chat`) and from `agent-service`'s `app/auth.py` — all of them now verify **only** claims-gateway's RS256 tokens against its JWKS, no shared secret anywhere. `auth-service`, `auth-db`, and its k8s manifests have been deleted outright (not just deprecated); `server/auth-service/CLAUDE.md` (its full route→replacement map) went with it.
+
+**Deliberately not replaced:** `auth-service`'s `/business/register` (enterprise self-registration) and `/auth/sso/*` (per-domain BYO-OIDC) never had a client caller and have no tenancy-service equivalent. If that functionality is needed again, it needs a fresh design against Keycloak's Organizations/identity-brokering features, not a port of the old per-domain client-secret model.
+
+**Known gap (pre-existing, not caused by this cutover):** `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` have no CI workflow or k8s Deployment/Service — they only run via docker-compose. Deleting `auth-service`'s k8s manifests means the k8s deployment path currently has no working auth at all end-to-end; standing up CI + k8s for the Go stack is real, separately-sized future work.
 
 ---
 
 ## Integration
 
-- Owns `auth-db`; no other service reads it.
-- Produces the identity token consumed platform-wide — see [Communication & Data Flow](data-flow.qd).
-- Has no synchronous dependency on any other service.
-
-For the login, SSO, and TOTP flows, the code-level decisions, and the API, see the [Authentication Service](../services/authentication.qd) internals page.
+- `tenancy-service` owns `tenancy_db` (Postgres); `registry-service` owns `registry_db` (Postgres). Neither reads the other's tables.
+- `claims-gateway` owns no database — it is entirely stateless, horizontally scalable.
+- Keycloak owns its own Postgres (`keycloak-db`), never reached by any other service directly.
+- For the internal HMAC-signed contract between `claims-gateway` → `tenancy-service` and `provisioner` → `registry-service`/`tenancy-service`, see each service's `internal/api/internalauth.go` — a single `X-Signature` convention across the Go control plane rather than inventing a second internal-auth scheme.
+- See [Communication & Data Flow](data-flow.qd) for how these calls fit into the platform's overall synchronous/asynchronous split.

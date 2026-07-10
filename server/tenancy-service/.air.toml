@@ -1,0 +1,11 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/tenancy-service ./cmd/tenancy"
+bin = "./tmp/tenancy-service"
+include_ext = ["go"]
+exclude_dir = ["tmp", "migrations"]
+
+[misc]
+clean_on_exit = true

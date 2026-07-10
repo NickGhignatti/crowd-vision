@@ -1,7 +1,11 @@
 <script setup lang="ts">
-defineProps<{
-  isOpen: boolean
-}>()
+withDefaults(
+  defineProps<{
+    isOpen: boolean
+    size?: 'sm' | 'lg'
+  }>(),
+  { size: 'sm' },
+)
 
 defineEmits<{
   (e: 'close'): void
@@ -26,7 +30,8 @@ defineEmits<{
         ></div>
 
         <div
-          class="relative w-full max-w-sm bg-slate-50 rounded-2xl shadow-2xl p-8 transform transition-all border border-slate-200 overflow-hidden"
+          class="relative w-full bg-slate-50 rounded-2xl shadow-2xl p-8 transform transition-all border border-slate-200 overflow-hidden"
+          :class="size === 'lg' ? 'max-w-2xl' : 'max-w-sm'"
           @click.stop
         >
           <div

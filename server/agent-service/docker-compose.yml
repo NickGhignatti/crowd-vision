@@ -12,7 +12,12 @@ services:
       - TWIN_TIMEOUT_SECONDS=${TWIN_TIMEOUT_SECONDS:-10}
       - SENSOR_SERVICE_URL=${SENSOR_SERVICE_URL:-http://sensor-service:3000}
       - SENSOR_TIMEOUT_SECONDS=${SENSOR_TIMEOUT_SECONDS:-10}
-      - JWT_SECRET=${JWT_SECRET}
+      - GATEWAY_JWKS_URI=http://claims-gateway:3000/.well-known/jwks.json
+      - GATEWAY_ISSUER=cv-gateway
+      # Local-dev-only: lets evals/run_evals.py auto-mint a token against this
+      # compose-deployed instance (its default AGENT_URL). Empty in any real
+      # deployment — never set in k8s (see agent-service/CLAUDE.md).
+      - EVAL_JWT_SECRET=${EVAL_JWT_SECRET:-}
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=${RERANKER:-noop}
       - MODEL_OVERRIDE_MIN_ROLE=${MODEL_OVERRIDE_MIN_ROLE:-business_admin}

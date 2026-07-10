@@ -6,7 +6,8 @@
  *   node scripts/ops/ingest-docs.js [dir1 dir2 ...]
  *
  * Defaults to documentation/user and documentation/developer if no dirs are
- * passed. Reads JWT_SECRET from .env, mints a short-lived HS256 token, and
+ * passed. Reads EVAL_JWT_SECRET from .env (agent-service's local-dev-only HS256
+ * bypass — see server/agent-service/CLAUDE.md), mints a short-lived token, and
  * POSTs each file's content to {AGENT_URL}/agent/ingest.
  */
 const fs = require("node:fs");
@@ -104,9 +105,9 @@ async function ingest(file, token) {
 
 async function main() {
   const env = loadEnv();
-  const secret = env.JWT_SECRET;
+  const secret = env.EVAL_JWT_SECRET;
   if (!secret) {
-    console.error("JWT_SECRET not found in .env — run `just stack env` first.");
+    console.error("EVAL_JWT_SECRET not found in .env — run `just stack env` first.");
     process.exit(1);
   }
 
@@ -126,9 +127,9 @@ async function main() {
 
   const token = signJwt(
     {
-      accountName: "docs-ingester",
-      accountId: "docs-ingester",
-      accountMemberships: [],
+      sub: "docs-ingester",
+      roles: [],
+      domains: [],
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 600,
     },

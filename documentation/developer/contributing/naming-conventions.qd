@@ -177,13 +177,13 @@ Common scopes: `auth`, `twin`, `sensor`, `notification`, `socket`, `contracts`, 
 .tablebyrows {.headers}
     - - Environment variables
       - `UPPER_SNAKE_CASE`
-      - `JWT_SECRET`, `SENSOR_SERVICE_URL`
+      - `GATEWAY_JWKS_URI`, `SENSOR_SERVICE_URL`
     - - Docker images
       - `crowdvision-<service>` under the org namespace
-      - `ghcr.io/nickghignatti/crowdvision-auth`
+      - `ghcr.io/nickghignatti/crowdvision-twin`
     - - Workflow files
       - `<category>-<name>&#46;yml` (`ci-`, `cd-`, `maint-`)
-      - `ci-auth.yml`, `cd-release.yml`, `maint-cleanup.yml`
+      - `ci-twin.yml`, `cd-release.yml`, `maint-cleanup.yml`
     - - Documentation pages
       - `kebab-case` `&#46;qd`
       - `building-data.qd`, `naming-conventions.qd`

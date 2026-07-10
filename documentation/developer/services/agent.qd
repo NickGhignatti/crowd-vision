@@ -232,17 +232,22 @@ depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
 ## Authentication And Permissions
 
 Protected routes accept either the configured JWT cookie (`authentication_token` by default)
-or an `Authorization: Bearer <jwt>` header. Tokens are verified with HS256 against
-`JWT_SECRET`. CrowdVision uses **stateless JWTs** so the agent can authorize a caller without
-a network round-trip to the auth-service — roles and domains travel inside the signed token.
+or an `Authorization: Bearer <jwt>` header. Tokens are verified with RS256 against
+claims-gateway's published JWKS (`GATEWAY_JWKS_URI`/`GATEWAY_ISSUER`). CrowdVision uses
+**stateless JWTs** so the agent can authorize a caller without a network round-trip on every
+request — roles and domains travel inside the signed token, and the JWKS itself is only
+re-fetched on a short cache TTL, not per request.
 
-Roles and domains are collected from the token's direct claims and `accountMemberships`, then
-combined into `AuthUser.permissions` and used both for retrieval filtering and role gates.
-Role-sensitive operations use the same weighted hierarchy as `auth-service`:
+Roles and domains are collected from the token's `memberships` claim, then combined into
+`AuthUser.permissions` and used both for retrieval filtering and role gates. Role-sensitive
+operations use the same weighted hierarchy as the rest of the fleet (`auth-contracts/roles.json`):
 `standard_customer` (10), `business_staff` (60), `business_admin` (80), `admin` (100). The one
 role-gated operation today is the per-request answer-model override.
 
-`REQUIRE_AUTH=false` creates an anonymous user and is intended only for isolated local use.
+`REQUIRE_AUTH=false` creates an anonymous user and is intended only for isolated local use. A
+separate, narrower `EVAL_JWT_SECRET` (HS256, opt-in, never set in any deployed environment) lets
+`evals/run_evals.py` mint its own tokens for local dataset runs without a full Keycloak +
+claims-gateway stack — see `server/agent-service/CLAUDE.md`.
 
 ---
 
@@ -401,5 +406,5 @@ The source of truth for runtime settings is `server/agent-service/app/config.py`
 `LLM_TEMPERATURE` controls the default generation temperature, while `TWIN_TIMEOUT_SECONDS`
 controls live-data request timeouts. Invalid numeric bounds, unsupported model-override roles
 or log formats, and malformed service URL schemes fail during settings loading. Startup also
-fails when the provider key is missing, or when authentication is enabled without `JWT_SECRET`.
+fails when the provider key is missing, or when authentication is enabled without `GATEWAY_JWKS_URI`.
 `CORS_ORIGINS` is currently defined there but is not consumed by FastAPI middleware.

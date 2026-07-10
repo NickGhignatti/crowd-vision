@@ -2,21 +2,6 @@ services:
   gateway:
     ports: []
 
-  auth-db:
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--quiet",
-          "--eval",
-          "quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-
   twin-db:
     healthcheck:
       test:
@@ -78,23 +63,6 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
-
-  auth-service:
-    depends_on:
-      auth-db:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://localhost:3000/health/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 20s
 
   twin-service:
     depends_on:
@@ -186,7 +154,10 @@ services:
     environment:
       - GOOGLE_API_KEY=integration-test-google-api-key
       - DEEPSEEK_API_KEY=
-      - JWT_SECRET=integration-jwt-secret
+      # This suite (metrics.test.ts) never exercises agent-service's authenticated
+      # routes, and claims-gateway isn't part of this compose override — so auth
+      # is disabled rather than pointing GATEWAY_JWKS_URI at nothing.
+      - REQUIRE_AUTH=false
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=noop
     depends_on:
@@ -213,8 +184,6 @@ services:
       - ./:/workspace
       - /workspace/node_modules
     depends_on:
-      auth-service:
-        condition: service_healthy
       twin-service:
         condition: service_healthy
       sensor-service:

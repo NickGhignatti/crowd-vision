@@ -1,15 +1,18 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import StandardModal from '@/components/modals/StandardModal.vue'
-import MailInput from '@/components/inputs/authentication/MailInput.vue'
-import UsernameInput from '@/components/inputs/authentication/UsernameInput.vue'
-import PasswordInput from '@/components/inputs/authentication/PasswordInput.vue'
 
-import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useKeycloakAuth } from '@/composables/auth/useKeycloakAuth.ts'
 
 const { t } = useI18n()
-const authStore = useAuthStore()
+const { beginRegister, registerWithPassword } = useKeycloakAuth()
+
+const name = ref('')
+const email = ref('')
+const password = ref('')
+const isSubmitting = ref(false)
+const errorKey = ref<string | null>(null)
 
 defineProps<{
   isOpen: boolean
@@ -20,46 +23,24 @@ const emit = defineEmits<{
   (e: 'switch-to-login'): void
 }>()
 
-const account = reactive({ accountName: '', email: '', password: '', otp: '' })
-const hasInviteCode = ref(false)
-const otpError = ref('')
+const handleGoogleSignUp = () => beginRegister(window.location.pathname, 'google')
 
-const toggleInviteCode = () => {
-  hasInviteCode.value = !hasInviteCode.value
-  if (!hasInviteCode.value) {
-    account.otp = ''
-    otpError.value = ''
-  }
-}
+// The form submits straight to our own claims-gateway (see
+// useKeycloakAuth.registerWithPassword), which creates the Keycloak user and
+// logs it in within that same request — the browser never talks to
+// Keycloak directly for this flow, unlike the Google button below. Joining
+// an existing organization via an invite code is a separate, post-login
+// action (tenancy-service's /invite-codes/{code}/redeem), not bundled here.
+async function handleSubmit() {
+  errorKey.value = null
+  isSubmitting.value = true
+  const result = await registerWithPassword(email.value, password.value, name.value)
+  isSubmitting.value = false
 
-const formatOtp = (e: Event) => {
-  const input = e.target as HTMLInputElement
-  // strip non-digits, limit to 6
-  account.otp = input.value.replace(/\D/g, '').slice(0, 6)
-  otpError.value = ''
-}
-
-const handleSignUp = async () => {
-  if (hasInviteCode.value && account.otp && account.otp.length !== 6) {
-    otpError.value = 'Code must be 6 digits'
-    return
-  }
-
-  const payload: Record<string, string> = {
-    accountName: account.accountName,
-    email: account.email,
-    password: account.password,
-  }
-
-  if (hasInviteCode.value && account.otp) {
-    payload.otp = account.otp
-  }
-
-  try {
-    await authStore.register(account.accountName, account.email, account.password, payload.otp)
+  if (result.ok) {
     emit('close')
-  } catch (e) {
-    console.error(e)
+  } else {
+    errorKey.value = result.error ?? 'authErrorGeneric'
   }
 }
 </script>
@@ -78,80 +59,71 @@ const handleSignUp = async () => {
       <p class="text-sm text-slate-500 mt-2">{{ t('authentication.join') }}</p>
     </div>
 
-    <form @submit.prevent="handleSignUp" class="relative z-10 space-y-4">
-      <UsernameInput v-model:name="account.accountName" />
-      <MailInput v-model:mail="account.email" />
-      <PasswordInput v-model:password="account.password" />
-
-      <!-- Invite code toggle -->
-      <div class="pt-1">
-        <button
-          type="button"
-          @click="toggleInviteCode"
-          class="flex items-center gap-2 text-xs text-slate-400 hover:text-emerald-600 transition-colors group"
-        >
-          <span
-            class="w-4 h-4 rounded-full border border-slate-300 group-hover:border-emerald-400 flex items-center justify-center transition-colors"
-            :class="hasInviteCode ? 'bg-emerald-500 border-emerald-500' : ''"
-          >
-            <i
-              class="ph-bold text-white transition-all"
-              :class="hasInviteCode ? 'ph-minus text-[8px]' : 'ph-plus text-[8px]'"
-            ></i>
-          </span>
-          {{ hasInviteCode ? 'Remove invite code' : 'I have an invite code' }}
-        </button>
-
-        <!-- Collapsible OTP input -->
-        <Transition
-          enter-active-class="transition-all duration-200 ease-out"
-          enter-from-class="opacity-0 -translate-y-2"
-          enter-to-class="opacity-100 translate-y-0"
-          leave-active-class="transition-all duration-150 ease-in"
-          leave-from-class="opacity-100 translate-y-0"
-          leave-to-class="opacity-0 -translate-y-2"
-        >
-          <div v-if="hasInviteCode" class="mt-3 space-y-1">
-            <div class="relative">
-              <input
-                :value="account.otp"
-                @input="formatOtp"
-                type="text"
-                inputmode="numeric"
-                maxlength="6"
-                placeholder="000000"
-                class="w-full px-4 py-2.5 rounded-xl border font-mono text-xl tracking-[0.5em] text-center transition-all focus:outline-none focus:ring-2 focus:ring-offset-0"
-                :class="
-                  otpError
-                    ? 'border-red-300 focus:ring-red-400 bg-red-50'
-                    : 'border-slate-300 focus:ring-emerald-500 focus:border-transparent bg-white'
-                "
-              />
-              <!-- digit progress dots -->
-              <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                <span
-                  v-for="i in 6"
-                  :key="i"
-                  class="w-1 h-1 rounded-full transition-colors duration-100"
-                  :class="i <= account.otp.length ? 'bg-emerald-500' : 'bg-slate-200'"
-                />
-              </div>
-            </div>
-            <p v-if="otpError" class="text-xs text-red-500 text-center">{{ otpError }}</p>
-            <p v-else class="text-xs text-slate-400 text-center">
-              6-digit code from your organisation admin
-            </p>
-          </div>
-        </Transition>
+    <form class="relative z-10 space-y-4" @submit.prevent="handleSubmit">
+      <div>
+        <label class="sr-only" for="signup-name">{{ t('authentication.input.name') }}</label>
+        <input
+          id="signup-name"
+          v-model="name"
+          type="text"
+          autocomplete="name"
+          :placeholder="t('authentication.input.namePlaceholder')"
+          class="w-full py-3 px-4 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        />
       </div>
+      <div>
+        <label class="sr-only" for="signup-email">{{ t('authentication.input.email') }}</label>
+        <input
+          id="signup-email"
+          v-model="email"
+          type="email"
+          autocomplete="email"
+          :placeholder="t('authentication.input.emailPlaceholder')"
+          required
+          class="w-full py-3 px-4 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        />
+      </div>
+      <div>
+        <label class="sr-only" for="signup-password">{{ t('authentication.input.password') }}</label>
+        <input
+          id="signup-password"
+          v-model="password"
+          type="password"
+          autocomplete="new-password"
+          :placeholder="t('authentication.input.passwordPlaceholder')"
+          required
+          class="w-full py-3 px-4 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        />
+      </div>
+
+      <p v-if="errorKey" class="text-sm text-red-600 text-center">{{ t(`authentication.${errorKey}`) }}</p>
 
       <button
         type="submit"
-        class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0 mt-2"
+        :disabled="isSubmitting"
+        class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:hover:translate-y-0"
       >
-        {{ t('authentication.createAnAccount') }}
+        {{ isSubmitting ? t('authentication.registering') : t('authentication.createAnAccount') }}
       </button>
     </form>
+
+    <div class="relative z-10 mt-5 flex items-center gap-3">
+      <span class="h-px flex-1 bg-slate-200"></span>
+      <span class="text-xs text-slate-400 uppercase tracking-wide">{{ t('authentication.or') }}</span>
+      <span class="h-px flex-1 bg-slate-200"></span>
+    </div>
+
+    <div class="relative z-10 mt-5 flex justify-center">
+      <button
+        type="button"
+        @click="handleGoogleSignUp"
+        :aria-label="t('authentication.continueWithGoogle')"
+        :title="t('authentication.continueWithGoogle')"
+        class="w-12 h-12 flex items-center justify-center bg-white hover:bg-slate-50 text-slate-700 rounded-full border border-slate-200 shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
+      >
+        <i class="ph-bold ph-google-logo text-xl"></i>
+      </button>
+    </div>
 
     <div class="relative z-10 mt-6 text-center">
       <p class="text-xs text-slate-500">

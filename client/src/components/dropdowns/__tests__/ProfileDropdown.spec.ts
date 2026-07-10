@@ -68,6 +68,20 @@ describe('ProfileDropdown', () => {
       expect(wrapper.emitted('handleLogout')).toBeTruthy()
       expect(wrapper.emitted('handleLogout')).toHaveLength(1)
     })
+
+    it('emits "openSettings" when the settings button in the dropdown is clicked', async () => {
+      const wrapper = mount(Profile, {
+        props: { isUserDropdownOpen: true, isMobileMenuOpen: false },
+      })
+
+      const settingsBtn = wrapper
+        .findAll('button')
+        .find((b) => b.text().includes('authentication.settings'))
+      await settingsBtn?.trigger('click')
+
+      expect(wrapper.emitted('openSettings')).toBeTruthy()
+      expect(wrapper.emitted('openSettings')).toHaveLength(1)
+    })
   })
 
   describe('mobile layout (isMobileMenuOpen)', () => {
@@ -103,6 +117,20 @@ describe('ProfileDropdown', () => {
       await wrapper.find('button').trigger('click')
 
       expect(wrapper.emitted('closeDropDown')).toBeUndefined()
+    })
+
+    it('emits "openSettings" when the mobile settings button is clicked', async () => {
+      const wrapper = mount(Profile, {
+        props: { isUserDropdownOpen: false, isMobileMenuOpen: true },
+      })
+
+      const settingsBtn = wrapper
+        .findAll('button')
+        .find((b) => b.text().includes('authentication.settings'))
+      await settingsBtn?.trigger('click')
+
+      expect(wrapper.emitted('openSettings')).toBeTruthy()
+      expect(wrapper.emitted('openSettings')).toHaveLength(1)
     })
   })
 

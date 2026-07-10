@@ -3,6 +3,7 @@ import ModelView from '@/views/ModelView.vue'
 import DomainsView from '@/views/DomainsView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import AdministrationView from '@/views/AdministrationView.vue'
+import AuthCallbackView from '@/views/AuthCallbackView.vue'
 
 import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authentication.ts'
@@ -48,6 +49,11 @@ const router = createRouter({
       meta: {
         requiresAuth: true,
       },
+    },
+    {
+      path: '/auth/callback',
+      name: 'auth-callback',
+      component: AuthCallbackView,
     },
   ],
 })

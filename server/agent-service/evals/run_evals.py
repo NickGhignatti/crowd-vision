@@ -79,12 +79,16 @@ def _read_env_value(path: pathlib.Path, name: str) -> str | None:
     return None
 
 
-def _jwt_secret() -> str:
-    secret = os.environ.get("JWT_SECRET") or _read_env_value(REPO_ROOT / ".env", "JWT_SECRET")
+def _eval_jwt_secret() -> str:
+    # Local-dev-only secret (see app/auth.py's eval bypass) — not a production
+    # credential, and never wired in docker-compose.yml or k8s secrets.
+    secret = os.environ.get("EVAL_JWT_SECRET") or _read_env_value(
+        REPO_ROOT / ".env", "EVAL_JWT_SECRET"
+    )
     if not secret:
         raise SystemExit(
-            "No JWT secret for local evaluation: set JWT_SECRET or define JWT_SECRET in "
-            f"{REPO_ROOT / '.env'}"
+            "No JWT secret for local evaluation: set EVAL_JWT_SECRET or define it in "
+            f"{REPO_ROOT / '.env'} (and on agent-service, so it accepts the minted token)."
         )
     return secret
 
@@ -111,7 +115,7 @@ class EvalAuth:
                 "Automatic JWT minting is restricted to local agent URLs. "
                 "Set AUTH_COOKIE when evaluating a remote service."
             )
-        return cls(args.cookie_name, args.role, args.domain, secret=_jwt_secret())
+        return cls(args.cookie_name, args.role, args.domain, secret=_eval_jwt_secret())
 
     def headers(self) -> dict[str, str]:
         if self.explicit_cookie:
@@ -435,7 +439,7 @@ def preflight(client: httpx.Client, base: str, auth: EvalAuth, model: str | None
         raise SystemExit(f"Agent preflight request failed: {exc}") from exc
     if response.status_code == 401:
         raise SystemExit(
-            "Agent rejected the evaluation JWT (401). Check JWT_SECRET or AUTH_COOKIE."
+            "Agent rejected the evaluation JWT (401). Check EVAL_JWT_SECRET or AUTH_COOKIE."
         )
     if response.status_code == 403:
         raise SystemExit(

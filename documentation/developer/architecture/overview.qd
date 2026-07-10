@@ -14,7 +14,7 @@ This page gives the whole-system picture — the principles, the components, and
 - **Stateless services, stateful edges.** Application services hold no session state — identity travels in a signed token — so any instance can serve any request. Durable state lives only in the databases and the broker.
 - **One gateway in front.** All external traffic enters through a single reverse proxy that routes by URL prefix.
 - **Event-driven where it counts.** High-frequency telemetry and alerts move over a publish/subscribe broker rather than synchronous calls, decoupling producers from consumers.
-- **Polyglot by need.** Most services are Node.js/Express; the throughput-critical telemetry filter is Rust; the assistant is Python.
+- **Polyglot by need.** Most services are Node.js/Express; the throughput-critical telemetry filter is Rust; the assistant is Python; the identity/tenancy control plane (added in the Keycloak-centric auth redesign — see [Identity & Tenancy Architecture](auth-architecture.qd)) is Go, chosen for fast CRUD iteration and small static binaries on services that never sit on the request hot path.
 
 ---
 
@@ -26,9 +26,21 @@ This page gives the whole-system picture — the principles, the components, and
    - Stack
 
 .tablebyrows {.headers}
-    - - auth-service
-      - Identity & Access — accounts, domains, tokens
-      - Node.js / Express
+    - - Keycloak
+      - Identity provider for every tier — authentication, credentials, MFA, brokered/BYO-IdP login. See [Identity & Tenancy Architecture](auth-architecture.qd).
+      - Ops (Keycloak 26)
+    - - claims-gateway
+      - Verifies the IdP token, resolves tenancy, mints the internal token every service trusts
+      - Go
+    - - tenancy-service
+      - Domains & memberships — who belongs to which organization, with what role
+      - Go / PostgreSQL
+    - - registry-service
+      - Organization signup & lifecycle (control plane; never deployed in a cell)
+      - Go / PostgreSQL
+    - - provisioner
+      - Reconciles pending organizations into running tenancy (pooled tier today)
+      - Go
     - - twin-service
       - Building Management — the spatial model
       - Node.js / Express
@@ -58,7 +70,7 @@ This page gives the whole-system picture — the principles, the components, and
       - Redis
     - - Datastores
       - One database per stateful service
-      - MongoDB (per service), PostgreSQL (agent)
+      - MongoDB (Node services), PostgreSQL (agent-service, tenancy-service, registry-service, Keycloak)
 
 The agent-service runs as part of the system but sits outside this guide's microservice set; it appears here for completeness only.
 
@@ -74,7 +86,8 @@ All incoming external traffic enters the system through a single **Caddy** rever
         IoT["IoT Sensors (Simulated)"] -->|HTTP POST| Caddy
 
         subgraph gateway-net [Shared Gateway Network]
-            Caddy -->|/auth/*| Auth["auth-service :3000"]
+            Caddy -->|/gateway/*| CG["claims-gateway :3000"]
+            Caddy -->|/tenancy/*| TS["tenancy-service :3000"]
             Caddy -->|/twin/*| Twin["twin-service :3000"]
             Caddy -->|/notification/*| Notif["notification-service :3000"]
             Caddy -->|/socket.io/*| Socket["socket-server :3000"]
@@ -84,8 +97,8 @@ All incoming external traffic enters the system through a single **Caddy** rever
             Socket -->|SUBSCRIBE| Redis
         end
 
-        subgraph auth-net [Auth Private Network]
-            Auth --- AuthDB[("auth-db MongoDB")]
+        subgraph tenancy-net [Tenancy Private Network]
+            TS --- TenancyDB[("tenancy_db PostgreSQL")]
         end
 
         subgraph twin-net [Twin Private Network]
@@ -101,11 +114,11 @@ All incoming external traffic enters the system through a single **Caddy** rever
         end
 
 ### Network Segregation & Database Isolation
-Each microservice is attached to two networks:
+Each stateful microservice is attached to two networks:
 - The shared **gateway-net** (so Caddy can reach them).
-- A completely **private database network** (e.g., `auth-net`, `twin-net`, `notification-net`, `sensor-net`).
+- A completely **private database network** (e.g., `tenancy-net`, `twin-net`, `notification-net`, `sensor-net`). `claims-gateway` has no private network of its own — it is stateless and owns no database.
 
-This physically enforces the database-per-service pattern. The Twin Service cannot reach the Auth Database, so cross-domain data mutations are impossible by construction.
+This physically enforces the database-per-service pattern. The Twin Service cannot reach the Tenancy Database, so cross-domain data mutations are impossible by construction.
 
 ---
 
@@ -121,16 +134,12 @@ In Kubernetes mode, Caddy is replaced by an **nginx Ingress Controller**. The co
         LB --> Ingress["nginx Ingress Controller"]
 
         subgraph crowdvision [Namespace: crowdvision]
-            Ingress -->|/auth| AuthSvc["auth-service ClusterIP"]
             Ingress -->|/twin| TwinSvc["twin-service ClusterIP"]
             Ingress -->|/notification| NotifSvc["notification-service ClusterIP"]
             Ingress -->|/sensor| SensorSvc["sensor-service ClusterIP"]
             Ingress -->|/agent| AgentSvc["agent-service ClusterIP"]
             Ingress -->|/socket.io| SocketSvc["socket-service ClusterIP"]
             Ingress -->|/ catch-all| ClientSvc["client ClusterIP"]
-
-            AuthSvc --> AuthPod["auth-service Pod"]
-            AuthPod --- AuthDB[("auth-db StatefulSet")]
 
             TwinSvc --> TwinPod["twin-service Pod"]
             TwinPod --- TwinDB[("twin-db StatefulSet")]
@@ -148,6 +157,9 @@ In Kubernetes mode, Caddy is replaced by an **nginx Ingress Controller**. The co
 
 A key difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it reaches the cluster through the load balancer's public port, just like a browser. See the [External Sensor Simulator](../config/sensor-simulator.qd) page. The cluster internals — StatefulSets, Secrets, Ingress rules — are detailed in [Deployment & Kubernetes](deployment.qd).
 
+.box {Auth has no k8s presence yet} type:{warning}
+    `claims-gateway` and `tenancy-service` (the current identity/tenancy stack) have never been given k8s manifests — only docker-compose. The old `auth-service`'s k8s Deployment/Service/StatefulSet were deleted along with the service itself. The k8s deployment path therefore currently has no working auth end-to-end; see [Identity & Tenancy Architecture](auth-architecture.qd)'s "known gap" note.
+
 ---
 
 ## Routing Table
@@ -160,9 +172,12 @@ The routing table is identical across both deployment models. Only the component
    - Purpose
 
 .tablebyrows {.headers}
-    - - `/auth/`
-      - `auth-service`
-      - Account creation, login, SSO, token verification.
+    - - `/gateway/`
+      - `claims-gateway`
+      - Token exchange, `/me`, logout, JWKS (docker-compose only — see the k8s gap note above).
+    - - `/tenancy/`
+      - `tenancy-service`
+      - Domains, subdomains, memberships, invite codes (docker-compose only).
     - - `/twin/`
       - `twin-service`
       - Building models, room CRUD, spatial data.

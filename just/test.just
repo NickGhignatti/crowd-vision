@@ -15,10 +15,6 @@ all:
 affected:
     mise exec -- moon run :test --affected
 
-[doc("Unit tests for auth-service.")]
-auth:
-    mise exec -- moon run auth-service:test
-
 [doc("Unit tests for chat-service.")]
 chat:
     mise exec -- moon run chat-service:test

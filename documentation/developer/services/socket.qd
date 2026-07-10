@@ -5,7 +5,7 @@ Implementation reference for the `socket-service`. For its architectural role, s
 
 A small Node.js service built on **Socket.IO** and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split: pure relay helpers and token verification in `core/` and `auth.ts`, the broker- and socket-event handlers in `handlers/`, the metrics registry in `config/`, and a thin composition root in `index.ts` that wires them together.
 
-Connections are **authenticated**: a Socket.IO handshake middleware verifies the auth-service JWT before any event is processed, so the service knows which account and domains each socket belongs to.
+Connections are **authenticated**: a Socket.IO handshake middleware verifies the claims-gateway-minted JWT before any event is processed, so the service knows which account and domains each socket belongs to.
 
 ---
 
@@ -23,9 +23,12 @@ Connections are **authenticated**: a Socket.IO handshake middleware verifies the
     - - `CLIENT_URL`
       - `http://localhost:5173`
       - Allowed CORS origin for the Socket.IO server (credentials enabled).
-    - - `JWT_SECRET`
-      - empty
-      - Shared secret used to verify the auth-service token on the handshake. Must match the value auth-service signs with.
+    - - `GATEWAY_JWKS_URI`
+      - —
+      - claims-gateway's published JWKS endpoint, used to verify the handshake token's RS256 signature.
+    - - `GATEWAY_ISSUER`
+      - `cv-gateway`
+      - Expected `iss` claim on the verified token.
 
 The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs the Kubernetes probes.
 
@@ -36,8 +39,8 @@ The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs
 A Socket.IO handshake middleware (`io.use`) runs once per connection, before any event handler:
 
 - It reads the `authentication_token` cookie from the handshake headers. The cookie is httpOnly, so the browser sends it automatically with the WebSocket upgrade (the client sets `withCredentials`); client JavaScript never touches the token.
-- `authenticateToken` (in `auth.ts`, pure and unit-tested) verifies the JWT with `JWT_SECRET` and extracts a `SocketIdentity`: `accountId`, `accountName`, and the `domains` the account is a member of (from the token's `accountMemberships`).
-- A missing, malformed, expired, or wrong-secret token rejects the connection with `unauthorized`. On success the identity is attached to `socket.data` so the connection is **server-authoritative** — the client cannot claim rooms it has no right to.
+- `authenticateToken` (in `auth.ts`, pure and unit-tested) verifies the JWT's RS256 signature against claims-gateway's JWKS and its `iss` claim, then extracts a `SocketIdentity`: `accountId`, `accountName`, and the `domains` the account is a member of (from the token's `memberships`).
+- A missing, malformed, expired, or untrusted-issuer/key token rejects the connection with `unauthorized`. On success the identity is attached to `socket.data` so the connection is **server-authoritative** — the client cannot claim rooms it has no right to.
 
 ---
 

@@ -4,10 +4,6 @@ import DomainInput from '../DomainInput.vue'
 
 const defaultProps = {
   mainDomain: '',
-  authStrategy: 'internal' as const,
-  issuerUrl: '',
-  clientId: '',
-  clientSecret: '',
   isVisibleFromOutside: false,
 }
 
@@ -35,61 +31,34 @@ describe('DomainInput Component', () => {
       expect(wrapper.emitted('next')).toHaveLength(1)
     })
 
-    it('emits "update-auth-strategy" with "internal" when internal radio is selected', async () => {
-      const wrapper = createWrapper({ authStrategy: 'oidc' })
+    it('emits "update-selected-master-domain" when the master domain select changes', async () => {
+      const wrapper = createWrapper({ masterDomainChoices: ['acme.com', 'globex.com'] })
 
-      await wrapper.find('input[type="radio"]').trigger('change')
+      await wrapper.find('select').setValue('acme.com')
 
-      expect(wrapper.emitted('update-auth-strategy')?.[0]).toEqual(['internal'])
+      expect(wrapper.emitted('update-selected-master-domain')?.[0]).toEqual(['acme.com'])
     })
 
-    it('emits "update-auth-strategy" with "oidc" when oidc radio is selected', async () => {
-      const wrapper = createWrapper()
+    it('emits "update-is-visible-from-outside" when the visibility toggle is clicked', async () => {
+      const wrapper = createWrapper({ isVisibleFromOutside: false })
 
-      await wrapper.findAll('input[type="radio"]')[1]?.trigger('change')
+      await wrapper.find('button[role="switch"]').trigger('click')
 
-      expect(wrapper.emitted('update-auth-strategy')?.[0]).toEqual(['oidc'])
-    })
-
-    it('emits "update-issuer-url" when issuer url input changes', async () => {
-      const wrapper = createWrapper({ authStrategy: 'oidc' })
-
-      await wrapper
-        .find('input[placeholder="https://idp.example.com"]')
-        .setValue('https://idp.unibo.it')
-
-      expect(wrapper.emitted('update-issuer-url')?.[0]).toEqual(['https://idp.unibo.it'])
-    })
-
-    it('emits "update-client-id" when client id input changes', async () => {
-      const wrapper = createWrapper({ authStrategy: 'oidc' })
-
-      const inputs = wrapper.findAll('input[type="text"]')
-      await inputs[inputs.length - 1]?.setValue('my-client-id')
-
-      expect(wrapper.emitted('update-client-id')?.[0]).toEqual(['my-client-id'])
-    })
-
-    it('emits "update-client-secret" when client secret input changes', async () => {
-      const wrapper = createWrapper({ authStrategy: 'oidc' })
-
-      await wrapper.find('input[type="password"]').setValue('my-secret')
-
-      expect(wrapper.emitted('update-client-secret')?.[0]).toEqual(['my-secret'])
+      expect(wrapper.emitted('update-is-visible-from-outside')?.[0]).toEqual([true])
     })
   })
 
   describe('2. Rendering', () => {
-    it('does not render OIDC fields when authStrategy is "internal"', () => {
-      const wrapper = createWrapper({ authStrategy: 'internal' })
+    it('does not render a master domain select when no choices are provided', () => {
+      const wrapper = createWrapper()
 
-      expect(wrapper.find('input[type="password"]').exists()).toBe(false)
+      expect(wrapper.find('select').exists()).toBe(false)
     })
 
-    it('renders OIDC fields when authStrategy is "oidc"', () => {
-      const wrapper = createWrapper({ authStrategy: 'oidc' })
+    it('renders a master domain select when choices are provided', () => {
+      const wrapper = createWrapper({ masterDomainChoices: ['acme.com'] })
 
-      expect(wrapper.find('input[type="password"]').exists()).toBe(true)
+      expect(wrapper.find('select').exists()).toBe(true)
     })
   })
 })

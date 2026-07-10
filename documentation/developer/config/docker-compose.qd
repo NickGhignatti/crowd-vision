@@ -55,7 +55,7 @@ include:
   - path:
       - server/twin-service/docker-compose.yml
       - server/twin-service/docker-compose.dev.yml
-  - path: server/auth-service/docker-compose.yml
+  - path: server/sensor-service/docker-compose.yml
   # … one entry per included service …
 ```
 
@@ -122,14 +122,14 @@ The orchestrator runs `docker compose` with `COMPOSE_BAKE=true`, which delegates
 
 ## Environment and the dev loop
 
-Every stack-starting recipe (`dev`, `dev-build`, `start`) depends on the `env` recipe, which regenerates `.env` (VAPID keys, JWT secret, admin credentials, Langfuse secrets) before Compose runs — see [Setting Up Your Environment](setting-up.qd).
+Every stack-starting recipe (`dev`, `dev-build`, `start`) depends on the `env` recipe, which regenerates `.env` (VAPID keys, the local-dev-only eval JWT secret, Langfuse secrets) before Compose runs — see [Setting Up Your Environment](setting-up.qd).
 
 Typical local loop:
 
 ```bash
 just stack dev                 # full stack with hot-reload
 just stack dev exclude="agent" # lighter stack without the AI agent
-just stack logs auth-service   # follow one service's logs
+just stack logs twin-service   # follow one service's logs
 just stack down                # tear it all down
 ```
 

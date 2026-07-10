@@ -1,7 +1,9 @@
 import request from "supertest";
 import jwt from "jsonwebtoken";
+import { generateKeyPairSync } from "crypto";
 import { app } from "../src/index.js";
 import { Building } from "../src/models/building.js";
+import { resetGatewayJwksCacheForTests } from "../src/config/gatewayJwks.js";
 
 const mockBuilding = {
   name: "Engineering Block",
@@ -18,14 +20,43 @@ const mockBuilding = {
   ],
 };
 
+const GATEWAY_ISSUER = "cv-gateway";
+const GATEWAY_JWKS_URI = "http://gateway.test/.well-known/jwks.json";
+const KID = "test-kid";
+const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+
 // Mint a JWT the auth middleware accepts and attach it as a bearer token. Every
-// data route is now authenticated, so each request must carry it.
+// data route is now authenticated, so each request must carry it. The caller is
+// a member of "test-domain" only, so domain-scoped routes can be exercised for
+// both the allowed and denied cases.
 const token = jwt.sign(
-  { accountId: "u1", accountName: "tester" },
-  process.env.JWT_SECRET || "test-jwt-secret",
+  {
+    sub: "u1",
+    accountName: "tester",
+    memberships: [{ domain: "test-domain", role: "standard_customer" }],
+  },
+  privateKey,
+  { algorithm: "RS256", keyid: KID, issuer: GATEWAY_ISSUER, expiresIn: "1h" },
 );
 const auth = <T extends request.Test>(req: T): T =>
   req.set("Authorization", `Bearer ${token}`) as T;
+
+const realFetch = global.fetch;
+
+beforeAll(() => {
+  process.env.GATEWAY_JWKS_URI = GATEWAY_JWKS_URI;
+  process.env.GATEWAY_ISSUER = GATEWAY_ISSUER;
+  resetGatewayJwksCacheForTests();
+  const jwk = publicKey.export({ format: "jwk" }) as { n: string; e: string };
+  global.fetch = jest.fn(async () => ({
+    ok: true,
+    json: async () => ({ keys: [{ kty: "RSA", kid: KID, use: "sig", alg: "RS256", n: jwk.n, e: jwk.e }] }),
+  })) as unknown as typeof fetch;
+});
+
+afterAll(() => {
+  global.fetch = realFetch;
+});
 
 describe("Twin Service API", () => {
   describe("authentication", () => {
@@ -48,9 +79,33 @@ describe("Twin Service API", () => {
 
     it("accepts a valid token from the cookie", async () => {
       const res = await request(app)
-        .get("/buildings/some-domain")
+        .get("/buildings/test-domain")
         .set("Cookie", `authentication_token=${token}`);
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe("tenant scoping (IDOR protection)", () => {
+    it("denies GET /buildings/:domain for a domain the caller doesn't belong to", async () => {
+      const res = await auth(request(app).get("/buildings/someone-elses-domain"));
+      expect(res.status).toBe(403);
+    });
+
+    it("allows GET /buildings/:domain for a domain the caller belongs to", async () => {
+      const res = await auth(request(app).get("/buildings/test-domain"));
+      expect(res.status).toBe(200);
+    });
+
+    it("drops domains the caller doesn't belong to from POST /buildings/counts", async () => {
+      await auth(request(app).post("/register")).send(mockBuilding);
+
+      const res = await auth(request(app).post("/buildings/counts")).send({
+        domains: ["test-domain", "someone-elses-domain"],
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.counts["test-domain"]).toBe(1);
+      expect(res.body.counts["someone-elses-domain"]).toBeUndefined();
     });
   });
 
@@ -137,7 +192,7 @@ describe("Twin Service API", () => {
     });
 
     it("returns an empty list if no buildings found for domain", async () => {
-      const res = await auth(request(app).get("/buildings/unknown-domain"));
+      const res = await auth(request(app).get("/buildings/test-domain"));
       expect(res.status).toBe(200);
       expect(res.body).toEqual([]);
     });

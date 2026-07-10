@@ -23,7 +23,8 @@ sensor service. Answers come back with inline `[^chunk_id]` citation markers
 that resolve to the `citations` array in the response.
 
 **Authentication.** Protected endpoints require a JWT in the `authentication_token`
-cookie (issued by `auth-service`). `/health` is public.
+cookie (issued by `claims-gateway`, verified here against its published JWKS).
+`/health` is public.
 """.strip()
 
 OPENAPI_TAGS = [
@@ -82,7 +83,7 @@ def _custom_openapi() -> dict:
         "type": "apiKey",
         "in": "cookie",
         "name": get_settings().jwt_cookie_name,
-        "description": "JWT issued by auth-service, set as an HttpOnly cookie.",
+        "description": "JWT issued by claims-gateway, set as an HttpOnly cookie.",
     }
     app.openapi_schema = schema
     return schema

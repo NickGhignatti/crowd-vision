@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import ToggleSwitch from '@/components/buttons/ToggleSwitch.vue'
-import AuthStrategySelector from '@/components/selectors/AuthenticationStrategySelector.vue'
-import OidcFields from '@/components/inputs/authentication/OidcInput.vue'
 import { computed } from 'vue'
 
 const { t } = useI18n()
@@ -11,20 +9,12 @@ const props = defineProps<{
   mainDomain: string
   masterDomainChoices?: string[]
   selectedMasterDomain?: string
-  authStrategy: 'internal' | 'oidc'
-  issuerUrl: string
-  clientId: string
-  clientSecret: string
   isVisibleFromOutside: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update-main-domain', value: string): void
   (e: 'update-selected-master-domain', value: string): void
-  (e: 'update-auth-strategy', value: 'internal' | 'oidc'): void
-  (e: 'update-issuer-url', value: string): void
-  (e: 'update-client-id', value: string): void
-  (e: 'update-client-secret', value: string): void
   (e: 'update-is-visible-from-outside', value: boolean): void
   (e: 'next'): void
 }>()
@@ -37,11 +27,6 @@ const tr = (key: string, fallback: string) => {
 const visibleFromOutside = computed({
   get: () => props.isVisibleFromOutside,
   set: (val) => emit('update-is-visible-from-outside', val),
-})
-
-const authStrategyModel = computed({
-  get: () => props.authStrategy,
-  set: (val) => emit('update-auth-strategy', val),
 })
 </script>
 
@@ -76,13 +61,6 @@ const authStrategyModel = computed({
 
       <p class="text-xs text-slate-500 mt-1">{{ t('domains.inputs.modal.desc') }}</p>
     </div>
-
-    <AuthStrategySelector v-model="authStrategyModel" />
-
-    <OidcFields v-if="authStrategy === 'oidc'" :issuer-url="issuerUrl" :client-id="clientId"
-      :client-secret="clientSecret" @update:issuer-url="emit('update-issuer-url', $event)"
-      @update:client-id="emit('update-client-id', $event)"
-      @update:client-secret="emit('update-client-secret', $event)" />
 
     <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
       <div class="flex items-center gap-3">

@@ -55,4 +55,19 @@ describe('StandardModal', () => {
       expect(wrapper.emitted('close')).toBeUndefined()
     })
   })
+
+  describe('size', () => {
+    it('defaults to the narrow (sm) panel width', () => {
+      const wrapper = createWrapper()
+
+      expect(wrapper.find('.max-w-sm').exists()).toBe(true)
+    })
+
+    it('renders a wider panel when size="lg"', () => {
+      const wrapper = createWrapper({ size: 'lg' })
+
+      expect(wrapper.find('.max-w-2xl').exists()).toBe(true)
+      expect(wrapper.find('.max-w-sm').exists()).toBe(false)
+    })
+  })
 })

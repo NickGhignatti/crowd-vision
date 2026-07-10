@@ -24,7 +24,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { key: auth, dir: server/auth-service }
           - { key: chat, dir: server/chat-service }
           - { key: notification, dir: server/notification-service }
           - { key: sensor, dir: server/sensor-service }

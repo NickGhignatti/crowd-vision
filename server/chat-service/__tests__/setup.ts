@@ -1,7 +1,6 @@
 import { jest } from "@jest/globals";
 import mongoose from "mongoose";
 
-process.env.JWT_SECRET = "test-secret";
 process.env.AGENT_SERVICE_URL = "http://agent-service:3000";
 
 beforeAll(async () => {

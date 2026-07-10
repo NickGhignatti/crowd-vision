@@ -65,7 +65,7 @@ kubectl apply -f k8s/monitoring/
 
 ## Secrets
 
-Secrets are created directly on the cluster from your local `.env` and are never committed. `just k8s secrets` reads values such as `JWT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, `GHCR_USERNAME`, and `GHCR_TOKEN`, and creates the corresponding Secret objects. It is idempotent — safe to re-run after rotating a key.
+Secrets are created directly on the cluster from your local `.env` and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, `GHCR_USERNAME`, and `GHCR_TOKEN`, and creates the corresponding Secret objects. It is idempotent — safe to re-run after rotating a key. There is no `JWT_SECRET` anymore — auth is RS256 against claims-gateway's JWKS (`GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` in the `common-config` ConfigMap, not a Secret, since they aren't sensitive); see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 .box {Namespace before secrets} type:{warning}
     The namespace must exist before secrets can be created. Run `kubectl apply -f k8s/namespace.yml` (or the full `just k8s setup`) before `just k8s secrets` if invoking it in isolation.
@@ -79,17 +79,17 @@ Secrets are created directly on the cluster from your local `.env` and are never
 
 ```bash
 just k8s status                 # pods, deployments, services, StatefulSets
-just k8s logs auth-service      # tail logs (works for Deployments and StatefulSets)
-just k8s restart auth-service   # rolling restart one service (picks up a new :latest)
+just k8s logs twin-service      # tail logs (works for Deployments and StatefulSets)
+just k8s restart twin-service   # rolling restart one service (picks up a new :latest)
 just k8s restart-all            # restart every deployment (e.g. after rotating secrets)
-just k8s rollout auth-service   # watch a rolling update to completion
+just k8s rollout twin-service   # watch a rolling update to completion
 just k8s validate               # dry-run every manifest without touching the cluster
 ```
 
 A rolling restart starts new pods and waits for their readiness probe to pass before terminating the old ones, so a healthy service never goes fully down. If a rollout misbehaves, roll back instantly:
 
 ```bash
-kubectl rollout undo deployment/auth-service -n crowdvision
+kubectl rollout undo deployment/twin-service -n crowdvision
 ```
 
 ---
