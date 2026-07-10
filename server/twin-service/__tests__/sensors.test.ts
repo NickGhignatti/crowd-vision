@@ -7,7 +7,7 @@ jest.mock("../src/config/config.js", () => ({
   shouldSyncThresholds: () => true,
 }));
 
-import { syncBuildingClone } from "../src/services/sensors.js";
+import { initRoomThresholds, syncBuildingClone } from "../src/services/sensors.js";
 
 describe("syncBuildingClone — auth forwarding to sensor-service", () => {
   const building = {
@@ -48,6 +48,29 @@ describe("syncBuildingClone — auth forwarding to sensor-service", () => {
     ).toBeUndefined();
     expect((init.headers as Record<string, string>)["Content-Type"]).toBe(
       "application/json",
+    );
+  });
+});
+
+describe("initRoomThresholds — safe error logging", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("keeps the log message static and escapes the room id instead of interpolating it", async () => {
+    jest
+      .spyOn(globalThis, "fetch" as any)
+      .mockRejectedValue(new Error("boom"));
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    const maliciousId = 'r1"\n[sensors] forged entry %s';
+    await initRoomThresholds("b1", {
+      id: maliciousId,
+      capacity: 10,
+    } as any);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[sensors] failed to init thresholds for room:",
+      JSON.stringify(maliciousId),
+      expect.any(Error),
     );
   });
 });

@@ -69,7 +69,8 @@ export const initRoomThresholds = async (
     );
   } catch (err) {
     console.error(
-      `[sensors] failed to init thresholds for room "${room.id}":`,
+      "[sensors] failed to init thresholds for room:",
+      JSON.stringify(room.id),
       err,
     );
   }
