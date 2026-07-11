@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import {
-  getGatewayUrl,
+  getTwinServiceUrl,
   publishNotification,
 } from "../services/notificationService.js";
 import {
@@ -69,13 +69,15 @@ const requireDomainName = (
 
 const getDomainsForBuilding = async (
   buildingName: string,
-  authToken?: string,
+  claimsHeader?: string,
 ) => {
-  // twin-service authenticates its routes now; forward the caller's JWT.
+  // Called directly against twin-service's internal address (not the public
+  // gateway) so the caller's mesh-injected claims header can be forwarded
+  // verbatim — mTLS (Phase 1) already authenticates this hop.
   const response = await fetch(
-    `${getGatewayUrl()}/twin/domain/${encodeURIComponent(buildingName)}`,
-    authToken
-      ? { headers: { Authorization: `Bearer ${authToken}` } }
+    `${getTwinServiceUrl()}/domain/${encodeURIComponent(buildingName)}`,
+    claimsHeader
+      ? { headers: { "x-gateway-claims": claimsHeader } }
       : undefined,
   );
 

@@ -1,6 +1,3 @@
-import jwt from "jsonwebtoken";
-import { getGatewaySigningKey, getGatewayIssuer } from "./config/gatewayJwks.js";
-
 export interface SocketIdentity {
   accountId: string;
   accountName: string;
@@ -27,7 +24,7 @@ interface GatewayMembership {
 // Maps claims-gateway's StandardClaims shape onto the legacy
 // {accountId, accountMemberships:[{domainName}]} shape extractIdentity reads
 // — see twin-service's identical helper for the full rationale.
-const normalizeGatewayClaims = (p: jwt.JwtPayload): Record<string, unknown> => ({
+const normalizeGatewayClaims = (p: Record<string, unknown>): Record<string, unknown> => ({
   ...p,
   accountId: p.sub,
   accountMemberships: ((p.memberships ?? []) as GatewayMembership[]).map((m) => ({
@@ -36,40 +33,24 @@ const normalizeGatewayClaims = (p: jwt.JwtPayload): Record<string, unknown> => (
   })),
 });
 
-/** Verifies the gateway-minted RS256 JWT and extracts identity. Returns null
- * on any failure — a socket handshake either succeeds cleanly or is
- * rejected, there is no partial-identity state. */
-export async function authenticateToken(
-  token: string | undefined,
-): Promise<SocketIdentity | null> {
-  if (!token) return null;
-
-  const header = jwt.decode(token, { complete: true })?.header;
+/** Decodes the mesh-injected claims header and extracts identity. Returns
+ * null on any failure — a socket handshake either succeeds cleanly or is
+ * rejected, there is no partial-identity state.
+ *
+ * Istio's RequestAuthentication verifies the gateway JWT once, on the
+ * WebSocket upgrade request itself (the handshake is an ordinary HTTP
+ * request as far as the mesh is concerned), and injects the validated
+ * payload as this base64 header — socket-service trusts it rather than
+ * verifying a JWT itself. */
+export function authenticateClaimsHeader(
+  header: string | undefined,
+): SocketIdentity | null {
+  if (!header) return null;
 
   try {
-    const key = await getGatewaySigningKey(header?.kid);
-    const payload = jwt.verify(token, key, {
-      algorithms: ["RS256"],
-      issuer: getGatewayIssuer(),
-    });
-    if (typeof payload === "string") return null;
+    const payload = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as Record<string, unknown>;
     return extractIdentity(normalizeGatewayClaims(payload));
   } catch {
     return null;
   }
-}
-
-/** Reads one cookie out of a raw Cookie header. No dependency. */
-export function readCookie(
-  header: string | undefined,
-  name: string,
-): string | undefined {
-  if (!header) return undefined;
-
-  for (const part of header.split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k === name) return decodeURIComponent(v.join("="));
-  }
-
-  return undefined;
 }

@@ -1,9 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt, { type JwtPayload } from "jsonwebtoken";
-import { getGatewaySigningKey, getGatewayIssuer } from "../config/gatewayJwks.js";
-
-// Same cookie name claims-gateway uses across the fleet.
-const COOKIE_NAME = process.env.JWT_COOKIE_NAME ?? "authentication_token";
+import type { JwtPayload } from "jsonwebtoken";
 
 declare global {
   namespace Express {
@@ -12,18 +8,6 @@ declare global {
     }
   }
 }
-
-// Browsers send the JWT in a cookie; trusted services (twin-service forwarding the
-// caller's identity on the threshold sync) send it as `Authorization: Bearer`.
-const extractToken = (req: Request): string | undefined => {
-  const cookieToken = req.cookies?.[COOKIE_NAME] as string | undefined;
-  if (cookieToken) return cookieToken;
-
-  const header = req.headers.authorization;
-  if (header?.startsWith("Bearer ")) return header.slice(7).trim();
-
-  return undefined;
-};
 
 interface GatewayMembership {
   domain: string;
@@ -47,44 +31,39 @@ const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   };
 };
 
-const verifyGatewayToken = async (
-  token: string,
-  kid: string | undefined,
-): Promise<JwtPayload> => {
-  const key = await getGatewaySigningKey(kid);
-  const payload = jwt.verify(token, key, {
-    algorithms: ["RS256"],
-    issuer: getGatewayIssuer(),
-  });
-  if (typeof payload === "string") throw new Error("invalid token payload");
-  return normalizeGatewayClaims(payload);
-};
-
-// Responds directly (rather than throwing) because sensor-service has no global
-// error handler — each controller shapes its own response.
-export const requireAuthentication = async (
+// Istio's RequestAuthentication verifies the gateway JWT once at the ingress
+// and injects the validated payload as this base64 header
+// (outputPayloadToHeader) — sensor-service trusts it rather than
+// re-verifying a JWT itself. Covers both browser (cookie) and internal
+// (twin-service forwarding the caller's identity on the threshold sync)
+// callers identically, since Istio already normalized both into this header.
+//
+// Responds directly (rather than throwing) because sensor-service has no
+// global error handler — each controller shapes its own response.
+export const requireAuthentication = (
   req: Request,
   res: Response,
   next: NextFunction,
-): Promise<void> => {
-  const token = extractToken(req);
-  if (!token) {
+): void => {
+  const header = req.headers["x-gateway-claims"];
+  if (!header || typeof header !== "string") {
     res.status(401).json({ error: "Missing authentication token" });
     return;
   }
 
-  const header = jwt.decode(token, { complete: true })?.header;
-
+  let payload: JwtPayload;
   try {
-    const payload = await verifyGatewayToken(token, header?.kid);
-
-    if (!payload.accountId) {
-      res.status(401).json({ error: "Invalid authentication token" });
-      return;
-    }
-    req.account = payload;
-    next();
+    payload = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as JwtPayload;
   } catch {
     res.status(401).json({ error: "Invalid authentication token" });
+    return;
   }
+
+  if (!payload.sub) {
+    res.status(401).json({ error: "Invalid authentication token" });
+    return;
+  }
+
+  req.account = normalizeGatewayClaims(payload);
+  next();
 };

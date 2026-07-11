@@ -4,6 +4,13 @@ import redisClient from "../config/redis.js";
 export const getGatewayUrl = () =>
   process.env.GATEWAY_URL || "http://localhost:3000";
 
+// twin-service's own cluster-internal address — used for the building→domain
+// lookup instead of looping back out through the public gateway, since that
+// call would otherwise need a real re-verifiable JWT rather than the
+// mesh-injected claims header this service actually holds.
+export const getTwinServiceUrl = () =>
+  process.env.TWIN_SERVICE_URL || "http://localhost:3000";
+
 export const publishNotification = async (
   message: string,
   type: string = "info",

@@ -1,32 +1,18 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt, { type JwtPayload } from "jsonwebtoken";
-import { COOKIE_NAME, getGatewayIssuer } from "../config/config.js";
-import { getGatewaySigningKey } from "../config/gatewayJwks.js";
+import type { JwtPayload } from "jsonwebtoken";
 import { UnauthorizedError } from "../models/error.js";
 
 declare global {
   namespace Express {
     interface Request {
       account?: JwtPayload;
-      // Raw bearer/cookie token, kept so twin can forward the caller's identity
-      // on its own service-to-service calls (e.g. the sensor threshold sync).
+      // Raw x-gateway-claims header, forwarded verbatim on twin's own
+      // outbound calls (e.g. the sensor threshold sync) so the downstream
+      // service sees the same caller identity Istio verified at the edge.
       authToken?: string;
     }
   }
 }
-
-// Browsers send the JWT as a cookie; trusted services (the RAG agent, twin's
-// own outbound calls) forward it as `Authorization: Bearer`. Accept either so
-// one guard covers both callers without a separate service credential.
-const extractToken = (req: Request): string | undefined => {
-  const cookieToken = req.cookies?.[COOKIE_NAME] as string | undefined;
-  if (cookieToken) return cookieToken;
-
-  const header = req.headers.authorization;
-  if (header?.startsWith("Bearer ")) return header.slice(7).trim();
-
-  return undefined;
-};
 
 interface GatewayMembership {
   domain: string;
@@ -37,7 +23,8 @@ interface GatewayMembership {
 // Maps claims-gateway's StandardClaims shape onto the legacy
 // {accountId, accountMemberships:[{domainName,role}]} shape every existing
 // route already reads — kept as-is post-migration so no downstream route
-// handler needed to change, even though there's only one token source now.
+// handler needed to change, even though the claims are now injected by
+// Istio instead of verified in-process.
 const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   const memberships = (payload.memberships ?? []) as GatewayMembership[];
   return {
@@ -51,41 +38,35 @@ const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   };
 };
 
-const verifyGatewayToken = async (
-  token: string,
-  kid: string | undefined,
-): Promise<JwtPayload> => {
-  const key = await getGatewaySigningKey(kid);
-  const payload = jwt.verify(token, key, {
-    algorithms: ["RS256"],
-    issuer: getGatewayIssuer(),
-  });
-  if (typeof payload === "string") throw new Error("invalid token payload");
-  return normalizeGatewayClaims(payload);
-};
-
-export const requireAuthentication = async (
+// Istio's RequestAuthentication verifies the gateway JWT once at the ingress
+// and injects the validated payload as this base64 header
+// (outputPayloadToHeader) — twin trusts it rather than re-verifying a JWT
+// itself. A request reaching this pod without a valid claims header could
+// not have entered the mesh through the gateway (Phase 1's STRICT mTLS
+// blocks any caller that isn't mesh-authenticated), so there is no separate
+// spoofing surface to guard against here.
+export const requireAuthentication = (
   req: Request,
   _res: Response,
   next: NextFunction,
 ) => {
-  const token = extractToken(req);
-  if (!token) throw new UnauthorizedError("Missing authentication token");
-
-  const header = jwt.decode(token, { complete: true })?.header;
+  const header = req.headers["x-gateway-claims"];
+  if (!header || typeof header !== "string") {
+    throw new UnauthorizedError("Missing authentication token");
+  }
 
   let payload: JwtPayload;
   try {
-    payload = await verifyGatewayToken(token, header?.kid);
+    payload = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as JwtPayload;
   } catch {
     throw new UnauthorizedError("Invalid authentication token");
   }
 
-  if (!payload.accountId) {
+  if (!payload.sub) {
     throw new UnauthorizedError("Authentication token is missing an account id");
   }
 
-  req.account = payload;
-  req.authToken = token;
+  req.account = normalizeGatewayClaims(payload);
+  req.authToken = header;
   next();
 };

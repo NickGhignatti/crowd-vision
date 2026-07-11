@@ -1,34 +1,9 @@
 import express from "express";
-import cookieParser from "cookie-parser";
 import request from "supertest";
-import jwt from "jsonwebtoken";
-import { generateKeyPairSync } from "crypto";
 import { requireAuthentication } from "../src/middlewares/authentication.js";
-import { resetGatewayJwksCacheForTests } from "../src/config/gatewayJwks.js";
-
-const GATEWAY_ISSUER = "cv-gateway";
-const GATEWAY_JWKS_URI = "http://gateway.test/.well-known/jwks.json";
-
-const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-const KID = "test-kid";
-
-function jwkFromPublicKey() {
-  const jwk = publicKey.export({ format: "jwk" }) as { n: string; e: string };
-  return { kty: "RSA", kid: KID, use: "sig", alg: "RS256", n: jwk.n, e: jwk.e };
-}
-
-function signRS256(payload: object, overrides: { iss?: string } = {}) {
-  return jwt.sign(payload, privateKey, {
-    algorithm: "RS256",
-    keyid: KID,
-    issuer: overrides.iss ?? GATEWAY_ISSUER,
-    expiresIn: "1h",
-  });
-}
 
 function buildApp() {
   const app = express();
-  app.use(cookieParser());
   // codeql[js/missing-rate-limiting] -- test-only harness route, never deployed/routed to.
   app.get("/protected", requireAuthentication, (req, res) => {
     res.status(200).json({ account: req.account, userId: req.userId });
@@ -39,55 +14,45 @@ function buildApp() {
   return app;
 }
 
-describe("requireAuthentication (gateway RS256)", () => {
-  const realFetch = global.fetch;
+// Signature/issuer/algorithm-confusion attacks are defended once, at the
+// Istio ingress (RequestAuthentication) — this middleware only decodes the
+// already-verified claims Istio injects, so those cases aren't re-tested
+// here (see k8s/istio-request-authentication.yml for the mesh-level config).
+function claimsHeader(payload: object): string {
+  return Buffer.from(JSON.stringify(payload)).toString("base64");
+}
 
-  beforeEach(() => {
-    process.env.GATEWAY_JWKS_URI = GATEWAY_JWKS_URI;
-    process.env.GATEWAY_ISSUER = GATEWAY_ISSUER;
-    resetGatewayJwksCacheForTests();
-    global.fetch = jest.fn(async () => ({
-      ok: true,
-      json: async () => ({ keys: [jwkFromPublicKey()] }),
-    })) as unknown as typeof fetch;
-  });
-
-  afterEach(() => {
-    global.fetch = realFetch;
-  });
-
-  it("rejects a missing token", async () => {
+describe("requireAuthentication (mesh-injected claims header)", () => {
+  it("rejects a missing claims header", async () => {
     const res = await request(buildApp()).get("/protected");
     expect(res.status).toBe(401);
   });
 
-  it("accepts a gateway-minted RS256 token", async () => {
-    const token = signRS256({ sub: "acc-1", accountName: "mario", sid: "sid-1", memberships: [] });
-    const res = await request(buildApp()).get("/protected").set("Cookie", `authentication_token=${token}`);
+  it("accepts a valid x-gateway-claims header", async () => {
+    const header = claimsHeader({ sub: "acc-1", accountName: "mario", sid: "sid-1", memberships: [] });
+    const res = await request(buildApp()).get("/protected").set("x-gateway-claims", header);
     expect(res.status).toBe(200);
     expect(res.body.userId).toBe("acc-1");
     expect(res.body.account.accountId).toBe("acc-1");
   });
 
   it("normalizes gateway claims into the legacy accountMemberships/domainName shape", async () => {
-    const token = signRS256({
+    const header = claimsHeader({
       sub: "acc-1", accountName: "mario", sid: "sid-1",
       memberships: [{ domain: "unibo", role: "standard_customer" }],
     });
-    const res = await request(buildApp()).get("/protected").set("Cookie", `authentication_token=${token}`);
+    const res = await request(buildApp()).get("/protected").set("x-gateway-claims", header);
     expect(res.body.account.accountMemberships).toEqual([{ domainName: "unibo", role: "standard_customer" }]);
   });
 
-  it("rejects an RS256 token from an untrusted issuer", async () => {
-    const token = signRS256({ sub: "acc-1", accountName: "mario", sid: "sid-1", memberships: [] }, { iss: "someone-elses-gateway" });
-    const res = await request(buildApp()).get("/protected").set("Cookie", `authentication_token=${token}`);
+  it("rejects a header that isn't valid base64-encoded JSON", async () => {
+    const res = await request(buildApp()).get("/protected").set("x-gateway-claims", "not-valid-base64-json");
     expect(res.status).toBe(401);
   });
 
-  it("rejects an HS256 token forged with the gateway's public key as the HMAC secret", async () => {
-    const publicPem = publicKey.export({ format: "pem", type: "spki" }) as string;
-    const token = jwt.sign({ accountId: "attacker", accountName: "attacker" }, publicPem, { algorithm: "HS256" });
-    const res = await request(buildApp()).get("/protected").set("Cookie", `authentication_token=${token}`);
+  it("rejects a well-formed payload missing the account id", async () => {
+    const header = claimsHeader({ accountName: "mario", sid: "sid-1", memberships: [] });
+    const res = await request(buildApp()).get("/protected").set("x-gateway-claims", header);
     expect(res.status).toBe(401);
   });
 });

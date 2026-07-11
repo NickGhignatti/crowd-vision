@@ -13,11 +13,13 @@ const syncThresholdClone = async (path: string, init: RequestInit) => {
   }
 };
 
-// sensor-service guards its threshold routes, so forward the caller's JWT as a
-// bearer token on this service-to-service call.
-const authHeaders = (authToken?: string): Record<string, string> => ({
+// sensor-service guards its threshold routes and reads the caller's identity
+// from the same mesh-injected claims header twin itself trusts — forward it
+// verbatim rather than re-minting a token. mTLS (Phase 1) already
+// authenticates this hop; the header carries WHO the original caller was.
+const authHeaders = (claimsHeader?: string): Record<string, string> => ({
   "Content-Type": "application/json",
-  ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  ...(claimsHeader ? { "x-gateway-claims": claimsHeader } : {}),
 });
 
 const createPayload = (

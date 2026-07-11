@@ -85,7 +85,7 @@ export const sendMessage = async (
   userId: string,
   conversationId: string,
   content: unknown,
-  cookie: string,
+  claimsHeader: string,
 ) => {
   const question = validateText(content, "content", MAX_MESSAGE_LENGTH);
   const conversation = await ownedConversation(userId, conversationId);
@@ -99,7 +99,7 @@ export const sendMessage = async (
       role,
       content: previousContent,
     }));
-  const answer = await askAgent(question, history, cookie);
+  const answer = await askAgent(question, history, claimsHeader);
   const now = new Date();
   const userMessage: IChatMessage = {
     role: "user",

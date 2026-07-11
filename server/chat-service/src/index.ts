@@ -1,4 +1,3 @@
-import cookieParser from "cookie-parser";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
@@ -21,7 +20,6 @@ const apiLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === "test",
 });
 
-app.use(cookieParser());
 app.use(express.json());
 app.use(apiLimiter);
 app.use(metricsMiddleware);

@@ -15,7 +15,7 @@ interface AskResponse {
 export const askAgent = async (
   question: string,
   history: HistoryMessage[],
-  cookie: string,
+  claimsHeader: string,
 ): Promise<AskResponse> => {
   let response: Response;
   try {
@@ -23,7 +23,7 @@ export const askAgent = async (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: cookie,
+        "x-gateway-claims": claimsHeader,
       },
       body: JSON.stringify({ question, history, stream: false }),
     });

@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import * as ConversationService from "../services/conversation.js";
 import { ValidationError } from "../models/error.js";
-import { COOKIE_NAME } from "../config/config.js";
 
 export const createConversation = async (req: Request, res: Response) => {
   const conversation = await ConversationService.createConversation(
@@ -44,14 +43,13 @@ export const deleteConversation = async (req: Request, res: Response) => {
 };
 
 export const sendMessage = async (req: Request, res: Response) => {
-  const token = req.cookies?.[COOKIE_NAME] as string | undefined;
-  if (!token) throw new ValidationError("Missing authentication cookie");
+  if (!req.authToken) throw new ValidationError("Missing authentication token");
 
   const message = await ConversationService.sendMessage(
     ConversationService.requireUserId(req.userId),
     req.params.id as string,
     req.body?.content,
-    `${COOKIE_NAME}=${token}`,
+    req.authToken,
   );
   res.status(201).json(message);
 };

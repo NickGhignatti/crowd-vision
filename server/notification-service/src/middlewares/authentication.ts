@@ -1,31 +1,17 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt, { type JwtPayload } from "jsonwebtoken";
+import type { JwtPayload } from "jsonwebtoken";
 import { UnauthorizedError } from "../models/error.js";
-import { getGatewaySigningKey, getGatewayIssuer } from "../config/gatewayJwks.js";
-
-// Same cookie name claims-gateway uses across the fleet.
-const COOKIE_NAME = process.env.JWT_COOKIE_NAME ?? "authentication_token";
 
 declare global {
   namespace Express {
     interface Request {
       account?: JwtPayload;
-      // Raw token, forwarded to twin-service on the building→domain lookup.
+      // Raw x-gateway-claims header, forwarded to twin-service on the
+      // building→domain lookup.
       authToken?: string;
     }
   }
 }
-
-// Browsers send the JWT in a cookie; trusted services forward it as a bearer token.
-const extractToken = (req: Request): string | undefined => {
-  const cookieToken = req.cookies?.[COOKIE_NAME] as string | undefined;
-  if (cookieToken) return cookieToken;
-
-  const header = req.headers.authorization;
-  if (header?.startsWith("Bearer ")) return header.slice(7).trim();
-
-  return undefined;
-};
 
 interface GatewayMembership {
   domain: string;
@@ -49,32 +35,23 @@ const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   };
 };
 
-const verifyGatewayToken = async (
-  token: string,
-  kid: string | undefined,
-): Promise<JwtPayload> => {
-  const key = await getGatewaySigningKey(kid);
-  const payload = jwt.verify(token, key, {
-    algorithms: ["RS256"],
-    issuer: getGatewayIssuer(),
-  });
-  if (typeof payload === "string") throw new Error("invalid token payload");
-  return normalizeGatewayClaims(payload);
-};
-
-export const requireAuthentication = async (
+// Istio's RequestAuthentication verifies the gateway JWT once at the ingress
+// and injects the validated payload as this base64 header
+// (outputPayloadToHeader) — notification-service trusts it rather than
+// re-verifying a JWT itself.
+export const requireAuthentication = (
   req: Request,
   _res: Response,
   next: NextFunction,
 ) => {
-  const token = extractToken(req);
-  if (!token) throw new UnauthorizedError("Missing authentication token");
-
-  const header = jwt.decode(token, { complete: true })?.header;
+  const header = req.headers["x-gateway-claims"];
+  if (!header || typeof header !== "string") {
+    throw new UnauthorizedError("Missing authentication token");
+  }
 
   let payload: JwtPayload;
   try {
-    payload = await verifyGatewayToken(token, header?.kid);
+    payload = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as JwtPayload;
   } catch {
     throw new UnauthorizedError("Invalid authentication token");
   }
@@ -83,8 +60,8 @@ export const requireAuthentication = async (
     throw new UnauthorizedError("Authentication token is missing an account");
   }
 
-  req.account = payload;
-  req.authToken = token;
+  req.account = normalizeGatewayClaims(payload);
+  req.authToken = header;
   next();
 };
 

@@ -6,7 +6,7 @@ import { register } from "./config/registry.js";
 import { relayTelemetry } from "./handlers/telemetry.js";
 import { relayNotification } from "./handlers/notification.js";
 import { handleConnection } from "./handlers/connection.js";
-import { authenticateToken, readCookie } from "./auth.js";
+import { authenticateClaimsHeader } from "./auth.js";
 
 // Composition root (imperative shell): build dependencies, wire the pure
 // handlers to them, and start listening. No logic lives here — that's in
@@ -29,17 +29,16 @@ const io = new Server(server, {
 });
 
 io.use((socket, next) => {
-  const token = readCookie(
-    socket.handshake.headers.cookie,
-    "authentication_token",
+  // Istio's RequestAuthentication verifies the gateway JWT once on the
+  // WebSocket upgrade request (from either the cookie or Authorization
+  // header — see k8s/istio-request-authentication.yml) and injects the
+  // validated claims as this header; socket-service just decodes it.
+  const identity = authenticateClaimsHeader(
+    socket.handshake.headers["x-gateway-claims"] as string | undefined,
   );
-  authenticateToken(token)
-    .then((identity) => {
-      if (!identity) return next(new Error("unauthorized"));
-      socket.data.identity = identity; // server-authoritative; client can't forge rooms
-      next();
-    })
-    .catch(() => next(new Error("unauthorized")));
+  if (!identity) return next(new Error("unauthorized"));
+  socket.data.identity = identity; // server-authoritative; client can't forge rooms
+  next();
 });
 
 io.on("connection", handleConnection);
