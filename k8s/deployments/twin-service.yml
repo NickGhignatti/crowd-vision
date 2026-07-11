@@ -43,7 +43,7 @@ spec:
       containers:
         - name: twin-service
           image: ghcr.io/nickghignatti/crowdvision-twin:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -97,3 +97,4 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
+      appProtocol: http

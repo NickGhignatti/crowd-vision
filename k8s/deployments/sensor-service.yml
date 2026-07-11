@@ -43,7 +43,7 @@ spec:
       containers:
         - name: sensor-service
           image: ghcr.io/nickghignatti/crowdvision-sensor:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -98,3 +98,4 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
+      appProtocol: http

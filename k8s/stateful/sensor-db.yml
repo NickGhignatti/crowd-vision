@@ -12,6 +12,7 @@ spec:
   ports:
     - port: 27017
       targetPort: 27017
+      appProtocol: tcp
 
 ---
 # ── StatefulSet ───────────────────────────────────────────────────────────────

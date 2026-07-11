@@ -68,7 +68,7 @@ spec:
       containers:
         - name: agent-service
           image: ghcr.io/nickghignatti/crowdvision-agent:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -125,3 +125,4 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
+      appProtocol: http
