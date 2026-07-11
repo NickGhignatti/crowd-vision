@@ -44,25 +44,21 @@ def test_invalid_closed_or_url_settings_are_rejected(monkeypatch, name, value):
 
 
 def test_settings_construction_does_not_require_runtime_secrets(monkeypatch):
-    monkeypatch.delenv("GATEWAY_JWKS_URI", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     settings = Settings()
-    assert settings.gateway_jwks_uri == ""
     assert settings.llm_api_key == ""
     assert settings.observe_payloads is False
 
 
 def test_startup_rejects_missing_runtime_secrets(monkeypatch):
-    monkeypatch.delenv("GATEWAY_JWKS_URI", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("LLM_API_KEY", raising=False)
-    with pytest.raises(RuntimeError, match=r"GATEWAY_JWKS_URI.*OPENROUTER_API_KEY"):
+    with pytest.raises(RuntimeError, match=r"OPENROUTER_API_KEY"):
         validate_startup_settings(Settings())
 
 
-def test_startup_allows_auth_disabled_without_gateway_jwks_uri(monkeypatch):
+def test_startup_allows_auth_disabled(monkeypatch):
     monkeypatch.setenv("REQUIRE_AUTH", "false")
     monkeypatch.setenv("LLM_API_KEY", "test-key")
-    monkeypatch.delenv("GATEWAY_JWKS_URI", raising=False)
     validate_startup_settings(Settings())

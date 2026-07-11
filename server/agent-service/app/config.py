@@ -33,10 +33,12 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("LLM_BASE_URL", "OPENROUTER_BASE_URL"),
     )
 
-    # Authentication — claims-gateway mints an RS256 token, verified against
-    # its published JWKS (see app/gateway_jwks.py). No shared secret here.
-    gateway_jwks_uri: str = Field(default="", alias="GATEWAY_JWKS_URI")
-    gateway_issuer: str = Field(default="cv-gateway", alias="GATEWAY_ISSUER")
+    # Authentication — the gateway JWT is verified once at the mesh edge
+    # (Istio, or Caddy+claims-gateway/verify in docker-compose dev); this
+    # service reads the already-verified x-gateway-claims header (see
+    # app/auth.py). No JWT verification material lives here. jwt_cookie_name
+    # is used only by the eval-runner bypass below (evals/run_evals.py still
+    # sends its self-minted token as a cookie).
     jwt_cookie_name: str = Field(default="authentication_token", alias="JWT_COOKIE_NAME")
     require_auth: bool = Field(default=True, alias="REQUIRE_AUTH")
     # Local-dev-only bypass for evals/run_evals.py's auto-minted tokens — an
@@ -132,8 +134,6 @@ class Settings(BaseSettings):
 def validate_startup_settings(settings: Settings) -> None:
     """Reject missing runtime secrets without making Settings construction stateful."""
     missing: list[str] = []
-    if settings.require_auth and not settings.gateway_jwks_uri:
-        missing.append("GATEWAY_JWKS_URI (required when REQUIRE_AUTH=true)")
     if not settings.llm_api_key:
         missing.append("OPENROUTER_API_KEY or LLM_API_KEY")
     if missing:
