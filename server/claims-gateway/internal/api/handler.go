@@ -3,6 +3,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -46,8 +47,31 @@ func Mount(gw *service.Gateway, jwks jwksProvider, verifyKeys keyfunc.Keyfunc, i
 		r.Get("/profile", profileHandler(gw))
 		r.Patch("/profile", updateProfileHandler(gw))
 		r.Post("/profile/password", changePasswordHandler(gw))
+		// docker-compose's byte-identical equivalent of Istio's
+		// RequestAuthentication + outputPayloadToHeader (see
+		// k8s/istio-request-authentication.yml): Caddy's forward_auth calls
+		// this, and on 200 copies the X-Gateway-Claims response header onto
+		// the forwarded request as x-gateway-claims — the same header every
+		// mesh-migrated service already trusts. Body is empty; forward_auth
+		// only looks at status + headers.
+		r.Get("/verify", verifyHandler)
 	})
 	return r
+}
+
+func verifyHandler(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.FromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	body, err := json.Marshal(claims)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("X-Gateway-Claims", base64.StdEncoding.EncodeToString(body))
+	w.WriteHeader(http.StatusOK)
 }
 
 // logoutHandler clears the internal token cookie. This is the "clear the

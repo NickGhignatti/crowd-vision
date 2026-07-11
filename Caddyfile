@@ -1,3 +1,18 @@
+# docker-compose's byte-identical equivalent of Istio's RequestAuthentication
+# + outputPayloadToHeader (see k8s/istio-request-authentication.yml): calls
+# claims-gateway's /verify (itself using authmiddleware.RequireAuthentication
+# against the cookie/Bearer token), and on 200 copies the X-Gateway-Claims
+# response header onto the request before it reaches the upstream service —
+# HTTP header lookups are case-insensitive, so every service's lowercase
+# `x-gateway-claims` read matches this unchanged. A non-200 (missing/invalid
+# token) short-circuits with that same status, same as Istio's AuthorizationPolicy.
+(require_gateway_auth) {
+    forward_auth claims-gateway:3000 {
+        uri /verify
+        copy_headers X-Gateway-Claims
+    }
+}
+
 :80 {
     # Enable compression using Zstandard
     encode zstd gzip
@@ -32,11 +47,13 @@
 
     # ── Tenancy Service (domains, subdomains, invite codes) ─────────────────────
     handle_path /tenancy/* {
+        import require_gateway_auth
         reverse_proxy tenancy-service:3000
     }
 
     # ── Digital Twin service ──────────────────────────────────────────────────
     handle_path /twin/* {
+        import require_gateway_auth
         reverse_proxy twin-service:3000
     }
 
@@ -52,16 +69,21 @@
 
     # ── Notification service ──────────────────────────────────────────────────
     handle_path /notification/* {
+        import require_gateway_auth
         reverse_proxy notification-service:3000
     }
 
     # ── Agent service ─────────────────────────────────────────────────────────
+    # Not gated here: agent-service also serves evals/run_evals.py's local-dev
+    # HS256 bypass, which doesn't hold a real gateway token to present to
+    # /verify — it keeps doing its own auth in-process (see app/auth.py).
     handle_path /agent/* {
         reverse_proxy agent-service:3000
     }
 
     # ── Chat service ──────────────────────────────────────────────────────────
     handle_path /chat/* {
+        import require_gateway_auth
         reverse_proxy chat-service:3000
     }
 
@@ -79,11 +101,13 @@
 
     # ── Socket.IO server ──────────────────────────────────────────────────────
     handle /socket.io/* {
+        import require_gateway_auth
         reverse_proxy socket-server:3000
     }
 
     # ── Signal sensor service ─────────────────────────────────────────────────
     handle_path /sensor/* {
+        import require_gateway_auth
         reverse_proxy sensor-service:3000
     }
 
