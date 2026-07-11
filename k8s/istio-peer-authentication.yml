@@ -1,0 +1,12 @@
+# mTLS for the crowdvision namespace. Staged per phase-1-ambient-mtls.md:
+# apply PERMISSIVE first, verify nothing broke, then flip to STRICT (the
+# committed value below is STRICT — the end state; PERMISSIVE is a local,
+# transient step applied by hand during rollout, not committed).
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: crowdvision
+spec:
+  mtls:
+    mode: STRICT
