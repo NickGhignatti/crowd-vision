@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Non Functional Requirements</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-database-per-service-architecture" data-depth="3"><a href="#_1-database-per-service-architecture">1. Database-per-Service Architecture</a></li><li data-target-id="_2-decoupled-event-messaging-redis-pubsub" data-depth="3"><a href="#_2-decoupled-event-messaging-redis-pubsub">2. Decoupled Event Messaging (Redis Pub/Sub)</a></li><li data-target-id="_3-strict-sso-security-oidc-with-pkce" data-depth="3"><a href="#_3-strict-sso-security-oidc-with-pkce">3. Strict SSO Security (OIDC with PKCE)</a></li><li data-target-id="_4-stateless-authentication-jwt" data-depth="3"><a href="#_4-stateless-authentication-jwt">4. Stateless Authentication (JWT)</a></li><li data-target-id="_5-high-performance-client-architecture" data-depth="3"><a href="#_5-high-performance-client-architecture">5. High-Performance Client Architecture</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements" aria-current="page">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../middlewares">Shared Auth Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-database-per-service-architecture" data-depth="3"><a href="#_1-database-per-service-architecture">1. Database-per-Service Architecture</a></li><li data-target-id="_2-decoupled-event-messaging-redis-pubsub" data-depth="3"><a href="#_2-decoupled-event-messaging-redis-pubsub">2. Decoupled Event Messaging (Redis Pub/Sub)</a></li><li data-target-id="_3-strict-sso-security-oidc-with-pkce" data-depth="3"><a href="#_3-strict-sso-security-oidc-with-pkce">3. Strict SSO Security (OIDC with PKCE)</a></li><li data-target-id="_4-stateless-authentication-jwt" data-depth="3"><a href="#_4-stateless-authentication-jwt">4. Stateless Authentication (JWT)</a></li><li data-target-id="_5-high-performance-client-architecture" data-depth="3"><a href="#_5-high-performance-client-architecture">5. High-Performance Client Architecture</a></li></ol></nav></div><h1 id="non-functional-requirements" data-decorative="">Non Functional Requirements</h1><h3 id="_1-database-per-service-architecture">1. Database-per-Service Architecture</h3><ul><li><strong>The Requirement:</strong> Every backend microservice (Auth, Twin, Notification) must operate its own dedicated MongoDB instance.</li><li><strong>Why this is required:</strong> Isolation prevents &ldquo;noisy neighbor&rdquo; problems. If an administrator runs a massive, complex query to fetch a detailed 3D building schema in the Twin service, it must absolutely not drain database resources and prevent new users from logging in via the Auth service.</li></ul><h3 id="_2-decoupled-event-messaging-redis-pubsub">2. Decoupled Event Messaging (Redis Pub/Sub)</h3><ul><li><strong>The Requirement:</strong> Service-to-service communication for real-time events must use Redis pub/sub as a message broker rather than direct HTTP polling.</li><li><strong>Why this is required:</strong> As the system grows, multiple services might need to react to a sensor event (e.g., the Socket server to update UI, the Push server to send mobile alerts, and the LLM service to log an anomaly). Redis decouples the producer from the consumers, allowing us to add new reacting services without slowing down the initial data ingestion.</li></ul><h3 id="_3-strict-sso-security-oidc-with-pkce">3. Strict SSO Security (OIDC with PKCE)</h3><ul><li><strong>The Requirement:</strong> Enterprise Single Sign-On (SSO) must utilize PKCE (<span class="codespan-content"><code>code_challenge_method: S256</code></span>). The OAuth <span class="codespan-content"><code>state</code></span> parameter must be an opaque token, with verification context stored securely on the server.</li><li><strong>Why this is required:</strong> Security is paramount for enterprise deployments. Encoding data directly into the OAuth <span class="codespan-content"><code>state</code></span> parameter makes the system vulnerable to state-tampering and CSRF attacks. Enforcing server-side state verification guarantees that a malicious actor cannot hijack an authentication flow.</li></ul><h3 id="_4-stateless-authentication-jwt">4. Stateless Authentication (JWT)</h3><ul><li><strong>The Requirement:</strong> User sessions must rely on JSON Web Tokens (JWTs) with a 3-hour expiry. IoT device tokens are granted a 5-year expiry.</li><li><strong>Why this is required:</strong> Verifying tokens using middleware cryptography eliminates the need to query the database on every single API request. This drastically reduces latency and database load. A 3-hour expiry ensures that if a token is compromised, the window of vulnerability is short.</li></ul><h3 id="_5-high-performance-client-architecture">5. High-Performance Client Architecture</h3><ul><li><strong>The Requirement:</strong> The Vue 3 frontend must be built around the performant behavior of making the less amount of API calls possible.</li><li><strong>Why this is required:</strong> The dashboard receives potentially hundreds of WebSocket updates per minute.</li></ul>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

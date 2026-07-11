@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision user guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Customizing the Data Table</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="reading-the-table" data-depth="2"><a href="#reading-the-table">Reading the table</a></li><li data-target-id="entering-edit-mode" data-depth="2"><a href="#entering-edit-mode">Entering edit mode</a></li><li data-target-id="adding-a-column" data-depth="2"><a href="#adding-a-column">Adding a column</a></li><li data-target-id="removing-a-column" data-depth="2"><a href="#removing-a-column">Removing a column</a></li><li data-target-id="swapping-a-column" data-depth="2"><a href="#swapping-a-column">Swapping a column</a></li><li data-target-id="reordering-columns" data-depth="2"><a href="#reordering-columns">Reordering columns</a></li><li data-target-id="pagination-and-autoplay" data-depth="2"><a href="#pagination-and-autoplay">Pagination and autoplay</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>User Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="getting-started" data-decorative="">Getting Started</h3><ul><li><a href="../registration">Account Registration</a></li><li><a href="../login">Login</a></li><li><a href="../sso-login">Enterprise Login (SSO)</a></li></ul><h3 id="using-the-platform" data-decorative="">Using the Platform</h3><ul><li><a href="../dashboard">Dashboard</a></li><li><a href="../building-table" aria-current="page">Customizing the Data Table</a></li><li><a href="../sensors">Charts &amp; Simulator</a></li><li><a href="../twin">The Digital Twin</a></li><li><a href="../building-data">Upload a Digital Twin</a></li><li><a href="../domains">Domains</a></li><li><a href="../domain-admin">Domain Administration</a></li><li><a href="../assistant">Using the Assistant</a></li></ul><h2 id="information" data-decorative="">Information</h2><ul><li><a href="../notifications">Notifications</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="reading-the-table" data-depth="2"><a href="#reading-the-table">Reading the table</a></li><li data-target-id="entering-edit-mode" data-depth="2"><a href="#entering-edit-mode">Entering edit mode</a></li><li data-target-id="adding-a-column" data-depth="2"><a href="#adding-a-column">Adding a column</a></li><li data-target-id="removing-a-column" data-depth="2"><a href="#removing-a-column">Removing a column</a></li><li data-target-id="swapping-a-column" data-depth="2"><a href="#swapping-a-column">Swapping a column</a></li><li data-target-id="reordering-columns" data-depth="2"><a href="#reordering-columns">Reordering columns</a></li><li data-target-id="pagination-and-autoplay" data-depth="2"><a href="#pagination-and-autoplay">Pagination and autoplay</a></li></ol></nav></div><h1 id="customizing-the-data-table" data-decorative="">Customizing the Data Table</h1><p>The dashboard table is a live, fully customizable view of every monitored room in the selected building. You control which columns appear, their order, and which sensor readings they show.</p><hr /><h2 id="reading-the-table">Reading the table</h2><p>Each row is one room. Each cell updates automatically as new readings arrive — no page reload needed. If a sensor is offline or not yet installed, its cell shows a placeholder (<span class="codespan-content"><code>--</code></span> or <span class="codespan-content"><code>0</code></span>) until data starts flowing.</p><hr /><h2 id="entering-edit-mode">Entering edit mode</h2><p>Click <strong>Edit</strong> in the table&rsquo;s bottom control bar. This is available only if you have administrator rights for the current building&rsquo;s domain.</p><p>In edit mode each column header gains controls:</p><table><thead><tr><th>Control</th><th>Purpose</th></tr></thead><tbody><tr><td>Grip handle (on the left)</td><td>Drag to reorder the column.</td></tr><tr><td>✕ badge (top-right)</td><td>Remove the column.</td></tr><tr><td>▼ caret (next to the title)</td><td>Open the swap menu to replace the column.</td></tr><tr><td>＋ button (far right of the header row)</td><td>Add a new column.</td></tr></tbody></table><figure><img src="media/table-edit-mode@-1253824231.png" alt="A column header in edit mode" /></figure><p><em>Figure 1 — In edit mode, each header shows a grip handle, a ✕ to remove, a ▼ to swap, and a ＋ to add.</em></p><p>When you are done, click <strong>Save</strong> to keep your layout or <strong>Cancel</strong> to discard changes.</p><hr /><h2 id="adding-a-column">Adding a column</h2><ol><li>Click <strong>Edit</strong>.</li><li>Click the <strong>＋</strong> at the right end of the header row. A panel slides open.</li><li>The panel shows every metric not already in your table, as chips.</li><li>Click a chip to append that column.</li><li>Click <strong>Save</strong>.</li></ol><figure><img src="media/add-column-panel@204407039.png" alt="The add-column panel" /></figure><p><em>Figure 2 — The add-column panel lists every available metric as a chip.</em></p><div class="box note"><header><h4>Live data starts immediately</h4></header><div class="box-content"><p>As soon as a sensor column is saved, CrowdVision begins routing that data to your dashboard. If a sensor for that metric is active in the building, the new column populates with live readings right away.</p></div></div><hr /><h2 id="removing-a-column">Removing a column</h2><ol><li>Enter edit mode.</li><li>Click the <strong>✕ badge</strong> on the column header.</li><li>The column disappears from the preview. Click <strong>Save</strong> to apply.</li></ol><hr /><h2 id="swapping-a-column">Swapping a column</h2><p>To replace one column with a different metric without disturbing the others:</p><ol><li>Enter edit mode.</li><li>Click the column header <strong>title</strong> (not the ✕ or grip). A dropdown appears.</li><li>The dropdown lists every metric not already shown (so you cannot create duplicates).</li><li>Click an entry to replace the column.</li><li>Click <strong>Save</strong>.</li></ol><figure><img src="media/swap-menu@-2074770293.png" alt="The swap-column dropdown" /></figure><p><em>Figure 3 — Clicking a header title opens a menu of metrics you can swap in.</em></p><hr /><h2 id="reordering-columns">Reordering columns</h2><ol><li>Enter edit mode.</li><li>Grab a column by its <strong>grip handle</strong> (or click and hold the header).</li><li>Drag left or right; the target position highlights.</li><li>Release to drop, then click <strong>Save</strong>.</li></ol><div class="box note"><header><h4>Your layout is remembered</h4></header><div class="box-content"><p>Columns, their order, and your selected metrics are saved per building. The next time you open this building — even after a refresh or signing out and back in — the table loads exactly as you left it.</p></div></div><hr /><h2 id="pagination-and-autoplay">Pagination and autoplay</h2><p>When a building has many rooms, the table paginates.</p><ul><li>Use <strong>Prev</strong> and <strong>Next</strong> in the bottom bar to move between pages.</li><li>Click <strong>Play</strong> to enable <strong>autoplay</strong>: the table advances every few seconds and loops back to the start — ideal for a wall monitor. Click <strong>Play</strong> again to stop.</li></ul>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

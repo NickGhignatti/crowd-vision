@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision user guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Enterprise Login (SSO)</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="how-it-works" data-depth="2"><a href="#how-it-works">How it works</a></li><li data-target-id="steps" data-depth="2"><a href="#steps">Steps</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>User Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="getting-started" data-decorative="">Getting Started</h3><ul><li><a href="../registration">Account Registration</a></li><li><a href="../login">Login</a></li><li><a href="../sso-login" aria-current="page">Enterprise Login (SSO)</a></li></ul><h3 id="using-the-platform" data-decorative="">Using the Platform</h3><ul><li><a href="../dashboard">Dashboard</a></li><li><a href="../building-table">Customizing the Data Table</a></li><li><a href="../sensors">Charts &amp; Simulator</a></li><li><a href="../twin">The Digital Twin</a></li><li><a href="../building-data">Upload a Digital Twin</a></li><li><a href="../domains">Domains</a></li><li><a href="../domain-admin">Domain Administration</a></li><li><a href="../assistant">Using the Assistant</a></li></ul><h2 id="information" data-decorative="">Information</h2><ul><li><a href="../notifications">Notifications</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="how-it-works" data-depth="2"><a href="#how-it-works">How it works</a></li><li data-target-id="steps" data-depth="2"><a href="#steps">Steps</a></li></ol></nav></div><h1 id="enterprise-login-sso" data-decorative="">Enterprise Login (SSO)</h1><p>Some organizations sign in through their own identity provider (for example Keycloak, Microsoft Entra ID, or Auth0) using <strong>Single Sign-On (SSO)</strong>. If your organization uses SSO, you do not set a separate CrowdVision password — you authenticate with your company account.</p><div class="box note"><header><h4>You need a CrowdVision account first</h4></header><div class="box-content"><p>SSO <strong>links</strong> your company identity to an existing CrowdVision account; it does not create one. If you have never signed in, create a standard account first (see <a href="registration.qd)">Account Registration</a>, then complete the SSO link below.</p></div></div><hr /><h2 id="how-it-works">How it works</h2><figure><pre class="mermaid">sequenceDiagram
+    participant You
+    participant CV as CrowdVision
+    participant IdP as Your company login
+    You-&gt;&gt;CV: Start SSO for your organization
+    CV-&gt;&gt;IdP: Redirect to your company login
+    You-&gt;&gt;IdP: Sign in with your company account
+    IdP-&gt;&gt;CV: Return to CrowdVision
+    Note over CV: Your role is assigned from your company group
+    CV--&gt;&gt;You: Signed in, membership linked</pre></figure><hr /><h2 id="steps">Steps</h2><ol><li>Sign in to CrowdVision (or create a standard account) and open the <strong>Domains</strong> view.</li><li>Choose your organization&rsquo;s domain and start the <strong>SSO sign-in</strong>.</li><li>You are redirected to your company&rsquo;s login page.</li><li>Authenticate with your usual company credentials.</li><li>You are returned to CrowdVision. Your membership and role are set automatically based on your company group, and the domain now appears in your Domains list.</li></ol><figure><img src="../assets/figures/sso-start.png" alt="Starting enterprise SSO sign-in" /></figure><p><em>Figure 1 — Starting the SSO sign-in for an enterprise domain.</em></p><div class="box tip"><header><h4>Your role is decided by your organization</h4></header><div class="box-content"><p>With SSO, your CrowdVision role (administrator, staff, or standard) is derived from the group you belong to in your company directory. If your access looks wrong, contact your organization&rsquo;s administrator.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

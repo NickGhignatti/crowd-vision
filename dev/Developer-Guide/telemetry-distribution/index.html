@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Telemetry Distribution Context</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="the-building-preference-aggregate" data-depth="2"><a href="#the-building-preference-aggregate">The Building Preference Aggregate</a><ol><li data-target-id="value-object-metric" data-depth="3"><a href="#value-object-metric">Value Object: Metric</a></li></ol></li><li data-target-id="the-metric-catalog" data-depth="2"><a href="#the-metric-catalog">The Metric Catalog</a></li><li data-target-id="distribution-as-a-domain-rule" data-depth="2"><a href="#distribution-as-a-domain-rule">Distribution as a Domain Rule</a></li><li data-target-id="a-note-on-transport" data-depth="2"><a href="#a-note-on-transport">A note on transport</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution" aria-current="page">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../middlewares">Shared Auth Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="the-building-preference-aggregate" data-depth="2"><a href="#the-building-preference-aggregate">The Building Preference Aggregate</a><ol><li data-target-id="value-object-metric" data-depth="3"><a href="#value-object-metric">Value Object: Metric</a></li></ol></li><li data-target-id="the-metric-catalog" data-depth="2"><a href="#the-metric-catalog">The Metric Catalog</a></li><li data-target-id="distribution-as-a-domain-rule" data-depth="2"><a href="#distribution-as-a-domain-rule">Distribution as a Domain Rule</a></li><li data-target-id="a-note-on-transport" data-depth="2"><a href="#a-note-on-transport">A note on transport</a></li></ol></nav></div><h1 id="telemetry-distribution-context" data-decorative="">Telemetry Distribution Context</h1><p><strong>Realised by:</strong> contracts-service · <strong>Subdomain type:</strong> Core</p><p>This page describes the design-time model of the Telemetry Distribution context. The runtime mechanics — how routing is made fast, how streams are carried to the browser — are architectural concerns documented in the <a href="../contracts">Contracts Service</a> and <a href="../overview">Architecture Overview</a> pages.</p><p>At the domain level, this context owns two things: the <strong>metric catalog</strong> each building chooses from, and each building&rsquo;s <strong>display preference</strong> (which metrics its dashboard table shows, and in what order). Readings themselves are simply routed to the building they belong to.</p><hr /><h2 id="ubiquitous-language">Ubiquitous Language</h2><table><thead><tr><th>Term</th><th>Meaning in this context</th></tr></thead><tbody><tr><td>Preference</td><td>The ordered set of metrics a Building has chosen to display.</td></tr><tr><td>Allowed metric</td><td>A single metric included in a Preference.</td></tr><tr><td>Metric Catalog</td><td>The combined list of metrics offered by the upstream contexts.</td></tr><tr><td>Distribution</td><td>Routing each reading to its own Building&rsquo;s live feed. It is <em>not</em> gated by Preference — see below.</td></tr></tbody></table><hr /><h2 id="the-building-preference-aggregate">The Building Preference Aggregate</h2><p>The aggregate root is a Building&rsquo;s Preference: which metrics it shows, in what order. Order is part of the model, because it is the order the display is meant to present.</p><figure><pre class="mermaid">classDiagram
+    class BuildingPreference {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +buildingId
+        +metric[] allowedMetrics
+    }
+    class Metric {
+        &lt;&lt;Value Object&gt;&gt;
+        +key
+        +label
+        +unit
+        +sourceContext
+    }
+
+    BuildingPreference &quot;1&quot; o-- &quot;many&quot; Metric : selects</pre></figure><ul><li>A Preference is keyed by its Building, so there is exactly one Preference per Building.</li><li>The allowed metrics are an <em>ordered</em> collection; reordering is a meaningful change to the model, not an incidental detail.</li><li>We left open, at design time, how durable a Preference must be and how quickly a change must take effect — those service-level qualities are decided in the implementation.</li></ul><h3 id="value-object-metric">Value Object: Metric</h3><p>An <strong>allowed metric</strong> is modelled as a value object — <span class="codespan-content"><code>key</code></span>, <span class="codespan-content"><code>label</code></span>, <span class="codespan-content"><code>unit</code></span>, and the context it came from — with no identity of its own: two entries describing the same metric are interchangeable. A <span class="codespan-content"><code>BuildingPreference</code></span> holds an ordered list of them, and a change to the preference replaces those entries rather than mutating them in place. The catalog these are drawn from is assembled separately, as described next.</p><hr /><h2 id="the-metric-catalog">The Metric Catalog</h2><p>This context does not invent metrics — it <strong>assembles</strong> them. The design intent is that each upstream context describes its own metrics (see the Published Language in <a href="../telemetry-ingestion">Telemetry Ingestion</a> and the structural metrics owned by <a href="building-management.qd)">Building Management</a>, and this context gathers those descriptions into one catalog the display can choose from.</p><figure><pre class="mermaid">graph LR
+    ING[&quot;Telemetry Ingestion: metric descriptions&quot;] --&gt; CAT[&quot;Metric Catalog&quot;]
+    BM[&quot;Building Management: structural metrics&quot;] --&gt; CAT
+    CAT --&gt; UI[&quot;Display: choose which metrics to show&quot;]</pre></figure><p>Gathering rather than defining keeps this context a Conformist consumer of each upstream Published Language: a new metric upstream becomes selectable here without a coordinated change.</p><hr /><h2 id="distribution-as-a-domain-rule">Distribution as a Domain Rule</h2><p>A reading belongs to exactly one Building, and the rule is simply: deliver it to that Building&rsquo;s live view.</p><pre><code class="language-text">distribute(reading):
+    deliver the reading to reading.building's view</code></pre><p>Preference does <strong>not</strong> gate this. It once did — distribution used to drop any metric a Building had not selected — but that coupled every live view to the dashboard&rsquo;s column choices (e.g. the 3D model went stale when temperature was removed from the table). Preference is now purely a <strong>display</strong> concern: it decides which metrics a Building&rsquo;s dashboard <em>table</em> renders, applied at the view, while the feed carries every metric the Building produces.</p><p>The model says nothing about <em>how</em> readings arrive or are carried onward — that this must hold at high throughput is a quality we hand to the implementation.</p><hr /><h2 id="a-note-on-transport">A note on transport</h2><p>Carrying readings to the browser is, by design, <strong>not</strong> part of this context&rsquo;s model. We classify real-time transport as a generic subdomain (see <a href="strategic-design.qd)">Strategic Design</a>: it holds no aggregates and enforces no rules, so it is kept out of the domain model and treated as infrastructure.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

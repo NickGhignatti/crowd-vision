@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Deployment &amp; Kubernetes</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="-manifest-structure" data-depth="2"><a href="#-manifest-structure">🗂️ Manifest Structure</a></li><li data-target-id="-configmaps-and-secrets" data-depth="2"><a href="#-configmaps-and-secrets">🔑 ConfigMaps and Secrets</a></li><li data-target-id="-statefulsets-vs-deployments" data-depth="2"><a href="#-statefulsets-vs-deployments">🗄️ StatefulSets vs Deployments</a></li><li data-target-id="-ingress-configuration" data-depth="2"><a href="#-ingress-configuration">🌐 Ingress Configuration</a></li><li data-target-id="-deployment-startup-order" data-depth="2"><a href="#-deployment-startup-order">🚀 Deployment Startup Order</a></li><li data-target-id="-rolling-updates-amp-rollbacks" data-depth="2"><a href="#-rolling-updates-amp-rollbacks">🔄 Rolling Updates &amp; Rollbacks</a></li><li data-target-id="-debugging-reference" data-depth="2"><a href="#-debugging-reference">🔍 Debugging Reference</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment" aria-current="page">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../middlewares">Shared Auth Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="-manifest-structure" data-depth="2"><a href="#-manifest-structure">🗂️ Manifest Structure</a></li><li data-target-id="-configmaps-and-secrets" data-depth="2"><a href="#-configmaps-and-secrets">🔑 ConfigMaps and Secrets</a></li><li data-target-id="-statefulsets-vs-deployments" data-depth="2"><a href="#-statefulsets-vs-deployments">🗄️ StatefulSets vs Deployments</a></li><li data-target-id="-ingress-configuration" data-depth="2"><a href="#-ingress-configuration">🌐 Ingress Configuration</a></li><li data-target-id="-deployment-startup-order" data-depth="2"><a href="#-deployment-startup-order">🚀 Deployment Startup Order</a></li><li data-target-id="-rolling-updates-amp-rollbacks" data-depth="2"><a href="#-rolling-updates-amp-rollbacks">🔄 Rolling Updates &amp; Rollbacks</a></li><li data-target-id="-debugging-reference" data-depth="2"><a href="#-debugging-reference">🔍 Debugging Reference</a></li></ol></nav></div><h1 id="deployment-amp-kubernetes" data-decorative="">Deployment &amp; Kubernetes</h1><p>This page covers how CrowdVision is deployed on Kubernetes: how the cluster is structured, what each manifest type does, how the nginx Ingress works, and how data is persisted across pod restarts. For the high-level deployment models and the gateway, see the <a href="../overview">Architecture Overview</a>.</p><hr /><h2 id="-manifest-structure">🗂️ Manifest Structure</h2><p>All Kubernetes configuration lives in the <span class="codespan-content"><code>k8s/</code></span> directory:</p><pre><code class="language-bash">k8s/
+├── namespace.yml              # The crowdvision namespace
+├── ingress.yml                # nginx Ingress routing rules (2 objects)
+├── configmaps/
+│   └── common.yml             # Non-sensitive shared environment variables
+├── secrets/                   # GITIGNORED &mdash; sensitive credentials
+│   ├── twin.yml
+│   ├── notification.yml
+│   └── agent.yml
+├── stateful/                  # Databases and stateful services
+│   ├── twin-db.yml
+│   ├── notification-db.yml
+│   ├── sensor-db.yml
+│   └── redis.yml
+└── deployments/               # Stateless application services
+    ├── twin-service.yml
+    ├── notification-service.yml
+    ├── sensor-service.yml
+    ├── socket-service.yml
+    ├── agent-service.yml
+    └── client.yml</code></pre><div class="box warning"><header><h4>claims-gateway and tenancy-service have no k8s manifests yet</h4></header><div class="box-content"><p>The current identity/tenancy stack (<span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy-service</code></span>, plus <span class="codespan-content"><code>registry-service</code></span>/<span class="codespan-content"><code>provisioner</code></span>) only runs via docker-compose — see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>&rsquo;s &ldquo;known gap&rdquo; note. The old <span class="codespan-content"><code>auth-service</code></span>/<span class="codespan-content"><code>auth-db</code></span> manifests were deleted along with the service, not replaced.</p></div></div><hr /><h2 id="-configmaps-and-secrets">🔑 ConfigMaps and Secrets</h2><p>Kubernetes separates configuration into two object types based on sensitivity.</p><p><strong>ConfigMap (<span class="codespan-content"><code>k8s/configmaps/common.yml</code></span>)</strong> — stores non-sensitive, shared configuration injected as environment variables into all pods that reference it:</p><pre><code class="language-yaml">data:
+  REDIS_URL: &quot;redis://redis:6379&quot;
+  TWIN_SERVICE_URL: &quot;http://twin-service:3000&quot;
+  GATEWAY_JWKS_URI: &quot;http://claims-gateway:3000/.well-known/jwks.json&quot;
+  GATEWAY_ISSUER: &quot;cv-gateway&quot;
+  CLIENT_URL: &quot;http://localhost&quot;
+  PORT: &quot;3000&quot;</code></pre><p><strong>Secrets</strong> — store sensitive values (database URIs, JWT keys, API keys). The <span class="codespan-content"><code>k8s/secrets/</code></span> directory is intentionally empty and gitignored. Secrets are created directly on the cluster from your local <span class="codespan-content"><code>.env</code></span> file using <span class="codespan-content"><code>just k8s secrets</code></span> — they never touch the git repository. Kubernetes base64-encodes them automatically before storing in etcd.</p><div class="box warning"><header><h4>Warning</h4></header><div class="box-content"><p><span class="codespan-content"><code>stringData</code></span> is not encryption — it is base64 encoding. Real security comes from RBAC controlling who can <span class="codespan-content"><code>kubectl get secret</code></span>. For production, consider integrating an external secrets manager (HashiCorp Vault, AWS Secrets Manager) that injects values at runtime.</p></div></div><hr /><h2 id="-statefulsets-vs-deployments">🗄️ StatefulSets vs Deployments</h2><p>CrowdVision uses two different Kubernetes workload types depending on whether the service needs persistent identity.</p><p><strong>Deployments</strong> are used for all stateless application services (<span class="codespan-content"><code>twin-service</code></span>, <span class="codespan-content"><code>sensor-service</code></span>, <span class="codespan-content"><code>client</code></span>, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.</p><p><strong>StatefulSets</strong> are used for all databases (MongoDB × 3) and Redis. StatefulSets give each pod:</p><ul><li>A <strong>stable, predictable name</strong> — <span class="codespan-content"><code>twin-db-0</code></span>, <span class="codespan-content"><code>twin-db-1</code></span> (never random hashes).</li><li>A <strong>dedicated PersistentVolumeClaim (PVC)</strong> — the storage is bound to <span class="codespan-content"><code>twin-db-0</code></span> specifically. If the pod is rescheduled to a different node, Kubernetes remounts the same volume there.</li><li>A <strong>headless Service</strong> (<span class="codespan-content"><code>clusterIP: None</code></span>) — enables direct per-pod DNS (<span class="codespan-content"><code>twin-db-0.twin-db.crowdvision.svc.cluster.local</code></span>).</li></ul><figure><pre class="mermaid">graph LR
+    subgraph StatefulSet: twin-db
+        Pod[&quot;twin-db-0 Pod&quot;] --- PVC[&quot;PVC: twin-data-twin-db-0\n(1Gi, Bound)&quot;]
+        PVC --- PV[&quot;PersistentVolume\n(local-path provisioner)&quot;]
+    end
+
+    SVC[&quot;Headless Service\ntwin-db\nclusterIP: None&quot;] --&gt; Pod</pre></figure><hr /><h2 id="-ingress-configuration">🌐 Ingress Configuration</h2><p>The Ingress resource is split into two objects in <span class="codespan-content"><code>k8s/ingress.yml</code></span> because they require different annotation sets.</p><p><strong>Ingress 1: API services (with URL rewriting)</strong></p><p>All API services use a regex path with a capture group and the <span class="codespan-content"><code>rewrite-target: /$2</code></span> annotation. This strips the service prefix before forwarding — so a request to <span class="codespan-content"><code>/twin/buildings</code></span> reaches <span class="codespan-content"><code>twin-service</code></span> as <span class="codespan-content"><code>/buildings</code></span>, not <span class="codespan-content"><code>/twin/buildings</code></span>.</p><pre><code class="language-yaml">annotations:
+  nginx.ingress.kubernetes.io/use-regex: &quot;true&quot;
+  nginx.ingress.kubernetes.io/rewrite-target: /$2
+
+# Path pattern &mdash; two capture groups:
+path: /auth(/|$)(.*)
+# Group 1: (/|$)  &mdash; matches the slash or end of path
+# Group 2: (.*)   &mdash; captures everything after /auth/
+# $2 in rewrite-target = the captured remainder &rarr; forwarded as /login</code></pre><p><strong>Ingress 2: WebSocket and client (no rewriting)</strong></p><p>The second Ingress object handles the Vue client and Socket.IO. No URL rewriting is needed — the client serves from <span class="codespan-content"><code>/</code></span> and Socket.IO expects to receive requests at <span class="codespan-content"><code>/socket.io/</code></span>. This object also sets sticky session cookies so that Socket.IO polling handshakes are consistently routed to the same backend pod.</p><pre><code class="language-yaml">annotations:
+  nginx.ingress.kubernetes.io/proxy-read-timeout: &quot;3600&quot;
+  nginx.ingress.kubernetes.io/proxy-send-timeout: &quot;3600&quot;
+  nginx.ingress.kubernetes.io/affinity: &quot;cookie&quot;
+  nginx.ingress.kubernetes.io/session-cookie-name: &quot;route&quot;</code></pre><div class="box note"><header><h4>Note</h4></header><div class="box-content"><p>The <span class="codespan-content"><code>/</code></span> catch-all rule for the Vue client uses the path <span class="codespan-content"><code>/()(.*)</code></span> — an empty first capture group followed by the full path as group 2. This ensures <span class="codespan-content"><code>rewrite-target: /$2</code></span> forwards <span class="codespan-content"><code>/assets/bundle.js</code></span> correctly rather than rewriting all asset requests to <span class="codespan-content"><code>/</code></span>.</p></div></div><hr /><h2 id="-deployment-startup-order">🚀 Deployment Startup Order</h2><p>Services have dependencies — <span class="codespan-content"><code>twin-service</code></span> must not start before <span class="codespan-content"><code>twin-db</code></span> is accepting connections. CrowdVision uses <span class="codespan-content"><code>initContainers</code></span> in each Deployment to enforce this ordering without any cluster-level dependency management:</p><pre><code class="language-yaml">initContainers:
+  - name: wait-for-db
+    image: busybox:1.36
+    command:
+      - sh
+      - -c
+      - until nc -z twin-db 27017; do echo &quot;waiting...&quot;; sleep 2; done</code></pre><p>The <span class="codespan-content"><code>initContainer</code></span> runs before the main container. It polls <span class="codespan-content"><code>twin-db:27017</code></span> every 2 seconds using <span class="codespan-content"><code>netcat</code></span>. Only when the TCP connection succeeds does Kubernetes start the main <span class="codespan-content"><code>twin-service</code></span> container. The pod shows <span class="codespan-content"><code>Init:0/1</code></span> in <span class="codespan-content"><code>kubectl get pods</code></span> during this wait.</p><hr /><h2 id="-rolling-updates-amp-rollbacks">🔄 Rolling Updates &amp; Rollbacks</h2><p>Every application Deployment uses <span class="codespan-content"><code>imagePullPolicy: Always</code></span> in VPS production — every rollout restart pulls the freshest <span class="codespan-content"><code>:latest</code></span> image from GHCR. When you run <span class="codespan-content"><code>kubectl rollout restart deployment/twin-service</code></span>, Kubernetes creates a new pod with the fresh image, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down.</p><div class="box note"><header><h4>Note</h4></header><div class="box-content"><p><strong>Local k3d development:</strong> Set <span class="codespan-content"><code>imagePullPolicy: IfNotPresent</code></span> instead of <span class="codespan-content"><code>Always</code></span>. When you load images with <span class="codespan-content"><code>just k8s load</code></span>, Kubernetes must use the locally-imported image — <span class="codespan-content"><code>Always</code></span> would cause it to attempt a GHCR pull and either fail (if unauthenticated) or silently use a stale remote image.</p></div></div><pre><code class="language-bash"># Roll out a single service
+kubectl rollout restart deployment/twin-service -n crowdvision
+
+# Watch the transition
+kubectl rollout status deployment/twin-service -n crowdvision
+
+# Something broke &mdash; instant rollback to the previous version
+kubectl rollout undo deployment/twin-service -n crowdvision</code></pre><hr /><h2 id="-debugging-reference">🔍 Debugging Reference</h2><pre><code class="language-bash">    # See why a pod is not Ready
+    kubectl describe pod &lt;pod-name&gt; -n crowdvision
+    # Look at the Events section at the bottom &mdash; shows OOMKilled, probe failures, etc.
+
+    # View live logs
+    kubectl logs deployment/twin-service -n crowdvision
+
+    # View logs from the previous crashed container
+    kubectl logs &lt;pod-name&gt; -n crowdvision --previous
+
+    # View initContainer logs specifically
+    kubectl logs &lt;pod-name&gt; -n crowdvision -c wait-for-db
+
+    # Open a shell inside a running pod
+    kubectl exec -it &lt;pod-name&gt; -n crowdvision -- sh
+
+    # Decode a secret value to verify it stored correctly
+    kubectl get secret twin-service-secret -n crowdvision \
+      -o jsonpath='{.data.MONGO_URI}' | base64 --decode
+
+    # Recent cluster events sorted by time
+    kubectl get events -n crowdvision --sort-by='.lastTimestamp' | tail -20
+
+    # Verify which image is actually running in a pod (useful when debugging stale image issues):
+    kubectl get pod &lt;pod-name&gt; -n crowdvision -o jsonpath='{.spec.containers[0].image}'
+
+    # After k3d cluster restart, if kubectl fails with &quot;connection refused&quot;:
+    docker ps --filter name=k3d-crowdvision-serverlb
+    # Note the host port mapped to 6443 in the PORTS column, then:
+    kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:&lt;PORT&gt;</code></pre>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

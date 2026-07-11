@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Chat Service</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="sending-a-message" data-depth="2"><a href="#sending-a-message">Sending A Message</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="authentication" data-depth="2"><a href="#authentication">Authentication</a></li><li data-target-id="client" data-depth="2"><a href="#client">Client</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../middlewares">Shared Auth Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat" aria-current="page">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="sending-a-message" data-depth="2"><a href="#sending-a-message">Sending A Message</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="authentication" data-depth="2"><a href="#authentication">Authentication</a></li><li data-target-id="client" data-depth="2"><a href="#client">Client</a></li></ol></nav></div><h1 id="chat-service" data-decorative="">Chat Service</h1><p>The <span class="codespan-content"><code>chat-service</code></span> is the conversation layer in front of the agent. The <a href="../agent">Agent Service</a> is intentionally <strong>stateless</strong> — each <span class="codespan-content"><code>POST /ask</code></span> is an independent call that takes an optional <span class="codespan-content"><code>history</code></span> array but stores nothing. The chat-service is what turns that into a real chat product: it persists conversations, owns them per user, and feeds the recent history back into each agent call.</p><p>It is a Node.js / Express service in TypeScript, matching the rest of the backend. Keeping conversation storage out of the Python agent is deliberate: the agent stays a pure question-answering engine, while session persistence — a different concern with a different database and scaling profile — lives in its own service.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/router.ts</code></span></td><td>Route table for conversation CRUD and message sending, plus health and metrics.</td></tr><tr><td><span class="codespan-content"><code>src/controller/conversation.ts</code></span></td><td>HTTP adapters over the conversation service.</td></tr><tr><td><span class="codespan-content"><code>src/services/conversation.ts</code></span></td><td>Core logic: ownership checks, validation, history assembly, persistence.</td></tr><tr><td><span class="codespan-content"><code>src/services/agent.ts</code></span></td><td>Thin client that calls <span class="codespan-content"><code>agent-service</code></span> <span class="codespan-content"><code>/ask</code></span> and validates its response.</td></tr><tr><td><span class="codespan-content"><code>src/models/conversation.ts</code></span></td><td>Mongoose schema for <span class="codespan-content"><code>Conversation</code></span>, its embedded <span class="codespan-content"><code>messages</code></span>, and citations.</td></tr><tr><td><span class="codespan-content"><code>src/middlewares/authentication.ts</code></span></td><td>Verifies the JWT and extracts the owning account id.</td></tr></tbody></table><hr /><h2 id="data-model">Data Model</h2><p>A conversation is a single MongoDB document with its messages <strong>embedded</strong> rather than stored in a separate collection. A chat is loaded and saved as a whole, and message counts are bounded, so embedding avoids a join and makes each individual MongoDB save atomic.</p><p>Sending a message is not atomic end-to-end: it loads the conversation, waits for an external agent request, then saves the updated document without a transaction or per-conversation lock. Concurrent sends can therefore use stale history or race while saving. The current client prevents concurrent sends from one widget, but server-side concurrency control is future work.</p><pre><code class="language-typescript">interface IConversation {
+  userId: string;          // owner; indexed { userId: 1 }
+  title: string;           // defaults to &quot;New chat&quot;; auto-set from the first question
+  messages: IChatMessage[]; // embedded, capped at MAX_MESSAGES
+}
+
+interface IChatMessage {
+  role: &quot;user&quot; | &quot;assistant&quot;;
+  content: string;         // 1..MAX_MESSAGE_LENGTH chars
+  citations?: ICitation[]; // grounding sources, copied from the agent's answer
+  createdAt: Date;
+}</code></pre><p>Citations are persisted on the assistant message so that reopening an old conversation shows the same grounded sources the agent originally returned, without re-querying.</p><hr /><h2 id="http-api">HTTP API</h2><p>Conversation routes require authentication. <span class="codespan-content"><code>GET /health</code></span> and <span class="codespan-content"><code>GET /metrics</code></span> are public operational endpoints. The service is exposed through Caddy at <span class="codespan-content"><code>http://localhost/chat</code></span> (and the same <span class="codespan-content"><code>/chat</code></span> ingress prefix in Kubernetes).</p><table><thead><tr><th>Method · Path</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>POST /conversations</code></span></td><td>Create an empty conversation for the caller. Optional <span class="codespan-content"><code>title</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /conversations</code></span></td><td>List the caller&rsquo;s conversations, newest first, without message bodies.</td></tr><tr><td><span class="codespan-content"><code>GET /conversations/:id</code></span></td><td>Fetch one owned conversation with its full message history.</td></tr><tr><td><span class="codespan-content"><code>PATCH /conversations/:id</code></span></td><td>Rename an owned conversation.</td></tr><tr><td><span class="codespan-content"><code>DELETE /conversations/:id</code></span></td><td>Delete an owned conversation.</td></tr><tr><td><span class="codespan-content"><code>POST /conversations/:id/messages</code></span></td><td>Send a user message; returns the assistant reply (see below).</td></tr><tr><td><span class="codespan-content"><code>GET /health/</code></span>, <span class="codespan-content"><code>GET /metrics/</code></span></td><td>Liveness and Prometheus metrics.</td></tr></tbody></table><p>Every conversation route resolves the document by <span class="codespan-content"><code>{ _id, userId }</code></span>, so one user can never read or mutate another user&rsquo;s chat — an unmatched id returns <span class="codespan-content"><code>404</code></span> rather than <span class="codespan-content"><code>403</code></span>, to avoid revealing that the conversation exists.</p><hr /><h2 id="sending-a-message">Sending A Message</h2><p><span class="codespan-content"><code>POST /conversations/:id/messages</code></span> is where the chat-service orchestrates the agent. It loads the conversation, takes the last <span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span> turns as history, calls the agent, and persists both the user message and the assistant reply.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as Client (ChatWidget)
+    participant CH as chat-service
+    participant DB as chat-db
+    participant A as agent-service
+    C-&gt;&gt;CH: POST /conversations/:id/messages { content }
+    CH-&gt;&gt;DB: load conversation by { _id, userId }
+    Note over CH: take last HISTORY_MAX_MESSAGES turns
+    CH-&gt;&gt;A: POST /ask { question, history, stream:false } (+ caller cookie)
+    A--&gt;&gt;CH: { answer, citations }
+    CH-&gt;&gt;DB: push user + assistant messages, save
+    CH--&gt;&gt;C: assistant message</pre></figure><p>Two design points worth calling out:</p><ul><li><strong>The caller&rsquo;s JWT cookie is forwarded to the agent</strong>, not a service account. This means the agent runs <span class="codespan-content"><code>/ask</code></span> under the <em>user&rsquo;s</em> identity, so its permission-filtered retrieval only returns documents that user is allowed to see. The chat-service never widens access.</li><li><strong>History is truncated</strong> to the last <span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span> turns before being sent. This bounds the prompt size (and therefore cost and latency) the agent has to process, and the agent already treats prior messages as untrusted context rather than instructions.</li></ul><p>The first user message also seeds the conversation title (the prior default is <span class="codespan-content"><code>&quot;New chat&quot;</code></span>), so a freshly created chat gets a meaningful name without a separate request.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>AGENT_SERVICE_URL</code></span></td><td><span class="codespan-content"><code>http://agent-service:3000</code></span></td><td>Where to reach the agent&rsquo;s <span class="codespan-content"><code>/ask</code></span> endpoint.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_JWKS_URI</code></span></td><td>—</td><td>claims-gateway&rsquo;s published JWKS endpoint, used to verify the token&rsquo;s RS256 signature. Authenticated requests fail if missing.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_ISSUER</code></span></td><td><span class="codespan-content"><code>cv-gateway</code></span></td><td>Expected <span class="codespan-content"><code>iss</code></span> claim on the verified token.</td></tr><tr><td><span class="codespan-content"><code>JWT_COOKIE_NAME</code></span></td><td><span class="codespan-content"><code>authentication_token</code></span></td><td>Cookie the JWT is read from.</td></tr><tr><td><span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span></td><td><span class="codespan-content"><code>10</code></span></td><td>Number of recent turns sent to the agent as context.</td></tr></tbody></table><p><span class="codespan-content"><code>MAX_MESSAGES</code></span> (100), <span class="codespan-content"><code>MAX_MESSAGE_LENGTH</code></span> (8000), and <span class="codespan-content"><code>MAX_TITLE_LENGTH</code></span> (120) are fixed in-code limits that bound document growth and reject oversized input.</p><hr /><h2 id="authentication">Authentication</h2><p><span class="codespan-content"><code>requireAuthentication</code></span> reads the JWT from the configured cookie, verifies its RS256 signature against claims-gateway&rsquo;s JWKS, and extracts <span class="codespan-content"><code>accountId</code></span> as the owning <span class="codespan-content"><code>userId</code></span>. The token is verified locally with no call to claims-gateway itself per request. The implementation follows the repository&rsquo;s Node-service middleware conventions, but chat-service owns its authentication middleware and error classes rather than sharing a package; see <a href="../middlewares">Shared Auth Middleware</a> for the broader pattern. A failure to reach the agent surfaces as a <span class="codespan-content"><code>502 Bad Gateway</code></span>, distinguishing an upstream agent problem from a client error.</p><hr /><h2 id="client">Client</h2><p>In the frontend, the assistant is the floating <span class="codespan-content"><code>ChatWidget.vue</code></span>, driven by the <span class="codespan-content"><code>useChatSessions</code></span> composable, which calls these <span class="codespan-content"><code>/chat/*</code></span> routes. For what the assistant can and cannot answer from a user&rsquo;s perspective, see <em>Using the Assistant</em> in the user guide.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,510 @@
+openapi: 3.1.0
+info:
+  title: Sensor Service API
+  description: >
+    Ingestion gateway for IoT telemetry. Accepts readings on a fast path,
+    serves latest/aggregated reads, and manages per-building thresholds.
+    Sensor types are resolved dynamically by a microkernel; the currently
+    registered types are `temperature`, `peopleCount`, and `airQuality`.
+  version: 1.0.0
+servers:
+  - url: http://localhost/sensor
+    description: Gateway endpoint for the Sensor Service
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: >
+        JWT issued at login. The twin-service may instead forward the caller's
+        `Authorization: Bearer` token; both are accepted.
+
+  parameters:
+    SensorType:
+      in: path
+      name: sensorType
+      required: true
+      description: The metric discriminant; must match a registered module.
+      schema:
+        type: string
+        enum: [temperature, peopleCount, airQuality]
+    BuildingId:
+      in: path
+      name: buildingId
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    TemperatureReading:
+      type: object
+      required: [building, roomId, timestamp, temperature]
+      properties:
+        building: { type: string, example: "hq-01" }
+        roomId: { type: string, example: "room-03" }
+        timestamp: { type: integer, description: "Unix timestamp in milliseconds", example: 1718000000000 }
+        temperature: { type: number, example: 22.4 }
+
+    PeopleCountReading:
+      type: object
+      required: [building, roomId, timestamp, peopleCount]
+      properties:
+        building: { type: string }
+        roomId: { type: string }
+        timestamp: { type: integer, description: "Unix timestamp in milliseconds" }
+        peopleCount: { type: integer, example: 17 }
+
+    AirQualityReading:
+      type: object
+      required: [building, roomId, timestamp, pm25, pm10, co2, voc, temperature, humidity, aqi, indoor_aqi]
+      properties:
+        building: { type: string }
+        roomId: { type: string }
+        timestamp: { type: integer, description: "Unix timestamp in milliseconds" }
+        scenario: { type: string, description: "Optional simulation scenario identifier" }
+        pm25: { type: number }
+        pm10: { type: number }
+        co2: { type: number }
+        voc: { type: number }
+        temperature: { type: number }
+        humidity: { type: number }
+        aqi: { type: number }
+        indoor_aqi: { type: number }
+
+    IngestionPayload:
+      description: >
+        A reading. The `type` field selects the module; the remaining fields are
+        the metric-specific reading body.
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [temperature, peopleCount, airQuality]
+      oneOf:
+        - $ref: "#/components/schemas/TemperatureReading"
+        - $ref: "#/components/schemas/PeopleCountReading"
+        - $ref: "#/components/schemas/AirQualityReading"
+
+    SensorRegistration:
+      type: object
+      required: [buildingId, roomId, sensorId, sensorType]
+      properties:
+        buildingId: { type: string, example: "hq-01" }
+        roomId: { type: string, example: "room-03" }
+        sensorId: { type: string, example: "123" }
+        sensorType: { type: string, enum: [temperature, peopleCount, airQuality] }
+
+    Sensor:
+      description: A registered physical sensor.
+      type: object
+      properties:
+        buildingId: { type: string }
+        roomId: { type: string }
+        sensorId: { type: string }
+        sensorType: { type: string }
+
+    ActionRequest:
+      description: >
+        A command to send to a sensor. `actionArguments` is positional; each
+        index is mapped to a named field by the matching entry in `actions.json`.
+      type: object
+      required: [sensorId, actionName]
+      properties:
+        buildingId: { type: string }
+        roomId: { type: string }
+        sensorId: { type: string, example: "123" }
+        sensorType: { type: string, example: "temperature" }
+        timestamp: { type: integer, description: "Unix timestamp in milliseconds" }
+        actionName: { type: string, description: "The action key looked up in the routing table.", example: "increase" }
+        actionArguments:
+          type: array
+          items: { type: string }
+          example: ["1"]
+
+    ThresholdClone:
+      description: Building clone pushed by the twin-service on registration/update.
+      type: object
+      properties:
+        name: { type: string }
+        maxTemperature: { type: number }
+        rooms:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+
+    MetricContract:
+      type: object
+      properties:
+        service: { type: string, example: "sensor-service" }
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              metricKey: { type: string, example: "temperature" }
+              label: { type: string, example: "Temperature" }
+              interfaceName: { type: string, example: "ITemperature" }
+              unit: { type: string, example: "C" }
+              fields:
+                type: array
+                items:
+                  type: object
+
+# All endpoints are JWT-protected (browser cookie, or a bearer forwarded by the
+# twin-service) except the device-facing ingest hot path and the public
+# discovery endpoints, which override this with `security: []`.
+security:
+  - cookieAuth: []
+
+paths:
+  /ingest:
+    post:
+      summary: Ingest a sensor reading
+      description: >
+        Validates the payload synchronously and returns `202` immediately;
+        persistence and telemetry publishing happen on a background slow path.
+      tags: [Ingestion]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestionPayload"
+      responses:
+        "202":
+          description: Accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+                  type: { type: string, example: "temperature" }
+        "400":
+          description: Missing or invalid `type` field
+        "404":
+          description: No module registered for the given sensor type
+        "422":
+          description: Payload validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Payload validation failed." }
+                  details:
+                    type: array
+                    items: { type: string }
+
+  /sensor:
+    post:
+      summary: Register a physical sensor
+      description: >
+        Resolves the module by `sensorType` and records the sensor in the
+        registry. Returns `202` without waiting on the write.
+      tags: [Registry]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sensorData]
+              properties:
+                sensorData:
+                  $ref: "#/components/schemas/SensorRegistration"
+      responses:
+        "202":
+          description: Accepted for registration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+                  type: { type: string, example: "temperature" }
+        "400":
+          description: Missing or invalid `sensorType`
+        "404":
+          description: No module registered for the given sensor type
+
+  /sensors/buildings/{buildingId}:
+    get:
+      summary: List every sensor registered in a building
+      tags: [Registry]
+      parameters:
+        - $ref: "#/components/parameters/BuildingId"
+      responses:
+        "200":
+          description: Registered sensors for the building
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Sensor" }
+
+  /sensors/buildings/{buildingId}/rooms/{roomId}:
+    get:
+      summary: List sensors registered in a single room
+      tags: [Registry]
+      parameters:
+        - $ref: "#/components/parameters/BuildingId"
+        - in: path
+          name: roomId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Registered sensors for the room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Sensor" }
+
+  /executeAction:
+    post:
+      summary: Dispatch a command to a sensor's actuator
+      description: >
+        Looks up `actionName -> sensorId` in the service's `actions.json`
+        routing table, maps the positional `actionArguments` to the field names
+        that endpoint expects, and calls it. Synchronous: the response reflects
+        the downstream outcome.
+      tags: [Actions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actionData]
+              properties:
+                actionData:
+                  $ref: "#/components/schemas/ActionRequest"
+      responses:
+        "200":
+          description: The downstream endpoint accepted the command
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+                  actionName: { type: string, example: "increase" }
+                  sensorId: { type: string, example: "123" }
+        "400":
+          description: "`actionData`, `actionName`, or `sensorId` missing/invalid"
+        "404":
+          description: No route configured for that action/sensor pair
+        "502":
+          description: The downstream actuator endpoint errored or was unreachable
+
+  /{sensorType}/latest:
+    get:
+      summary: Latest reading for one room
+      tags: [Reads]
+      parameters:
+        - $ref: "#/components/parameters/SensorType"
+        - in: query
+          name: building
+          required: true
+          schema: { type: string }
+        - in: query
+          name: roomId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The most recent reading
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object }
+        "400":
+          description: No data found / bad query
+        "404":
+          description: Unknown sensor type
+
+  /{sensorType}/entireBuilding:
+    get:
+      summary: Latest reading for every room in a building
+      tags: [Reads]
+      parameters:
+        - $ref: "#/components/parameters/SensorType"
+        - in: query
+          name: building
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: One latest reading per room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { type: object }
+        "404":
+          description: Unknown sensor type
+
+  /{sensorType}/dashboard:
+    get:
+      summary: Bucketed time-series for the dashboard
+      tags: [Reads]
+      parameters:
+        - $ref: "#/components/parameters/SensorType"
+        - in: query
+          name: building
+          required: true
+          schema: { type: string }
+        - in: query
+          name: timeRange
+          required: true
+          schema: { type: string, example: "24h" }
+        - in: query
+          name: roomId
+          required: false
+          schema: { type: string }
+        - in: query
+          name: aggMode
+          required: false
+          schema: { type: string, example: "avg" }
+      responses:
+        "200":
+          description: Aggregated buckets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp: { type: integer }
+                        value: { type: number }
+        "404":
+          description: Unknown sensor type
+
+  /thresholds/buildings/{buildingId}:
+    parameters:
+      - $ref: "#/components/parameters/BuildingId"
+    put:
+      summary: Register/update a building clone
+      description: Called by the twin-service to seed threshold records for every registered module.
+      tags: [Thresholds]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThresholdClone"
+      responses:
+        "200":
+          description: Building registered
+    get:
+      summary: Get the threshold clone for the twin view
+      tags: [Thresholds]
+      responses:
+        "200":
+          description: The clone, or null if none exists
+          content:
+            application/json:
+              schema:
+                type: [object, "null"]
+                properties:
+                  buildingId: { type: string }
+                  maxTemperature: { type: number }
+                  rooms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        maxTemperature: { type: number }
+
+  /thresholds/{sensorType}/buildings/{buildingId}:
+    parameters:
+      - $ref: "#/components/parameters/SensorType"
+      - $ref: "#/components/parameters/BuildingId"
+    get:
+      summary: Get a metric's thresholds for a building
+      tags: [Thresholds]
+      responses:
+        "200":
+          description: Threshold document slice
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object }
+        "404":
+          description: Unknown sensor type
+    patch:
+      summary: Update a metric's building-level thresholds
+      tags: [Thresholds]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Updated thresholds
+        "404":
+          description: Unknown sensor type
+
+  /thresholds/{sensorType}/buildings/{buildingId}/rooms/{roomId}:
+    patch:
+      summary: Update a metric's room-level thresholds
+      tags: [Thresholds]
+      parameters:
+        - $ref: "#/components/parameters/SensorType"
+        - $ref: "#/components/parameters/BuildingId"
+        - in: path
+          name: roomId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Updated room thresholds
+        "404":
+          description: Unknown sensor type
+
+  /contracts:
+    get:
+      summary: Metric catalog
+      description: Self-describing list of the metrics this service produces.
+      tags: [Discovery]
+      security: []
+      responses:
+        "200":
+          description: The service metric contract
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricContract"

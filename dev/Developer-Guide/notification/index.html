@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Notification Service</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="the-temperature-alert-throttle" data-depth="2"><a href="#the-temperature-alert-throttle">The Temperature-Alert Throttle</a></li><li data-target-id="recipient-resolution-and-delivery" data-depth="2"><a href="#recipient-resolution-and-delivery">Recipient Resolution and Delivery</a><ol><li data-target-id="preference-upserts" data-depth="3"><a href="#preference-upserts">Preference upserts</a></li><li data-target-id="stale-subscription-cleanup" data-depth="3"><a href="#stale-subscription-cleanup">Stale-subscription cleanup</a></li></ol></li><li data-target-id="error-handling" data-depth="2"><a href="#error-handling">Error Handling</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../middlewares">Shared Auth Middleware</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification" aria-current="page">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="the-temperature-alert-throttle" data-depth="2"><a href="#the-temperature-alert-throttle">The Temperature-Alert Throttle</a></li><li data-target-id="recipient-resolution-and-delivery" data-depth="2"><a href="#recipient-resolution-and-delivery">Recipient Resolution and Delivery</a><ol><li data-target-id="preference-upserts" data-depth="3"><a href="#preference-upserts">Preference upserts</a></li><li data-target-id="stale-subscription-cleanup" data-depth="3"><a href="#stale-subscription-cleanup">Stale-subscription cleanup</a></li></ol></li><li data-target-id="error-handling" data-depth="2"><a href="#error-handling">Error Handling</a></li></ol></nav></div><h1 id="notification-service" data-decorative="">Notification Service</h1><p>Implementation reference for the <span class="codespan-content"><code>notification-service</code></span>. For its architectural role, see <a href="../notification-architecture">Notification Service Architecture</a>; for the domain model, see <a href="../alerting">Alerting</a>.</p><p>A Node.js / Express service. It receives candidate alert events, debounces them, resolves recipients, and delivers through two channels: an in-app event over the Redis broker and a Web Push to registered devices.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/router.ts</code></span></td><td>Routes for VAPID key, subscription, preferences, manual trigger, and the automated temperature push.</td></tr><tr><td><span class="codespan-content"><code>src/controller/notificationController.ts</code></span></td><td>HTTP adapters; owns the temperature-alert throttle and request normalisation.</td></tr><tr><td><span class="codespan-content"><code>src/services/notificationService.ts</code></span></td><td>Redis publishing to the <span class="codespan-content"><code>notifications</code></span> channel.</td></tr><tr><td><span class="codespan-content"><code>src/services/pushService.ts</code></span></td><td>VAPID Web Push delivery, preference resolution, and stale-subscription cleanup.</td></tr><tr><td><span class="codespan-content"><code>src/models/webSubscription.ts</code></span></td><td><span class="codespan-content"><code>WebPushSubscription</code></span> schema (device endpoint + keys).</td></tr><tr><td><span class="codespan-content"><code>src/models/notificationSubscription.ts</code></span></td><td><span class="codespan-content"><code>NotificationSubscription</code></span> schema (per-domain opt-in preferences).</td></tr><tr><td><span class="codespan-content"><code>src/config/redis.ts</code></span></td><td>Shared Redis client.</td></tr></tbody></table><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>VAPID_PUBLIC_KEY</code></span> / <span class="codespan-content"><code>VAPID_PRIVATE_KEY</code></span></td><td>empty</td><td>VAPID key pair; when both are set, <span class="codespan-content"><code>web-push</code></span> is configured for delivery.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_URL</code></span></td><td><span class="codespan-content"><code>http://localhost:3000</code></span></td><td>Internal gateway base; used to resolve a building&rsquo;s domains via the twin-service.</td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td>—</td><td>Broker connection for publishing <span class="codespan-content"><code>notifications</code></span>.</td></tr><tr><td><span class="codespan-content"><code>DEMO_NOTIFICATION_DOMAIN_ID</code></span></td><td>—</td><td>When set, the optional demo loop pushes a periodic test alert to that domain.</td></tr></tbody></table><hr /><h2 id="data-model">Data Model</h2><p>Two collections, kept separate by design (see <a href="../domain/alerting.qd)">Alerting</a>.</p><pre><code class="language-typescript">// webSubscription.ts &mdash; &quot;where can I reach this account?&quot;
+interface IWebPushSubscription {
+  accountName: string;          // indexed
+  endpoint: string;             // unique
+  keys: { p256dh: string; auth: string };
+}
+// compound unique index { accountName, endpoint }
+
+// notificationSubscription.ts &mdash; &quot;what does this account want?&quot;
+interface INotificationSubscription {
+  accountName: string;
+  domainName: string;
+  preferences: { notificationType: NotificationType; isSubscribed: boolean }[];
+  createdAt: Date;
+}
+// compound unique index { accountName, domainName }
+
+enum NotificationType { TEMPERATURE = &quot;temperature&quot; }</code></pre><p>A single account may own several <span class="codespan-content"><code>WebPushSubscription</code></span> records (one per device) but exactly one <span class="codespan-content"><code>NotificationSubscription</code></span> per domain.</p><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Auth</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /public-key</code></span></td><td>Public</td><td>Returns <span class="codespan-content"><code>{ publicVapidKey }</code></span> for the browser to create a push subscription.</td></tr><tr><td><span class="codespan-content"><code>POST /subscribe</code></span></td><td>JWT</td><td>Upserts a device subscription for the <strong>authenticated</strong> account (bound from the token) and, when a domain is supplied, the matching preferences. <span class="codespan-content"><code>201</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /preferences/:accountName</code></span></td><td>JWT</td><td>Returns the <strong>caller&rsquo;s own</strong> <span class="codespan-content"><code>NotificationSubscription</code></span> records. The <span class="codespan-content"><code>:accountName</code></span> param is ignored (identity from the token).</td></tr><tr><td><span class="codespan-content"><code>POST /preferences</code></span></td><td>JWT</td><td>Sets one or more per-domain, per-type opt-in flags for the <strong>caller</strong>. <span class="codespan-content"><code>200</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /trigger</code></span></td><td>JWT</td><td>Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller&rsquo;s token), publishes, and pushes. <span class="codespan-content"><code>200</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /push/temperature</code></span></td><td>JWT</td><td>Automated threshold alert; subject to the per-room cooldown below. <span class="codespan-content"><code>200</code></span>.</td></tr></tbody></table><p>Request bodies accept the canonical <span class="codespan-content"><code>domainName</code></span> field and the deprecated alias <span class="codespan-content"><code>domainId</code></span>. The account is <strong>always</strong> taken from the verified JWT, never from a body <span class="codespan-content"><code>accountName</code></span>/<span class="codespan-content"><code>userId</code></span> or the URL param — this closed an IDOR on <span class="codespan-content"><code>GET /preferences/:accountName</code></span>. Preferences may be supplied as a single <span class="codespan-content"><code>{ type, enabled }</code></span>, a <span class="codespan-content"><code>types[]</code></span> array with one <span class="codespan-content"><code>enabled</code></span>, or a granular <span class="codespan-content"><code>preferences[]</code></span> array.</p><div class="box note"><header><h4>Auth boundary</h4></header><div class="box-content"><p>Only <span class="codespan-content"><code>/health</code></span> and <span class="codespan-content"><code>/public-key</code></span> (the non-secret VAPID key) stay public; <span class="codespan-content"><code>requireAuthentication</code></span> guards everything else. <span class="codespan-content"><code>/trigger</code></span> and <span class="codespan-content"><code>/push/temperature</code></span> fan out push notifications to a whole domain, so leaving them open was an abuse vector — they now require a valid token like the rest.</p></div></div><hr /><h2 id="the-temperature-alert-throttle">The Temperature-Alert Throttle</h2><p>The sensor-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, <span class="codespan-content"><code>pushTemperatureAlert</code></span> debounces per room using a Redis key with a fixed TTL.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant SS as sensor-service
+    participant NS as notification-service
+    participant R as Redis
+    participant TW as twin-service
+    SS-&gt;&gt;NS: POST /push/temperature { buildingId, roomId, temperature }
+    NS-&gt;&gt;R: GET temp_alert:{buildingId}:{roomId}
+    alt cooldown active
+        R--&gt;&gt;NS: &quot;1&quot;
+        NS--&gt;&gt;SS: 200 (silently throttled)
+    else first alert / expired
+        opt domain not supplied
+            NS-&gt;&gt;TW: GET /twin/domain/:buildingId
+            TW--&gt;&gt;NS: domain names
+        end
+        Note over NS: publish &quot;notifications&quot; + Web Push to opted-in recipients
+        NS-&gt;&gt;R: SET temp_alert:{buildingId}:{roomId} &quot;1&quot; EX 300
+        NS--&gt;&gt;SS: 200 (dispatched)
+    end</pre></figure><p>The key is <span class="codespan-content"><code>temp_alert:{buildingId}:{roomId}</code></span>; the cooldown is <strong>300 seconds</strong>. After it expires, the next breach starts a new cycle.</p><hr /><h2 id="recipient-resolution-and-delivery">Recipient Resolution and Delivery</h2><p><span class="codespan-content"><code>pushService</code></span> separates <em>who to notify</em> from <em>how to reach them</em>.</p><ul><li><span class="codespan-content"><code>sendPushToDomain(payload, domainName, type)</code></span> queries <span class="codespan-content"><code>NotificationSubscription</code></span> for records in the domain whose <span class="codespan-content"><code>preferences</code></span> contain an enabled entry for <span class="codespan-content"><code>type</code></span> (<span class="codespan-content"><code>$elemMatch</code></span>), reduces to a unique set of account names, and delegates to <span class="codespan-content"><code>sendPushToUsers</code></span>.</li><li><span class="codespan-content"><code>sendPushToUsers(payload, accountNames)</code></span> loads every <span class="codespan-content"><code>WebPushSubscription</code></span> for those accounts and sends the encrypted payload to each endpoint via <span class="codespan-content"><code>web-push</code></span>.</li><li>The in-app channel is independent: <span class="codespan-content"><code>publishNotification</code></span> posts <span class="codespan-content"><code>{ id, message, type, timestamp, domainName? }</code></span> to the Redis <span class="codespan-content"><code>notifications</code></span> channel, which the socket-service relays to browsers.</li></ul><h3 id="preference-upserts">Preference upserts</h3><p><span class="codespan-content"><code>setUserNotificationPreference</code></span> is idempotent per type: it first <span class="codespan-content"><code>$pull</code></span>s any existing entry for that <span class="codespan-content"><code>notificationType</code></span>, then <span class="codespan-content"><code>$push</code></span>es the new <span class="codespan-content"><code>{ notificationType, isSubscribed }</code></span>, using <span class="codespan-content"><code>$setOnInsert</code></span> to create the document on first write.</p><h3 id="stale-subscription-cleanup">Stale-subscription cleanup</h3><p>When <span class="codespan-content"><code>web-push</code></span> returns <span class="codespan-content"><code>410 Gone</code></span> or <span class="codespan-content"><code>403 Forbidden</code></span>, the endpoint is permanently invalid and the subscription is deleted automatically (<span class="codespan-content"><code>Subscription.deleteOne({ endpoint })</code></span>). All other errors (network, 5xx) are logged but leave the subscription intact, as they may be transient.</p><div class="box note"><header><h4>Demo loop</h4></header><div class="box-content"><p><span class="codespan-content"><code>startNotificationLoop</code></span> publishes a periodic &ldquo;System Status Check&rdquo; (and, if <span class="codespan-content"><code>DEMO_NOTIFICATION_DOMAIN_ID</code></span> is set, a demo push) every 10 seconds. It is a development aid and should be disabled in production.</p></div></div><hr /><h2 id="error-handling">Error Handling</h2><p>The service uses the shared <span class="codespan-content"><code>BaseError</code></span> hierarchy and global error middleware (see <a href="middlewares.qd)">Auth Service: Middleware</a>. Missing <span class="codespan-content"><code>accountName</code></span>/<span class="codespan-content"><code>domainName</code></span> and malformed push payloads raise <span class="codespan-content"><code>ValidationError</code></span> (400); a failed twin lookup surfaces as a <span class="codespan-content"><code>500</code></span>.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

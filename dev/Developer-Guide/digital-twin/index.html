@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Digital Twin Service</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="name-normalisation" data-depth="2"><a href="#name-normalisation">Name Normalisation</a></li><li data-target-id="downstream-synchronisation" data-depth="2"><a href="#downstream-synchronisation">Downstream Synchronisation</a></li><li data-target-id="error-handling" data-depth="2"><a href="#error-handling">Error Handling</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non-Functional Requirements</a></li></ul><h3 id="domain-model" data-decorative="">Domain model</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../microservices">Service Anatomy</a></li><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service</a></li><li><a href="../notification-architecture">Notification Service</a></li><li><a href="../sensor-architecture">Sensor Service</a></li><li><a href="../contracts-architecture">Contracts Service</a></li><li><a href="../socket-architecture">Socket Service</a></li></ul><h3 id="implementation-reference" data-decorative="">Implementation Reference</h3><ul><li><a href="../middlewares">Shared Auth Middleware</a></li><li><a href="../digital-twin" aria-current="page">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../communication">Communication Schema</a></li><li><a href="../user-accounts">Users and Accounts</a></li><li><a href="../domains">Domains</a></li><li><a href="../buildings">Buildings</a></li><li><a href="../notifications">Notifications</a></li><li><a href="../tunneling">Sensor Data Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up Your Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Running the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="name-normalisation" data-depth="2"><a href="#name-normalisation">Name Normalisation</a></li><li data-target-id="downstream-synchronisation" data-depth="2"><a href="#downstream-synchronisation">Downstream Synchronisation</a></li><li data-target-id="error-handling" data-depth="2"><a href="#error-handling">Error Handling</a></li></ol></nav></div><h1 id="digital-twin-service" data-decorative="">Digital Twin Service</h1><p>Implementation reference for the <span class="codespan-content"><code>twin-service</code></span>. For its architectural role, see <a href="../twin-architecture">Digital Twin Service Architecture</a>; for the domain model, see <a href="../building-management">Building Management</a>.</p><p>A Node.js / Express service in TypeScript. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/router.ts</code></span></td><td>Route table for building CRUD, plus health, metrics, and the <span class="codespan-content"><code>/contracts</code></span> metric catalog.</td></tr><tr><td><span class="codespan-content"><code>src/controller/buildings.ts</code></span></td><td>HTTP adapters over the building service.</td></tr><tr><td><span class="codespan-content"><code>src/services/buildings.ts</code></span></td><td>Core CRUD logic and orchestration of downstream synchronisation.</td></tr><tr><td><span class="codespan-content"><code>src/services/names.ts</code></span></td><td>Pure helpers for normalising and backfilling building/room display names.</td></tr><tr><td><span class="codespan-content"><code>src/services/sensors.ts</code></span></td><td>Pushes the threshold clone to the sensor-service.</td></tr><tr><td><span class="codespan-content"><code>src/services/contractsService.ts</code></span></td><td>Seeds default display preferences in the contracts-service.</td></tr><tr><td><span class="codespan-content"><code>src/models/building.ts</code></span></td><td>Mongoose schema for <span class="codespan-content"><code>Building</code></span>, <span class="codespan-content"><code>Room</code></span>, and the geometry value objects.</td></tr></tbody></table><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>SENSOR_SERVICE_URL</code></span></td><td><span class="codespan-content"><code>http://localhost:3000</code></span></td><td>Target for the threshold clone sync.</td></tr><tr><td><span class="codespan-content"><code>CONTRACTS_SERVICE_URL</code></span></td><td><span class="codespan-content"><code>http://localhost:3001</code></span></td><td>Target for default-preference seeding.</td></tr><tr><td><span class="codespan-content"><code>NODE_ENV</code></span></td><td>—</td><td>When <span class="codespan-content"><code>test</code></span>, threshold sync and preference seeding are skipped.</td></tr></tbody></table><hr /><h2 id="data-model">Data Model</h2><pre><code class="language-typescript">interface IBuilding {
+  id: string;        // server-generated UUID (crypto.randomUUID); unique
+  name: string;
+  rooms: Room[];     // embedded
+  domains: string[]; // tenant names; indexed { domains: 1 }
+}
+
+interface Room {
+  id: string;        // taken from the uploaded model file; stable
+  name: string;
+  capacity: number;
+  position: { x: number; y: number; z: number };   // value object
+  dimensions: { width: number; height: number; depth: number }; // value object
+  color?: string;
+}</code></pre><ul><li><span class="codespan-content"><code>id</code></span> is generated server-side; a client-supplied <span class="codespan-content"><code>id</code></span> on creation is ignored.</li><li>The <span class="codespan-content"><code>{ domains: 1 }</code></span> index makes <span class="codespan-content"><code>Building.find({ domains })</code></span> an index seek rather than a collection scan.</li><li>Geometry is stored as <span class="codespan-content"><code>_id: false</code></span> subdocuments. The schema enables timestamps.</li></ul><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>POST /register</code></span></td><td>Create a building from <span class="codespan-content"><code>{ name, rooms, domains }</code></span>. Assigns a UUID, normalises names, persists, then synchronises downstream. Returns the full document. <span class="codespan-content"><code>201</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /building/:id</code></span></td><td>Fetch one building by UUID; backfills names on read. <span class="codespan-content"><code>404</code></span> if absent.</td></tr><tr><td><span class="codespan-content"><code>GET /buildings/:domain</code></span></td><td>List buildings scoped to a tenant (<span class="codespan-content"><code>domains</code></span> contains <span class="codespan-content"><code>:domain</code></span>). Returns <span class="codespan-content"><code>[]</code></span> when none.</td></tr><tr><td><span class="codespan-content"><code>GET /domain/:buildingName</code></span></td><td>Return the flattened list of domains for buildings matching the name. Used by notification-service for recipient resolution.</td></tr><tr><td><span class="codespan-content"><code>PATCH /building/:buildingId</code></span></td><td>Update <span class="codespan-content"><code>name</code></span> and/or <span class="codespan-content"><code>domains</code></span> (and an optional <span class="codespan-content"><code>maxTemperature</code></span> forwarded to the clone). Re-syncs.</td></tr><tr><td><span class="codespan-content"><code>PATCH /building/:buildingId/room/:roomId</code></span></td><td>Update a room&rsquo;s <span class="codespan-content"><code>name</code></span>, <span class="codespan-content"><code>color</code></span>, or <span class="codespan-content"><code>capacity</code></span>. Re-syncs.</td></tr><tr><td><span class="codespan-content"><code>GET /contracts</code></span></td><td>Return this service&rsquo;s metric catalog (<span class="codespan-content"><code>roomName</code></span>, <span class="codespan-content"><code>roomMaxOccupancy</code></span>). <strong>Public.</strong></td></tr><tr><td><span class="codespan-content"><code>GET /health/</code></span>, <span class="codespan-content"><code>GET /metrics/</code></span></td><td>Liveness and Prometheus metrics. <strong>Public.</strong></td></tr></tbody></table><div class="box note"><header><h4>All building routes require a verified JWT</h4></header><div class="box-content"><p><span class="codespan-content"><code>router.ts</code></span> mounts <span class="codespan-content"><code>requireAuthentication</code></span> ahead of every building route (only <span class="codespan-content"><code>/health</code></span>, <span class="codespan-content"><code>/metrics</code></span>, and <span class="codespan-content"><code>/contracts</code></span> stay public). The middleware (<span class="codespan-content"><code>src/middlewares/authentication.ts</code></span>) verifies the HS256 token and accepts it from <strong>either</strong> the <span class="codespan-content"><code>authentication_token</code></span> cookie (browser) <strong>or</strong> an <span class="codespan-content"><code>Authorization: Bearer</code></span> header (trusted services forwarding the caller&rsquo;s identity — e.g. the agent-service&rsquo;s twin tool). It also stashes the raw token on <span class="codespan-content"><code>req.authToken</code></span> so the service can forward it on its own outbound call (the sensor threshold clone, see below). This closes the previous gap where the identity token was never verified inside the service.</p></div></div><hr /><h2 id="name-normalisation">Name Normalisation</h2><p><span class="codespan-content"><code>services/names.ts</code></span> keeps display names consistent on both write and read.</p><ul><li><span class="codespan-content"><code>normalizeBuildingName(name, id)</code></span> resolves to the trimmed <span class="codespan-content"><code>name</code></span>, else <span class="codespan-content"><code>id</code></span>, else the literal <span class="codespan-content"><code>&quot;Building&quot;</code></span>.</li><li><span class="codespan-content"><code>normalizeRoomNames(rooms)</code></span> trims each room name, falling back to the room <span class="codespan-content"><code>id</code></span>.</li><li><span class="codespan-content"><code>backfillNames(building)</code></span> re-applies these rules when a building is read and persists only if something changed — so older documents are healed lazily.</li></ul><hr /><h2 id="downstream-synchronisation">Downstream Synchronisation</h2><p>A building&rsquo;s structure is mirrored to two services. The two paths have <strong>different failure semantics</strong>, which matters operationally.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as Client
+    participant T as twin-service
+    participant DB as twin-db
+    participant S as sensor-service
+    participant K as contracts-service
+    C-&gt;&gt;T: POST /register { name, rooms, domains }
+    Note over T: normalise names, assign UUID
+    T-&gt;&gt;DB: building.save()
+    T-&gt;&gt;S: PUT /thresholds/buildings/:id (clone)
+    Note over T,S: throws on non-2xx &mdash; registration fails
+    T-&gt;&gt;K: POST /preferences/init/:id
+    Note over T,K: best-effort &mdash; errors logged, swallowed
+    T--&gt;&gt;C: 201 building</pre></figure><ul><li><strong>Sensor threshold clone</strong> (<span class="codespan-content"><code>syncBuildingClone</code></span>): a <span class="codespan-content"><code>PUT</code></span> carrying <span class="codespan-content"><code>{ name, rooms: [{ id, name }], maxTemperature? }</code></span>. It is gated by <span class="codespan-content"><code>shouldSyncThresholds()</code></span> (skipped under test) and <strong>throws on a non-OK response</strong>, so a sensor-service failure fails the building operation. The sensor-service now authenticates this route, so the call forwards the caller&rsquo;s JWT as <span class="codespan-content"><code>Authorization: Bearer ${req.authToken}</code></span>.</li><li><strong>Contracts preference seeding</strong> (<span class="codespan-content"><code>initBuildingPreferences</code></span>): a <span class="codespan-content"><code>POST</code></span> that is skipped under test and <strong>swallows errors</strong> (logged only), so it never blocks building creation.</li></ul><div class="box note"><header><h4>Known gap: synchronous coupling</h4></header><div class="box-content"><p>The sensor clone is an inline, synchronous REST call inside <span class="codespan-content"><code>addBuilding</code></span>/<span class="codespan-content"><code>updateBuilding</code></span>. The roadmap is to replace it with a published <span class="codespan-content"><code>TWIN_UPDATED</code></span> event so the sensor-service can update its copy asynchronously, decoupling the two services.</p></div></div><hr /><h2 id="error-handling">Error Handling</h2><p>The service uses the same <span class="codespan-content"><code>BaseError</code></span> hierarchy and global error middleware shared across the Node services (<span class="codespan-content"><code>ValidationError</code></span> 400, <span class="codespan-content"><code>NotFoundError</code></span> 404, …) — see <a href="../middlewares">Shared Auth Middleware</a>. Building/room lookups raise <span class="codespan-content"><code>NotFoundError</code></span> when the target does not exist.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>
