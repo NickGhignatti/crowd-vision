@@ -1,0 +1,262 @@
+# Istio Gateway API ingress — the prod-shaped replacement for Caddy's :80
+# reverse-proxy routing. Caddy stays for docker-compose dev (see Caddyfile);
+# this is the k8s-native equivalent, applied once Istio is installed.
+#
+# gatewayClassName: istio makes Istio auto-provision a dedicated Envoy
+# gateway Deployment + Service named <name>-istio (e.g. crowdvision-gateway-istio).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: crowdvision-gateway
+  namespace: crowdvision
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+
+---
+# ── Claims Gateway (Keycloak token exchange, /me, JWKS) ────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: claims-gateway-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /gateway
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: claims-gateway
+          port: 3000
+
+---
+# ── Tenancy Service ──────────────────────────────────────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tenancy-service-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /tenancy
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: tenancy-service
+          port: 3000
+
+---
+# ── Digital Twin service ─────────────────────────────────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: twin-service-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /twin
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: twin-service
+          port: 3000
+
+---
+# ── Notification service ─────────────────────────────────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: notification-service-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /notification
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: notification-service
+          port: 3000
+
+---
+# ── Agent service ─────────────────────────────────────────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agent-service-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /agent
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: agent-service
+          port: 3000
+
+---
+# ── Chat service ──────────────────────────────────────────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: chat-service-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /chat
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: chat-service
+          port: 3000
+
+---
+# ── Contracts Service ────────────────────────────────────────────────────────
+# Axum's own route table is /health, /, /preferences/:id — no /contracts
+# prefix — so the prefix must be stripped here. (The Caddyfile's comment on
+# this route claims otherwise, but it actually uses handle_path, which always
+# strips; the comment is stale. This route matches the real behavior.)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: contracts-service-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /contracts
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: contracts-service
+          port: 3000
+
+---
+# ── Sensor service ────────────────────────────────────────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sensor-service-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /sensor
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: sensor-service
+          port: 3000
+
+---
+# ── Socket.IO server — no rewrite, full path forwarded intact ──────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: socket-service-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /socket.io
+      backendRefs:
+        - name: socket-service
+          port: 3000
+
+---
+# ── Client (Vue SPA) — catch-all root, evaluated after the specific routes ─────
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: client-route
+  namespace: crowdvision
+spec:
+  parentRefs:
+    - name: crowdvision-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: client
+          port: 8080

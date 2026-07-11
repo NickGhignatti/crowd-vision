@@ -115,7 +115,40 @@ just k8s apply   # apply manifests
 ```
 
 .box {Image pull policy for local images} type:{note}
-    When using locally loaded images, set `imagePullPolicy: IfNotPresent` in the deployment manifests. With `Always`, Kubernetes attempts a GHCR pull and ignores the locally imported image.
+    All application containers in `k8s/deployments/*.yml` use `imagePullPolicy: IfNotPresent` (init containers using `busybox` are unaffected). With `Always`, Kubernetes always attempts a GHCR pull regardless of what's already imported locally — and in this environment the GHCR pull token returns 403, so `Always` would fail every deployment outright. If you rely on GHCR-published images instead of `just k8s load`, override this per-deployment rather than reverting it globally.
+
+---
+
+## Istio ambient mesh (local k3d dev cluster)
+
+The local k3d dev cluster runs Istio in **ambient mode** as the ingress path (Gateway API), replacing the nginx Ingress for that cluster. This is additive infrastructure — `docker-compose` + Caddy is still the primary day-to-day dev loop; the k3d+Istio path is for testing the mesh-based production architecture (see [Service Mesh Architecture](../architecture/service-mesh.qd)).
+
+```bash
+just k8s create          # create the k3d cluster (traefik disabled — Istio owns ingress)
+just k8s gateway-api      # install the Gateway API CRDs (required for ambient's Gateway/HTTPRoute)
+just k8s istio-install    # install Istio ambient (istiod, ztunnel, istio-cni)
+```
+
+.box {k3d's CNI bin dir is /bin, not the generic k3s path} type:{warning}
+    Istio's CNI plugin must be told where to copy its binary via `--set values.cni.cniBinDir=...`. Generic Istio-on-k3s docs suggest `/var/lib/rancher/k3s/data/cni`, but **k3d's bundled node image configures containerd with `bin_dir = "/bin"`** (check with `docker exec <node> cat /var/lib/rancher/k3s/agent/etc/containerd/config.toml`). Using the generic k3s path installs the binary somewhere containerd never looks, so every pod scheduled on that node fails with `plugin type="istio-cni" ... failed to find plugin "istio-cni" in path [/bin]` — and forever retries. The correct value for k3d specifically is `--set values.cni.cniBinDir=/bin`.
+
+.box {A failed CNI install exhausts the flannel IP pool} type:{warning}
+    Each failed sandbox-creation retry (either from the wrong CNI bin dir above, or from ztunnel's DaemonSet racing istio-cni's own startup on a fresh cluster) can leak an IP from flannel's `10.42.0.1-10.42.0.254` pool without releasing it. After a few hundred retries the pool is exhausted and every future pod on that node fails with `no IP addresses available in range set`, even after the underlying CNI problem is fixed. There is no in-place recovery — `k3d cluster delete crowdvision && just k8s create` (a fresh node) is the only fix. Get the CNI bin dir right *before* the first install to avoid this entirely.
+
+.box {Git Bash mangles the CNI path arguments} type:{warning}
+    On Windows, running `istioctl install --set values.cni.cniBinDir=/bin` from Git Bash silently rewrites the leading `/` into a Windows path (e.g. `/bin` → `C:/Program Files/Git/bin`), because MSYS treats any argument starting with `/` as a path to translate. Set `MSYS2_ARG_CONV_EXCL="*"` before the `istioctl install` call to disable this (already baked into the `just k8s istio-install` recipe).
+
+Once installed, enroll the namespace and apply the Gateway API resources:
+
+```bash
+kubectl label namespace crowdvision istio.io/dataplane-mode=ambient --overwrite
+kubectl apply -f k8s/istio-gateway.yml
+```
+
+`k8s/istio-gateway.yml` defines one Istio `Gateway` (class `istio`, which auto-provisions an Envoy `Deployment`/`Service` named `<name>-istio`) plus one `HTTPRoute` per service, mirroring the Caddyfile's routes. Services that use `handle_path` in the Caddyfile (path prefix stripped before forwarding) get a matching Gateway API `URLRewrite`/`ReplacePrefixMatch` filter; `contracts-service`'s route needs this too even though its Caddyfile comment claims otherwise — the comment is stale, the directive (`handle_path`) always strips.
+
+.box {claims-gateway and agent/chat-service are expected to fail in this cluster} type:{note}
+    Three services are known-blocked in the local k3d cluster, independent of any mesh work: `claims-gateway` fails its OIDC discovery at boot because Keycloak runs only in the docker-compose dev stack, not in-cluster (it reaches for it at `host.k3d.internal:8090`, which is only live if you've started Keycloak via `docker compose`); `agent-service` needs a real embedding-provider API key (`OPENAI_API_KEY`) that isn't set by default; `chat-service`'s init container waits on `agent-service` and is blocked transitively. None of this is caused by Istio — it reproduces identically without the mesh.
 
 ---
 
