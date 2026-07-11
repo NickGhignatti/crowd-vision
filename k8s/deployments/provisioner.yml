@@ -2,22 +2,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: contracts-service
+  name: provisioner
   namespace: crowdvision
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: contracts-service
+      app: provisioner
   template:
     metadata:
       labels:
-        app: contracts-service
+        app: provisioner
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
       initContainers:
-        - name: wait-for-mongo
+        - name: wait-for-registry
           image: busybox:1.36
           imagePullPolicy: Always
           securityContext:
@@ -27,8 +27,8 @@ spec:
             - sh
             - -c
             - |
-              until nc -z contracts-service-db 27017; do
-                echo "waiting for contracts-service-db..."
+              until nc -z registry-service 3000; do
+                echo "waiting for registry-service..."
                 sleep 2
               done
           resources:
@@ -40,7 +40,7 @@ spec:
               cpu: "50m"
               memory: "32Mi"
               ephemeral-storage: "50Mi"
-        - name: wait-for-redis
+        - name: wait-for-tenancy
           image: busybox:1.36
           imagePullPolicy: Always
           securityContext:
@@ -50,54 +50,8 @@ spec:
             - sh
             - -c
             - |
-              until nc -z redis 6379; do
-                echo "waiting for redis..."
-                sleep 2
-              done
-          resources:
-            requests:
-              cpu: "10m"
-              memory: "16Mi"
-              ephemeral-storage: "10Mi"
-            limits:
-              cpu: "50m"
-              memory: "32Mi"
-              ephemeral-storage: "50Mi"
-        - name: wait-for-sensor
-          image: busybox:1.36
-          imagePullPolicy: Always
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-          command:
-            - sh
-            - -c
-            - |
-              until nc -z sensor-service 3000; do
-                echo "waiting for sensor-service..."
-                sleep 2
-              done
-          resources:
-            requests:
-              cpu: "10m"
-              memory: "16Mi"
-              ephemeral-storage: "10Mi"
-            limits:
-              cpu: "50m"
-              memory: "32Mi"
-              ephemeral-storage: "50Mi"
-        - name: wait-for-twin
-          image: busybox:1.36
-          imagePullPolicy: Always
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-          command:
-            - sh
-            - -c
-            - |
-              until nc -z twin-service 3000; do
-                echo "waiting for twin-service..."
+              until nc -z tenancy-service 3000; do
+                echo "waiting for tenancy-service..."
                 sleep 2
               done
           resources:
@@ -110,26 +64,22 @@ spec:
               memory: "32Mi"
               ephemeral-storage: "50Mi"
       containers:
-        - name: contracts-service
-          image: ghcr.io/nickghignatti/crowdvision-contracts:latest
+        - name: provisioner
+          image: ghcr.io/nickghignatti/crowdvision-provisioner:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
+          env:
+            - name: REGISTRY_URL
+              value: "http://registry-service:3000"
+            - name: TENANCY_URL
+              value: "http://tenancy-service:3000"
           envFrom:
             - secretRef:
-                name: contracts-service-secret   # MONGO_URI
-            - configMapRef:
-                name: common-config   # PORT, REDIS_URL
-          env:
-            # contracts-service uses these names instead of the ConfigMap keys.
-            # Inline here to avoid adding contracts-specific vars to the shared ConfigMap.
-            - name: SENSOR_METRICS_URL
-              value: "http://sensor-service:3000"
-            - name: TWIN_METRICS_URL
-              value: "http://twin-service:3000"
+                name: provisioner-secret   # INTERNAL_SIGNING_SECRET
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -165,11 +115,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: contracts-service
+  name: provisioner
   namespace: crowdvision
 spec:
   selector:
-    app: contracts-service
+    app: provisioner
   ports:
     - port: 3000
       targetPort: 3000

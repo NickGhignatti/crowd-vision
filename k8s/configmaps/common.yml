@@ -17,10 +17,6 @@ data:
   CONTRACTS_SERVICE_URL: "http://contracts-service:3000"
 
   # ── claims-gateway (RS256 token verification) ─────────────────────────────
-  # NOTE: claims-gateway has no k8s Deployment/Service yet — only docker-compose
-  # (see server/claims-gateway/CLAUDE.md and the strangler-migration doc). These
-  # values are correct/forward-looking for when it's deployed here; until then,
-  # any service reading them will fail to reach this URL in a k8s cluster.
   GATEWAY_JWKS_URI: "http://claims-gateway:3000/.well-known/jwks.json"
   GATEWAY_ISSUER: "cv-gateway"
 

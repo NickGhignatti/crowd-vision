@@ -1,80 +1,72 @@
 # ── Headless Service ──────────────────────────────────────────────────────────
-# clusterIP: None required by kube-score — the StatefulSet governing Service
-# must be headless. Consumers still reach redis via redis:6379 (DNS resolves
-# to the pod IP directly, which is fine for a single-replica StatefulSet).
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis
+  name: contracts-service-db
   namespace: crowdvision
 spec:
   clusterIP: None
   selector:
-    app: redis
+    app: contracts-service-db
   ports:
-    - port: 6379
-      targetPort: 6379
+    - port: 27017
+      targetPort: 27017
       appProtocol: tcp
 
 ---
 # ── StatefulSet ───────────────────────────────────────────────────────────────
-# Changed from Deployment to StatefulSet so that:
-#   1. Redis gets a stable pod name (redis-0) and a dedicated PVC.
-#   2. Data survives pod rescheduling — Socket.IO room state and any queues
-#      are not silently lost when the node is drained or updated.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: redis
+  name: contracts-service-db
   namespace: crowdvision
 spec:
-  serviceName: redis   # governing Service
+  serviceName: contracts-service-db
   replicas: 1
   selector:
     matchLabels:
-      app: redis
+      app: contracts-service-db
   template:
     metadata:
       labels:
-        app: redis
+        app: contracts-service-db
     spec:
       containers:
-        - name: redis
-          image: redis:7-alpine   # pinned to major version
+        - name: mongodb
+          image: mongo:8
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-          # --appendonly yes enables AOF persistence: every write is logged to disk
-          # so Redis can replay state after a restart with zero data loss.
-          command: [redis-server, --appendonly, "yes"]
           ports:
-            - containerPort: 6379
+            - containerPort: 27017
           volumeMounts:
-            - name: redis-data
-              mountPath: /data   # Redis writes AOF and RDB files here
+            - name: contracts-data
+              mountPath: /data/db
             - name: tmp
               mountPath: /tmp
           readinessProbe:
             exec:
-              command: [redis-cli, ping]
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 3
+              command: [mongosh, --eval, "db.adminCommand('ping')"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
           livenessProbe:
             exec:
-              command: [redis-cli, ping]
-            initialDelaySeconds: 15
-            periodSeconds: 20
-            timeoutSeconds: 3
+              command: [mongosh, --eval, "db.adminCommand('ping')"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 10
           resources:
             requests:
-              cpu: "50m"
-              memory: "64Mi"
+              cpu: "100m"
+              memory: "256Mi"
               ephemeral-storage: "100Mi"
             limits:
-              cpu: "200m"
-              memory: "128Mi"
+              cpu: "500m"
+              memory: "512Mi"
               ephemeral-storage: "500Mi"
       volumes:
         - name: tmp
@@ -82,12 +74,12 @@ spec:
 
   volumeClaimTemplates:
     - metadata:
-        name: redis-data
+        name: contracts-data
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 512Mi   # pub/sub state and AOF log are small
+            storage: 1Gi
         # Local k3d:           omit storageClassName — uses default "local-path"
         # Hetzner VPS:         storageClassName: hcloud-volumes
         # DigitalOcean VPS:    storageClassName: do-block-storage

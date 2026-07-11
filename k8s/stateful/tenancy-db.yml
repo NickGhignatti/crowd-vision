@@ -1,0 +1,82 @@
+# ── Headless Service ──────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: tenancy-db
+  namespace: crowdvision
+spec:
+  clusterIP: None
+  selector:
+    app: tenancy-db
+  ports:
+    - port: 5432
+      targetPort: 5432
+      appProtocol: tcp
+
+---
+# ── StatefulSet ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tenancy-db
+  namespace: crowdvision
+spec:
+  serviceName: tenancy-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenancy-db
+  template:
+    metadata:
+      labels:
+        app: tenancy-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+          envFrom:
+            - secretRef:
+                name: tenancy-db-secret   # POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: tenancy-data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, tenancy]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: [pg_isready, -U, tenancy]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+              ephemeral-storage: "100Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+              ephemeral-storage: "500Mi"
+
+  volumeClaimTemplates:
+    - metadata:
+        name: tenancy-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+        # Local k3d:           omit storageClassName — uses default "local-path"
+        # Hetzner VPS:         storageClassName: hcloud-volumes
+        # DigitalOcean VPS:    storageClassName: do-block-storage

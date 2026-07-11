@@ -1,0 +1,101 @@
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry-service
+  namespace: crowdvision
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry-service
+  template:
+    metadata:
+      labels:
+        app: registry-service
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z registry-db 5432; do
+                echo "waiting for registry-db..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
+      containers:
+        - name: registry-service
+          image: ghcr.io/nickghignatti/crowdvision-registry:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          ports:
+            - containerPort: 3000
+          env:
+            - name: ADDR
+              value: ":3000"
+          envFrom:
+            - secretRef:
+                name: registry-service-secret   # DATABASE_URL, INTERNAL_SIGNING_SECRET
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+              ephemeral-storage: "100Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+# ── Service ───────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-service
+  namespace: crowdvision
+spec:
+  selector:
+    app: registry-service
+  ports:
+    - port: 3000
+      targetPort: 3000
+      appProtocol: http
