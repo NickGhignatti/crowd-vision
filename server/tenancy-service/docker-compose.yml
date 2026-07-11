@@ -7,8 +7,6 @@ services:
       - ADDR=:3000
       - DATABASE_URL=postgres://tenancy:${TENANCY_DB_PASSWORD}@tenancy-db:5432/tenancy?sslmode=disable
       - REDIS_URL=redis://redis:6379
-      - GATEWAY_JWKS_URL=http://claims-gateway:3000/.well-known/jwks.json
-      - GATEWAY_ISSUER=cv-gateway
       - INTERNAL_SIGNING_SECRET=${INTERNAL_SIGNING_SECRET}
       - CV_TENANCY=${CV_TENANCY:-enabled}
     depends_on:

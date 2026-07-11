@@ -7,6 +7,7 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/NickGhignatti/crowd-vision/server/auth-contracts v0.0.0
 	github.com/NickGhignatti/crowd-vision/server/auth-middleware v0.0.0
+	github.com/NickGhignatti/crowd-vision/server/auth-policy v0.0.0
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
@@ -20,6 +21,7 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/cedar-policy/cedar-go v1.8.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
@@ -72,6 +74,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
+	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
@@ -82,3 +85,5 @@ require (
 replace github.com/NickGhignatti/crowd-vision/server/auth-contracts => ../auth-contracts
 
 replace github.com/NickGhignatti/crowd-vision/server/auth-middleware => ../auth-middleware
+
+replace github.com/NickGhignatti/crowd-vision/server/auth-policy => ../auth-policy

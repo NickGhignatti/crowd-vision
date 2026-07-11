@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	authmiddleware "github.com/NickGhignatti/crowd-vision/server/auth-middleware"
+	authpolicy "github.com/NickGhignatti/crowd-vision/server/auth-policy"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/service"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/store"
 )
@@ -242,7 +243,7 @@ func (h *handler) inviteMember(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
 	domain := chi.URLParam(r, "domain")
 
-	if !claims.CanIn(domain, "business_admin") {
+	if !authpolicy.CanManageDomain(claims.Memberships, domain) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -277,8 +278,10 @@ func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Anyone may remove themselves; removing someone else needs domain admin.
-	if target != claims.Sub && !claims.CanIn(domain, "business_admin") {
+	// Anyone may remove themselves — checked before Cedar since it's an
+	// identity comparison, not a policy decision; removing someone else
+	// needs domain admin.
+	if target != claims.Sub && !authpolicy.CanManageDomain(claims.Memberships, domain) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -294,7 +297,7 @@ func (h *handler) createSubdomain(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
 	parent := chi.URLParam(r, "domain")
 
-	if !claims.CanIn(parent, "business_admin") {
+	if !authpolicy.CanManageDomain(claims.Memberships, parent) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -343,7 +346,7 @@ func (h *handler) createInviteCode(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
 	domain := chi.URLParam(r, "domain")
 
-	if !claims.CanIn(domain, "business_admin") {
+	if !authpolicy.CanManageDomain(claims.Memberships, domain) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
