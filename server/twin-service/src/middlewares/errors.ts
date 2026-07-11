@@ -14,6 +14,9 @@ export const errorHandler = (
     });
   }
 
+  // Unexpected (non-BaseError) failures are still opaque to the client, but
+  // must be logged — silently swallowing them makes a 500 undebuggable.
+  console.error(err);
   return res.status(500).json({
     type: "Internal Server Error",
     message: "An unexpected error occurred. Please try again later.",
