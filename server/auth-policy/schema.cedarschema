@@ -1,0 +1,77 @@
+// Shared Cedar entity schema for CrowdVision's tenant/role authorization.
+// One bundle, evaluated locally in every service (Decision A — no authz
+// network call on the data path). See policy.cedar for the actual rules and
+// roles.json for the role-weight ladder these entities are pre-expanded from.
+//
+// Cedar's `.contains()` can't do role-weight comparison natively, so the
+// weight math happens in each service BEFORE calling Cedar: every membership
+// is expanded into which role tiers it qualifies for in that domain, and
+// those flat per-tier domain sets are what the Account entity actually
+// carries. Cedar's own job is only the containment/comparison check — the
+// tier thresholds themselves are policy.cedar's, not each service's.
+entity Account = {
+  // Domains where the caller holds ANY role (equivalent to "is a member").
+  domainsAsStandardCustomer: Set<String>,
+  // Domains where the caller's role weight is >= "business_staff".
+  domainsAsBusinessStaff: Set<String>,
+  // Domains where the caller's role weight is >= "business_admin".
+  domainsAsBusinessAdmin: Set<String>,
+  // Domains where the caller's role weight is >= "admin".
+  domainsAsAdmin: Set<String>,
+  // The caller's single highest role weight across every membership —
+  // for GLOBAL (non-domain-scoped) checks: agent-service's model-override
+  // gate and its "platform admin can read any building" bypass.
+  maxRoleWeight: Long,
+};
+
+// One generic resource type for every domain-owned thing a policy might
+// gate (building, room, tenancy domain, ...) — they all reduce to the same
+// question ("is the caller sufficiently privileged in resource.domain?"),
+// so a single shape avoids one near-identical entity type per resource kind.
+entity Resource = {
+  domain: String,
+};
+
+// Plain domain membership, any role — twin-service's isMemberOf (no
+// global-admin bypass; a platform admin isn't automatically a member of
+// every domain).
+action Read appliesTo {
+  principal: [Account],
+  resource: [Resource],
+  context: {}
+};
+
+// Domain membership OR a global admin role anywhere — agent-service's
+// can_access_domain (the twin RAG tool: admins can read any building).
+action ReadWithAdminBypass appliesTo {
+  principal: [Account],
+  resource: [Resource],
+  context: {}
+};
+
+// business_staff role or higher in the resource's domain — twin-service's
+// geometry-mutating routes (move/resize/add/delete rooms).
+action Edit appliesTo {
+  principal: [Account],
+  resource: [Resource],
+  context: {}
+};
+
+// business_admin role or higher in the resource's domain — tenancy-service's
+// invite/createSubdomain/createInviteCode/remove-another-member.
+action ManageDomain appliesTo {
+  principal: [Account],
+  resource: [Resource],
+  context: {}
+};
+
+// Global (non-domain-scoped) role-weight gate. The required tier is
+// operator-configurable (agent-service's MODEL_OVERRIDE_MIN_ROLE env var),
+// so it travels as context instead of being hardcoded in policy.cedar.
+action ModelOverride appliesTo {
+  principal: [Account],
+  resource: [Resource],
+  context: {
+    requiredWeight: Long
+  }
+};

@@ -1,0 +1,171 @@
+{
+  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds server/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy) — that identical-outcomes guarantee is the whole point of one shared policy bundle. Ported from the pre-Cedar tenantScope.ts / claims.CanIn test suites so behavior didn't drift during the migration.",
+  "cases": [
+    {
+      "name": "read: member of the domain, any role, is allowed",
+      "memberships": [{ "domain": "eng", "role": "standard_customer" }],
+      "action": "Read",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "read: not a member of the domain is denied",
+      "memberships": [{ "domain": "other", "role": "admin" }],
+      "action": "Read",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "read: no memberships at all is denied",
+      "memberships": [],
+      "action": "Read",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "read: a platform admin is NOT automatically a member of every domain",
+      "memberships": [{ "domain": "other", "role": "admin" }],
+      "action": "Read",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "readWithAdminBypass: member of the domain is allowed",
+      "memberships": [{ "domain": "eng", "role": "standard_customer" }],
+      "action": "ReadWithAdminBypass",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "readWithAdminBypass: a platform admin in a DIFFERENT domain is allowed anyway",
+      "memberships": [{ "domain": "other", "role": "admin" }],
+      "action": "ReadWithAdminBypass",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "readWithAdminBypass: a non-admin, non-member is denied",
+      "memberships": [{ "domain": "other", "role": "business_admin" }],
+      "action": "ReadWithAdminBypass",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "edit: business_admin member is allowed",
+      "memberships": [{ "domain": "eng", "role": "business_admin" }],
+      "action": "Edit",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "edit: business_staff member is allowed",
+      "memberships": [{ "domain": "eng", "role": "business_staff" }],
+      "action": "Edit",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "edit: platform admin is allowed",
+      "memberships": [{ "domain": "eng", "role": "admin" }],
+      "action": "Edit",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "edit: standard_customer member is denied",
+      "memberships": [{ "domain": "eng", "role": "standard_customer" }],
+      "action": "Edit",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "edit: an editing role in an unrelated domain is denied",
+      "memberships": [{ "domain": "other", "role": "business_admin" }],
+      "action": "Edit",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "edit: no memberships is denied",
+      "memberships": [],
+      "action": "Edit",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "manageDomain: business_admin member is allowed",
+      "memberships": [{ "domain": "eng", "role": "business_admin" }],
+      "action": "ManageDomain",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "manageDomain: platform admin is allowed",
+      "memberships": [{ "domain": "eng", "role": "admin" }],
+      "action": "ManageDomain",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "manageDomain: business_staff member is denied (below the business_admin tier)",
+      "memberships": [{ "domain": "eng", "role": "business_staff" }],
+      "action": "ManageDomain",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "manageDomain: business_admin in an unrelated domain is denied",
+      "memberships": [{ "domain": "other", "role": "business_admin" }],
+      "action": "ManageDomain",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "modelOverride: role weight meets the configured threshold is allowed",
+      "memberships": [{ "domain": "eng", "role": "business_admin" }],
+      "action": "ModelOverride",
+      "domain": "eng",
+      "context": { "requiredWeight": 80 },
+      "expected": "allow"
+    },
+    {
+      "name": "modelOverride: platform admin exceeds any configured threshold",
+      "memberships": [{ "domain": "eng", "role": "admin" }],
+      "action": "ModelOverride",
+      "domain": "eng",
+      "context": { "requiredWeight": 80 },
+      "expected": "allow"
+    },
+    {
+      "name": "modelOverride: role weight below the configured threshold is denied",
+      "memberships": [{ "domain": "eng", "role": "business_staff" }],
+      "action": "ModelOverride",
+      "domain": "eng",
+      "context": { "requiredWeight": 80 },
+      "expected": "deny"
+    },
+    {
+      "name": "modelOverride: is a GLOBAL check — the resource's own domain doesn't matter",
+      "memberships": [{ "domain": "other", "role": "admin" }],
+      "action": "ModelOverride",
+      "domain": "eng",
+      "context": { "requiredWeight": 80 },
+      "expected": "allow"
+    },
+    {
+      "name": "modelOverride: no memberships is denied",
+      "memberships": [],
+      "action": "ModelOverride",
+      "domain": "eng",
+      "context": { "requiredWeight": 10 },
+      "expected": "deny"
+    },
+    {
+      "name": "an unrecognized role in a membership is ignored, not treated as a wildcard grant",
+      "memberships": [{ "domain": "eng", "role": "some_future_role_not_in_roles_json" }],
+      "action": "Read",
+      "domain": "eng",
+      "expected": "deny"
+    }
+  ]
+}
