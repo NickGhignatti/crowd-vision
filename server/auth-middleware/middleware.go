@@ -6,6 +6,8 @@ package authmiddleware
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -69,6 +71,45 @@ func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handle
 
 			mapClaims := token.Claims.(jwt.MapClaims)
 			if err := decodeClaims(mapClaims, &claims); err != nil {
+				http.Error(w, "invalid token claims", http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), contextKey{}, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// GatewayClaimsHeader is the header Istio's RequestAuthentication injects
+// (outputPayloadToHeader) after verifying the gateway JWT once at the mesh
+// ingress — see k8s/istio-request-authentication.yml. Its JSON shape is the
+// same StandardClaims payload claims-gateway signs.
+const GatewayClaimsHeader = "x-gateway-claims"
+
+// RequireMeshClaims trusts the mesh-verified claims header instead of
+// verifying a JWT itself — the counterpart to RequireAuthentication for
+// services that sit behind the Istio ingress (Phase 2 of the mesh
+// migration). claims-gateway's own routes (e.g. /me) keep using
+// RequireAuthentication directly: as the token minter, it verifies its own
+// tokens rather than depending on the mesh for its own auth.
+func RequireMeshClaims() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			header := r.Header.Get(GatewayClaimsHeader)
+			if header == "" {
+				http.Error(w, "unauthenticated", http.StatusUnauthorized)
+				return
+			}
+
+			raw, err := base64.StdEncoding.DecodeString(header)
+			if err != nil {
+				http.Error(w, "invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			var claims authcontracts.StandardClaims
+			if err := json.Unmarshal(raw, &claims); err != nil || claims.Sub == "" {
 				http.Error(w, "invalid token claims", http.StatusUnauthorized)
 				return
 			}
