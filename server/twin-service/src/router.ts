@@ -7,6 +7,9 @@ import {
   addBuilding,
   updateBuilding,
   updateRoom,
+  createRoom,
+  deleteRoom,
+  replaceRooms,
 } from "./controller/buildings.js";
 import { checkHealth } from "./controller/status.js";
 import { register } from "./config/registry.js";
@@ -38,5 +41,8 @@ router.get("/buildings/:domain", getBuildingByDomain);
 router.get("/domain/:buildingName", getDomainsByBuilding);
 router.patch("/building/:buildingId", updateBuilding);
 router.patch("/building/:buildingId/room/:roomId", updateRoom);
+router.post("/building/:buildingId/room", createRoom);
+router.delete("/building/:buildingId/room/:roomId", deleteRoom);
+router.put("/building/:buildingId/rooms", replaceRooms);
 
 export default router;

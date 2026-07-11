@@ -171,7 +171,59 @@ Once deployed, physical spaces often change. A lecture hall might have its capac
     - - `PATCH /twin/building/:buildingId`
       - Building-level fields: `name`, `domains`, `maxTemperature` (forwarded to sensor clone).
     - - `PATCH /twin/building/:buildingId/room/:roomId`
-      - Room-level fields: `id`, `name`, `color`, `capacity`. Re-syncs the threshold clone automatically.
+      - Room-level fields: `id`, `name`, `color`, `capacity`, `position`, `dimensions`. Re-syncs the threshold clone automatically.
+    - - `POST /twin/building/:buildingId/room`
+      - Creates a single room (server-assigns `id`). Best-effort inits its `peopleCount` threshold.
+    - - `DELETE /twin/building/:buildingId/room/:roomId`
+      - Deletes a single room. Rejects if it is the building's last remaining room.
+    - - `PUT /twin/building/:buildingId/rooms`
+      - Atomically replaces the entire `rooms` array — the digital twin model editor's Save path (move/resize/add/delete/merge collapse into one array diff). Rejects the whole request if any room fails validation; nothing is written partially.
 
 .box type:{note}
     `maxTemperature` is not a field on the twin-service Room model and is not stored in `twin-db`. To update a room's temperature threshold, use the Sensor Service endpoints directly: `PATCH /sensor/thresholds/buildings/:buildingId` (building-level) or `PATCH /sensor/thresholds/buildings/:buildingId/rooms/:roomId` (room-level).
+
+---
+
+## ✋ Two Spatial Invariants (pinned for the Model Editor)
+
+The digital twin model editor (direct-manipulation move/stretch/add/delete/merge of rooms) reads and writes the same `position`/`dimensions` fields described above. Two invariants that were previously only implicit in the render code are now load-bearing and must not be violated by any future write path:
+
+1. **`position` is always the geometric CENTER of the room's box**, never a corner. This matches how the frontend instances room geometry (`BoxGeometry` centered on origin, translated by `position`, scaled by `dimensions`).
+2. **A "floor" is simply a distinct `position.y` value.** There is no separate floor entity — grouping rooms by floor is a `y`-equality filter on the client. The editor snaps `y` to existing floor levels by default so a drag doesn't accidentally create a sliver half-floor.
+
+.box type:{note}
+    A pre-existing, unrelated exploded-view filter on the frontend (`useBuildingModel.visibleRooms`) treats `position` as a min-corner for its containment check. That inconsistency predates the editor and is out of scope here — new code must not copy it.
+
+## 🔒 Editing Authorization
+
+Every geometry-mutating route (`PATCH .../room/:roomId`, `PATCH /building/:buildingId`, `POST .../room`, `DELETE .../room/:roomId`, `PUT .../rooms`) requires the caller to hold an **editing role** (`business_admin`, `business_staff`, or `admin`) in at least one of the target building's own `domains` — plain domain membership (`standard_customer`) is not sufficient. This mirrors the frontend's `useUserPermissions().canEdit` gate, which hides the editor UI from non-editors; the server-side check exists so the restriction holds even if a request bypasses the UI.
+
+---
+
+## 🧩 Frontend Model Editor Architecture
+
+The direct-manipulation editor (`client/src/views/ModelView.vue`) is a **draft-then-commit session** layered over the read-only 3D viewer, not a live-PATCH-per-drag design — this keeps telemetry coloring untouched mid-edit, makes Cancel free, and makes Save a single diffed request.
+
+.var {headers}
+   - File
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - `composables/scene/useModelEditor.ts`
+      - The session itself: `beginEdit`/`cancel`/`save`, a deep-cloned `draft` mutated by every operation, `selectedId`/`mergeCandidateId`, an undo/redo stack (snapshotted per user *gesture*, not per pointer-move), and the mutating ops themselves — `moveRoom`, `resizeRoom`, `addRoom`, `deleteRoom`, `duplicateRoom`, `mergeRooms`, `updateRoomFields`.
+    - - `composables/scene/editorGeometry.ts`
+      - Pure, unit-tested helpers: `snapToGrid`, `floorLevels`, `diffRooms` (Save's diff), `boxesOverlap`, `snapToNeighbors` (smart-guide snapping), `mergeBoxes`, `boxesAreAdjacent`, `findFreeSpot`.
+    - - `composables/scene/floorPlanGeometry.ts`
+      - Pure 2D-plan-only helpers: `worldToScreen`/`screenToWorld` viewport projection, `computeHandleResize` (face-anchored resize from an 8-handle drag), `computeDrawnRoomSeed`.
+    - - `components/panels/EditToolbar.vue`, `RoomInspector.vue`
+      - The editing chrome: Edit/Save/Cancel, Move/Resize/view-mode switches, Undo/Redo, Add/Duplicate/Merge/Delete, and the numeric X/Y/Z/W/H/D + metadata inspector.
+    - - `components/scene/FloorPlanEditor.vue`
+      - A plain SVG top-down alternative to the 3D gizmo — the only piece of the editor that unit-tests its drag interactions directly (everything else touching `TresCanvas` is WebGL and untestable under jsdom).
+    - - `components/scene/EditGuides.vue`
+      - Renders the transient smart-guide lines during a drag.
+
+**Two resize paths, two different anchoring strategies.** three.js's `TransformControls` (the 3D gizmo) scales symmetrically about the room's own center — it has no concept of "which face you grabbed." `resizeRoom()` supports `'min'`/`'max'`/`'center'` anchors, but the 3D gizmo can only ever use `'center'` (anything else would visibly jump the room on release). The 2D `FloorPlanEditor`'s handles *do* know which face was grabbed, so they use genuine `'min'`/`'max'` face-anchored resize.
+
+**Known, explicitly out-of-scope gap:** sensor/threshold reassignment when a room is merged away is not implemented. The bulk `PUT /rooms` Save path is deliberately generic (a before/after array diff) so the server has no way to distinguish "merged into room X" from "just deleted" — doing this properly needs a dedicated merge endpoint naming both rooms, which was judged disproportionate. The same gap already existed for plain deletes.
+
+Rooms are always axis-aligned boxes — there is no rotation, by design, since it would break the instancing model and the floor/telemetry-routing assumptions built on `position.y` equality.

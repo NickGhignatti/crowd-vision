@@ -3,6 +3,7 @@ import {
   roomColorStandard,
   roomColorByTemperature,
   roomColorByAirQuality,
+  roomColorOverlapWarning,
   roomOpacity,
 } from '../colors'
 
@@ -134,6 +135,12 @@ describe('colors helper', () => {
 
     it('returns darker orange for IAQI just below 100', () => {
       expect(roomColorByAirQuality(99.999)).toBe('#D97706')
+    })
+  })
+
+  describe('roomColorOverlapWarning', () => {
+    it('returns the overlap-warning color', () => {
+      expect(roomColorOverlapWarning()).toBe('#f87171')
     })
   })
 
