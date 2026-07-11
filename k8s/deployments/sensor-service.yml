@@ -54,7 +54,7 @@ spec:
             - secretRef:
                 name: sensor-service-secret   # MONGO_URI
             - configMapRef:
-                name: common-config           # PORT, REDIS_URL, TWIN_SERVICE_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
+                name: common-config           # PORT, REDIS_URL, TWIN_SERVICE_URL
           volumeMounts:
             - name: tmp
               mountPath: /tmp

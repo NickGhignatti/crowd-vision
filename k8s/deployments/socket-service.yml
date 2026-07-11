@@ -55,7 +55,7 @@ spec:
             - containerPort: 3000
           envFrom:
             - configMapRef:
-                name: common-config # PORT, REDIS_URL, CLIENT_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
+                name: common-config # PORT, REDIS_URL, CLIENT_URL
           volumeMounts:
             - name: tmp
               mountPath: /tmp

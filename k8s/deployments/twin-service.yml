@@ -53,7 +53,7 @@ spec:
             - secretRef:
                 name: twin-service-secret   # MONGO_URI
             - configMapRef:
-                name: common-config         # PORT, CLIENT_URL, SENSOR_SERVICE_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
+                name: common-config         # PORT, CLIENT_URL, SENSOR_SERVICE_URL
           volumeMounts:
             - name: tmp
               mountPath: /tmp

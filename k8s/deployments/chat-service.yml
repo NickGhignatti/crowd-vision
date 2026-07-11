@@ -78,7 +78,7 @@ spec:
             - secretRef:
                 name: chat-service-secret   # MONGO_URI
             - configMapRef:
-                name: common-config         # PORT, CLIENT_URL, service URLs, GATEWAY_JWKS_URI, GATEWAY_ISSUER
+                name: common-config         # PORT, CLIENT_URL, service URLs
           # Non-secret, chat-specific config not held in common-config.
           # AGENT_SERVICE_URL targets the in-cluster agent-service root (not the
           # /agent ingress prefix — service-to-service traffic skips the ingress).

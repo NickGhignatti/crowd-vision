@@ -76,7 +76,7 @@ spec:
             - secretRef:
                 name: notification-service-secret   # MONGO_URI, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
             - configMapRef:
-                name: common-config                 # PORT, REDIS_URL, CLIENT_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
+                name: common-config                 # PORT, REDIS_URL, CLIENT_URL
           volumeMounts:
             - name: tmp
               mountPath: /tmp

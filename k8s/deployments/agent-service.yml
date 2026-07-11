@@ -78,7 +78,7 @@ spec:
             - secretRef:
                 name: agent-service-secret   # OPENROUTER_API_KEY, POSTGRES_URL
             - configMapRef:
-                name: common-config          # TWIN_SERVICE_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
+                name: common-config          # TWIN_SERVICE_URL, SENSOR_SERVICE_URL
           volumeMounts:
             - name: tmp
               mountPath: /tmp
