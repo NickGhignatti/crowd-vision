@@ -4,7 +4,6 @@ import AutoRotate from '@/components/layouts/AutoRotate.vue'
 import BuildingsSelector from '@/components/selectors/BuildingsSelector.vue'
 import RoomsSelector from '@/components/selectors/RoomsSelector.vue'
 import ViewControls from '@/components/panels/ControlPanel.vue'
-import EditToolbar from '@/components/panels/EditToolbar.vue'
 import RoomInspector from '@/components/panels/RoomInspector.vue'
 import EditGuides from '@/components/scene/EditGuides.vue'
 import FloorPlanEditor from '@/components/scene/FloorPlanEditor.vue'
@@ -71,9 +70,6 @@ const modes = useModes()
 
 const canEditCurrentBuilding = computed(() => canEdit(buildingModel.building.value?.domains ?? []))
 
-// RoomsSelector's own reopen button occupies the same top-right corner once
-// it's collapsed (CollapsiblePanel positions it independently of layout flow)
-// — EditToolbar shifts itself left to clear it when this is false.
 const isRightPanelOpen = ref(true)
 
 // The 2D plan is only ever meaningful mid-edit-session — reset to 3D whenever
@@ -552,6 +548,14 @@ const onPlanDragging = (dragging: boolean) => {
 }
 
 const inspectorFloorLevels = computed(() => floorLevels(editor.draft.value?.rooms ?? []))
+
+// The left BuildingsSelector's floor filter used to duplicate EditToolbar's
+// own floor dropdown; now that it's the only floor filter, it needs to read
+// the live draft while editing so a room moved to a "new floor above" is
+// filterable immediately, not just after Save.
+const floorSelectorBuilding = computed(() =>
+  editor.isEditing.value ? editor.draft.value : buildingModel.building.value,
+)
 // Guides are only ever set for the room currently being dragged on the move
 // gizmo, and Phase 1's move is floor-plane constrained (Y never changes), so
 // the dragged room's own Y is always the right height to draw them at.
@@ -696,7 +700,7 @@ onUnmounted(() => {
       <BuildingsSelector
         :buildingOptions="buildingModel.availableBuildingsNames.value"
         :selectedId="buildingModel.building.value?.id || null"
-        :buildingModel="buildingModel.building.value"
+        :buildingModel="floorSelectorBuilding"
         :activeFloor="buildingModel.selectedFloor.value"
         @json-uploaded="buildingModel.fetchBuildings"
         @change-building="buildingModel.setBuildingById"
@@ -845,7 +849,17 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <EditToolbar
+        <RoomInspector
+          v-if="editor.isEditing.value"
+          :room="editor.selectedRoom.value"
+          :floor-levels="inspectorFloorLevels"
+          @commit="handleInspectorCommit"
+        />
+
+        <ViewControls
+          :selected-room-id="buildingModel.selectedRoomId.value"
+          :is-exploded="buildingModel.isExploded.value"
+          :disabled="isRotating"
           :can-edit="canEditCurrentBuilding"
           :is-editing="editor.isEditing.value"
           :dirty="editor.dirty.value"
@@ -856,11 +870,14 @@ onUnmounted(() => {
           :view-mode="viewMode"
           :has-selection="!!editor.selectedId.value"
           :is-merge-pending="!!editor.mergeCandidateId.value"
-          :right-panel-open="isRightPanelOpen"
-          :current-floor="buildingModel.selectedFloor.value"
-          :floor-levels="inspectorFloorLevels"
           :plan-tool="editor.planTool.value"
-          @enter="handleEnterEdit"
+          @reset-view="handleResetView"
+          @toggle-explode="handleExplodeToggle"
+          @zoom-in="handleZoomIn"
+          @zoom-out="handleZoomOut"
+          @toggle-panorama="togglePanorama"
+          @enter-edit="handleEnterEdit"
+          @exit-edit="handleCancelEdit"
           @save="handleSaveEdit"
           @cancel="handleCancelEdit"
           @set-tool="handleSetTool"
@@ -872,25 +889,6 @@ onUnmounted(() => {
           @delete-room="handleDeleteRoom"
           @duplicate-room="handleDuplicateRoom"
           @toggle-merge="handleToggleMerge"
-          @set-floor="buildingModel.setFloor"
-        />
-
-        <RoomInspector
-          v-if="editor.isEditing.value"
-          :room="editor.selectedRoom.value"
-          :floor-levels="inspectorFloorLevels"
-          @commit="handleInspectorCommit"
-        />
-
-        <ViewControls
-          :selected-room-id="buildingModel.selectedRoomId.value"
-          :is-exploded="buildingModel.isExploded.value"
-          :disabled="isRotating || editor.isEditing.value"
-          @reset-view="handleResetView"
-          @toggle-explode="handleExplodeToggle"
-          @zoom-in="handleZoomIn"
-          @zoom-out="handleZoomOut"
-          @toggle-panorama="togglePanorama"
         />
       </main>
 

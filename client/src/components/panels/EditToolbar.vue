@@ -5,8 +5,6 @@ import type { EditorTool, PlanTool } from '@/composables/scene/useModelEditor.ts
 export type EditorViewMode = '3d' | 'plan'
 
 interface Props {
-  canEdit: boolean
-  isEditing: boolean
   dirty: boolean
   isSaving: boolean
   activeTool: EditorTool
@@ -15,16 +13,12 @@ interface Props {
   viewMode: EditorViewMode
   hasSelection: boolean
   isMergePending: boolean
-  rightPanelOpen: boolean
-  currentFloor: number | null
-  floorLevels: number[]
   planTool: PlanTool
 }
 
 defineProps<Props>()
 
-const emit = defineEmits<{
-  enter: []
+defineEmits<{
   save: []
   cancel: []
   'set-tool': [tool: EditorTool]
@@ -36,218 +30,178 @@ const emit = defineEmits<{
   'delete-room': []
   'duplicate-room': []
   'toggle-merge': []
-  'set-floor': [floor: number | null]
 }>()
 
 const { t } = useI18n()
-
-// Floors are presented as plan indices ("Floor 0" = lowest) rather than raw
-// world-height Y values — see MODEL_EDITOR_PLAN / the plan-based floors
-// redesign. The option's *value* stays the underlying Y (what set-floor and
-// buildingModel.setFloor speak); only the label is index-based.
-const floorLabel = (index: number) => `${t('model.editor.floorLabel')} ${index}`
-
-const onFloorSelectChange = (event: Event) => {
-  const value = (event.target as HTMLSelectElement).value
-  emit('set-floor', value === 'all' ? null : Number(value))
-}
 </script>
 
 <template>
-  <div
-    v-if="canEdit"
-    data-testid="edit-toolbar"
-    class="absolute top-4 z-10 flex items-center gap-2 bg-white/90 backdrop-blur rounded-full px-4 py-2 shadow-xl border border-slate-200/50"
-    :class="rightPanelOpen ? 'right-4' : 'right-20'"
-  >
+  <div data-testid="edit-toolbar" class="flex items-center gap-1 whitespace-nowrap">
+    <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
+      <button
+        data-testid="tool-move"
+        :aria-pressed="activeTool === 'move'"
+        :title="t('model.editor.moveTool')"
+        class="p-1 rounded-full transition-colors"
+        :class="activeTool === 'move' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
+        @click="$emit('set-tool', 'move')"
+      >
+        <i class="ph-bold ph-arrows-out-cardinal text-lg"></i>
+      </button>
+      <button
+        data-testid="tool-resize"
+        :aria-pressed="activeTool === 'resize'"
+        :title="t('model.editor.resizeTool')"
+        class="p-1 rounded-full transition-colors"
+        :class="activeTool === 'resize' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
+        @click="$emit('set-tool', 'resize')"
+      >
+        <i class="ph-bold ph-ruler text-lg"></i>
+      </button>
+    </div>
+
+    <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
+      <button
+        data-testid="view-3d"
+        :aria-pressed="viewMode === '3d'"
+        class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
+        :class="viewMode === '3d' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
+        @click="$emit('set-view-mode', '3d')"
+      >
+        {{ t('model.editor.view3d') }}
+      </button>
+      <button
+        data-testid="view-plan"
+        :aria-pressed="viewMode === 'plan'"
+        class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
+        :class="viewMode === 'plan' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
+        @click="$emit('set-view-mode', 'plan')"
+      >
+        {{ t('model.editor.viewPlan') }}
+      </button>
+    </div>
+
+    <div v-if="viewMode === 'plan'" class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
+      <button
+        data-testid="plan-tool-select"
+        :aria-pressed="planTool === 'select'"
+        :title="t('model.editor.selectPlanTool')"
+        class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
+        :class="planTool === 'select' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
+        @click="$emit('set-plan-tool', 'select')"
+      >
+        <i class="ph-bold ph-cursor text-lg"></i>
+      </button>
+      <button
+        data-testid="plan-tool-add"
+        :aria-pressed="planTool === 'add'"
+        :title="t('model.editor.addPlanTool')"
+        class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
+        :class="planTool === 'add' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
+        @click="$emit('set-plan-tool', 'add')"
+      >
+        <i class="ph-bold ph-square text-lg"></i>
+      </button>
+    </div>
+
+    <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
+      <button
+        data-testid="add-room"
+        :title="t('model.editor.addRoom')"
+        class="p-1 text-slate-500 hover:text-slate-700"
+        @click="$emit('add-room')"
+      >
+        <i class="ph-bold ph-plus-square text-lg"></i>
+      </button>
+      <button
+        data-testid="duplicate-room"
+        :disabled="!hasSelection"
+        :title="t('model.editor.duplicateRoom')"
+        class="p-1"
+        :class="hasSelection ? 'text-slate-500 hover:text-slate-700' : 'text-slate-300 cursor-not-allowed'"
+        @click="$emit('duplicate-room')"
+      >
+        <i class="ph-bold ph-copy text-lg"></i>
+      </button>
+      <button
+        data-testid="merge-room"
+        :disabled="!hasSelection"
+        :aria-pressed="isMergePending"
+        :title="t('model.editor.mergeRoom')"
+        class="p-1"
+        :class="
+          isMergePending
+            ? 'text-emerald-600'
+            : hasSelection
+              ? 'text-slate-500 hover:text-slate-700'
+              : 'text-slate-300 cursor-not-allowed'
+        "
+        @click="$emit('toggle-merge')"
+      >
+        <i class="ph-bold ph-selection-plus text-lg"></i>
+      </button>
+      <button
+        data-testid="delete-room"
+        :disabled="!hasSelection"
+        :title="t('model.editor.deleteRoom')"
+        class="p-1"
+        :class="hasSelection ? 'text-red-500 hover:text-red-600' : 'text-slate-300 cursor-not-allowed'"
+        @click="$emit('delete-room')"
+      >
+        <i class="ph-bold ph-trash text-lg"></i>
+      </button>
+    </div>
+
     <button
-      v-if="!isEditing"
-      data-testid="enter-edit"
-      class="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors"
-      @click="$emit('enter')"
+      data-testid="undo-edit"
+      :disabled="!canUndo"
+      :title="t('model.editor.undo')"
+      class="p-1"
+      :class="canUndo ? 'text-slate-500 hover:text-slate-700' : 'text-slate-300 cursor-not-allowed'"
+      @click="$emit('undo')"
     >
-      <i class="ph-bold ph-pencil-simple text-lg"></i>
-      {{ t('model.editor.enter') }}
+      <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i>
+    </button>
+    <button
+      data-testid="redo-edit"
+      :disabled="!canRedo"
+      :title="t('model.editor.redo')"
+      class="p-1 mr-1"
+      :class="canRedo ? 'text-slate-500 hover:text-slate-700' : 'text-slate-300 cursor-not-allowed'"
+      @click="$emit('redo')"
+    >
+      <i class="ph-bold ph-arrow-clockwise text-lg"></i>
     </button>
 
-    <template v-else>
-      <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
-        <label class="text-xs text-slate-500">{{ t('model.editor.floor') }}</label>
-        <select
-          data-testid="edit-floor-select"
-          :value="currentFloor === null ? 'all' : String(currentFloor)"
-          class="text-xs border border-slate-200 rounded px-1 py-1"
-          @change="onFloorSelectChange"
-        >
-          <option v-for="(level, index) in floorLevels" :key="level" :value="String(level)">
-            {{ floorLabel(index) }}
-          </option>
-          <option value="all">{{ t('model.controls.allFloors') }}</option>
-        </select>
-      </div>
+    <span
+      v-if="dirty"
+      data-testid="dirty-dot"
+      class="w-2 h-2 rounded-full bg-amber-500"
+      :title="t('model.editor.unsaved')"
+    />
 
-      <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
-        <button
-          data-testid="tool-move"
-          :aria-pressed="activeTool === 'move'"
-          class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
-          :class="activeTool === 'move' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
-          @click="$emit('set-tool', 'move')"
-        >
-          {{ t('model.editor.moveTool') }}
-        </button>
-        <button
-          data-testid="tool-resize"
-          :aria-pressed="activeTool === 'resize'"
-          class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
-          :class="activeTool === 'resize' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
-          @click="$emit('set-tool', 'resize')"
-        >
-          {{ t('model.editor.resizeTool') }}
-        </button>
-      </div>
+    <button
+      data-testid="cancel-edit"
+      :title="t('commons.cancel')"
+      class="p-1 text-slate-500 hover:text-slate-700 transition-colors"
+      @click="$emit('cancel')"
+    >
+      <i class="ph-bold ph-x text-lg"></i>
+    </button>
 
-      <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
-        <button
-          data-testid="view-3d"
-          :aria-pressed="viewMode === '3d'"
-          class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
-          :class="viewMode === '3d' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
-          @click="$emit('set-view-mode', '3d')"
-        >
-          {{ t('model.editor.view3d') }}
-        </button>
-        <button
-          data-testid="view-plan"
-          :aria-pressed="viewMode === 'plan'"
-          class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
-          :class="viewMode === 'plan' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
-          @click="$emit('set-view-mode', 'plan')"
-        >
-          {{ t('model.editor.viewPlan') }}
-        </button>
-      </div>
-
-      <div v-if="viewMode === 'plan'" class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
-        <button
-          data-testid="plan-tool-select"
-          :aria-pressed="planTool === 'select'"
-          :title="t('model.editor.selectPlanTool')"
-          class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
-          :class="planTool === 'select' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
-          @click="$emit('set-plan-tool', 'select')"
-        >
-          <i class="ph-bold ph-cursor text-lg"></i>
-        </button>
-        <button
-          data-testid="plan-tool-add"
-          :aria-pressed="planTool === 'add'"
-          :title="t('model.editor.addPlanTool')"
-          class="px-2 py-1 rounded-full text-xs font-medium transition-colors"
-          :class="planTool === 'add' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:text-slate-700'"
-          @click="$emit('set-plan-tool', 'add')"
-        >
-          <i class="ph-bold ph-square text-lg"></i>
-        </button>
-      </div>
-
-      <div class="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
-        <button
-          data-testid="add-room"
-          :title="t('model.editor.addRoom')"
-          class="p-1 text-slate-500 hover:text-slate-700"
-          @click="$emit('add-room')"
-        >
-          <i class="ph-bold ph-plus-square text-lg"></i>
-        </button>
-        <button
-          data-testid="duplicate-room"
-          :disabled="!hasSelection"
-          :title="t('model.editor.duplicateRoom')"
-          class="p-1"
-          :class="hasSelection ? 'text-slate-500 hover:text-slate-700' : 'text-slate-300 cursor-not-allowed'"
-          @click="$emit('duplicate-room')"
-        >
-          <i class="ph-bold ph-copy text-lg"></i>
-        </button>
-        <button
-          data-testid="merge-room"
-          :disabled="!hasSelection"
-          :aria-pressed="isMergePending"
-          :title="t('model.editor.mergeRoom')"
-          class="p-1"
-          :class="
-            isMergePending
-              ? 'text-emerald-600'
-              : hasSelection
-                ? 'text-slate-500 hover:text-slate-700'
-                : 'text-slate-300 cursor-not-allowed'
-          "
-          @click="$emit('toggle-merge')"
-        >
-          <i class="ph-bold ph-selection-plus text-lg"></i>
-        </button>
-        <button
-          data-testid="delete-room"
-          :disabled="!hasSelection"
-          :title="t('model.editor.deleteRoom')"
-          class="p-1"
-          :class="hasSelection ? 'text-red-500 hover:text-red-600' : 'text-slate-300 cursor-not-allowed'"
-          @click="$emit('delete-room')"
-        >
-          <i class="ph-bold ph-trash text-lg"></i>
-        </button>
-      </div>
-
-      <button
-        data-testid="undo-edit"
-        :disabled="!canUndo"
-        :title="t('model.editor.undo')"
-        class="p-1"
-        :class="canUndo ? 'text-slate-500 hover:text-slate-700' : 'text-slate-300 cursor-not-allowed'"
-        @click="$emit('undo')"
-      >
-        <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i>
-      </button>
-      <button
-        data-testid="redo-edit"
-        :disabled="!canRedo"
-        :title="t('model.editor.redo')"
-        class="p-1 mr-1"
-        :class="canRedo ? 'text-slate-500 hover:text-slate-700' : 'text-slate-300 cursor-not-allowed'"
-        @click="$emit('redo')"
-      >
-        <i class="ph-bold ph-arrow-clockwise text-lg"></i>
-      </button>
-
-      <span
-        v-if="dirty"
-        data-testid="dirty-dot"
-        class="w-2 h-2 rounded-full bg-amber-500"
-        :title="t('model.editor.unsaved')"
-      />
-
-      <button
-        data-testid="cancel-edit"
-        class="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors px-2"
-        @click="$emit('cancel')"
-      >
-        {{ t('commons.cancel') }}
-      </button>
-
-      <button
-        data-testid="save-edit"
-        :disabled="isSaving || !dirty"
-        class="text-sm font-medium px-3 py-1 rounded-full transition-colors"
-        :class="
-          isSaving || !dirty
-            ? 'text-slate-300 cursor-not-allowed'
-            : 'text-white bg-emerald-600 hover:bg-emerald-700'
-        "
-        @click="$emit('save')"
-      >
-        {{ isSaving ? t('model.editor.saving') : t('commons.save') }}
-      </button>
-    </template>
+    <button
+      data-testid="save-edit"
+      :disabled="isSaving || !dirty"
+      :title="isSaving ? t('model.editor.saving') : t('commons.save')"
+      class="p-1 rounded-full transition-colors"
+      :class="
+        isSaving || !dirty
+          ? 'text-slate-300 cursor-not-allowed'
+          : 'text-white bg-emerald-600 hover:bg-emerald-700'
+      "
+      @click="$emit('save')"
+    >
+      <i class="ph-bold ph-check text-lg"></i>
+    </button>
   </div>
 </template>
