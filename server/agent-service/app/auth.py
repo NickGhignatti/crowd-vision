@@ -6,7 +6,6 @@ import jwt
 from fastapi import HTTPException, Request, status
 
 from app.config import Settings, get_settings
-from app.roles import ROLE_WEIGHTS
 
 
 @dataclass
@@ -23,14 +22,6 @@ class AuthUser:
     @property
     def permissions(self) -> list[str]:
         return [*self.roles, *self.domains]
-
-    @property
-    def max_role_weight(self) -> int:
-        return max((ROLE_WEIGHTS.get(r, 0) for r in self.roles), default=0)
-
-    def has_role_at_least(self, role: str) -> bool:
-        """True if the caller's highest role weight meets/exceeds `role`'s weight."""
-        return self.max_role_weight >= ROLE_WEIGHTS.get(role, 101)
 
 
 def _claims_from_payload(payload: dict) -> tuple[list[str], list[str]]:

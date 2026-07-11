@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.llm import LLMClient, get_llm
 from app.agent.loop import Agent
 from app.auth import AuthUser, require_user
+from app.cedar_authz import can_override_model
 from app.config import get_settings
 from app.db import get_session
 from app.models.api import AskRequest, AskResponse, CitationModel, UsageModel
@@ -25,7 +26,7 @@ def _resolve_override_llm(model: str | None, user: AuthUser) -> LLMClient | None
     if not model:
         return None
     settings = get_settings()
-    if not user.has_role_at_least(settings.model_override_min_role):
+    if not can_override_model(user, settings.model_override_min_role):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             f"model override requires role '{settings.model_override_min_role}' or higher",

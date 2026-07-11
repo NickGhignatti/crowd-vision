@@ -12,27 +12,28 @@ from app.agent.tools.downstream import (
     get_twin_client,
     get_with_retry,
 )
+from app import cedar_authz
 from app.config import get_settings
 
 if TYPE_CHECKING:
     from app.auth import AuthUser
 
 
-def _has_global_access(user: AuthUser) -> bool:
-    return "admin" in user.roles or (
-        not get_settings().require_auth and user.user_id == "anonymous"
-    )
+def _auth_disabled_anonymous(user: AuthUser) -> bool:
+    # Auth-disabled dev/test mode gets full access — an identity/settings
+    # check, not a tenant-scope policy decision, so it's checked before Cedar
+    # rather than folded into policy.cedar.
+    return not get_settings().require_auth and user.user_id == "anonymous"
 
 
 def can_access_domain(user: AuthUser, domain: str) -> bool:
-    return _has_global_access(user) or domain in user.domains
+    return _auth_disabled_anonymous(user) or cedar_authz.can_access_domain(user, domain)
 
 
 def accessible_domains(user: AuthUser, domains: list[str]) -> list[str]:
-    if _has_global_access(user):
+    if _auth_disabled_anonymous(user):
         return domains
-    allowed = set(user.domains)
-    return [domain for domain in domains if domain in allowed]
+    return cedar_authz.accessible_domains(user, domains)
 
 
 async def get_authorized_building(
