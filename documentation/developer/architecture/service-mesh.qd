@@ -50,7 +50,7 @@ Two decisions made up front and not revisited per-phase:
       - Done
     - - 3
       - Cedar authZ — shared policy bundle, local evaluation per service
-      - Not started
+      - Done
     - - 4
       - `twin-service` rewritten TypeScript → Rust/Axum, into the auth-free end state
       - Not started
@@ -114,3 +114,57 @@ docker rm crowd-vision-keycloak crowd-vision-keycloak-db
 docker volume rm crowd-vision_keycloak_postgres_data
 just stack env   # or the manual docker run equivalent — see docker-compose.yml
 ```
+
+---
+
+## Phase 3 — Cedar authorization
+
+`server/auth-policy/` is the single shared bundle every language embeds and evaluates **locally** (Decision A — no authorization network call ever sits on a data path): `schema.cedarschema` (entity shapes), `policy.cedar` (the actual rules), and `fixtures/conformance.json` (22 golden allow/deny cases run through the real engine in every language). It replaces the hand-rolled tenant-scope checks that used to live separately in each service — `twin-service/src/services/tenantScope.ts`, the `claims.CanIn(...)` calls scattered through tenancy-service's handlers, and `agent-service/app/agent/tools/access.py`'s `can_access_domain`.
+
+### The model: pre-expand roles, let Cedar do containment only
+
+Cedar's `.contains()` can check set membership, but it can't compare role *weights* — there's no way to ask Cedar "does this role outrank that one" directly. So the weight math happens once, in each service, **before** calling Cedar: every membership `{domain, role}` is expanded into which role tiers it qualifies for in that domain, and the *result* — flat per-tier domain sets — is what the `Account` entity actually carries:
+
+```cedar
+entity Account = {
+  domainsAsStandardCustomer: Set<String>,  // member, any role
+  domainsAsBusinessStaff: Set<String>,     // role weight >= business_staff
+  domainsAsBusinessAdmin: Set<String>,     // role weight >= business_admin
+  domainsAsAdmin: Set<String>,             // role weight >= admin
+  maxRoleWeight: Long,                     // for GLOBAL (non-domain) checks
+};
+```
+
+`policy.cedar` itself only ever does `principal.domainsAsX.contains(resource.domain)` — simple containment, no weight arithmetic. This is also why the five actions (`Read`, `ReadWithAdminBypass`, `Edit`, `ManageDomain`, `ModelOverride`) exist as separate Cedar actions instead of one parameterized check: each one's *policy* is which pre-expanded set to test against, and that's a decision Cedar owns, not the service.
+
+.box {Cedar's `in` is entity hierarchy, not set membership} type:{warning}
+    The first working version of `policy.cedar` used `resource.domain in principal.domainsAsStandardCustomer` and every single "should allow" case silently came back deny. Cedar's `in` operator tests entity-hierarchy membership (is this entity a descendant of that one) — it is not a general "is this value in this set" operator. For a plain value in a `Set<String>`, the correct call is `principal.domainsAsStandardCustomer.contains(resource.domain)`. Caught by the golden conformance suite, not by reasoning about the policy text — a good argument for having that suite run through the real engine rather than trusting the policy reads correctly.
+
+### Two checks that live outside Cedar on purpose
+
+Not every authorization-adjacent decision belongs in policy.cedar:
+
+- **Self-removal in tenancy-service** (`leaveDomain`): anyone may remove themselves from a domain; removing someone *else* needs `ManageDomain`. The self-check is an identity comparison (`target == caller`), not a tenant/role decision — it's evaluated before Cedar is even called.
+- **Auth-disabled anonymous access in agent-service**: when `REQUIRE_AUTH=false` (local dev/test), the anonymous user gets full access. This is a deployment-setting check, not a policy decision about a real caller's roles, so it's a pre-check in `access.py`, not a Cedar rule.
+
+### agent-service's entities are the odd one out, on purpose
+
+`AuthUser.roles: list[str]` and `AuthUser.domains: list[str]` have always been two *unpaired* flat lists (a real architectural fact carried over from before this migration, not something introduced by it) — agent-service never tracked which role applied to which domain. Its only two checks never needed that pairing either: `can_access_domain` is "is this domain in my domains list, or am I admin anywhere" (`ReadWithAdminBypass`), and the model-override gate is a pure global weight check (`ModelOverride`). So `cedar_authz.py`'s `Account` entity populates `domainsAsStandardCustomer` (= `user.domains` directly) and `maxRoleWeight`, and leaves the three role-tier sets empty — they back checks agent-service never makes.
+
+### MODEL_OVERRIDE_MIN_ROLE travels as Cedar context, not a hardcoded policy
+
+The role required to override the LLM model on `/ask` is operator-configurable (`MODEL_OVERRIDE_MIN_ROLE` env var, default `business_admin`) — it can't be a fixed threshold baked into `policy.cedar` text. `ModelOverride`'s rule instead reads it from the request context:
+
+```cedar
+permit(principal, action == Action::"ModelOverride", resource)
+when { principal.maxRoleWeight >= context.requiredWeight };
+```
+
+`can_override_model(user, required_role)` looks up `required_role`'s weight from `roles.json` and passes it as `context.requiredWeight` at call time — the same mechanism every language's Cedar binding supports, so this isn't Python-specific plumbing.
+
+### Docker build contexts: three more services join the repo-root pattern
+
+`server/auth-policy` is a sibling directory of every service that embeds it, not a package dependency — so twin-service, agent-service, and tenancy-service all needed their Docker build context moved from the per-service directory to the repo root (mirroring the pattern tenancy-service's Go dependencies on `auth-contracts`/`auth-middleware` already used), with `COPY server/auth-policy` and, since the shared role-weight ladder at `server/auth-contracts/roles.json` is a *second* sibling directory, `COPY server/auth-contracts` too — missing either COPY doesn't fail the build, it fails at runtime with `ENOENT`, which is exactly what happened once before this got caught. WORKDIR in every Dockerfile now mirrors the repo's real path (`/app/server/twin-service`, not a flattened `/app`) specifically so that relative path resolution inside each service's code is identical between local dev and the container.
+
+.box {TypeScript's noUncheckedIndexedAccess catches what Jest doesn't} type:{note}
+    `cedarAuthz.ts`'s role-weight lookups (`roleWeights.business_staff`) type-checked fine under Jest (ts-jest doesn't enforce every strict flag) but failed the real `tsc` build with `TS18048: possibly undefined` — `noUncheckedIndexedAccess` is real in the production build config even though the test config is looser. Passing tests are not proof a Docker image will build; this only surfaced when the image was actually built, which is why that step isn't optional.
