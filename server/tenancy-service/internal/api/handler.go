@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/MicahParks/keyfunc/v3"
 	"github.com/go-chi/chi/v5"
 
 	authmiddleware "github.com/NickGhignatti/crowd-vision/server/auth-middleware"
@@ -55,8 +54,6 @@ func isValidAccountID(id string) bool {
 }
 
 type Config struct {
-	JWKS           keyfunc.Keyfunc
-	Issuer         string
 	InternalSecret []byte
 	TenancyEnabled bool
 }
@@ -81,7 +78,7 @@ func Mount(r chi.Router, svc *service.Service, cfg Config) {
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(authmiddleware.RequireAuthentication(cfg.JWKS, cfg.Issuer))
+		r.Use(authmiddleware.RequireMeshClaims())
 		r.Get("/domains", h.listPublicDomains)
 		r.Post("/domains", h.createOwnDomain)
 		r.Get("/me/memberships", h.myMemberships)

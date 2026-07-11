@@ -9,13 +9,11 @@ import (
 )
 
 type Config struct {
-	Addr            string
-	DatabaseURL     string
-	RedisURL        string
-	GatewayIssuer   string
-	GatewayJWKSURL  string
-	InternalSecret  []byte
-	TenancyEnabled  bool
+	Addr           string
+	DatabaseURL    string
+	RedisURL       string
+	InternalSecret []byte
+	TenancyEnabled bool
 }
 
 func Load() (Config, error) {
@@ -27,26 +25,16 @@ func Load() (Config, error) {
 	if secret == "" {
 		return Config{}, fmt.Errorf("INTERNAL_SIGNING_SECRET is required")
 	}
-	jwksURL := os.Getenv("GATEWAY_JWKS_URL")
-	if jwksURL == "" {
-		return Config{}, fmt.Errorf("GATEWAY_JWKS_URL is required")
-	}
 
 	addr := os.Getenv("ADDR")
 	if addr == "" {
 		addr = ":3000"
-	}
-	issuer := os.Getenv("GATEWAY_ISSUER")
-	if issuer == "" {
-		issuer = "cv-gateway"
 	}
 
 	return Config{
 		Addr:           addr,
 		DatabaseURL:    dbURL,
 		RedisURL:       os.Getenv("REDIS_URL"),
-		GatewayIssuer:  issuer,
-		GatewayJWKSURL: jwksURL,
 		InternalSecret: []byte(secret),
 		// Absent (not "false") means enabled — matches the rest of the
 		// fleet's boot.features convention: explicit opt-out for tiers that
