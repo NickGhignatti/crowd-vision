@@ -23,7 +23,7 @@ describe("syncBuildingClone — auth forwarding to sensor-service", () => {
       .spyOn(globalThis, "fetch" as any)
       .mockResolvedValue({ ok: true, text: async () => "" } as any);
 
-  it("forwards the caller's token as a Bearer header", async () => {
+  it("forwards the caller's claims header verbatim", async () => {
     const fetchSpy = mockFetch();
 
     await syncBuildingClone(building, undefined, "tok-123");
@@ -32,19 +32,19 @@ describe("syncBuildingClone — auth forwarding to sensor-service", () => {
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://sensor-test:3000/thresholds/buildings/b1");
     expect(init.method).toBe("PUT");
-    expect((init.headers as Record<string, string>).Authorization).toBe(
-      "Bearer tok-123",
+    expect((init.headers as Record<string, string>)["x-gateway-claims"]).toBe(
+      "tok-123",
     );
   });
 
-  it("omits the Authorization header when no token is provided", async () => {
+  it("omits the x-gateway-claims header when no token is provided", async () => {
     const fetchSpy = mockFetch();
 
     await syncBuildingClone(building);
 
     const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(
-      (init.headers as Record<string, string>).Authorization,
+      (init.headers as Record<string, string>)["x-gateway-claims"],
     ).toBeUndefined();
     expect((init.headers as Record<string, string>)["Content-Type"]).toBe(
       "application/json",

@@ -1,9 +1,6 @@
 import request from "supertest";
-import jwt from "jsonwebtoken";
-import { generateKeyPairSync } from "crypto";
 import { app } from "../src/index.js";
 import { Building } from "../src/models/building.js";
-import { resetGatewayJwksCacheForTests } from "../src/config/gatewayJwks.js";
 
 const mockBuilding = {
   name: "Engineering Block",
@@ -20,57 +17,31 @@ const mockBuilding = {
   ],
 };
 
-const GATEWAY_ISSUER = "cv-gateway";
-const GATEWAY_JWKS_URI = "http://gateway.test/.well-known/jwks.json";
-const KID = "test-kid";
-const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const claimsHeader = (payload: object): string =>
+  Buffer.from(JSON.stringify(payload)).toString("base64");
 
-// Mint a JWT the auth middleware accepts and attach it as a bearer token. Every
-// data route is now authenticated, so each request must carry it. The caller is
-// a member of "test-domain" only, so domain-scoped routes can be exercised for
+// The mesh (Istio, or Caddy+claims-gateway/verify) verifies the caller once
+// at the edge and injects this header — twin-service just decodes it. Every
+// data route requires it, so each request must carry it. The caller is a
+// member of "test-domain" only, so domain-scoped routes can be exercised for
 // both the allowed and denied cases.
-const token = jwt.sign(
-  {
-    sub: "u1",
-    accountName: "tester",
-    memberships: [{ domain: "test-domain", role: "standard_customer" }],
-  },
-  privateKey,
-  { algorithm: "RS256", keyid: KID, issuer: GATEWAY_ISSUER, expiresIn: "1h" },
-);
+const token = claimsHeader({
+  sub: "u1",
+  accountName: "tester",
+  memberships: [{ domain: "test-domain", role: "standard_customer" }],
+});
 const auth = <T extends request.Test>(req: T): T =>
-  req.set("Authorization", `Bearer ${token}`) as T;
+  req.set("x-gateway-claims", token) as T;
 
 // Geometry-mutating routes require an editing role in the building's own
 // domain, not just membership — this caller can edit "test-domain" only.
-const editorToken = jwt.sign(
-  {
-    sub: "u2",
-    accountName: "editor",
-    memberships: [{ domain: "test-domain", role: "business_admin" }],
-  },
-  privateKey,
-  { algorithm: "RS256", keyid: KID, issuer: GATEWAY_ISSUER, expiresIn: "1h" },
-);
+const editorToken = claimsHeader({
+  sub: "u2",
+  accountName: "editor",
+  memberships: [{ domain: "test-domain", role: "business_admin" }],
+});
 const authEditor = <T extends request.Test>(req: T): T =>
-  req.set("Authorization", `Bearer ${editorToken}`) as T;
-
-const realFetch = global.fetch;
-
-beforeAll(() => {
-  process.env.GATEWAY_JWKS_URI = GATEWAY_JWKS_URI;
-  process.env.GATEWAY_ISSUER = GATEWAY_ISSUER;
-  resetGatewayJwksCacheForTests();
-  const jwk = publicKey.export({ format: "jwk" }) as { n: string; e: string };
-  global.fetch = jest.fn(async () => ({
-    ok: true,
-    json: async () => ({ keys: [{ kty: "RSA", kid: KID, use: "sig", alg: "RS256", n: jwk.n, e: jwk.e }] }),
-  })) as unknown as typeof fetch;
-});
-
-afterAll(() => {
-  global.fetch = realFetch;
-});
+  req.set("x-gateway-claims", editorToken) as T;
 
 describe("Twin Service API", () => {
   describe("authentication", () => {
@@ -79,10 +50,10 @@ describe("Twin Service API", () => {
       expect(res.status).toBe(401);
     });
 
-    it("rejects requests with an invalid token", async () => {
+    it("rejects requests with a malformed claims header", async () => {
       const res = await request(app)
         .get("/building/anything")
-        .set("Authorization", "Bearer not-a-real-token");
+        .set("x-gateway-claims", "not-valid-base64-json");
       expect(res.status).toBe(401);
     });
 
@@ -91,10 +62,8 @@ describe("Twin Service API", () => {
       expect(res.status).toBe(200);
     });
 
-    it("accepts a valid token from the cookie", async () => {
-      const res = await request(app)
-        .get("/buildings/test-domain")
-        .set("Cookie", `authentication_token=${token}`);
+    it("accepts a valid claims header", async () => {
+      const res = await auth(request(app).get("/buildings/test-domain"));
       expect(res.status).toBe(200);
     });
   });

@@ -5,7 +5,7 @@ import {
   canEditDomains,
   isMemberOf,
   scopeToMemberships,
-} from "../services/tenantScope.js";
+} from "../services/cedarAuthz.js";
 
 const MAX_DOMAIN_NAMES = 500;
 

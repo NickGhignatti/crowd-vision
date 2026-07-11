@@ -13,7 +13,7 @@ services:
       watch:
         - action: sync
           path: ./src
-          target: /app/src
+          target: /app/server/twin-service/src
         - action: rebuild
           path: ./package.json
 
