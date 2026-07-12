@@ -119,6 +119,23 @@ func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, erro
 	}, g.ttl)
 }
 
+// RefreshSession re-mints the session token for an already-authenticated
+// caller so membership changes made mid-session (e.g. a domain just created,
+// or one just joined) take effect without a full logout/login. Memberships are
+// baked into the JWT at login and never re-read per request (see
+// tenancy.Service.MembershipsFor), so a token minted before the change can't
+// authorize against the new domain. Unlike Exchange this does NOT re-verify an
+// IdP token — authmiddleware already validated the current cookie before this
+// runs — it only re-reads tenancy and re-signs, preserving Sub/AccountName/SID.
+func (g *Gateway) RefreshSession(ctx context.Context, current authcontracts.StandardClaims) (string, error) {
+	memberships, err := g.tenancy.MembershipsFor(ctx, current.Sub)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrTenancyUnavailable, err)
+	}
+	current.Memberships = memberships
+	return g.signer.Sign(current, g.ttl)
+}
+
 // accountName prefers the display name (Keycloak's "full name" claim) over
 // the bare username/email — falling back cleanly for any account that
 // doesn't have one set yet.

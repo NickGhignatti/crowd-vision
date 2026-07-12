@@ -70,6 +70,40 @@ func TestExchange_ExistingMember_SignsWithCurrentMemberships(t *testing.T) {
 	}
 }
 
+func TestRefreshSession_ReMintsWithCurrentTenancyMemberships(t *testing.T) {
+	// Caller logged in before creating "kubeet.com": their current claims have
+	// no memberships, but tenancy now reports one. Refresh must re-sign with
+	// the fresh set while preserving identity fields.
+	tenancy := &fakeTenancy{memberships: []authcontracts.Membership{{Domain: "kubeet.com", Role: "business_admin"}}}
+	signer := &fakeSigner{}
+	gw := service.New(&fakeVerifier{}, tenancy, signer, time.Hour)
+
+	stale := authcontracts.StandardClaims{Sub: "acc-1", AccountName: "Ada", SID: "sid-1"}
+	tok, err := gw.RefreshSession(context.Background(), stale)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok == "" {
+		t.Fatal("expected a signed token")
+	}
+	if len(signer.lastClaims.Memberships) != 1 || signer.lastClaims.Memberships[0].Domain != "kubeet.com" {
+		t.Fatalf("got %+v, want the new kubeet.com membership", signer.lastClaims.Memberships)
+	}
+	if signer.lastClaims.Sub != "acc-1" || signer.lastClaims.AccountName != "Ada" {
+		t.Fatalf("identity fields not preserved: %+v", signer.lastClaims)
+	}
+}
+
+func TestRefreshSession_FailsClosed_WhenTenancyLookupErrors(t *testing.T) {
+	tenancy := &fakeTenancy{lookupErr: errors.New("connection refused")}
+	gw := service.New(&fakeVerifier{}, tenancy, &fakeSigner{}, time.Hour)
+
+	_, err := gw.RefreshSession(context.Background(), authcontracts.StandardClaims{Sub: "acc-1"})
+	if !errors.Is(err, service.ErrTenancyUnavailable) {
+		t.Fatalf("got %v, want ErrTenancyUnavailable", err)
+	}
+}
+
 func TestExchange_PrefersNameOverPreferredUsernameForAccountName(t *testing.T) {
 	verifier := &fakeVerifier{claims: service.IDTokenClaims{Sub: "acc-1", PreferredUsername: "mario@unibo.it", Name: "Mario Rossi"}}
 	tenancy := &fakeTenancy{memberships: []authcontracts.Membership{{Domain: "unibo", Role: "standard_customer"}}}

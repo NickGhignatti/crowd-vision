@@ -1,8 +1,6 @@
 // Package authcontracts is the frozen shape of the token every CrowdVision
 // service trusts, and the role table used to make local authorization
-// decisions from it. It has no I/O and no dependencies beyond the standard
-// library, so it can be embedded in any service without dragging in a
-// network client or a database driver.
+// decisions from it.
 package authcontracts
 
 // Membership is one (domain, role) pair — a user can hold several, one per

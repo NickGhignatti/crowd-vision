@@ -17,12 +17,6 @@ import (
 	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
 )
 
-// CookieName matches the Node fleet's existing convention
-// (server/*/src/config/config.ts: JWT_COOKIE_NAME, default
-// "authentication_token") so claims-gateway is a drop-in replacement for
-// auth-service's cookie — no client change needed for the strangler cutover.
-// Service-to-service calls forward the caller's identity as a Bearer header
-// instead — the same dual-source pattern the Node services already use.
 const CookieName = "authentication_token"
 
 type contextKey struct{}
@@ -83,14 +77,11 @@ func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handle
 
 // GatewayClaimsHeader is the header Istio's RequestAuthentication injects
 // (outputPayloadToHeader) after verifying the gateway JWT once at the mesh
-// ingress — see k8s/istio-request-authentication.yml. Its JSON shape is the
-// same StandardClaims payload claims-gateway signs.
+// ingress. Its JSON shape is the same StandardClaims payload claims-gateway signs.
 const GatewayClaimsHeader = "x-gateway-claims"
 
 // RequireMeshClaims trusts the mesh-verified claims header instead of
-// verifying a JWT itself — the counterpart to RequireAuthentication for
-// services that sit behind the Istio ingress (Phase 2 of the mesh
-// migration). claims-gateway's own routes (e.g. /me) keep using
+// verifying a JWT itself. Claims-gateway's own routes (e.g. /me) keep using
 // RequireAuthentication directly: as the token minter, it verifies its own
 // tokens rather than depending on the mesh for its own auth.
 func RequireMeshClaims() func(http.Handler) http.Handler {

@@ -47,6 +47,7 @@ func Mount(gw *service.Gateway, jwks jwksProvider, verifyKeys keyfunc.Keyfunc, i
 		r.Get("/profile", profileHandler(gw))
 		r.Patch("/profile", updateProfileHandler(gw))
 		r.Post("/profile/password", changePasswordHandler(gw))
+		r.Post("/refresh", refreshHandler(gw))
 		// docker-compose's byte-identical equivalent of Istio's
 		// RequestAuthentication + outputPayloadToHeader (see
 		// k8s/istio-request-authentication.yml): Caddy's forward_auth calls
@@ -244,6 +245,28 @@ func changePasswordHandler(gw *service.Gateway) http.HandlerFunc {
 			writeAuthError(w, err)
 			return
 		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// refreshHandler re-mints the caller's session cookie with their current
+// tenancy memberships. The client calls this after any membership change
+// (create/join a domain, redeem an invite code) so the next request through
+// the mesh authorizes against the new domain instead of 403ing on a stale
+// login-time token. Same re-mint-the-cookie pattern as updateProfileHandler.
+func refreshHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := authmiddleware.FromContext(r.Context())
+		if !ok {
+			http.Error(w, "unauthenticated", http.StatusUnauthorized)
+			return
+		}
+		token, err := gw.RefreshSession(r.Context(), claims)
+		if err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		setSessionCookie(w, token)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

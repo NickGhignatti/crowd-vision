@@ -169,6 +169,11 @@ export const useDomainsStore = defineStore('domains', {
         throw new Error(message || 'Failed to create domain')
       }
 
+      // Creating a domain makes the caller its business_admin in tenancy, but
+      // that membership only reaches the mesh once it's re-minted into the
+      // session JWT — otherwise /twin/buildings/<newDomain> 403s.
+      await this._authStore.refreshSession()
+
       return await response.json()
     },
 
@@ -184,6 +189,7 @@ export const useDomainsStore = defineStore('domains', {
 
       if (!response.ok) throw new Error(`Failed to subscribe to ${domain.name}`)
 
+      await this._authStore.refreshSession()
       await this.fetchMemberships(true)
     },
 
@@ -248,6 +254,7 @@ export const useDomainsStore = defineStore('domains', {
         throw new Error(message || 'Failed to redeem invite code')
       }
 
+      await this._authStore.refreshSession()
       await this.fetchMemberships(true)
     },
 
