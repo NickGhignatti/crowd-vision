@@ -114,6 +114,39 @@ const runtimeYaml =
 
 writeFileSync(RUNTIME_FILE, runtimeYaml);
 
+// ── Clear stray fixed-name containers ────────────────────────────────────────
+// Many services pin `container_name:`. An interrupted run can leave one behind
+// as a stopped container with no compose project label, so `up --remove-orphans`
+// can't reconcile it and the next `up` dies on a name conflict (e.g.
+// "container name /crowd-vision-keycloak-db is already in use"). Ask Compose for
+// the pinned names and force-remove any matching container that isn't running.
+const cfg = spawnSync(
+  "docker",
+  ["compose", "-f", RUNTIME_FILE, "config", "--format", "json"],
+  { encoding: "utf8" },
+);
+if (cfg.status === 0) {
+  const names = new Set(
+    Object.values(JSON.parse(cfg.stdout).services ?? {})
+      .map((s) => s.container_name)
+      .filter(Boolean),
+  );
+  const ps = spawnSync(
+    "docker",
+    ["ps", "-a", "--format", "{{.Names}}\t{{.State}}"],
+    { encoding: "utf8" },
+  );
+  const strays = (ps.stdout ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.split("\t"))
+    .filter(([name, state]) => names.has(name) && state !== "running")
+    .map(([name]) => name);
+  if (strays.length) {
+    console.log(`Removing stray containers: ${strays.join(", ")}`);
+    spawnSync("docker", ["rm", "-f", ...strays], { stdio: "inherit" });
+  }
+}
+
 // ── Build and run the docker command ─────────────────────────────────────────
 
 let dockerArgs;
