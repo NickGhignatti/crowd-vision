@@ -1,7 +1,3 @@
-# Istio Gateway API ingress — the prod-shaped replacement for Caddy's :80
-# reverse-proxy routing. Caddy stays for docker-compose dev (see Caddyfile);
-# this is the k8s-native equivalent, applied once Istio is installed.
-#
 # gatewayClassName: istio makes Istio auto-provision a dedicated Envoy
 # gateway Deployment + Service named <name>-istio (e.g. crowdvision-gateway-istio).
 apiVersion: gateway.networking.k8s.io/v1

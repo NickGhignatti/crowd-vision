@@ -106,6 +106,15 @@
     }
 
     # ── Signal sensor service ─────────────────────────────────────────────────
+    # Telemetry ingestion is device/simulator-facing and carries no user token —
+    # sensor-service itself leaves POST /ingest unauthenticated (see its
+    # router.ts). Gating it here 401s every sensor/simulator, so carve it out
+    # ahead of the gated block (handle blocks match in source order). Mirrors
+    # the /sensor/ingest allow rule in k8s/istio-request-authentication.yml.
+    handle /sensor/ingest {
+        uri strip_prefix /sensor
+        reverse_proxy sensor-service:3000
+    }
     handle_path /sensor/* {
         import require_gateway_auth
         reverse_proxy sensor-service:3000

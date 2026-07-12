@@ -105,6 +105,11 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+      # Crash recovery after an unclean shutdown fsyncs the data dir (~30-40s
+      # here) during which pg_isready fails; without this the container flips to
+      # unhealthy before recovery finishes and keycloak's service_healthy
+      # dependency aborts the whole stack.
+      start_period: 60s
 
   prometheus:
     image: prom/prometheus:latest
@@ -206,6 +211,9 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+      # See keycloak-db: crash recovery fsync can outlast the retry budget and
+      # trip unhealthy before postgres accepts connections.
+      start_period: 60s
 
   clickhouse:
     image: docker.io/clickhouse/clickhouse-server

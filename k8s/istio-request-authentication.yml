@@ -2,16 +2,6 @@
 # outputPayloadToHeader injects the full validated claims payload (same JSON
 # shape claims-gateway signs) as one base64 header, x-gateway-claims — every
 # downstream service decodes this instead of doing its own JWT verification.
-#
-# jwksUri deliberately goes THROUGH the ingress gateway's own /gateway/* route
-# (crowdvision-gateway-istio Service, port 80) rather than straight at
-# claims-gateway's ClusterIP:3000. istiod lives in istio-system, which is not
-# ambient-enrolled — a direct plain-HTTP fetch to claims-gateway (STRICT mTLS,
-# Phase 1) gets refused by ztunnel ("connection refused", fails closed). The
-# gateway's own inbound listener is the mesh's designated plaintext ingress
-# edge, so routing the JWKS fetch through it (same path browsers use) avoids
-# the problem entirely — its onward call to claims-gateway happens over the
-# gateway pod's own mesh identity.
 apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
@@ -23,13 +13,9 @@ spec:
       gateway.networking.k8s.io/gateway-name: crowdvision-gateway
   jwtRules:
     - issuer: cv-gateway
+      # jwksUri deliberately goes THROUGH the ingress gateway's own /gateway/* route cause
+      # inside the cluster plaintext messages are blocked by default
       jwksUri: http://crowdvision-gateway-istio.crowdvision.svc.cluster.local/gateway/.well-known/jwks.json
-      # Browsers send the JWT as a cookie (COOKIE_NAME in every service's
-      # config, default "authentication_token"); internal service-to-service
-      # calls (e.g. agent→twin) forward it as `Authorization: Bearer`.
-      # Specifying either fromHeaders/fromCookies replaces Envoy's default
-      # extraction, so both must be listed explicitly to keep covering both
-      # callers — dropping one silently breaks that caller's auth.
       fromHeaders:
         - name: Authorization
           prefix: "Bearer "
@@ -73,6 +59,14 @@ spec:
               - /chat/*
               - /socket.io/*
               - /tenancy/*
+    # Telemetry ingestion is device/simulator-facing and carries no user token —
+    # sensor-service leaves POST /ingest unauthenticated (see its router.ts), so
+    # allow it with no principal. Everything else under /sensor/* still needs a
+    # JWT (rule below). Mirrors the /sensor/ingest carve-out in the Caddyfile.
+    - to:
+        - operation:
+            paths:
+              - /sensor/ingest
     - from:
         - source:
             requestPrincipals: ["cv-gateway/*"]
