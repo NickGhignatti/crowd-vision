@@ -97,12 +97,19 @@ jobs:
         id: docker
         run: |
           inc='[]'
-          add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" '$a + [{context:$c, image:$i}]'); }
+          # twin-service and agent-service COPY the shared server/auth-policy
+          # (+ auth-contracts) bundle into their image, a sibling directory a
+          # per-service build context can't reach — those two build from the
+          # repo root with an explicit dockerfile path instead. Every other
+          # service still uses its own directory as both context and
+          # Dockerfile location.
+          add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" --arg d "$1/Dockerfile" '$a + [{context:$c, image:$i, dockerfile:$d}]'); }
+          add_repo_root() { inc=$(jq -cn --argjson a "$inc" --arg i "$2" --arg d "$1/Dockerfile" '$a + [{context:".", image:$i, dockerfile:$d}]'); }
           if [ "${{ steps.filter.outputs.chat }}" = "true" ];         then add "./server/chat-service"         "crowdvision-chat"; fi
-          if [ "${{ steps.filter.outputs.twin }}" = "true" ];         then add "./server/twin-service"         "crowdvision-twin"; fi
+          if [ "${{ steps.filter.outputs.twin }}" = "true" ];         then add_repo_root "server/twin-service" "crowdvision-twin"; fi
           if [ "${{ steps.filter.outputs.notification }}" = "true" ]; then add "./server/notification-service" "crowdvision-notification"; fi
           if [ "${{ steps.filter.outputs.socket }}" = "true" ];       then add "./server/socket-service"       "crowdvision-socket"; fi
-          if [ "${{ steps.filter.outputs.agent }}" = "true" ];        then add "./server/agent-service"        "crowdvision-agent"; fi
+          if [ "${{ steps.filter.outputs.agent }}" = "true" ];        then add_repo_root "server/agent-service" "crowdvision-agent"; fi
           if [ "${{ steps.filter.outputs.sensor }}" = "true" ];       then add "./server/sensor-service"       "crowdvision-sensor"; fi
           if [ "${{ steps.filter.outputs.contracts }}" = "true" ];    then add "./server/contracts-service"    "crowdvision-contracts"; fi
           if [ "${{ steps.filter.outputs.client }}" = "true" ];       then add "./client"                      "crowdvision-client"; fi

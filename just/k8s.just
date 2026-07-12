@@ -77,11 +77,11 @@ setup: create gateway-api istio-install
 build:
     docker build -t ghcr.io/nickghignatti/crowdvision-client:latest ./client
     docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest ./server/chat-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest ./server/twin-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f server/twin-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./server/notification-service
     docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest ./server/sensor-service
     docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest ./server/socket-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest ./server/agent-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest -f server/agent-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-contracts:latest ./server/contracts-service
     docker build -t ghcr.io/nickghignatti/crowdvision-claims-gateway:latest -f server/claims-gateway/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-provisioner:latest -f server/provisioner/Dockerfile .

@@ -62,17 +62,25 @@ jobs:
           CHANGED: ${{ steps.filter.outputs.changes }}
         run: |
           # Single source of truth: image -> build context, in sync with the dorny context above.
+          # twin-service and agent-service COPY the shared server/auth-policy
+          # (+ auth-contracts) bundle, a sibling directory their own
+          # directory can't reach as a build context — those two build from
+          # the repo root instead, with an explicit Dockerfile path.
           CONTEXTS='{
             "crowdvision-chat":"./server/chat-service",
-            "crowdvision-twin":"./server/twin-service",
+            "crowdvision-twin":".",
             "crowdvision-notification":"./server/notification-service",
             "crowdvision-socket":"./server/socket-service",
-            "crowdvision-agent":"./server/agent-service",
+            "crowdvision-agent":".",
             "crowdvision-sensor":"./server/sensor-service",
             "crowdvision-contracts":"./server/contracts-service",
             "crowdvision-simulator":"./simulators/sensor-simulator",
             "crowdvision-aq-simulator":"./simulators/aq-simulator",
             "crowdvision-client":"./client"
+          }'
+          DOCKERFILES='{
+            "crowdvision-twin":"server/twin-service/Dockerfile",
+            "crowdvision-agent":"server/agent-service/Dockerfile"
           }'
 
           if [ "$EVENT" = "workflow_dispatch" ]; then
@@ -90,8 +98,8 @@ jobs:
             fi
           fi
 
-          MATRIX=$(jq -nc --argjson ctx "$CONTEXTS" --argjson sel "$SELECTED" \
-            '{include: ($sel | map(select($ctx[.] != null) | {image: ., context: $ctx[.]}))}')
+          MATRIX=$(jq -nc --argjson ctx "$CONTEXTS" --argjson dockerfiles "$DOCKERFILES" --argjson sel "$SELECTED" \
+            '{include: ($sel | map(select($ctx[.] != null) | {image: ., context: $ctx[.], dockerfile: ($dockerfiles[.] // "\($ctx[.])/Dockerfile")}))}')
           if [ "$(echo "$MATRIX" | jq '.include | length')" -gt 0 ]; then ANY=true; else ANY=false; fi
 
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
@@ -144,6 +152,7 @@ jobs:
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: false
           load: true
           build-args: ${{ env.BUILD_ARGS }}
@@ -192,6 +201,7 @@ jobs:
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           build-args: ${{ env.BUILD_ARGS }}
           tags: |
