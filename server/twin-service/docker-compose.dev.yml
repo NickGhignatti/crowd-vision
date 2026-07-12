@@ -1,21 +1,24 @@
 services:
   twin-service:
     build:
-      target: builder
-    command: npm run dev
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+      target: dev
+    command: cargo watch -x run
     develop:
       watch:
         - action: sync
           path: ./src
           target: /app/server/twin-service/src
         - action: rebuild
-          path: ./package.json
+          path: ./Cargo.toml
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - twin-target:/app/server/twin-service/target
+      - cargo-registry:/usr/local/cargo/registry
 
   twin-db:
     ports:
@@ -31,3 +34,7 @@ services:
       - ME_CONFIG_SITE_BASEURL=/twin-db-gui/
     depends_on:
       - twin-db
+
+volumes:
+  twin-target:
+  cargo-registry:
