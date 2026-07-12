@@ -1,7 +1,7 @@
 .docname {Shared Auth Middleware}
 .include {docs}
 
-Implementation reference for the cross-cutting Express middleware shared by the Node services (`twin-service`, `notification-service`, `sensor-service`, `chat-service`, `socket-service`). Controllers and services hold business logic; **request authentication and error shaping** are delegated to the middleware documented here. For the design rationale, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+Implementation reference for the cross-cutting Express middleware shared by the Node services (`notification-service`, `sensor-service`, `chat-service`, `socket-service`). Controllers and services hold business logic; **request authentication and error shaping** are delegated to the middleware documented here. `twin-service` is a Rust/Axum service and has its own equivalent (`src/infra/claims.rs`, an axum extractor) — see [Digital Twin Service](digital-twin.qd). For the design rationale, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 ---
 

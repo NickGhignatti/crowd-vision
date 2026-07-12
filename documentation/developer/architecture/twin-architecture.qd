@@ -1,15 +1,15 @@
 .docname {Digital Twin Service Architecture}
 .include {docs}
 
-**Bounded context:** [Building Management](../domain/building-management.qd) · **Stack:** Node.js / Express · **Code-level walkthrough:** [Digital Twin Service](../services/digital-twin.qd)
+**Bounded context:** [Building Management](../domain/building-management.qd) · **Stack:** Rust / Axum · **Code-level walkthrough:** [Digital Twin Service](../services/digital-twin.qd)
 
-The twin-service realises the [Building Management](../domain/building-management.qd) context. It is the spatial source of truth — the structural model of buildings and rooms that the live-data services decorate.
+The twin-service realises the [Building Management](../domain/building-management.qd) context. It is the spatial source of truth — the structural model of buildings and rooms that the live-data services decorate. Rewritten from Node.js/Express to Rust/Axum in Phase 4 of the [service mesh migration](service-mesh.qd), once the mesh had already removed its JWT-verification responsibility (Phase 2) and replaced its hand-rolled tenant-scope checks with Cedar (Phase 3) — the rewrite target was already auth-free application logic, not a service still carrying its own identity-verification code.
 
 ---
 
 ## Architectural Style
 
-A layered Express service that runs **independently of any identity service**. It enforces multi-tenant isolation purely from the identity token presented with each request, never by querying another service's data.
+A Rust/Axum service that runs **independently of any identity service**. It enforces multi-tenant isolation purely from the mesh-verified identity presented with each request (`x-gateway-claims`, injected by Istio's `RequestAuthentication`), never by querying another service's data.
 
 ---
 
@@ -17,12 +17,14 @@ A layered Express service that runs **independently of any identity service**. I
 
 .mermaid
     graph TD
-        R[Router] --> C[Buildings Controller]
-        C --> S[Buildings Service]
-        S --> N[Name Normalisation Helper]
-        S --> M[Building Model]
-        M -.-> DB[(twin-db)]
-        S -.->|provisioning| EXT[sensor-service / contracts-service]
+        R[Router — src/lib.rs] --> H[Building/Room Handlers — src/api/buildings.rs]
+        H --> A[Cedar Authorization — src/infra/authz.rs]
+        H --> N[Name Normalisation — src/models.rs]
+        H --> M[Building/Room Types — src/models.rs]
+        H -.-> DB[(twin-db, src/infra/db.rs)]
+        H -.->|provisioning| EXT[sensor-service / contracts-service — src/infra/outbound.rs]
+
+Unlike the old TS controller/service split, handlers combine HTTP adaptation and business logic directly — matching this repo's existing Rust convention (see `contracts-service`), where a thin controller layer adds no value once the language's own module system and `Result`-based error handling do that job.
 
 ---
 
