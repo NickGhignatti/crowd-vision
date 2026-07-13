@@ -6,10 +6,8 @@ import (
 	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
 )
 
-// accountEntity pre-expands raw memberships into the flat per-tier domain
-// sets and max role weight policy.cedar reads — see that file's header
-// comment for why this expansion happens here, not inside Cedar itself
-// (Cedar's `.contains()` can't do role-weight comparison natively).
+// Pre-expands raw memberships into the flat per-tier domain
+// sets and max role weight policy.cedar reads.
 func accountEntity(memberships []authcontracts.Membership) cedar.Entity {
 	var standardCustomer, businessStaff, businessAdmin, admin []cedar.Value
 	maxWeight := 0
@@ -76,32 +74,24 @@ func authorize(memberships []authcontracts.Membership, action, domain string, co
 	return decision == cedar.Allow
 }
 
-// CanRead is plain domain membership, any role.
 func CanRead(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, "Read", domain, nil)
 }
 
-// CanReadWithAdminBypass is domain membership OR a global admin role anywhere.
 func CanReadWithAdminBypass(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, "ReadWithAdminBypass", domain, nil)
 }
 
-// CanEdit requires business_staff role or higher in domain.
 func CanEdit(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, "Edit", domain, nil)
 }
 
-// CanManageDomain requires business_admin role or higher in domain — the
-// tenancy-service gate for invite/createSubdomain/createInviteCode, and
-// removing a member other than yourself (self-removal is checked by the
-// caller before this, as an identity comparison, not a policy decision).
 func CanManageDomain(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, "ManageDomain", domain, nil)
 }
 
-// CanOverrideModelWeight is a GLOBAL (non-domain-scoped) role-weight gate —
-// no Go service currently needs this (it backs agent-service's
-// MODEL_OVERRIDE_MIN_ROLE, Python-only today), but it's exposed so the
+// CanOverrideModelWeight is a GLOBAL role-weight gate —
+// no Go service currently needs this, but it's exposed so the
 // golden conformance suite (fixtures/conformance.json) can verify this
 // action decides identically in every language, not just the ones with a
 // real caller yet.

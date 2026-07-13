@@ -18,9 +18,6 @@ entity Account = {
   domainsAsBusinessAdmin: Set<String>,
   // Domains where the caller's role weight is >= "admin".
   domainsAsAdmin: Set<String>,
-  // The caller's single highest role weight across every membership —
-  // for GLOBAL (non-domain-scoped) checks: agent-service's model-override
-  // gate and its "platform admin can read any building" bypass.
   maxRoleWeight: Long,
 };
 
