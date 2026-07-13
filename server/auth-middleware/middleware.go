@@ -39,11 +39,9 @@ func extractToken(r *http.Request) string {
 }
 
 // RequireAuthentication verifies the gateway-minted token against its JWKS
-// (jwks is expected to auto-refresh; construct it once at service startup,
-// not per request) and pins both the signing algorithm and the issuer, so a
-// token from a different gateway — or a same-shape token an attacker
-// crafted with alg "none" or HS256 — is rejected before any claim is
-// trusted.
+// and pins both the signing algorithm and the issuer, so a token from a
+// different gateway — or a same-shape token an attacker crafted with alg
+// "none" or HS256 — is rejected before any claim is trusted.
 func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,8 +53,8 @@ func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handle
 
 			var claims authcontracts.StandardClaims
 			token, err := jwt.ParseWithClaims(raw, jwt.MapClaims{}, jwks.Keyfunc,
-				jwt.WithValidMethods([]string{"RS256"}),
-				jwt.WithIssuer(issuer),
+				jwt.WithValidMethods([]string{"RS256"}), // token with a different alg
+				jwt.WithIssuer(issuer),                  // token with a different signer
 			)
 			if err != nil || !token.Valid {
 				http.Error(w, "invalid token", http.StatusUnauthorized)
@@ -75,15 +73,13 @@ func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handle
 	}
 }
 
-// GatewayClaimsHeader is the header Istio's RequestAuthentication injects
-// (outputPayloadToHeader) after verifying the gateway JWT once at the mesh
-// ingress. Its JSON shape is the same StandardClaims payload claims-gateway signs.
+// Header Istio's RequestAuthentication injects after verifying the gateway JWT
+// once at the mesh ingress.
 const GatewayClaimsHeader = "x-gateway-claims"
 
 // RequireMeshClaims trusts the mesh-verified claims header instead of
 // verifying a JWT itself. Claims-gateway's own routes (e.g. /me) keep using
-// RequireAuthentication directly: as the token minter, it verifies its own
-// tokens rather than depending on the mesh for its own auth.
+// RequireAuthentication directly.
 func RequireMeshClaims() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
