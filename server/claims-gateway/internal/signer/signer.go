@@ -1,7 +1,5 @@
 // Package signer mints the internal StandardClaims JWT and publishes the
 // JWKS every consumer (auth-middleware, Node services) verifies it with.
-// RS256 is deliberate: this is the only place in the fleet holding the
-// private key — everything else only ever sees the public half.
 package signer
 
 import (
@@ -44,12 +42,11 @@ func (s *Signer) Sign(claims authcontracts.StandardClaims, ttl time.Duration) (s
 		"iat":         time.Now().Unix(),
 		"exp":         time.Now().Add(ttl).Unix(),
 	})
-	tok.Header["kid"] = s.kid
+	tok.Header["kid"] = s.kid // Signer's key ID
 	return tok.SignedString(s.key)
 }
 
-// JWKS returns the public verifying key as a JSON Web Key Set, served at
-// /.well-known/jwks.json for every consumer's keyfunc to fetch and cache.
+// JWKS returns the public verifying key as a JSON Web Key Set.
 func (s *Signer) JWKS() []byte {
 	jwk, err := jwkset.NewJWKFromKey(&s.key.PublicKey, jwkset.JWKOptions{
 		Metadata: jwkset.JWKMetadataOptions{KID: s.kid, ALG: jwkset.ALG("RS256")},

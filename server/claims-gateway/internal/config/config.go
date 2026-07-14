@@ -1,5 +1,3 @@
-// Package config resolves environment variables once at boot — no other
-// package reads os.Getenv directly.
 package config
 
 import (
@@ -15,20 +13,16 @@ import (
 )
 
 type Config struct {
-	Addr             string
-	OIDCDiscoveryURL string // how THIS process reaches the IdP (e.g. internal Docker hostname)
-	OIDCIssuer       string // the canonical `iss` browsers' tokens carry (may differ from the above)
-	OIDCClientID     string
-	TenancyURL       string
-	InternalSecret   []byte
-	Issuer           string // this gateway's own iss claim, e.g. "cv-gateway"
-	TokenTTL         time.Duration
-	SigningKey       *rsa.PrivateKey
-	SigningKeyID     string
-
-	// Password login/registration (internal/keycloakadmin) — all
-	// server-side calls to Keycloak's token endpoint and Admin REST API, the
-	// browser never talks to Keycloak directly for these flows.
+	Addr                     string
+	OIDCDiscoveryURL         string // how THIS process reaches the IdP (e.g. internal Docker hostname)
+	OIDCIssuer               string // the canonical `iss` browsers' tokens carry (may differ from the above)
+	OIDCClientID             string
+	TenancyURL               string
+	InternalSecret           []byte
+	Issuer                   string // this gateway's own iss claim, e.g. "cv-gateway"
+	TokenTTL                 time.Duration
+	SigningKey               *rsa.PrivateKey
+	SigningKeyID             string
 	KeycloakBaseURL          string // OIDCDiscoveryURL with the "/realms/<realm>" suffix stripped
 	KeycloakRealm            string
 	RegistrationClientID     string // the confidential client used for both grants, e.g. "cv-gateway"
@@ -83,9 +77,6 @@ func Load() (Config, error) {
 		gwIssuer = "cv-gateway"
 	}
 
-	// The admin/token base Keycloak calls need is the discovery URL with its
-	// "/realms/<realm>" suffix stripped — keycloakadmin.New re-appends the
-	// realm-specific paths itself, so this must not double up on it.
 	keycloakBaseURL := strings.TrimSuffix(discoveryURL, "/realms/"+keycloakRealm)
 
 	return Config{
@@ -99,16 +90,12 @@ func Load() (Config, error) {
 }
 
 // loadOrGenerateKey reads GATEWAY_PRIVATE_KEY (PEM, PKCS#8) if set — this is
-// what the provisioner mints per-cell in production (one key per cell, so a
-// leaked key compromises one tenant, not the platform). Falling back to an
+// what the provisioner mints per-cell in production. Falling back to an
 // ephemeral in-memory key keeps local dev friction-free; it must never be
 // used past a single process lifetime, which an ephemeral key can't be by
 // construction.
 func loadOrGenerateKey() (*rsa.PrivateKey, string, error) {
 	pemStr := os.Getenv("GATEWAY_PRIVATE_KEY")
-	// GATEWAY_PRIVATE_KEY_FILE points at a mounted PEM file — the practical way
-	// to supply a stable key in dev/compose, where a multi-line PEM can't live
-	// in a .env value. The inline env var still wins if both are set.
 	if pemStr == "" {
 		if path := os.Getenv("GATEWAY_PRIVATE_KEY_FILE"); path != "" {
 			b, err := os.ReadFile(path)
