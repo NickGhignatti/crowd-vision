@@ -19,8 +19,6 @@ pub async fn connect(uri: &str, db_name: &str) -> anyhow::Result<Collection<Buil
         .build();
     col.create_index(unique_id).await?;
 
-    // Index for multi-tenant lookups: find({ domains: domainName }) -- without
-    // this, every domain query does a full collection scan.
     let domains_index = IndexModel::builder().keys(doc! { "domains": 1 }).build();
     col.create_index(domains_index).await?;
 
@@ -118,8 +116,6 @@ mod tests {
         }
     }
 
-    // Requires a running MongoDB (see docker-compose.yml's twin-db service).
-    // Run with: MONGO_URI=mongodb://localhost:27017 cargo test
     async fn test_col() -> Collection<Building> {
         let uri =
             std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());

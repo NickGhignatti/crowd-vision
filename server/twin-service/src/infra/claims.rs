@@ -8,11 +8,6 @@ use crate::models::AppError;
 
 pub const CLAIMS_HEADER: &str = "x-gateway-claims";
 
-// Istio's outputPayloadToHeader (Envoy's JWT authn filter) base64url-encodes
-// the payload; claims-gateway's docker-compose /verify equivalent uses
-// Node's Buffer.from(header, "base64"), which is lenient about padding and
-// the -_/+/ alphabet either way. Try every variant so this decodes whatever
-// either front door actually produces, matching that same leniency.
 fn decode_claims_header(raw: &str) -> Option<Vec<u8>> {
     [STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD]
         .iter()
@@ -33,19 +28,9 @@ pub struct ClaimsPayload {
     pub memberships: Vec<Membership>,
 }
 
-// Istio's RequestAuthentication verifies the gateway JWT once at the ingress
-// and injects the validated payload as this base64 header
-// (outputPayloadToHeader) -- twin trusts it rather than re-verifying a JWT
-// itself. A request reaching this pod without a valid claims header could
-// not have entered the mesh through the gateway (Phase 1's STRICT mTLS
-// blocks any caller that isn't mesh-authenticated), so there is no separate
-// spoofing surface to guard against here.
 #[derive(Debug, Clone)]
 pub struct GatewayClaims {
     pub payload: ClaimsPayload,
-    // Raw base64 header value, forwarded verbatim on twin's own outbound
-    // calls (e.g. the sensor threshold sync) so the downstream service sees
-    // the same caller identity Istio verified at the edge.
     pub raw: String,
 }
 

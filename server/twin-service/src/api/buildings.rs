@@ -126,10 +126,6 @@ pub async fn add_building(
     Ok((StatusCode::CREATED, Json(building)))
 }
 
-// No domain-scope check beyond authentication -- matches twin-service's
-// getBuildingById controller, which never calls isMemberOf. Building ids are
-// server-generated UUIDs, not enumerable, so this is the existing trust
-// boundary, not a gap introduced here.
 pub async fn get_building_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,

@@ -48,13 +48,6 @@ fn is_infra_path(path: &str) -> bool {
     matches!(path, "/metrics" | "/metrics/" | "/health" | "/health/")
 }
 
-// Mirrors metricsMiddleware.ts's label shape (method/route/status_code).
-// Unlike the TS version -- which is registered after the router and so
-// never actually observes a matched route (Express ends the middleware
-// chain the moment a route handler sends a response) -- this one is a
-// Router-level `.layer()`, which axum runs around the full request/response
-// cycle regardless of how the inner handler responds, so it observes real
-// traffic.
 pub async fn track_metrics(request: Request, next: Next) -> Response {
     let path = request.uri().path().to_string();
     if is_infra_path(&path) {

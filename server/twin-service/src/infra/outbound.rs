@@ -6,17 +6,12 @@ use crate::models::Building;
 pub struct OutboundConfig {
     pub sensor_service_url: String,
     pub contracts_service_url: String,
-    // Mirrors shouldSyncThresholds()/NODE_ENV=test: outbound calls are
-    // fire-and-forget side effects on services that don't exist in the test
-    // harness unless a mock is wired in for that specific test.
+    // Mirrors shouldSyncThresholds()/NODE_ENV=test.
     pub sync_enabled: bool,
     pub client: reqwest::Client,
 }
 
-// sensor-service guards its threshold routes and reads the caller's identity
-// from the same mesh-injected claims header twin itself trusts -- forward it
-// verbatim rather than re-minting a token. mTLS (Phase 1) already
-// authenticates this hop; the header carries WHO the original caller was.
+// Forward the authenticated caller's identity to the sensor service.
 fn auth_headers(claims_header: Option<&str>) -> reqwest::header::HeaderMap {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert("content-type", "application/json".parse().unwrap());
@@ -70,10 +65,6 @@ pub async fn sync_building_clone(
     Ok(())
 }
 
-// Best-effort default-threshold init for a newly created room. Never fails
-// the caller -- a room with no threshold row yet just means telemetry has
-// nothing to alert on until an admin sets one, which is harmless; a failed
-// geometry save is not.
 pub async fn init_room_thresholds(
     config: &OutboundConfig,
     building_id: &str,
@@ -99,9 +90,6 @@ pub async fn init_room_thresholds(
         .await;
 
     if let Err(err) = result {
-        // Keep the log message static and pass the room id as a separate
-        // argument instead of interpolating it, so a malicious room id can't
-        // forge extra log lines.
         log::error!(
             "[sensors] failed to init thresholds for room: {:?} {err}",
             room_id

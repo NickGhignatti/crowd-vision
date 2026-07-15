@@ -10,9 +10,7 @@ use std::time::{Duration, Instant};
 const WINDOW: Duration = Duration::from_secs(60);
 const LIMIT: u32 = 300;
 
-// Per-IP fixed-window limiter -- mirrors express-rate-limit's windowMs/limit
-// in index.ts. A DoS protection, not a precision rate limiter, so a plain
-// fixed window (vs. sliding window/token bucket) is enough.
+// Per-IP fixed-window limiter.
 #[derive(Clone)]
 pub struct RateLimiter {
     counters: Arc<DashMap<IpAddr, (Instant, u32)>>,
@@ -30,8 +28,8 @@ impl RateLimiter {
 }
 
 // Behind the Caddy/Istio ingress: read the real client IP from
-// X-Forwarded-For (mirrors Express's `app.set("trust proxy", 1)"), falling
-// back to the raw socket peer for direct/local connections.
+// X-Forwarded-For, falling back to the raw socket peer for direct/local
+// connections.
 fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> IpAddr {
     headers
         .get("x-forwarded-for")
@@ -39,9 +37,6 @@ fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> IpAddr {
         .and_then(|v| v.split(',').next())
         .and_then(|v| v.trim().parse().ok())
         .or_else(|| peer.map(|p| p.ip()))
-        // ponytail: only reachable if there's neither a forwarded-for header
-        // nor real connection info (i.e. never, outside of a misconfigured
-        // test harness) -- unroutable fallback so the limiter can't panic.
         .unwrap_or(IpAddr::from([0, 0, 0, 0]))
 }
 
