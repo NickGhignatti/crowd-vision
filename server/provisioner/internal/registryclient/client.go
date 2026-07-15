@@ -1,5 +1,3 @@
-// Package registryclient implements reconciler.RegistryClient over HTTP
-// against registry-service's /internal/organizations/* routes.
 package registryclient
 
 import (
