@@ -22,10 +22,6 @@ func NewPostgres(pool *pgxpool.Pool) *Postgres {
 	return &Postgres{pool: pool}
 }
 
-// Pool exposes the underlying pool for callers that manage their own
-// lifecycle (main.go's shutdown) or tests exercising DB-level guarantees
-// (e.g. the ON DELETE CASCADE from domains to memberships) that the Store
-// interface deliberately doesn't surface as an application operation.
 func (p *Postgres) Pool() *pgxpool.Pool {
 	return p.pool
 }
@@ -88,9 +84,6 @@ func (p *Postgres) SubdomainsOf(ctx context.Context, parentID string) ([]Domain,
 	return out, rows.Err()
 }
 
-// PublicDomains lists every is_public domain with its live member count in
-// one query — the client's "browse domains" directory used to need a second
-// round-trip (auth-service's /domains/member-counts); this folds it in.
 func (p *Postgres) PublicDomains(ctx context.Context) ([]Domain, error) {
 	rows, err := p.pool.Query(ctx, `
 		select d.id, d.name, d.display_name, d.join_policy, d.parent_id, d.is_public,
@@ -140,10 +133,6 @@ func (p *Postgres) CreateInviteCode(ctx context.Context, ic InviteCode) (InviteC
 	return ic, err
 }
 
-// RedeemInviteCode is the one atomic write in this service: the WHERE
-// clause (unredeemed, unexpired) and the UPDATE happen as a single
-// statement, so two concurrent redemption attempts can't both succeed —
-// exactly one gets the row back, the other gets 0 rows affected.
 func (p *Postgres) RedeemInviteCode(ctx context.Context, code, accountID string) (InviteCode, error) {
 	var ic InviteCode
 	err := p.pool.QueryRow(ctx, `

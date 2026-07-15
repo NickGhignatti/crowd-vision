@@ -1,6 +1,3 @@
-// Package storefake is an in-memory store.Store, used to unit-test
-// internal/service and internal/api without a database — the Go analogue of
-// mongodb-memory-server for the Node services, minus the real engine.
 package storefake
 
 import (
@@ -101,9 +98,6 @@ func (f *Fake) RedeemInviteCode(_ context.Context, code, accountID string) (stor
 	return ic, nil
 }
 
-// ExpireInviteCodeForTests backdates a code's expiry — the fake has no real
-// clock to manipulate, so tests that need an expired code go through this
-// instead of sleeping.
 func (f *Fake) ExpireInviteCodeForTests(code string) {
 	ic := f.inviteCodes[code]
 	ic.ExpiresAt = time.Now().Add(-time.Hour)

@@ -1,5 +1,3 @@
-// Package api is registry-service's HTTP layer: public signup/status routes
-// and the provisioner-only internal routes.
 package api
 
 import (

@@ -9,11 +9,6 @@ import (
 	"net/http"
 )
 
-// requireInternalSignature protects the system-to-system routes (called by
-// claims-gateway and the provisioner, never a browser) with an HMAC over the
-// raw body — the same X-Signature convention auth-service already uses for
-// its administration routes, kept consistent rather than inventing a second
-// internal-auth scheme.
 func requireInternalSignature(secret []byte) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
