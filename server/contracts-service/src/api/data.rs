@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::infra::claims::GatewayClaims;
 use crate::infra::db;
 use crate::state::AppState;
 
@@ -29,6 +30,7 @@ pub struct GetPreferencesResponse {
 
 // GET /preferences/:building_id
 pub async fn get_preferences(
+    _claims: GatewayClaims,
     Path(building_id): Path<String>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
@@ -47,6 +49,7 @@ pub async fn get_preferences(
 
 // POST /preferences/:building_id
 pub async fn update_preferences(
+    _claims: GatewayClaims,
     State(state): State<AppState>,
     Path(building_id): Path<String>,
     Json(payload): Json<UpdatePreferencesRequest>,
@@ -85,12 +88,21 @@ pub async fn update_preferences(
 #[cfg(test)]
 mod tests {
     use super::{UpdatePreferencesRequest, get_preferences, update_preferences};
+    use crate::infra::claims::{ClaimsPayload, GatewayClaims};
     use crate::models::PreferenceDocument;
     use crate::state::AppState;
     use axum::Json;
     use axum::extract::{Path, State};
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
+
+    fn claims() -> GatewayClaims {
+        GatewayClaims {
+            payload: ClaimsPayload {
+                sub: "u1".to_string(),
+            },
+        }
+    }
 
     async fn make_state() -> AppState {
         let opts = mongodb::options::ClientOptions::parse("mongodb://localhost:27017")
@@ -108,7 +120,7 @@ mod tests {
     #[tokio::test]
     async fn get_returns_404_for_unknown_building() {
         let state = make_state().await;
-        let response = get_preferences(Path("unknown".to_string()), State(state))
+        let response = get_preferences(claims(), Path("unknown".to_string()), State(state))
             .await
             .into_response();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -121,7 +133,7 @@ mod tests {
             .building_preferences
             .insert("bldg-1".to_string(), vec!["temperature".to_string()]);
 
-        let response = get_preferences(Path("bldg-1".to_string()), State(state))
+        let response = get_preferences(claims(), Path("bldg-1".to_string()), State(state))
             .await
             .into_response();
         assert_eq!(response.status(), StatusCode::OK);
@@ -133,6 +145,7 @@ mod tests {
     async fn update_stores_new_columns_in_dashmap() {
         let state = make_state().await;
         update_preferences(
+            claims(),
             State(state.clone()),
             Path("bldg-1".to_string()),
             Json(UpdatePreferencesRequest {
@@ -153,6 +166,7 @@ mod tests {
             .insert("bldg-1".to_string(), vec!["old-col".to_string()]);
 
         update_preferences(
+            claims(),
             State(state.clone()),
             Path("bldg-1".to_string()),
             Json(UpdatePreferencesRequest {
@@ -169,6 +183,7 @@ mod tests {
     async fn update_stores_empty_column_list() {
         let state = make_state().await;
         update_preferences(
+            claims(),
             State(state.clone()),
             Path("bldg-1".to_string()),
             Json(UpdatePreferencesRequest {
@@ -185,6 +200,7 @@ mod tests {
     async fn update_returns_200_ok() {
         let state = make_state().await;
         let response = update_preferences(
+            claims(),
             State(state),
             Path("bldg-1".to_string()),
             Json(UpdatePreferencesRequest {

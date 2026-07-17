@@ -391,21 +391,3 @@ just k8s load
 ```
 
 Also check that the deployment manifest sets `imagePullPolicy: IfNotPresent`, not `Always` — `Always` forces a remote pull even when the image exists locally.
-
----
-
-### nginx Ingress rejects `configuration-snippet` annotation
-
-Applies only if you've installed the nginx Ingress Controller yourself (e.g. for a VPS deployment using `k8s/ingress.yml`) — the default local k3d path uses Istio's Gateway API instead (see [Kubernetes Configuration](kubernetes.qd)), which isn't affected by this. Newer versions of the nginx Ingress Controller disable snippet annotations by default. If you see:
-
-```text
-annotation nginx.ingress.kubernetes.io/configuration-snippet is not allowed
-```
-
-Re-install the ingress controller with snippets enabled:
-
-```bash
-helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
-  --namespace ingress-nginx \
-  --set controller.allowSnippetAnnotations=true
-```

@@ -28,16 +28,20 @@ spec:
 # Once ANY AuthorizationPolicy selects a workload, Istio flips that workload
 # to default-deny for everything not explicitly matched. So this needs two
 # rules, not one: rule 1 allows every path EXCEPT the protected ones with no
-# principal required (claims-gateway self-manages its own auth; contracts and
-# the client SPA never had per-request JWT auth and the SPA needs unauthenticated
-# access to serve its shell before login); rule 2 allows the protected paths
-# only with a JWT principal verified by the RequestAuthentication above.
+# principal required (claims-gateway self-manages its own auth; the client SPA
+# needs unauthenticated access to serve its shell before login); rule 2 allows
+# the protected paths only with a JWT principal verified by the
+# RequestAuthentication above.
 #
 # /agent/* is deliberately NOT gated here (same as its Caddyfile route):
 # agent-service also serves evals/run_evals.py's local-dev HS256 bypass,
 # which doesn't hold a real gateway JWT to present at the edge — it keeps
 # doing its own auth in-process (see app/auth.py's require_user), checking
 # for a mesh claims header first and falling back to the eval token.
+# Because the route is ungated, RequestAuthentication never injects a verified
+# x-gateway-claims for it, so agent's /agent HTTPRoute in istio-gateway.yml
+# strips any client-supplied one (RequestHeaderModifier remove) — agent trusts
+# that header without a signature check, so an ungated caller could forge it.
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -59,6 +63,8 @@ spec:
               - /chat/*
               - /socket.io/*
               - /tenancy/*
+              - /contracts
+              - /contracts/*
     # Telemetry ingestion is device/simulator-facing and carries no user token —
     # sensor-service leaves POST /ingest unauthenticated (see its router.ts), so
     # allow it with no principal. Everything else under /sensor/* still needs a
@@ -79,3 +85,5 @@ spec:
               - /chat/*
               - /socket.io/*
               - /tenancy/*
+              - /contracts
+              - /contracts/*

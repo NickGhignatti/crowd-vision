@@ -12,10 +12,9 @@ All Kubernetes configuration lives in the `k8s/` directory. All 12 application s
 ```bash
 k8s/
 ├── namespace.yml              # The crowdvision namespace
-├── ingress.yml                # nginx Ingress routing rules (2 objects) — the default path
-├── istio-gateway.yml          # Gateway API Gateway + HTTPRoutes — Istio ambient mesh path
-├── istio-peer-authentication.yml
-├── istio-request-authentication.yml
+├── istio-gateway.yml          # Gateway API Gateway + HTTPRoutes — the k8s ingress
+├── istio-peer-authentication.yml   # Namespace STRICT mTLS
+├── istio-request-authentication.yml # Edge JWT verification + AuthorizationPolicy
 ├── configmaps/
 │   └── common.yml             # Non-sensitive shared environment variables
 ├── secrets/                   # Gitignored, and not even materialised as files —
@@ -100,53 +99,11 @@ CrowdVision uses two different Kubernetes workload types depending on whether th
 
 ## 🌐 Ingress Configuration
 
-CrowdVision's cluster has **two parallel ingress paths** defined, at different levels of maturity. `k8s/ingress.yml` (nginx Ingress) is the default — it's what `just k8s setup` installs and what the deployment order table below routes through. `k8s/istio-gateway.yml` (Gateway API, fronting the Istio ambient mesh) is a fully-built, verified alternative used to validate the mesh-based architecture described in [Service Mesh Architecture](service-mesh.qd) — docker-compose + Caddy remains the primary day-to-day dev loop, and this k3d+Istio path hasn't yet been cut over to be the production ingress. See [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh-local-k3d-dev-cluster) for how to stand up the Istio path locally.
+Kubernetes ingress is Istio's Gateway API. `k8s/istio-gateway.yml` defines one `Gateway` (class `istio`, which auto-provisions its own Envoy Deployment/Service named `crowdvision-gateway-istio`) plus one `HTTPRoute` per service, fronting the Istio ambient mesh. It's the single k8s ingress for every environment — local k3d and production alike. There is no nginx `Ingress`: it had no edge authentication, so once the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header outright (see [Service Mesh Architecture](service-mesh.qd)).
 
-### nginx Ingress (default)
+**Per-service routes.** Each API route gets a `URLRewrite`/`ReplacePrefixMatch` filter that strips the service prefix before forwarding — so `/twin/buildings` reaches `twin-service` as `/buildings`. `socket-service`'s route and the client's `/` catch-all forward the path unrewritten; `/grafana` is forwarded intact to Grafana, which owns that subpath. Gateway API matches by path specificity, so the client catch-all is evaluated last regardless of file order. The routes cover every service including `claims-gateway` (`/gateway`) and `tenancy-service` (`/tenancy`).
 
-The Ingress resource is split into two objects in `k8s/ingress.yml` because they require different annotation sets.
-
-**Ingress 1: API services (with URL rewriting)**
-
-All API services use a regex path with a capture group and the `rewrite-target: /$2` annotation. This strips the service prefix before forwarding — so a request to `/twin/buildings` reaches `twin-service` as `/buildings`, not `/twin/buildings`. Six services route this way: `chat`, `twin`, `notification`, `agent`, `sensor`, `contracts`.
-
-```yaml
-annotations:
-  nginx.ingress.kubernetes.io/use-regex: "true"
-  nginx.ingress.kubernetes.io/rewrite-target: /$2
-  nginx.ingress.kubernetes.io/enable-cors: "true"
-  nginx.ingress.kubernetes.io/cors-allow-origin: "http://crowdvision.local"
-
-# Path pattern — two capture groups:
-path: /twin(/|$)(.*)
-# Group 1: (/|$)  — matches the slash or end of path
-# Group 2: (.*)   — captures everything after /twin/
-# $2 in rewrite-target = the captured remainder → forwarded as /buildings
-```
-
-.box {claims-gateway and tenancy-service are not on this Ingress} type:{note}
-    `k8s/ingress.yml` predates the identity/tenancy stack getting Kubernetes manifests and hasn't been extended with `/gateway` or `/tenancy` routes — those two services currently have Deployments and Services in-cluster, but no nginx route reaches them. `k8s/istio-gateway.yml` already has both (see below), which is one of the small ways the Istio path is ahead of the nginx one.
-
-**Ingress 2: WebSocket, client, and monitoring (no rewriting)**
-
-The second Ingress object handles the Vue client, Socket.IO, and Grafana. No URL rewriting is needed — the client serves from `/`, Socket.IO expects to receive requests at `/socket.io/`, and Grafana is proxied as-is at `/grafana`. This object also sets sticky session cookies so that Socket.IO polling handshakes are consistently routed to the same backend pod.
-
-```yaml
-annotations:
-  nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-  nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-  nginx.ingress.kubernetes.io/affinity: "cookie"
-  nginx.ingress.kubernetes.io/session-cookie-name: "route"
-```
-
-.box type:{note}
-    The `/` catch-all rule for the Vue client is evaluated last, after `/socket.io` and `/grafana` — nginx Ingress sorts paths by specificity automatically, so ordering in the file doesn't matter, only path specificity does.
-
-### Gateway API / Istio ambient mesh (validated, not yet default)
-
-`k8s/istio-gateway.yml` defines one Gateway API `Gateway` (class `istio`, which auto-provisions its own Envoy Deployment/Service) plus one `HTTPRoute` per service — nine of them, covering everything the nginx Ingress covers *and* `claims-gateway` (`/gateway`) and `tenancy-service` (`/tenancy`), which the nginx path doesn't reach. Each API route gets a `URLRewrite`/`ReplacePrefixMatch` filter equivalent to nginx's `rewrite-target`; `socket-service`'s route and the client's catch-all route forward the path unrewritten, same intent as nginx Ingress 2.
-
-This path runs with Istio ambient mesh enrollment underneath it — `ztunnel` L4 mTLS, `PeerAuthentication: STRICT`, and edge `RequestAuthentication` verifying JWTs once and injecting `x-gateway-claims` — none of which the nginx Ingress path has. See [Service Mesh Architecture](service-mesh.qd) for the full migration (all five phases done and verified in the k3d cluster) and [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh-local-k3d-dev-cluster) for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).
+**Edge security.** The Gateway runs with Istio ambient enrollment underneath it — `ztunnel` L4 mTLS, `PeerAuthentication: STRICT`, and edge `RequestAuthentication` verifying the gateway JWT once and injecting the validated claims as `x-gateway-claims`. An `AuthorizationPolicy` requires a verified JWT principal on the protected service paths (`/twin`, `/sensor`, `/notification`, `/chat`, `/socket.io`, `/tenancy`, `/contracts`); `/gateway`, `/agent`, `/sensor/ingest`, `/grafana`, and the client SPA are deliberately open. `docker-compose` + Caddy's `forward_auth` mirrors this exactly for the dev loop. See [Service Mesh Architecture](service-mesh.qd) for the full migration and [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh) for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).
 
 ---
 

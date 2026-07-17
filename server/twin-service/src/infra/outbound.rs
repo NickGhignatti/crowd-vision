@@ -97,7 +97,11 @@ pub async fn init_room_thresholds(
     }
 }
 
-pub async fn init_building_preferences(config: &OutboundConfig, building_id: &str) {
+pub async fn init_building_preferences(
+    config: &OutboundConfig,
+    building_id: &str,
+    claims_header: Option<&str>,
+) {
     if !config.sync_enabled {
         return;
     }
@@ -106,7 +110,13 @@ pub async fn init_building_preferences(config: &OutboundConfig, building_id: &st
         config.contracts_service_url,
         urlencoding::encode(building_id)
     );
-    if let Err(err) = config.client.post(&url).send().await {
+    if let Err(err) = config
+        .client
+        .post(&url)
+        .headers(auth_headers(claims_header))
+        .send()
+        .await
+    {
         log::error!("[contracts] failed to init building preferences: {err}");
     }
 }
@@ -196,7 +206,21 @@ mod tests {
             .await
             .unwrap();
         init_room_thresholds(&cfg, "b1", "r1", 10.0, None).await;
-        init_building_preferences(&cfg, "b1").await;
+        init_building_preferences(&cfg, "b1", None).await;
+    }
+
+    #[tokio::test]
+    async fn init_building_preferences_forwards_the_callers_claims_header() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/preferences/init/b1"))
+            .and(header("x-gateway-claims", "tok-123"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        let cfg = config(&server).await;
+        init_building_preferences(&cfg, "b1", Some("tok-123")).await;
     }
 
     #[tokio::test]

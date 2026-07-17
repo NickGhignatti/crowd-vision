@@ -104,8 +104,8 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
 
 These calls are intentionally few. The design keeps the request path short and avoids synchronous chains on the hot path; anything high-frequency goes over the broker instead.
 
-.box {Two calls carry no auth at all — by design, not by omission} type:{note}
-    `twin-service → contracts-service` and `contracts-service`'s own outbound discovery calls send no header of any kind. Both are internal bootstrap/discovery calls with no sensitive side effect for an unauthenticated caller to exploit — contracts-service's discovery only *reads* a metric catalog, and the preferences-init call only seeds a default that an authenticated user can later overwrite through the normal, authenticated path. Every call that reads or writes something a specific user's authorization should gate does carry `x-gateway-claims`.
+.box {One outbound call carries no auth — by design, not by omission} type:{note}
+    `contracts-service`'s own outbound discovery calls send no header of any kind: they only *read* a metric catalog from `twin-service` and `sensor-service`'s public `/contracts` endpoints, with no sensitive side effect for an unauthenticated caller to exploit. Every call that reads or writes something a specific user's authorization should gate carries `x-gateway-claims` — including the `twin-service → contracts-service` preferences-init call, which forwards the building creator's claims verbatim, the same as twin's other outbound calls. `contracts-service` now requires that header on all of its own inbound user-facing routes (dashboard schema and preferences), so those are no longer reachable anonymously.
 
 .box {registry-service and tenancy-service never call out} type:{tip}
     Both are pure receivers of the calls above — neither has an outbound HTTP client for any peer service. Only `claims-gateway` talks to Keycloak (Admin API for user management, OIDC endpoints for token exchange/verification); no other service holds Keycloak credentials or configuration.

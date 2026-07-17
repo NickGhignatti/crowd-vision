@@ -1,11 +1,3 @@
-# docker-compose's byte-identical equivalent of Istio's RequestAuthentication
-# + outputPayloadToHeader (see k8s/istio-request-authentication.yml): calls
-# claims-gateway's /verify (itself using authmiddleware.RequireAuthentication
-# against the cookie/Bearer token), and on 200 copies the X-Gateway-Claims
-# response header onto the request before it reaches the upstream service —
-# HTTP header lookups are case-insensitive, so every service's lowercase
-# `x-gateway-claims` read matches this unchanged. A non-200 (missing/invalid
-# token) short-circuits with that same status, same as Istio's AuthorizationPolicy.
 (require_gateway_auth) {
     forward_auth claims-gateway:3000 {
         uri /verify
@@ -18,10 +10,6 @@
     encode zstd gzip
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    # Handle CORS once here at the gateway so no individual service needs it.
-    # {http.request.header.Origin} echoes the browser's own origin back,
-    # which satisfies the same-origin check for credentialed requests without
-    # hardcoding a port that can change via CLIENT_PORT in .env.
 
     @cors_preflight {
         method OPTIONS
@@ -74,11 +62,10 @@
     }
 
     # ── Agent service ─────────────────────────────────────────────────────────
-    # Not gated here: agent-service also serves evals/run_evals.py's local-dev
-    # HS256 bypass, which doesn't hold a real gateway token to present to
-    # /verify — it keeps doing its own auth in-process (see app/auth.py).
     handle_path /agent/* {
-        reverse_proxy agent-service:3000
+        reverse_proxy agent-service:3000 {
+            header_up -X-Gateway-Claims
+        }
     }
 
     # ── Chat service ──────────────────────────────────────────────────────────
@@ -88,14 +75,12 @@
     }
 
     # ── Contracts Service ───────────────────────────────────────────────────────
-    # Using `handle` (not `handle_path`) so the full path is forwarded to the
-    # service unchanged. This means Axum receives /contracts and
-    # /contracts/preferences/:id exactly as declared in its route table.
-    # Two matchers are needed because /contracts/* does not match /contracts itself.
     handle_path /contracts {
+        import require_gateway_auth
         reverse_proxy contracts-service:3000
     }
     handle_path /contracts/* {
+        import require_gateway_auth
         reverse_proxy contracts-service:3000
     }
 
@@ -106,11 +91,6 @@
     }
 
     # ── Signal sensor service ─────────────────────────────────────────────────
-    # Telemetry ingestion is device/simulator-facing and carries no user token —
-    # sensor-service itself leaves POST /ingest unauthenticated (see its
-    # router.ts). Gating it here 401s every sensor/simulator, so carve it out
-    # ahead of the gated block (handle blocks match in source order). Mirrors
-    # the /sensor/ingest allow rule in k8s/istio-request-authentication.yml.
     handle /sensor/ingest {
         uri strip_prefix /sensor
         reverse_proxy sensor-service:3000

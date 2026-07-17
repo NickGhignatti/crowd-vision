@@ -3,6 +3,7 @@
 //! service with external systems; the API and tunnel depend on them, never the
 //! reverse.
 
+pub mod claims;
 pub mod db;
 pub mod discovery;
 pub mod metrics;

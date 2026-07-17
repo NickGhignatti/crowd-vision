@@ -253,19 +253,10 @@ This single command runs in order:
 2. Installs the Gateway API CRDs, then Istio in ambient mode (`istiod`, `ztunnel`, `istio-cni`) — see [Kubernetes Configuration](kubernetes.qd) for why ambient mode and the k3d-specific CNI flags matter.
 3. Labels the `crowdvision` namespace `istio.io/dataplane-mode=ambient` and creates it.
 4. Runs `just k8s secrets` — creates all Kubernetes Secret objects from your `.env`.
-5. Applies ConfigMaps, StatefulSets (databases), Deployments, the nginx-class `Ingress` manifests (not functional on a local k3d cluster — see the note below), and monitoring.
+5. Applies ConfigMaps, StatefulSets (databases), Deployments, the Istio mesh manifests (`istio-peer-authentication.yml`, `istio-gateway.yml`, `istio-request-authentication.yml` — the `Gateway`/`HTTPRoute`s that make `http://crowdvision.local` work, STRICT mTLS, and edge JWT verification), and monitoring.
 
 .box type:{warning}
     `just k8s secrets` must run after the namespace exists. `just k8s setup` handles this ordering automatically. If you run `just k8s secrets` manually before creating the namespace, it will fail with "namespaces not found".
-
-.box {One more manual step: the Gateway API routes} type:{warning}
-    `just k8s setup` does **not** apply `k8s/istio-gateway.yml` — the `HTTPRoute` resources that actually make `http://crowdvision.local` work locally. Apply it yourself once the setup command finishes:
-
-    ```bash
-    kubectl apply -f k8s/istio-gateway.yml
-    ```
-
-    The `k8s/ingress.yml` manifests that *are* applied by `just k8s setup` use `ingressClassName: nginx`, but no `just k8s` recipe installs an nginx Ingress controller — they're written for a production/VPS deployment where you install one yourself (see [Kubernetes Configuration](kubernetes.qd)), not for local k3d. On a plain local cluster they sit inert; that's expected, not a bug.
 
 ### Accessing the Platform
 

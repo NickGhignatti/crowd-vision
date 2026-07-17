@@ -187,7 +187,7 @@ Every service downstream of the edge trusts exactly one thing: a header called `
 Downstream of either path, the receiving service does the same thing: decode `x-gateway-claims`, trust it, done — no JWKS, no crypto, no network call. `claims-gateway` is therefore the **only** service in the whole platform that ever verifies a raw JWT signature; every other service is a pure consumer of an already-verified identity.
 
 .box {agent-service is the deliberate exception} type:{note}
-    `/agent/*` is not gated by `require_gateway_auth` in the Caddyfile, and has no equivalent `AuthorizationPolicy` requirement at the Istio edge. `evals/run_evals.py`'s local-dev bypass token is HS256-signed with a secret claims-gateway never sees — it was never going to pass gateway verification, by design. `agent-service` checks for the mesh claims header first and falls back to its own eval-token verification (`app/auth.py`).
+    `/agent/*` is not gated by `require_gateway_auth` in the Caddyfile, and has no equivalent `AuthorizationPolicy` requirement at the Istio edge. `evals/run_evals.py`'s local-dev bypass token is HS256-signed with a secret claims-gateway never sees — it was never going to pass gateway verification, by design. `agent-service` checks for the mesh claims header first and falls back to its own eval-token verification (`app/auth.py`). Since the edge can't *inject* a verified `x-gateway-claims` on an ungated route, both edges **strip** any client-supplied one on `/agent` (agent decodes that header without a signature check, so an ungated caller could otherwise forge it); real user traffic reaches agent through `chat-service`, which forwards mesh-verified claims internally.
 
 The internal HMAC-signed contract used for `claims-gateway` → `tenancy-service` and `provisioner` → `registry-service`/`tenancy-service` calls is the same convention across the whole Go control plane — see each service's `internal/api/internalauth.go` for the `X-Signature` implementation.
 
@@ -258,8 +258,8 @@ This is why an organization can sit visibly "provisioning" for up to one reconci
 .box {No CI coverage for the Go identity/tenancy stack} type:{warning}
     None of the four services (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) appear anywhere in `.github/workflows/` — no lint, test, or build gate runs on them in CI today. This is a real, still-open gap, unrelated to the Kubernetes work below.
 
-.box {nginx Ingress doesn't route to claims-gateway or tenancy-service} type:{note}
-    All four services have `Deployment`/`Service` manifests and are fully reachable in-cluster, plus Postgres StatefulSets for `registry-db`/`tenancy-db` — but the default nginx Ingress (`k8s/ingress.yml`) has no `/gateway` or `/tenancy` route. Only the Gateway API path (`k8s/istio-gateway.yml`) reaches them — see [Deployment & Kubernetes](deployment.qd).
+.box {Only claims-gateway and tenancy-service are exposed at the edge} type:{note}
+    All four services have `Deployment`/`Service` manifests and are reachable in-cluster, plus Postgres StatefulSets for `registry-db`/`tenancy-db`. The Istio gateway (`k8s/istio-gateway.yml`) routes `/gateway` → `claims-gateway` and `/tenancy` → `tenancy-service`; `registry-service` and `provisioner` have no external route by design — they're control-plane-internal, reached only over the mesh via HMAC-signed calls (see [Deployment & Kubernetes](deployment.qd)).
 
 .box {Enterprise self-registration and per-domain BYO-OIDC are not currently supported} type:{note}
     Neither `claims-gateway` nor `tenancy-service` exposes an equivalent of enterprise self-registration or per-domain BYO-OIDC. Building either would need a fresh design against Keycloak's Organizations/identity-brokering features.

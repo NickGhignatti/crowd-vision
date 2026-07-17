@@ -25,11 +25,8 @@ just k8s delete
 .box {k8s-delete is destructive} type:{warning}
     `just k8s delete` removes the namespace and every PersistentVolumeClaim in it — all database data is permanently lost, with no undo. To pause without losing data, use `just k8s stop` and later `just k8s start`.
 
-.box {One manual step `just k8s setup` doesn't do} type:{warning}
-    `just k8s setup` does not apply `k8s/istio-gateway.yml` — the `HTTPRoute`s that route traffic once Istio is installed. Run `kubectl apply -f k8s/istio-gateway.yml` yourself right after; see **Istio ambient mesh** further down this page.
-
-.box {k8s/ingress.yml targets a different deployment, not your local cluster} type:{note}
-    `just k8s apply` also applies `k8s/ingress.yml` (`ingressClassName: nginx`), but no `just k8s` recipe installs an nginx Ingress controller — on a plain local k3d cluster those `Ingress` objects have no controller watching that class and sit inert. That's expected: `k8s/ingress.yml` is written for a production/VPS deployment (its own comments say so — `host: crowdvision.local # change to your VPS domain for production`), where you're expected to install ingress-nginx yourself the standard way (e.g. Helm) as part of standing up that cluster, the same way you'd do it for any Kubernetes deployment outside this repo's local dev tooling. For the local k3d dev cluster, `k8s/istio-gateway.yml` (above) is the path that's actually wired up end to end.
+.box {Istio's Gateway API is the only k8s ingress} type:{note}
+    `just k8s apply` applies the full Istio path — `k8s/istio-peer-authentication.yml` (namespace STRICT mTLS), `k8s/istio-gateway.yml` (the `Gateway` + per-service `HTTPRoute`s), and `k8s/istio-request-authentication.yml` (edge JWT verification + `AuthorizationPolicy`) — no manual `kubectl apply` afterward. There is no nginx `Ingress` anymore: it had no edge authentication, so after the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header. Istio's `RequestAuthentication` is the only path that actually verifies tokens at the edge, so it's the ingress for every environment — local k3d and production alike.
 
 ---
 
@@ -55,16 +52,18 @@ Manifests must be applied in dependency order, because a service crashes if its 
     - - 4. Deployments
       - `k8s/deployments/`
       - The stateless application services and the client, including the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`).
-    - - 5. Ingress and monitoring
-      - `k8s/ingress.yml`, `k8s/monitoring/`
-      - The nginx `Ingress` rules (production/VPS target — see the note above for local k3d), and the Prometheus/Grafana stack.
+    - - 5. Mesh ingress and monitoring
+      - `k8s/istio-peer-authentication.yml`, `k8s/istio-gateway.yml`, `k8s/istio-request-authentication.yml`, `k8s/monitoring/`
+      - STRICT mTLS for the namespace, the `Gateway` + per-service `HTTPRoute`s, edge JWT verification + `AuthorizationPolicy`, and the Prometheus/Grafana stack. The gateway is applied before request-authentication because the latter's `AuthorizationPolicy` selects the gateway workload.
 
 ```bash
 kubectl apply -f k8s/namespace.yml
 kubectl apply -f k8s/configmaps/
 kubectl apply -f k8s/stateful/      # wait for these pods to reach Running
 kubectl apply -f k8s/deployments/
-kubectl apply -f k8s/ingress.yml
+kubectl apply -f k8s/istio-peer-authentication.yml
+kubectl apply -f k8s/istio-gateway.yml
+kubectl apply -f k8s/istio-request-authentication.yml
 kubectl apply -f k8s/monitoring/
 ```
 
@@ -129,9 +128,9 @@ just k8s apply   # apply manifests
 
 ---
 
-## Istio ambient mesh (local k3d dev cluster)
+## Istio ambient mesh
 
-The local k3d dev cluster runs Istio in **ambient mode** as the ingress path (Gateway API), replacing the nginx Ingress for that cluster. This is additive infrastructure — `docker-compose` + Caddy is still the primary day-to-day dev loop; the k3d+Istio path is for testing the mesh-based production architecture (see [Service Mesh Architecture](../architecture/service-mesh.qd)).
+Kubernetes runs Istio in **ambient mode** as its ingress path (Gateway API) in every environment — local k3d and production alike. `docker-compose` + Caddy remains the primary day-to-day *dev loop*, but the k8s path is no longer a validation experiment: it's the deployment target, and Caddy's `forward_auth` mirrors Istio's edge auth byte-for-byte so the two stacks stay at parity (see [Service Mesh Architecture](../architecture/service-mesh.qd)). The one-time cluster bootstrap (`just k8s create` / `gateway-api` / `istio-install`) is below; `just k8s apply` then applies the Gateway, mTLS, and edge-auth manifests as part of the normal deploy.
 
 ```bash
 just k8s create          # create the k3d cluster (traefik disabled — Istio owns ingress)
@@ -148,11 +147,13 @@ just k8s istio-install    # install Istio ambient (istiod, ztunnel, istio-cni)
 .box {Git Bash mangles the CNI path arguments} type:{warning}
     On Windows, running `istioctl install --set values.cni.cniBinDir=/bin` from Git Bash silently rewrites the leading `/` into a Windows path (e.g. `/bin` → `C:/Program Files/Git/bin`), because MSYS treats any argument starting with `/` as a path to translate. Set `MSYS2_ARG_CONV_EXCL="*"` before the `istioctl install` call to disable this (already baked into the `just k8s istio-install` recipe).
 
-Once installed, enroll the namespace and apply the Gateway API resources:
+The namespace enrollment and the Istio manifests are applied by `just k8s setup` / `just k8s apply` (the label plus `k8s/istio-peer-authentication.yml`, `k8s/istio-gateway.yml`, and `k8s/istio-request-authentication.yml`); the manual equivalent is:
 
 ```bash
 kubectl label namespace crowdvision istio.io/dataplane-mode=ambient --overwrite
+kubectl apply -f k8s/istio-peer-authentication.yml
 kubectl apply -f k8s/istio-gateway.yml
+kubectl apply -f k8s/istio-request-authentication.yml
 ```
 
 `k8s/istio-gateway.yml` defines one Istio `Gateway` (class `istio`, which auto-provisions an Envoy `Deployment`/`Service` named `<name>-istio`) plus one `HTTPRoute` per service, mirroring the Caddyfile's routes. Services that use `handle_path` in the Caddyfile (path prefix stripped before forwarding) get a matching Gateway API `URLRewrite`/`ReplacePrefixMatch` filter; `contracts-service`'s route needs this too even though its Caddyfile comment claims otherwise — the comment is stale, the directive (`handle_path`) always strips.

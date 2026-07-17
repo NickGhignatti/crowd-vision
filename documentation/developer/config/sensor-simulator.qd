@@ -73,7 +73,7 @@ The simulator sends data to CrowdVision's `/sensor/` endpoints via HTTP POST. Wh
     sequenceDiagram
         participant UI as Vue Dashboard (Browser)
         participant Sim as Simulator Container (Docker)
-        participant K8s as K8s Cluster (nginx Ingress :80)
+        participant K8s as K8s Cluster (Istio ingress :80)
         participant SS as sensor-service Pod
 
         UI->>Sim: POST http://localhost:3001/control/start\n{targetUrl: "http://localhost/sensor", buildingId, roomIds}

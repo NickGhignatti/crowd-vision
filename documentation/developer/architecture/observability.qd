@@ -26,7 +26,7 @@ Prometheus and Grafana are deployed twice, independently, with different configu
       - Auto-provisioned via `GF_DATASOURCES_DEFAULT_*` env vars pointing at `http://prometheus:9090`
     - - Exposed at
       - `/prometheus/`, `/grafana/` (Caddy `handle_path`/`handle`)
-      - `/grafana` only (nginx Ingress 2) — Prometheus has no Ingress route, reachable only in-cluster
+      - `/grafana` only (its Istio `HTTPRoute`) — Prometheus has no gateway route, reachable only in-cluster
     - - Retention
       - Whatever the image default is — not configured
       - 15 days, backed by a 5Gi PVC (`--storage.tsdb.retention.time=15d`)

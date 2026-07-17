@@ -121,7 +121,7 @@ pub async fn add_building(
     db::insert(&state.buildings, &building).await?;
 
     outbound::sync_building_clone(&state.outbound, &building, None, Some(&claims.raw)).await?;
-    outbound::init_building_preferences(&state.outbound, &building.id).await;
+    outbound::init_building_preferences(&state.outbound, &building.id, Some(&claims.raw)).await;
 
     Ok((StatusCode::CREATED, Json(building)))
 }

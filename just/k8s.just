@@ -54,7 +54,9 @@ validate:
     kubectl apply --dry-run=client -f k8s/configmaps/
     kubectl apply --dry-run=client -f k8s/stateful/
     kubectl apply --dry-run=client -f k8s/deployments/
-    kubectl apply --dry-run=client -f k8s/ingress.yml
+    kubectl apply --dry-run=client -f k8s/istio-peer-authentication.yml
+    kubectl apply --dry-run=client -f k8s/istio-gateway.yml
+    kubectl apply --dry-run=client -f k8s/istio-request-authentication.yml
     kubectl apply --dry-run=client -f k8s/monitoring/
 
 [doc("Apply all manifests in dependency order — idempotent, safe to re-run.")]
@@ -63,7 +65,9 @@ apply:
     kubectl apply -f k8s/configmaps/
     kubectl apply -f k8s/stateful/
     kubectl apply -f k8s/deployments/
-    kubectl apply -f k8s/ingress.yml
+    kubectl apply -f k8s/istio-peer-authentication.yml
+    kubectl apply -f k8s/istio-gateway.yml
+    kubectl apply -f k8s/istio-request-authentication.yml
     kubectl apply -f k8s/monitoring/
 
 [doc("Full first-time cluster setup: create → istio → gateway → namespace → secrets → manifests.")]
