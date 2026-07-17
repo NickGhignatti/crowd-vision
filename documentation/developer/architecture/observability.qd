@@ -1,7 +1,7 @@
 .docname {Observability}
 .include {docs}
 
-This page covers metrics — what's instrumented, what scrapes it, and where the gaps are. CrowdVision has no centralized logging or distributed tracing today; each service logs to its own stdout, and the only tracing in the system is `agent-service`'s optional OpenTelemetry export to Langfuse for LLM call inspection, which is unrelated to the Prometheus stack described here — see [Agent Service](../services/agent.qd) for that. For the LLM-adjacent "Metrics Service" name collision, see the note at the bottom of this page.
+This page covers metrics — what's instrumented, what scrapes it, and where the gaps are. CrowdVision has no centralized logging or distributed tracing today; each service logs to its own stdout, and the only tracing in the system is `agent-service`'s optional OpenTelemetry export to Langfuse for LLM call inspection, which is unrelated to the Prometheus stack described here — see [Agent Service](../services/agent.qd) for that.
 
 ---
 
@@ -101,9 +101,3 @@ Of the 11 backend services, only 4 expose a `/metrics` endpoint:
 ## cAdvisor: metrics without any code changes
 
 The Kubernetes `kubernetes-cadvisor` job doesn't depend on any service exposing anything — it reaches each node's built-in cAdvisor through the Kubernetes API server proxy (`/api/v1/nodes/<node>/proxy/metrics/cadvisor`) and gets per-container CPU, memory, network, and disk usage for every pod in the cluster, instrumented or not. This is the only metrics signal that currently covers all 12 services uniformly — it just can't see inside the application (request rates, error rates, latency), only its resource footprint.
-
----
-
-## A different "Metrics Service"
-
-`documentation/developer/services/metrics.qd` exists but is unrelated to any of this — despite the name, it documents a `DashMap`-based telemetry-filtering/caching layer between `sensor-service` and the client (per-user column filtering on the hot path), not Prometheus metrics collection. It isn't linked from the sidebar navigation and has no corresponding entry in `k8s/deployments/`, so it may describe logic embedded in another service rather than a standalone deployable one — worth confirming before relying on it.

@@ -1,6 +1,7 @@
-# SPEC - Simple persistent chat sessions
+.docname {Chat Sessions}
+.include {docs}
 
-> Status: draft. Scope: basic chatbot-style conversation history.
+> Status: implemented. Scope: basic chatbot-style conversation history.
 
 ## 1. Goal
 
@@ -159,7 +160,8 @@ out of scope.
 
 ## 7. Implementation scope
 
-Create `server/chat-service` by following the existing `auth-service` conventions:
+`server/chat-service` follows the same conventions as the other Node reference
+services (`notification-service`, `sensor-service`):
 
 - Express, TypeScript, Mongoose, and the shared JWT secret.
 - Thin controllers and a conversation service containing the main logic.
@@ -167,20 +169,21 @@ Create `server/chat-service` by following the existing `auth-service` convention
 - Central error handling and Prometheus metrics.
 - A service-local `docker-compose.yml` and `docker-compose.dev.yml`.
 
-Add:
+Also included:
 
-- `handle_path /chat/*` to `Caddyfile`.
-- `chat-service` and `chat-db` through the service-local Compose files. The repo's
-  existing Compose runner will discover them automatically.
+- `handle_path /chat/*` in `Caddyfile`.
+- `chat-service` and `chat-db` through the service-local Compose files, discovered
+  automatically by the repo's Compose runner.
 - A Prometheus scrape target for `chat-service`.
 - A Moon project file so build, test, and lint run with the other services.
+- A `k8s/deployments/chat-service.yml` deployment manifest.
 
-Update `client/src/components/layouts/ChatWidget.vue` to:
+`client/src/components/layouts/ChatWidget.vue`:
 
-- Use `/chat/conversations` instead of `/agent/ask`.
-- Create and switch chats.
-- Load saved messages when a chat is opened.
-- Rename and delete chats.
+- Uses `/chat/conversations` instead of `/agent/ask`.
+- Creates and switches chats.
+- Loads saved messages when a chat is opened.
+- Renames and deletes chats.
 
 The client sends one message at a time and disables sending while waiting for the
 assistant response.
@@ -235,4 +238,3 @@ The work is complete when:
 - LLM-generated titles or summaries.
 - Storing usage, model, retrieval diagnostics, or Langfuse trace IDs.
 - Retry, regenerate, edit-message, and branching features.
-- Kubernetes deployment for `chat-service`.

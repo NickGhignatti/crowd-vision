@@ -20,5 +20,5 @@ scrape_configs:
     metrics_path: /metrics
   - job_name: "socket-service"
     static_configs:
-      - targets: ["socket-service:3000"]
+      - targets: ["socket-server:3000"]
     metrics_path: /metrics
