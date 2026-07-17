@@ -17,6 +17,9 @@ spec:
     metadata:
       labels:
         app: socket-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret

@@ -41,3 +41,9 @@ when { principal.domainsAsBusinessAdmin.contains(resource.domain) };
 // compared against context rather than a hardcoded weight.
 permit(principal, action == Action::"ModelOverride", resource)
 when { principal.maxRoleWeight >= context.requiredWeight };
+
+// IngestDocuments: admin role only, globally (non-domain-scoped). Matches
+// agent-service's POST /ingest. 100 is "admin"'s weight in roles.json, kept
+// as a literal for the same reason as ReadWithAdminBypass above.
+permit(principal, action == Action::"IngestDocuments", resource)
+when { principal.maxRoleWeight >= 100 };

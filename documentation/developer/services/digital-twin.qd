@@ -3,7 +3,7 @@
 
 Implementation reference for the `twin-service`. For its architectural role, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd); for the domain model, see [Building Management](../domain/building-management.qd).
 
-A Rust / Axum service (rewritten from the original Node.js/Express implementation in Phase 4 of the [service mesh migration](../architecture/service-mesh.qd)). It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services.
+A Rust / Axum service. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services (see *Downstream Synchronisation* below — the two services that receive that clone, and what happens if sending it fails).
 
 ---
 
@@ -19,7 +19,7 @@ A Rust / Axum service (rewritten from the original Node.js/Express implementatio
     - - `src/main.rs`
       - Reads env config, connects Mongo, starts the Axum server with graceful shutdown.
     - - `src/api/buildings.rs`
-      - Every building/room HTTP handler — combines what the old TS split into `controller/` + `services/buildings.ts`, matching this repo's existing Rust convention (see `contracts-service`).
+      - Every building/room HTTP handler, matching this repo's existing Rust convention of keeping HTTP handlers in one module (see `contracts-service`).
     - - `src/models.rs`
       - `Building`/`Room`/`Coordinates`/`Dimensions`, the lenient `PositionInput`/`DimensionsInput` request types, name-normalisation helpers, and the `AppError` → HTTP response mapping.
     - - `src/infra/db.rs`
@@ -33,11 +33,24 @@ A Rust / Axum service (rewritten from the original Node.js/Express implementatio
     - - `src/infra/metrics.rs`
       - Prometheus registry, the `track_metrics` layer, and the `/health`/`/metrics` handlers.
     - - `src/infra/ratelimit.rs`
-      - Per-IP fixed-window rate limiter (mirrors `express-rate-limit`'s config).
+      - Per-IP fixed-window rate limiter.
     - - `tests/http.rs`
-      - Full HTTP-level parity suite (`tower::ServiceExt::oneshot` against the real `Router`) — ported case-for-case from the old `__tests__/building.test.ts`.
+      - Full HTTP-level suite (`tower::ServiceExt::oneshot` against the real `Router`) covering every route.
     - - `tests/cedar_conformance.rs`
       - Runs `server/auth-policy/fixtures/conformance.json`'s 22 golden cases through the real `cedar-policy` engine.
+
+.mermaid
+    graph TD
+        MAIN["main.rs\nentry point"] --> LIB["lib.rs\nbuilds the Router"]
+        LIB --> API["api/buildings.rs\nall HTTP handlers"]
+        API --> CLAIMS["infra/claims.rs\nGatewayClaims extractor"]
+        API --> AUTHZ["infra/authz.rs\nCedar Read/Edit checks"]
+        API --> DB["infra/db.rs\nMongo access"]
+        API --> OUT["infra/outbound.rs\nsensor/contracts sync"]
+        API --> MODELS["models.rs\nBuilding/Room, AppError"]
+        LIB --> METRICS["infra/metrics.rs\nPrometheus layer"]
+        LIB --> RATE["infra/ratelimit.rs\nper-IP limiter"]
+        AUTHZ -.->|"include_str!, compile time"| POLICY["server/auth-policy\npolicy.cedar + schema"]
 
 ---
 
@@ -63,7 +76,7 @@ A Rust / Axum service (rewritten from the original Node.js/Express implementatio
       - HTTP listen port.
     - - `NODE_ENV`
       - —
-      - When `test`, threshold sync, preference seeding, and the rate limiter are all disabled — kept as `NODE_ENV` (not renamed to a Rust-ier variable) so the same k8s/compose config works unmodified across both the old and new implementation.
+      - When `test`, threshold sync, preference seeding, and the rate limiter are all disabled.
 
 ---
 
@@ -87,9 +100,9 @@ struct Room {
 }
 ```
 
-- `id` is generated server-side on `POST /register` and `POST /building/:id/room`; a client-supplied `id` there is ignored. `PUT /building/:id/rooms` (bulk replace) takes client-supplied room ids, matching the old behavior.
+- `id` is generated server-side on `POST /register` and `POST /building/:id/room`; a client-supplied `id` there is ignored. `PUT /building/:id/rooms` (bulk replace) takes client-supplied room ids.
 - The Mongo collection carries a unique index on `id` and a non-unique index on `domains` (`Building.find({ domains: X })` stays an index seek).
-- No Mongoose-style `_id`/`__v`/timestamp fields leak into API responses — the old service returned them as a side effect of serializing the ODM document directly; nothing in the codebase read them, so the Rust rewrite's `Building`/`Room` structs deliberately don't carry them.
+- No internal database fields (`_id`, a document version, timestamps) leak into API responses — the `Building`/`Room` structs only carry fields a client actually reads.
 
 ---
 
@@ -101,9 +114,9 @@ struct Room {
 
 .tablebyrows {.headers}
     - - `POST /register`
-      - Create a building from `{ name, rooms, domains }`. Assigns a UUID, normalises names, validates room geometry (new in the rewrite — see the box below), persists, then synchronises downstream. Returns the full document. `201`.
+      - Create a building from `{ name, rooms, domains }`. Assigns a UUID, normalises names, validates room geometry (see the box below), persists, then synchronises downstream. Returns the full document. `201`.
     - - `GET /building/:id`
-      - Fetch one building by UUID; backfills names on read. `404` if absent. No domain-membership check beyond authentication — matches the pre-rewrite behavior (building ids are server-generated UUIDs, not enumerable).
+      - Fetch one building by UUID; backfills names on read. `404` if absent. No domain-membership check beyond authentication — building ids are server-generated UUIDs, not enumerable.
     - - `GET /buildings/:domain`
       - List buildings scoped to a tenant (`domains` contains `:domain`); requires membership in that domain (`403` otherwise). Returns `[]` when none.
     - - `POST /buildings/counts`
@@ -128,24 +141,24 @@ struct Room {
 .box {Every building/room route requires the mesh-verified claims header} type:{note}
     Istio's `RequestAuthentication` verifies the caller's JWT once at the ingress and injects the payload as the base64 `x-gateway-claims` header (`outputPayloadToHeader`) — twin-service never verifies a JWT itself. Every protected handler takes a `GatewayClaims` argument (an Axum extractor, `src/infra/claims.rs`); extraction itself 401s the request if the header is missing or malformed, so there's no separate auth middleware layer to wire in — the type signature *is* the auth gate. Geometry-mutating routes additionally require `can_edit_domains` (Cedar `Edit` action) against the target building's own domains, not just any domain membership.
 
-.box {Registration now validates room geometry — the old service didn't} type:{warning}
-    The pre-rewrite `addBuilding` normalised names but never validated `position`/`dimensions`/`capacity` — a malformed room would either be silently stored as-is, or throw an unhandled Mongoose `ValidationError` that the generic error handler turned into an opaque `500`. Every other geometry-writing route (`createRoom`, `updateRoom`, `replaceRooms`) *did* validate. The Rust rewrite closes this gap by applying the same validation on `/register` too, returning a proper `400 Validation Error` instead of either silently accepting garbage or a bare `500`. No existing test payload sends invalid geometry to `/register`, so this doesn't change any test's expected outcome — it only changes behavior for a case nothing previously exercised.
+.box {Registration validates room geometry} type:{note}
+    `/register` validates every room's `position`, `dimensions`, and `capacity` before persisting, the same validation every other geometry-writing route (`createRoom`, `updateRoom`, `replaceRooms`) applies — a malformed room is rejected with a `400 Validation Error`, never silently stored.
 
 ---
 
 ## Name Normalisation
 
-Ported 1:1 from the old `services/names.ts`, now free functions in `src/models.rs`.
+Free functions in `src/models.rs`.
 
 - `normalize_building_name(name, id)` resolves to the trimmed `name`, else `id`, else the literal `"Building"`.
 - `normalize_room_name(name, id)` trims the room name, falling back to the room `id`.
-- Every building load (`GET`, and every mutating handler's initial fetch) backfills blank names and persists the fix if anything changed — so older documents are healed lazily, same as before.
+- Every building load (`GET`, and every mutating handler's initial fetch) backfills blank names and persists the fix if anything changed — so a document with a blank name gets healed the next time it's touched, without a separate migration.
 
 ---
 
 ## Downstream Synchronisation
 
-A building's structure is mirrored to two services. The two paths have **different failure semantics**, which matters operationally — unchanged from the pre-rewrite design.
+A building's structure is mirrored to two services. The two paths have **different failure semantics**, which matters operationally.
 
 .mermaid
     sequenceDiagram
@@ -168,26 +181,24 @@ A building's structure is mirrored to two services. The two paths have **differe
 - **Contracts preference seeding** (`init_building_preferences`): a `POST`, best-effort — logged and swallowed on any error, never blocks building creation.
 
 .box {Known gap: synchronous coupling} type:{note}
-    The sensor clone is an inline, synchronous REST call inside the register/update/room handlers. The roadmap is to replace it with a published `TWIN_UPDATED` event so sensor-service can update its copy asynchronously, decoupling the two services. Carried over unchanged from the pre-rewrite design.
+    The sensor clone is an inline, synchronous REST call inside the register/update/room handlers. The roadmap is to replace it with a published `TWIN_UPDATED` event so sensor-service can update its copy asynchronously, decoupling the two services.
 
 ---
 
 ## Error Handling
 
-`AppError` (`src/models.rs`) implements `IntoResponse`, mapping to the same JSON shape (`{ type, message }`) and status codes the old `BaseError` hierarchy used: `Validation` → 400, `NotFound` → 404, `Unauthorized` → 401, `Forbidden` → 403. Unexpected errors (a Mongo failure, a Cedar entity-build failure) are logged via `log::error!` and mapped to a generic `500` — mirroring the fix made to the old TS `errorHandler` (it originally swallowed non-`BaseError` exceptions with zero logging).
+`AppError` (`src/models.rs`) implements `IntoResponse`, mapping to a stable `{ type, message }` JSON shape and status code: `Validation` → 400, `NotFound` → 404, `Unauthorized` → 401, `Forbidden` → 403. Unexpected errors (a Mongo failure, a Cedar entity-build failure) are logged via `log::error!` and mapped to a generic `500` — every error is logged, and no internal detail leaks past the generic `500` message.
 
 ---
 
-## Metrics — a real fix, not just a port
+## Metrics
 
-The old TS `metricsMiddleware` was registered in `index.ts` *after* the router, which meant it structurally could never observe a matched route: Express ends the middleware chain the moment a route handler sends a response, so the middleware only ever ran for genuinely unmatched (404) paths. `http_requests_total` never incremented for any real registered endpoint.
-
-The Rust rewrite's `track_metrics` is an Axum `Router::layer`, which wraps the *entire* request/response cycle regardless of how the inner handler responds — `MatchedPath` (the route template, e.g. `/building/{id}`, not the literal path with real ids) is available to layers added this way. Verified live: registering a building and then curling `/metrics` shows real `http_requests_total`/`http_request_duration_seconds`/`http_error_requests_total` series with the correct method/route/status_code labels.
+`track_metrics` is an Axum `Router::layer`, which wraps the *entire* request/response cycle regardless of how the inner handler responds — `MatchedPath` (the route template, e.g. `/building/{id}`, not the literal path with real ids) is available to layers added this way, so every registered route is observed regardless of the response it produces. Verified live: registering a building and then curling `/metrics` shows real `http_requests_total`/`http_request_duration_seconds`/`http_error_requests_total` series with the correct method/route/status_code labels.
 
 ---
 
 ## Cedar Authorization
 
-`src/infra/authz.rs` embeds the shared `server/auth-policy` bundle via `include_str!` — resolved at **compile time**, unlike the TS/Go/Python bindings which read the schema/policy/`roles.json` files from disk at runtime. This means the production Docker image doesn't need `server/auth-policy` present at all; only the builder stage does, since the bytes are already baked into the compiled binary by the time `cargo build` finishes. See [Service Mesh Architecture § Phase 4](../architecture/service-mesh.qd) for the full Cedar model (pre-expanded role-tier sets, `.contains()` vs `in`, the golden conformance suite).
+`src/infra/authz.rs` embeds the shared `server/auth-policy` bundle via `include_str!` — resolved at **compile time**, the same way Go's `//go:embed` does. Only Python's binding reads `schema.cedarschema`/`policy.cedar` from disk, at process start, since it has no equivalent embed mechanism. Compile-time embedding here means the production Docker image doesn't need `server/auth-policy` present at all; only the builder stage does, since the bytes are already baked into the compiled binary by the time `cargo build` finishes. See [Auth Policy](../packages/auth-policy.qd) for the full Cedar model (pre-expanded role-tier sets, `.contains()` vs `in`, the golden conformance suite).
 
 twin-service uses two of Cedar's five shared actions: `Read` (`is_member_of`/`scope_to_memberships`) and `Edit` (`can_edit_domains`, tried against every one of a building's domains — permits if any qualifies). A third function, `authorize_any`, exists purely so the golden conformance suite can exercise all five actions through this binding too, matching the precedent set by agent-service's `can_override_model`.

@@ -1,33 +1,45 @@
 ###! Requirements
 - [User Stories](./requirements/user-stories.qd)
 - [Functional Requirements](./requirements/functional-requirements.qd)
-- [Non-Functional Requirements](./requirements/non-functional-requirements.qd)
+- [Non Functional Requirements](./requirements/non-functional-requirements.qd)
 
-###! Domain model
+###! Domains & Contexts
 - [Strategic Design](./domain/strategic-design.qd)
 - [Identity & Access Context](./domain/identity-access.qd)
 - [Building Management Context](./domain/building-management.qd)
 - [Telemetry Ingestion Context](./domain/telemetry-ingestion.qd)
 - [Telemetry Distribution Context](./domain/telemetry-distribution.qd)
 - [Alerting Context](./domain/alerting.qd)
+- [Knowledge & Assistance Context](./domain/knowledge-assistance.qd)
 
 ###! System Architecture
-- [Overview](./architecture/overview.qd)
+- [Architecture Overview](./architecture/overview.qd)
 - [Communication & Data Flow](./architecture/data-flow.qd)
 - [Deployment & Kubernetes](./architecture/deployment.qd)
-
-###! Microservices Architecture
-- [Service Anatomy](./architecture/microservices.qd)
-- [Identity & Tenancy Architecture](./architecture/auth-architecture.qd)
-- [Digital Twin Service](./architecture/twin-architecture.qd)
-- [Notification Service](./architecture/notification-architecture.qd)
-- [Sensor Service](./architecture/sensor-architecture.qd)
-- [Contracts Service](./architecture/contracts-architecture.qd)
-- [Socket Service](./architecture/socket-architecture.qd)
+- [Observability](./architecture/observability.qd)
 - [Service Mesh Architecture](./architecture/service-mesh.qd)
 
-###! Implementation Reference
-- [Shared Auth Middleware](./services/middlewares.qd)
+###! Microservices Architecture
+- [Identity & Tenancy Architecture](./architecture/auth-architecture.qd)
+- [Digital Twin Service Architecture](./architecture/twin-architecture.qd)
+- [Notification Service Architecture](./architecture/notification-architecture.qd)
+- [Sensor Service Architecture](./architecture/sensor-architecture.qd)
+- [Contracts Service Architecture](./architecture/contracts-architecture.qd)
+- [Socket Service Architecture](./architecture/socket-architecture.qd)
+- [Chat Service Architecture](./architecture/chat-architecture.qd)
+- [Agent Service Architecture](./architecture/agent-architecture.qd)
+
+###! Packages & Libraries
+- [Auth Contracts](./packages/auth-contracts.qd)
+- [Auth Middleware](./packages/auth-middleware.qd)
+- [Auth Policy](./packages/auth-policy.qd)
+- [Node Auth & Error Middleware](./packages/middlewares.qd)
+
+###! Services
+- [Claims Gateway](./services/claims-gateway.qd)
+- [Tenancy Service](./services/tenancy-service.qd)
+- [Registry Service](./services/registry-service.qd)
+- [Provisioner](./services/provisioner.qd)
 - [Digital Twin Service](./services/digital-twin.qd)
 - [Notification Service](./services/notification.qd)
 - [Sensor Service](./services/sensor.qd)
@@ -37,19 +49,14 @@
 - [Chat Service](./services/chat.qd)
 
 ###! Design
-- [Communication Schema](./design/communication.qd)
-- [Users and Accounts](./design/user-accounts.qd)
-- [Domains](./design/domains.qd)
-- [Buildings](./design/buildings.qd)
-- [Notifications](./design/notifications.qd)
-- [Sensor Data Communication](./design/tunneling.qd)
+- [Real-Time Client Communication](./design/tunneling.qd)
 
 ###! Configuration
-- [Setting Up Your Environment](./config/setting-up.qd)
+- [Setting Up the Environment](./config/setting-up.qd)
 - [The Toolchain: mise, moon & just](./config/toolchain.qd)
 - [Docker Compose Orchestration](./config/docker-compose.qd)
 - [Kubernetes Configuration](./config/kubernetes.qd)
-- [Running the Application](./config/running.qd)
+- [Run the Application](./config/running.qd)
 - [External Simulators](./config/sensor-simulator.qd)
 
 ###! Contributing

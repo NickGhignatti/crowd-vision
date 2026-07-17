@@ -166,6 +166,34 @@
       "action": "Read",
       "domain": "eng",
       "expected": "deny"
+    },
+    {
+      "name": "ingestDocuments: platform admin is allowed",
+      "memberships": [{ "domain": "eng", "role": "admin" }],
+      "action": "IngestDocuments",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "ingestDocuments: is a GLOBAL check — an admin in an unrelated domain is still allowed",
+      "memberships": [{ "domain": "other", "role": "admin" }],
+      "action": "IngestDocuments",
+      "domain": "eng",
+      "expected": "allow"
+    },
+    {
+      "name": "ingestDocuments: business_admin (below the admin tier) is denied",
+      "memberships": [{ "domain": "eng", "role": "business_admin" }],
+      "action": "IngestDocuments",
+      "domain": "eng",
+      "expected": "deny"
+    },
+    {
+      "name": "ingestDocuments: no memberships is denied",
+      "memberships": [],
+      "action": "IngestDocuments",
+      "domain": "eng",
+      "expected": "deny"
     }
   ]
 }

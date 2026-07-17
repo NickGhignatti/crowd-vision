@@ -13,6 +13,9 @@ spec:
     metadata:
       labels:
         app: chat-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret   # credentials for ghcr.io private registry

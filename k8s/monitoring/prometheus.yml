@@ -56,6 +56,9 @@ data:
       scrape_interval: 15s       # poll every target every 15 seconds
       evaluation_interval: 15s   # evaluate alerting rules every 15 seconds
 
+    rule_files:
+      - alert.rules.yml   # the sibling key below; the whole ConfigMap is mounted as one directory
+
     scrape_configs:
 
       # ── Prometheus self-monitoring ────────────────────────────────────────
@@ -118,7 +121,7 @@ data:
             regex: ([^:]+)(?::\d+)?;(\d+)
             replacement: $1:$2
             target_label: __address__
-          # Carry pod labels into Prometheus labels (app=auth-service, etc.)
+          # Carry pod labels into Prometheus labels (app=twin-service, etc.)
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
           - source_labels: [__meta_kubernetes_namespace]
@@ -127,6 +130,78 @@ data:
           - source_labels: [__meta_kubernetes_pod_name]
             action: replace
             target_label: pod
+
+  # Mirrors the repo-root prometheus.rules.yml (docker-compose stack) — keep
+  # both in sync if you change one. No job/app label filters: every metric
+  # name below is only emitted by one service today, so the metric name alone
+  # scopes the query regardless of which stack (static target vs pod
+  # autodiscovery) is doing the scraping.
+  alert.rules.yml: |
+    groups:
+      - name: crowdvision-alerts
+        rules:
+          - alert: ServiceDown
+            expr: up == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Scrape target down ({{ $labels.job }})"
+              description: "Prometheus has failed to scrape {{ $labels.job }} (instance {{ $labels.instance }}) for the last 2 minutes."
+
+          - alert: TwinServiceHighErrorRate
+            expr: (sum(rate(http_error_requests_total[5m])) / sum(rate(http_requests_total[5m]))) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "twin-service HTTP error rate above 5%"
+              description: "{{ $value | humanizePercentage }} of twin-service requests have errored over the last 5 minutes."
+
+          - alert: ChatServiceHighErrorRate
+            expr: (sum(rate(chat_http_error_requests_total[5m])) / sum(rate(chat_http_requests_total[5m]))) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "chat-service HTTP error rate above 5%"
+              description: "{{ $value | humanizePercentage }} of chat-service requests have errored over the last 5 minutes."
+
+          - alert: TwinServiceHighLatency
+            expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "twin-service p95 latency above 1s"
+              description: "twin-service's 95th percentile request duration has been above 1 second for 5 minutes."
+
+          - alert: ChatServiceHighLatency
+            expr: histogram_quantile(0.95, sum(rate(chat_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "chat-service p95 latency above 1s"
+              description: "chat-service's 95th percentile request duration has been above 1 second for 5 minutes."
+
+          - alert: ContractsServiceFanoutLatencyHigh
+            expr: histogram_quantile(0.95, sum(rate(telemetry_fanout_latency_ms_bucket[5m])) by (le)) > 500
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "contracts-service fan-out latency above 500ms"
+              description: "contracts-service's 95th percentile sensor-ingestion-to-fan-out latency has been above 500ms for 5 minutes."
+
+          - alert: NodeEventLoopLagHigh
+            expr: nodejs_eventloop_lag_seconds > 0.1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node.js event loop lag above 100ms ({{ $labels.job }})"
+              description: "{{ $labels.job }}'s Node.js event loop has been lagging by more than 100ms for 5 minutes, indicating the process is struggling to keep up."
 
 ---
 # ── Deployment ────────────────────────────────────────────────────────────────

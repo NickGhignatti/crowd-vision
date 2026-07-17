@@ -1,0 +1,158 @@
+.docname {Node Auth & Error Middleware}
+.include {docs}
+
+Implementation reference for the cross-cutting Express middleware shared by the Node services (`notification-service`, `sensor-service`, `chat-service`; `socket-service` carries the equivalent logic in `src/auth.ts`, since a WebSocket handshake isn't an Express request/response pipeline). Controllers and services hold business logic; **request authentication and error shaping** are delegated to the middleware documented here.
+
+This is one of three same-shaped implementations of the same trust boundary, one per backend language: `twin-service`'s Rust/Axum equivalent is the `GatewayClaims` extractor (`src/infra/claims.rs` — see [Digital Twin Service](../services/digital-twin.qd)), and the four Go identity-tier services use the dedicated [Auth Middleware](auth-middleware.qd) package. All three decode the same header; none of them verify a JWT signature themselves. For the design rationale behind that split, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) and [Service Mesh Architecture](../architecture/service-mesh.qd).
+
+---
+
+## 1. Authentication — trusting the mesh, not re-verifying a JWT
+
+**Files:** `src/middlewares/authentication.ts` in `notification-service`, `sensor-service`, `chat-service`; `src/auth.ts` in `socket-service`.
+
+Istio's `RequestAuthentication` verifies the gateway-minted JWT exactly once, at the mesh ingress, and injects the validated payload as a base64-encoded JSON header (`outputPayloadToHeader`). Every Node service downstream of that ingress trusts the header instead of re-verifying a signature — mTLS (enforced mesh-wide, `STRICT` mode) already authenticates the hop that carried it.
+
+.mermaid
+    graph LR
+        subgraph "Mesh Edge"
+            IST["Istio RequestAuthentication\nverifies JWT once, RS256 against claims-gateway's JWKS"]
+        end
+        subgraph "Node Services — this package"
+            N1["notification-service\nsrc/middlewares/authentication.ts"]
+            N2["sensor-service\nsrc/middlewares/authentication.ts"]
+            N3["chat-service\nsrc/middlewares/authentication.ts"]
+            N4["socket-service\nsrc/auth.ts"]
+        end
+        subgraph "Same trust boundary, other languages"
+            RS["twin-service\nGatewayClaims axum extractor"]
+            GO["4 Go identity-tier services\nauth-middleware package"]
+        end
+        IST -->|"x-gateway-claims header\n(base64 JSON)"| N1
+        IST --> N2
+        IST --> N3
+        IST --> N4
+        IST -.->|"same header, same trust"| RS
+        IST -.-> GO
+
+Representative implementation (`notification-service`):
+
+```typescript
+// Istio's RequestAuthentication verifies the gateway JWT once at the ingress
+// and injects the validated payload as this base64 header
+// (outputPayloadToHeader) — notification-service trusts it rather than
+// re-verifying a JWT itself.
+export const requireAuthentication = (req: Request, _res: Response, next: NextFunction) => {
+  const header = req.headers["x-gateway-claims"];
+  if (!header || typeof header !== "string") {
+    throw new UnauthorizedError("Missing authentication token");
+  }
+
+  let payload: JwtPayload;
+  try {
+    payload = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as JwtPayload;
+  } catch {
+    throw new UnauthorizedError("Invalid authentication token");
+  }
+
+  if (!payload.accountName) {
+    throw new UnauthorizedError("Authentication token is missing an account");
+  }
+
+  req.account = normalizeGatewayClaims(payload);
+  req.authToken = header;
+  next();
+};
+```
+
+.mermaid
+    sequenceDiagram
+        participant C as Client
+        participant IG as Istio Ingress Gateway
+        participant S as Node service
+        C->>IG: request (cookie or Authorization: Bearer)
+        Note over IG: RequestAuthentication verifies the JWT's signature against claims-gateway's JWKS, once
+        IG->>S: forwards request + x-gateway-claims header (base64 JSON payload)
+        Note over S: requireAuthentication decodes the header, no signature check
+        Note over S: normalizeGatewayClaims reshapes it onto req.account
+        S-->>C: 401 if header missing/malformed, otherwise handled request
+
+Three real per-service differences, verified against each file rather than assumed uniform:
+
+.var {headers}
+   - Service
+   - On a missing/invalid header
+   - Notes
+
+.tablebyrows {.headers}
+    - - `notification-service` / `chat-service`
+      - `throw new UnauthorizedError(...)`, caught by the global error handler (section 2)
+      - `chat-service` additionally exposes `req.userId` directly, since most of its routes key off it rather than the full claims object.
+    - - `sensor-service`
+      - Responds directly with a 401 JSON error body, no `throw`
+      - `sensor-service` has **no** global error handler; every controller shapes its own response, so this middleware can't rely on one existing downstream.
+    - - `socket-service`
+      - Returns `null` from `authenticateClaimsHeader`
+      - Not Express — this runs once on the Socket.IO handshake, wired as handshake middleware (see [Socket Service Architecture](../architecture/socket-architecture.qd)); the caller decides how to reject a `null` identity.
+
+.box {`normalizeGatewayClaims` — a legacy shape holdover} type:{note}
+    Every one of these files reshapes claims-gateway's `{sub, memberships:[{domain,role,externalId?}]}` payload onto `{accountId, accountMemberships:[{domainName,role,externalId?}]}` — the shape every route in these services already reads. It's a holdover from before the identity/tenancy layer was rebuilt in Go: nothing downstream needed to change, so the translation stayed at the edge instead of propagating a rename through every controller.
+
+.box {Always trust `req.account`, never the body or URL} type:{note}
+    Controllers must read the caller identity from `req.account` (or `req.userId` in `chat-service`). An account identifier in the request body **or URL path** is attacker-controlled and must never be used for authorization.
+
+---
+
+## 2. Global Error Handling — `globalErrorHandler`
+
+**Files:** `src/middlewares/errorsMiddleware.ts` (handler), `src/models/error.ts` (taxonomy) — present in `notification-service` and `chat-service`; `sensor-service` deliberately has neither (see the table above).
+
+The last middleware in the stack, where present. Controllers and services never write error responses directly; they `throw` typed errors, and this handler serialises them.
+
+```typescript
+export const globalErrorHandler = (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof BaseError) {
+    return res.status(err.code).json({ type: err.type, message: err.message });
+  }
+  return res.status(500).json({
+    type: "Internal Server Error",
+    message: "An unexpected error occurred. Please try again later.",
+  });
+};
+```
+
+Any error that is not a `BaseError` is scrubbed to a generic `500`, so stack traces and database internals never reach the client.
+
+### Error taxonomy
+
+**File:** `src/models/error.ts`
+
+.var {headers}
+   - Class
+   - Status
+   - `type`
+
+.tablebyrows {.headers}
+    - - `ValidationError`
+      - 400
+      - Validation Error
+    - - `UnauthorizedError`
+      - 401
+      - Unauthorized Error
+    - - `ForbiddenError`
+      - 403
+      - Forbidden Error
+    - - `NotFoundError`
+      - 404
+      - Not Found Error
+    - - `ConflictError`
+      - 409
+      - Conflict Error
+    - - `InternalError`
+      - 500
+      - Internal Error
+
+Every error carries an HTTP `code` and a human-readable `type`, producing a stable `{ type, message }` envelope the frontend can branch on.
+
+.box {Convention} type:{tip}
+    New endpoints in `notification-service` or `chat-service` should attach `requireAuthentication` and throw typed errors rather than handling HTTP status codes inline. `sensor-service` and `socket-service` are the deliberate exceptions — the former to keep its hot ingest path free of a shared handler's overhead, the latter because Socket.IO has no equivalent middleware chain. Role-based route gating lives in each domain's own service (`tenancy-service`'s `claims.CanIn(domain, role)`, using [Auth Contracts](auth-contracts.qd)) — not in a shared Node middleware.

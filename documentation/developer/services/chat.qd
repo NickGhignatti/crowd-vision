@@ -32,7 +32,16 @@ database and scaling profile — lives in its own service.
     - - `src/models/conversation.ts`
       - Mongoose schema for `Conversation`, its embedded `messages`, and citations.
     - - `src/middlewares/authentication.ts`
-      - Verifies the JWT and extracts the owning account id.
+      - Decodes the mesh-verified claims header and extracts the owning account id.
+
+.mermaid
+    graph TD
+        ROUTER["router.ts"] --> CTRL["controller/conversation.ts"]
+        CTRL --> CSV["services/conversation.ts\nownership, validation, history"]
+        CTRL --> ASV["services/agent.ts\nHTTP client only"]
+        CSV --> MODEL["models/conversation.ts"]
+        CSV -->|"sendMessage"| ASV
+        ASV -->|"x-gateway-claims forwarded"| AGENT["agent-service /ask"]
 
 ---
 
@@ -115,16 +124,17 @@ persists both the user message and the assistant reply.
         C->>CH: POST /conversations/:id/messages { content }
         CH->>DB: load conversation by { _id, userId }
         Note over CH: take last HISTORY_MAX_MESSAGES turns
-        CH->>A: POST /ask { question, history, stream:false } (+ caller cookie)
+        CH->>A: POST /ask { question, history, stream:false } (+ x-gateway-claims header)
         A-->>CH: { answer, citations }
         CH->>DB: push user + assistant messages, save
         CH-->>C: assistant message
 
 Two design points worth calling out:
 
-- **The caller's JWT cookie is forwarded to the agent**, not a service account. This means the
-  agent runs `/ask` under the *user's* identity, so its permission-filtered retrieval only
-  returns documents that user is allowed to see. The chat-service never widens access.
+- **The caller's `x-gateway-claims` header is forwarded to the agent verbatim**, not a service
+  account. This means the agent runs `/ask` under the *user's* identity, so its
+  permission-filtered retrieval only returns documents that user is allowed to see. The
+  chat-service never widens access.
 - **History is truncated** to the last `HISTORY_MAX_MESSAGES` turns before being sent. This
   bounds the prompt size (and therefore cost and latency) the agent has to process, and the
   agent already treats prior messages as untrusted context rather than instructions.
@@ -145,15 +155,9 @@ so a freshly created chat gets a meaningful name without a separate request.
     - - `AGENT_SERVICE_URL`
       - `http://agent-service:3000`
       - Where to reach the agent's `/ask` endpoint.
-    - - `GATEWAY_JWKS_URI`
+    - - `MONGO_URI`
       - —
-      - claims-gateway's published JWKS endpoint, used to verify the token's RS256 signature. Authenticated requests fail if missing.
-    - - `GATEWAY_ISSUER`
-      - `cv-gateway`
-      - Expected `iss` claim on the verified token.
-    - - `JWT_COOKIE_NAME`
-      - `authentication_token`
-      - Cookie the JWT is read from.
+      - Connection string for `chat-db`.
     - - `HISTORY_MAX_MESSAGES`
       - `10`
       - Number of recent turns sent to the agent as context.
@@ -165,12 +169,13 @@ in-code limits that bound document growth and reject oversized input.
 
 ## Authentication
 
-`requireAuthentication` reads the JWT from the configured cookie, verifies its RS256 signature
-against claims-gateway's JWKS, and extracts `accountId` as the owning `userId`. The token is
-verified locally with no call to claims-gateway itself per request. The implementation follows
-the repository's Node-service middleware conventions, but chat-service owns its authentication
+`requireAuthentication` decodes the mesh-injected `x-gateway-claims` header — Istio's
+`RequestAuthentication` already verified the gateway JWT once, at the ingress — and extracts
+`accountId` as the owning `userId`. There is no signature verification here at all; chat-service
+trusts the header rather than re-checking a JWT itself. The implementation follows the
+repository's Node-service middleware conventions, but chat-service owns its authentication
 middleware and error classes rather than sharing a package; see
-[Shared Auth Middleware](middlewares.qd) for the broader pattern. A failure to reach the agent
+[Node Auth & Error Middleware](../packages/middlewares.qd) for the broader pattern. A failure to reach the agent
 surfaces as a `502 Bad Gateway`, distinguishing an upstream agent problem from a client error.
 
 ---

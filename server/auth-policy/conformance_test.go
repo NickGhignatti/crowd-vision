@@ -52,6 +52,8 @@ func TestConformance(t *testing.T) {
 				got = authpolicy.CanManageDomain(tc.Memberships, tc.Domain)
 			case "ModelOverride":
 				got = authpolicy.CanOverrideModelWeight(tc.Memberships, tc.Context["requiredWeight"])
+			case "IngestDocuments":
+				got = authpolicy.CanIngestDocuments(tc.Memberships)
 			default:
 				t.Fatalf("unknown action %q in fixture", tc.Action)
 			}

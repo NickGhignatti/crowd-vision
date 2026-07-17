@@ -1,9 +1,9 @@
 .docname {Alerting Context}
 .include {docs}
 
-**Realised by:** notification-service · **Subdomain type:** Supporting
+**Subdomain type:** Supporting · **Grounded in:** [User Stories](../requirements/user-stories.qd) AL-1 through AL-5
 
-This page describes the design-time model of the Alerting context. Delivery mechanics and concrete APIs are documented in the [Notification Service](../services/notification.qd) page.
+This page describes the design-time model of the Alerting context. Delivery mechanics and concrete APIs are left as decisions for whoever builds this model.
 
 The context owns everything about *delivering alerts to people*. Its defining design decision is to separate two concerns that are easy to conflate: **where** a principal can be reached, and **what** a principal wants to hear about.
 
@@ -60,13 +60,13 @@ We model the context as two separate aggregate roots so that the two concerns ca
 
 ### Aggregate: Delivery Channel — *"where can I reach this principal?"*
 
-- Represents one place an alert can be delivered, together with the material needed to deliver to it securely.
-- A principal may have **many** channels — one per device. This is intentional, so reaching a principal can fan out across their devices.
-- **Intended rule:** a channel that becomes permanently undeliverable is pruned from the model rather than kept around.
+- Represents one place an alert can be delivered, together with the material needed to deliver to it securely — the "in the app while watching, as a push when not" split story **AL-1** asks for.
+- A principal may have **many** channels — one per device. This is intentional, so reaching a principal can fan out across their devices, the enrollment-without-loss story **AL-3** relies on.
+- **Intended rule:** a channel that becomes permanently undeliverable is pruned from the model rather than kept around — the automatic housekeeping story **AL-4** asks for.
 
 ### Aggregate: Alert Preference — *"what does this principal want?"*
 
-- Scoped to a principal within a domain (the shared identifier again), so choices are tenant-specific.
+- Scoped to a principal within a domain (the shared identifier again), so choices are tenant-specific — the per-organization choice story **AL-2** asks for.
 - **Intended invariant:** at most one Alert Preference per principal per domain.
 - `AlertType` is modelled as an extensible set. We expect to start with a small number of types and add more, so the model is built to grow rather than fixed to today's list.
 
@@ -105,4 +105,4 @@ The context is downstream of two others and feeds the platform's real-time flow.
     - - Emits alerts into the real-time flow
       - Domain Event published to the platform
 
-Resolving a building's domains from another context, rather than storing its own copy, keeps this context's model focused on *delivery and intent* and leaves the structural truth where it belongs.
+Resolving a building's domains from another context, rather than storing its own copy, keeps this context's model focused on *delivery and intent* and leaves the structural truth where it belongs — and is exactly what story **AL-5** relies on to keep tenants from seeing each other's incidents.

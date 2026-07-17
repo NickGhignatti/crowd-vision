@@ -25,6 +25,10 @@ jobs:
       sensor: ${{ steps.filter.outputs.sensor }}
       socket: ${{ steps.filter.outputs.socket }}
       twin: ${{ steps.filter.outputs.twin }}
+      claims_gateway: ${{ steps.filter.outputs.claims_gateway }}
+      tenancy: ${{ steps.filter.outputs.tenancy }}
+      registry: ${{ steps.filter.outputs.registry }}
+      provisioner: ${{ steps.filter.outputs.provisioner }}
       k8s: ${{ steps.filter.outputs.k8s }}
       shared: ${{ steps.filter.outputs.shared }}
       ci: ${{ steps.filter.outputs.ci }}
@@ -65,6 +69,18 @@ jobs:
             twin:
               - 'server/twin-service/**'
               - '.github/workflows/ci-twin.yml'
+            claims_gateway:
+              - 'server/claims-gateway/**'
+              - '.github/workflows/ci-claims-gateway.yml'
+            tenancy:
+              - 'server/tenancy-service/**'
+              - '.github/workflows/ci-tenancy-service.yml'
+            registry:
+              - 'server/registry-service/**'
+              - '.github/workflows/ci-registry-service.yml'
+            provisioner:
+              - 'server/provisioner/**'
+              - '.github/workflows/ci-provisioner.yml'
             k8s:
               - 'k8s/**'
               - '.github/workflows/ci-k8s.yml'
@@ -100,8 +116,10 @@ jobs:
           # twin-service and agent-service COPY the shared server/auth-policy
           # (+ auth-contracts) bundle into their image, a sibling directory a
           # per-service build context can't reach — those two build from the
-          # repo root with an explicit dockerfile path instead. Every other
-          # service still uses its own directory as both context and
+          # repo root with an explicit dockerfile path instead, as do all four
+          # Go control-plane services (claims-gateway, tenancy-service,
+          # registry-service, provisioner — see their own Dockerfiles). Every
+          # other service still uses its own directory as both context and
           # Dockerfile location.
           add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" --arg d "$1/Dockerfile" '$a + [{context:$c, image:$i, dockerfile:$d}]'); }
           add_repo_root() { inc=$(jq -cn --argjson a "$inc" --arg i "$2" --arg d "$1/Dockerfile" '$a + [{context:".", image:$i, dockerfile:$d}]'); }
@@ -113,6 +131,10 @@ jobs:
           if [ "${{ steps.filter.outputs.sensor }}" = "true" ];       then add "./server/sensor-service"       "crowdvision-sensor"; fi
           if [ "${{ steps.filter.outputs.contracts }}" = "true" ];    then add "./server/contracts-service"    "crowdvision-contracts"; fi
           if [ "${{ steps.filter.outputs.client }}" = "true" ];       then add "./client"                      "crowdvision-client"; fi
+          if [ "${{ steps.filter.outputs.claims_gateway }}" = "true" ]; then add_repo_root "server/claims-gateway"   "crowdvision-claims-gateway"; fi
+          if [ "${{ steps.filter.outputs.tenancy }}" = "true" ];         then add_repo_root "server/tenancy-service" "crowdvision-tenancy"; fi
+          if [ "${{ steps.filter.outputs.registry }}" = "true" ];        then add_repo_root "server/registry-service" "crowdvision-registry"; fi
+          if [ "${{ steps.filter.outputs.provisioner }}" = "true" ];     then add_repo_root "server/provisioner"     "crowdvision-provisioner"; fi
           echo "matrix={\"include\":$inc}" >> "$GITHUB_OUTPUT"
           if [ "$inc" = "[]" ]; then
             echo "has_images=false" >> "$GITHUB_OUTPUT"
@@ -159,6 +181,26 @@ jobs:
     needs: changes
     if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-twin.yml
+
+  claims-gateway:
+    needs: changes
+    if: needs.changes.outputs.claims_gateway == 'true'
+    uses: ./.github/workflows/ci-claims-gateway.yml
+
+  tenancy-service:
+    needs: changes
+    if: needs.changes.outputs.tenancy == 'true'
+    uses: ./.github/workflows/ci-tenancy-service.yml
+
+  registry-service:
+    needs: changes
+    if: needs.changes.outputs.registry == 'true'
+    uses: ./.github/workflows/ci-registry-service.yml
+
+  provisioner:
+    needs: changes
+    if: needs.changes.outputs.provisioner == 'true'
+    uses: ./.github/workflows/ci-provisioner.yml
 
   docker:
     needs: changes
@@ -230,6 +272,10 @@ jobs:
       - sensor
       - socket
       - twin
+      - claims-gateway
+      - tenancy-service
+      - registry-service
+      - provisioner
       - docker
       - k8s
       - workflows-lint

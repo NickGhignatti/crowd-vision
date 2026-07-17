@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthUser, require_user
+from app.cedar_authz import can_ingest_documents
 from app.db import get_session
 from app.embeddings import get_embedder
 from app.models.api import IngestRequest, IngestResponse
@@ -17,11 +18,13 @@ router = APIRouter(tags=["ingest"])
     description=(
         "Chunks the markdown content, embeds each chunk, and upserts "
         "into pgvector + tsvector. Idempotent on content hash — re-ingesting the "
-        "same `source` + `content` returns `skipped=true` without re-embedding."
+        "same `source` + `content` returns `skipped=true` without re-embedding. "
+        "Admin role required."
     ),
     openapi_extra={"security": [{"cookieAuth": []}]},
     responses={
         401: {"description": "Missing or invalid JWT cookie."},
+        403: {"description": "Caller does not hold the admin role."},
         422: {"description": "Validation error in request body."},
     },
 )
@@ -30,6 +33,9 @@ async def ingest(
     session: AsyncSession = Depends(get_session),
     user: AuthUser = Depends(require_user),
 ) -> IngestResponse:
+    if not can_ingest_documents(user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin role required")
+
     document_id, chunks, skipped = await ingest_document(
         session=session,
         embedder=get_embedder(),

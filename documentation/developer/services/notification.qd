@@ -29,6 +29,16 @@ A Node.js / Express service. It receives candidate alert events, debounces them,
     - - `src/config/redis.ts`
       - Shared Redis client.
 
+.mermaid
+    graph TD
+        ROUTER["router.ts"] --> CTRL["controller/notificationController.ts\nthrottle, request normalisation"]
+        CTRL --> NSV["services/notificationService.ts\nRedis publish"]
+        CTRL --> PSV["services/pushService.ts\nWeb Push, preferences, cleanup"]
+        PSV --> M1["models/webSubscription.ts"]
+        PSV --> M2["models/notificationSubscription.ts"]
+        NSV --> REDIS["config/redis.ts"]
+        PSV --> REDIS
+
 ---
 
 ## Configuration
@@ -170,4 +180,4 @@ When `web-push` returns `410 Gone` or `403 Forbidden`, the endpoint is permanent
 
 ## Error Handling
 
-The service uses the shared `BaseError` hierarchy and global error middleware (see [Auth Service: Middleware](middlewares.qd)). Missing `accountName`/`domainName` and malformed push payloads raise `ValidationError` (400); a failed twin lookup surfaces as a `500`.
+The service uses the shared `BaseError` hierarchy and global error middleware (see [Node Auth & Error Middleware](../packages/middlewares.qd)). Missing `accountName`/`domainName` and malformed push payloads raise `ValidationError` (400); a failed twin lookup surfaces as a `500`.

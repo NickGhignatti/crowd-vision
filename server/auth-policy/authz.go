@@ -100,3 +100,10 @@ func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeig
 		"requiredWeight": cedar.Long(requiredWeight),
 	})
 }
+
+// CanIngestDocuments is a GLOBAL, admin-only gate — agent-service's POST
+// /ingest. No Go service currently needs this either, exposed for the same
+// conformance-suite reason as CanOverrideModelWeight above.
+func CanIngestDocuments(memberships []authcontracts.Membership) bool {
+	return authorize(memberships, "IngestDocuments", "", nil)
+}

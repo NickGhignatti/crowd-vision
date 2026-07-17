@@ -1,0 +1,195 @@
+.docname {Registry Service}
+.include {docs}
+
+Implementation reference for `registry-service`. For its architectural role, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+
+`registry-service` is the platform's system of record for **organizations** — the pre-tenancy concept of a customer who has signed up but may not yet have a working domain, a Keycloak realm, or any of the infrastructure that makes them usable. It never provisions anything itself; it only records what an organization is and what state it's in, and lets [`provisioner`](provisioner.qd) — the only reader of its internal routes — do the actual work asynchronously.
+
+---
+
+## Source Layout
+
+.var {headers}
+   - Path
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - `cmd/registry/main.go`
+      - Loads config, runs migrations, mounts routes.
+    - - `internal/api/handler.go`
+      - One public route (signup) and three internal routes (pending, status, suspend).
+    - - `internal/api/internalauth.go`
+      - HMAC-SHA256 verification for the internal routes — see *The Internal Auth Scheme* below.
+    - - `internal/service/registry.go`
+      - Validates a signup, defaults `identityMode`, creates the organization in `provisioning` state.
+    - - `internal/store/` (`store.go`, `postgres.go`)
+      - The `Organization` struct and its Postgres persistence.
+    - - `migrations/0001_init.up.sql`
+      - The `organizations` table.
+
+.mermaid
+    graph TD
+        subgraph "Public — no auth"
+            SIGNUP["POST /organizations"]
+        end
+        subgraph "Internal — HMAC X-Signature"
+            PENDING["GET /internal/organizations/pending"]
+            STATUS["POST /internal/organizations/:id/status"]
+            SUSPEND["POST /internal/organizations/:id/suspend"]
+        end
+        SVC["internal/service/registry.go"]
+        STORE["internal/store\nOrganization"]
+        SIGNUP --> SVC
+        PENDING --> SVC
+        STATUS --> SVC
+        SUSPEND --> SVC
+        SVC --> STORE
+        PROV["provisioner\n(the only caller of the internal routes)"] -.->|"poll every 15s"| PENDING
+        PROV -.->|"mark ready / failed"| STATUS
+
+---
+
+## The Organization Data Model
+
+**File:** `internal/store/store.go`, `migrations/0001_init.up.sql`
+
+```go
+type Organization struct {
+	ID            string
+	Name          string
+	DisplayName   string
+	Tier          string // "pooled" | "dedicated" | "on-prem"
+	Host          string
+	IdentityMode  string // "platform" | "byo-idp"
+	Issuer        string
+	LicenseStatus string // "active" | "suspended" | "expired"
+	Status        string // "provisioning" | "ready" | "failed" | "suspended"
+	StatusDetail  string
+}
+```
+
+```sql
+create table organizations (
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null unique,
+  tier           text not null check (tier in ('pooled', 'dedicated', 'on-prem')),
+  identity_mode  text not null default 'platform' check (identity_mode in ('platform', 'byo-idp')),
+  license_status text not null default 'active' check (license_status in ('active', 'suspended', 'expired')),
+  status         text not null default 'provisioning' check (status in ('provisioning', 'ready', 'failed', 'suspended')),
+  status_detail  text,
+  created_at     timestamptz not null default now()
+);
+```
+
+Two independent state machines live on one row. `status` tracks *provisioning progress*: every organization starts at `provisioning`, and only `provisioner` ever moves it to `ready` or `failed` (through the internal routes below) or to `suspended`. `license_status` tracks *billing/licensing standing* (`active` → `suspended` or `expired`) and is orthogonal — a fully-provisioned, `ready` organization can still have its license suspended without touching `status` at all.
+
+---
+
+## Signup
+
+**File:** `internal/service/registry.go`
+
+```go
+// Signup creates an organization in "provisioning" state; the provisioner's
+// reconcile loop picks it up asynchronously. Registry-service
+// never provisions anything itself — it is only the system of record.
+func (s *Service) Signup(ctx context.Context, in SignupInput) (store.Organization, error) {
+	if !validTiers[in.Tier] {
+		return store.Organization{}, ErrInvalidTier
+	}
+	identityMode := in.IdentityMode
+	if identityMode == "" {
+		identityMode = "platform"
+	}
+	return s.store.Create(ctx, store.Organization{
+		Name: in.Name, DisplayName: in.DisplayName, Tier: in.Tier,
+		IdentityMode: identityMode, Issuer: in.Issuer,
+		LicenseStatus: "active", Status: "provisioning",
+	})
+}
+```
+
+The comment in the source states the design directly: this function's entire job is to validate and persist. It doesn't call `provisioner`, doesn't create a Keycloak realm, doesn't touch `tenancy-service` — it writes one row and returns. Provisioning is `provisioner`'s job, running on its own schedule, decoupled from the signup request's lifetime. A slow or failed provisioning step can never make `POST /organizations` itself slow or fail.
+
+---
+
+## The Internal Auth Scheme
+
+**File:** `internal/api/internalauth.go`
+
+The three `/internal/*` routes are the only interface `provisioner` (or anything else internal) has to this service, and they're guarded by a shared-secret HMAC signature rather than a `StandardClaims` token — there is no end user involved in a reconcile loop, so there's no identity to check, only "is this caller allowed to act as the control plane":
+
+```go
+func requireInternalSignature(secret []byte) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sig := r.Header.Get("X-Signature")
+			body, _ := io.ReadAll(r.Body)
+			r.Body = io.NopCloser(bytes.NewReader(body)) // handler still needs to read it
+
+			mac := hmac.New(sha256.New, secret)
+			mac.Write(body)
+			expected := hex.EncodeToString(mac.Sum(nil))
+
+			if !hmac.Equal([]byte(sig), []byte(expected)) {
+				http.Error(w, "invalid signature", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+```
+
+`hmac.Equal` (rather than `==`) is a constant-time comparison — comparing a computed signature to a caller-supplied one byte-by-byte with early exit would leak timing information an attacker could use to guess the correct signature one byte at a time. `provisioner`'s client signs with the identical scheme (see [Provisioner](provisioner.qd)), over the exact request body bytes for a `POST`, or over an empty byte slice for the bodyless `GET /internal/organizations/pending`.
+
+---
+
+## HTTP API
+
+.var {headers}
+   - Method · Path
+   - Auth
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `GET /health`
+      - Public
+      - Liveness probe.
+    - - `POST /organizations`
+      - Public
+      - Signup — see above. `400` on an invalid tier. No prior identity exists at signup time, so this stays deliberately open.
+    - - `GET /internal/organizations/pending`
+      - HMAC
+      - Every organization with `status = 'provisioning'` — `provisioner`'s poll target.
+    - - `POST /internal/organizations/:id/status`
+      - HMAC
+      - Sets `status` to `ready` or `failed` (with a `detail` message); called by `provisioner` after it attempts to provision one organization.
+    - - `POST /internal/organizations/:id/suspend`
+      - HMAC
+      - Sets both `status` and `license_status` to `suspended`.
+
+.box {There is no read route for a single organization} type:{note}
+    `GET /organizations/:id` was removed — it had no caller anywhere in the codebase (not `provisioner`, not the client, not any documented flow), while returning `tier` and `licenseStatus` to anyone who held or guessed an id with no authentication at all. Rather than design an auth scheme for a caller that doesn't exist, the unused route was deleted: less code, less attack surface. If a real need to read organization state by id shows up later (an admin dashboard, a status-polling UI), add the route back scoped to whatever caller actually needs it, with real authentication from day one.
+
+---
+
+## Configuration
+
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `DATABASE_URL`
+      - required
+      - Postgres connection string.
+    - - `INTERNAL_SIGNING_SECRET`
+      - required
+      - HMAC secret for the `/internal/*` routes — shared with `provisioner`, not with `claims-gateway` or `tenancy-service`.
+    - - `ADDR`
+      - `:3000`
+      - HTTP listen address.
+
+`registry-service` makes no outbound calls to any other service — every interaction with `provisioner` is `provisioner` calling in, on its own schedule.

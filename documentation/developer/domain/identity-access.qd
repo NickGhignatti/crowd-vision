@@ -1,9 +1,9 @@
 .docname {Identity & Access Context}
 .include {docs}
 
-**Realised by:** Keycloak + claims-gateway + tenancy-service · **Subdomain type:** Supporting
+**Subdomain type:** Supporting · **Grounded in:** [User Stories](../requirements/user-stories.qd) IA-1 through IA-6
 
-This page captures the *design-time* model of the Identity & Access context: the language, the aggregates, and the rules we committed to before writing code. It deliberately stays at the conceptual level — concrete routes, storage, and wire formats are decided later and documented in [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+This page captures the *design-time* model of the Identity & Access context: the language, the aggregates, and the rules we committed to before writing code. It deliberately stays at the conceptual level — concrete routes, storage, and wire formats are deliberately left open, decisions for whoever builds this model.
 
 The context answers three questions: *who is this principal*, *which organizations do they belong to*, and *what may they do there*. It is the upstream source of identity for the platform — it produces the identity token that every other context treats as a Published Language.
 
@@ -87,6 +87,8 @@ The consistency boundary around a principal and its memberships.
 - Credential material (the secret used to authenticate, and any second-factor seed) lives on the aggregate but is treated as sensitive: it is part of the model, not part of what the context hands out.
 - **Intended invariant:** an Account holds at most one Membership per Domain. Joining a Domain a principal already belongs to updates the existing Membership rather than adding a second.
 
+This shape directly answers story **IA-1** (one account recognized across organizations) and **IA-5** (one sign-in, every membership carried together).
+
 ### Aggregate: Domain
 
 The consistency boundary around an organization and the rules under which principals join it.
@@ -95,6 +97,8 @@ The consistency boundary around an organization and the rules under which princi
 - `inviteSecrets` and `ssoConfig` hold confidential material. The model treats them as write-mostly: they participate in the Domain's behaviour but are not part of its public representation.
 - `subdomains` expresses an organizational hierarchy. We left the depth of that hierarchy open at this stage rather than fixing it to a single level.
 - **Intended invariant:** a Domain's strategy and its configuration agree — an internally-managed Domain carries no external-provider configuration, and an externally-federated Domain does not accept self-service joins.
+
+`authStrategy` and `SSOConfig` together answer story **IA-3** (sign in through the company's own identity provider); `subdomains` answers **IA-4** (campus/department structure); `visibleFromOutside` answers **IA-6** (a domain invisible to public discovery).
 
 ### Value Objects: Membership, SSO config, invite secrets
 
@@ -118,7 +122,7 @@ ranking (high to low):
     admin > business_admin > business_staff > standard_customer
 ```
 
-How this rule is invoked at request time is an implementation concern, covered under [Middleware](../services/middlewares.qd).
+Where in the request path this comparison is invoked — and against which required rank — is left open at the model level; the rule only states that it must hold. A ranked Role, rather than an enumerated list of cases, is what lets story **IA-2** grant a member a role more powerful than an ordinary one from their first sign-in.
 
 ---
 

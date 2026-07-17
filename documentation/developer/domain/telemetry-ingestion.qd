@@ -1,9 +1,9 @@
 .docname {Telemetry Ingestion Context}
 .include {docs}
 
-**Realised by:** sensor-service · **Subdomain type:** Core
+**Subdomain type:** Core · **Grounded in:** [User Stories](../requirements/user-stories.qd) TI-1 through TI-6
 
-This page describes the design-time model of the Telemetry Ingestion context. How the service is structured to accept and route readings at runtime — the registry/dispatch mechanism that lets new sensor types be added — is an architectural concern and is covered in [Deep Dive into Microservices](../architecture/microservices.qd) and the [Sensor Service](../services/sensor.qd) page, not here.
+This page describes the design-time model of the Telemetry Ingestion context. How readings are accepted and routed at runtime — the mechanism that lets new sensor types be added — is left as a decision for whoever builds this model; the domain states only that it must be possible without a coordinated release of every consumer (see the Published Language section below).
 
 At the domain level, this context turns raw sensor input into validated, time-stamped readings, and holds the thresholds those readings are judged against.
 
@@ -56,7 +56,7 @@ We treat each metric as a small aggregate root of its own: an append-only readin
             +aqi
         }
 
-We chose one aggregate per metric rather than a single generic "reading" so that each metric can carry its own fields and grow its own rules without entangling the others. Whether the set of metrics is fixed or open-ended was left flexible at this stage — the model is meant to accommodate metrics we have not designed yet.
+We chose one aggregate per metric rather than a single generic "reading" so that each metric can carry its own fields and grow its own rules without entangling the others. Whether the set of metrics is fixed or open-ended was left flexible at this stage — the model is meant to accommodate metrics we have not designed yet, the flexibility story **TI-5** asks for. The reading window over which signals are later aggregated (story **TI-6**) is served from this recorded, append-only history.
 
 ---
 
@@ -91,8 +91,8 @@ We chose one aggregate per metric rather than a single generic "reading" so that
         BuildingThreshold "1" *-- "many" Bound : building defaults
         RoomThreshold "1" *-- "many" Bound : room overrides
 
-- We keep at most one threshold configuration per Building, so the aggregate owns the complete picture of that Building's bounds.
-- **Intended rule:** a room-level bound, when present, takes precedence over the building-level default for that room. Resolving the effective bound for a given reading is domain logic.
+- We keep at most one threshold configuration per Building, so the aggregate owns the complete picture of that Building's bounds — the single authoritative set story **TI-3** asks for.
+- **Intended rule:** a room-level bound, when present, takes precedence over the building-level default for that room. Resolving the effective bound for a given reading is domain logic — the per-room override story **TI-2** asks for.
 
 ### Value Objects: RoomThreshold and Bound
 
@@ -113,7 +113,7 @@ validate(reading):
 
 Designing validation to return a verdict (rather than throw) is a deliberate choice so that a rejected reading can be reported clearly to its source.
 
-The intended intake path is short: once a reading is validated, it is **normalized** into a canonical signal and **published into the platform** so it can flow on to the client; an invalid reading is rejected at the door and never enters the system.
+The intended intake path is short: once a reading is validated, it is **normalized** into a canonical signal and **published into the platform** so it can flow on to the client; an invalid reading is rejected at the door and never enters the system — the fire-and-forget path story **TI-1** asks for, and the immutable, append-only recording story **TI-4** relies on.
 
 .mermaid
     sequenceDiagram

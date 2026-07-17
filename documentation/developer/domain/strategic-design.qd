@@ -15,37 +15,29 @@ The overall domain is **real-time monitoring of physical spaces through a digita
 .var {headers}
    - Subdomain
    - Type
-   - Realised by
    - Rationale
 
 .tablebyrows {.headers}
     - - Spatial Digital Twin
       - Core
-      - twin-service
       - The 3D building model is the product's differentiator and receives the richest model.
     - - Telemetry Ingestion & Thresholds
       - Core
-      - sensor-service
       - Turning raw sensor signals into meaningful, bounded readings is central business logic.
     - - Telemetry Distribution
       - Core
-      - contracts-service
       - Per-building stream shaping is what makes the live view feel tailored.
     - - Identity & Access
       - Supporting
-      - Keycloak / claims-gateway / tenancy-service
       - Multi-tenant access control is essential but not a differentiator.
     - - Alerting
       - Supporting
-      - notification-service
       - Push alerting supports the core experience without defining it.
     - - Knowledge & Assistance
       - Supporting
-      - agent-service
       - The assistant augments the product; it is explicitly experimental.
     - - Real-Time Transport
       - Generic
-      - socket-service
       - A commodity relay with no domain model of its own.
 
 ---
@@ -72,7 +64,7 @@ A guiding decision is that each core and supporting subdomain becomes exactly on
             SUB["Delivery / Preferences"]
         end
         subgraph KA["Knowledge and Assistance Context"]
-            DOC["Documents / Chunks"]
+            DOC["Inquiries / Knowledge Sources"]
         end
 
         IA -.->|"identity claims"| BM
@@ -84,6 +76,7 @@ A guiding decision is that each core and supporting subdomain becomes exactly on
         TI -->|"readings"| TD
         TI -->|"metric catalog"| TD
         BM -->|"live building data"| KA
+        TI -->|"live signals and thresholds"| KA
 
 The Real-Time Transport context is omitted from the map: it is meant to carry messages between contexts but to hold no model and enforce no rules.
 
@@ -117,6 +110,9 @@ We describe the relationships between contexts with the standard DDD integration
     - - Building Management → Knowledge & Assistance
       - Anti-Corruption Layer
       - The assistant reaches live building data only through a thin read-only layer, keeping the Building model out of the assistant's domain.
+    - - Telemetry Ingestion → Knowledge & Assistance
+      - Anti-Corruption Layer
+      - The assistant reaches live signals and thresholds the same way — a thin read-only layer, never the Telemetry model itself.
 
 ---
 
@@ -141,7 +137,7 @@ The Context Map above is organised by relationship pair. Here we restate the sam
       - Every context is a **Conformist** to the identity-token Published Language issued by Identity & Access: it reads the token and never reshapes it. Telemetry Distribution is likewise a Conformist to the metric descriptions published by each upstream context.
     - - Anti-Corruption Layer
       - Yes
-      - Knowledge & Assistance reaches live Building data only through a thin read-only **ACL**, keeping the Building model out of the assistant. Alerting applies the same idea, translating Building Management's domain answer into its own terms rather than adopting that model wholesale.
+      - Knowledge & Assistance reaches live Building and Telemetry Ingestion data only through a thin read-only **ACL**, keeping those models out of the assistant. Alerting applies the same idea, translating Building Management's domain answer into its own terms rather than adopting that model wholesale.
 
 Two further integration patterns appear in the Context Map and are worth naming: the identity token and the metric descriptions are both **Published Language**, and Telemetry Ingestion exposes its metrics as an **Open Host Service** so new metrics surface downstream without a coordinated change. We did not need a *Separate Ways* or *Partnership* relationship — no two contexts are either fully independent or jointly owned.
 
@@ -188,8 +184,8 @@ We build the tactical model from the seven DDD building blocks. The table states
       - Yes
       - Stateless behaviour we place outside any single entity: identity-token issuance and role invitation (Identity & Access), reading validation (Telemetry Ingestion), distribution (Telemetry Distribution).
     - - Repository
-      - Yes — but deferred to the architecture
-      - In the model, persistence is a Repository responsibility we deliberately keep *out* of the domain: each aggregate is meant to be stored through one repository per context, under the database-per-service rule. We chose to treat that as an architectural concern (see [Deep Dive into Microservices](../architecture/microservices.qd)) rather than design it here.
+      - Yes — but deliberately left thin here
+      - In the model, persistence is a Repository responsibility we deliberately keep *out* of the domain: each aggregate is meant to be stored and retrieved as a whole through one repository per context, so that a consumer of a context never depends on how the aggregate happens to be stored. We state only that this responsibility exists; how it is realised is a decision left for later.
     - - Factory
       - Lightly
       - We chose not to introduce dedicated Factory objects. Where creation is more than a constructor, we fold it into the relevant domain service — assembling and signing the identity token, or normalizing a raw reading into a canonical signal.

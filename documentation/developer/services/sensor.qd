@@ -35,6 +35,42 @@ A Node.js / Express service in strict TypeScript. It ingests sensor readings fro
     - - `src/config/`
       - `db.ts` (Mongo), `redis.ts` (broker).
 
+.mermaid
+    graph TD
+        subgraph Controllers
+            IC["ingestionController.ts"]
+            RC["readController.ts"]
+            TC["thresholdController.ts"]
+            WC["writerController.ts"]
+            AC["actionController.ts"]
+        end
+        subgraph "Kernel — Microkernel"
+            K["sensorKernel.ts\nregistry: type to module"]
+        end
+        subgraph "Strategy Modules"
+            BASE["BaseSensorModule.ts\nTemplate Method"]
+            TM["TemperatureModule.ts"]
+            PM["PeopleCountModule.ts"]
+            AM["AirQualityModule.ts"]
+        end
+        subgraph Services
+            MS["*ModuleService.ts\nper-metric persistence"]
+            AS["ActionService.ts"]
+        end
+        IC --> K
+        RC --> K
+        WC --> K
+        TC --> MS
+        AC --> AS
+        K --> BASE
+        BASE --> TM
+        BASE --> PM
+        BASE --> AM
+        TM --> MS
+        PM --> MS
+        AM --> MS
+        AC --> AJ["actions.json\ndata-driven routing"]
+
 ---
 
 ## Configuration

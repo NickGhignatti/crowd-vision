@@ -72,3 +72,13 @@ action ModelOverride appliesTo {
     requiredWeight: Long
   }
 };
+
+// Global (non-domain-scoped), admin-only gate — agent-service's POST
+// /ingest (re-ingesting the assistant's knowledge base is a platform-wide
+// operation, not scoped to any one domain). Fixed at the "admin" tier
+// rather than context-configurable, same as ReadWithAdminBypass's ceiling.
+action IngestDocuments appliesTo {
+  principal: [Account],
+  resource: [Resource],
+  context: {}
+};

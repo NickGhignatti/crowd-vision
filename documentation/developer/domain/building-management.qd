@@ -1,9 +1,9 @@
 .docname {Building Management Context}
 .include {docs}
 
-**Realised by:** twin-service · **Subdomain type:** Core
+**Subdomain type:** Core · **Grounded in:** [User Stories](../requirements/user-stories.qd) BM-1 through BM-5
 
-This page describes the design-time model of the Building Management context — the structural backbone of the platform that the live-data contexts decorate. Concrete APIs and storage are documented in the [Services](../services/digital-twin.qd) section.
+This page describes the design-time model of the Building Management context — the structural backbone of the platform that the live-data contexts decorate. Concrete APIs and storage are left as decisions for whoever builds this model.
 
 The context models the physical reality being monitored: buildings, the rooms inside them, and the geometry that places those rooms in the 3D digital twin.
 
@@ -65,8 +65,10 @@ We model `Building` as the single aggregate root, with `Room` as an entity that 
 
 ### Aggregate Root: Building
 
-- A Building is associated with one or more domains (by name, the shared identifier). We model tenancy as a many-to-many association so that a structure can be shared across organizations without duplication.
-- **Intended invariant:** changes to a Room flow through its Building, so the aggregate is always saved as a coherent whole rather than as independently mutated rooms.
+- A Building is associated with one or more domains (by name, the shared identifier). We model tenancy as a many-to-many association so that a structure can be shared across organizations without duplication — the shape story **BM-2** asks for.
+- **Intended invariant:** changes to a Room flow through its Building, so the aggregate is always saved as a coherent whole rather than as independently mutated rooms — the shape story **BM-3** relies on when a staff member edits a room.
+
+The aggregate as a whole, created in one coherent act with the system assigning identity, is what answers story **BM-1**.
 
 ### Entity: Room
 
@@ -75,7 +77,7 @@ We model `Building` as the single aggregate root, with `Room` as an entity that 
 
 ### Value Objects: Coordinates and Dimensions
 
-Geometry is modelled as immutable, identity-less value objects. Two rooms sharing the same coordinates are not "the same place" — position is defined entirely by its values, which is exactly the value-object contract.
+Geometry is modelled as immutable, identity-less value objects. Two rooms sharing the same coordinates are not "the same place" — position is defined entirely by its values, which is exactly the value-object contract, and the one story **BM-5** rests on.
 
 ---
 
@@ -92,7 +94,7 @@ A guiding decision for this context is that it should enforce tenancy *without* 
         Note over B: select buildings associated with that domain
         B-->>C: authorized buildings
 
-This is the intended shape of the rule; how the check is wired and how buildings are queried are implementation matters left to the service.
+This is the intended shape of the rule — the one story **BM-4** asks for — with the important property that answering it needs no call back to Identity & Access. How the check is wired and how buildings are queried are left open at the model level.
 
 ---
 

@@ -9,28 +9,44 @@ The sensor-service realises the [Telemetry Ingestion](../domain/telemetry-ingest
 
 ## Architectural Style
 
-A layered Express service that departs from the plain four-tier shape in two deliberate ways: a **modular microkernel with Strategy modules**, and a **fast-path / slow-path** execution model.
+A **microkernel with Strategy modules**, layered on a **fast-path / slow-path** execution model. Generic controllers hand off to a kernel that resolves the module owning the incoming metric type; each module implements `ISensorModule` and owns its own validation, persistence, and side effects — the kernel never branches on sensor type itself, so a new metric is a new module registered at startup, not a change to existing code.
 
----
-
-## Internal Structure
-
-Generic controllers hand off to a kernel that resolves the module owning the incoming metric; each module owns its validation, persistence, and side effects.
+`ISensorModule`'s contract enforces the fast-path/slow-path split at the type level, not just by convention: `validate()` must be pure and synchronous, and `process()` is documented to run only after the HTTP `202` has already been flushed, in a fire-and-forget context that must not assume the connection is still alive. A constrained sensor gets an immediate answer; persistence and downstream publishing happen after the response is already gone.
 
 .mermaid
     graph TD
-        R[Router] --> CTRL[Generic Controllers]
-        CTRL -->|resolve metric type| K[Sensor Kernel]
-        K --> T[Temperature Module]
-        K --> P[People Count Module]
-        K --> A[Air Quality Module]
-        K --> F[Future Modules...]
-        T --> SVC[Domain Services]
+        subgraph Router
+            R[router.ts]
+        end
+        subgraph Controller
+            CTRL[Generic Controllers]
+        end
+        subgraph Kernel
+            K[Sensor Kernel]
+        end
+        subgraph "Strategy Modules — implement ISensorModule"
+            T[Temperature Module]
+            P[People Count Module]
+            A[Air Quality Module]
+            F[Future Modules...]
+        end
+        subgraph Service
+            SVC[Module Services]
+        end
+        R --> CTRL
+        CTRL -->|"validate() — sync, fast path"| K
+        K --> T
+        K --> P
+        K --> A
+        K --> F
+        T -->|"process() — after 202, slow path"| SVC
         P --> SVC
         A --> SVC
         SVC -.-> DB[(sensor-db)]
-        SVC -.->|publish| BR[(broker)]
-        T -.->|alert| NS[notification-service]
+        SVC -.->|publish, every module| BR{{"broker"}}
+        T -.->|publish: alerts:temperature| BR
+
+The temperature module publishes to a plain Redis channel (`alerts:temperature`); it holds no reference to notification-service and has no idea whether anything is subscribed. That decoupling is what makes the module addable and removable without touching another service.
 
 ---
 
@@ -47,6 +63,6 @@ Generic controllers hand off to a kernel that resolves the module owning the inc
 ## Integration
 
 - Owns `sensor-db`; no other service reads it.
-- Publishes readings to the broker, forwards temperature events to notification-service, receives a threshold baseline from twin-service, and exposes a self-describing metric catalog to contracts-service — see [Communication & Data Flow](data-flow.qd).
+- Publishes every accepted reading to the broker, and temperature breaches specifically to the `alerts:temperature` channel — with no reference to whichever service ends up consuming either one. Receives a threshold baseline from twin-service, and exposes a self-describing metric catalog to contracts-service — see [Communication & Data Flow](data-flow.qd).
 
 For the request lifecycle, the module base-class template, the extension guide, and the API, see the [Sensor Service](../services/sensor.qd) internals page.

@@ -33,6 +33,18 @@ The source is organised by role: a composition root and shared kernel at the cra
     - - `src/infra/metrics.rs`
       - Prometheus registry, telemetry counters and fan-out latency, and the `GET /metrics` handler.
 
+.mermaid
+    graph TD
+        MAIN["main.rs\ncomposition root"] --> API["api/\ndashboard.rs, data.rs, init.rs"]
+        MAIN --> TUNNEL["tunnel.rs\nbackground worker"]
+        MAIN --> DB["infra/db.rs\nconnect + hydrate"]
+        API --> STATE["state.rs\nAppState: DashMap + Mongo handle"]
+        TUNNEL --> STATE
+        API --> DISC["infra/discovery.rs"]
+        API --> METRICS["infra/metrics.rs"]
+        TUNNEL --> METRICS
+        STATE -.-> DB
+
 ---
 
 ## Configuration

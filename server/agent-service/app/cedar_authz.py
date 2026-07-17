@@ -90,3 +90,11 @@ def can_override_model(user: AuthUser, required_role: str) -> bool:
     travels as Cedar context rather than being hardcoded in policy.cedar."""
     required_weight = _ROLE_WEIGHTS.get(required_role, 101)
     return _authorize(user, "ModelOverride", "", {"requiredWeight": required_weight})
+
+
+def can_ingest_documents(user: AuthUser) -> bool:
+    """Admin-only, global (non-domain-scoped) gate on POST /ingest —
+    re-ingesting the assistant's knowledge base isn't scoped to any one
+    domain, so this checks the caller's role only, the same shape as
+    can_access_domain's admin bypass."""
+    return _authorize(user, "IngestDocuments", "")

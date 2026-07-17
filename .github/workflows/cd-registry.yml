@@ -52,6 +52,10 @@ jobs:
             crowdvision-simulator: 'simulators/sensor-simulator/**'
             crowdvision-aq-simulator: 'simulators/aq-simulator/**'
             crowdvision-client: 'client/**'
+            crowdvision-claims-gateway: 'server/claims-gateway/**'
+            crowdvision-provisioner: 'server/provisioner/**'
+            crowdvision-registry: 'server/registry-service/**'
+            crowdvision-tenancy: 'server/tenancy-service/**'
             workflow: '.github/workflows/cd-registry.yml'
 
       - name: Build matrix
@@ -65,7 +69,9 @@ jobs:
           # twin-service and agent-service COPY the shared server/auth-policy
           # (+ auth-contracts) bundle, a sibling directory their own
           # directory can't reach as a build context — those two build from
-          # the repo root instead, with an explicit Dockerfile path.
+          # the repo root instead, with an explicit Dockerfile path. The four
+          # Go control-plane services build from the repo root too (see their
+          # own Dockerfiles / just/k8s.just's build recipe).
           CONTEXTS='{
             "crowdvision-chat":"./server/chat-service",
             "crowdvision-twin":".",
@@ -76,11 +82,19 @@ jobs:
             "crowdvision-contracts":"./server/contracts-service",
             "crowdvision-simulator":"./simulators/sensor-simulator",
             "crowdvision-aq-simulator":"./simulators/aq-simulator",
-            "crowdvision-client":"./client"
+            "crowdvision-client":"./client",
+            "crowdvision-claims-gateway":".",
+            "crowdvision-provisioner":".",
+            "crowdvision-registry":".",
+            "crowdvision-tenancy":"."
           }'
           DOCKERFILES='{
             "crowdvision-twin":"server/twin-service/Dockerfile",
-            "crowdvision-agent":"server/agent-service/Dockerfile"
+            "crowdvision-agent":"server/agent-service/Dockerfile",
+            "crowdvision-claims-gateway":"server/claims-gateway/Dockerfile",
+            "crowdvision-provisioner":"server/provisioner/Dockerfile",
+            "crowdvision-registry":"server/registry-service/Dockerfile",
+            "crowdvision-tenancy":"server/tenancy-service/Dockerfile"
           }'
 
           if [ "$EVENT" = "workflow_dispatch" ]; then

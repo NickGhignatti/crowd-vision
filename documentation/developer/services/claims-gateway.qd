@@ -1,0 +1,320 @@
+.docname {Claims Gateway}
+.include {docs}
+
+Implementation reference for `claims-gateway`. For its architectural role, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd); for the domain model, see [Identity & Access Context](../domain/identity-access.qd).
+
+`claims-gateway` is the platform's only point of contact with Keycloak. Everything downstream — Istio's edge verification, every Go/Node/Rust/Python service that trusts the `x-gateway-claims` header — ultimately depends on this one service correctly exchanging a Keycloak identity for the platform's own `StandardClaims` token, signing it, and publishing the public key that lets everyone else verify it without calling back here. The service itself is **stateless**: it owns no database, and every piece of durable identity data lives either in Keycloak (credentials, profile) or in `tenancy-service` (memberships).
+
+---
+
+## Source Layout
+
+.var {headers}
+   - Path
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - `cmd/gateway/main.go`
+      - Loads config, runs OIDC discovery against Keycloak, wires the service together, mounts routes.
+    - - `internal/api/handler.go`
+      - Every HTTP route: public (login/register/exchange) and authenticated (profile, `/me`, `/verify`).
+    - - `internal/config/config.go`
+      - Env var loading; loads or generates the RS256 signing key; defaults (`issuer=cv-gateway`, token TTL 15 minutes).
+    - - `internal/signer/signer.go`
+      - Mints `StandardClaims` JWTs and publishes the JWKS every verifier reads.
+    - - `internal/service/exchange.go`
+      - `Exchange()`: the one function every login path converges on — verify, look up memberships, sign.
+    - - `internal/service/register.go`
+      - Password-grant login and registration, both of which call `Exchange()` once they have a Keycloak ID token.
+    - - `internal/service/profile.go`
+      - `/me`, `/profile`, and password-change logic, backed by Keycloak's admin API.
+    - - `internal/keycloakadmin/client.go`
+      - The only code in the platform that speaks Keycloak's admin API: password grant, user creation, user lookup/update, admin-token caching.
+    - - `internal/oidcverifier/verifier.go`
+      - Verifies a Keycloak-issued ID token; handles OIDC discovery separately from the `jwks_uri` fetch (see the gotcha box below).
+    - - `internal/tenancyclient/client.go`
+      - HMAC-signed calls to `tenancy-service`'s `/internal/*` routes: membership lookup and first-login provisioning.
+
+.mermaid
+    graph TD
+        MAIN["main.rs\ncmd/gateway/main.go"] --> HANDLER["internal/api/handler.go"]
+        HANDLER --> EXCHANGE["internal/service/exchange.go\nExchange()"]
+        HANDLER --> REGISTER["internal/service/register.go\nLogin() / Register()"]
+        HANDLER --> PROFILE["internal/service/profile.go"]
+        REGISTER --> EXCHANGE
+        EXCHANGE --> VERIFIER["internal/oidcverifier\nVerify() — checks Keycloak's ID token"]
+        EXCHANGE --> TENANCY["internal/tenancyclient\nMembershipsFor() / Provision()"]
+        EXCHANGE --> SIGNER["internal/signer\nSign() — mints StandardClaims JWT"]
+        REGISTER --> KCADMIN["internal/keycloakadmin\npassword grant, user CRUD"]
+        PROFILE --> KCADMIN
+        HANDLER --> SIGNER
+        SIGNER -.->|"publishes the JWKS endpoint"| CONSUMERS["auth-middleware, Istio, every verifier"]
+
+---
+
+## Configuration
+
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `OIDC_ISSUER`
+      - required
+      - The `iss` value Keycloak-issued ID tokens carry — what the verifier checks the token against.
+    - - `OIDC_DISCOVERY_URL`
+      - `OIDC_ISSUER`
+      - Where the gateway itself reaches Keycloak for discovery/JWKS. Separate from `OIDC_ISSUER` because inside the cluster the gateway resolves Keycloak by its internal hostname, while `OIDC_ISSUER` is the externally-visible URL browsers' tokens actually carry.
+    - - `OIDC_CLIENT_ID`
+      - required
+      - Keycloak's public client id, used to verify an ID token was issued for this app.
+    - - `TENANCY_URL`
+      - required
+      - Base URL for `tenancy-service`'s internal routes.
+    - - `INTERNAL_SIGNING_SECRET`
+      - required
+      - HMAC secret shared with `tenancy-service`, signs every `internal/tenancyclient` call.
+    - - `KEYCLOAK_REALM`
+      - required
+      - The Keycloak realm this deployment authenticates against.
+    - - `REGISTRATION_CLIENT_ID` / `REGISTRATION_CLIENT_SECRET`
+      - required
+      - Keycloak's confidential client, used for password-grant and admin-API calls — different from `OIDC_CLIENT_ID`, which is the public browser-facing client.
+    - - `GATEWAY_PRIVATE_KEY` / `GATEWAY_PRIVATE_KEY_FILE`
+      - generated if unset
+      - PEM RSA private key for signing. Generating an ephemeral key when neither is set is a dev convenience — it invalidates every issued token on restart, so a real deployment always sets one.
+    - - `GATEWAY_KEY_ID`
+      - `cv-gateway-1`
+      - The `kid` published in the JWKS and stamped on every token, so a verifier with multiple historical keys picks the right one.
+    - - `GATEWAY_ISSUER`
+      - `cv-gateway`
+      - This gateway's own `iss` claim — distinct from `OIDC_ISSUER`, which is Keycloak's.
+
+Token TTL is fixed at 15 minutes, not configurable.
+
+.box {The OIDC discovery URL and the issuer are deliberately separate settings} type:{note}
+    A browser's ID token carries `iss` set to the externally-reachable Keycloak URL (`OIDC_ISSUER`). But the gateway itself, running inside the cluster, often needs to reach Keycloak by an internal hostname for discovery and JWKS fetching (`OIDC_DISCOVERY_URL`) — the two URLs can point at the same Keycloak instance without being the same string. Verification checks the token's `iss` against `OIDC_ISSUER`; the HTTP calls to fetch keys go to `OIDC_DISCOVERY_URL`.
+
+---
+
+## Token Minting
+
+**File:** `internal/signer/signer.go`
+
+`Signer` holds a 2048-bit RSA private key and mints the platform's own JWT — not Keycloak's. Every `authentication_token` cookie and every `/me` response is a token this service signed, carrying the shared [Auth Contracts](../packages/auth-contracts.qd) `StandardClaims` shape:
+
+```go
+func (s *Signer) Sign(claims authcontracts.StandardClaims, ttl time.Duration) (string, error) {
+	if claims.SID == "" {
+		claims.SID = uuid.NewString()
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"sub":         claims.Sub,
+		"accountName": claims.AccountName,
+		"sid":         claims.SID,
+		"memberships": claims.Memberships,
+		"iss":         s.issuer,
+		"iat":         time.Now().Unix(),
+		"exp":         time.Now().Add(ttl).Unix(),
+	})
+	tok.Header["kid"] = s.kid
+	return tok.SignedString(s.key)
+}
+```
+
+And publishes the corresponding public key at `GET /.well-known/jwks.json`:
+
+```go
+func (s *Signer) JWKS() []byte {
+	jwk, err := jwkset.NewJWKFromKey(&s.key.PublicKey, jwkset.JWKOptions{
+		Metadata: jwkset.JWKMetadataOptions{KID: s.kid, ALG: jwkset.ALG("RS256")},
+	})
+	// ...marshal to JWKS JSON
+	return raw
+}
+```
+
+This is the one JWKS endpoint the whole platform depends on: [Auth Middleware](../packages/auth-middleware.qd)'s `RequireAuthentication` fetches it directly, and Istio's `RequestAuthentication` fetches it (through the ingress gateway route, not the pod directly — see [Service Mesh Architecture](../architecture/service-mesh.qd)'s gotcha on this) to verify the same tokens at the mesh edge.
+
+---
+
+## Login — Three Entry Points, One Function
+
+Three routes accept different inputs, but all three end at the same `Exchange()`:
+
+.mermaid
+    sequenceDiagram
+        participant C as Client
+        participant GW as claims-gateway
+        participant KC as Keycloak
+        participant T as tenancy-service
+        alt POST /exchange (browser already has a Keycloak ID token)
+            C->>GW: idToken
+        else POST /login (username + password)
+            C->>GW: username, password
+            GW->>KC: password grant
+            KC-->>GW: idToken
+        else POST /register (email + password + name)
+            C->>GW: email, password, name
+            GW->>KC: create user (admin API)
+            GW->>KC: password grant
+            KC-->>GW: idToken
+        end
+        Note over GW: Exchange(idToken)
+        GW->>GW: verify idToken against Keycloak's JWKS
+        GW->>T: GET /internal/memberships?accountId=...
+        T-->>GW: memberships
+        opt no memberships, first login
+            GW->>T: POST /internal/provision
+        end
+        GW->>GW: Sign(StandardClaims) — mint the platform's own JWT
+        GW-->>C: 200, sets authentication_token cookie
+
+```go
+// File: internal/service/exchange.go
+func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, error) {
+	kc, err := g.verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrInvalidIDToken, err)
+	}
+	memberships, err := g.tenancy.MembershipsFor(ctx, kc.Sub)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrTenancyUnavailable, err)
+	}
+	// tenancy-service has no record but Keycloak's token names an organization
+	if len(memberships) == 0 && kc.Organization != "" {
+		memberships, err = g.provisionOnFirstLogin(ctx, kc)
+		if err != nil {
+			return "", err
+		}
+	}
+	return g.signer.Sign(authcontracts.StandardClaims{
+		Sub: kc.Sub, AccountName: accountName(kc),
+		SID: uuid.NewString(), Memberships: memberships,
+	}, g.ttl)
+}
+```
+
+`Login` (password grant) and `Register` (create-user-then-login) are both thin wrappers that produce a raw Keycloak ID token and hand it to this same function — neither reimplements verification or membership lookup:
+
+```go
+// File: internal/service/register.go
+func (g *Gateway) Login(ctx context.Context, username, password string) (string, error) {
+	idToken, err := g.authenticator.PasswordGrant(ctx, username, password)
+	if err != nil { /* ... */ }
+	return g.Exchange(ctx, idToken)
+}
+
+func (g *Gateway) Register(ctx context.Context, email, password, name string) (string, error) {
+	if err := g.registrar.CreateUser(ctx, email, password, name); err != nil { /* ... */ }
+	return g.Login(ctx, email, password)
+}
+```
+
+Keeping verification, membership lookup, and signing in exactly one place means a browser that already holds a Keycloak session (`/exchange`), a client doing an in-app password login (`/login`), and a brand-new signup (`/register`) all get identical, consistently-shaped tokens — none of the three entry points can drift from what the others produce.
+
+---
+
+## HTTP API
+
+.var {headers}
+   - Method · Path
+   - Auth
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `GET /health`
+      - Public
+      - Liveness probe.
+    - - The JWKS endpoint (see *Token Minting* above)
+      - Public
+      - Publishes the gateway's RSA public key — see *Token Minting* above.
+    - - `POST /exchange`
+      - Public
+      - Keycloak ID token in, platform token out — the core of *Login* above.
+    - - `POST /login`
+      - Public
+      - Username + password, via Keycloak's password grant, then `Exchange`.
+    - - `POST /register`
+      - Public
+      - Creates a Keycloak user, then `Login`.
+    - - `POST /logout`
+      - Public
+      - Clears the `authentication_token` cookie.
+    - - `GET /me`
+      - Cookie/Bearer
+      - Returns the caller's own `StandardClaims`, straight from the verified context.
+    - - `GET /profile`
+      - Cookie/Bearer
+      - Email, display name, picture — read from Keycloak's admin API.
+    - - `PATCH /profile`
+      - Cookie/Bearer
+      - Updates email/name in Keycloak, re-signs the session cookie so the new name is reflected immediately.
+    - - `POST /profile/password`
+      - Cookie/Bearer
+      - Verifies the current password (a password-grant call), then resets it via the admin API.
+    - - `GET /verify`
+      - Cookie/Bearer
+      - Copies the verified claims onto the `x-gateway-claims` header — this is the endpoint Caddy's `forward_auth` (docker-compose) calls; Istio's `RequestAuthentication` (Kubernetes) verifies independently instead of calling this route.
+    - - `POST /refresh`
+      - Cookie/Bearer
+      - Re-reads memberships from `tenancy-service` and re-signs the cookie — used after a membership changes (e.g. accepting an invite) so the client doesn't have to log out and back in.
+
+Every "Cookie/Bearer" route runs behind [Auth Middleware](../packages/auth-middleware.qd)'s `RequireAuthentication` — the one place in the platform that does real RS256 signature verification, because this service is the trust root every other verifier's key material traces back to.
+
+---
+
+## Profile And Password Management
+
+`/me` reads straight from the verified request context — no downstream call:
+
+```go
+func meHandler(w http.ResponseWriter, r *http.Request) {
+	claims, _ := authmiddleware.FromContext(r.Context())
+	json.NewEncoder(w).Encode(claims)
+}
+```
+
+`/profile`, its `PATCH`, and the password-change endpoint all go through `internal/keycloakadmin`, the one client in the platform that calls Keycloak's admin API (user CRUD, not the OIDC token endpoint). A password change specifically re-verifies the *current* password via a password-grant call before resetting it — it doesn't trust the session alone to authorize a password change:
+
+```go
+func (g *Gateway) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	email, _, _, err := g.profileReader.GetUser(ctx, userID)
+	// ...
+	if _, err := g.authenticator.PasswordGrant(ctx, email, currentPassword); err != nil {
+		return err // wrong current password — reject before touching anything
+	}
+	return g.passwordChanger.ResetPassword(ctx, userID, newPassword)
+}
+```
+
+---
+
+## Calling tenancy-service
+
+**File:** `internal/tenancyclient/client.go`
+
+Every call is HMAC-SHA256 signed with `INTERNAL_SIGNING_SECRET` — the same scheme [`registry-service`](registry-service.qd) and [`provisioner`](provisioner.qd) use for their own internal calls, though claims-gateway's secret is shared specifically with `tenancy-service`, not those two.
+
+```go
+func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+"/internal/memberships?accountId="+accountID, nil)
+	req.Header.Set("X-Signature", c.sign(nil)) // GET: sign an empty body
+	// ...
+}
+```
+
+`Provision` is the first-login path: if Keycloak's token names an organization the account has no membership in yet, the gateway asks `tenancy-service` to create that membership before minting a token — `tenancy-service` can refuse with `403` if the domain isn't open for self-service join, which the gateway surfaces as `ErrInviteOnly` rather than silently granting access.
+
+---
+
+## Data Model
+
+`claims-gateway` owns no database and persists nothing between requests. The two systems of record it depends on are external to it:
+
+- **Keycloak** holds credentials, email, profile attributes, and the organization claim used for first-login provisioning.
+- **`tenancy-service`** holds the membership records (`domain`, `role`, `externalId`) that end up in every `StandardClaims` token.
+
+This statelessness is what makes the service trivially horizontally scalable — any instance can serve any request, since nothing but the (stateless) signing key and JWKS lives on the process.

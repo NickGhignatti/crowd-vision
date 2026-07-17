@@ -1,0 +1,146 @@
+.docname {Knowledge & Assistance Context}
+.include {docs}
+
+**Subdomain type:** Supporting · **Grounded in:** [User Stories](../requirements/user-stories.qd) KA-1 through KA-6
+
+This page describes the design-time model of the Knowledge & Assistance context: an assistant a principal can ask a question, and expect a grounded answer back. It is deliberately the newest and lightest-modelled context — the product idea behind it is still maturing, and the subdomain is classified as explicitly experimental rather than core.
+
+The context answers one question at a time: *what does the asker want to know*, *what may they be shown to answer it*, and *did the answer actually come from something real*.
+
+---
+
+## Ubiquitous Language
+
+.var {headers}
+   - Term
+   - Meaning in this context
+
+.tablebyrows {.headers}
+    - - Inquiry
+      - A single question posed by a principal, scoped by that principal's own identity.
+    - - Consultation
+      - The bounded act of gathering material in service of one Inquiry.
+    - - Knowledge Source
+      - A recorded piece of reference material available to be consulted.
+    - - Answer
+      - The response composed for an Inquiry.
+    - - Citation
+      - A pointer from part of an Answer to the specific material that grounds it.
+
+---
+
+## Aggregates
+
+We model two aggregate roots. `Inquiry` owns the question, its `Answer`, and that Answer's `Citation`s as one consistency boundary — an Answer has no meaning outside the Inquiry that produced it. `KnowledgeSource` stands apart, on purpose: reference material is curated and maintained independently of any question asked about it, so we give it its own boundary and let a Citation reference one by identifier rather than embed it.
+
+.mermaid
+    classDiagram
+        class Inquiry {
+            <<Aggregate Root>>
+            +id
+            +askerId
+            +question
+            +Answer answer
+        }
+        class Answer {
+            <<Entity>>
+            +text
+            +grounded
+            +Citation[] citations
+        }
+        class Citation {
+            <<Value Object>>
+            +sourceId
+            +excerpt
+        }
+        class KnowledgeSource {
+            <<Aggregate Root>>
+            +id
+            +title
+            +content
+        }
+
+        Inquiry "1" *-- "1" Answer : produces
+        Answer "1" *-- "many" Citation : grounded by
+        Citation "many" --> "1" KnowledgeSource : points to
+
+### Aggregate: Inquiry
+
+The consistency boundary around one question and the one Answer it produces.
+
+- We keep the Answer *inside* the Inquiry aggregate rather than as a separate lookup, because an Answer that has drifted from its Inquiry has no meaning — the two are always read and reasoned about together.
+- **Intended invariant:** an Inquiry produces exactly one Answer. A follow-up question is a new Inquiry, not a mutation of the old one — this is what keeps story **KA-1** simple: one question in, one answer out.
+- **Intended rule:** producing an Answer is a bounded Consultation (below), not an open-ended process — the guarantee story **KA-6** asks for.
+
+### Aggregate: Knowledge Source
+
+The consistency boundary around one piece of recorded reference material.
+
+- A Knowledge Source is maintained on its own timeline, independent of any Inquiry that might later cite it. This is why it is a separate aggregate rather than something owned by Answer.
+- We deliberately model no internal structure for a Knowledge Source at this level — how it is organized or broken down for consultation is left open, a decision for whoever builds this model.
+
+### Entity: Answer, Value Object: Citation
+
+An Answer is an entity rather than a value object because it is meaningful to talk about *the* Answer to a given Inquiry — it has an identity derived from its Inquiry, even though it carries no identity of its own outside it.
+
+- `grounded` states plainly whether the Answer rests on at least one real Citation. An ungrounded Answer — "I don't know" — is a normal, valid outcome, not a failure state: this is exactly what story **KA-5** asks the model to prefer over a confident guess.
+- A **Citation** is a value object: two citations pointing at the same source with the same excerpt are the same citation. It carries no independent identity because it means nothing outside the Answer that holds it.
+- **Intended invariant:** a Citation may only reference a Knowledge Source — or a fact — that was actually visited during the Inquiry's Consultation. An Answer cannot cite something it never consulted. This is the rule story **KA-2** relies on to make an Answer verifiable.
+
+---
+
+## Consultation as a Domain Rule
+
+Producing an Answer is a bounded, structured process, not an unconstrained search:
+
+```text
+consult(inquiry):
+    gather candidate material the asker is permitted to see
+    visit a fixed, finite number of sources from that candidate set
+    compose an answer from what was actually visited
+    attach a citation for each fact the answer actually used
+    return the answer — grounded, or "I don't know" if nothing sufficient was found
+```
+
+.mermaid
+    sequenceDiagram
+        participant P as Principal
+        participant KA as Knowledge & Assistance
+        P->>KA: pose an Inquiry
+        Note over KA: restrict candidate material to what the asker may see
+        Note over KA: consult a bounded number of sources
+        alt sufficient grounding found
+            Note over KA: compose an Answer, cite only what was consulted
+        else nothing sufficient found
+            Note over KA: compose an ungrounded Answer — "I don't know"
+        end
+        KA-->>P: Answer
+
+Bounding the Consultation is what answers story **KA-6**: a confusing Inquiry still terminates, because the process is designed to stop and settle on an Answer — grounded or not — rather than continuing indefinitely. Restricting candidate material to live and recorded data the asker is already permitted to see, before any of it is consulted, is what answers story **KA-4** — and what allows story **KA-3** to reach beyond static reference material into a Building's live state without widening what the asker is allowed to know.
+
+---
+
+## Relationships to Other Contexts
+
+This context is a downstream **consumer** in every relationship it has — it originates nothing that another context depends on.
+
+.var {headers}
+   - Upstream Context
+   - What this context consumes
+   - Pattern
+
+.tablebyrows {.headers}
+    - - Identity & Access
+      - The identity token, to scope an Inquiry's candidate material to its asker's memberships.
+      - Conformist
+    - - Building Management
+      - Read-only access to structural building data, when an Inquiry needs it.
+      - Anti-Corruption Layer
+    - - Telemetry Ingestion
+      - Read-only access to live signals and thresholds, when an Inquiry needs current state rather than history.
+      - Anti-Corruption Layer
+
+Reaching both upstream contexts only through a thin, read-only layer is a deliberate choice: it keeps the Building and Telemetry models out of this context's own language, so a change to either upstream model does not ripple into how an Inquiry is answered.
+
+.box {Why this context is modelled so lightly} type:{tip}
+    Knowledge & Assistance carries the thinnest model in the platform on purpose. It is explicitly experimental, and richer behaviour — ranking material, weighing conflicting sources, remembering prior Inquiries — is left for the model to grow into once the product idea itself has settled.

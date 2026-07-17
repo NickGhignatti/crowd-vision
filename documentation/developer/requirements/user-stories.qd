@@ -23,39 +23,6 @@ The path from backlog to strategic design was mechanical on purpose, so that the
         ST -- "stories needing two dialects" --> CM["Context map relationships"]
         BC --> CM
 
-The table below shows the trace for the load-bearing vocabulary. When a story says the words on the left, the model answers with the element on the right.
-
-.var {headers}
-   - When a story says…
-   - The model answers with
-   - Context
-
-.tablebyrows {.headers}
-    - - "my organization"
-      - The Domain aggregate, referenced everywhere by its name — the shared identifier.
-      - Identity & Access
-    - - "join with the right role"
-      - The Role invitation domain service, producing a Membership with a ranked Role.
-      - Identity & Access
-    - - "the building", "a room"
-      - The Building aggregate root, Room entities, geometry value objects.
-      - Building Management
-    - - "a reading"
-      - The per-metric Signal aggregates — immutable, append-only.
-      - Telemetry Ingestion
-    - - "capacity", "maximum temperature"
-      - Bounds inside the BuildingThreshold aggregate, with per-room overrides.
-      - Telemetry Ingestion
-    - - "a column on my dashboard"
-      - An allowed metric inside the BuildingPreference aggregate.
-      - Telemetry Distribution
-    - - "my devices"
-      - DeliveryChannel aggregates, one per device.
-      - Alerting
-    - - "what I want to hear about"
-      - The AlertPreference aggregate, scoped per principal per domain.
-      - Alerting
-
 ---
 
 ## Personas
@@ -88,7 +55,7 @@ The personas mirror the ranked Role policy of the [Identity & Access Context](..
 
 ## Identity & Access
 
-*Model:* [Identity & Access Context](../domain/identity-access.qd) — realised by Keycloak + claims-gateway + tenancy-service.
+*Model:* [Identity & Access Context](../domain/identity-access.qd).
 
 .var {headers}
    - ID
@@ -119,7 +86,7 @@ The personas mirror the ranked Role policy of the [Identity & Access Context](..
 
 ## Building Management
 
-*Model:* [Building Management Context](../domain/building-management.qd) — realised by twin-service.
+*Model:* [Building Management Context](../domain/building-management.qd).
 
 .var {headers}
    - ID
@@ -150,7 +117,7 @@ The personas mirror the ranked Role policy of the [Identity & Access Context](..
 
 ## Telemetry Ingestion
 
-*Model:* [Telemetry Ingestion Context](../domain/telemetry-ingestion.qd) — realised by sensor-service.
+*Model:* [Telemetry Ingestion Context](../domain/telemetry-ingestion.qd).
 
 .var {headers}
    - ID
@@ -181,7 +148,7 @@ The personas mirror the ranked Role policy of the [Identity & Access Context](..
 
 ## Telemetry Distribution
 
-*Model:* [Telemetry Distribution Context](../domain/telemetry-distribution.qd) — realised by contracts-service.
+*Model:* [Telemetry Distribution Context](../domain/telemetry-distribution.qd).
 
 .var {headers}
    - ID
@@ -206,7 +173,7 @@ The personas mirror the ranked Role policy of the [Identity & Access Context](..
 
 ## Alerting
 
-*Model:* [Alerting Context](../domain/alerting.qd) — realised by notification-service.
+*Model:* [Alerting Context](../domain/alerting.qd).
 
 .var {headers}
    - ID
@@ -229,6 +196,37 @@ The personas mirror the ranked Role policy of the [Identity & Access Context](..
     - - AL-5
       - As a **domain administrator**, I want alerts to reach only members of the building's organizations who opted in, so that tenants never see each other's incidents.
       - Recipient selection asks Building Management which domains the building belongs to — translating the answer through an anti-corruption layer — and intersects them with opted-in preferences.
+
+---
+
+## Knowledge & Assistance
+
+*Model:* [Knowledge & Assistance Context](../domain/knowledge-assistance.qd).
+
+.var {headers}
+   - ID
+   - Story
+   - Where the model answers it
+
+.tablebyrows {.headers}
+    - - KA-1
+      - As a **standard user**, I want to ask a plain-language question about the platform or my organizations and get a direct answer instead of hunting through documentation myself, so that I can get unstuck without waiting on a person.
+      - An Inquiry is answered by consulting the platform's own recorded knowledge and composing a direct response, rather than redirecting the asker elsewhere.
+    - - KA-2
+      - As a **staff member**, I want every claim in an answer to point at the material it came from, so that I can verify it before acting on it.
+      - An Answer carries its Citations as part of the model; a citation may point only at material that was actually consulted for that Answer, never at material the answer merely resembles.
+    - - KA-3
+      - As a **staff member**, I want to ask about a building's current state — not just how the platform works — and get a real answer, so that "is the west wing still over its temperature threshold" doesn't require switching to a different screen.
+      - An Inquiry may draw on live platform data as well as recorded knowledge, through the same access rules that govern every other read of that data.
+    - - KA-4
+      - As a **standard user**, I want the assistant to only ever discuss organizations and buildings I have access to, so that its answers never leak someone else's data.
+      - The tenancy rule from [Identity & Access](identity-access.qd) applies to an Inquiry exactly as it applies to any other read: an Inquiry can answer with only what its asker's memberships already permit.
+    - - KA-5
+      - As a **standard user**, I want to be told plainly when the assistant does not know, rather than given a confident but made-up answer, so that I can trust what it does tell me.
+      - An Answer with no grounded Citations is a valid, intended outcome, not an error — "I don't know" is a first-class answer, not a case the model tries to avoid producing.
+    - - KA-6
+      - As a **domain administrator**, I want a single confusing exchange with the assistant to end in bounded time, so that one bad question never turns into a stuck conversation.
+      - Answering an Inquiry is a bounded process: it consults a fixed, finite number of sources before it must settle on an Answer — including "I don't know" — rather than continuing indefinitely.
 
 ---
 

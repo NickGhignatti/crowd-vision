@@ -9,41 +9,63 @@ The notification-service realises the [Alerting](../domain/alerting.qd) context.
 
 ## Architectural Style
 
-A layered Express service organised around two responsibilities that map directly onto the context's two aggregates: managing *where* a principal can be reached, and *what* they have chosen to receive.
+A **layered architecture** — Router → Controller → Service → Model — organised around two responsibilities that map directly onto the context's two aggregates: managing *where* a principal can be reached, and *what* they have chosen to receive.
 
----
-
-## Internal Structure
+The service has **two entry points into the same service layer**, not just one. HTTP requests arrive through `router.ts` → `controller/notificationController.ts` in the usual way; temperature alerts also arrive through `services/eventListener.ts`, a Redis subscriber on `alerts:temperature` — a driving path with no controller in front of it, since there's no HTTP request to adapt. Both entry points now go through the same cooldown/domain-resolution/dual-delivery shape in `notificationService.ts`.
 
 .mermaid
     graph TD
-        R[Router] --> NC[Notification Controller]
-        R --> PC[Preferences Controller]
-        NC --> NS[Notification Service]
-        NC --> PS[Push Service]
-        PC --> M2[Alert Preference Model]
-        NS --> M2
-        PS --> M1[Delivery Channel Model]
+        subgraph Router
+            R[router.ts]
+        end
+        subgraph "Controller — notificationController.ts"
+            ALERT["triggerAlert · pushTemperatureAlert"]
+            PREF["subscribe · getPreferences · updatePreference"]
+        end
+        subgraph "Service — notificationService.ts / pushService.ts"
+            NSV["publishNotification · sendTemperatureAlert ·\ndeliverTemperatureAlertToDomains ·\nisTemperatureAlertOnCooldown / setTemperatureAlertCooldown"]
+            PSV["subscribeUser · sendPushToDomain · preference CRUD"]
+        end
+        subgraph Model
+            M1[Delivery Channel Model]
+            M2[Alert Preference Model]
+        end
+        EL["Event Listener\nRedis subscriber: alerts:temperature"] --> NSV
+        EL --> TW
+        R --> ALERT
+        R --> PREF
+        ALERT --> TW[twin-service: resolve domains]
+        ALERT --> NSV
+        ALERT --> PSV
+        NSV --> PSV
+        PREF --> PSV
+        PSV --> M1
+        PSV --> M2
         M1 -.-> DB[(notification-db)]
         M2 -.-> DB
-        NS -.->|publish| BR[(broker)]
-        NS -.->|resolve domains| TW[twin-service]
+        NSV -.->|publish| BR[(broker)]
+
+`POST /trigger`, `POST /push/temperature`, and the `alerts:temperature` Redis subscription — the path that actually fires for every automatic sensor-driven threshold breach (see [Communication & Data Flow](data-flow.qd)'s Threshold Alert flow) — all resolve recipients via twin-service, debounce, and dispatch on both channels. The two HTTP routes forward the calling user's own `x-gateway-claims` header to twin-service's building→domain lookup; the event-listener path has no HTTP caller to forward a token from, so it presents a fixed system identity instead (`getDomainsForBuilding`'s default `claimsHeader`, in `notificationService.ts`) — safe only because that specific twin-service route (`GET /domain/:building_name`) doesn't perform any per-identity authorization, it just requires *a* structurally valid claims header to exist.
+
+.box {The event-listener path degrades gracefully instead of failing loudly} type:{note}
+    `pushTemperatureAlert` throws a `ValidationError` (400) if no domain can be determined — reasonable for a synchronous HTTP call, where silence would be bad UX. The event-listener path can't do that (there's no HTTP response to fail), so if the twin-service lookup errors or resolves to zero domains, it falls back to the old unscoped broadcast (`sendTemperatureAlert` straight to the `notifications` channel) rather than dropping the alert entirely. The 5-minute cooldown still applies either way, so a building that can't be resolved doesn't flood the channel.
 
 ---
 
 ## Key Architectural Decisions
 
 - **Two responsibilities, two models.** Delivery channels and alert preferences are kept apart so a device can be revoked without losing choices, and choices can change without re-registering devices.
-- **Dual-channel delivery.** An alert is dispatched both as an in-app event (through the broker, to connected clients) and as a push to offline devices, so reachability does not depend on the app being open.
-- **Repeat suppression.** Because readings arrive continuously, the service is designed to debounce repeated alerts for the same condition rather than notify on every reading.
-- **Recipient resolution by collaboration.** The service asks the twin-service which domains a building belongs to and translates that into recipients, rather than keeping its own copy of building structure (an anti-corruption boundary).
-- **Self-pruning channels.** A delivery channel that the provider reports as permanently dead is removed automatically, keeping the model clean without a scheduled job.
+- **Dual-channel delivery, on every temperature-alert path.** `triggerAlert`, `pushTemperatureAlert`, and the automatic `alerts:temperature` listener all dispatch both an in-app event (through the broker) and a push to offline devices, so reachability does not depend on the app being open.
+- **Repeat suppression, on every temperature-alert path.** A 5-minute Redis-backed cooldown, keyed per building and room (`temp_alert:{buildingId}:{roomId}`), stops the same condition from re-alerting on every reading — including the automatic sensor-driven path, which is the one under the most repeat-alert pressure (a stuck sensor reading the same breach every tick).
+- **Recipient resolution by collaboration.** Where a path resolves recipients at all, it asks twin-service which domains a building belongs to and translates that into recipients, rather than keeping its own copy of building structure (an anti-corruption boundary).
+- **Self-pruning channels.** A delivery channel that the provider reports as permanently dead (`410`/`403`) is removed automatically on the next push attempt, keeping the model clean without a scheduled job.
 
 ---
 
 ## Integration
 
 - Owns `notification-db`; no other service reads it.
-- Receives temperature events from sensor-service; resolves domains from twin-service; publishes alert events to the broker — see [Communication & Data Flow](data-flow.qd).
+- Receives temperature events from sensor-service via the `alerts:temperature` Redis channel; publishes to the `notifications` channel for socket-service to relay — see [Communication & Data Flow](data-flow.qd).
+- Calls twin-service to resolve a building's domains — from the authenticated HTTP alert routes (`triggerAlert`, `pushTemperatureAlert`, forwarding the caller's own claims) and from the `alerts:temperature` event listener (using a fixed system identity, since there's no caller to forward).
 
 For the throttle mechanics, VAPID delivery, the cleanup behaviour, and the API, see the [Notification Service](../services/notification.qd) internals page.

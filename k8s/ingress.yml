@@ -34,6 +34,20 @@ spec:
     - host: crowdvision.local   # change to your VPS domain for production
       http:
         paths:
+          - path: /gateway(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: claims-gateway
+                port:
+                  number: 3000
+          - path: /tenancy(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: tenancy-service
+                port:
+                  number: 3000
           - path: /chat(/|$)(.*)
             pathType: ImplementationSpecific
             backend:

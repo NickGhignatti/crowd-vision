@@ -1,102 +1,167 @@
-.docname {Sensor Data Communication}
+.docname {Real-Time Client Communication}
 .include {docs}
 
-To ensure high throughput and low latency, the system utilizes a unidirectional data tunnel orchestrated via **Redis Pub/Sub**. The architecture strictly separates concerns: production, routing, and distribution are handled by three independent services that never call each other directly.
+This page documents how the Vue client talks to the backend over its **one** WebSocket connection — how that connection comes to exist, and how telemetry subscription is layered on top of it for components that need live sensor data. For how a reading gets from a physical sensor to the point where this connection receives it, see [Contracts Service Architecture](../architecture/contracts-architecture.qd) and [Socket Service Architecture](../architecture/socket-architecture.qd); this page starts where those leave off — the moment a `telemetry` event lands in the browser.
 
 ---
 
-## Core Components
+## One Shared Connection, Tied To Authentication
 
-1. **Sensor Service (The Producer)** — Blindly emits the absolute truth of the physical world.
-   - Publishes full telemetry payloads to `telemetry:raw`.
-   - Each message includes a `type` field identifying the metric (`"temperature"`, `"peopleCount"`, `"airQuality"`).
+**File:** `client/src/services/socket.ts`
 
-2. **Contracts Service (The Router)** — A Rust/Axum microservice that routes each reading to the building it belongs to.
-   - Subscribes to `telemetry:raw`.
-   - Maintains an O(1) in-memory `DashMap` of known buildings (and their dashboard column preferences, used by the HTTP API).
-   - For each message it reads the event's **own** `buildingId` and republishes the payload to that one building's channel — a single O(1) lookup, never a fan-out across buildings.
-   - Publishes the payload to `telemetry:filtered:<building_id>`.
+The whole app shares a single Socket.IO client instance, created once at module load:
 
-3. **Socket Service (The Distributor)** — Stateless WebSocket relay.
-   - When a client connects via WebSocket, it subscribes to `telemetry:filtered:<building_id>`.
-   - Pushes data directly down the TCP socket to the browser.
-
----
-
-## Sequence Diagram
-
-.mermaid
-    sequenceDiagram
-        participant S as Sensor Service
-        participant R1 as Redis (telemetry:raw)
-        participant C as Contracts Service (Rust)
-        participant R2 as Redis (telemetry:filtered:*)
-        participant W as Socket Service
-        participant FE as Vue Frontend
-
-        Note over FE, W: 1. Connection & Subscription
-        FE->>W: Connect WebSocket (buildingId: alpha)
-        W->>R2: SUBSCRIBE telemetry:filtered:alpha
-        FE->>C: GET /preferences/alpha
-        Note over C: Returns DashMap entry for "alpha"
-        Note over FE: Renders table columns from allowed_columns
-
-        Note over S, FE: 2. High-Frequency Telemetry Loop
-        loop Every Sensor Tick
-            S->>R1: PUBLISH { type:"temperature", buildingId:"alpha", roomId:"r1", value:22 }
-            R1-->>C: Message received
-            Note over C: Read buildingId = "alpha" (building known? ✓)<br/>No metric-type gate — every metric is forwarded
-            C->>R2: PUBLISH telemetry:filtered:alpha { type:"temperature", ... }
-            R2-->>W: Message received
-            W->>FE: WebSocket push { type:"temperature", roomId:"r1", value:22 }
-            Note over FE: telemetryHandler mutates data in-place<br/>triggerRef() batched to next animation frame
-        end
-
-        Note over FE, C: 3. Preference Update (User Saves Column Changes)
-        FE->>C: POST /preferences/alpha { allowed_columns: ["roomName","temperature","airQuality"] }
-        Note over C: DashMap.insert — O(1) shard lock<br/>Changes dashboard columns only; tunnel routing is unaffected
-        C-->>FE: 200 OK
-
----
-
-## Why Per-Building Routing?
-
-The raw telemetry payload is a flat JSON object carrying its own `buildingId`:
-
-```json
-{ "type": "temperature", "buildingId": "alpha", "roomId": "r1", "timestamp": 1718000000, "value": 22.4 }
+```typescript
+export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(URL, {
+  autoConnect: false,
+  transports: ['websocket'],
+  withCredentials: true,
+})
 ```
 
-The Contracts Service reads `payload["buildingId"]` and, if that building is known, forwards the **entire payload unchanged** to `telemetry:filtered:<buildingId>`. This approach:
+`autoConnect: false` means nothing happens at load time — the connection is opened deliberately, from `App.vue`, once the user is actually authenticated:
 
-*   **Routes to exactly one building**: keying on the event's own `buildingId` means a reading reaches only that building's feed — no cross-building leak, no iterating every preference.
-*   **Preserves context**: Downstream consumers always receive `roomId`, `timestamp`, and `buildingId` — they never need to re-fetch spatial context.
-*   **Stays O(1)**: a single `DashMap` lookup per event, regardless of how many buildings exist.
+```typescript
+// The socket handshake requires the auth cookie, so only connect once the user
+// is authenticated; drop the connection on logout. immediate covers the initial
+// state (and the false→true flip when hydrate() resolves from the cookie).
+watch(
+  () => authStore.isAuthenticated,
+  (authed) => (authed ? socket.connect() : socket.disconnect()),
+  { immediate: true },
+)
+```
 
-.box {No metric-type gate} type:{note}
-    Telemetry is **not** filtered by the dashboard's column selection. Every metric a building produces is forwarded; which columns the dashboard table *shows* is decided client-side from the same preferences. This keeps other consumers — notably the 3D model view, which always needs temperature and air-quality — live regardless of the table's column setup.
+`withCredentials: true` is what makes this work: it's the client-side half of the httpOnly-cookie handshake documented in [Socket Service](../services/socket.qd) — the browser attaches the `authentication_token` cookie to the WebSocket upgrade request automatically, client code never reads or holds the token itself. Connecting only after `isAuthenticated` flips true means the very first handshake already carries a cookie worth authenticating; there's no unauthenticated connection attempt to fail and retry.
 
----
-
-## Frontend Subscription Pattern
-
-The Vue client listens for telemetry on a single `"telemetry"` Socket.IO event (not per-channel). The socket-service emits this event only to the `building:<id>` room, so each client only receives data for buildings it has joined.
-
-Subscription and live data are owned by a shared Pinia store (`stores/sensorData.ts`), consumed through the `useBuildingSensor(buildingId, type)` composable. Many components can want the same building's metric (e.g. the 3D model and the room list both read temperature); they share **one** reference-counted bucket instead of each opening its own fetch + subscription + handler.
-
-**Lifecycle, centralised in the store:**
-1. The first `acquire` of a `(type, building)` creates a bucket, REST-fetches the latest snapshot, and — if it's the building's first metric — emits `subscribe_building` to join the room.
-2. A **single** global `socket.on('telemetry', …)` handler dispatches each event to its bucket via an O(1) `(type, buildingId)` map lookup — there are no per-component handlers to accumulate.
-3. The last `release` of a bucket tears it down; once a building has no buckets left, the store emits `unsubscribe_building`.
-4. Data mutations are batched to the next `requestAnimationFrame` via `triggerRef()` on a `shallowRef`, decoupling Vue's scheduler from the Three.js render loop — critical for the digital twin's 60fps camera animation.
-5. On socket reconnect the store re-emits `subscribe_building` for every active building and refetches, recovering anything missed while disconnected.
+`socket.ts` also owns the one piece of WebSocket-driven state that isn't telemetry: incoming `notification` events are appended straight to a shared `reactive` `socketState` (message, type, timestamp, a capped 100-item list, an unread counter) that any component can read directly — notifications don't need a bucketed, opt-in subscription model the way telemetry does, since there's only ever one feed a connected client cares about.
 
 ---
 
-## Channel Naming Convention
+## Telemetry Subscription — One Store, Reference-Counted Buckets
 
-| Channel | Publisher | Subscriber | Content |
-| :--- | :--- | :--- | :--- |
-| `telemetry:raw` | sensor-service | contracts-service | Full sensor payload for all buildings |
-| `telemetry:filtered:<building_id>` | contracts-service | socket-service | Per-building payload (all of that building's metrics) |
-| `alerts:temperature` | sensor-service | notification-service | Threshold violation events |
+**File:** `client/src/stores/sensorData.ts`
+
+Multiple components routinely want the same building's same metric at once — the 3D model and the room list both read live temperature, for instance. Rather than each opening its own REST fetch, its own `subscribe_building` call, and its own telemetry handler, they all acquire a reference to one shared **bucket**, keyed by `(type, buildingId)`:
+
+.mermaid
+    graph TD
+        APP["App.vue\nconnects socket.ts on login"] --> SOCKET["services/socket.ts\none shared Socket.IO client"]
+        SOCKET --> STORE["stores/sensorData.ts\nSensorDataStore — buckets by (type, buildingId)"]
+        STORE --> HOOK["composables/useBuildingSensor.ts\nacquire on mount, release on cleanup"]
+        HOOK --> C1["3D model view"]
+        HOOK --> C2["Room list"]
+        HOOK --> C3["...any other component"]
+        SOCKET -->|"telemetry event"| STORE
+
+```typescript
+function acquire(buildingId: string, type: SensorType): SensorBucket {
+  const key = bucketKey(type, buildingId)
+  let bucket = buckets.get(key)
+  if (!bucket) {
+    const firstForBuilding = !hasBucketForBuilding(buildingId)
+    bucket = { data: shallowRef([]), isLoading: ref(false), error: ref(null), refCount: 0, abort: null }
+    buckets.set(key, bucket)
+    if (firstForBuilding) socket.emit('subscribe_building', buildingId)
+    void fetchBucket(type, buildingId, bucket)
+  }
+  bucket.refCount++
+  return bucket
+}
+
+function release(buildingId: string, type: SensorType) {
+  const key = bucketKey(type, buildingId)
+  const bucket = buckets.get(key)
+  if (bucket && --bucket.refCount <= 0) {
+    bucket.abort?.abort()
+    buckets.delete(key)
+  }
+  if (!hasBucketForBuilding(buildingId)) socket.emit('unsubscribe_building', buildingId)
+}
+```
+
+Only the *first* caller for a building triggers `subscribe_building`; only the last `release` for that building triggers `unsubscribe_building` — the socket room's lifetime is derived entirely from whether any bucket still references that building, with no separate counter to keep in sync. `acquire` also kicks off a REST fetch (`GET /sensor/:type/entireBuilding?building=...`) for the initial snapshot, so a component sees the last known values immediately rather than waiting for the next telemetry tick; a second `acquire` for the same key doesn't refetch, it just bumps `refCount` and returns the existing bucket.
+
+One global handler dispatches every incoming event to its bucket by an O(1) map lookup — there's no per-component listener to accumulate as more components mount:
+
+```typescript
+function onTelemetry(rawEvent: unknown) {
+  const event = rawEvent as ApiDataPoint & { type?: SensorType; buildingId?: string }
+  const key = bucketKey(event.type as SensorType, event.buildingId as string)
+  const bucket = buckets.get(key)
+  if (!bucket) return
+  const arr = bucket.data.value
+  const idx = arr.findIndex((d) => d.roomId === event.roomId)
+  if (idx >= 0) arr[idx] = { ...arr[idx], ...event }
+  else arr.push(event)
+  dirty.add(key)
+  scheduleFlush()
+}
+```
+
+### Batching updates without fighting Vue's reactivity
+
+Every touched bucket is marked `dirty` and flushed together on the next animation frame, rather than triggering a reactive update per event:
+
+```typescript
+function scheduleFlush() {
+  if (rafPending) return
+  rafPending = true
+  requestAnimationFrame(() => {
+    for (const key of dirty) {
+      const bucket = buckets.get(key)
+      if (bucket) bucket.data.value = bucket.data.value.slice()
+    }
+    dirty.clear()
+    rafPending = false
+  })
+}
+```
+
+The flush **swaps in a new array reference** (`.slice()`) rather than notifying Vue about the same array mutated in place. This is deliberate: consumers read a bucket's data through a `computed`, and Vue's reactivity only re-notifies a `computed`'s dependents when the underlying value changes *by identity* — an in-place mutation on the same array reference would be swallowed at that boundary and never reach the views. Batching to one rAF-scheduled reference swap per bucket, instead of a reactive trigger per telemetry event, keeps Vue's scheduler from competing with the Three.js render loop the 3D view depends on for a steady frame rate.
+
+### Recovering from a dropped connection
+
+```typescript
+function onReconnect() {
+  for (const buildingId of new Set([...buckets.keys()].map(buildingOf))) {
+    socket.emit('subscribe_building', buildingId)
+  }
+  for (const [key, bucket] of buckets) {
+    void fetchBucket(key.slice(0, key.indexOf(':')) as SensorType, buildingOf(key), bucket)
+  }
+}
+```
+
+The server holds no memory of which rooms a reconnected socket was in — a fresh connection starts in no rooms at all. On `connect` (which also fires after every reconnect), the store re-joins every building it still has an active bucket for and re-fetches each one's snapshot, so a dropped connection loses at most the telemetry that arrived while disconnected, not the subscription itself.
+
+---
+
+## Component-Level Access — `useBuildingSensor`
+
+**File:** `client/src/composables/building/useBuildingSensor.ts`
+
+```typescript
+export function useBuildingSensor(buildingId: Ref<string | undefined>, type: SensorType) {
+  const store = useSensorDataStore()
+  const bucket = shallowRef<SensorBucket | null>(null)
+
+  watch(
+    buildingId,
+    (id, _old, onCleanup) => {
+      if (!id) { bucket.value = null; return }
+      bucket.value = store.acquire(id, type)
+      onCleanup(() => store.release(id, type))
+    },
+    { immediate: true },
+  )
+
+  return {
+    data: computed(() => bucket.value?.data.value ?? []),
+    isLoading: computed(() => bucket.value?.isLoading.value ?? false),
+    error: computed(() => bucket.value?.error.value ?? null),
+  }
+}
+```
+
+This is the only entry point a component actually uses — it never touches `sensorData.ts`'s `acquire`/`release` directly. `watch(buildingId, ..., { immediate: true })` handles three cases identically: the initial mount, a component switching to a different building, and unmount (via `onCleanup`) — each transition releases the old bucket reference (if any) and acquires the new one, so the store's reference counts stay correct without the component needing any lifecycle logic of its own beyond calling this composable.

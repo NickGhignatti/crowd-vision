@@ -15,7 +15,6 @@ func Mount(r chi.Router, svc *service.Service, internalSecret []byte) {
 	h := &handler{svc: svc}
 
 	r.Post("/organizations", h.signup)
-	r.Get("/organizations/{id}", h.getOrganization)
 
 	r.Group(func(r chi.Router) {
 		r.Use(requireInternalSignature(internalSecret))
@@ -54,19 +53,6 @@ func (h *handler) signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeOrg(w, http.StatusCreated, org)
-}
-
-func (h *handler) getOrganization(w http.ResponseWriter, r *http.Request) {
-	org, err := h.svc.Get(r.Context(), chi.URLParam(r, "id"))
-	if errors.Is(err, service.ErrNotFound) {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	writeOrg(w, http.StatusOK, org)
 }
 
 func (h *handler) pending(w http.ResponseWriter, r *http.Request) {

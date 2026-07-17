@@ -9,26 +9,42 @@ The socket-service is the bridge between the broker and the browser. It carries 
 
 ## Architectural Style
 
-Deliberately the simplest service in the system: **no persistence and no domain model**. Rather than Controller/Service/Model layering it follows a *functional core / imperative shell* split — pure relay logic (channel-to-room mapping) and JWT verification in a small core, broker- and socket-event handlers that receive their dependencies as arguments, and a thin composition root (`index.ts`) that wires them together and starts listening. Its only job is to move messages from the broker to the right sockets, and to track which clients care about which building.
+Deliberately the simplest service in the system: **no persistence and no domain model**. Everything the service does splits cleanly into two kinds of code, and `index.ts` says so in its own header comment: *"Composition root (imperative shell): build dependencies, wire the pure handlers to them, and start listening. No logic lives here — that's in `core/` and `handlers/`, which is why this file is excluded from coverage."*
 
-Although a generic subdomain, it is **not anonymous**: a handshake middleware verifies the claims-gateway-minted JWT (carried by the `authentication_token` cookie), against the gateway's published JWKS, before any event runs — so every socket has a known account and domain set. This is what lets the relay scope delivery per tenant rather than blindly broadcasting.
-
----
-
-## Internal Structure
+- **The functional core** (`core/relay.ts`) is three pure functions — `roomForBuilding`, `roomForDomain`, `buildingIdFromChannel` — string manipulation only, no I/O, no dependencies.
+- **The imperative shell** is everything that touches the outside world: `auth.ts` decodes the mesh-injected `x-gateway-claims` header on the WebSocket handshake (Istio's `RequestAuthentication` already verified it once, upstream — the same trust model every other migrated service uses); `handlers/connection.ts`, `handlers/telemetry.ts`, and `handlers/notification.ts` do the actual work of joining rooms and emitting to sockets.
+- **`index.ts`** is the composition root: it registers the auth check as Socket.IO handshake middleware, wires each Redis channel to its handler, and starts listening — nothing else.
 
 .mermaid
     graph LR
-        BR[(broker)] -->|alerts + per-building feeds| SUB[Broker subscriber]
-        SUB --> IO[Socket.IO server]
-        IO -->|room-scoped / broadcast| CL[Connected clients]
+        subgraph "Imperative Shell"
+            IDX["index.ts\ncomposition root"]
+            AUTH["auth.ts\nauthenticateClaimsHeader"]
+            CONN["handlers/connection.ts"]
+            TEL["handlers/telemetry.ts"]
+            NOTIF["handlers/notification.ts"]
+        end
+        subgraph "Functional Core — core/relay.ts"
+            REL["roomForBuilding · roomForDomain\nbuildingIdFromChannel"]
+        end
+        BR1[(broker: notifications)] --> IDX
+        BR2[(broker: telemetry:filtered:*)] --> IDX
+        IDX -->|"io.use() — handshake middleware"| AUTH
+        IDX -->|"io.on('connection')"| CONN
+        IDX --> TEL
+        IDX --> NOTIF
+        TEL --> REL
+        NOTIF --> REL
+        CONN --> REL
+        TEL -->|room-scoped| CL[Connected clients]
+        NOTIF -->|room-scoped / broadcast| CL
 
 ---
 
 ## Key Architectural Decisions
 
 - **Pure transport, no model.** Treating real-time delivery as a generic subdomain keeps all domain logic out of it and concentrates modelling effort on the core services.
-- **Authenticated at the edge.** The JWT is verified once on the handshake, not per message; the resulting identity is server-held, so a client can never join a domain or building room it isn't entitled to.
+- **Identity trusted from the mesh, not re-verified.** The handshake decodes an already-verified claims header instead of checking a JWT signature itself; the resulting identity is server-held for the life of the connection, so a client can never join a domain or building room it isn't entitled to.
 - **Room-scoped telemetry, domain-scoped notifications.** Clients receive readings only for buildings they have joined, and notifications only for their own domain; tenants stay isolated. Only a notification with no domain (a system-wide message) is broadcast.
 - **Stateless relay.** The service holds no durable state, so an instance can be replaced freely.
 - **Scaling is an explicit concern.** Running more than one instance requires sticky sessions for the handshake and a broker-backed adapter to deliver across instances — a known extension point rather than a current capability.

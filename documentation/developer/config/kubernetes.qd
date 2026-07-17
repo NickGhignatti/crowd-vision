@@ -10,8 +10,9 @@ All Kubernetes operations run through `just` recipes from the repository root, s
 ## First-time setup and the core lifecycle
 
 ```bash
-# First time on a new cluster — installs the ingress controller, creates the
-# namespace, injects secrets from .env, then applies all manifests:
+# First time on a new cluster — creates the k3d cluster, installs the Gateway
+# API CRDs and Istio ambient mode, creates the namespace, injects secrets from
+# .env, then applies all manifests:
 just k8s setup
 
 # Re-apply all manifests after a change (idempotent — safe to run repeatedly):
@@ -23,6 +24,12 @@ just k8s delete
 
 .box {k8s-delete is destructive} type:{warning}
     `just k8s delete` removes the namespace and every PersistentVolumeClaim in it — all database data is permanently lost, with no undo. To pause without losing data, use `just k8s stop` and later `just k8s start`.
+
+.box {One manual step `just k8s setup` doesn't do} type:{warning}
+    `just k8s setup` does not apply `k8s/istio-gateway.yml` — the `HTTPRoute`s that route traffic once Istio is installed. Run `kubectl apply -f k8s/istio-gateway.yml` yourself right after; see **Istio ambient mesh** further down this page.
+
+.box {k8s/ingress.yml targets a different deployment, not your local cluster} type:{note}
+    `just k8s apply` also applies `k8s/ingress.yml` (`ingressClassName: nginx`), but no `just k8s` recipe installs an nginx Ingress controller — on a plain local k3d cluster those `Ingress` objects have no controller watching that class and sit inert. That's expected: `k8s/ingress.yml` is written for a production/VPS deployment (its own comments say so — `host: crowdvision.local # change to your VPS domain for production`), where you're expected to install ingress-nginx yourself the standard way (e.g. Helm) as part of standing up that cluster, the same way you'd do it for any Kubernetes deployment outside this repo's local dev tooling. For the local k3d dev cluster, `k8s/istio-gateway.yml` (above) is the path that's actually wired up end to end.
 
 ---
 
@@ -44,13 +51,13 @@ Manifests must be applied in dependency order, because a service crashes if its 
       - Shared, non-sensitive environment values (service URLs, ports).
     - - 3. Stateful layer
       - `k8s/stateful/`
-      - MongoDB (one per service), the agent's Postgres, and Redis. Must be `Running` before the services start.
+      - MongoDB for `chat`, `contracts`, `notification`, `sensor`, and `twin`; Postgres for `agent` (pgvector), `registry`, and `tenancy`; plus Redis. Must be `Running` before the services start.
     - - 4. Deployments
       - `k8s/deployments/`
-      - The stateless application services and the client.
+      - The stateless application services and the client, including the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`).
     - - 5. Ingress and monitoring
       - `k8s/ingress.yml`, `k8s/monitoring/`
-      - The nginx routing rules and the Prometheus/Grafana stack.
+      - The nginx `Ingress` rules (production/VPS target — see the note above for local k3d), and the Prometheus/Grafana stack.
 
 ```bash
 kubectl apply -f k8s/namespace.yml
@@ -65,10 +72,13 @@ kubectl apply -f k8s/monitoring/
 
 ## Secrets
 
-Secrets are created directly on the cluster from your local `.env` and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, `GHCR_USERNAME`, and `GHCR_TOKEN`, and creates the corresponding Secret objects. It is idempotent — safe to re-run after rotating a key. There is no `JWT_SECRET` anymore — auth is RS256 against claims-gateway's JWKS (`GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` in the `common-config` ConfigMap, not a Secret, since they aren't sensitive); see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+Secrets are created directly on the cluster from your local `.env` (plus one file on disk) and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, `GHCR_USERNAME`, `GHCR_TOKEN`, and the control-plane secrets (`INTERNAL_SIGNING_SECRET`, `REGISTRY_DB_PASSWORD`, `TENANCY_DB_PASSWORD`), and creates the corresponding Secret objects — one per service, plus `registry-db-secret`/`tenancy-db-secret` for their StatefulSets and `ghcr-pull-secret` for image pulls. It is idempotent — safe to re-run after rotating a key. There is no `JWT_SECRET` anymore — auth is RS256 against claims-gateway's JWKS (`GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` in the `common-config` ConfigMap, not a Secret, since they aren't sensitive); see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 .box {Namespace before secrets} type:{warning}
     The namespace must exist before secrets can be created. Run `kubectl apply -f k8s/namespace.yml` (or the full `just k8s setup`) before `just k8s secrets` if invoking it in isolation.
+
+.box {claims-gateway's signing key comes from disk, not `.env`} type:{note}
+    `just k8s secrets` also reads `secrets/gateway-dev-key.pem` off your local filesystem — the same stable RSA key `just stack env`'s `gateway-key.js` generates for the Docker Compose path (see [Setting Up the Environment](setting-up.qd)) — and uploads it as the `claims-gateway-key` Secret. Run `just stack env` (or just `node scripts/env/gateway-key.js`) at least once before `just k8s secrets`, even if you never run the Compose stack, or the command fails looking for a file that doesn't exist yet.
 
 .box {Agent provider key naming} type:{warning}
     The current `agent-service-secret` generator forwards the legacy `GOOGLE_API_KEY` and `DEEPSEEK_API_KEY` names, while the recommended provider setup uses `OPENROUTER_API_KEY`. Before deploying the agent, confirm the generated secret contains a key compatible with its configured `LLM_BASE_URL`. Kubernetes also does not deploy the documentation ingester or Langfuse — see the [Agent Service](../services/agent.qd) guide.
@@ -190,8 +200,12 @@ Edit the hosts file as administrator (Windows: `C:\Windows\System32\drivers\etc\
       - Rolling restart one service, or all deployments.
     - - `just k8s rollout <service>`
       - Watch a rolling update to completion.
-    - - `just k8s ingress`
-      - Install or reinstall the nginx Ingress Controller.
+    - - `just k8s create`
+      - Create the local k3d dev cluster (Traefik disabled).
+    - - `just k8s gateway-api`
+      - Install the Gateway API CRDs (required before `istio-install`).
+    - - `just k8s istio-install`
+      - Install Istio ambient mode with k3d-correct CNI paths.
     - - `just k8s validate`
       - Dry-run all manifests without touching the cluster.
     - - `just k8s stop` / `k8s-start`

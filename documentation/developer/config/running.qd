@@ -16,10 +16,10 @@ just stack dev
 ```
 
 **What happens:**
-1. `just stack env` runs first to verify your `.env` and generate any missing keys.
+1. `just stack env` runs first to verify your `.env` and generate any missing keys (see [Setting Up the Environment](setting-up.qd) for the full list of what it generates).
 2. A runtime compose file is generated that includes all service compose files.
 3. Docker Compose launches with `--watch` — saving a file triggers an instant hot-reload inside the running container.
-4. All services start: Caddy proxy, Redis, all MongoDB instances, all backend microservices, and the Vue client.
+4. All services start: Caddy proxy, Redis, Keycloak, every service's own database (MongoDB or Postgres, depending on the service), all backend microservices, and the Vue client.
 
 ### Excluding Services
 
@@ -53,9 +53,27 @@ just stack dev exclude="client"
     - - API Gateway
       - `http://localhost:80`
       - Caddy proxy — routes to all microservices.
+    - - Keycloak
+      - `http://localhost:8090`
+      - Hosted login/registration UI, and its own admin console (generated admin credentials — see [Setting Up the Environment](setting-up.qd)). Not routed through Caddy.
+    - - Langfuse
+      - `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there)
+      - LLM trace UI for the agent. Login `admin@crowd-vision.local` / `langfuse-admin`.
     - - Twin DB GUI
       - `http://localhost/twin-db-gui/`
       - Mongo Express for the twin database. Dev mode only.
+    - - Sensor DB GUI
+      - `http://localhost/sensor-db-gui/`
+      - Mongo Express for the sensor database. Dev mode only.
+    - - Notification DB GUI
+      - `http://localhost/notification-db-gui/`
+      - Mongo Express for the notification database. Dev mode only.
+    - - Contracts DB GUI
+      - `http://localhost/contracts-db-gui/`
+      - Mongo Express for the contracts database. Dev mode only.
+    - - Chat DB GUI
+      - `http://localhost/chat-db-gui/`
+      - Mongo Express for the chat database. Dev mode only.
     - - Grafana
       - `http://localhost/grafana/`
       - Metrics dashboards. Dev mode only.
@@ -108,20 +126,17 @@ See the [Kubernetes Configuration](kubernetes.qd) page for the full reference. Q
 ### First Time: Creating the Cluster
 
 ```bash
-k3d cluster create crowdvision \
-  --servers 1 \
-  --agents 3 \
-  --api-port 127.0.0.1:6550 \
-  -p "80:80@loadbalancer" \
-  -p "443:443@loadbalancer" \
-  --k3s-arg "--disable=traefik@server:*"
+just k8s create
 ```
+
+See [Kubernetes Configuration](kubernetes.qd) for exactly what this creates and why (single-server k3d, Traefik disabled — Istio's Gateway API is the local ingress path instead).
 
 ### Deploying (Production images from GHCR)
 
 ```bash
-# First-time full setup (ingress controller → namespace → secrets → manifests):
+# First-time full setup (create cluster → Gateway API + Istio → namespace → secrets → manifests):
 just k8s setup
+kubectl apply -f k8s/istio-gateway.yml   # not part of `setup` — see kubernetes.qd
 
 # Subsequent deploys — re-apply manifests:
 just k8s apply
@@ -139,13 +154,16 @@ just k8s apply      # apply manifests
 
 ```bash
 # After code changes — rebuild the image, then rolling restart:
-docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest ./server/twin-service
+docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f server/twin-service/Dockerfile .
 just k8s load
 just k8s restart twin-service
 
 # Watch the rollout:
 just k8s rollout twin-service
 ```
+
+.box {Six of the twelve images build from the repo root, not their own directory} type:{note}
+    `twin-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` all build with `-f server/<service>/Dockerfile .` from the **repository root**, not `./server/<service>`. Reason differs by language but is the same shape both times: `twin-service`/`agent-service` read the shared Cedar authorization policy bundle at `server/auth-policy` and the role-weight ladder at `server/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat-service`, `contracts-service`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
 
 ### Managing Cluster Lifecycle
 
@@ -197,19 +215,26 @@ just test all
 just test affected
 
 # Per-service unit tests:
-just test auth
+just test chat
 just test twin
 just test sensor
 just test notification
 just test socket
 just test client
+just test agent
+
+# Agent-only Python integration suite (separate from the backend integration tests below):
+just test agent-integration
 
 # Full backend integration tests (spins up a composed stack, then tears it down):
 just test integration
 ```
 
 .box type:{note}
-    `just test all` and `just lint all` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test affected` / `just lint affected` on a feature branch to only process the services your changes actually touch.
+    `just test all` and `just lint all` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test affected` / `just lint affected` on a feature branch to only process the services your changes actually touch. There is no `just test <service>` recipe for `contracts-service` or the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`) — they're still covered by `just test all` / `just test affected` (both run `moon run :test`, which includes every registered project regardless of language), just not individually by name.
+
+.box {The agent's golden-dataset evaluation} type:{note}
+    `just test eval [models="..."] [judge="..."]` runs the agent's golden-dataset evaluation against your local stack, auto-minting the JWTs it needs. This isn't a pass/fail test — it scores model responses (optionally with an LLM judge) and is meant to be run manually when tuning prompts or comparing models, not as part of the regular test loop. See `server/agent-service/evals/run_evals.py`.
 
 ---
 
@@ -230,6 +255,9 @@ mise exec -- moon run :audit --affected
 
 .box type:{note}
     `just setup deps-check` is the fastest way to catch a lockfile drift before pushing (the classic `npm ci can only install packages when your package.json and package-lock.json are in sync`). If it fails, regenerate the offending lockfile with `just setup clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). The Rust `cargo audit` leg is marked **allow-failure**: if `cargo-audit` isn't installed it is reported but does not fail the run (`cargo install cargo-audit` to enable it).
+
+.box {Go projects aren't part of the audit sweep yet} type:{note}
+    `.moon/tasks/go.yml` defines `build`, `test`, `lint` (`go vet`), and `deps` (`go mod download`) for the four Go control-plane services, but no `audit` task — so `just setup audit` silently skips them (moon only runs a task for projects that define it). There's no `govulncheck`-equivalent leg yet for `claims-gateway`, `tenancy-service`, `registry-service`, or `provisioner`.
 
 ---
 
@@ -257,9 +285,15 @@ mise exec -- moon run :audit --affected
     - - `just test affected`
       - Run unit tests only for services changed on the current branch.
     - - `just test <service>`
-      - Run unit tests for one service.
+      - Run unit tests for one service (`chat`, `twin`, `sensor`, `notification`, `socket`, `client`, `agent` — not `contracts` or the Go services, see the note above).
+    - - `just test agent-integration`
+      - Agent-only Python integration suite (real Postgres, no full compose stack).
+    - - `just test eval [models=...] [judge=...]`
+      - Run the agent's golden-dataset evaluation against the local stack.
     - - `just test integration`
       - Run backend integration tests.
+    - - `just agent ingest`
+      - Re-ingest all documentation into the agent's knowledge base — run after editing anything under `documentation/`.
     - - `just lint all`
       - Lint every service (moon-cached).
     - - `just lint affected`
@@ -362,7 +396,7 @@ Also check that the deployment manifest sets `imagePullPolicy: IfNotPresent`, no
 
 ### nginx Ingress rejects `configuration-snippet` annotation
 
-Newer versions of the nginx Ingress Controller disable snippet annotations by default. If you see:
+Applies only if you've installed the nginx Ingress Controller yourself (e.g. for a VPS deployment using `k8s/ingress.yml`) — the default local k3d path uses Istio's Gateway API instead (see [Kubernetes Configuration](kubernetes.qd)), which isn't affected by this. Newer versions of the nginx Ingress Controller disable snippet annotations by default. If you see:
 
 ```text
 annotation nginx.ingress.kubernetes.io/configuration-snippet is not allowed

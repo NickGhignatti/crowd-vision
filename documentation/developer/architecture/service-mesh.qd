@@ -1,7 +1,7 @@
 .docname {Service Mesh Architecture}
 .include {docs}
 
-CrowdVision is migrating to a zero-trust Kubernetes service mesh: **Istio in ambient mode**, mTLS everywhere, authentication verified once at the edge, and fine-grained tenant authorization via **Cedar** evaluated locally in each service. This page tracks the migration phase by phase. For the local k3d cluster's day-to-day operation (creating it, applying manifests, secrets), see [Kubernetes Configuration](../config/kubernetes.qd).
+CrowdVision is migrating to a zero-trust Kubernetes service mesh: **Istio in ambient mode**, with mTLS everywhere and authentication verified once at the edge. This page tracks that migration phase by phase. For the local k3d cluster's day-to-day operation (creating it, applying manifests, secrets), see [Kubernetes Configuration](../config/kubernetes.qd). Authorization (Cedar) and the `twin-service` Rust rewrite happened alongside this migration but are separate architectural concerns — see [Identity & Tenancy Architecture](auth-architecture.qd) and [Digital Twin Service Architecture](twin-architecture.qd) respectively.
 
 ---
 
@@ -26,10 +26,7 @@ Keycloak (IdP)
   → services (TS/Python/Go/Rust) = business logic only, no JWT crypto
 ```
 
-Two decisions made up front and not revisited per-phase:
-
-- **Cedar is embedded, not a remote PDP.** Each service evaluates Cedar in-process (`cedar-policy` Rust crate, `@cedar-policy/cedar-wasm` for Node, `cedarpy` for Python, `cedar-go` for Go) against one shared policy bundle. A remote authorization call on every sensor-data request would put a network hop on the hot path; embedded evaluation is microseconds and in-process.
-- **Sensor/Redis traffic stays in-mesh at L4.** mTLS overhead on the sensor ingestion path is negligible (ztunnel, AES-NI, opaque TCP) — benchmarked in Phase 1.
+A decision made up front and not revisited per-phase: **sensor/Redis traffic stays in-mesh at L4.** mTLS overhead on the sensor ingestion path is negligible (ztunnel, AES-NI, opaque TCP) — benchmarked in Phase 1.
 
 ## Phase sequence
 
@@ -47,12 +44,6 @@ Two decisions made up front and not revisited per-phase:
       - Done
     - - 2
       - Edge `RequestAuthentication`; delete per-service JWT verifiers
-      - Done
-    - - 3
-      - Cedar authZ — shared policy bundle, local evaluation per service
-      - Done
-    - - 4
-      - `twin-service` rewritten TypeScript → Rust/Axum, into the auth-free end state
       - Done
 
 ---
@@ -115,86 +106,3 @@ docker volume rm crowd-vision_keycloak_postgres_data
 just stack env   # or the manual docker run equivalent — see docker-compose.yml
 ```
 
----
-
-## Phase 3 — Cedar authorization
-
-`server/auth-policy/` is the single shared bundle every language embeds and evaluates **locally** (Decision A — no authorization network call ever sits on a data path): `schema.cedarschema` (entity shapes), `policy.cedar` (the actual rules), and `fixtures/conformance.json` (22 golden allow/deny cases run through the real engine in every language). It replaces the hand-rolled tenant-scope checks that used to live separately in each service — `twin-service/src/services/tenantScope.ts`, the `claims.CanIn(...)` calls scattered through tenancy-service's handlers, and `agent-service/app/agent/tools/access.py`'s `can_access_domain`.
-
-### The model: pre-expand roles, let Cedar do containment only
-
-Cedar's `.contains()` can check set membership, but it can't compare role *weights* — there's no way to ask Cedar "does this role outrank that one" directly. So the weight math happens once, in each service, **before** calling Cedar: every membership `{domain, role}` is expanded into which role tiers it qualifies for in that domain, and the *result* — flat per-tier domain sets — is what the `Account` entity actually carries:
-
-```cedar
-entity Account = {
-  domainsAsStandardCustomer: Set<String>,  // member, any role
-  domainsAsBusinessStaff: Set<String>,     // role weight >= business_staff
-  domainsAsBusinessAdmin: Set<String>,     // role weight >= business_admin
-  domainsAsAdmin: Set<String>,             // role weight >= admin
-  maxRoleWeight: Long,                     // for GLOBAL (non-domain) checks
-};
-```
-
-`policy.cedar` itself only ever does `principal.domainsAsX.contains(resource.domain)` — simple containment, no weight arithmetic. This is also why the five actions (`Read`, `ReadWithAdminBypass`, `Edit`, `ManageDomain`, `ModelOverride`) exist as separate Cedar actions instead of one parameterized check: each one's *policy* is which pre-expanded set to test against, and that's a decision Cedar owns, not the service.
-
-.box {Cedar's `in` is entity hierarchy, not set membership} type:{warning}
-    The first working version of `policy.cedar` used `resource.domain in principal.domainsAsStandardCustomer` and every single "should allow" case silently came back deny. Cedar's `in` operator tests entity-hierarchy membership (is this entity a descendant of that one) — it is not a general "is this value in this set" operator. For a plain value in a `Set<String>`, the correct call is `principal.domainsAsStandardCustomer.contains(resource.domain)`. Caught by the golden conformance suite, not by reasoning about the policy text — a good argument for having that suite run through the real engine rather than trusting the policy reads correctly.
-
-### Two checks that live outside Cedar on purpose
-
-Not every authorization-adjacent decision belongs in policy.cedar:
-
-- **Self-removal in tenancy-service** (`leaveDomain`): anyone may remove themselves from a domain; removing someone *else* needs `ManageDomain`. The self-check is an identity comparison (`target == caller`), not a tenant/role decision — it's evaluated before Cedar is even called.
-- **Auth-disabled anonymous access in agent-service**: when `REQUIRE_AUTH=false` (local dev/test), the anonymous user gets full access. This is a deployment-setting check, not a policy decision about a real caller's roles, so it's a pre-check in `access.py`, not a Cedar rule.
-
-### agent-service's entities are the odd one out, on purpose
-
-`AuthUser.roles: list[str]` and `AuthUser.domains: list[str]` have always been two *unpaired* flat lists (a real architectural fact carried over from before this migration, not something introduced by it) — agent-service never tracked which role applied to which domain. Its only two checks never needed that pairing either: `can_access_domain` is "is this domain in my domains list, or am I admin anywhere" (`ReadWithAdminBypass`), and the model-override gate is a pure global weight check (`ModelOverride`). So `cedar_authz.py`'s `Account` entity populates `domainsAsStandardCustomer` (= `user.domains` directly) and `maxRoleWeight`, and leaves the three role-tier sets empty — they back checks agent-service never makes.
-
-### MODEL_OVERRIDE_MIN_ROLE travels as Cedar context, not a hardcoded policy
-
-The role required to override the LLM model on `/ask` is operator-configurable (`MODEL_OVERRIDE_MIN_ROLE` env var, default `business_admin`) — it can't be a fixed threshold baked into `policy.cedar` text. `ModelOverride`'s rule instead reads it from the request context:
-
-```cedar
-permit(principal, action == Action::"ModelOverride", resource)
-when { principal.maxRoleWeight >= context.requiredWeight };
-```
-
-`can_override_model(user, required_role)` looks up `required_role`'s weight from `roles.json` and passes it as `context.requiredWeight` at call time — the same mechanism every language's Cedar binding supports, so this isn't Python-specific plumbing.
-
-### Docker build contexts: three more services join the repo-root pattern
-
-`server/auth-policy` is a sibling directory of every service that embeds it, not a package dependency — so twin-service, agent-service, and tenancy-service all needed their Docker build context moved from the per-service directory to the repo root (mirroring the pattern tenancy-service's Go dependencies on `auth-contracts`/`auth-middleware` already used), with `COPY server/auth-policy` and, since the shared role-weight ladder at `server/auth-contracts/roles.json` is a *second* sibling directory, `COPY server/auth-contracts` too — missing either COPY doesn't fail the build, it fails at runtime with `ENOENT`, which is exactly what happened once before this got caught. WORKDIR in every Dockerfile now mirrors the repo's real path (`/app/server/twin-service`, not a flattened `/app`) specifically so that relative path resolution inside each service's code is identical between local dev and the container.
-
-.box {TypeScript's noUncheckedIndexedAccess catches what Jest doesn't} type:{note}
-    `cedarAuthz.ts`'s role-weight lookups (`roleWeights.business_staff`) type-checked fine under Jest (ts-jest doesn't enforce every strict flag) but failed the real `tsc` build with `TS18048: possibly undefined` — `noUncheckedIndexedAccess` is real in the production build config even though the test config is looser. Passing tests are not proof a Docker image will build; this only surfaced when the image was actually built, which is why that step isn't optional.
-
----
-
-## Phase 4 — twin-service: TypeScript → Rust/Axum
-
-The final phase. By this point twin-service's application logic was already auth-free (Phase 2 removed its JWT verification; Phase 3 replaced its hand-rolled tenant-scope checks with Cedar) — the rewrite target was a service that only had to decode an already-verified identity header and make Cedar calls, not re-implement any auth machinery. Full CRUD (register/get/update/delete/replace buildings and rooms), the downstream sync to sensor-service/contracts-service, name normalisation/backfill, Prometheus metrics, and the rate limiter were all ported to `server/twin-service` (Rust, Axum 0.8, `mongodb` 3, `cedar-policy` 4), mirroring `contracts-service`'s established Rust conventions (flat `src/{api,infra}/*.rs` modules, handlers combining what TS split into controller+service, tests embedded as `#[cfg(test)] mod tests` alongside handler-level unit tests, plus two Cargo integration test binaries for full-stack coverage). See [Digital Twin Service](../services/digital-twin.qd) for the source layout and API reference.
-
-**Verified for real, not just by test suite:** built the actual production Docker image, ran it against a real MongoDB, and curled it directly — health, metrics, registration, and live Cedar authorization decisions (a `standard_customer` correctly getting `403` on an edit, correctly getting `200` reading their own domain and `403` on someone else's) all before it ever touched Kubernetes. Then imported the image into the live k3d cluster, replaced the running pod, and drove a full round trip through the *actual* mesh: registered a real user via claims-gateway, got a real Keycloak-backed JWT, and posted a building through the Istio gateway with `Authorization: Bearer <token>` — Istio's `RequestAuthentication` verified it and injected `x-gateway-claims`, and the Rust pod on the other end decoded it and created the building. Test suite: 32 unit tests, 40 HTTP-level integration tests (`tests/http.rs`, full `Router` through `tower::ServiceExt::oneshot`, ported case-for-case from the old `__tests__/building.test.ts`) against a real MongoDB, and the 22-case golden Cedar conformance fixture — all green, plus `cargo fmt --check` and `cargo clippy -- -D warnings`.
-
-### Two real bugs found and fixed, not just carried over
-
-- **Prometheus metrics never actually worked in the TS service.** `metricsMiddleware` was registered in `index.ts` *after* the router (`app.use("/", router); app.use(errorHandler); app.use(metricsMiddleware)`). Express ends the middleware chain the instant a route handler sends a response, so this middleware structurally could only ever run for genuinely unmatched (404) paths — `http_requests_total` never incremented for any real endpoint, the whole time twin-service has had metrics. Found by implementing the Rust equivalent as an Axum `Router::layer` (which — unlike a middleware registered after the router — wraps the *entire* request/response cycle regardless of how the inner handler responds) and then noticing the labels looked suspiciously plausible for a "first" implementation. Verified live: register a building, curl `/metrics`, see real `http_requests_total`/`http_request_duration_seconds` series with correct method/route/status_code labels — using `MatchedPath` (the route template, e.g. `/building/{id}`) so cardinality stays bounded even with real ids in the URL.
-- **`POST /register` never validated room geometry.** `addBuilding` normalised names but skipped the `assertValidPosition`/`assertValidDimensions`/capacity checks that every *other* geometry-writing route (`createRoom`, `updateRoom`, `replaceRooms`) enforced — a malformed room on registration would either get silently stored or throw an unhandled Mongoose `ValidationError` that the generic error handler turned into an opaque `500`. The rewrite applies the same validation uniformly, returning `400 Validation Error` instead. No existing test sends bad geometry to `/register`, so this closes a real gap without changing any test's expected outcome.
-
-### Cedar embedded at compile time, not runtime — a structural simplification
-
-The TS/Go/Python Cedar bindings all read `schema.cedarschema`/`policy.cedar`/`roles.json` from disk at process startup, relative to the working directory (or, for Go, via `//go:embed` from within `server/auth-policy`'s own package). Rust's `include_str!` does this differently: the file contents are baked into the compiled binary *at compile time*, resolved relative to the source file doing the embedding (`src/infra/authz.rs`, three `../` up to `server/`). Consequence: the production Docker image for twin-service doesn't need `server/auth-policy` present at runtime at all — only the *builder* stage does, since by the time `cargo build --release` finishes, the policy bytes are already part of the executable. The old TS Dockerfile had to `COPY server/auth-policy` into *both* the builder and production stages; the Rust one only needs it in the builder.
-
-### A JWT signing-key rotation surfaced a real base64-alphabet gap
-
-Live-cluster verification initially failed with `401 Invalid authentication token` from twin-service itself (past Istio's own JWT check, which had already passed) — the claims header Istio injected didn't decode. Istio's `outputPayloadToHeader` (Envoy's JWT authn filter) base64url-encodes the payload; the Rust `GatewayClaims` extractor was decoding with the *standard* base64 alphabet only. The TS `authentication.ts` never hit this because Node's `Buffer.from(header, "base64")` is lenient about the `-_`/`+/` alphabet either way — a leniency the Rust `base64` crate doesn't default to. Fixed by trying `STANDARD`, `URL_SAFE`, `STANDARD_NO_PAD`, and `URL_SAFE_NO_PAD` in sequence, matching Node's practical tolerance rather than assuming one specific encoding.
-
-### A stale CI/CD Docker-build bug found while wiring twin's own pipeline
-
-Building twin's own Docker image locally surfaced a bug in `ci-gate.yml`'s PR-time Docker-build matrix, `ci-docker.yml`, `cd-registry.yml` (the master-branch GHCR publish pipeline), and `just/k8s.just`'s local `build` recipe: all four still passed `./server/twin-service` (and, it turns out, `./server/agent-service`) as the Docker build *context* — a leftover from before Phase 3 moved both services' Dockerfiles to a repo-root context (to reach the sibling `server/auth-policy`/`server/auth-contracts` directories). A context that doesn't include those siblings can't satisfy their `COPY` instructions, so **every PR-time Docker validation and every master-branch GHCR publish for agent-service (and, now, twin-service) since Phase 3 merged would have failed** — this had gone unnoticed because CI's Docker-build job apparently hadn't been exercised for either service in that window. Fixed by giving the matrix builder in each workflow a `dockerfile` field alongside `context`/`image`, defaulting to `<context>/Dockerfile` for every service except twin/agent, which now build from `context: "."` with `dockerfile: server/<name>/Dockerfile` explicitly.
-
-### Deliberate, documented simplifications
-
-- **No Mongoose-equivalent `_id`/`__v`/timestamp leakage.** The old service's JSON responses included Mongoose's internal fields as a side effect of serializing the ODM document directly (`res.json(building)`); nothing in the codebase ever read them back. The Rust `Building`/`Room` structs don't carry them at all.
-- **No default process metrics** (CPU/memory/event-loop-lag equivalents). The TS service called `collectDefaultMetrics({ register })`; `contracts-service` (the Rust reference this rewrite otherwise mirrors exactly) doesn't do this either, so twin-service now matches its own language's sibling convention over the old TS one.

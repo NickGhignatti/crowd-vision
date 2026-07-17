@@ -49,17 +49,14 @@ jobs:
       - name: Build ASW report
         run: quarkdown c documentation/reports/asw/main.qd --out landing-page/reports --allow global-read
 
-      # Render each report to a downloadable PDF next to its HTML build. Quarkdown
-      # drives a headless Chrome through Puppeteer (Node was set up above), so the
-      # "Download PDF" buttons on the portal always point at a real file.
       - name: Build report PDFs
         run: |
           quarkdown c documentation/reports/spe/main.qd --out landing-page/reports --pdf --pdf-no-sandbox --timeout 120
           quarkdown c documentation/reports/asw/main.qd --out landing-page/reports --pdf --pdf-no-sandbox --timeout 120 --allow global-read
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages (preview)
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./landing-page
-          force_orphan: true
+          destination_dir: preview
