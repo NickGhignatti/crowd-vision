@@ -48,8 +48,9 @@ spec:
             - name: GF_SECURITY_ADMIN_PASSWORD
               value: crowdvision   # change this in production
 
-            # Subpath config — Grafana serves all assets under /grafana
-            # so the Ingress can route /grafana → grafana:3000 without rewriting.
+            # Subpath config — Grafana serves all assets under /grafana so the
+            # grafana-route HTTPRoute (k8s/istio-gateway.yml) can route
+            # /grafana → grafana:3000 without rewriting.
             - name: GF_SERVER_ROOT_URL
               value: "http://crowdvision.local/grafana"
             - name: GF_SERVER_SERVE_FROM_SUB_PATH

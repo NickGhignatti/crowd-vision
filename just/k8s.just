@@ -29,7 +29,7 @@ start:
 create:
     k3d cluster create crowdvision -p "80:80@loadbalancer" -p "443:443@loadbalancer" --api-port 6550 --k3s-arg "--disable=traefik@server:0" --wait --timeout 120s
 
-[doc("Install the Gateway API CRDs (required by Istio ambient's L7 waypoints).")]
+[doc("Install the Gateway API CRDs (required for the ingress Gateway/HTTPRoute).")]
 gateway-api:
     kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
 
@@ -57,6 +57,7 @@ validate:
     kubectl apply --dry-run=client -f k8s/istio-peer-authentication.yml
     kubectl apply --dry-run=client -f k8s/istio-gateway.yml
     kubectl apply --dry-run=client -f k8s/istio-request-authentication.yml
+    kubectl apply --dry-run=client -f k8s/istio-agent-authz.yml
     kubectl apply --dry-run=client -f k8s/monitoring/
 
 [doc("Apply all manifests in dependency order — idempotent, safe to re-run.")]
@@ -68,11 +69,11 @@ apply:
     kubectl apply -f k8s/istio-peer-authentication.yml
     kubectl apply -f k8s/istio-gateway.yml
     kubectl apply -f k8s/istio-request-authentication.yml
+    kubectl apply -f k8s/istio-agent-authz.yml
     kubectl apply -f k8s/monitoring/
 
-[doc("Full first-time cluster setup: create → istio → gateway → namespace → secrets → manifests.")]
+[doc("Full first-time cluster setup: create → gateway-api → istio-install → namespace → secrets → manifests.")]
 setup: create gateway-api istio-install
-    kubectl label namespace crowdvision istio.io/dataplane-mode=ambient --overwrite
     kubectl apply -f k8s/namespace.yml
     just k8s secrets
     just k8s apply

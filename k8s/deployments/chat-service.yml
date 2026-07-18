@@ -1,3 +1,15 @@
+# ── ServiceAccount ───────────────────────────────────────────────────────────
+# Dedicated identity (distinct from the shared `default` SA every other
+# workload uses) so agent-service's AuthorizationPolicy
+# (k8s/istio-agent-authz.yml) can allow chat-service specifically by mesh
+# principal, rather than trusting every workload in the namespace.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chat-service
+  namespace: crowdvision
+
+---
 # ── Deployment ────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
@@ -17,6 +29,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "3000"
     spec:
+      serviceAccountName: chat-service
       imagePullSecrets:
         - name: ghcr-pull-secret   # credentials for ghcr.io private registry
       initContainers:

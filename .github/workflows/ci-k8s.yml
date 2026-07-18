@@ -24,7 +24,9 @@ jobs:
           find k8s/ -name '*.yml' | xargs kubeconform \
             -strict \
             -summary \
-            -kubernetes-version 1.32.0
+            -kubernetes-version 1.32.0 \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
       - name: Install pluto
         run: |

@@ -42,6 +42,12 @@ spec:
 # x-gateway-claims for it, so agent's /agent HTTPRoute in istio-gateway.yml
 # strips any client-supplied one (RequestHeaderModifier remove) — agent trusts
 # that header without a signature check, so an ungated caller could forge it.
+# The header-strip alone only stops an EXTERNAL caller; any in-mesh workload
+# could still reach agent-service's ClusterIP directly and forge the header.
+# k8s/istio-agent-authz.yml closes that gap with a workload-identity
+# AuthorizationPolicy restricting agent-service to just the ingress gateway
+# and chat-service — so the header-strip here is now defense-in-depth, not
+# the only guard.
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:

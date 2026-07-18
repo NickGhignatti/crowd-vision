@@ -251,7 +251,7 @@ just k8s setup
 This single command runs in order:
 1. Creates the k3d cluster (`just k8s create` — skip if you already did Step 1).
 2. Installs the Gateway API CRDs, then Istio in ambient mode (`istiod`, `ztunnel`, `istio-cni`) — see [Kubernetes Configuration](kubernetes.qd) for why ambient mode and the k3d-specific CNI flags matter.
-3. Labels the `crowdvision` namespace `istio.io/dataplane-mode=ambient` and creates it.
+3. Creates the `crowdvision` namespace — already carrying the `istio.io/dataplane-mode=ambient` label declared in `k8s/namespace.yml`, so ztunnel enrollment happens the moment the namespace exists.
 4. Runs `just k8s secrets` — creates all Kubernetes Secret objects from your `.env`.
 5. Applies ConfigMaps, StatefulSets (databases), Deployments, the Istio mesh manifests (`istio-peer-authentication.yml`, `istio-gateway.yml`, `istio-request-authentication.yml` — the `Gateway`/`HTTPRoute`s that make `http://crowdvision.local` work, STRICT mTLS, and edge JWT verification), and monitoring.
 
@@ -260,7 +260,7 @@ This single command runs in order:
 
 ### Accessing the Platform
 
-After `just k8s setup` **and** the manual `kubectl apply -f k8s/istio-gateway.yml` above, the platform is available at `http://crowdvision.local`. `k8s/istio-gateway.yml` defines one `HTTPRoute` per service, deliberately mirroring the Docker Compose gateway's paths (see [Docker Compose Orchestration](docker-compose.qd)):
+After `just k8s setup` completes, the platform is available at `http://crowdvision.local` — `just k8s apply` (the last step of `setup`) already applies `k8s/istio-gateway.yml`, no separate manual step needed. It defines one `HTTPRoute` per service, deliberately mirroring the Docker Compose gateway's paths (see [Docker Compose Orchestration](docker-compose.qd)):
 
 .var {headers}
    - Interface

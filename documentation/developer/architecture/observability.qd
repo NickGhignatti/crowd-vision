@@ -20,7 +20,7 @@ Prometheus and Grafana are deployed twice, independently, with different configu
       - `k8s/monitoring/prometheus.yml`'s `prometheus-config` ConfigMap
     - - Target discovery
       - Static: 4 hardcoded `job_name`/`targets` entries
-      - Kubernetes service discovery (`kubernetes_sd_configs`), plus a `cadvisor` job via the API server proxy
+      - Kubernetes service discovery (`kubernetes_sd_configs`) for app pods and the mesh's own components, a static target for `istiod`, plus a `cadvisor` job via the API server proxy
     - - Grafana datasource
       - Not auto-provisioned — added manually via the UI
       - Auto-provisioned via `GF_DATASOURCES_DEFAULT_*` env vars pointing at `http://prometheus:9090`
@@ -101,3 +101,27 @@ Of the 11 backend services, only 4 expose a `/metrics` endpoint:
 ## cAdvisor: metrics without any code changes
 
 The Kubernetes `kubernetes-cadvisor` job doesn't depend on any service exposing anything — it reaches each node's built-in cAdvisor through the Kubernetes API server proxy (`/api/v1/nodes/<node>/proxy/metrics/cadvisor`) and gets per-container CPU, memory, network, and disk usage for every pod in the cluster, instrumented or not. This is the only metrics signal that currently covers all 12 services uniformly — it just can't see inside the application (request rates, error rates, latency), only its resource footprint.
+
+---
+
+## Mesh-layer metrics (Kubernetes only)
+
+Three additional scrape jobs in `k8s/monitoring/prometheus.yml` cover the Istio ambient mesh itself, not application code — none of this exists in the docker-compose/Caddy stack, since Caddy isn't a real mesh.
+
+.var {headers}
+   - Job
+   - Target
+   - What it covers
+
+.tablebyrows {.headers}
+    - - `istiod`
+      - Static target `istiod.istio-system:15014`
+      - Control-plane health: certificate issuance (`citadel_server_csr_count`), xDS push status, root cert expiry.
+    - - `istio-ztunnel`
+      - Pod discovery in `istio-system`, filtered to `app=ztunnel`, scraped on `:15020/stats/prometheus`
+      - Per-node L4 mTLS proxy stats (ztunnel is a DaemonSet with no Service, so this is pod discovery, not a static target).
+    - - `istio-ingress-gateway`
+      - Pod discovery in `crowdvision`, filtered to the `gateway.networking.k8s.io/gateway-name: crowdvision-gateway` label, scraped on `:15090/stats/prometheus`
+      - Envoy stats for the auto-provisioned ingress gateway (`envoy_server_uptime`, request/connection counters). Its Service only exposes the app port and a status port, not the Envoy stats port, so this is also pod discovery rather than a Service target.
+
+This closes the gap where mesh traffic was effectively unobserved — request rates, error rates, and TLS/handshake behavior at the mTLS and ingress layers are now queryable in Grafana alongside application metrics. Distributed tracing (Kiali, Jaeger) is still out of scope; this is metrics only.

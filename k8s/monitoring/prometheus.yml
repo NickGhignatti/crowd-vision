@@ -66,6 +66,59 @@ data:
         static_configs:
           - targets: [localhost:9090]
 
+      # ── Istio control plane (istiod) ───────────────────────────────────────
+      - job_name: istiod
+        static_configs:
+          - targets: [istiod.istio-system:15014]
+
+      # ── ztunnel: Istio ambient's per-node L4 mTLS proxy ────────────────────
+      # ztunnel is a DaemonSet with no Service — pod discovery by label is the
+      # only way to reach it. Scrapes the istio-agent stats endpoint every
+      # ambient data-plane component exposes on :15020.
+      - job_name: istio-ztunnel
+        metrics_path: /stats/prometheus
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [istio-system]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: ztunnel
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:15020
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+      # ── Istio ingress gateway (Envoy stats) ─────────────────────────────────
+      # gatewayClassName: istio auto-provisions this Deployment; its Service
+      # only exposes the app port (80) and status-port (15021), not Envoy's
+      # stats port — so this scrapes the pod directly, matched by the same
+      # Gateway API label istio-request-authentication.yml's
+      # AuthorizationPolicy already selects the workload with.
+      - job_name: istio-ingress-gateway
+        metrics_path: /stats/prometheus
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [crowdvision]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_gateway_networking_k8s_io_gateway_name]
+            action: keep
+            regex: crowdvision-gateway
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:15090
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
       # ── cAdvisor: container CPU / memory / network / disk ─────────────────
       # cAdvisor is built into every kubelet and exposes per-container metrics.
       # We reach it via the Kubernetes API server proxy (avoids TLS cert issues).

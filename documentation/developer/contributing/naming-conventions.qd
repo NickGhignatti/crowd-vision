@@ -204,7 +204,7 @@ Common scopes: `gateway` (claims-gateway), `tenancy`, `registry`, `provisioner`,
 .tablebyrows {.headers}
     - - Environment variables
       - `UPPER_SNAKE_CASE`
-      - `GATEWAY_JWKS_URI`, `SENSOR_SERVICE_URL`
+      - `GATEWAY_ISSUER`, `SENSOR_SERVICE_URL`
     - - Docker images
       - `crowdvision-<service>` under the org namespace
       - `ghcr.io/nickghignatti/crowdvision-twin`

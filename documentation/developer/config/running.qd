@@ -136,7 +136,6 @@ See [Kubernetes Configuration](kubernetes.qd) for exactly what this creates and 
 ```bash
 # First-time full setup (create cluster → Gateway API + Istio → namespace → secrets → manifests):
 just k8s setup
-kubectl apply -f k8s/istio-gateway.yml   # not part of `setup` — see kubernetes.qd
 
 # Subsequent deploys — re-apply manifests:
 just k8s apply
@@ -193,8 +192,9 @@ just k8s status
 # Check persistent volumes are Bound:
 kubectl get pvc -n crowdvision
 
-# Check Ingress has an ADDRESS:
-kubectl get ingress -n crowdvision
+# Check the Gateway and its routes are accepted (there is no Ingress — Istio's
+# Gateway API is the only k8s ingress path):
+kubectl get gateway,httproute -n crowdvision
 
 # Tail logs for a service:
 just k8s logs twin-service

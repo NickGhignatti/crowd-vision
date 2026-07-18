@@ -39,6 +39,8 @@ spec:
       backendRefs:
         - name: claims-gateway
           port: 3000
+      timeouts:
+        request: 30s
 
 ---
 # ── Tenancy Service ──────────────────────────────────────────────────────────
@@ -64,6 +66,8 @@ spec:
       backendRefs:
         - name: tenancy-service
           port: 3000
+      timeouts:
+        request: 30s
 
 ---
 # ── Digital Twin service ─────────────────────────────────────────────────────
@@ -89,6 +93,8 @@ spec:
       backendRefs:
         - name: twin-service
           port: 3000
+      timeouts:
+        request: 30s
 
 ---
 # ── Notification service ─────────────────────────────────────────────────────
@@ -114,6 +120,8 @@ spec:
       backendRefs:
         - name: notification-service
           port: 3000
+      timeouts:
+        request: 30s
 
 ---
 # ── Agent service ─────────────────────────────────────────────────────────────
@@ -143,6 +151,10 @@ spec:
       backendRefs:
         - name: agent-service
           port: 3000
+      # Longer than the 30s baseline — LLM chat/tool-calling and embedding
+      # calls can legitimately run past 30s.
+      timeouts:
+        request: 120s
 
 ---
 # ── Chat service ──────────────────────────────────────────────────────────────
@@ -168,6 +180,10 @@ spec:
       backendRefs:
         - name: chat-service
           port: 3000
+      # Matches agent-service-route's timeout — chat-service proxies every
+      # message to agent-service and waits on its LLM response.
+      timeouts:
+        request: 120s
 
 ---
 # ── Contracts Service ────────────────────────────────────────────────────────
@@ -193,6 +209,8 @@ spec:
       backendRefs:
         - name: contracts-service
           port: 3000
+      timeouts:
+        request: 30s
 
 ---
 # ── Sensor service ────────────────────────────────────────────────────────────
@@ -218,6 +236,8 @@ spec:
       backendRefs:
         - name: sensor-service
           port: 3000
+      timeouts:
+        request: 30s
 
 ---
 # ── Socket.IO server — no rewrite, full path forwarded intact ──────────────────
@@ -237,6 +257,9 @@ spec:
       backendRefs:
         - name: socket-service
           port: 3000
+      # Deliberately no request timeout, unlike the other routes — Socket.IO
+      # connections are long-lived (WebSocket upgrade, or long-polling
+      # fallback), so a fixed request timeout would cut them off.
 
 ---
 # ── Grafana (observability UI) — served under /grafana, no rewrite ─────────────
@@ -256,6 +279,8 @@ spec:
       backendRefs:
         - name: grafana
           port: 3000
+      timeouts:
+        request: 30s
 
 ---
 # ── Client (Vue SPA) — catch-all root, evaluated after the specific routes ─────
@@ -275,3 +300,5 @@ spec:
       backendRefs:
         - name: client
           port: 8080
+      timeouts:
+        request: 30s

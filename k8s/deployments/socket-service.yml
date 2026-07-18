@@ -1,7 +1,11 @@
 # ── Deployment ────────────────────────────────────────────────────────────────
 # Socket.IO connections are stateful — a client handshakes with a specific pod.
 # With 1 replica this is not an issue. If you scale to multiple replicas:
-#   1. The Ingress sticky session (cookie affinity) is already configured.
+#   1. Session/cookie affinity at the gateway is NOT configured today — the
+#      socket-service-route HTTPRoute (k8s/istio-gateway.yml) has no session
+#      affinity, so a reconnect can land on a different pod. Add a Gateway API
+#      session-persistence policy (or Istio's consistent-hash load balancing)
+#      before scaling past 1 replica.
 #   2. The Redis adapter broadcasts events across replicas via pub/sub.
 apiVersion: apps/v1
 kind: Deployment

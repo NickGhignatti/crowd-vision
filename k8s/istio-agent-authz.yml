@@ -1,0 +1,28 @@
+# Restricts agent-service to its two legitimate callers by mesh workload
+# identity: the ingress gateway (so /agent/* traffic, which the edge
+# intentionally leaves ungated — see istio-request-authentication.yml — still
+# reaches the pod) and chat-service (the only in-mesh caller that forwards a
+# real, mesh-verified x-gateway-claims header). agent-service decodes that
+# header without a signature check (app/auth.py), so without this policy any
+# other in-mesh workload could reach agent-service's ClusterIP directly and
+# forge the header. Enforced by ztunnel at L4 via mTLS workload identity — no
+# waypoint proxy needed, since this matches on source principal, not L7 path.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: agent-service-callers
+  namespace: crowdvision
+spec:
+  selector:
+    matchLabels:
+      app: agent-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/crowdvision/sa/crowdvision-gateway-istio
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/crowdvision/sa/chat-service
