@@ -13,7 +13,7 @@ vi.mock('@/composables/core/useApi.ts', () => ({
 }))
 
 vi.mock('@/stores/authentication.ts', () => ({
-  useAuthStore: () => ({ accountName: 'alice', accountId: 'acc-alice' }),
+  useAuthStore: () => ({ accountName: 'alice', accountId: 'acc-alice', refreshSession: vi.fn().mockResolvedValue(undefined) }),
 }))
 
 const DomainRowStub = {

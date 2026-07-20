@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "@jest/globals";
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import type { NextFunction, Request, Response } from "express";
 import { requireAuthentication } from "src/middlewares/authentication.ts";
 

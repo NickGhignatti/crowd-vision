@@ -473,6 +473,7 @@ describe('useDomainsStore', () => {
     it('POSTs to the join endpoint as standard_customer', async () => {
       vi.mocked(makeRequest)
         .mockResolvedValueOnce(makeResponse(true) as unknown as Response) // join
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response) // refreshSession
         .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response) // fetchMemberships refresh
 
       await useDomainsStore().subscribeToDomain({ name: 'unibo' })
@@ -482,15 +483,17 @@ describe('useDomainsStore', () => {
       })
     })
 
-    it('refreshes memberships after a successful join', async () => {
+    it('refreshes the session then memberships after a successful join', async () => {
       vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
         .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
         .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response)
 
       await useDomainsStore().subscribeToDomain({ name: 'unibo' })
 
-      expect(makeRequest).toHaveBeenCalledTimes(2)
-      expect(makeRequest).toHaveBeenNthCalledWith(2, '/tenancy/me/memberships')
+      expect(makeRequest).toHaveBeenCalledTimes(3)
+      expect(makeRequest).toHaveBeenNthCalledWith(2, '/gateway/refresh', 'POST')
+      expect(makeRequest).toHaveBeenNthCalledWith(3, '/tenancy/me/memberships')
     })
 
     it('throws when the join fails and does not refresh memberships', async () => {
@@ -584,19 +587,22 @@ describe('useDomainsStore', () => {
   })
 
   describe('redeemInviteCode', () => {
-    it('POSTs to the redeem endpoint and refreshes memberships on success', async () => {
+    it('POSTs to the redeem endpoint, refreshes the session, then refreshes memberships on success', async () => {
       vi.mocked(makeRequest)
         .mockResolvedValueOnce(makeResponse(true) as unknown as Response) // redeem
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response) // refreshSession
         .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response) // fetchMemberships refresh
 
       await useDomainsStore().redeemInviteCode('abc123')
 
       expect(makeRequest).toHaveBeenNthCalledWith(1, '/tenancy/invite-codes/abc123/redeem', 'POST')
-      expect(makeRequest).toHaveBeenNthCalledWith(2, '/tenancy/me/memberships')
+      expect(makeRequest).toHaveBeenNthCalledWith(2, '/gateway/refresh', 'POST')
+      expect(makeRequest).toHaveBeenNthCalledWith(3, '/tenancy/me/memberships')
     })
 
     it('trims and URL-encodes the code', async () => {
       vi.mocked(makeRequest)
+        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
         .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
         .mockResolvedValueOnce(makeResponse(true, []) as unknown as Response)
 
