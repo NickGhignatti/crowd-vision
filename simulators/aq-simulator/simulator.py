@@ -28,6 +28,13 @@ from physics import compute_all, pm25_to_aqi, compute_indoor_aqi
 
 logger = logging.getLogger("simulator")
 
+
+def _log_safe(value: object) -> str:
+    # BuildingConfig strips CR/LF at the Pydantic boundary already; this is a
+    # second, intraprocedural pass so a value can't forge extra log lines
+    # regardless of how it reached this function.
+    return str(value).replace("\r", "").replace("\n", "")
+
 @dataclass
 class SimulationRoom:
     """
@@ -156,10 +163,10 @@ class Simulator:
 
         logger.info(
             "Simulator registered for building=%s rooms=%s scenario=%s interval=%ss",
-            config.buildingId,
-            config.roomIds,
-            config.scenario,
-            config.interval_seconds,
+            _log_safe(config.buildingId),
+            _log_safe(config.roomIds),
+            _log_safe(config.scenario),
+            _log_safe(config.interval_seconds),
         )
 
     def start(self, building_id: str) -> None:
@@ -178,10 +185,10 @@ class Simulator:
         self._tasks[building_id] = task
         logger.info(
             "Simulator started for building=%s rooms=%s scenario=%s interval=%ss",
-            building.config.buildingId,
-            building.config.roomIds,
-            building.config.scenario,
-            building.config.interval_seconds,
+            _log_safe(building.config.buildingId),
+            _log_safe(building.config.roomIds),
+            _log_safe(building.config.scenario),
+            _log_safe(building.config.interval_seconds),
         )
 
     def start_all(self) -> None:
@@ -203,7 +210,7 @@ class Simulator:
         task = self._tasks.pop(building_id, None)
         if task:
             task.cancel()
-        logger.info("Simulator stopped for building=%s", building_id)
+        logger.info("Simulator stopped for building=%s", _log_safe(building_id))
 
     def get_is_running(self, building_id: str) -> bool:
         return building_id in self._tasks

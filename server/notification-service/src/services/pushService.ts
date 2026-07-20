@@ -66,7 +66,11 @@ export const subscribeUser = async (
 ) => {
   await Subscription.findOneAndUpdate(
     { endpoint: { $eq: subscription.endpoint } },
-    { ...subscription, accountName },
+    {
+      endpoint: subscription.endpoint,
+      keys: subscription.keys,
+      accountName,
+    },
     { upsert: true, returnDocument: "after" },
   );
 };
