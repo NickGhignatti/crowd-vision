@@ -154,8 +154,9 @@ services:
     environment:
       - GOOGLE_API_KEY=integration-test-google-api-key
       - DEEPSEEK_API_KEY=
-      # This suite never exercises agent-service's authenticated routes, and
-      # claims-gateway isn't part of this override — auth is disabled rather than pointing GATEWAY_JWKS_URI at nothing.
+      # This suite never exercises agent-service's authenticated routes, and no mesh edge
+      # is part of this override — auth is disabled rather than standing up the edge that
+      # would verify the gateway JWT and inject the x-gateway-claims header.
       - REQUIRE_AUTH=false
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=noop

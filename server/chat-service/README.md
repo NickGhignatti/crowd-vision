@@ -2,7 +2,8 @@
 
 The conversation layer in front of the agent. It persists multi-turn chats per user in
 MongoDB and orchestrates calls to the stateless `agent-service` `/ask`, forwarding the
-caller's JWT so the agent answers under the user's identity.
+caller's mesh-verified `x-gateway-claims` identity header so the agent answers under the
+user's identity.
 
 The service is exposed through the gateway at `http://localhost/chat`; inside Docker it
 listens at `http://chat-service:3000`.
@@ -35,13 +36,10 @@ Run from `server/chat-service` unless marked **root**.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `AGENT_SERVICE_URL` | `http://agent-service:3000` | Where to reach the agent's `/ask` endpoint |
-| `GATEWAY_JWKS_URI` | — | claims-gateway's published JWKS endpoint, used to verify the RS256 token |
-| `GATEWAY_ISSUER` | `cv-gateway` | Expected `iss` claim on the verified token |
-| `JWT_COOKIE_NAME` | `authentication_token` | Cookie the JWT is read from |
 | `HISTORY_MAX_MESSAGES` | `10` | Recent turns sent to the agent as context |
 
 ## Documentation
 
-The design — data model, the send-message orchestration, cookie forwarding, and the
+The design — data model, the send-message orchestration, claims-header forwarding, and the
 end-to-end client → chat-service → agent flow — lives in the Quarkdown Developer Guide:
 `documentation/developer/services/chat.qd`.

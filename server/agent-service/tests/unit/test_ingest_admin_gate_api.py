@@ -17,7 +17,6 @@ from app.routes import ingest as ingest_route
 
 @pytest.fixture(autouse=True)
 def _reset_settings(monkeypatch):
-    monkeypatch.setenv("GATEWAY_JWKS_URI", "http://gateway.test/.well-known/jwks.json")
     monkeypatch.setenv("LLM_API_KEY", "test-key")
     get_settings.cache_clear()
     yield
