@@ -28,6 +28,9 @@ jobs:
       tenancy: ${{ steps.filter.outputs.tenancy }}
       registry: ${{ steps.filter.outputs.registry }}
       provisioner: ${{ steps.filter.outputs.provisioner }}
+      auth_policy: ${{ steps.filter.outputs.auth_policy }}
+      auth_contracts: ${{ steps.filter.outputs.auth_contracts }}
+      auth_middleware: ${{ steps.filter.outputs.auth_middleware }}
       k8s: ${{ steps.filter.outputs.k8s }}
       shared: ${{ steps.filter.outputs.shared }}
       ci: ${{ steps.filter.outputs.ci }}
@@ -80,6 +83,15 @@ jobs:
             provisioner:
               - 'server/provisioner/**'
               - '.github/workflows/ci-provisioner.yml'
+            auth_policy:
+              - 'server/auth-policy/**'
+              - '.github/workflows/ci-auth-policy.yml'
+            auth_contracts:
+              - 'server/auth-contracts/**'
+              - '.github/workflows/ci-auth-contracts.yml'
+            auth_middleware:
+              - 'server/auth-middleware/**'
+              - '.github/workflows/ci-auth-middleware.yml'
             k8s:
               - 'k8s/**'
               - '.github/workflows/ci-k8s.yml'
@@ -189,6 +201,23 @@ jobs:
     if: needs.changes.outputs.provisioner == 'true'
     uses: ./.github/workflows/ci-provisioner.yml
 
+  auth-policy:
+    needs: changes
+    if: needs.changes.outputs.auth_policy == 'true'
+    uses: ./.github/workflows/ci-auth-policy.yml
+
+  auth-contracts:
+    needs: changes
+    if: needs.changes.outputs.auth_contracts == 'true'
+    uses: ./.github/workflows/ci-auth-contracts.yml
+
+  auth-middleware:
+    needs: changes
+    # auth-middleware's go.mod replaces auth-contracts with a local path, so it
+    # builds directly against auth-contracts' source and must re-run when it changes.
+    if: needs.changes.outputs.auth_middleware == 'true' || needs.changes.outputs.auth_contracts == 'true'
+    uses: ./.github/workflows/ci-auth-middleware.yml
+
   docker:
     needs: changes
     if: needs.changes.outputs.has_images == 'true'
@@ -258,6 +287,9 @@ jobs:
       - tenancy-service
       - registry-service
       - provisioner
+      - auth-policy
+      - auth-contracts
+      - auth-middleware
       - docker
       - k8s
       - workflows-lint
