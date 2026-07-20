@@ -1,7 +1,5 @@
-// HTTP-level parity suite for twin-service's Rust rewrite -- ported 1:1 from
-// the TypeScript implementation's __tests__/building.test.ts (supertest against
-// the Express app). Requires a running MongoDB (MONGO_URI, default
-// localhost:27017) -- see the repo's docker-compose.yml `twin-db` service.
+// HTTP-level suite for twin-service. Requires a running MongoDB (MONGO_URI,
+// default localhost:27017) -- see docker-compose.yml's `twin-db` service.
 
 use axum::Router;
 use axum::body::Body;

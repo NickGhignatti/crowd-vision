@@ -32,10 +32,8 @@ export function createIngestionHandler(kernel: SensorKernel) {
       return;
     }
 
-    // ── The Fast Path ────────────────────────────────────────────────────────
     res.status(202).json({ accepted: true, type });
 
-    // ── The Slow Path ────────────────────────────────────────────────────────
     setImmediate(() => {
       module.process(sensorData).catch((err: unknown) => {
         // %s keeps user input out of the format string; strip newlines so it

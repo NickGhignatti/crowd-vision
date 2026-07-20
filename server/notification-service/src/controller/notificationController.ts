@@ -24,8 +24,8 @@ type SubscriptionRequestBody = {
   // Legacy / single updates
   enabled?: boolean;
   type?: NotificationType;
-  types?: NotificationType[]; // e.g. ["temperature", "air_quality"]
-  preferences?: { type: NotificationType; enabled: boolean }[]; // e.g. [{type: "temperature", enabled: true}]
+  types?: NotificationType[];
+  preferences?: { type: NotificationType; enabled: boolean }[];
   subscription?: {
     endpoint?: string;
     keys?: {
@@ -58,7 +58,7 @@ const isValidSubscription = (subscription: IncomingSubscription) =>
 const getDomainName = (body: { domainName?: string; domainId?: string }) =>
   body.domainName || body.domainId;
 
-/** Resolves domainName (or its deprecated alias domainId) and throws if absent. */
+/** Resolves domainName and throws if absent. */
 const requireDomainName = (
   body: { domainName?: string; domainId?: string },
 ): string => {
@@ -71,9 +71,8 @@ const getDomainsForBuilding = async (
   buildingName: string,
   claimsHeader?: string,
 ) => {
-  // Called directly against twin-service's internal address (not the public
-  // gateway) so the caller's mesh-injected claims header can be forwarded
-  // verbatim — mTLS (Phase 1) already authenticates this hop.
+  // Called directly against twin-service's internal address (not the public gateway) so the
+  // caller's mesh-injected claims header forwards verbatim — mTLS already authenticates this hop.
   const response = await fetch(
     `${getTwinServiceUrl()}/domain/${encodeURIComponent(buildingName)}`,
     claimsHeader

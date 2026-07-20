@@ -79,9 +79,9 @@ spec:
               value: "enabled"
           envFrom:
             - secretRef:
-                name: tenancy-service-secret   # DATABASE_URL, INTERNAL_SIGNING_SECRET
+                name: tenancy-service-secret
             - configMapRef:
-                name: common-config            # REDIS_URL
+                name: common-config
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -113,7 +113,6 @@ spec:
           emptyDir: {}
 
 ---
-# ── Service ───────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:

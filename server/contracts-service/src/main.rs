@@ -50,8 +50,6 @@ async fn main() {
         .await
         .expect("Failed to connect to MongoDB");
 
-    // One-time read at startup: seed the in-memory map from persistent storage.
-    // All subsequent reads are served from the DashMap without touching MongoDB.
     let state = AppState::new(col.clone());
     for doc in infra::db::load_all(&col)
         .await

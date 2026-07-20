@@ -10,8 +10,6 @@ on:
   schedule:
     - cron: "0 3 * * 1"
 
-# A newer commit on the same ref supersedes an in-flight scan — no point
-# finishing a scan of code that has already been replaced.
 concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: true
@@ -29,17 +27,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # build-mode: none extracts from source without compiling
           - language: javascript-typescript
             build-mode: none
           - language: python
             build-mode: none
-          # build-mode: none extracts from source without compiling
           - language: rust
             build-mode: none
-          # Same reasoning as rust above: four independent Go modules
-          # (claims-gateway, tenancy-service, registry-service, provisioner),
-          # no shared root go.work, and build-mode: none extracts all of them
-          # from source in one pass without needing per-module build wiring.
           - language: go
             build-mode: none
     steps:
@@ -55,9 +49,6 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended
 
-      # No Autobuild step: every language runs build-mode: none, so CodeQL
-      # extracts from source without a compile. (For js-ts and python the old
-      # Autobuild step was already a no-op; none is the correct modern setting.)
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
         with:

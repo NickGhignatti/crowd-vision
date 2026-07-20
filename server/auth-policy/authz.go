@@ -90,20 +90,16 @@ func CanManageDomain(memberships []authcontracts.Membership, domain string) bool
 	return authorize(memberships, "ManageDomain", domain, nil)
 }
 
-// CanOverrideModelWeight is a GLOBAL role-weight gate —
-// no Go service currently needs this, but it's exposed so the
-// golden conformance suite (fixtures/conformance.json) can verify this
-// action decides identically in every language, not just the ones with a
-// real caller yet.
+// CanOverrideModelWeight is a GLOBAL role-weight gate; no Go service needs it yet, but it's
+// exposed so the golden conformance suite verifies it decides identically in every language.
 func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeight int64) bool {
 	return authorize(memberships, "ModelOverride", "", cedar.RecordMap{
 		"requiredWeight": cedar.Long(requiredWeight),
 	})
 }
 
-// CanIngestDocuments is a GLOBAL, admin-only gate — agent-service's POST
-// /ingest. No Go service currently needs this either, exposed for the same
-// conformance-suite reason as CanOverrideModelWeight above.
+// CanIngestDocuments is a GLOBAL, admin-only gate for agent-service's POST /ingest, exposed
+// for the same conformance-suite reason as CanOverrideModelWeight above.
 func CanIngestDocuments(memberships []authcontracts.Membership) bool {
 	return authorize(memberships, "IngestDocuments", "", nil)
 }

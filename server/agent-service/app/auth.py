@@ -13,10 +13,8 @@ class AuthUser:
     user_id: str
     roles: list[str] = field(default_factory=list)
     domains: list[str] = field(default_factory=list)
-    # The mesh-injected x-gateway-claims header (or, for the eval-token path,
-    # the raw eval JWT), kept so downstream tools can forward the caller's
-    # identity to other services (e.g. twin-service, which trusts the same
-    # header).
+    # The x-gateway-claims header (or eval JWT), kept so downstream tools can
+    # forward the caller's identity to other services (e.g. twin-service).
     raw_token: str | None = None
 
     @property
@@ -42,10 +40,8 @@ def _claims_from_payload(payload: dict) -> tuple[list[str], list[str]]:
 
 
 def _decode_claims_header(header: str) -> dict:
-    # Istio's RequestAuthentication (or, in docker-compose dev, Caddy's
-    # forward_auth against claims-gateway's /verify) verifies the gateway JWT
-    # once at the edge and injects the validated payload here — agent-service
-    # trusts it rather than re-verifying a JWT itself.
+    # The edge (Istio RequestAuthentication, or Caddy forward_auth in dev) verifies
+    # the gateway JWT once and injects this payload — agent-service trusts it here.
     try:
         return json.loads(base64.b64decode(header))
     except (ValueError, json.JSONDecodeError) as exc:
@@ -87,10 +83,8 @@ async def require_user(request: Request) -> AuthUser:
 
     eval_token = None
     if claims_header is None:
-        # local-dev eval-runner bypass only — see evals/run_evals.py, which
-        # sends its self-minted token as a cookie (matching how a real
-        # browser session cookie would arrive). This path never reaches the
-        # mesh, so it still needs its own HS256 check.
+        # local-dev eval-runner bypass only (see evals/run_evals.py) — never
+        # reaches the mesh, so it still needs its own HS256 check below.
         eval_token = request.cookies.get(settings.jwt_cookie_name)
         if not eval_token:
             auth_header = request.headers.get("authorization", "")

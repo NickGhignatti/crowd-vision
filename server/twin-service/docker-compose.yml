@@ -1,10 +1,8 @@
 services:
   twin-service:
     build:
-      # Repo-root context: twin-service reads the shared Cedar policy bundle
-      # at ../auth-policy (relative to its own crate root), a sibling
-      # directory this build needs to see. See the Dockerfile's own header
-      # comment.
+      # Repo-root context: twin-service needs to see its sibling ../auth-policy
+      # dir (shared Cedar policy bundle) during build.
       context: ../..
       dockerfile: server/twin-service/Dockerfile
     environment:

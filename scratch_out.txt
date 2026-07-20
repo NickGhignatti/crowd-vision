@@ -1,0 +1,45 @@
+
+=== k8s/monitoring/prometheus.yml (2 blocks) ===
+  92:       # ── Istio ingress gateway (Envoy stats) ─────────────────────────────────
+  93:       # The auto-provisioned Service omits Envoy's stats port, so scrape the pod
+  94:       # directly on :15090, matched by its Gateway API label.
+  134:       # ── Pod autodiscovery: opt-in /metrics scraping ───────────────────────
+  135:       # Scrapes any crowdvision pod annotated prometheus.io/scrape: "true"
+  136:       # (port/path overridable via prometheus.io/port and prometheus.io/path).
+
+=== k8s/istio-agent-authz.yml (1 blocks) ===
+  1: # Restricts agent-service to its only legitimate callers — the ingress gateway
+  2: # and chat-service — since it trusts the unsigned x-gateway-claims header
+  3: # (app/auth.py) that any in-mesh workload could otherwise forge against it.
+
+=== k8s/istio-request-authentication.yml (1 blocks) ===
+  26: # ALLOW policy — selecting the gateway makes Istio default-deny everything else.
+  27: # Open paths need no principal; protected paths need a gateway-JWT principal.
+  28: # /agent/* is ungated by design (eval-token bypass); see service-mesh.qd.
+
+=== scripts/compose/compose-run.mjs (1 blocks) ===
+  99: // ── Clear stray fixed-name containers ────────────────────────────────────────
+  100: // A pinned `container_name:` orphaned by an interrupted run name-clashes the next
+  101: // `up` (no compose project label to reconcile it), so force-remove non-running matches.
+
+=== server/claims-gateway/internal/oidcverifier/verifier.go (1 blocks) ===
+  22: // New runs OIDC discovery against discoveryURL but validates tokens' `iss` against
+  23: // issuerURL (they differ across internal/browser hosts); clientID is the required audience.
+  24: // Discovery is fetched manually, not via oidc.NewProvider, so jwks_uri can be
+  25: // rewritten onto discoveryURL's host — a container may have no route to the advertised one.
+
+=== server/notification-service/src/services/eventListener.ts (1 blocks) ===
+  16:   // ── Temperature Anomalies ─────────────────────────────────────────────────
+  17:   // The path real sensor-triggered breaches take (see TemperatureModuleService.evaluateThresholds);
+  18:   // unlike POST /push/temperature there's no authenticated caller, so it handles its own debounce/domain/push delivery.
+
+=== scripts/k8s/k8s-secrets.mjs (3 blocks) ===
+  2: // Creates all Kubernetes secrets needed by CrowdVision from the local .env file.
+  3: // Idempotent: generates each secret with --dry-run=client then pipes to kubectl apply.
+  4: // Usage: node scripts/k8s/k8s-secrets.mjs
+  38: // Generates the Secret YAML via --dry-run=client, then applies it.
+  39: // Passing args as an array bypasses the shell, so special characters
+  40: // in values (base64 padding, = signs, etc.) are safe without escaping.
+  199: // claims-gateway holds cv-gateway's confidential client secret for
+  200: // server-side password login/registration against Keycloak (see
+  201: // server/claims-gateway/docker-compose.yml) plus the internal token secret.

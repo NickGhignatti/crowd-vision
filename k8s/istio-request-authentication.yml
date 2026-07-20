@@ -1,7 +1,5 @@
-# Verifies the claims-gateway-minted JWT ONCE at the Istio ingress gateway.
-# outputPayloadToHeader injects the full validated claims payload (same JSON
-# shape claims-gateway signs) as one base64 header, x-gateway-claims — every
-# downstream service decodes this instead of doing its own JWT verification.
+# Verifies the claims-gateway JWT once at the ingress and injects the validated
+# claims as the base64 x-gateway-claims header for downstream services to decode.
 apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
@@ -25,29 +23,6 @@ spec:
       outputPayloadToHeader: x-gateway-claims
 
 ---
-# Once ANY AuthorizationPolicy selects a workload, Istio flips that workload
-# to default-deny for everything not explicitly matched. So this needs two
-# rules, not one: rule 1 allows every path EXCEPT the protected ones with no
-# principal required (claims-gateway self-manages its own auth; the client SPA
-# needs unauthenticated access to serve its shell before login); rule 2 allows
-# the protected paths only with a JWT principal verified by the
-# RequestAuthentication above.
-#
-# /agent/* is deliberately NOT gated here (same as its Caddyfile route):
-# agent-service also serves evals/run_evals.py's local-dev HS256 bypass,
-# which doesn't hold a real gateway JWT to present at the edge — it keeps
-# doing its own auth in-process (see app/auth.py's require_user), checking
-# for a mesh claims header first and falling back to the eval token.
-# Because the route is ungated, RequestAuthentication never injects a verified
-# x-gateway-claims for it, so agent's /agent HTTPRoute in istio-gateway.yml
-# strips any client-supplied one (RequestHeaderModifier remove) — agent trusts
-# that header without a signature check, so an ungated caller could forge it.
-# The header-strip alone only stops an EXTERNAL caller; any in-mesh workload
-# could still reach agent-service's ClusterIP directly and forge the header.
-# k8s/istio-agent-authz.yml closes that gap with a workload-identity
-# AuthorizationPolicy restricting agent-service to just the ingress gateway
-# and chat-service — so the header-strip here is now defense-in-depth, not
-# the only guard.
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -63,18 +38,22 @@ spec:
         - operation:
             paths: ["/*"]
             notPaths:
+              - /twin
               - /twin/*
+              - /sensor
               - /sensor/*
+              - /notification
               - /notification/*
+              - /chat
               - /chat/*
+              - /socket.io
               - /socket.io/*
+              - /tenancy
               - /tenancy/*
               - /contracts
               - /contracts/*
-    # Telemetry ingestion is device/simulator-facing and carries no user token —
-    # sensor-service leaves POST /ingest unauthenticated (see its router.ts), so
-    # allow it with no principal. Everything else under /sensor/* still needs a
-    # JWT (rule below). Mirrors the /sensor/ingest carve-out in the Caddyfile.
+    # Device/simulator telemetry carries no user token — sensor-service leaves
+    # POST /ingest unauthenticated, so allow this exact path with no principal.
     - to:
         - operation:
             paths:
@@ -85,11 +64,17 @@ spec:
       to:
         - operation:
             paths:
+              - /twin
               - /twin/*
+              - /sensor
               - /sensor/*
+              - /notification
               - /notification/*
+              - /chat
               - /chat/*
+              - /socket.io
               - /socket.io/*
+              - /tenancy
               - /tenancy/*
               - /contracts
               - /contracts/*

@@ -71,9 +71,8 @@ func TestExchange_ExistingMember_SignsWithCurrentMemberships(t *testing.T) {
 }
 
 func TestRefreshSession_ReMintsWithCurrentTenancyMemberships(t *testing.T) {
-	// Caller logged in before creating "kubeet.com": their current claims have
-	// no memberships, but tenancy now reports one. Refresh must re-sign with
-	// the fresh set while preserving identity fields.
+	// Caller's current claims have no memberships, but tenancy now reports one;
+	// Refresh must re-sign with the fresh set while preserving identity fields.
 	tenancy := &fakeTenancy{memberships: []authcontracts.Membership{{Domain: "kubeet.com", Role: "business_admin"}}}
 	signer := &fakeSigner{}
 	gw := service.New(&fakeVerifier{}, tenancy, signer, time.Hour)

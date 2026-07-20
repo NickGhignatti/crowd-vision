@@ -12,9 +12,8 @@ const makeRoom = (id: string, overrides: Partial<Room> = {}): Room => ({
   ...overrides,
 })
 
-// Viewport is fixed at width:800 height:600 scale:20 centerX/Z:0 (see the
-// component) — so world (0,0) projects to screen (400,300) and every world
-// unit is 20 screen pixels.
+// Viewport is fixed at width:800 height:600 scale:20 centerX/Z:0 (see the component) — so
+// world (0,0) projects to screen (400,300) and every world unit is 20 screen pixels.
 const stubBoundingRect = (wrapper: ReturnType<typeof mount>) => {
   const svg = wrapper.find('[data-testid="floor-plan"]').element as unknown as SVGSVGElement
   svg.getBoundingClientRect = () =>
@@ -53,11 +52,8 @@ describe('FloorPlanEditor', () => {
   })
 
   it('projects rooms using the actual measured container size, not a fixed 800x600 box', async () => {
-    // Stubbed BEFORE mount, on the prototype: onMounted's initial measurement
-    // reads this the instant the component mounts. This is the responsive-
-    // sizing fix for a real bug: a hardcoded 800x600 canvas sat in the corner
-    // of a much larger viewport, and floating panels (RoomInspector) could
-    // overlap and block dragging wherever a room happened to land in that box.
+    // Stubbed BEFORE mount, on the prototype, since onMounted's initial measurement reads
+    // this immediately — proves sizing is responsive, not a fixed box that could trap rooms under floating panels.
     const getRectSpy = vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue({
       left: 0,
       top: 0,
@@ -176,9 +172,8 @@ describe('FloorPlanEditor', () => {
       await wrapper.find('[data-testid="floor-plan"]').trigger('pointerdown', { clientX: 10, clientY: 10 })
 
       expect(wrapper.emitted('select')?.[0]).toEqual([null])
-      // The bug this guards against: any plain click on the background used
-      // to unconditionally start (and eventually commit) a room-drawing
-      // gesture, so "select" mode must never enter a drag at all here.
+      // Regression guard: a plain click on the background must never start (or commit) a
+      // room-drawing gesture in "select" mode.
       expect(wrapper.emitted('dragging')).toBeUndefined()
 
       dispatchWindowPointer('pointermove', 500, 500)

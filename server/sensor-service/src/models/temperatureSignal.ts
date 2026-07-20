@@ -19,9 +19,6 @@ const temperatureSchema = new Schema<ITemperature>(
     createdAt: { type: Date, default: Date.now },
   },
   {
-    // Native MongoDB time-series collection: bucketed, compressed storage keyed
-    // on `building` (the series) over the `createdAt` time axis, with built-in
-    // 90-day retention — no separate TTL index needed.
     timeseries: {
       timeField: "createdAt",
       metaField: "building",
@@ -31,8 +28,6 @@ const temperatureSchema = new Schema<ITemperature>(
   },
 );
 
-// Secondary indexes for the dashboard's `timestamp`-range and per-room queries,
-// which filter on measurement fields rather than the time-series time axis.
 temperatureSchema.index({ building: 1, timestamp: -1 });
 temperatureSchema.index({ building: 1, roomId: 1, timestamp: -1 });
 

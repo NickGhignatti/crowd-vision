@@ -20,9 +20,8 @@ if TYPE_CHECKING:
 
 
 def _auth_disabled_anonymous(user: AuthUser) -> bool:
-    # Auth-disabled dev/test mode gets full access — an identity/settings
-    # check, not a tenant-scope policy decision, so it's checked before Cedar
-    # rather than folded into policy.cedar.
+    # Auth-disabled dev/test mode gets full access — an identity check, not a
+    # tenant-scope decision, so it's checked before Cedar rather than in policy.cedar.
     return not get_settings().require_auth and user.user_id == "anonymous"
 
 

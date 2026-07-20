@@ -2,7 +2,6 @@ set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set working-directory := '..'
 
-# Bare `just docs` lists recipes.
 [private]
 default:
     @just --list docs
@@ -15,7 +14,7 @@ build:
     quarkdown c documentation/reports/spe/main.qd --out landing-page/reports
     quarkdown c documentation/reports/asw/main.qd --out landing-page/reports --allow global-read
 
-# Renders each report to a downloadable PDF next to its HTML build. 
+# Renders each report to a downloadable PDF next to its HTML build.
 [doc("Render SPE + ASW reports to landing-page/reports/*.pdf (headless Chrome via Node).")]
 pdf:
     mise exec -- quarkdown c documentation/reports/spe/main.qd --out landing-page/reports --pdf --pdf-no-sandbox --timeout 120

@@ -2,7 +2,6 @@ set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set working-directory := '..'
 
-# Bare `just test` lists recipes.
 [private]
 default:
     @just --list test

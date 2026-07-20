@@ -1,12 +1,3 @@
-# Build context is the repo root (see docker-compose.yml / just/k8s.just) --
-# twin-service reads the shared Cedar policy bundle at server/auth-policy and
-# the role-weight ladder at server/auth-contracts/roles.json via include_str!,
-# resolved at COMPILE time relative to this crate's own source files (not at
-# runtime, unlike the old TS/Python ports) -- so only the builder/dev stages
-# need those directories; the production image doesn't, since the bytes are
-# already baked into the compiled binary. COPY paths and WORKDIR below
-# preserve the repo's real nesting so the include_str!("../../../auth-policy/
-# ...") relative paths resolve identically to local `cargo build`.
 FROM rust:1.96-bookworm AS chef
 # hadolint ignore=DL3008
 RUN apt-get update \

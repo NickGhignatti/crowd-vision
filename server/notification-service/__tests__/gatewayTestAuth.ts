@@ -1,6 +1,5 @@
-// Shared RS256 token-minting + JWKS-mock helpers for tests that need a
-// working authenticated request but aren't themselves testing the JWKS
-// verification edge cases (see authentication.test.ts for those).
+// Shared RS256 token-minting + JWKS-mock helpers for tests needing an authenticated request
+// without testing the JWKS verification edge cases themselves (see authentication.test.ts).
 import jwt from "jsonwebtoken";
 import { generateKeyPairSync } from "crypto";
 import { resetGatewayJwksCacheForTests } from "../src/config/gatewayJwks.js";

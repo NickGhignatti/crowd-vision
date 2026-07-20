@@ -109,12 +109,8 @@ func TestUpdateProfile_WrapsOtherFailuresAsKeycloakUnavailable(t *testing.T) {
 	}
 }
 
-// TestUpdateProfile_RefreshesTokenWithNewAccountName is the regression test
-// for the bug where the NavBar kept showing a stale name after an edit: the
-// session JWT bakes in AccountName at login time, and /me only re-serves
-// that same cookie's claims (see api.meHandler) — nothing re-reads Keycloak
-// on a page refresh. UpdateProfile must re-sign a token carrying the new
-// name so the existing session picks it up immediately, not just Keycloak.
+// TestUpdateProfile_RefreshesTokenWithNewAccountName guards against a stale NavBar name:
+// the session JWT bakes in AccountName at login, so UpdateProfile must re-sign it on change.
 func TestUpdateProfile_RefreshesTokenWithNewAccountName(t *testing.T) {
 	gw, signer := newGatewayWithProfileManagement(t, &fakeProfileReader{}, &fakeProfileUpdater{}, &fakePasswordChanger{}, &fakeAuthenticator{})
 
@@ -134,10 +130,8 @@ func TestUpdateProfile_RefreshesTokenWithNewAccountName(t *testing.T) {
 	}
 }
 
-// TestUpdateProfile_KeepsExistingAccountNameWhenNameNotChanged covers the
-// email-only edit: UpdateUser's contract treats an empty name as "leave
-// firstName untouched" (see keycloakadmin.Client.UpdateUser), so the
-// refreshed token must not blank out AccountName either.
+// TestUpdateProfile_KeepsExistingAccountNameWhenNameNotChanged: UpdateUser treats an empty
+// name as "leave firstName untouched", so the refreshed token must not blank AccountName.
 func TestUpdateProfile_KeepsExistingAccountNameWhenNameNotChanged(t *testing.T) {
 	gw, signer := newGatewayWithProfileManagement(t, &fakeProfileReader{}, &fakeProfileUpdater{}, &fakePasswordChanger{}, &fakeAuthenticator{})
 

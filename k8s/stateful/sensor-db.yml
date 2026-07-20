@@ -1,5 +1,3 @@
-# ── Headless Service ──────────────────────────────────────────────────────────
-# Was missing in the old manifest — StatefulSet DNS requires a headless Service.
 apiVersion: v1
 kind: Service
 metadata:
@@ -15,7 +13,6 @@ spec:
       appProtocol: tcp
 
 ---
-# ── StatefulSet ───────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -81,6 +78,3 @@ spec:
         resources:
           requests:
             storage: 1Gi
-        # Local k3d:           omit storageClassName — uses default "local-path"
-        # Hetzner VPS:         storageClassName: hcloud-volumes
-        # DigitalOcean VPS:    storageClassName: do-block-storage

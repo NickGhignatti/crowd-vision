@@ -5,18 +5,8 @@ import { useColumnManager } from '../useColumnManager'
 import { makeRequest } from '@/composables/core/useApi'
 import type { TableHeader, MetricContract } from '@/models/table'
 
-/**
- * Tests for useColumnManager.ts.
- *
- * This composable manages the interactive column editor on the dashboard.
- * It owns local header state, fetches the available metrics catalog from the
- * API, and persists user preferences per building.
- *
- * Mocking strategy:
- *  – `makeRequest` is mocked globally so no HTTP calls are made.
- *  – `selectedBuildingId` starts as `undefined` to prevent the immediate
- *    `watch` from firing an API call before each test can set up its mock.
- */
+/** Tests for useColumnManager (dashboard column editor). makeRequest is mocked globally;
+ * selectedBuildingId starts undefined so the immediate watch doesn't fire before mocks are set up. */
 
 vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn(),
@@ -276,8 +266,7 @@ describe('useColumnManager', () => {
       )
       availableMetrics.value = [makeMetric('a'), makeMetric('b'), makeMetric('c')]
       activeHeaderKey.value = 'a'
-      // 'a' is the active slot (excluded by metricKey !== activeHeaderKey)
-      // 'b' is used by another column (excluded by usedByOtherColumns)
+      // 'a' is the active slot (excluded), 'b' is used by another column (excluded),
       // 'c' is free → swappable
       expect(swappableMetrics.value.map((m) => m.metricKey)).toEqual(['c'])
     })

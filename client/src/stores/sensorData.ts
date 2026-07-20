@@ -17,19 +17,8 @@ export interface SensorBucket {
 const bucketKey = (type: SensorType, buildingId: string) => `${type}:${buildingId}`
 const buildingOf = (key: string) => key.slice(key.indexOf(':') + 1)
 
-/**
- * Single source of truth for live sensor data, keyed by (sensor type, building).
- * Many components want the same building's telemetry; instead of each opening its
- * own REST fetch + socket subscription + telemetry handler, they share one bucket
- * here, reference-counted. One global telemetry handler dispatches each event to
- * its bucket by an O(1) map lookup, and updates are batched into a single rAF
- * reference swap per bucket so Vue's scheduler never interrupts the Three.js
- * render loop.
- *
- * It is a *setup* store holding `shallowRef`s on purpose: the data arrays are not
- * deeply reactive, so the renderer pays for one shallow copy per frame rather than
- * per-event deep tracking.
- */
+/** Single source of truth for live sensor data, keyed by (type, building), shared and
+ * reference-counted across components; a *setup* store with shallowRefs since data isn't deeply reactive. */
 export const useSensorDataStore = defineStore('sensorData', () => {
   const buckets = new Map<string, SensorBucket>()
   const dirty = new Set<string>()
@@ -57,12 +46,8 @@ export const useSensorDataStore = defineStore('sensorData', () => {
     scheduleFlush()
   }
 
-  // Coalesce every bucket touched this frame into one reactive update. We swap in
-  // a fresh array reference (not triggerRef on the in-place-mutated one): consumers
-  // read this data through a `computed`, and Vue ≥3.4 only re-notifies a computed's
-  // dependents when its value changes by identity. An in-place mutation keeps the
-  // same reference, so the update would be swallowed at the computed boundary and
-  // never reach the views.
+  // Coalesce every bucket touched this frame into one reactive update, swapping in a fresh
+  // array reference — Vue ≥3.4 only re-notifies computed dependents on identity change, not in-place mutation.
   function scheduleFlush() {
     if (rafPending) return
     rafPending = true
@@ -110,9 +95,8 @@ export const useSensorDataStore = defineStore('sensorData', () => {
     }
   }
 
-  /** Subscribe to a building's metric. The first caller sets up the bucket (and,
-   *  if it's the first metric for that building, joins the room); the rest share
-   *  it. Always pair with `release`. */
+  /** Subscribe to a building's metric: the first caller sets up the bucket (joining the room
+   *  if it's the first metric for that building); the rest share it. Always pair with `release`. */
   function acquire(buildingId: string, type: SensorType): SensorBucket {
     const key = bucketKey(type, buildingId)
     let bucket = buckets.get(key)

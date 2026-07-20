@@ -33,8 +33,6 @@ tasks:
     options:
       cache: false
 
-  # Verify the lockfile is in sync with the manifest (mirrors each ci-*.yml's
-  # `npm ci` step). Not cached: it re-installs and is a verification gate.
   deps:
     command: 'npm ci'
     inputs:
@@ -43,8 +41,6 @@ tasks:
     options:
       cache: false
 
-  # Mirrors each ci-*.yml's audit step. Not cached: the advisory DB lives
-  # server-side, so a stale "passed" must never mask a newly-disclosed CVE.
   audit:
     command: 'npm audit --audit-level=high --omit=dev'
     inputs:

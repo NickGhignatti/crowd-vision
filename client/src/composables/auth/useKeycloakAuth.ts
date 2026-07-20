@@ -29,18 +29,14 @@ function authorizationUrl(challenge: string, state: string, extraPath = '', idpH
 }
 
 export function useKeycloakAuth() {
-  // Redirects the whole page to Keycloak. redirectPath is where the app
-  // lands after a successful callback (e.g. the page the user was on when
-  // a protected route bounced them to login).
-  // idpHint (optional) routes straight to a brokered provider like 'google',
-  // bypassing Keycloak's own login form.
+  // Redirects the whole page to Keycloak; redirectPath is where the app lands after a
+  // successful callback. idpHint (optional) routes straight to a brokered provider like 'google'.
   async function beginLogin(redirectPath = '/', idpHint = ''): Promise<void> {
     await startRedirect(redirectPath, '/auth', idpHint)
   }
 
-  // Same PKCE flow, but straight to Keycloak's registration form instead of
-  // login — Keycloak's own hosted UI handles account creation; there is no
-  // client-side registration form anymore (see LogInModal/SignInModal).
+  // Same PKCE flow, but to Keycloak's registration form instead of login — Keycloak's hosted
+  // UI handles account creation; there's no client-side registration form (see LogInModal/SignInModal).
   async function beginRegister(redirectPath = '/', idpHint = ''): Promise<void> {
     await startRedirect(redirectPath, '/registrations', idpHint)
   }
@@ -57,10 +53,8 @@ export function useKeycloakAuth() {
     window.location.href = authorizationUrl(challenge, state, path, idpHint)
   }
 
-  // Called from the /auth/callback view with the query params Keycloak
-  // redirected back with. Returns where to route the user next; the caller
-  // decides what "failure" means for navigation (e.g. back to home with an
-  // error banner) — this function only reports success/failure.
+  // Called from /auth/callback with Keycloak's query params. Returns where to route next;
+  // the caller decides what "failure" means for navigation — this only reports success/failure.
   async function completeLogin(
     code: string,
     state: string,
@@ -99,11 +93,8 @@ export function useKeycloakAuth() {
     return { ok, redirectPath }
   }
 
-  // In-app password login: the browser only ever calls our own
-  // claims-gateway, never Keycloak directly — claims-gateway holds the
-  // confidential client secret and does the direct grant server-side (see
-  // internal/keycloakadmin), then sets the session cookie in this same
-  // response. hydrate(true) just re-reads that cookie into the store.
+  // In-app password login: the browser only calls claims-gateway, never Keycloak directly —
+  // it holds the client secret, does the direct grant server-side, and sets the session cookie.
   async function loginWithPassword(
     username: string,
     password: string,
@@ -119,9 +110,8 @@ export function useKeycloakAuth() {
     return { ok: authStore.isAuthenticated }
   }
 
-  // In-app registration: claims-gateway creates the Keycloak user and logs
-  // it in within the same request (see service.Gateway.Register) — one call
-  // both creates the account and establishes its session.
+  // In-app registration: claims-gateway creates the Keycloak user and logs it in within the
+  // same request (see service.Gateway.Register) — one call creates the account and its session.
   async function registerWithPassword(
     email: string,
     password: string,

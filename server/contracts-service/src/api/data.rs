@@ -56,17 +56,10 @@ pub async fn update_preferences(
 ) -> impl IntoResponse {
     let column_count = payload.allowed_columns.len();
 
-    // Instant Cache Mutation (The Hot Path)
-    // DashMap shards its internal locks, meaning this write operation will virtually
-    // never experience lock contention with the Redis tunnel's read operations.
-    // The telemetry loop running in the background will pick up these new bounds on its very next iteration.
     state
         .building_preferences
         .insert(building_id.clone(), payload.allowed_columns.clone());
 
-    // Asynchronous Database Persistence (The Cold Path)
-    // Spawn a fire-and-forget Tokio task to handle the I/O bottleneck of database writes.
-    // This allows the HTTP request to terminate and return 200 OK immediately.
     let col = state.mongo_col.clone();
     let bid = building_id.clone();
     tokio::spawn(async move {
@@ -75,7 +68,6 @@ pub async fn update_preferences(
         }
     });
 
-    // Acknowledge the update instantly
     let response = UpdatePreferencesResponse {
         status: "success".to_string(),
         building_id,

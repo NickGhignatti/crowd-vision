@@ -15,14 +15,12 @@ const SCALE = 20
 // Only used before the SVG has ever been measured (first synchronous render,
 // or under jsdom where layout never actually happens).
 const FALLBACK_SIZE = { width: 800, height: 600 }
-// The plan used to render at a fixed 20px/world-unit with no way to zoom out
-// further, so a large building simply ran off the edge of the view. Wheel
-// zoom multiplies this base scale by a clamped factor instead.
+// Wheel zoom multiplies the base 20px/world-unit scale by a clamped factor, so large
+// buildings aren't stuck running off the edge of a fixed-scale view.
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 5
-// exp(-deltaY * sensitivity) gives a smooth multiplicative step that scales
-// naturally with both a mouse wheel's large per-notch delta (~100) and a
-// trackpad's small continuous deltas.
+// exp(-deltaY * sensitivity) gives a smooth multiplicative step that scales naturally with
+// both a mouse wheel's large per-notch delta (~100) and a trackpad's small continuous deltas.
 const ZOOM_SENSITIVITY = 0.001
 // World units a "draw" gesture must travel before it's treated as a
 // deliberate new room rather than a stray click — see onPointerUp below.
@@ -42,24 +40,16 @@ export interface PlanInteractionCallbacks {
   onDragging: (value: boolean) => void
 }
 
-/**
- * All of FloorPlanEditor.vue's non-presentational logic: viewport
- * measurement, the pointer/drag state machine, and the screen<->world
- * projection helpers the template needs for positioning. Kept separate from
- * the component so the component stays template + thin event wiring, and so
- * this state machine can evolve (new tools, new gestures) without touching
- * any markup.
- */
+/** FloorPlanEditor.vue's non-presentational logic: viewport measurement, pointer/drag state
+ * machine, and screen<->world projection — kept separate so the component stays template + thin wiring. */
 export function usePlanInteraction(
   source: PlanInteractionSource,
   callbacks: PlanInteractionCallbacks,
 ) {
   const svgRef = shallowRef<SVGSVGElement | null>(null)
 
-  // The SVG fills its container responsively — its real pixel size depends
-  // on layout, not a fixed constant (a hardcoded 800x600 box sitting in a
-  // much larger viewport used to leave rooms un-draggable wherever a
-  // floating panel, e.g. RoomInspector, happened to overlap that box).
+  // The SVG fills its container responsively — real pixel size depends on layout, not a fixed
+  // constant; a hardcoded box would leave rooms un-draggable wherever a floating panel overlaps it.
   const svgSize = ref<{ width: number; height: number }>({ ...FALLBACK_SIZE })
   let resizeObserver: ResizeObserver | null = null
 
@@ -104,10 +94,8 @@ export function usePlanInteraction(
   const drawStart = ref<{ x: number; z: number } | null>(null)
   const drawCurrent = ref<{ x: number; z: number } | null>(null)
 
-  // Pointer math always re-reads the live rect (not the reactive svgSize)
-  // for the *offset* (rect.left/top can shift from scrolling even when size
-  // hasn't changed), but borrows svgSize for width/height/scale so it can
-  // never disagree with what's actually being rendered.
+  // Pointer math re-reads the live rect for the *offset* (rect.left/top can shift from scrolling
+  // alone) but borrows svgSize for width/height/scale, so it never disagrees with what's rendered.
   const pointerToWorld = (event: PointerEvent): { x: number; z: number } | null => {
     const rect = svgRef.value?.getBoundingClientRect()
     if (!rect) return null
@@ -145,10 +133,8 @@ export function usePlanInteraction(
         drawCurrent.value.x - drawStart.value.x,
         drawCurrent.value.z - drawStart.value.z,
       )
-      // A plain click (no real drag) must NOT create a room — the toolbar's
-      // "Add Room" button already covers "drop a default-sized room
-      // somewhere free"; this gesture is specifically for sizing one as you
-      // place it, so it needs an actual, deliberate drag.
+      // A plain click must NOT create a room — the toolbar's "Add Room" button already covers
+      // dropping a default-sized room; this gesture is specifically for sizing one as you place it.
       if (distance >= MIN_DRAG_DISTANCE_FOR_ROOM) {
         callbacks.onAddRoom(computeDrawnRoomSeed(drawStart.value, drawCurrent.value, source.floorY()))
       }
@@ -171,10 +157,8 @@ export function usePlanInteraction(
     beginDrag('draw')
   }
 
-  // In 'select' mode, grabbing a room moves it. In 'add' mode, the draw tool
-  // takes priority over whatever's underneath the pointer (the same way a
-  // shape tool in a drawing app doesn't pick up existing objects) — clicking
-  // a room starts drawing a new one instead of moving the one you clicked.
+  // In 'select' mode, grabbing a room moves it. In 'add' mode, the draw tool takes priority
+  // over whatever's underneath the pointer, so clicking a room starts drawing instead of moving it.
   const onRoomPointerDown = (room: Room, event: PointerEvent) => {
     event.stopPropagation()
     if (source.planTool() === 'add') {
@@ -193,9 +177,8 @@ export function usePlanInteraction(
     beginDrag('handle')
   }
 
-  // In 'select' mode, empty space just deselects — it never starts drawing a
-  // room (a plain click used to create a tiny room every time, regardless of
-  // tool). In 'add' mode, empty space is exactly where you're meant to draw.
+  // In 'select' mode, empty space just deselects and never starts drawing a room. In 'add'
+  // mode, empty space is exactly where you're meant to draw.
   const onBackgroundPointerDown = (event: PointerEvent) => {
     callbacks.onSelect(null)
     if (source.planTool() === 'add') {

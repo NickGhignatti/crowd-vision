@@ -20,7 +20,6 @@ import (
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/tenancyclient"
 )
 
-// Boots the gateway: config, OIDC verifier, tenancy client, signer, Keycloak admin client, mounts routes.
 func main() {
 	cfg, err := config.Load()
 	if err != nil {

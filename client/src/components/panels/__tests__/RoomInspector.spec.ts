@@ -141,10 +141,8 @@ describe('RoomInspector', () => {
   })
 
   it('resyncs fields when the same reactive room object is mutated in place (e.g. moved by the 3D gizmo)', async () => {
-    // `reactive()`, not a plain object + setProps: in production `editor.draft`
-    // is always a deeply-reactive Vue ref, and moveRoom/resizeRoom mutate the
-    // room object in place (same reference) — a plain-object + setProps test
-    // wouldn't exercise the same dependency-tracking path Vue actually uses.
+    // `reactive()`, not plain object + setProps: production's `editor.draft` is a deeply-reactive
+    // ref mutated in place by moveRoom/resizeRoom — setProps wouldn't exercise the same tracking path.
     const room = reactive(makeRoom())
     const wrapper = mount(RoomInspector, { props: { room, floorLevels: [0, 3] } })
 

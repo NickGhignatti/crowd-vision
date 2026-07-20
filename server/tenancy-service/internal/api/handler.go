@@ -255,9 +255,8 @@ func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Anyone may remove themselves — checked before Cedar since it's an
-	// identity comparison, not a policy decision; removing someone else
-	// needs domain admin.
+	// Anyone may remove themselves (an identity check, not a policy decision);
+	// removing someone else needs domain admin.
 	if target != claims.Sub && !authpolicy.CanManageDomain(claims.Memberships, domain) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return

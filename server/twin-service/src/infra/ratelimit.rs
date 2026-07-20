@@ -14,7 +14,6 @@ const LIMIT: u32 = 300;
 #[derive(Clone)]
 pub struct RateLimiter {
     counters: Arc<DashMap<IpAddr, (Instant, u32)>>,
-    // Mirrors `skip: () => process.env.NODE_ENV === "test"`.
     pub enabled: bool,
 }
 
@@ -28,8 +27,7 @@ impl RateLimiter {
 }
 
 // Behind the Caddy/Istio ingress: read the real client IP from
-// X-Forwarded-For, falling back to the raw socket peer for direct/local
-// connections.
+// X-Forwarded-For, falling back to the raw socket peer.
 fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> IpAddr {
     headers
         .get("x-forwarded-for")

@@ -1,9 +1,5 @@
-// These tests run the real github.com/coreos/go-oidc/v3/oidc discovery and
-// verification code against a minimal fake IdP server this file stands up —
-// not a mocked Verifier interface. That exercises the actual signature,
-// issuer, audience, and expiry checks go-oidc performs, without needing a
-// full Keycloak container for every test run (Keycloak's own realm/claims
-// shape was validated by hand against a live container — see keycloak/CLAUDE.md).
+// These tests run the real go-oidc discovery/verification code against a minimal
+// fake IdP this file stands up, exercising real signature/issuer/audience/expiry checks.
 package oidcverifier_test
 
 import (
@@ -155,13 +151,8 @@ func TestVerify_NoOrganizationClaim_IsEmptyNotError(t *testing.T) {
 	}
 }
 
-// TestVerify_AcceptsMultiValueAudienceContainingClientID protects the
-// mechanism the cv-gateway password-login flow depends on: its ID tokens
-// carry `aud: [cv-gateway, cv-web]` (via realm-export.json's
-// "cv-web-audience" protocol mapper — see keycloakadmin.Client.PasswordGrant)
-// specifically so they still pass this verifier's cv-web check despite being
-// requested by a different client. If this ever regressed to a strict
-// single-value match, every password login/registration would 401.
+// TestVerify_AcceptsMultiValueAudienceContainingClientID guards password login:
+// its tokens carry a multi-value `aud` that must still pass the audience check.
 func TestVerify_AcceptsMultiValueAudienceContainingClientID(t *testing.T) {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	srv := fakeIdP(t, key)
@@ -223,12 +214,8 @@ func TestVerify_RejectsWrongIssuer(t *testing.T) {
 	}
 }
 
-// TestVerify_RewritesUnreachableJWKSURIOntoTheDiscoveryHost reproduces the
-// real bug this design was changed to fix: an IdP with a pinned public
-// hostname (Keycloak's KC_HOSTNAME) advertises jwks_uri using that external
-// host in its discovery document, even when reached over an internal
-// hostname a container network can actually route to. Verify must still
-// succeed by rewriting jwks_uri onto the discovery host.
+// TestVerify_RewritesUnreachableJWKSURIOntoTheDiscoveryHost: an IdP with a pinned public
+// hostname advertises an unreachable jwks_uri; Verify must rewrite it onto the discovery host.
 func TestVerify_RewritesUnreachableJWKSURIOntoTheDiscoveryHost(t *testing.T) {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 
@@ -270,10 +257,8 @@ func TestVerify_AcceptsSplitDiscoveryAndIssuerURLs(t *testing.T) {
 	srv := fakeIdP(t, key)
 	defer srv.Close()
 
-	// Simulates the real container topology: the gateway discovers/fetches
-	// JWKS over one URL (here, srv.URL — standing in for the internal
-	// Docker-network hostname), but tokens carry a different externally-
-	// visible canonical issuer (standing in for the browser-facing hostname).
+	// Real container topology: JWKS is fetched over one URL (internal host) but
+	// tokens carry a different externally-visible canonical issuer.
 	const externalIssuer = "https://id.crowdvision.app/realms/crowdvision"
 	v, err := oidcverifier.New(context.Background(), srv.URL, externalIssuer, clientID)
 	if err != nil {

@@ -89,11 +89,8 @@ func Load() (Config, error) {
 	}, nil
 }
 
-// loadOrGenerateKey reads GATEWAY_PRIVATE_KEY (PEM, PKCS#8) if set — this is
-// what the provisioner mints per-cell in production. Falling back to an
-// ephemeral in-memory key keeps local dev friction-free; it must never be
-// used past a single process lifetime, which an ephemeral key can't be by
-// construction.
+// loadOrGenerateKey reads GATEWAY_PRIVATE_KEY (PEM, PKCS#8) if set, as the provisioner
+// mints per-cell in production; otherwise falls back to an ephemeral dev-only key.
 func loadOrGenerateKey() (*rsa.PrivateKey, string, error) {
 	pemStr := os.Getenv("GATEWAY_PRIVATE_KEY")
 	if pemStr == "" {

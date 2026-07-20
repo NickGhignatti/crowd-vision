@@ -113,9 +113,8 @@ func TestInternalMarkReady_TransitionsStatus(t *testing.T) {
 		t.Fatalf("got %d, want 204: %s", rec.Code, rec.Body.String())
 	}
 
-	// GET /organizations/{id} was removed (no caller ever used it — see
-	// Kubeet/claude/issues/issues.md); verify the transition against the
-	// store directly instead of round-tripping through HTTP.
+	// GET /organizations/{id} was removed (unused); verify the transition against
+	// the store directly instead of round-tripping through HTTP.
 	got, err := fake.Get(context.Background(), created["id"])
 	if err != nil {
 		t.Fatalf("fake.Get: %v", err)

@@ -2,32 +2,17 @@ import redisClient from "../config/redis.js";
 import { sendPushToDomain } from "./pushService.js";
 import { NotificationType } from "../models/notificationSubscription.js";
 
-// Internal gateway base for server-to-server calls (routed through Caddy).
 export const getGatewayUrl = () =>
   process.env.GATEWAY_URL || "http://localhost:3000";
-
-// twin-service's own cluster-internal address — used for the building→domain
-// lookup instead of looping back out through the public gateway, since that
-// call would otherwise need a real re-verifiable JWT rather than the
-// mesh-injected claims header this service actually holds.
 export const getTwinServiceUrl = () =>
   process.env.TWIN_SERVICE_URL || "http://localhost:3000";
 
-// System identity for building→domain lookups that have no end-user request
-// to forward a claims header from (e.g. an automatic sensor-triggered alert
-// arriving over Redis pub/sub, not HTTP). twin-service's /domain/:building_name
-// route requires *a* structurally valid x-gateway-claims header to satisfy its
-// GatewayClaims extractor, but the extractor's value is unused by that
-// specific handler (no per-identity authorization happens on this route) —
-// see auth-architecture.qd.
+// System identity for building→domain lookups with no end-user request to forward a claims
+// header from (e.g. Redis-triggered alerts). The route requires a structurally valid header but ignores its value — see auth-architecture.qd.
 const SYSTEM_CLAIMS_HEADER = Buffer.from(
   JSON.stringify({ sub: "system:notification-service", memberships: [] }),
 ).toString("base64");
 
-// Resolves which domain(s) a building belongs to. Pass a real caller's
-// x-gateway-claims header when one is available (an authenticated HTTP
-// request); omit it for server-initiated lookups, which fall back to the
-// system identity above.
 export const getDomainsForBuilding = async (
   buildingName: string,
   claimsHeader: string = SYSTEM_CLAIMS_HEADER,
@@ -64,8 +49,7 @@ export const setTemperatureAlertCooldown = async (
   });
 };
 
-// Delivers a temperature alert to every domain a building belongs to, both
-// as an in-app notification and a push notification to subscribed accounts.
+// Delivers a temperature alert to every domain a building belongs to.
 export const deliverTemperatureAlertToDomains = async (
   message: string,
   buildingId: string,
@@ -123,9 +107,6 @@ export const sendTemperatureAlert = async (
       id: Date.now().toString(),
       message,
       type: dangerLevel,
-      // Upstream events carry a Unix-ms number; normalise to a Date so the
-      // serialized payload matches publishNotification (ISO string) and the
-      // client's `timestamp: Date` contract.
       timestamp: new Date(timestamp),
     }),
   );

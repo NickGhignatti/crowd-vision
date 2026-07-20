@@ -20,9 +20,7 @@ interface GatewayMembership {
   externalId?: string;
 }
 
-// Maps claims-gateway's StandardClaims shape onto the legacy
-// {accountId, accountMemberships:[{domainName,role}]} shape — see
-// twin-service's identical helper for the full rationale.
+// Maps claims-gateway's StandardClaims onto the legacy {accountId, accountMemberships} shape.
 const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   const memberships = (payload.memberships ?? []) as GatewayMembership[];
   return {
@@ -36,11 +34,7 @@ const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   };
 };
 
-// Istio's RequestAuthentication verifies the gateway JWT once at the ingress
-// (extracted from the browser's cookie — see k8s/istio-request-authentication.yml)
-// and injects the validated payload as this base64 header
-// (outputPayloadToHeader) — chat-service trusts it rather than re-verifying
-// a JWT itself.
+// Istio validates the gateway JWT at ingress and injects it as this header; chat-service trusts it rather than re-verifying.
 export const requireAuthentication = (
   req: Request,
   _res: Response,

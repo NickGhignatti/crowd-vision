@@ -1,4 +1,3 @@
-# ── Deployment ────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -52,14 +51,6 @@ spec:
           env:
             - name: ADDR
               value: ":3000"
-            # Keycloak runs in the docker-compose dev stack on the host, not
-            # in this cluster (k3d has no Keycloak deployment yet — known
-            # gap, tracked in documentation/developer/config/kubernetes.qd).
-            # host.k3d.internal resolves to the host machine from any pod —
-            # used ONLY for reachability (discovery/JWKS fetch). OIDC_ISSUER
-            # must match the literal `iss` claim Keycloak stamps into tokens,
-            # which follows KC_HOSTNAME (defaults to localhost:8090) — these
-            # two intentionally differ, same as the docker-compose config.
             - name: OIDC_DISCOVERY_URL
               value: "http://host.k3d.internal:8090/realms/crowdvision"
             - name: OIDC_ISSUER
@@ -116,7 +107,6 @@ spec:
           emptyDir: {}
 
 ---
-# ── Service ───────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:

@@ -2,12 +2,11 @@ set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set working-directory := '..'
 
-# Bare `just k8s` lists recipes.
 [private]
 default:
     @just --list k8s
 
-# Windows: C:\Windows\System32\drivers\etc\hosts  (open as Administrator)
+# Windows: C:\Windows\System32\drivers\etc\hosts
 # Linux / Mac: /etc/hosts
 [doc("Print the line to add to your hosts file for local k3d access.")]
 hosts:
@@ -18,9 +17,6 @@ hosts:
 stop:
     k3d cluster stop crowdvision
 
-# Port bindings are preserved so the existing kubeconfig patch stays valid.
-# If kubectl fails after restart, re-run: kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<PORT>
-# (find PORT with: docker ps --filter name=k3d-crowdvision-serverlb)
 [doc("Resume a stopped cluster (port bindings preserved).")]
 start:
     k3d cluster start crowdvision
@@ -33,13 +29,6 @@ create:
 gateway-api:
     kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
 
-# MSYS2_ARG_CONV_EXCL=* stops Git Bash from mangling the /var/lib/... and /bin
-# CNI paths into Windows paths before istioctl ever sees them — without it the
-# istio-cni-node DaemonSet crash-loops on a nonexistent "C:/Program Files/
-# Git/..." mount. cniBinDir=/bin (not the generic k3s data dir some Istio-on-k3s
-# docs suggest) matches k3d's bundled node image specifically — check with
-# `docker exec <node> cat /var/lib/rancher/k3s/agent/etc/containerd/config.toml`
-# if this ever needs re-deriving for a different k3d version.
 [doc("Install Istio in ambient mode with k3d-correct CNI paths (run once per cluster).")]
 istio-install:
     MSYS2_ARG_CONV_EXCL="*" mise exec -- istioctl install --set profile=ambient --set values.cni.cniConfDir=/var/lib/rancher/k3s/agent/etc/cni/net.d --set values.cni.cniBinDir=/bin -y
@@ -111,7 +100,6 @@ push:
 [doc("Build and push in one step (for VPS production deployments).")]
 build-push: build push
 
-# Requires k3d. Pass cluster= to target a different cluster name: just k8s load cluster=mycluster
 [doc("Load locally built images directly into k3d (local dev — skips GHCR).")]
 load cluster="crowdvision":
     k3d image import ghcr.io/nickghignatti/crowdvision-client:latest ghcr.io/nickghignatti/crowdvision-chat:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest ghcr.io/nickghignatti/crowdvision-claims-gateway:latest ghcr.io/nickghignatti/crowdvision-provisioner:latest ghcr.io/nickghignatti/crowdvision-registry:latest ghcr.io/nickghignatti/crowdvision-tenancy:latest -c {{cluster}}
@@ -120,12 +108,10 @@ load cluster="crowdvision":
 status:
     kubectl get all -n crowdvision
 
-# Works for both Deployments and StatefulSets (uses label selector app=<service>)
 [doc("Follow live logs for a service: just k8s logs twin-service.")]
 logs service:
     kubectl logs -n crowdvision -l app={{service}} --tail=100 -f --max-log-requests=10
 
-# New pods start and become ready before old pods are terminated (zero downtime)
 [doc("Trigger a rolling restart for one service — picks up a new :latest image.")]
 restart service:
     kubectl rollout restart deployment/{{service}} -n crowdvision
@@ -138,7 +124,6 @@ restart-all:
 rollout service:
     kubectl rollout status deployment/{{service}} -n crowdvision
 
-# Database PVCs are also deleted. There is no undo.
 [doc("Permanently delete the namespace and ALL data inside it.")]
 delete:
     kubectl delete namespace crowdvision

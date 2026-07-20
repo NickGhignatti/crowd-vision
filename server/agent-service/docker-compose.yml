@@ -1,9 +1,8 @@
 services:
   agent-service:
     build:
-      # Repo-root context: agent-service reads the shared Cedar policy
-      # bundle at ../auth-policy (relative to app/cedar_authz.py), a sibling
-      # directory this build needs to see. See the Dockerfile's own header.
+      # Repo-root context: agent-service reads the shared Cedar policy bundle at
+      # ../auth-policy (see app/cedar_authz.py and the Dockerfile's own header).
       context: ../..
       dockerfile: server/agent-service/Dockerfile
     environment:
@@ -17,8 +16,7 @@ services:
       - SENSOR_SERVICE_URL=${SENSOR_SERVICE_URL:-http://sensor-service:3000}
       - SENSOR_TIMEOUT_SECONDS=${SENSOR_TIMEOUT_SECONDS:-10}
       # Local-dev-only: lets evals/run_evals.py auto-mint a token against this
-      # compose-deployed instance (its default AGENT_URL). Empty in any real
-      # deployment — never set in k8s (see agent-service/CLAUDE.md).
+      # instance. Empty in any real deployment — never set in k8s.
       - EVAL_JWT_SECRET=${EVAL_JWT_SECRET:-}
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=${RERANKER:-noop}

@@ -1,4 +1,3 @@
-# ── Headless Service ──────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,9 +13,6 @@ spec:
       appProtocol: tcp
 
 ---
-# ── StatefulSet ───────────────────────────────────────────────────────────────
-# PostgreSQL with the pgvector extension — required by agent-service for
-# storing and querying document embeddings in the knowledge base.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -35,7 +31,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: pgvector/pgvector:pg17   # pg17 base + pgvector extension pre-installed
+          image: pgvector/pgvector:pg17
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
@@ -43,14 +39,11 @@ spec:
           ports:
             - containerPort: 5432
           envFrom:
-            # Injects POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-            # Created by: just k8s secrets
             - secretRef:
                 name: agent-db-secret
           volumeMounts:
             - name: agent-data
               mountPath: /var/lib/postgresql/data
-            # postgres writes its unix socket here; required when readOnlyRootFilesystem: true
             - name: run
               mountPath: /var/run/postgresql
             - name: tmp
@@ -91,7 +84,4 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 2Gi   # larger than MongoDB — pgvector stores dense embedding vectors
-        # Local k3d:           omit storageClassName — uses default "local-path"
-        # Hetzner VPS:         storageClassName: hcloud-volumes
-        # DigitalOcean VPS:    storageClassName: do-block-storage
+            storage: 2Gi

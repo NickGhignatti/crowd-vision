@@ -1,14 +1,7 @@
 #!/usr/bin/env node
 /**
- * Ingest documentation into the agent-service knowledge base.
- *
- * Usage:
- *   node scripts/ops/ingest-docs.js [dir1 dir2 ...]
- *
- * Defaults to documentation/user and documentation/developer if no dirs are
- * passed. Reads EVAL_JWT_SECRET from .env (agent-service's local-dev-only HS256
- * bypass — see server/agent-service/CLAUDE.md), mints a short-lived token, and
- * POSTs each file's content to {AGENT_URL}/agent/ingest.
+ * Ingest documentation into the agent-service knowledge base: mints a short-lived
+ * HS256 token (see server/agent-service/CLAUDE.md) and POSTs each file to {AGENT_URL}/agent/ingest.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -16,9 +9,8 @@ const crypto = require("node:crypto");
 
 const ROOT = path.resolve(__dirname, "../..");
 const ENV_PATH = path.join(ROOT, ".env");
-// AGENT_SERVICE_URL points at the agent-service base. From the host (default),
-// Caddy fronts it at /agent. Inside the docker network, set
-// AGENT_SERVICE_URL=http://agent-service:3000.
+// From the host (default) Caddy fronts agent-service at /agent; inside the docker
+// network, set AGENT_SERVICE_URL=http://agent-service:3000.
 const AGENT_URL = process.env.AGENT_SERVICE_URL || "http://localhost/agent";
 const READY_TIMEOUT_MS = Number(process.env.READY_TIMEOUT_MS || 60000);
 
@@ -59,9 +51,8 @@ function walk(dir) {
 }
 
 function stripQdDirectives(text) {
-  // Drop top-level Quarkdown directives (.docname {..}, .include {..}) — they
-  // would otherwise show up as opaque chunks. Section headings carry the same
-  // info via the chunker's section_path.
+  // Drop top-level Quarkdown directives (.docname {..}, .include {..}) so they don't
+  // show up as opaque chunks; headings carry the same info via section_path.
   return text.replace(/^\.[a-zA-Z_][\w]*\s*\{[^}]*\}\s*\n?/gm, "");
 }
 

@@ -1,10 +1,8 @@
 import { describe, it, expect } from "@jest/globals";
 import { authenticateClaimsHeader } from "../src/auth.js";
 
-// Signature/issuer/algorithm-confusion attacks are defended once, at the
-// Istio ingress (RequestAuthentication) — this only decodes the
-// already-verified claims Istio injects on the WS upgrade request, so those
-// cases aren't re-tested here (see k8s/istio-request-authentication.yml).
+// Signature/issuer/algorithm-confusion attacks are defended once at the Istio ingress; this only
+// decodes already-verified claims from the WS upgrade, so those cases aren't retested here (see k8s/istio-request-authentication.yml).
 function claimsHeader(payload: object): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64");
 }

@@ -1,9 +1,7 @@
 import { jest } from "@jest/globals";
 
-// Mock the broker: capture the subscribe callback and watch outbound publishes.
-// notificationService (and, through it, pushService) is left REAL so this
-// exercises the full inbound edge — Mongoose queries in sendPushToDomain run
-// for real against the empty in-memory test database and naturally no-op.
+// Mock the broker only: notificationService (and pushService through it) stays REAL, so this
+// exercises the full inbound edge — sendPushToDomain's Mongoose queries run for real and naturally no-op.
 jest.mock("../src/config/redis.js", () => ({
   __esModule: true,
   default: { publish: jest.fn(), get: jest.fn(), set: jest.fn() },

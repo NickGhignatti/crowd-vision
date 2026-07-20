@@ -1,7 +1,5 @@
-//! Outbound adapters and cross-cutting infrastructure: MongoDB persistence,
-//! Cedar authorization, gateway claims extraction, Prometheus metrics, the
-//! per-IP rate limiter, and outbound sync calls to sensor-service /
-//! contracts-service. The API layer depends on these, never the reverse.
+//! Outbound adapters and cross-cutting infrastructure (Mongo, Cedar authz,
+//! claims, metrics, rate limiting, outbound sync). API depends on these, never the reverse.
 
 pub mod authz;
 pub mod claims;

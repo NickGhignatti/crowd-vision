@@ -30,9 +30,8 @@ type SignupInput struct {
 	Issuer       string
 }
 
-// Signup creates an organization in "provisioning" state; the provisioner's
-// reconcile loop picks it up asynchronously. Registry-service
-// never provisions anything itself — it is only the system of record.
+// Signup creates an organization in "provisioning" state for the provisioner's reconcile
+// loop to pick up; registry-service itself only holds the system of record.
 func (s *Service) Signup(ctx context.Context, in SignupInput) (store.Organization, error) {
 	if !validTiers[in.Tier] {
 		return store.Organization{}, ErrInvalidTier

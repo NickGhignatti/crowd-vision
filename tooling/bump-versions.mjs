@@ -1,16 +1,6 @@
 #!/usr/bin/env node
-//
-// Bump the "version" field across every Node package in the monorepo to the
-// value passed as argv[2]. Invoked by semantic-release's @semantic-release/exec
-// `prepareCmd` (see tooling/.releaserc). Replaces the previous `lerna version`
-// invocation — Lerna 9 dropped the standalone `packages` field and now requires
-// npm workspaces, which we deliberately don't have.
-//
-// Behaviour matches the old `lerna version <v> --force-publish --exact --no-git-tag-version --no-push --yes`:
-//   - All packages get the same version (independent-mode-equivalent for our flow).
-//   - Only writes if the package.json has a top-level "version" field.
-//   - Pretty-prints with two-space indent + trailing newline (matches existing files).
-//
+// Bumps the "version" field across every Node package in the monorepo to argv[2].
+// Invoked by semantic-release's @semantic-release/exec `prepareCmd` (see tooling/.releaserc).
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -24,9 +14,8 @@ if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
   process.exit(1)
 }
 
-// Discover the set of package.json files to bump. We mirror the old lerna
-// behaviour: client + every direct subdirectory of server/. Simulators and the
-// tooling package itself are not versioned.
+// Discover the set of package.json files to bump: client + every direct subdirectory
+// of server/. Simulators and the tooling package itself are not versioned.
 const targets = [join(REPO_ROOT, 'client', 'package.json')]
 const serverDir = join(REPO_ROOT, 'server')
 for (const entry of readdirSync(serverDir, { withFileTypes: true })) {
@@ -53,9 +42,8 @@ function bumpJson(path, mutate) {
   return true
 }
 
-// Bump the first `version = "x.y.z"` line in a TOML file (Cargo.toml or pyproject.toml).
-// Targets only the package/project-level version, not dependency version strings (which use
-// different key names like `dep = "..."` or `dep.version = "..."`).
+// Bump the first `version = "x.y.z"` line in a TOML file (Cargo.toml/pyproject.toml) —
+// the package-level version, not dependency version strings.
 function bumpToml(path, label) {
   let raw
   try {

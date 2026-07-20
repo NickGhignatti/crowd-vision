@@ -4,10 +4,8 @@ const path = require("node:path");
 
 const envPath = path.join(__dirname, "../..", ".env");
 
-// Secrets the Go control plane (claims-gateway, tenancy-service, registry-service,
-// provisioner) needs to boot. INTERNAL_SIGNING_SECRET is the shared HMAC key that
-// authenticates their system-to-system calls, so it must be one value across all
-// of them; the *_DB_PASSWORD values back their Postgres instances.
+// Secrets the Go control plane needs to boot: INTERNAL_SIGNING_SECRET is the shared
+// HMAC key for their system-to-system calls; *_DB_PASSWORD back their Postgres instances.
 function generateControlPlaneSecrets() {
     let envContent = "";
 

@@ -18,13 +18,7 @@ pub struct ClaimsPayload {
     pub sub: String,
 }
 
-// Trusts the claims the mesh already verified at the edge (Istio
-// RequestAuthentication, or the Caddy forward_auth shim in dev) and injected as
-// x-gateway-claims — same contract every other migrated service consumes. This
-// service does no per-building authorization yet (it has no building→domain
-// mapping); requiring a well-formed claims header only enforces that the caller
-// is an authenticated user, not an anonymous one. Fine-grained per-building
-// authz is deferred to the Cedar phase, same as the other services.
+// Trusts claims the mesh already verified at the edge and injected as x-gateway-claims.
 #[derive(Debug, Clone)]
 pub struct GatewayClaims {
     pub payload: ClaimsPayload,

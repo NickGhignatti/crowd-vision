@@ -1,8 +1,4 @@
-# ── ServiceAccount ───────────────────────────────────────────────────────────
-# Dedicated identity (distinct from the shared `default` SA every other
-# workload uses) so agent-service's AuthorizationPolicy
-# (k8s/istio-agent-authz.yml) can allow chat-service specifically by mesh
-# principal, rather than trusting every workload in the namespace.
+# Dedicated identity so agent-service's AuthorizationPolicy can allow chat-service by mesh principal, instead of trusting the whole namespace.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -10,7 +6,6 @@ metadata:
   namespace: crowdvision
 
 ---
-# ── Deployment ────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,7 +26,7 @@ spec:
     spec:
       serviceAccountName: chat-service
       imagePullSecrets:
-        - name: ghcr-pull-secret   # credentials for ghcr.io private registry
+        - name: ghcr-pull-secret
       initContainers:
         - name: wait-for-db
           image: busybox:1.36
@@ -56,8 +51,6 @@ spec:
               cpu: "50m"
               memory: "32Mi"
               ephemeral-storage: "50Mi"
-        # chat-service proxies every message to agent-service — wait for it so the
-        # first request after a cold start doesn't fail with a 502.
         - name: wait-for-agent
           image: busybox:1.36
           imagePullPolicy: Always
@@ -92,12 +85,9 @@ spec:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: chat-service-secret   # MONGO_URI
+                name: chat-service-secret
             - configMapRef:
-                name: common-config         # PORT, CLIENT_URL, service URLs
-          # Non-secret, chat-specific config not held in common-config.
-          # AGENT_SERVICE_URL targets the in-cluster agent-service root (not the
-          # /agent ingress prefix — service-to-service traffic skips the ingress).
+                name: common-config
           env:
             - name: AGENT_SERVICE_URL
               value: "http://agent-service:3000"
@@ -106,8 +96,6 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-          # HTTP probe — chat-service exposes /health at its root (probes talk
-          # directly to the pod, bypassing the /chat ingress prefix).
           readinessProbe:
             httpGet:
               path: /health
@@ -136,7 +124,6 @@ spec:
           emptyDir: {}
 
 ---
-# ── Service ───────────────────────────────────────────────────────────────────
 # ClusterIP (default) — internal only. Ingress is the only external entry point.
 apiVersion: v1
 kind: Service

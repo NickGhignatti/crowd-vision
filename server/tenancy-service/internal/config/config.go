@@ -1,6 +1,3 @@
-// Package config resolves environment variables once at boot into a typed
-// struct — no other package in this service reads os.Getenv directly, so a
-// grep for Config finds every tier-dependent or deployment-dependent knob.
 package config
 
 import (
@@ -36,8 +33,7 @@ func Load() (Config, error) {
 		DatabaseURL:    dbURL,
 		RedisURL:       os.Getenv("REDIS_URL"),
 		InternalSecret: []byte(secret),
-		// Absent (not "false") means enabled — matches the rest of the
-		// fleet's boot.features convention: explicit opt-out for tiers that
+		// Absent (not "false") means enabled: explicit opt-out for tiers that
 		// disable tenancy, not opt-in.
 		TenancyEnabled: os.Getenv("CV_TENANCY") != "disabled",
 	}, nil

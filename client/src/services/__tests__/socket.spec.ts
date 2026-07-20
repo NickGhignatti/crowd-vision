@@ -1,10 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// ---------------------------------------------------------------------------
-// vi.hoisted() runs before vi.mock() factories, making these values safe to
-// reference inside the mock. A plain `const` at module scope would be in the
-// temporal dead zone when the hoisted factory executes.
-// ---------------------------------------------------------------------------
+// vi.hoisted() runs before vi.mock() factories, making these values safe to reference inside
+// the mock — a plain module-scope `const` would be in the temporal dead zone at that point.
 
 const { handlers, mockSocket, capturedIoCall } = vi.hoisted(() => {
   const handlers: Record<string, (...args: unknown[]) => void> = {}

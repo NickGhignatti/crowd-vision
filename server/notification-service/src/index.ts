@@ -29,8 +29,6 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(apiLimiter);
 app.use("/", router);
-// Express error-handling middleware must be registered AFTER the routes so it
-// can catch errors thrown (or `next(err)`-passed) from any route handler.
 app.use(globalErrorHandler);
 
 if (process.env.NODE_ENV !== "test") {

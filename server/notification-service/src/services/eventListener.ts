@@ -13,12 +13,8 @@ export const initializeEventListeners = async () => {
     "[notification-service] Initializing Redis Event Subscriptions...",
   );
 
-  // ── Temperature Anomalies ─────────────────────────────────────────────────
-  // This is the path real sensor-triggered breaches actually take (see
-  // TemperatureModuleService.evaluateThresholds in sensor-service) — unlike
-  // POST /push/temperature, there is no authenticated caller here to gate the
-  // route behind, so it has to carry its own debounce, domain resolution, and
-  // push delivery rather than relying on an HTTP handler for them.
+  // The path real sensor-triggered breaches take (see TemperatureModuleService.evaluateThresholds);
+  // unlike POST /push/temperature there's no authenticated caller, so it handles its own debounce/domain/push delivery.
   await redisSubscriber.subscribe("alerts:temperature", async (message) => {
     try {
       const payload = JSON.parse(message);
@@ -53,9 +49,8 @@ export const initializeEventListeners = async () => {
           NotificationType.TEMPERATURE,
         );
       } else {
-        // No domain could be resolved (unregistered building, or the twin
-        // lookup failed) — fall back to the old unscoped broadcast so the
-        // alert still reaches someone instead of silently vanishing.
+        // No domain resolved (unregistered building, or the twin lookup failed) — fall back to an
+        // unscoped broadcast so the alert reaches someone instead of vanishing.
         await sendTemperatureAlert(alertMessage, payload.timestamp, "danger");
       }
 

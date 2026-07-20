@@ -15,8 +15,7 @@ const router = Router();
 router.get("/health", (_req, res) => res.status(200).send());
 router.get("/public-key", publicKey);
 
-// Everything below reads/writes per-account data or fans out push alerts:
-// require a valid JWT and bind the action to that identity.
+// Everything below reads/writes per-account data or fans out push alerts.
 router.use(requireAuthentication);
 
 router.post("/subscribe", subscribe);

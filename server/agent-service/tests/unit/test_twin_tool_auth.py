@@ -35,9 +35,8 @@ def test_auth_headers_empty_without_token():
 
 
 async def test_require_user_keeps_raw_token_for_forwarding(monkeypatch):
-    # Uses the eval-bypass HS256 path (see app/auth.py) rather than the mesh
-    # claims header — simpler here since this test only cares that
-    # require_user preserves the raw token, not which path verified it.
+    # Uses the eval-bypass HS256 path (see app/auth.py) rather than the mesh claims
+    # header — simpler since this test only cares that the raw token is preserved.
     monkeypatch.setenv("EVAL_JWT_SECRET", SECRET)
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     get_settings.cache_clear()

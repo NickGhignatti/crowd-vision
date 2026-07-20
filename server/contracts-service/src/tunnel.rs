@@ -42,7 +42,6 @@ pub async fn start_telemetry_tunnel(redis_url: &str, state: AppState) {
         }
     };
 
-    // Spawn the listening loop in the background
     tokio::spawn(async move {
         listen_and_fanout(pubsub_conn, publish_conn, state).await;
     });
@@ -75,7 +74,6 @@ async fn listen_and_fanout(
             }
         };
 
-        // Clone Arc pointers for the spawn task
         let state_clone = state.clone();
         let pub_conn_clone = publish_conn.clone();
 
@@ -95,11 +93,7 @@ fn extract_ingested_at(raw: &Value) -> Option<i64> {
     raw.get("ingestedAt").and_then(|v| v.as_i64())
 }
 
-/// Decides which `telemetry:filtered:*` channel a raw event must be forwarded
-/// to, or `None` if it should be dropped. Routing is keyed on the event's OWN
-/// `buildingId`, so an event is delivered to exactly one building — never
-/// fanned out to every subscriber. Pure (logging aside): no Redis connection,
-/// so every branch is unit-testable.
+/// Decides which `telemetry:filtered:*` channel to forward a raw event to, or `None` to drop it.
 fn resolve_channel(
     raw: &Value,
     building_preferences: &DashMap<String, Vec<String>>,
@@ -125,9 +119,8 @@ fn resolve_channel(
         return None;
     }
 
-    // No metric filtering: every sensor metric a known building emits is
-    // forwarded. Which columns the dashboard *displays* is a client concern;
-    // the model view needs the full telemetry stream regardless.
+    // No metric filtering: every sensor metric a known building emits is forwarded;
+    // which columns the dashboard displays is a client concern.
     Some(format!("telemetry:filtered:{}", building_id))
 }
 
@@ -233,9 +226,8 @@ mod tests {
 
     #[test]
     fn forwards_any_metric_for_a_known_building() {
-        // The dashboard column set no longer gates telemetry: a metric the
-        // building doesn't list as a column is still forwarded (the model view
-        // needs it; display filtering is the client's job).
+        // The dashboard column set doesn't gate telemetry: an unlisted metric
+        // is still forwarded (display filtering is the client's job).
         let map = prefs(&[("bldg-1", &["temperature"])]);
         let raw = json!({ "type": "air_quality", "buildingId": "bldg-1", "value": 5 });
         assert_eq!(

@@ -1,7 +1,5 @@
-// These tests run the real client against a minimal fake Keycloak server
-// this file stands up (token + admin-users endpoints) — not a mocked
-// interface — the same style oidcverifier and tenancyclient use for their
-// own real implementations.
+// These tests run the real client against a minimal fake Keycloak server this
+// file stands up (token + admin-users endpoints), not a mocked interface.
 package keycloakadmin_test
 
 import (
@@ -22,10 +20,8 @@ const (
 	clientSecret = "test-secret"
 )
 
-// fakeKeycloak serves the endpoints keycloakadmin.Client talks to. Any
-// handler may be nil for tests that don't exercise that call. userHandler is
-// registered as a subtree (trailing slash) to also match per-user routes
-// like /users/{id} and /users/{id}/reset-password.
+// fakeKeycloak serves the endpoints keycloakadmin.Client talks to; any handler may
+// be nil. userHandler is a subtree, matching per-user routes like /users/{id}.
 func fakeKeycloak(t *testing.T, tokenHandler, usersHandler, userHandler http.HandlerFunc) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()

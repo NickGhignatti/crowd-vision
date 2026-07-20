@@ -13,9 +13,8 @@ servers:
   - url: http://localhost/sensor
     description: Gateway endpoint for the Sensor Service
 
-# Everything is JWT-protected (browser cookie, or a bearer forwarded by the
-# twin-service) except the device-facing hot path and infra endpoints, which
-# override this with `security: []`.
+# Everything is JWT-protected (browser cookie or twin-service bearer) except the device-facing
+# hot path and infra endpoints, which override this with `security: []`.
 security:
   - cookieAuth: []
 

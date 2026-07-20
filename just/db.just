@@ -2,7 +2,6 @@ set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set working-directory := '..'
 
-# Bare `just db` lists recipes instead of running a destructive default.
 [private]
 default:
     @just --list db

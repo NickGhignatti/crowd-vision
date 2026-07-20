@@ -1,10 +1,5 @@
-// Auto-generates the self-hosted Langfuse secrets and the OpenTelemetry exporter
-// config the agent-service uses to ship traces to Langfuse. Mirrors token.js /
-// admin.js: idempotent (skips if already present), appends a commented block.
-//
-// The project + API keys are provisioned headlessly by Langfuse on first boot from
-// these LANGFUSE_INIT_* / LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY values, and the
-// agent authenticates to Langfuse's OTLP endpoint with the same key pair.
+// Auto-generates self-hosted Langfuse secrets + the OTEL exporter config agent-service
+// uses to ship traces. Idempotent (skips if already present); mirrors token.js/admin.js.
 
 const crypto = require("node:crypto");
 const fs = require("node:fs");

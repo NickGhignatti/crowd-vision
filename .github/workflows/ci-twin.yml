@@ -16,11 +16,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
       CARGO_INCREMENTAL: "0"
-      # Link with mold
       RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
-      # twin-service's integration tests (tests/http.rs, infra::db unit
-      # tests) exercise a real MongoDB, unlike contracts-service's -- see the
-      # `services:` block below.
       MONGO_URI: "mongodb://localhost:27017"
 
     services:
@@ -36,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
 
@@ -44,16 +40,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y mold
 
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6 # v1
+        uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6
         with:
           toolchain: stable
           components: rustfmt, clippy, llvm-tools-preview
 
-      # Caches the cargo registry + target/ so dependency crates aren't recompiled
-      # on every run. `workspaces` must point at the crate dir — `uses:` steps do
-      # not honor the job's `working-directory` default.
       - name: Cache cargo registry + build artifacts
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
         with:
           workspaces: server/twin-service
 
@@ -78,8 +71,8 @@ jobs:
             jq -r '.data[0].totals as $t | "| **twin-service** | \(($t.lines.percent*100|round)/100)% | \(($t.branches.percent*100|round)/100)% | \(($t.functions.percent*100|round)/100)% |"' coverage.json
           } >> "$GITHUB_STEP_SUMMARY" || true
 
-      - name: 🔒 Security audit
-        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+      - name: Security audit
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           working-directory: server/twin-service

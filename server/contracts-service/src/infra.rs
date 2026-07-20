@@ -1,7 +1,5 @@
-//! Outbound adapters and cross-cutting infrastructure: MongoDB persistence,
-//! peer-service discovery, and Prometheus metrics. These modules integrate the
-//! service with external systems; the API and tunnel depend on them, never the
-//! reverse.
+//! Outbound adapters and cross-cutting infrastructure: Mongo persistence, peer-service
+//! discovery, metrics. API and tunnel depend on these, never the reverse.
 
 pub mod claims;
 pub mod db;

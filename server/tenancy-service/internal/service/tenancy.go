@@ -131,8 +131,6 @@ func (s *Service) CreateSubdomain(ctx context.Context, in CreateSubdomainInput) 
 	return d, err
 }
 
-// ListSubdomains returns only direct children — matching the original
-// model's shallow `subdomains` array; deeper nesting was never supported.
 func (s *Service) ListSubdomains(ctx context.Context, parentDomainName string) ([]store.Domain, error) {
 	parent, err := s.store.DomainByName(ctx, parentDomainName)
 	if errors.Is(err, store.ErrNotFound) {
@@ -182,7 +180,7 @@ func (s *Service) CreateInviteCode(ctx context.Context, in CreateInviteCodeInput
 func (s *Service) RedeemInviteCode(ctx context.Context, code, accountID string) error {
 	ic, err := s.store.RedeemInviteCode(ctx, code, accountID)
 	if err != nil {
-		return err // store.ErrInviteCodeInvalid passes through unwrapped
+		return err
 	}
 	return s.store.UpsertMembership(ctx, store.Membership{
 		AccountID: accountID, DomainID: ic.DomainID, DomainName: ic.DomainName,

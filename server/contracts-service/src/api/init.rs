@@ -13,9 +13,6 @@ pub async fn init_building_preferences(
     Path(building_id): Path<String>,
     State(state): State<AppState>,
 ) -> StatusCode {
-    // Use or_insert_with to atomically detect whether the entry is new.
-    // The closure runs only on a Vacant entry (under the shard lock), so
-    // `is_new` is set without any TOCTOU window.
     let mut is_new = false;
     state
         .building_preferences
@@ -70,7 +67,8 @@ mod tests {
     async fn new_building_receives_default_columns() {
         let state = make_state().await;
         let status =
-            init_building_preferences(claims(), Path("bldg-1".to_string()), State(state.clone())).await;
+            init_building_preferences(claims(), Path("bldg-1".to_string()), State(state.clone()))
+                .await;
 
         assert_eq!(status, StatusCode::OK);
         let cols = state.building_preferences.get("bldg-1").unwrap();

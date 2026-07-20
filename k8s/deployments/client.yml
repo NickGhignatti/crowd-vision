@@ -1,7 +1,3 @@
-# ── Deployment ────────────────────────────────────────────────────────────────
-# The client is a pre-built static Vue SPA served by a lightweight web server.
-# No init containers needed — it has no runtime dependencies.
-# No secrets needed — it's all static files baked in at build time.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,7 +27,6 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-          # HTTP probes are appropriate here — the static server either returns 200 or it doesn't.
           readinessProbe:
             httpGet:
               path: /
@@ -60,7 +55,6 @@ spec:
           emptyDir: {}
 
 ---
-# ── Service ───────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:

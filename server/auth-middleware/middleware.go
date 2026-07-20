@@ -1,7 +1,4 @@
-// Package authmiddleware verifies the internal RS256 token minted by
-// claims-gateway. RS256 (not HS256) is deliberate: the gateway signs with a
-// private key nothing else holds, so a compromised service can read and
-// verify tokens but never mint them.
+// Package authmiddleware verifies the internal RS256 JWT minted by claims-gateway.
 package authmiddleware
 
 import (
@@ -21,8 +18,7 @@ const CookieName = "authentication_token"
 
 type contextKey struct{}
 
-// FromContext retrieves the claims RequireAuthentication verified and
-// attached to the request context.
+// Retrieves the claims RequireAuthentication verified and attached to the request context.
 func FromContext(ctx context.Context) (authcontracts.StandardClaims, bool) {
 	c, ok := ctx.Value(contextKey{}).(authcontracts.StandardClaims)
 	return c, ok
@@ -38,10 +34,8 @@ func extractToken(r *http.Request) string {
 	return ""
 }
 
-// RequireAuthentication verifies the gateway-minted token against its JWKS
-// and pins both the signing algorithm and the issuer, so a token from a
-// different gateway — or a same-shape token an attacker crafted with alg
-// "none" or HS256 — is rejected before any claim is trusted.
+// RequireAuthentication verifies the gateway JWT against its JWKS and pins the
+// algorithm and issuer, rejecting alg-none/HS256 forgeries before trusting any claim.
 func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,13 +67,10 @@ func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handle
 	}
 }
 
-// Header Istio's RequestAuthentication injects after verifying the gateway JWT
-// once at the mesh ingress.
 const GatewayClaimsHeader = "x-gateway-claims"
 
-// RequireMeshClaims trusts the mesh-verified claims header instead of
-// verifying a JWT itself. Claims-gateway's own routes (e.g. /me) keep using
-// RequireAuthentication directly.
+// RequireMeshClaims trusts the mesh-verified claims header instead of verifying a
+// JWT itself. Claims-gateway's own routes (e.g. /me) still use RequireAuthentication.
 func RequireMeshClaims() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

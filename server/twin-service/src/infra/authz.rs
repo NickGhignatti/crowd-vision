@@ -8,12 +8,6 @@ use std::sync::LazyLock;
 
 use crate::infra::claims::GatewayClaims;
 
-// server/auth-policy and server/auth-contracts are siblings of
-// server/twin-service, embedded at compile time via include_str! (unlike the
-// TS/Go/Python ports, which read these files from disk at runtime relative
-// to the process's CWD -- Rust's include_str! bakes the bytes straight into
-// the binary, so the production image never needs the auth-policy directory
-// at runtime, only during `cargo build`).
 static ROLE_WEIGHTS: LazyLock<HashMap<String, i64>> = LazyLock::new(|| {
     serde_json::from_str(include_str!("../../../auth-contracts/roles.json"))
         .expect("roles.json parses")
@@ -42,10 +36,6 @@ fn set_expr(values: HashSet<String>) -> RestrictedExpression {
     RestrictedExpression::new_set(values.into_iter().map(RestrictedExpression::new_string))
 }
 
-// Pre-expands raw memberships into the flat per-tier domain sets and max
-// role weight policy.cedar reads -- see that file's header comment for why
-// this expansion happens here, not inside Cedar itself (Cedar's
-// `.contains()` can't do role-weight comparison natively).
 fn account_entity(uid: EntityUid, claims: &GatewayClaims) -> Entity {
     let mut standard_customer = HashSet::new();
     let mut business_staff = HashSet::new();
@@ -159,27 +149,16 @@ fn authorize(
     response.decision() == Decision::Allow
 }
 
-// Plain domain membership, any role -- replaces tenantScope.ts's isMemberOf.
-// Deliberately NO admin bypass; a platform admin is not automatically a
-// member of every domain.
 pub fn is_member_of(claims: &GatewayClaims, domain: &str) -> bool {
     authorize(claims, "Read", domain, None)
 }
 
-// business_staff role or higher in one of a building's own domains --
-// replaces tenantScope.ts's canEditDomains (geometry-mutating routes:
-// move/resize/add/delete rooms). Cedar only decides one (principal, domain)
-// pair at a time, so this tries every one of the building's domains and
-// permits if any qualifies.
 pub fn can_edit_domains(claims: &GatewayClaims, building_domains: &[String]) -> bool {
     building_domains
         .iter()
         .any(|domain| authorize(claims, "Edit", domain, None))
 }
 
-// Bulk queries (counts) silently drop domains the caller isn't a member of
-// rather than rejecting the whole request -- replaces tenantScope.ts's
-// scopeToMemberships, mirroring Mongo's own $in filter.
 pub fn scope_to_memberships(requested: &[String], claims: &GatewayClaims) -> Vec<String> {
     requested
         .iter()
@@ -188,12 +167,8 @@ pub fn scope_to_memberships(requested: &[String], claims: &GatewayClaims) -> Vec
         .collect()
 }
 
-// Exercises the full 5-action policy bundle (including ReadWithAdminBypass,
-// ManageDomain, ModelOverride) even though twin-service's own routes only
-// ever need Read/Edit -- exists so the golden conformance suite
-// (server/auth-policy/fixtures/conformance.json) can verify this binding
-// produces identical decisions to the Go/TS/Python ones for every action,
-// matching the precedent set by agent-service's can_override_model.
+// Exposes the full 5-action policy bundle (routes only need Read/Edit) so the
+// golden conformance suite can check this binding matches the other ports.
 pub fn authorize_any(
     claims: &GatewayClaims,
     action: &str,

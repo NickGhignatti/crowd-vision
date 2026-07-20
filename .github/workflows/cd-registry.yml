@@ -65,13 +65,6 @@ jobs:
           INPUT: ${{ github.event.inputs.service }}
           CHANGED: ${{ steps.filter.outputs.changes }}
         run: |
-          # Single source of truth: image -> build context, in sync with the dorny context above.
-          # twin-service and agent-service COPY the shared server/auth-policy
-          # (+ auth-contracts) bundle, a sibling directory their own
-          # directory can't reach as a build context — those two build from
-          # the repo root instead, with an explicit Dockerfile path. The four
-          # Go control-plane services build from the repo root too (see their
-          # own Dockerfiles / just/k8s.just's build recipe).
           CONTEXTS='{
             "crowdvision-chat":"./server/chat-service",
             "crowdvision-twin":".",
@@ -158,10 +151,8 @@ jobs:
         if: matrix.image == 'crowdvision-client'
         run: echo "BUILD_ARGS=VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}" >> $GITHUB_ENV
 
-      # Build into the runner's local daemon only (push: false + load: true).
-      # Publishing happens below, AFTER the Trivy gate passes, so a vulnerable
-      # image never reaches GHCR. load:true requires a single-platform build,
-      # which this is — revisit if `platforms:` is ever added.
+      # Build into the local daemon only (push: false + load: true) — publishing
+      # happens below, after the Trivy gate passes, so a vulnerable image never reaches GHCR. Revisit if `platforms:` (multi-arch) is added.
       - name: Build ${{ matrix.image }} (local, pre-scan)
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
@@ -174,20 +165,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ── Security scan (Trivy) ────────────────────────────────────────────────
-      # This scan gates the push step below: any finding fails the job BEFORE
-      # the image is published.
-      # Scope: OS packages ONLY (vuln-type: os). Application dependencies
-      # (npm/pip/cargo) are already gated PRE-MERGE by the per-service CI
-      # workflows (npm audit --audit-level=high --omit=dev, uv audit,
-      # cargo audit), so
-      # scanning libraries here too would duplicate that gate with a different DB —
-      # Trivy additionally flags bundled/vendored JS (e.g. swagger-ui-dist) that
-      # `overrides` cannot patch, producing unactionable failures. Trivy's job here
-      # is the OS layer the PR-time audits can't see.
-      #   - exit-code 1 + ignore-unfixed: block only on FIXABLE HIGH/CRITICAL OS CVEs.
-      #   - Base images run apk/apt upgrade at build time to keep this green.
-      #   - .trivyignore holds deliberate, justified CVE waivers.
+      # Gates the push below (finding = job fails before publish). OS packages only — app deps are already gated pre-merge by per-service audits.
       - name: Scan image for vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -208,9 +186,8 @@ jobs:
           sarif_file: trivy-results-${{ matrix.image }}.sarif
           category: trivy-${{ matrix.image }}
 
-      # Same context/build-args/cache as the pre-scan build, so this resolves
-      # entirely from the still-warm gha cache (no recompilation) and pushes
-      # the exact layers that were just scanned, now also tagged :latest.
+      # Same context/build-args/cache as the pre-scan build, so this resolves from
+      # the warm gha cache (no recompile) and pushes the exact scanned layers, now also tagged :latest.
       - name: Push ${{ matrix.image }} (scan passed)
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:

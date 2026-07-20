@@ -172,9 +172,8 @@ func TestRequireAuthentication_RejectsAlgNoneConfusion(t *testing.T) {
 	kf := testKeyfunc(t, &key.PublicKey)
 	handler, _ := newHandler(kf)
 
-	// Classic alg-confusion attempt: an unsigned token claiming alg "none".
-	// jwt.SigningMethodNone requires an explicit opt-in to sign, and the
-	// middleware must reject it regardless because it only accepts RS256.
+	// Classic alg-confusion: unsigned token claiming alg "none" — must be rejected
+	// regardless, since the middleware only accepts RS256.
 	tok := jwt.NewWithClaims(jwt.SigningMethodNone, validClaims())
 	signed, err := tok.SignedString(jwt.UnsafeAllowNoneSignatureType)
 	if err != nil {

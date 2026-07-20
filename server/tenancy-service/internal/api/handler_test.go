@@ -33,11 +33,8 @@ func newTestServer(t *testing.T) (http.Handler, *storefake.Fake) {
 	return r, fake
 }
 
-// signUser builds the base64 x-gateway-claims header the mesh (Istio, or
-// Caddy+claims-gateway/verify) injects after verifying the gateway JWT once
-// at the edge — RequireMeshClaims decodes this directly, no signature
-// verification happens in tenancy-service itself, so there's nothing to sign
-// here anymore.
+// signUser builds the base64 x-gateway-claims header the mesh injects after verifying the
+// gateway JWT once at the edge; RequireMeshClaims decodes it directly, no signing needed here.
 func signUser(t *testing.T, accountID string, memberships []map[string]string) string {
 	t.Helper()
 	payload := map[string]any{
@@ -267,10 +264,8 @@ func TestInviteCode_RedeemUnknownCodeIsBadRequest(t *testing.T) {
 	}
 }
 
-// TestInternalMemberships_RejectsMalformedAccountID reproduces a bug caught
-// live: a non-UUID accountId reaching the Postgres store (a `uuid` column)
-// surfaced as an opaque 500 instead of a clean 400. account_id format must
-// be validated at this HTTP boundary, not left to the database to reject.
+// TestInternalMemberships_RejectsMalformedAccountID: a non-UUID accountId reaching Postgres's
+// `uuid` column used to surface as an opaque 500 instead of a clean 400.
 func TestInternalMemberships_RejectsMalformedAccountID(t *testing.T) {
 	r, _ := newTestServer(t)
 	req := signedInternalRequest(t, http.MethodGet, "/internal/memberships?accountId=not-a-uuid", nil)

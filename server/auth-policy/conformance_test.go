@@ -22,9 +22,8 @@ type conformanceFile struct {
 	Cases []conformanceCase `json:"cases"`
 }
 
-// TestConformance runs the golden fixture shared with every other language
-// binding through the real cedar-go engine — the identical-outcomes
-// guarantee that justifies having one shared policy bundle at all.
+// TestConformance runs the golden fixture shared with every other language binding through
+// the real cedar-go engine, guaranteeing identical outcomes across one shared policy bundle.
 func TestConformance(t *testing.T) {
 	raw, err := os.ReadFile("fixtures/conformance.json")
 	if err != nil {

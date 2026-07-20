@@ -1,14 +1,5 @@
-// Installs dependencies for every package moon knows about, in parallel:
-//   - `npm ci` for each JS (typescript|javascript) project (reproducible; never
-//     rewrites the lockfile, so a Linux-resolved lock stays intact on Win/macOS)
-//   - `uv sync --locked` for each Python project
-//   - `cargo fetch` for each Rust project
-//
-// The package list comes from `moon query projects` (see lib/workspaces.mjs),
-// so it can never drift from .moon/workspace.yml.
-//
-// To (re)generate lockfiles instead of installing from them, use
-// `just setup clean-install` — that is the only path that mutates lock files.
+// Installs deps for every package moon knows about (npm ci / uv sync --locked / cargo
+// fetch), reproducibly. Use `just setup clean-install` to regenerate lockfiles instead.
 
 import { runTasks } from './lib/run.mjs';
 import { queryWorkspaces } from './lib/workspaces.mjs';

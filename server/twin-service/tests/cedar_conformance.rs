@@ -1,7 +1,5 @@
 // Runs the golden fixture shared with every other language binding
-// (server/auth-policy/fixtures/conformance.json) through the real
-// cedar-policy engine -- the identical-outcomes guarantee that justifies one
-// shared policy bundle at all.
+// (auth-policy/fixtures/conformance.json) to prove identical outcomes across bindings.
 
 use serde::Deserialize;
 use twin_service::infra::authz::authorize_any;

@@ -1,11 +1,5 @@
-# Alerting rules for the docker-compose Prometheus stack. Mirrors the
-# `alert.rules.yml` key in k8s/monitoring/prometheus.yml's ConfigMap — keep
-# both in sync if you change one. None of these queries filter by job/app
-# label: every metric name below is only emitted by one service today, so the
-# metric name alone scopes the query, and that keeps the same expressions
-# valid whether Prometheus reaches the target via a static docker-compose
-# target (job=<service>) or k8s pod autodiscovery (job=kubernetes-pods,
-# app=<service>).
+# Mirrors k8s/monitoring/prometheus.yml's `alert.rules.yml` ConfigMap key — keep both in sync.
+# Queries skip job/app label filters: each metric name is emitted by exactly one service, so the same expressions work under docker-compose or k8s scraping.
 groups:
   - name: crowdvision-alerts
     rules:

@@ -3,10 +3,8 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useSensorDataStore } from '@/stores/sensorData.ts'
 import { makeRequest } from '@/composables/core/useApi.ts'
 
-// ---------------------------------------------------------------------------
-// A fake socket that records its event handlers so a test can fire 'telemetry'
-// and 'connect', and records emits so we can assert subscribe/unsubscribe.
-// ---------------------------------------------------------------------------
+// A fake socket that records its event handlers so a test can fire 'telemetry'/'connect',
+// and records emits so we can assert subscribe/unsubscribe.
 const { socketMock, socketHandlers } = vi.hoisted(() => {
   const socketHandlers: Record<string, (...args: unknown[]) => void> = {}
   const socketMock = {

@@ -80,6 +80,5 @@ spec:
         resources:
           requests:
             storage: 1Gi
-        # Local k3d:           omit storageClassName — uses default "local-path"
-        # Hetzner VPS:         storageClassName: hcloud-volumes
-        # DigitalOcean VPS:    storageClassName: do-block-storage
+        # storageClassName: omit for local k3d (default "local-path"); set to
+        # hcloud-volumes (Hetzner) or do-block-storage (DigitalOcean) in prod.

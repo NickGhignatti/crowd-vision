@@ -1,5 +1,3 @@
-// Package signer mints the internal StandardClaims JWT and publishes the
-// JWKS every consumer (auth-middleware, Node services) verifies it with.
 package signer
 
 import (
@@ -52,9 +50,8 @@ func (s *Signer) JWKS() []byte {
 		Metadata: jwkset.JWKMetadataOptions{KID: s.kid, ALG: jwkset.ALG("RS256")},
 	})
 	if err != nil {
-		// The key is always a valid RSA public key we generated ourselves;
-		// this can only fail if that invariant is broken, which is a
-		// programmer error, not a runtime condition to recover from.
+		// The key is always a valid RSA public key we generated ourselves; failure here
+		// means that invariant broke — a programmer error, not a runtime condition.
 		panic("signer: building JWKS from our own key: " + err.Error())
 	}
 	raw, err := json.Marshal(jwkset.JWKSMarshal{Keys: []jwkset.JWKMarshal{jwk.Marshal()}})

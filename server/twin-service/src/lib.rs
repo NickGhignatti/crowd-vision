@@ -8,9 +8,7 @@ pub mod state;
 
 use state::AppState;
 
-// GET /contracts -- the metrics-discovery contract contracts-service polls
-// (see contracts-service/src/api/dashboard.rs). Static, so it's inlined
-// here rather than routed through the DB-backed building state.
+// GET /contracts
 async fn contracts() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "service": "digital-twin-service",
@@ -42,10 +40,7 @@ async fn contracts() -> Json<serde_json::Value> {
 }
 
 // Public infra (no auth): health, Prometheus scrape, metric contract.
-// Registered both with and without a trailing slash -- Express's default
-// (non-strict) routing treats them as equivalent, and both the k8s
-// probe (`/health`) and this service's own test suite (`/health/`) are
-// depended on.
+// Registered with and without trailing slash -- both k8s (`/health`) and this service's tests (`/health/`) depend on it.
 fn public_routes() -> Router<AppState> {
     Router::new()
         .route("/health", get(infra::metrics::health))
@@ -56,8 +51,7 @@ fn public_routes() -> Router<AppState> {
 }
 
 // Everything below exposes/mutates building data: every handler requires a
-// `GatewayClaims` extractor argument, which itself 401s on a missing/invalid
-// x-gateway-claims header -- see infra::claims.
+// `GatewayClaims` extractor, which 401s on a missing/invalid x-gateway-claims header.
 fn protected_routes() -> Router<AppState> {
     use api::buildings::*;
 

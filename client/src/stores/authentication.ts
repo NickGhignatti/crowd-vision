@@ -6,9 +6,8 @@ import { useBuildingsStore } from '@/stores/buildings.ts'
 export const useAuthStore = defineStore('authentication', {
   state: () => ({
     accountName: null as string | null,
-    // The gateway JWT's `sub` — needed to address the caller's own membership
-    // row (e.g. DELETE /tenancy/domains/{domain}/members/{accountId}), since
-    // the cookie carrying it is HttpOnly and can't be read client-side.
+    // The gateway JWT's `sub` — needed to address the caller's own membership row (e.g.
+    // DELETE /tenancy/domains/{domain}/members/{accountId}), since the cookie is HttpOnly.
     accountId: null as string | null,
     isAuthenticated: false,
     isHydrated: false, // has the /me call completed?
@@ -16,11 +15,8 @@ export const useAuthStore = defineStore('authentication', {
   }),
 
   actions: {
-    // Completes the Keycloak login: the ID token was already obtained via
-    // the redirect+PKCE flow (see composables/auth/useKeycloakAuth.ts) —
-    // this only exchanges it with claims-gateway for the internal session
-    // cookie. Returns whether the exchange succeeded, since the caller (the
-    // /auth/callback view) needs to know before deciding where to route.
+    // Completes the Keycloak login: exchanges the already-obtained ID token (see
+    // useKeycloakAuth.ts) with claims-gateway for the session cookie; returns whether it succeeded.
     async completeLogin(idToken: string): Promise<boolean> {
       const res = await makeRequest('/gateway/exchange', 'POST', {
         body: JSON.stringify({ idToken }),
@@ -30,10 +26,8 @@ export const useAuthStore = defineStore('authentication', {
       return this.isAuthenticated
     },
 
-    // Re-mints the session cookie so a membership change made this session
-    // (creating/joining a domain, redeeming an invite code) lands in the
-    // gateway JWT. Without this the mesh keeps authorizing against the stale
-    // login-time token and /twin/... 403s for the brand-new domain.
+    // Re-mints the session cookie so a membership change this session (create/join domain,
+    // redeem invite) lands in the gateway JWT — otherwise the mesh 403s against the stale token.
     async refreshSession(): Promise<void> {
       await makeRequest('/gateway/refresh', 'POST')
     },
@@ -48,10 +42,8 @@ export const useAuthStore = defineStore('authentication', {
       useSubdomainsStore().$reset()
     },
 
-    // Called once on app startup (and after completeLogin) to re-hydrate
-    // from the cookie. force=true bypasses the "already hydrated" short
-    // circuit — needed right after completeLogin, since a prior anonymous
-    // hydrate() may have already run and cached isHydrated=true.
+    // Called on app startup (and after completeLogin) to re-hydrate from the cookie. force=true
+    // bypasses the "already hydrated" short circuit needed right after a prior anonymous hydrate().
     async hydrate(force = false) {
       if (this.isHydrated && !force) return Promise.resolve()
       if (this._hydratePromise) return this._hydratePromise

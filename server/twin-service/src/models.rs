@@ -36,11 +36,8 @@ pub struct Building {
     pub domains: Vec<String>,
 }
 
-// Client-supplied geometry is validated by hand (not by serde's type system):
-// `JSON.stringify(NaN)` collapses to `null` on the wire, and a rejected
-// field must come back as our own 400 ValidationError, not axum's generic
-// 422 deserialize-failure response. So every numeric field here is optional
-// and gets checked explicitly by the `to_*` conversions below.
+// Validated by hand, not serde: `JSON.stringify(NaN)` becomes `null` on the wire, so
+// fields stay optional and get checked in the `to_*` conversions to return our 400, not axum's 422.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PositionInput {
     pub x: Option<f64>,

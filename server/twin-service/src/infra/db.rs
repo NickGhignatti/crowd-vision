@@ -25,7 +25,6 @@ pub async fn connect(uri: &str, db_name: &str) -> anyhow::Result<Collection<Buil
     Ok(col)
 }
 
-// $eq blocks NoSQL operator injection (applied to all user-derived filters).
 pub async fn find_by_id(col: &Collection<Building>, id: &str) -> anyhow::Result<Option<Building>> {
     Ok(col.find_one(doc! { "id": { "$eq": id } }).await?)
 }
@@ -54,9 +53,6 @@ pub async fn replace(col: &Collection<Building>, building: &Building) -> anyhow:
     Ok(())
 }
 
-// Counts buildings per domain, restricted to the explicit names supplied by
-// the caller so this route can't be used to enumerate every domain in the
-// system.
 pub async fn counts_by_domain(
     col: &Collection<Building>,
     domains: &[String],

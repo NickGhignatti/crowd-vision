@@ -1,5 +1,3 @@
-// Package api is claims-gateway's HTTP surface: the login-time exchange
-// endpoint, the JWKS every consumer verifies against, and a health check.
 package api
 
 import (
@@ -40,12 +38,8 @@ func Mount(gw *service.Gateway, jwks jwksProvider, verifyKeys keyfunc.Keyfunc, i
 		r.Patch("/profile", updateProfileHandler(gw))
 		r.Post("/profile/password", changePasswordHandler(gw))
 		r.Post("/refresh", refreshHandler(gw))
-		// docker-compose's byte-identical equivalent of Istio's
-		// RequestAuthentication + outputPayloadToHeader: Caddy's forward_auth calls
-		// this, and on 200 copies the X-Gateway-Claims response header onto
-		// the forwarded request as x-gateway-claims — the same header every
-		// mesh-migrated service already trusts. Body is empty; forward_auth
-		// only looks at status + headers.
+		// Mirrors Istio's RequestAuthentication+outputPayloadToHeader: Caddy's forward_auth
+		// calls this and on 200 copies X-Gateway-Claims onto the request as x-gateway-claims.
 		r.Get("/verify", verifyHandler)
 	})
 	return r

@@ -1,8 +1,7 @@
 //go:build integration
 
-// Integration tests against a real Postgres via testcontainers-go — see
-// tenancy-service's identical suite for the pattern this mirrors.
-// Run with: go test -tags=integration ./internal/store/...
+// Integration tests against a real Postgres via testcontainers-go, mirroring tenancy-service's
+// suite. Run with: go test -tags=integration ./internal/store/...
 package store_test
 
 import (

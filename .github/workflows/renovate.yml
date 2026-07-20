@@ -1,7 +1,7 @@
 name: Renovate
 
 on:
-  workflow_dispatch: # allow a manual run any time
+  workflow_dispatch:
   schedule:
     - cron: "0 2 * * 1" # Weekly at 2AM UTC on Monday
 

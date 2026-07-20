@@ -11,7 +11,6 @@ pub struct OutboundConfig {
     pub client: reqwest::Client,
 }
 
-// Forward the authenticated caller's identity to the sensor service.
 fn auth_headers(claims_header: Option<&str>) -> reqwest::header::HeaderMap {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert("content-type", "application/json".parse().unwrap());

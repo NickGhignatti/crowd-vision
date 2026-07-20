@@ -46,9 +46,8 @@ describe('useDateTime', () => {
     })
     const vm = wrapper.vm as any
 
-    // The composable uses hour12: false
-    // Depending on the local timezone where tests run, the hour might differ,
-    // but the format should be HH:mm:ss
+    // The composable uses hour12: false; the hour may vary with the test runner's timezone,
+    // but the format should still be HH:mm:ss.
     expect(vm.formattedTime).toMatch(/^\d{2}:\d{2}:\d{2}$/)
   })
 

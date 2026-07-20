@@ -13,15 +13,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
 
-      # go.mod has local `replace` directives onto sibling modules
-      # (server/auth-contracts, server/auth-middleware, server/auth-policy) —
-      # a full checkout already puts those on disk, no sparse-checkout needed.
       - name: Setup Go toolchain
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version-file: server/tenancy-service/go.mod
           cache-dependency-path: server/tenancy-service/go.sum
@@ -32,9 +29,6 @@ jobs:
       - name: Build
         run: go build ./...
 
-      # Integration tests (real Postgres/Redis via testcontainers) are gated
-      # behind the `integration` build tag and are opt-in — plain `go test
-      # ./...` already skips them, matching `moon run tenancy-service:test`.
       - name: Test with coverage
         run: go test -coverprofile=coverage.out ./...
 

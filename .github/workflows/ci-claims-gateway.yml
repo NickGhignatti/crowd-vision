@@ -17,9 +17,6 @@ jobs:
         with:
           persist-credentials: false
 
-      # go.mod has local `replace` directives onto sibling modules
-      # (server/auth-contracts, server/auth-middleware) — a full checkout
-      # already puts those on disk, no sparse-checkout needed.
       - name: Setup Go toolchain
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:

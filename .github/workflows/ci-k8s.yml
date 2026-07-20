@@ -19,7 +19,7 @@ jobs:
           tar xf kubeconform.tar.gz kubeconform
           sudo mv kubeconform /usr/local/bin/
 
-      - name: 📐 Validate manifests (kubeconform)
+      - name: Validate manifests (kubeconform)
         run: |
           find k8s/ -name '*.yml' | xargs kubeconform \
             -strict \
@@ -34,7 +34,7 @@ jobs:
           tar xf pluto.tar.gz pluto
           sudo mv pluto /usr/local/bin/
 
-      - name: 🕰️ Check for deprecated API versions (pluto)
+      - name: Check for deprecated API versions (pluto)
         run: pluto detect-files -d k8s/
 
       - name: Install kube-score
@@ -43,7 +43,7 @@ jobs:
           chmod +x kube-score
           sudo mv kube-score /usr/local/bin/
 
-      - name: 📊 Score manifests (kube-score)
+      - name: Score manifests (kube-score)
         run: |
           find k8s/ -name '*.yml' | xargs kube-score score \
             --ignore-test pod-networkpolicy \

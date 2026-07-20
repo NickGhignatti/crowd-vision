@@ -7,11 +7,6 @@ use mongodb::{
 
 use crate::models::PreferenceDocument;
 
-/// Connects to MongoDB, ensures a unique index on `building_id`, and returns
-/// a typed collection handle.
-///
-/// The MongoDB driver is lazy — no actual TCP connection is made here;
-/// it is established on the first query.
 pub async fn connect(uri: &str) -> anyhow::Result<Collection<PreferenceDocument>> {
     let opts = ClientOptions::parse(uri).await?;
     let client = Client::with_options(opts)?;
@@ -29,8 +24,7 @@ pub async fn connect(uri: &str) -> anyhow::Result<Collection<PreferenceDocument>
     Ok(col)
 }
 
-/// Fetches every preference document. Called once at startup to seed the
-/// in-memory DashMap.
+/// Fetches every preference document. Called once at startup to seed in-memory DashMap.
 pub async fn load_all(
     col: &Collection<PreferenceDocument>,
 ) -> anyhow::Result<Vec<PreferenceDocument>> {
@@ -38,8 +32,7 @@ pub async fn load_all(
     Ok(cursor.try_collect().await?)
 }
 
-/// Upserts a single building's preference. Replaces the existing document if
-/// one exists (`upsert: true`), so this is safe to call repeatedly.
+/// Upserts a single building's preference.
 pub async fn upsert_preference(
     col: &Collection<PreferenceDocument>,
     building_id: &str,
@@ -61,9 +54,8 @@ pub async fn upsert_preference(
 mod tests {
     use super::*;
 
-    /// Returns a collection in a dedicated test database. Requires a running
-    /// MongoDB at MONGO_URI (defaults to localhost:27017).
-    /// Run with: `MONGO_URI=mongodb://localhost:27017 cargo test`
+    /// Returns a collection in a dedicated test database. Requires MongoDB at
+    /// MONGO_URI (defaults to localhost:27017).
     async fn test_col() -> Collection<PreferenceDocument> {
         let uri =
             std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());

@@ -139,9 +139,8 @@ describe('snapToNeighbors', () => {
   })
 
   it('does not snap when beyond the threshold', () => {
-    // z is pushed away from the neighbor's z=0 too, so only the X axis (the
-    // one under test) is exercised — otherwise the default z=0/z=0 alignment
-    // would spuriously "snap" on Z.
+    // z is pushed away from neighbor's z=0 too, so only X (under test) is exercised —
+    // otherwise the default z=0/z=0 alignment would spuriously "snap" on Z.
     const moving = makeRoom('moving', {
       position: { x: 3, y: 0, z: 50 },
       dimensions: { width: 2, height: 2, depth: 2 },
@@ -166,10 +165,8 @@ describe('snapToNeighbors', () => {
   })
 
   it('picks the nearest candidate when multiple neighbors are in range', () => {
-    // Tiny widths collapse each neighbor's min/max/center lines to effectively
-    // one point, so this isolates center-to-center distance as the only factor:
-    // neighborNear's center (1.3) is closer to moving's line at x=1 than
-    // neighborFar's (1.6) is, so neighborNear must win.
+    // Tiny widths collapse each neighbor's lines to one point, isolating center-to-center
+    // distance: neighborNear's center (1.3) is closer to moving's x=1 line than neighborFar's (1.6).
     const neighborNear = makeRoom('near', {
       position: { x: 1.3, y: 0, z: 50 },
       dimensions: { width: 0.01, height: 2, depth: 0.01 },

@@ -66,9 +66,7 @@ _PROFILES: dict[Scenario, ScenarioProfile] = {
 }
 
 
-# --------------------------------------------------------------------------- #
-#  Environment model — owns mutable state for one room                         #
-# --------------------------------------------------------------------------- #
+# Environment model — owns mutable state for one room
 
 @dataclass
 class EnvironmentModel:

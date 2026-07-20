@@ -234,9 +234,8 @@ class Agent:
         non-streamed final hop's cost in exchange for a uniform implementation."""
         result = await self.answer(session, question, user, llm=llm, history=history)
 
-        # Emit the answer as a single token event for now. (Real per-token streaming
-        # of the *final* turn is a follow-up: re-run a no-tools `stream()` with the
-        # accumulated message history.)
+        # Emitted as a single token event for now; real per-token streaming of the
+        # final turn is a follow-up.
         if result.answer:
             yield {"type": "token", "text": result.answer}
 

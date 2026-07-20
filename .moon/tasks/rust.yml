@@ -25,7 +25,6 @@ tasks:
       - 'src/**/*'
       - 'Cargo.toml'
 
-  # `cargo check` doubles as the lockfile/compile verification leg of deps.
   deps:
     command: 'cargo check'
     inputs:
@@ -33,7 +32,6 @@ tasks:
       - 'Cargo.toml'
       - 'Cargo.lock'
 
-  # cargo-audit is an optional contributor tool; don't fail the run if absent.
   audit:
     command: 'cargo audit'
     inputs:

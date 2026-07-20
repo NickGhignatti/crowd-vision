@@ -1,19 +1,5 @@
-//
-// Cross-platform Docker Compose orchestrator.
-//
-// Strategy:
-//   1. Walk the service folders, filter by exclude patterns.
-//   2. Write a runtime compose file (compose.runtime.yml) that lists the kept
-//      compose files inside an `include:` block.
-//   3. Run `docker compose -f compose.runtime.yml ...`.
-//
-// Why a generated file with `include:`?
-//   - Passing multiple `-f` files makes Docker Compose resolve relative paths
-//     (like `build.context: .`) relative to the FIRST file's directory.
-//     That breaks per-service Dockerfile lookups.
-//   - `include:` instead resolves paths relative to each included file, so
-//     `build.context: .` in server/twin-service/docker-compose.yml correctly
-//     points at server/twin-service/.
+// Cross-platform Docker Compose orchestrator: writes compose.runtime.yml listing
+// kept service files under `include:` (resolves build.context per-file, unlike -f).
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
@@ -23,10 +9,8 @@ import { join, sep } from "node:path";
 
 const [, , mode = "dev", ...rawExcludes] = process.argv;
 
-// Accept both `just stack dev "agent simulator"` (positional) and
-// `just stack dev exclude="agent simulator"` (named — Just may pass through as
-// the literal `exclude=...`). Strip the prefix if present, then split on
-// whitespace so a single quoted multi-word arg expands cleanly.
+// Accept positional (`dev "agent simulator"`) or named (`dev exclude="..."`) forms:
+// strip any `exclude=` prefix, then split on whitespace to expand quoted multi-word args.
 const excludePatterns = rawExcludes
   .flatMap((arg) => arg.replace(/^exclude=/, "").split(/\s+/))
   .filter(Boolean);
@@ -55,10 +39,8 @@ const isExcluded = (name) =>
 
 const norm = (p) => p.split(sep).join("/");
 
-// Each entry is an array of paths: a single-path entry becomes one sub-project,
-// a multi-path entry merges base + override into one sub-project (Compose's
-// `include: - path: [a, b]` form). Two separate include entries cannot define
-// the same service — that triggers "conflicts with imported resource".
+// Each entry is a path array: one path = one sub-project, multiple = base+override
+// merged. Separate entries can't share a service ("conflicts with imported resource").
 const includes = [];
 const addInclude = (path) => includes.push([norm(path)]);
 
@@ -115,11 +97,8 @@ const runtimeYaml =
 writeFileSync(RUNTIME_FILE, runtimeYaml);
 
 // ── Clear stray fixed-name containers ────────────────────────────────────────
-// Many services pin `container_name:`. An interrupted run can leave one behind
-// as a stopped container with no compose project label, so `up --remove-orphans`
-// can't reconcile it and the next `up` dies on a name conflict (e.g.
-// "container name /crowd-vision-keycloak-db is already in use"). Ask Compose for
-// the pinned names and force-remove any matching container that isn't running.
+// A pinned `container_name:` orphaned by an interrupted run name-clashes the next
+// `up` (no compose project label to reconcile it), so force-remove non-running matches.
 const cfg = spawnSync(
   "docker",
   ["compose", "-f", RUNTIME_FILE, "config", "--format", "json"],

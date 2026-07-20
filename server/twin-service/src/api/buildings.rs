@@ -55,11 +55,8 @@ pub struct RegisterBuildingRequest {
     pub domains: Vec<String>,
 }
 
-// Loads a building by its app-level id (not Mongo's _id), backfilling blank
-// names as a side effect -- mirrors twin-service's single `getBuildingById`
-// service function, which every route (including the edit-authorization
-// check below) routes through, so a load anywhere in the app always
-// self-heals blank names.
+// Loads a building by app-level id (not Mongo's _id), backfilling blank
+// names as a side effect so every route self-heals them on load.
 async fn load_building(state: &AppState, id: &str) -> Result<Building, AppError> {
     let building = db::find_by_id(&state.buildings, id)
         .await?
@@ -89,9 +86,6 @@ async fn backfill_names(state: &AppState, mut building: Building) -> Result<Buil
     Ok(building)
 }
 
-// Shared by every geometry-mutating route: confirms the caller holds an
-// editing role in one of the target building's own domains, not just any
-// domain membership.
 fn assert_can_edit(claims: &GatewayClaims, building: &Building) -> Result<(), AppError> {
     if !authz::can_edit_domains(claims, &building.domains) {
         return Err(AppError::Forbidden(
@@ -421,8 +415,7 @@ pub async fn replace_rooms(
     db::replace(&state.buildings, &building).await?;
     outbound::sync_building_clone(&state.outbound, &building, None, Some(&claims.raw)).await?;
 
-    // Best-effort: a dead sensor-threshold row for a removed room is
-    // harmless, so only newly-added rooms need reconciliation, and a
+    // Best-effort: only new rooms need threshold reconciliation, and a
     // failure here must never undo the geometry save.
     for room in &added_rooms {
         outbound::init_room_thresholds(

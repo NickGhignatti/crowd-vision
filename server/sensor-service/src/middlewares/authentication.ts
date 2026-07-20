@@ -15,9 +15,8 @@ interface GatewayMembership {
   externalId?: string;
 }
 
-// Maps claims-gateway's StandardClaims shape onto the legacy
-// {accountId, accountMemberships:[{domainName,role}]} shape this service
-// already reads — see twin-service's identical helper for the full rationale.
+// Maps claims-gateway's StandardClaims onto the legacy {accountId, accountMemberships} shape
+// this service reads — see twin-service's identical helper for the full rationale.
 const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   const memberships = (payload.memberships ?? []) as GatewayMembership[];
   return {
@@ -31,15 +30,8 @@ const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   };
 };
 
-// Istio's RequestAuthentication verifies the gateway JWT once at the ingress
-// and injects the validated payload as this base64 header
-// (outputPayloadToHeader) — sensor-service trusts it rather than
-// re-verifying a JWT itself. Covers both browser (cookie) and internal
-// (twin-service forwarding the caller's identity on the threshold sync)
-// callers identically, since Istio already normalized both into this header.
-//
-// Responds directly (rather than throwing) because sensor-service has no
-// global error handler — each controller shapes its own response.
+// Istio validates the gateway JWT at ingress and injects it as this base64 header; we trust
+// it rather than re-verifying. Responds directly (no throw) since there's no global error handler.
 export const requireAuthentication = (
   req: Request,
   res: Response,

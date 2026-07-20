@@ -171,9 +171,8 @@ func TestLogoutHandler_ClearsTheCookie(t *testing.T) {
 	}
 }
 
-// --- /me: uses real RSA signing, unlike fakeSigner's non-cryptographic
-// "signed.<sub>" stand-in above — /me round-trips through real verification,
-// so it needs a real token.
+// --- /me: needs a real token since it round-trips through real RSA verification,
+// unlike fakeSigner's non-cryptographic "signed.<sub>" stand-in above.
 
 const meKID = "me-test-kid"
 

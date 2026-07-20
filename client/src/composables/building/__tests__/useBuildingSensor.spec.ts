@@ -94,12 +94,8 @@ describe('useBuildingSensor', () => {
     expect(data.value[0]?.value).toBe(9)
   })
 
-  // Regression: the right-hand room menu renders telemetry through a `computed`
-  // (enrichedRooms), and the view is a watcher that must be *notified* to re-render.
-  // Vue ≥3.4 only re-notifies a computed's dependents when its value changes by
-  // identity. An in-place array mutation keeps the same reference, so the
-  // notification is swallowed at the computed boundary and the menu freezes on its
-  // first reading. A telemetry tick must therefore hand out a new array reference.
+  // Regression: Vue ≥3.4 only re-notifies a computed's dependents when its value changes by
+  // identity, so a telemetry tick must hand out a new array reference or downstream watchers freeze.
   it('notifies a downstream watcher on live telemetry', async () => {
     vi.mocked(makeRequest).mockResolvedValue(
       makeResponse(true, { data: [{ roomId: 'r1', value: 1 }] }) as unknown as Response,

@@ -69,11 +69,8 @@ async function setupConfig() {
         newConfigs.push(`${key}=${val}`);
     }
 
-    // Agent-service LLM credentials. The agent talks to any OpenAI-compatible
-    // endpoint; we default to OpenRouter (chat + embeddings via one key). Optional —
-    // the service boots without it, but /ask fails on the first LLM/tool-calling hop.
-    // Get a key at https://openrouter.ai/keys. The legacy GOOGLE_API_KEY /
-    // DEEPSEEK_API_KEY names are still honoured if already present in .env.
+    // Agent-service LLM credentials (any OpenAI-compatible endpoint; default OpenRouter).
+    // Optional — service boots without it, but /ask fails on the first LLM hop.
     await checkAndAskOptional("OPENROUTER_API_KEY", "Enter OPENROUTER_API_KEY");
 
     rl.close();

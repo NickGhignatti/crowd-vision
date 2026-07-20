@@ -65,7 +65,6 @@ export const subscribeUser = async (
   subscription: WebSubscriptionInput,
 ) => {
   await Subscription.findOneAndUpdate(
-    // $eq blocks NoSQL operator injection.
     { endpoint: { $eq: subscription.endpoint } },
     { ...subscription, accountName },
     { upsert: true, returnDocument: "after" },

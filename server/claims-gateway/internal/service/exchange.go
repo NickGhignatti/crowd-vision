@@ -12,14 +12,9 @@ import (
 )
 
 var (
-	// The caller isn't who they claim to be.
-	ErrInvalidIDToken = errors.New("invalid id token")
-
-	// System failure talking to tenancy-service.
+	ErrInvalidIDToken     = errors.New("invalid id token")
 	ErrTenancyUnavailable = errors.New("tenancy unavailable")
-
-	// Policy refusal.
-	ErrInviteOnly = errors.New("domain is invite-only")
+	ErrInviteOnly         = errors.New("domain is invite-only")
 )
 
 // IDTokenClaims is what the gateway needs out of a verified IdP token.
@@ -72,9 +67,8 @@ func New(v Verifier, t TenancyClient, s Signer, ttl time.Duration) *Gateway {
 	return &Gateway{verifier: v, tenancy: t, signer: s, ttl: ttl}
 }
 
-// Exchange is the whole login: verify -> lookup (JIT-provisioning on first
-// login) -> mint. It is the only place these three steps are stitched
-// together — every other package only implements one of them.
+// Exchange is the whole login: verify -> lookup (JIT-provisioning on first login) -> mint.
+// It is the only place these three steps are stitched together.
 func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, error) {
 	kc, err := g.verifier.Verify(ctx, rawIDToken)
 	if err != nil {

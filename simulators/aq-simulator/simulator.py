@@ -129,9 +129,7 @@ class Simulator:
         self._tasks:     dict[str, asyncio.Task]       = {}
         self._client:    httpx.AsyncClient | None      = None
 
-    # ------------------------------------------------------------------ #
-    #  HTTP client lifecycle                                               #
-    # ------------------------------------------------------------------ #
+    # HTTP client lifecycle
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -146,9 +144,7 @@ class Simulator:
         if self._client and not self._client.is_closed:
             await self._client.aclose()
 
-    # ------------------------------------------------------------------ #
-    #  Public API                                                          #
-    # ------------------------------------------------------------------ #
+    # Public API
 
     def register_building(self, config: BuildingConfig) -> None:
         building = SimulationBuilding(config=config)
@@ -220,9 +216,7 @@ class Simulator:
     def active_building_ids(self) -> list[str]:
         return list(self._buildings.keys())
 
-    # ------------------------------------------------------------------ #
-    #  Async tick loop                                                     #
-    # ------------------------------------------------------------------ #
+    # Async tick loop
 
     async def _tick_loop(self, building: SimulationBuilding) -> None:
         """Fires every `building.interval` seconds for one building."""

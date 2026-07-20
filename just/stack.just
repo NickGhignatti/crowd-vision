@@ -2,7 +2,6 @@ set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set working-directory := '..'
 
-# Bare `just stack` lists recipes.
 [private]
 default:
     @just --list stack
@@ -18,9 +17,6 @@ env:
     mise exec -- node scripts/env/controlplane.js
     mise exec -- node scripts/env/gateway-key.js
 
-# Start dev stack with hot-reload. Exclude services by substring of folder name:
-#   just stack dev exclude="agent"            → skip agent-service, agent-db, agent-ingester
-#   just stack dev exclude="agent simulator"  → also skip aq-simulator, sensor-simulator
 [doc("Start dev stack. Use exclude= with space-separated substrings of folder names.")]
 dev exclude="": env
     mise exec -- node scripts/compose/compose-run.mjs dev {{exclude}}

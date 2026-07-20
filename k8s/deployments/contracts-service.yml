@@ -1,4 +1,3 @@
-# ── Deployment ────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -127,8 +126,6 @@ spec:
             - configMapRef:
                 name: common-config   # PORT, REDIS_URL
           env:
-            # contracts-service uses these names instead of the ConfigMap keys.
-            # Inline here to avoid adding contracts-specific vars to the shared ConfigMap.
             - name: SENSOR_METRICS_URL
               value: "http://sensor-service:3000"
             - name: TWIN_METRICS_URL
@@ -164,7 +161,6 @@ spec:
           emptyDir: {}
 
 ---
-# ── Service ───────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:

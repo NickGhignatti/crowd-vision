@@ -8,48 +8,27 @@ import type { SensorKernel } from "../kernel/sensorKernel.js";
 interface ActionEndpoint {
   url: string;
   method?: string;
-  /**
-   * Maps a positional index from the frontend's `actionArguments` to the field
-   * name this particular API expects. Different sensors can name the same
-   * positional argument differently.
-   *
-   * e.g. `{ "0": "value" }` means the request body will carry
-   * `{ value: actionArguments[0] }`.
-   */
+  /** Maps a positional `actionArguments` index to this API's field name, e.g. `{"0":"value"}` -> `{ value: actionArguments[0] }`. */
   arguments?: Record<string, string>;
 }
 
-/**
- * The action routing table, shaped as:
- *   actionName -> sensorId -> endpoint to call.
- *
- * To support a new sensor (or a new action) you only edit `actions.json`:
- * add the sensor id under the relevant action, point it at the API endpoint,
- * and describe how the positional arguments map to that API's field names.
- */
+/** Action routing table: actionName -> sensorId -> endpoint. Extend by editing `actions.json`, not this file. */
 type ActionsConfig = Record<string, Record<string, ActionEndpoint>>;
 
-// `actions.json` lives at the sensor-service package root, two levels up from
-// this file whether it runs from `src/controllers` (dev) or `dist/controllers`
-// (build). Resolving against the module URL keeps it independent of the cwd.
+// `actions.json` lives at the package root, two levels up from this file (dev or built).
+// Resolved via the module URL so it works regardless of cwd.
 const ACTIONS_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../actions.json",
 );
 
-/**
- * Reads and parses the action routing table from `actions.json`.
- * Read on every request so edits to the file take effect without a restart.
- */
+/** Reads and parses `actions.json`; done per-request so edits apply without a restart. */
 async function loadActions(): Promise<ActionsConfig> {
   const raw = await readFile(ACTIONS_PATH, "utf-8");
   return JSON.parse(raw) as ActionsConfig;
 }
 
-/**
- * Builds the request body by mapping each positional frontend argument to the
- * field name the endpoint declares. `{ "0": "value" }` + `["21"]` -> `{ value: "21" }`.
- */
+/** Maps positional args to field names: `{"0":"value"}` + `["21"]` -> `{ value: "21" }`. */
 function mapArguments(
   mapping: Record<string, string> | undefined,
   args: unknown[],

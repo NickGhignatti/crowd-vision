@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// Creates all Kubernetes secrets needed by CrowdVision from the local .env file.
-// Idempotent: generates each secret with --dry-run=client then pipes to kubectl apply.
+// Creates all Kubernetes secrets from the local .env file (idempotent — dry-run then apply).
 // Usage: node scripts/k8s/k8s-secrets.mjs
 
 import { spawnSync } from 'node:child_process'
@@ -35,9 +34,8 @@ function need(key) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Generates the Secret YAML via --dry-run=client, then applies it.
-// Passing args as an array bypasses the shell, so special characters
-// in values (base64 padding, = signs, etc.) are safe without escaping.
+// Generates the Secret YAML via --dry-run=client, then applies it. Args are passed
+// as an array (bypassing the shell) so special characters in values are safe unescaped.
 function applySecret(name, literals) {
   const createArgs = [
     'create', 'secret', 'generic', name,
@@ -190,9 +188,14 @@ applySecret('provisioner-secret', {
   INTERNAL_SIGNING_SECRET: need('INTERNAL_SIGNING_SECRET'),
 })
 
-// claims-gateway holds cv-gateway's confidential client secret for
-// server-side password login/registration against Keycloak (see
-// server/claims-gateway/docker-compose.yml) plus the internal token secret.
+// Grafana admin login — dev default here; production sets GRAFANA_ADMIN_PASSWORD in .env.
+applySecret('grafana-secret', {
+  GF_SECURITY_ADMIN_USER: env['GRAFANA_ADMIN_USER'] ?? 'admin',
+  GF_SECURITY_ADMIN_PASSWORD: env['GRAFANA_ADMIN_PASSWORD'] ?? 'crowdvision',
+})
+
+// cv-gateway's confidential client secret for server-side password login/registration
+// against Keycloak, plus the internal token secret.
 applySecret('claims-gateway-secret', {
   INTERNAL_SIGNING_SECRET: need('INTERNAL_SIGNING_SECRET'),
   REGISTRATION_CLIENT_SECRET: env['CV_GATEWAY_CLIENT_SECRET'] ?? 'dev-only-not-for-production',
