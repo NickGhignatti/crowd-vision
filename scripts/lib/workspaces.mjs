@@ -12,11 +12,13 @@ export function queryWorkspaces() {
   const js = [];
   const python = [];
   const rust = [];
+  const go = [];
   for (const { source, language } of projects) {
     if (language === 'typescript' || language === 'javascript') js.push(source);
     else if (language === 'python') python.push(source);
     else if (language === 'rust') rust.push(source);
+    else if (language === 'go') go.push(source);
   }
 
-  return { js: js.sort(), python: python.sort(), rust: rust.sort() };
+  return { js: js.sort(), python: python.sort(), rust: rust.sort(), go: go.sort() };
 }
