@@ -5,6 +5,7 @@ from urllib.parse import quote
 
 import httpx
 
+from app import cedar_authz
 from app.agent.tools.base import ToolContext, ToolResult
 from app.agent.tools.downstream import (
     auth_headers,
@@ -12,7 +13,6 @@ from app.agent.tools.downstream import (
     get_twin_client,
     get_with_retry,
 )
-from app import cedar_authz
 from app.config import get_settings
 
 if TYPE_CHECKING:

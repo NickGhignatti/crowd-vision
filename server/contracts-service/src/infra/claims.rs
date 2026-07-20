@@ -13,14 +13,18 @@ fn decode_claims_header(raw: &str) -> Option<Vec<u8>> {
         .find_map(|engine| engine.decode(raw).ok())
 }
 
+// sub/payload aren't read by any handler yet — GatewayClaims is only used to reject
+// requests with an absent or malformed claims header; routes don't scope by identity yet.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ClaimsPayload {
+    #[allow(dead_code)]
     pub sub: String,
 }
 
 // Trusts claims the mesh already verified at the edge and injected as x-gateway-claims.
 #[derive(Debug, Clone)]
 pub struct GatewayClaims {
+    #[allow(dead_code)]
     pub payload: ClaimsPayload,
 }
 

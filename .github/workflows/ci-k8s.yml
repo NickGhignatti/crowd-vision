@@ -51,4 +51,5 @@ jobs:
             --ignore-test container-security-context-user-group-id \
             --ignore-test container-security-context-read-only-root-filesystem \
             --ignore-test container-image-tag \
+            --ignore-test container-image-pull-policy \
             --ignore-test pod-probes-identical

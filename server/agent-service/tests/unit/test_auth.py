@@ -63,6 +63,7 @@ async def test_normalizes_gateway_memberships_into_roles_and_domains():
     assert user.roles == ["standard_customer"]
     assert user.domains == ["unibo"]
 
+
 async def test_rejects_a_claims_header_that_isnt_valid_base64_json():
     with pytest.raises(HTTPException) as exc_info:
         await require_user(_request(claims="not-valid-base64-json"))
