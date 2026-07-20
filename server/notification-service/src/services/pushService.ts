@@ -64,6 +64,17 @@ export const subscribeUser = async (
   accountName: string,
   subscription: WebSubscriptionInput,
 ) => {
+  if (typeof accountName !== "string" || accountName.trim().length === 0) {
+    throw new Error("Invalid accountName");
+  }
+  if (
+    typeof subscription.endpoint !== "string" ||
+    typeof subscription.keys?.p256dh !== "string" ||
+    typeof subscription.keys?.auth !== "string"
+  ) {
+    throw new Error("Invalid subscription");
+  }
+
   await Subscription.findOneAndUpdate(
     { endpoint: { $eq: subscription.endpoint } },
     {

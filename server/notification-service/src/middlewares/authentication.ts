@@ -53,7 +53,10 @@ export const requireAuthentication = (
     throw new UnauthorizedError("Invalid authentication token");
   }
 
-  if (!payload.accountName) {
+  if (
+    typeof payload.accountName !== "string" ||
+    payload.accountName.trim().length === 0
+  ) {
     throw new UnauthorizedError("Authentication token is missing an account");
   }
 

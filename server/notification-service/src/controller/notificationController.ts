@@ -128,6 +128,9 @@ export const subscribe = async (req: Request, res: Response) => {
   const body = req.body as SubscriptionRequestBody;
   // Bind the subscription to the authenticated caller, never to a body field.
   const accountName = callerAccountName(req);
+  if (typeof accountName !== "string" || accountName.trim().length === 0) {
+    throw new ValidationError("Invalid authenticated account");
+  }
   const domainName = getDomainName(body);
   const subscription: IncomingSubscription = body.subscription?.endpoint
     ? body.subscription
