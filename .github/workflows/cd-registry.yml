@@ -123,7 +123,7 @@ jobs:
           echo "IMAGE_PREFIX=ghcr.io/$OWNER_LOWERCASE" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
@@ -141,7 +141,7 @@ jobs:
       # image never reaches GHCR. load:true requires a single-platform build,
       # which this is — revisit if `platforms:` is ever added.
       - name: Build ${{ matrix.image }} (local, pre-scan)
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: ${{ matrix.context }}
           push: false
@@ -179,7 +179,7 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security
         if: always()
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
         continue-on-error: true
         with:
           sarif_file: trivy-results-${{ matrix.image }}.sarif
@@ -189,7 +189,7 @@ jobs:
       # entirely from the still-warm gha cache (no recompilation) and pushes
       # the exact layers that were just scanned, now also tagged :latest.
       - name: Push ${{ matrix.image }} (scan passed)
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: ${{ matrix.context }}
           push: true
