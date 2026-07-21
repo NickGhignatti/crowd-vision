@@ -163,6 +163,9 @@ describe('useApi.ts - makeRequestWithRetry', () => {
     fetchSpy.mockRejectedValue(new TypeError('Failed to fetch'))
 
     const promise = makeRequestWithRetry('/rooms/1', 'PATCH', {}, 2)
+    // Awaited below (`await expectation`) after advancing fake timers so the backoff
+    // retries can resolve; awaiting it inline here would deadlock on the pending timers.
+    // eslint-disable-next-line vitest/valid-expect
     const expectation = expect(promise).rejects.toThrow('Failed to fetch')
     await vi.runAllTimersAsync()
     await expectation
