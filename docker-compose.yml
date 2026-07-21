@@ -39,6 +39,7 @@ services:
     image: redis:alpine
     container_name: langfuse-broker
     restart: always
+    profiles: ["agent"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -120,6 +121,7 @@ services:
     image: docker.io/langfuse/langfuse:3
     container_name: crowd-vision-langfuse
     restart: always
+    profiles: ["agent"]
     depends_on: &langfuse-depends-on
       langfuse-db:
         condition: service_healthy
@@ -174,6 +176,7 @@ services:
     image: docker.io/langfuse/langfuse-worker:3
     container_name: crowd-vision-langfuse-worker
     restart: always
+    profiles: ["agent"]
     depends_on: *langfuse-depends-on
     environment:
       <<: *langfuse-env
@@ -182,6 +185,7 @@ services:
     image: pgvector/pgvector:pg17
     container_name: crowd-vision-langfuse-db
     restart: always
+    profiles: ["agent"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -201,6 +205,7 @@ services:
     image: docker.io/clickhouse/clickhouse-server
     container_name: crowd-vision-clickhouse
     restart: always
+    profiles: ["agent"]
     user: "101:101"
     environment:
       CLICKHOUSE_DB: default
@@ -220,6 +225,7 @@ services:
     image: cgr.dev/chainguard/minio
     container_name: crowd-vision-minio
     restart: always
+    profiles: ["agent"]
     entrypoint: sh
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:

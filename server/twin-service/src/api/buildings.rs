@@ -174,13 +174,24 @@ pub async fn get_building_counts(
     Ok(Json(serde_json::json!({ "counts": counts })))
 }
 
+// Callers reach this with either a building id or a building name: the Redis
+// sensor-alert path (notification-service eventListener) only knows the id,
+// while the authenticated manual-alert path passes a name. Resolve by id first,
+// then fall back to name, so both get the building's domains instead of an empty
+// list (which would silently drop domain-scoped push delivery).
 pub async fn get_domains_by_building(
     State(state): State<AppState>,
-    Path(building_name): Path<String>,
+    Path(building): Path<String>,
     _claims: GatewayClaims,
 ) -> Result<Json<Vec<String>>, AppError> {
-    let buildings = db::find_by_name(&state.buildings, &building_name).await?;
-    let domains = buildings.into_iter().flat_map(|b| b.domains).collect();
+    let domains = match db::find_by_id(&state.buildings, &building).await? {
+        Some(found) => found.domains,
+        None => db::find_by_name(&state.buildings, &building)
+            .await?
+            .into_iter()
+            .flat_map(|b| b.domains)
+            .collect(),
+    };
     Ok(Json(domains))
 }
 

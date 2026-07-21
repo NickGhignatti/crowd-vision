@@ -25,6 +25,10 @@ dev exclude="": env
 dev-build exclude="": env
     mise exec -- node scripts/compose/compose-run.mjs dev-build {{exclude}}
 
+[doc("Start dev stack minus agent-service and its Langfuse/ClickHouse/MinIO tracing stack (lighter footprint). Alias for: dev exclude=\"agent\".")]
+dev-light: env
+    mise exec -- node scripts/compose/compose-run.mjs dev agent
+
 [doc("Start production stack (background). Use exclude= with space-separated substrings.")]
 start exclude="": env
     mise exec -- node scripts/compose/compose-run.mjs start {{exclude}}

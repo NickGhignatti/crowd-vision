@@ -63,7 +63,7 @@ fn protected_routes() -> Router<AppState> {
         )
         .route("/buildings/counts", post(get_building_counts))
         .route("/buildings/{domain}", get(get_building_by_domain))
-        .route("/domain/{building_name}", get(get_domains_by_building))
+        .route("/domain/{building}", get(get_domains_by_building))
         .route(
             "/building/{id}/room/{room_id}",
             patch(update_room).delete(delete_room),

@@ -1,5 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { makeExternalRequest, makeRequest } from '@/composables/core/useApi.ts'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  makeExternalRequest,
+  makeRequest,
+  makeRequestWithRetry,
+  mapWithConcurrency,
+} from '@/composables/core/useApi.ts'
 
 const fetchSpy = vi.spyOn(global, 'fetch')
 
@@ -119,5 +124,84 @@ describe('useApi.ts - makeRequest', () => {
         }),
       )
     })
+  })
+})
+
+describe('useApi.ts - makeRequestWithRetry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('returns the response on the first successful attempt without retrying', async () => {
+    fetchSpy.mockResolvedValue({ ok: true } as Response)
+
+    const result = await makeRequestWithRetry('/rooms/1', 'PATCH')
+
+    expect(result.ok).toBe(true)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries after a transient network failure and succeeds', async () => {
+    fetchSpy
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ ok: true } as Response)
+
+    const promise = makeRequestWithRetry('/rooms/1', 'PATCH', {}, 2)
+    await vi.runAllTimersAsync()
+    const result = await promise
+
+    expect(result.ok).toBe(true)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('rethrows once retries are exhausted', async () => {
+    fetchSpy.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    const promise = makeRequestWithRetry('/rooms/1', 'PATCH', {}, 2)
+    const expectation = expect(promise).rejects.toThrow('Failed to fetch')
+    await vi.runAllTimersAsync()
+    await expectation
+
+    expect(fetchSpy).toHaveBeenCalledTimes(3) // initial attempt + 2 retries
+  })
+})
+
+describe('useApi.ts - mapWithConcurrency', () => {
+  it('resolves every item and preserves input order regardless of completion order', async () => {
+    const items = [30, 10, 20]
+    const result = await mapWithConcurrency(items, 2, async (ms) => {
+      await new Promise((resolve) => setTimeout(resolve, ms))
+      return ms
+    })
+
+    expect(result).toEqual([30, 10, 20])
+  })
+
+  it('never runs more than `limit` callbacks at once', async () => {
+    let active = 0
+    let maxActive = 0
+
+    await mapWithConcurrency([1, 2, 3, 4, 5], 2, async () => {
+      active++
+      maxActive = Math.max(maxActive, active)
+      await Promise.resolve()
+      active--
+    })
+
+    expect(maxActive).toBeLessThanOrEqual(2)
+  })
+
+  it('propagates a callback rejection', async () => {
+    await expect(
+      mapWithConcurrency([1, 2], 2, async (n) => {
+        if (n === 2) throw new Error('boom')
+        return n
+      }),
+    ).rejects.toThrow('boom')
   })
 })

@@ -43,7 +43,6 @@ import {
   isWebGPUSupported,
   SCENE_CLEAR_COLOR,
 } from '@/composables/scene/useWebGPURenderer.ts'
-import { selectRenderMode } from '@/composables/scene/useRenderMode.ts'
 import RenderInvalidator from '@/components/scene/RenderInvalidator.vue'
 
 interface TresEvent extends Intersection {
@@ -92,17 +91,15 @@ const requestFrame = () => {
   frameRequestTick.value++
 }
 
-// NOT `|| editor.isEditing.value` — see the git history / memory note on this
-// line. Forcing 'always' mode for the whole edit session froze the canvas
-// whenever the on-demand frame counter had already idled to 0 at the moment
-// editing began: TresJS's internal render-loop only checks whether it's in
-// 'always' mode from *inside* a render that's already happening, so
-// switching modes while the counter is at 0 never kicks anything off, and
-// invalidate() (which is what requestFrame() below calls into) is a no-op
-// outside 'on-demand' mode — a permanent, silent deadlock. Every editing
-// interaction below already calls requestFrame() explicitly on every
-// meaningful change, so plain on-demand mode is sufficient.
-const renderMode = computed(() => selectRenderMode(isRotating.value))
+// The canvas always renders on-demand — never 'always'. In this TresJS version
+// 'always' mode is a deadlock trap: its loop only re-arms the frame counter from
+// *inside* a render already in flight, and invalidate() is a no-op unless the
+// mode is 'on-demand', so switching to 'always' while the counter sits at 0 can
+// never kick anything off. Instead, everything that needs a repaint requests one
+// explicitly: the editing interactions and telemetry/camera watches below via
+// requestFrame(), and rotation via AutoRotate, which pumps its own frames while
+// active.
+const renderMode = 'on-demand' as const
 
 const handleEnterEdit = () => {
   if (!buildingModel.building.value) return
@@ -663,6 +660,12 @@ const handleZoomOut = () => {
   requestFrame()
 }
 
+// Rotation drives itself: AutoRotate pumps its own frames while active (the
+// canvas stays on-demand), so toggling only has to flip the flag.
+const handleTogglePanorama = () => {
+  togglePanorama()
+}
+
 // Blocks losing unsaved room edits to an accidental navigation or tab close.
 // window.confirm matches the rest of this file's existing confirm-before-
 // destructive-action convention (merge-not-adjacent, delete-with-sensors).
@@ -875,7 +878,7 @@ onUnmounted(() => {
           @toggle-explode="handleExplodeToggle"
           @zoom-in="handleZoomIn"
           @zoom-out="handleZoomOut"
-          @toggle-panorama="togglePanorama"
+          @toggle-panorama="handleTogglePanorama"
           @enter-edit="handleEnterEdit"
           @exit-edit="handleCancelEdit"
           @save="handleSaveEdit"

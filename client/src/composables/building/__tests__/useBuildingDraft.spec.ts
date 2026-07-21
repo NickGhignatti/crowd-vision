@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useBuildingDraft } from '../useBuildingDraft'
-import { makeRequest } from '@/composables/core/useApi.ts'
+import { makeRequestWithRetry } from '@/composables/core/useApi.ts'
 
-vi.mock('@/composables/core/useApi', () => ({ makeRequest: vi.fn() }))
+vi.mock('@/composables/core/useApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/composables/core/useApi.ts')>()),
+  makeRequestWithRetry: vi.fn(),
+}))
 vi.mock('@/stores/buildings', () => ({
   useBuildingsStore: () => ({ register: vi.fn().mockResolvedValue('generated-id-001') }),
 }))
@@ -116,24 +119,24 @@ describe('useBuildingDraft', () => {
   })
 
   describe('submit', () => {
-    it('calls makeRequest for temperature and airQuality threshold patches', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse() as unknown as Response)
+    it('sends temperature and airQuality threshold patches', async () => {
+      vi.mocked(makeRequestWithRetry).mockResolvedValue(makeResponse() as unknown as Response)
       const { loadFromJson, submit } = useBuildingDraft()
       loadFromJson(rawJson)
       await submit('acme')
 
-      const urls = vi.mocked(makeRequest).mock.calls.map((c) => c[0])
+      const urls = vi.mocked(makeRequestWithRetry).mock.calls.map((c) => c[0])
       expect(urls).toContain('/sensor/thresholds/temperature/buildings/generated-id-001')
       expect(urls).toContain('/sensor/thresholds/airQuality/buildings/generated-id-001')
     })
 
     it('patches peopleCount threshold for each room', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse() as unknown as Response)
+      vi.mocked(makeRequestWithRetry).mockResolvedValue(makeResponse() as unknown as Response)
       const { loadFromJson, submit } = useBuildingDraft()
       loadFromJson(rawJson)
       await submit('acme')
 
-      const urls = vi.mocked(makeRequest).mock.calls.map((c) => c[0])
+      const urls = vi.mocked(makeRequestWithRetry).mock.calls.map((c) => c[0])
       expect(urls).toContain(
         '/sensor/thresholds/peopleCount/buildings/generated-id-001/rooms/room-1',
       )
@@ -143,7 +146,7 @@ describe('useBuildingDraft', () => {
     })
 
     it('sets isSubmitting to false after completion', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse() as unknown as Response)
+      vi.mocked(makeRequestWithRetry).mockResolvedValue(makeResponse() as unknown as Response)
       const { loadFromJson, submit, isSubmitting } = useBuildingDraft()
       loadFromJson(rawJson)
       await submit('acme')
@@ -151,7 +154,7 @@ describe('useBuildingDraft', () => {
     })
 
     it('registers all provided sensors', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse() as unknown as Response)
+      vi.mocked(makeRequestWithRetry).mockResolvedValue(makeResponse() as unknown as Response)
       const { loadFromJson, submit } = useBuildingDraft()
       loadFromJson(rawJson)
 
@@ -161,21 +164,21 @@ describe('useBuildingDraft', () => {
       ])
 
       const sensorCalls = vi
-        .mocked(makeRequest)
+        .mocked(makeRequestWithRetry)
         .mock.calls.filter((c) => c[0] === '/sensor/sensor' && c[1] === 'POST')
 
       expect(sensorCalls).toHaveLength(2)
     })
 
     it('calls executeAction for each provided sensor', async () => {
-      vi.mocked(makeRequest).mockResolvedValue(makeResponse() as unknown as Response)
+      vi.mocked(makeRequestWithRetry).mockResolvedValue(makeResponse() as unknown as Response)
       const { loadFromJson, submit } = useBuildingDraft()
       loadFromJson(rawJson)
 
       await submit('acme', [{ roomId: 'room-1', sensorId: 'temp-001', sensorType: 'temperature' }])
 
       const actionCalls = vi
-        .mocked(makeRequest)
+        .mocked(makeRequestWithRetry)
         .mock.calls.filter((c) => c[0] === '/sensor/executeAction' && c[1] === 'POST')
 
       expect(actionCalls).toHaveLength(1)
@@ -184,7 +187,7 @@ describe('useBuildingDraft', () => {
     it('does nothing when draft is null', async () => {
       const { submit } = useBuildingDraft()
       await submit('acme')
-      expect(makeRequest).not.toHaveBeenCalled()
+      expect(makeRequestWithRetry).not.toHaveBeenCalled()
     })
   })
 })

@@ -6,6 +6,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017/notificationdb
       - GATEWAY_URL=http://gateway
+      - TWIN_SERVICE_URL=http://twin-service:3000
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}

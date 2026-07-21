@@ -128,14 +128,19 @@ if (cfg.status === 0) {
 
 // ── Build and run the docker command ─────────────────────────────────────────
 
+// The Langfuse/ClickHouse/MinIO stack (root docker-compose.yml) only exists to trace
+// agent-service, so it's opted out the same way as excluding the agent-service folder.
+const agentProfileArgs = isExcluded("agent") ? [] : ["--profile", "agent"];
+
 let dockerArgs;
 if (isDown) {
-  dockerArgs = ["compose", "-f", RUNTIME_FILE, "down", "--remove-orphans"];
+  dockerArgs = ["compose", ...agentProfileArgs, "-f", RUNTIME_FILE, "down", "--remove-orphans"];
 } else if (isBuild) {
-  dockerArgs = ["compose", "-f", RUNTIME_FILE, "build"];
+  dockerArgs = ["compose", ...agentProfileArgs, "-f", RUNTIME_FILE, "build"];
 } else if (isIntegration) {
   dockerArgs = [
     "compose",
+    ...agentProfileArgs,
     "-f",
     RUNTIME_FILE,
     "up",
@@ -145,10 +150,10 @@ if (isDown) {
     "--abort-on-container-exit",
   ];
 } else if (isStart) {
-  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--build', '-d', '--remove-orphans'];
+  dockerArgs = ['compose', ...agentProfileArgs, '-f', RUNTIME_FILE, 'up', '--build', '-d', '--remove-orphans'];
 } else {
   // dev
-  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--watch', '--remove-orphans'];
+  dockerArgs = ['compose', ...agentProfileArgs, '-f', RUNTIME_FILE, 'up', '--watch', '--remove-orphans'];
   if (isDevBuild) dockerArgs.push("--build");
 }
 
