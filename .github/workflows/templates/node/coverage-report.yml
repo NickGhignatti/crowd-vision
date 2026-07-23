@@ -1,0 +1,32 @@
+name: Node Coverage Template
+on:
+  workflow_call:
+    inputs:
+      service_key: { required: true, type: string }
+      working_directory: { required: true, type: string }
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          working_directory: ${{ inputs.working_directory }}
+
+      - name: Run Tests with Coverage
+        run: npm run test:coverage
+
+      - name: Upload report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ inputs.service_key }}
+          path: ${{ inputs.working_directory }}/coverage/coverage-summary.json
+          if-no-files-found: error
+          retention-days: 1

@@ -1,0 +1,25 @@
+name: 'Setup Python and uv'
+description: 'Install Python, uv and sync dependencies'
+inputs:
+  working_directory:
+    required: true
+    description: 'Python service directory'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+        cache-dependency-glob: ${{ inputs.working_directory }}/uv.lock
+
+    - name: Install Dependencies
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: uv sync --locked --all-extras --dev

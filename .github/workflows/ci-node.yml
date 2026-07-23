@@ -1,0 +1,34 @@
+name: CI Go Services
+on:
+  push:
+    branches-ignore: [master]
+    paths:
+      - 'server/socket-service/**'
+      - 'server/sensor-service/**'
+      - 'server/notification-service/**'
+      - 'server/chat-service/**'
+  workflow_call:
+
+jobs:
+  discover:
+      uses: ./.github/workflows/templates/discovery.yml
+      with:
+        services_json: >
+          [
+            {"key": "socket", "dir": "server/socket-service"},
+            {"key": "sensor", "dir": "server/sensor-service"},
+            {"key": "notification", "dir": "server/notification-service"},
+            {"key": "chat", "dir": "server/chat-service"}
+          ]
+
+  run-ci:
+      needs: discover
+      if: ${{ needs.discover.outputs.is_empty == 'false' }}
+      strategy:
+        fail-fast: false
+        matrix:
+          include: ${{ fromJson(needs.discover.outputs.matrix) }}
+
+      uses: ./.github/workflows/templates/go/ci.yml
+      with:
+        working_directory: ${{ matrix.dir }}

@@ -1,0 +1,15 @@
+name: CI Python Services
+
+on:
+  push:
+    branches-ignore: [master]
+    paths:
+      - 'server/agent-service/**'
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    uses: ./.github/workflows/templates/python/ci.yml
+    with:
+      service_key: "agent"
+      working_directory: "server/agent-service"

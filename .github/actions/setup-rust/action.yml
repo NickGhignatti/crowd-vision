@@ -24,13 +24,3 @@ runs:
       with:
         workspaces: ${{ inputs.working_directory }}
         shared-key: "rust-ci-${{ inputs.service_key }}"
-
-    - name: Check formatting
-      shell: bash
-      working-directory: ${{ inputs.working_directory }}
-      run: cargo fmt --check
-
-    - name: Run Clippy
-      shell: bash
-      working-directory: ${{ inputs.working_directory }}
-      run: cargo clippy --all-targets -- -D warnings

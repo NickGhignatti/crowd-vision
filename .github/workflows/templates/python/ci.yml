@@ -1,13 +1,16 @@
-name: Go CI Template
+name: Python CI Template
 on:
   workflow_call:
     inputs:
+      service_key:
+        required: true
+        type: string
       working_directory:
         required: true
         type: string
 
 jobs:
-  test:
+  ci-pipeline:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -17,15 +20,21 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Setup Environment
-        uses: ./.github/actions/setup-go
+        uses: ./.github/actions/setup-python
         with:
           working_directory: ${{ inputs.working_directory }}
 
-      - name: Run go vet
-        run: go vet ./...
+      - name: Lint
+        run: uv run ruff check .
 
-      - name: Build
-        run: go build ./...
+      - name: Check Formatting
+        run: uv run ruff format --check .
 
-      - name: Test
-        run: go test ./...
+      - name: Type Check
+        run: uv run pyright
+
+      - name: Audit Dependencies
+        run: uv audit
+
+      - name: Run Tests
+        run: uv run pytest
