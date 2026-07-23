@@ -1,0 +1,33 @@
+name: CI Rust Services
+
+on:
+  push:
+    branches-ignore: [master]
+    paths:
+      - 'server/twin-service/**'
+      - 'server/contracts-service/**'
+  workflow_dispatch:
+
+jobs:
+  discover:
+    uses: ./.github/workflows/templates/discovery.yml
+    with:
+      services_json: >
+        [
+          {"key": "twin", "dir": "server/twin-service", "needs_mongo": true},
+          {"key": "contracts", "dir": "server/contracts-service", "needs_mongo": false}
+        ]
+
+  run-tests:
+    needs: discover
+    if: ${{ needs.discover.outputs.is_empty == 'false' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.matrix) }}
+
+    uses: ./.github/workflows/templates/rust/ci.yml
+    with:
+      service_key: ${{ matrix.key }}
+      working_directory: ${{ matrix.dir }}
+      needs_mongo: ${{ matrix.needs_mongo }}

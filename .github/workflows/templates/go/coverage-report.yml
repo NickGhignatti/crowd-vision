@@ -1,0 +1,41 @@
+name: Go Coverage Report Template
+on:
+  workflow_call:
+    inputs:
+      service_key: # artifact name
+        required: true
+        type: string
+      working_directory:
+        required: true
+        type: string
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.25.5'
+          cache: true
+          cache-dependency-path: 'server/**/go.sum'
+
+      - run: go mod download
+      - run: go build -v ./...
+      - run: go test -v -coverprofile=coverage.out ./...
+
+      - name: Convert coverage to XML (Cobertura)
+        run: |
+          go install github.com/boumenot/gocover-cobertura@latest
+          $(go env GOPATH)/bin/gocover-cobertura < coverage.out > coverage.xml
+
+      - name: Upload report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ inputs.service_key }}
+          path: ${{ inputs.working_directory }}/coverage.xml
+          if-no-files-found: error
+          retention-days: 1

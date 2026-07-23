@@ -1,0 +1,36 @@
+name: 'Rust Setup and Check'
+description: 'Install the toolchain, cache and run fmt and clippy'
+inputs:
+  working_directory:
+    required: true
+  service_key:
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install mold linker
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y mold
+
+    - name: Setup Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
+      with:
+        toolchain: stable
+        components: rustfmt, clippy, llvm-tools-preview
+
+    - name: Cache cargo registry + build artifacts
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
+      with:
+        workspaces: ${{ inputs.working_directory }}
+        shared-key: "rust-ci-${{ inputs.service_key }}"
+
+    - name: Check formatting
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: cargo fmt --check
+
+    - name: Run Clippy
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: cargo clippy --all-targets -- -D warnings

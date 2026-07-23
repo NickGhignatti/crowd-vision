@@ -1,0 +1,38 @@
+name: CI Go Services
+on:
+  push:
+    branches-ignore: [master]
+    paths:
+      - 'server/auth-contracts/**'
+      - 'server/auth-middleware/**'
+      - 'server/auth-policy/**'
+      - 'server/provisioner/**'
+      - 'server/claims-gateway/**'
+      - 'server/registry-service/**'
+  workflow_call:
+
+jobs:
+  discover:
+      uses: ./.github/workflows/templates/discovery.yml
+      with:
+        services_json: >
+          [
+            { key: auth-contracts, dir: server/auth-contracts },
+            { key: auth-middleware, dir: server/auth-middleware },
+            { key: auth-policy, dir: server/auth-policy },
+            { key: claims-gateway, dir: server/claims-gateway },
+            { key: provider, dir: server/provider },
+            { key: registry-service, dir: server/registry-service }
+          ]
+
+  run-ci:
+      needs: discover
+      if: ${{ needs.discover.outputs.is_empty == 'false' }}
+      strategy:
+        fail-fast: false
+        matrix:
+          include: ${{ fromJson(needs.discover.outputs.matrix) }}
+
+      uses: ./.github/workflows/templates/go/ci.yml
+      with:
+        working_directory: ${{ matrix.dir }}

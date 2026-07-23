@@ -31,12 +31,3 @@ jobs:
 
       - name: Test with coverage
         run: go test -coverprofile=coverage.out ./...
-
-      - name: Coverage summary
-        if: always()
-        run: |
-          {
-            echo "| Service | Coverage |"
-            echo "| --- | --- |"
-            echo "| **registry-service** | $(go tool cover -func=coverage.out | tail -1 | awk '{print $3}') |"
-          } >> "$GITHUB_STEP_SUMMARY" || true
