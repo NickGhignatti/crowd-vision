@@ -1,0 +1,11 @@
+FROM alpine:latest
+
+WORKDIR /app
+
+ARG BINARY_PATH
+
+COPY ${BINARY_PATH} /app/main
+
+RUN chmod +x /app/main
+
+ENTRYPOINT ["/app/main"]

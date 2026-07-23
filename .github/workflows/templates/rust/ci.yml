@@ -20,7 +20,7 @@ jobs:
 
       - name: Start Mongo
         if: ${{ inputs.needs_mongo }}
-        uses: ./.github/actions/setup-mongodb
+        uses: ./.github/actions/setup-mongo
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -36,3 +36,19 @@ jobs:
 
       - name: Run Standard Tests
         run: cargo test
+
+      - name: Build Release Binary
+        run: cargo build --release
+
+      # The compiled binary is named after the crate (server/twin-service ->
+      # "twin-service"), not the short service_key used for the artifact name.
+      - name: Locate Release Binary
+        id: bin
+        run: echo "name=$(basename '${{ inputs.working_directory }}')" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: binary-${{ inputs.service_key }}
+          path: ${{ inputs.working_directory }}/target/release/${{ steps.bin.outputs.name }}
+          retention-days: 1

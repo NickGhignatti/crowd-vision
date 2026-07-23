@@ -2,9 +2,18 @@ name: Go CI Template
 on:
   workflow_call:
     inputs:
+      service_key:
+        required: true
+        type: string
       working_directory:
         required: true
         type: string
+      # auth-contracts/auth-middleware/auth-policy are libraries with no cmd/
+      # package — there's nothing to build a binary or Docker image from.
+      builds_binary:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   test:
@@ -29,3 +38,15 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+      - name: Build Binary
+        if: inputs.builds_binary
+        run: go build -o app-binary ./cmd/...
+
+      - name: Upload Binary Artifact
+        if: inputs.builds_binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: binary-${{ inputs.service_key }}
+          path: ${{ inputs.working_directory }}/app-binary
+          retention-days: 1

@@ -9,6 +9,7 @@ on:
       - 'server/provisioner/**'
       - 'server/claims-gateway/**'
       - 'server/registry-service/**'
+      - 'server/tenancy-service/**'
   workflow_call:
 
 jobs:
@@ -17,12 +18,13 @@ jobs:
       with:
         services_json: >
           [
-            { key: auth-contracts, dir: server/auth-contracts },
-            { key: auth-middleware, dir: server/auth-middleware },
-            { key: auth-policy, dir: server/auth-policy },
-            { key: claims-gateway, dir: server/claims-gateway },
-            { key: provider, dir: server/provider },
-            { key: registry-service, dir: server/registry-service }
+            { key: auth-contracts, dir: server/auth-contracts, builds_binary: false },
+            { key: auth-middleware, dir: server/auth-middleware, builds_binary: false },
+            { key: auth-policy, dir: server/auth-policy, builds_binary: false },
+            { key: claims-gateway, dir: server/claims-gateway, builds_binary: true },
+            { key: provisioner, dir: server/provisioner, builds_binary: true },
+            { key: registry-service, dir: server/registry-service, builds_binary: true },
+            { key: tenancy-service, dir: server/tenancy-service, builds_binary: true }
           ]
 
   run-ci:
@@ -35,4 +37,6 @@ jobs:
 
       uses: ./.github/workflows/templates/go/ci.yml
       with:
+        service_key: ${{ matrix.key }}
         working_directory: ${{ matrix.dir }}
+        builds_binary: ${{ matrix.builds_binary }}

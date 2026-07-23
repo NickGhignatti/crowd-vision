@@ -1,4 +1,4 @@
-name: CI Go Services
+name: CI Node Services
 on:
   push:
     branches-ignore: [master]
@@ -29,6 +29,7 @@ jobs:
         matrix:
           include: ${{ fromJson(needs.discover.outputs.matrix) }}
 
-      uses: ./.github/workflows/templates/go/ci.yml
+      uses: ./.github/workflows/templates/node/ci.yml
       with:
+        service_key: ${{ matrix.key }}
         working_directory: ${{ matrix.dir }}

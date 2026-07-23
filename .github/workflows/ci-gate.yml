@@ -49,49 +49,35 @@ jobs:
           filters: |
             chat:
               - 'server/chat-service/**'
-              - '.github/workflows/ci-chat.yml'
             agent:
               - 'server/agent-service/**'
-              - '.github/workflows/ci-agent.yml'
             client:
               - 'client/**'
               - '.github/workflows/ci-client.yml'
             contracts:
               - 'server/contracts-service/**'
-              - '.github/workflows/ci-contracts.yml'
             notification:
               - 'server/notification-service/**'
-              - '.github/workflows/ci-notification.yml'
             sensor:
               - 'server/sensor-service/**'
-              - '.github/workflows/ci-sensor.yml'
             socket:
               - 'server/socket-service/**'
-              - '.github/workflows/ci-socket.yml'
             twin:
               - 'server/twin-service/**'
-              - '.github/workflows/ci-twin.yml'
             claims_gateway:
               - 'server/claims-gateway/**'
-              - '.github/workflows/ci-claims-gateway.yml'
             tenancy:
               - 'server/tenancy-service/**'
-              - '.github/workflows/ci-tenancy-service.yml'
             registry:
               - 'server/registry-service/**'
-              - '.github/workflows/ci-registry-service.yml'
             provisioner:
               - 'server/provisioner/**'
-              - '.github/workflows/ci-provisioner.yml'
             auth_policy:
               - 'server/auth-policy/**'
-              - '.github/workflows/ci-auth-policy.yml'
             auth_contracts:
               - 'server/auth-contracts/**'
-              - '.github/workflows/ci-auth-contracts.yml'
             auth_middleware:
               - 'server/auth-middleware/**'
-              - '.github/workflows/ci-auth-middleware.yml'
             k8s:
               - 'k8s/**'
               - '.github/workflows/ci-k8s.yml'
@@ -120,106 +106,173 @@ jobs:
         id: docker
         run: |
           inc='[]'
-          add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" --arg d "$1/Dockerfile" '$a + [{context:$c, image:$i, dockerfile:$d}]'); }
-          add_repo_root() { inc=$(jq -cn --argjson a "$inc" --arg i "$2" --arg d "$1/Dockerfile" '$a + [{context:".", image:$i, dockerfile:$d}]'); }
-          if [ "${{ steps.filter.outputs.chat }}" = "true" ];         then add "./server/chat-service"         "crowdvision-chat"; fi
-          if [ "${{ steps.filter.outputs.twin }}" = "true" ];         then add_repo_root "server/twin-service" "crowdvision-twin"; fi
-          if [ "${{ steps.filter.outputs.notification }}" = "true" ]; then add "./server/notification-service" "crowdvision-notification"; fi
-          if [ "${{ steps.filter.outputs.socket }}" = "true" ];       then add "./server/socket-service"       "crowdvision-socket"; fi
-          if [ "${{ steps.filter.outputs.agent }}" = "true" ];        then add_repo_root "server/agent-service" "crowdvision-agent"; fi
-          if [ "${{ steps.filter.outputs.sensor }}" = "true" ];       then add "./server/sensor-service"       "crowdvision-sensor"; fi
-          if [ "${{ steps.filter.outputs.contracts }}" = "true" ];    then add "./server/contracts-service"    "crowdvision-contracts"; fi
-          if [ "${{ steps.filter.outputs.client }}" = "true" ];       then add "./client"                      "crowdvision-client"; fi
-          if [ "${{ steps.filter.outputs.claims_gateway }}" = "true" ]; then add_repo_root "server/claims-gateway"   "crowdvision-claims-gateway"; fi
-          if [ "${{ steps.filter.outputs.tenancy }}" = "true" ];         then add_repo_root "server/tenancy-service" "crowdvision-tenancy"; fi
-          if [ "${{ steps.filter.outputs.registry }}" = "true" ];        then add_repo_root "server/registry-service" "crowdvision-registry"; fi
-          if [ "${{ steps.filter.outputs.provisioner }}" = "true" ];     then add_repo_root "server/provisioner"     "crowdvision-provisioner"; fi
+          # lang tells ci-docker.yml which build strategy to use: go/rust/node
+          # images inject a pre-built artifact from the matching CI job; python
+          # and client have no artifact-injection Dockerfile and build from
+          # their own real Dockerfile instead.
+          add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" --arg l "$3" '$a + [{context:$c, image:$i, lang:$l}]'); }
+
+          if [ "${{ steps.filter.outputs.agent }}" = "true" ]; then add "./server/agent-service" "crowdvision-agent" "python"; fi
+          if [ "${{ steps.filter.outputs.chat }}" = "true" ]; then add "./server/chat-service" "crowdvision-chat" "node"; fi
+          if [ "${{ steps.filter.outputs.claims_gateway }}" = "true" ]; then add "./server/claims-gateway"   "crowdvision-claims-gateway" "go"; fi
+          if [ "${{ steps.filter.outputs.contracts }}" = "true" ];    then add "./server/contracts-service"    "crowdvision-contracts" "rust"; fi
+          if [ "${{ steps.filter.outputs.notification }}" = "true" ]; then add "./server/notification-service" "crowdvision-notification" "node"; fi
+          if [ "${{ steps.filter.outputs.provisioner }}" = "true" ];     then add "./server/provisioner"     "crowdvision-provisioner" "go"; fi
+          if [ "${{ steps.filter.outputs.registry }}" = "true" ];        then add "./server/registry-service" "crowdvision-registry" "go"; fi
+          if [ "${{ steps.filter.outputs.sensor }}" = "true" ];       then add "./server/sensor-service"       "crowdvision-sensor" "node"; fi
+          if [ "${{ steps.filter.outputs.socket }}" = "true" ]; then add "./server/socket-service" "crowdvision-socket" "node"; fi
+          if [ "${{ steps.filter.outputs.tenancy }}" = "true" ];         then add "./server/tenancy-service" "crowdvision-tenancy" "go"; fi
+          if [ "${{ steps.filter.outputs.twin }}" = "true" ]; then add "./server/twin-service" "crowdvision-twin" "rust"; fi
+          if [ "${{ steps.filter.outputs.client }}" = "true" ];       then add "./client"                      "crowdvision-client" "client"; fi
+
           echo "matrix={\"include\":$inc}" >> "$GITHUB_OUTPUT"
-          if [ "$inc" = "[]" ]; then
-            echo "has_images=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_images=true" >> "$GITHUB_OUTPUT"
-          fi
-
-  chat:
-    needs: changes
-    if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/ci-chat.yml
-
-  agent:
-    needs: changes
-    if: needs.changes.outputs.agent == 'true'
-    uses: ./.github/workflows/ci-agent.yml
+          if [ "$inc" = "[]" ]; then echo "has_images=false" >> "$GITHUB_OUTPUT"; else echo "has_images=true" >> "$GITHUB_OUTPUT"; fi
 
   client:
     needs: changes
     if: needs.changes.outputs.client == 'true'
     uses: ./.github/workflows/ci-client.yml
 
-  contracts:
-    needs: changes
-    if: needs.changes.outputs.contracts == 'true'
-    uses: ./.github/workflows/ci-contracts.yml
-
-  notification:
-    needs: changes
-    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/ci-notification.yml
-
-  sensor:
-    needs: changes
-    if: needs.changes.outputs.sensor == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/ci-sensor.yml
-
-  socket:
-    needs: changes
-    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/ci-socket.yml
-
-  twin:
-    needs: changes
-    if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/ci-twin.yml
-
-  claims-gateway:
-    needs: changes
-    if: needs.changes.outputs.claims_gateway == 'true'
-    uses: ./.github/workflows/ci-claims-gateway.yml
-
-  tenancy-service:
-    needs: changes
-    if: needs.changes.outputs.tenancy == 'true'
-    uses: ./.github/workflows/ci-tenancy-service.yml
-
-  registry-service:
-    needs: changes
-    if: needs.changes.outputs.registry == 'true'
-    uses: ./.github/workflows/ci-registry-service.yml
-
-  provisioner:
-    needs: changes
-    if: needs.changes.outputs.provisioner == 'true'
-    uses: ./.github/workflows/ci-provisioner.yml
-
-  auth-policy:
-    needs: changes
-    if: needs.changes.outputs.auth_policy == 'true'
-    uses: ./.github/workflows/ci-auth-policy.yml
-
+  # Every service calls its language's CI template directly (rather than
+  # going through an intermediate discovery/matrix workflow) so each one gets
+  # its own PR status check and to avoid stacking reusable-workflow nesting.
   auth-contracts:
     needs: changes
     if: needs.changes.outputs.auth_contracts == 'true'
-    uses: ./.github/workflows/ci-auth-contracts.yml
+    uses: ./.github/workflows/templates/go/ci.yml
+    with:
+      service_key: auth-contracts
+      working_directory: server/auth-contracts
+      builds_binary: false
 
   auth-middleware:
     needs: changes
     # auth-middleware's go.mod replaces auth-contracts with a local path, so it
     # builds directly against auth-contracts' source and must re-run when it changes.
     if: needs.changes.outputs.auth_middleware == 'true' || needs.changes.outputs.auth_contracts == 'true'
-    uses: ./.github/workflows/ci-auth-middleware.yml
+    uses: ./.github/workflows/templates/go/ci.yml
+    with:
+      service_key: auth-middleware
+      working_directory: server/auth-middleware
+      builds_binary: false
+
+  auth-policy:
+    needs: changes
+    if: needs.changes.outputs.auth_policy == 'true'
+    uses: ./.github/workflows/templates/go/ci.yml
+    with:
+      service_key: auth-policy
+      working_directory: server/auth-policy
+      builds_binary: false
+
+  claims-gateway:
+    needs: changes
+    if: needs.changes.outputs.claims_gateway == 'true'
+    uses: ./.github/workflows/templates/go/ci.yml
+    with:
+      service_key: claims-gateway
+      working_directory: server/claims-gateway
+
+  provisioner:
+    needs: changes
+    if: needs.changes.outputs.provisioner == 'true'
+    uses: ./.github/workflows/templates/go/ci.yml
+    with:
+      service_key: provisioner
+      working_directory: server/provisioner
+
+  registry-service:
+    needs: changes
+    if: needs.changes.outputs.registry == 'true'
+    uses: ./.github/workflows/templates/go/ci.yml
+    with:
+      service_key: registry-service
+      working_directory: server/registry-service
+
+  tenancy-service:
+    needs: changes
+    if: needs.changes.outputs.tenancy == 'true'
+    uses: ./.github/workflows/templates/go/ci.yml
+    with:
+      service_key: tenancy-service
+      working_directory: server/tenancy-service
+
+  chat:
+    needs: changes
+    if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/templates/node/ci.yml
+    with:
+      service_key: chat
+      working_directory: server/chat-service
+
+  notification:
+    needs: changes
+    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/templates/node/ci.yml
+    with:
+      service_key: notification
+      working_directory: server/notification-service
+
+  sensor:
+    needs: changes
+    if: needs.changes.outputs.sensor == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/templates/node/ci.yml
+    with:
+      service_key: sensor
+      working_directory: server/sensor-service
+
+  socket:
+    needs: changes
+    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/templates/node/ci.yml
+    with:
+      service_key: socket
+      working_directory: server/socket-service
+
+  twin:
+    needs: changes
+    if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/templates/rust/ci.yml
+    with:
+      service_key: twin
+      working_directory: server/twin-service
+      needs_mongo: true
+
+  contracts:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    uses: ./.github/workflows/templates/rust/ci.yml
+    with:
+      service_key: contracts
+      working_directory: server/contracts-service
+      needs_mongo: false
+
+  agent:
+    needs: changes
+    if: needs.changes.outputs.agent == 'true'
+    uses: ./.github/workflows/templates/python/ci.yml
+    with:
+      service_key: agent
+      working_directory: server/agent-service
 
   docker:
-    needs: changes
+    needs:
+      - changes
+      - client
+      - auth-contracts
+      - auth-middleware
+      - auth-policy
+      - claims-gateway
+      - provisioner
+      - registry-service
+      - tenancy-service
+      - chat
+      - notification
+      - sensor
+      - socket
+      - twin
+      - contracts
+      - agent
     if: needs.changes.outputs.has_images == 'true'
     uses: ./.github/workflows/ci-docker.yml
     with:
@@ -275,21 +328,21 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - changes
-      - chat
-      - agent
       - client
-      - contracts
+      - auth-contracts
+      - auth-middleware
+      - auth-policy
+      - claims-gateway
+      - provisioner
+      - registry-service
+      - tenancy-service
+      - chat
       - notification
       - sensor
       - socket
       - twin
-      - claims-gateway
-      - tenancy-service
-      - registry-service
-      - provisioner
-      - auth-policy
-      - auth-contracts
-      - auth-middleware
+      - contracts
+      - agent
       - docker
       - k8s
       - workflows-lint

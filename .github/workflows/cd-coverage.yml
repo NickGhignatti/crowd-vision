@@ -24,7 +24,7 @@ jobs:
           - { key: sensor, dir: server/sensor-service }
           - { key: socket, dir: server/socket-service }
 
-    uses: ./.github/workflows/node/coverage-report.yml
+    uses: ./.github/workflows/templates/node/coverage-report.yml
     with:
       service_key: ${{ matrix.key }}
       working_directory: ${{ matrix.dir }}
@@ -45,7 +45,7 @@ jobs:
           - { key: twin, dir: server/twin-service, needs_mongo: true }
           - { key: contracts, dir: server/contracts-service, needs_mongo: false }
 
-    uses: ./.github/workflows/rust/coverage-report.yml
+    uses: ./.github/workflows/templates/rust/coverage-report.yml
     with:
       service_key: ${{ matrix.key }}
       working_directory: ${{ matrix.dir }}
@@ -61,10 +61,11 @@ jobs:
             - { key: auth-middleware, dir: server/auth-middleware }
             - { key: auth-policy, dir: server/auth-policy }
             - { key: claims-gateway, dir: server/claims-gateway }
-            - { key: provider, dir: server/provider }
+            - { key: provisioner, dir: server/provisioner }
             - { key: registry-service, dir: server/registry-service }
+            - { key: tenancy-service, dir: server/tenancy-service }
 
-      uses: ./.github/workflows/go/coverage-report.yml
+      uses: ./.github/workflows/templates/go/coverage-report.yml
       with:
         service_key: ${{ matrix.key }}
         working_directory: ${{ matrix.dir }}
