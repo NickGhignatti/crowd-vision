@@ -105,7 +105,7 @@ Each service has a dedicated reusable workflow that the gate calls when that ser
       - Go 1.25 / `go test`
     - - `ci-provisioner.yml`
       - `server/provisioner`
-      - Go 1.23 / `go test`
+      - Go 1.25 / `go test`
 
 The **Node services** (`chat`, `sensor`, `socket`, `notification`) share the same shape: `npm ci`, install the shared `tooling/eslint-config/`, lint, build, test with coverage, then audit. The **client** splits into a `quality` job (lint, type-check, audit), a `test` job that shards Vitest across three parallel runners, and a `coverage` job that runs the suite unsharded to produce a single coverage report. The **two Rust services** (`contracts-service`, `twin-service`) both run `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` before `cargo llvm-cov`, then a `rustsec/audit-check`; `twin-service`'s job additionally installs `mold` and spins up a real `mongo:7` service container, since its integration tests exercise MongoDB directly rather than mocking it. The **agent** runs `ruff check`, `ruff format --check`, and `pyright` in a `quality` job, with `pytest` (unit + integration, with `--cov`) in a separate `tests` job. The **four Go services** each run `go vet` (lint), `go build`, then `go test -coverprofile` — `actions/setup-go`'s `go-version-file` picks up each service's own pinned version (`provisioner` is still on Go 1.23, the other three on 1.25); none of them run an audit step yet (see the note below). Coverage reporting is detailed in the **Code coverage** section below.
 
@@ -130,11 +130,14 @@ Every service CI workflow now measures **code coverage** as part of its test run
     - - Node.js services + client
       - `jest --coverage` · `vitest run --coverage`
       - Istanbul `coverage-summary.json`
-    - - `contracts-service`, `twin-service`
+    - - Rust services
       - `cargo llvm-cov --json`
       - LLVM JSON
     - - `agent-service`
       - `pytest --cov`
+      - Cobertura `coverage.xml`
+    - - Go services
+      - `go test`
       - Cobertura `coverage.xml`
 
 The Node and Rust services write a coverage summary into the GitHub **job summary** (rendered from the report with `jq`); the agent surfaces its figures directly in the `pytest` log via `--cov-report=term-missing`.
