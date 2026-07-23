@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision user guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Using the Assistant</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="starting-a-chat" data-depth="2"><a href="#starting-a-chat">Starting a chat</a></li><li data-target-id="what-you-can-ask" data-depth="2"><a href="#what-you-can-ask">What you can ask</a></li><li data-target-id="what-it-will-not-answer" data-depth="2"><a href="#what-it-will-not-answer">What it will not answer</a></li><li data-target-id="tips-for-better-answers" data-depth="2"><a href="#tips-for-better-answers">Tips for better answers</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>User Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="getting-started" data-decorative="">Getting Started</h3><ul><li><a href="../registration">Account Registration</a></li><li><a href="../login">Login</a></li><li><a href="../sso-login">Enterprise Login (SSO)</a></li></ul><h3 id="using-the-platform" data-decorative="">Using the Platform</h3><ul><li><a href="../dashboard">Dashboard</a></li><li><a href="../building-table">Customizing the Data Table</a></li><li><a href="../sensors">Charts &amp; Simulator</a></li><li><a href="../twin">The Digital Twin</a></li><li><a href="../building-data">Upload a Digital Twin</a></li><li><a href="../domains">Domains</a></li><li><a href="../domain-admin">Domain Administration</a></li><li><a href="../assistant" aria-current="page">Using the Assistant</a></li></ul><h2 id="information" data-decorative="">Information</h2><ul><li><a href="../notifications">Notifications</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="starting-a-chat" data-depth="2"><a href="#starting-a-chat">Starting a chat</a></li><li data-target-id="what-you-can-ask" data-depth="2"><a href="#what-you-can-ask">What you can ask</a></li><li data-target-id="what-it-will-not-answer" data-depth="2"><a href="#what-it-will-not-answer">What it will not answer</a></li><li data-target-id="tips-for-better-answers" data-depth="2"><a href="#tips-for-better-answers">Tips for better answers</a></li></ol></nav></div><h1 id="using-the-assistant" data-decorative="">Using the Assistant</h1><p>The CrowdVision Assistant is a chat helper tucked into the corner of the app. Ask it questions in plain language about your buildings, your rooms, current occupancy, or how CrowdVision works, and it answers using your live data and the product documentation.</p><hr /><h2 id="starting-a-chat">Starting a chat</h2><p>Open the chat widget from its button in the corner of the screen, type your question, and send it. You must be logged in to send messages or access saved conversations. The assistant replies in the same window.</p><p>Your conversations are saved, so you can:</p><ul><li>Come back later and pick up where you left off.</li><li>Rename a conversation to find it again.</li><li>Delete a conversation you no longer need.</li><li>Start a new chat for a separate topic.</li></ul><p>A new conversation is automatically named after your first question, so your history stays easy to scan.</p><hr /><h2 id="what-you-can-ask">What you can ask</h2><table><thead><tr><th>Ask about</th><th>Example</th></tr></thead><tbody><tr><td>Live building and room state</td><td>&ldquo;Which rooms are the most crowded right now?&rdquo;</td></tr><tr><td>Occupancy versus capacity</td><td>&ldquo;How full is the main hall compared to its capacity?&rdquo;</td></tr><tr><td>How the platform works</td><td>&ldquo;How do I add a column to the dashboard table?&rdquo;</td></tr><tr><td>Concepts and features</td><td>&ldquo;What&rsquo;s the difference between a domain admin and staff?&rdquo;</td></tr></tbody></table><p>When the answer comes from the documentation, the assistant includes the sources it used, so you can check where the information came from.</p><hr /><h2 id="what-it-will-not-answer">What it will not answer</h2><p>The assistant is focused <strong>only</strong> on CrowdVision. If you ask it something outside that — general knowledge, maths, coding help, translation, or other unrelated requests — it should politely say it can only help with CrowdVision rather than answer. This is deliberate: it is an assistant for your buildings and the platform, not a general-purpose chatbot.</p><p>Two more things to expect:</p><ul><li><strong>It only sees what you can see.</strong> The assistant answers using the same buildings, rooms, and documents your account already has access to. It cannot reveal data from other organizations.</li><li><strong>It should say when it doesn&rsquo;t know.</strong> If it can&rsquo;t find an answer in the available data, it is instructed to say so instead of guessing. Verify important answers against the displayed sources and live dashboard data.</li></ul><hr /><h2 id="tips-for-better-answers">Tips for better answers</h2><ul><li>Be specific: name the building or room when you can.</li><li>Ask one thing at a time for the clearest reply.</li><li>If an answer looks off, rephrase — and use the cited sources to dig deeper.</li></ul><p>For the data behind these answers, see the <a href="../dashboard">Dashboard</a>.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

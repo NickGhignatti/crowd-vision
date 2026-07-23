@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Auth Policy</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="one-bundle-three-language-runtimes" data-depth="2"><a href="#one-bundle-three-language-runtimes">One bundle, three language runtimes</a></li><li data-target-id="_1-why-memberships-are-pre-expanded-before-cedar-ever-sees-them" data-depth="2"><a href="#_1-why-memberships-are-pre-expanded-before-cedar-ever-sees-them">1. Why memberships are pre-expanded before Cedar ever sees them</a></li><li data-target-id="_2-policycedar--five-actions-one-shape-of-rule" data-depth="2"><a href="#_2-policycedar--five-actions-one-shape-of-rule">2. policy.cedar — five actions, one shape of rule</a></li><li data-target-id="_3-the-go-api-surface" data-depth="2"><a href="#_3-the-go-api-surface">3. The Go API surface</a></li><li data-target-id="_4-the-golden-conformance-suite--identical-outcomes-not-identical-code" data-depth="2"><a href="#_4-the-golden-conformance-suite--identical-outcomes-not-identical-code">4. The golden conformance suite — identical outcomes, not identical code</a></li><li data-target-id="_5-distribution--no-package-manager-just-files" data-depth="2"><a href="#_5-distribution--no-package-manager-just-files">5. Distribution — no package manager, just files</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy" aria-current="page">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="one-bundle-three-language-runtimes" data-depth="2"><a href="#one-bundle-three-language-runtimes">One bundle, three language runtimes</a></li><li data-target-id="_1-why-memberships-are-pre-expanded-before-cedar-ever-sees-them" data-depth="2"><a href="#_1-why-memberships-are-pre-expanded-before-cedar-ever-sees-them">1. Why memberships are pre-expanded before Cedar ever sees them</a></li><li data-target-id="_2-policycedar--five-actions-one-shape-of-rule" data-depth="2"><a href="#_2-policycedar--five-actions-one-shape-of-rule">2. policy.cedar — five actions, one shape of rule</a></li><li data-target-id="_3-the-go-api-surface" data-depth="2"><a href="#_3-the-go-api-surface">3. The Go API surface</a></li><li data-target-id="_4-the-golden-conformance-suite--identical-outcomes-not-identical-code" data-depth="2"><a href="#_4-the-golden-conformance-suite--identical-outcomes-not-identical-code">4. The golden conformance suite — identical outcomes, not identical code</a></li><li data-target-id="_5-distribution--no-package-manager-just-files" data-depth="2"><a href="#_5-distribution--no-package-manager-just-files">5. Distribution — no package manager, just files</a></li></ol></nav></div><h1 id="auth-policy" data-decorative="">Auth Policy</h1><p><span class="codespan-content"><code>auth-policy</code></span> is CrowdVision&rsquo;s single Cedar authorization bundle — one schema, one set of rules, evaluated <strong>locally and embedded</strong> in every service that needs a tenant/role decision beyond the plain &ldquo;at least this powerful&rdquo; check <a href="../auth-contracts">Auth Contracts</a> already answers. There is no authorization network call on the data path: every language that needs a decision carries its own copy of the same policy text and evaluates it in-process.</p><hr /><h2 id="one-bundle-three-language-runtimes">One bundle, three language runtimes</h2><figure><pre class="mermaid">graph TD
+    subgraph &quot;server/auth-policy &mdash; source of truth&quot;
+        SCHEMA[&quot;schema.cedarschema&quot;]
+        POLICY[&quot;policy.cedar&quot;]
+        CONF[&quot;fixtures/conformance.json\ngolden test cases&quot;]
+    end
+    subgraph &quot;Go &mdash; this package&quot;
+        GOEMBED[&quot;policy.go\n//go:embed&quot;]
+        GOAPI[&quot;authz.go\nCanRead &middot; CanEdit &middot; CanManageDomain &middot; ...&quot;]
+    end
+    subgraph &quot;Rust &mdash; twin-service&quot;
+        RSEMBED[&quot;infra/authz.rs\ninclude_str! macro, relative path&quot;]
+    end
+    subgraph &quot;Python &mdash; agent-service&quot;
+        PYEMBED[&quot;cedar_authz.py\nreads the files directly at import time&quot;]
+    end
+
+    SCHEMA --&gt; GOEMBED
+    POLICY --&gt; GOEMBED
+    SCHEMA -.-&gt;|&quot;relative path, compile-time&quot;| RSEMBED
+    POLICY -.-&gt;|&quot;relative path, compile-time&quot;| RSEMBED
+    SCHEMA -.-&gt;|&quot;relative path, runtime&quot;| PYEMBED
+    POLICY -.-&gt;|&quot;relative path, runtime&quot;| PYEMBED
+    CONF -.-&gt;|&quot;same cases, same expected outcome&quot;| GOAPI
+    CONF -.-&gt;|&quot;same cases, same expected outcome&quot;| RSEMBED
+    CONF -.-&gt;|&quot;same cases, same expected outcome&quot;| PYEMBED</pre></figure><p>Go consumes this as a real module dependency (<span class="codespan-content"><code>go.mod</code></span>). Rust and Python don&rsquo;t — there&rsquo;s no package registry spanning Go modules, Cargo crates, and Python packages, so <span class="codespan-content"><code>twin-service</code></span> and <span class="codespan-content"><code>agent-service</code></span> instead read <span class="codespan-content"><code>policy.cedar</code></span>/<span class="codespan-content"><code>schema.cedarschema</code></span> directly off disk by relative path, at compile time (Rust&rsquo;s <span class="codespan-content"><code>include_str!</code></span>) or process start (Python&rsquo;s <span class="codespan-content"><code>Path.read_text()</code></span>). It&rsquo;s a plain-text file; there was nothing to gain from inventing a distribution mechanism for three ecosystems just to move it.</p><hr /><h2 id="_1-why-memberships-are-pre-expanded-before-cedar-ever-sees-them">1. Why memberships are pre-expanded before Cedar ever sees them</h2><p><strong>File:</strong> <span class="codespan-content"><code>schema.cedarschema</code></span></p><pre><code class="language-text">// Cedar's `.contains()` can't do role-weight comparison natively, so the
+// weight math happens in each service BEFORE calling Cedar: every membership
+// is expanded into which role tiers it qualifies for in that domain, and
+// those flat per-tier domain sets are what the Account entity actually
+// carries. Cedar's own job is only the containment/comparison check &mdash; the
+// tier thresholds themselves are policy.cedar's, not each service's.
+entity Account = {
+  domainsAsStandardCustomer: Set&lt;String&gt;,
+  domainsAsBusinessStaff: Set&lt;String&gt;,
+  domainsAsBusinessAdmin: Set&lt;String&gt;,
+  domainsAsAdmin: Set&lt;String&gt;,
+  maxRoleWeight: Long,
+};
+
+entity Resource = {
+  domain: String,
+};</code></pre><p>Cedar entities carry attributes, not behaviour — there&rsquo;s no way to ask a policy &ldquo;is this role&rsquo;s weight ≥ that role&rsquo;s weight&rdquo; inline. So the weight comparison happens once, in code, before the request ever reaches Cedar: a caller&rsquo;s memberships are walked once and expanded into four flat domain sets, one per tier they qualify for. Go&rsquo;s version of that expansion:</p><pre><code class="language-go">// Pre-expands raw memberships into the flat per-tier domain
+// sets and max role weight policy.cedar reads.
+func accountEntity(memberships []authcontracts.Membership) cedar.Entity {
+	var standardCustomer, businessStaff, businessAdmin, admin []cedar.Value
+	maxWeight := 0
+	for _, m := range memberships {
+		weight, ok := authcontracts.RoleWeights[m.Role]
+		if !ok {
+			continue
+		}
+		if weight &gt; maxWeight {
+			maxWeight = weight
+		}
+		domain := cedar.String(m.Domain)
+		standardCustomer = append(standardCustomer, domain)
+		if weight &gt;= authcontracts.RoleWeights[&quot;business_staff&quot;] {
+			businessStaff = append(businessStaff, domain)
+		}
+		// ...same pattern for business_admin, admin
+	}
+	return cedar.Entity{
+		UID: cedar.NewEntityUID(&quot;Account&quot;, &quot;caller&quot;),
+		Attributes: cedar.NewRecord(cedar.RecordMap{
+			&quot;domainsAsStandardCustomer&quot;: cedar.NewSet(standardCustomer...),
+			&quot;domainsAsBusinessStaff&quot;:    cedar.NewSet(businessStaff...),
+			&quot;maxRoleWeight&quot;:             cedar.Long(maxWeight),
+			// ...
+		}),
+	}
+}</code></pre><p><span class="codespan-content"><code>domainsAsStandardCustomer</code></span> ends up holding <em>every</em> domain the caller belongs to, regardless of role — &ldquo;standard customer&rdquo; here means &ldquo;any role at all,&rdquo; the floor of the ladder. A <span class="codespan-content"><code>business_admin</code></span> in a domain appears in all four sets simultaneously; the policy picks whichever set matches the privilege the action requires.</p><p>Every language does its own version of this expansion against <a href="../auth-contracts">Auth Contracts</a>&rsquo; <span class="codespan-content"><code>RoleWeights</code></span> — Go&rsquo;s is <span class="codespan-content"><code>accountEntity</code></span> above; <span class="codespan-content"><code>agent-service</code></span>&rsquo;s Python only ever populates <span class="codespan-content"><code>domainsAsStandardCustomer</code></span> and <span class="codespan-content"><code>maxRoleWeight</code></span>, because its <span class="codespan-content"><code>AuthUser</code></span> has always kept roles and domains as two unpaired lists (a real fact about that service, not a bug — see <a href="../architecture/agent-architecture.qd)">Agent Service Architecture</a>.</p><hr /><h2 id="_2-policycedar--five-actions-one-shape-of-rule">2. <span class="codespan-content"><code>policy.cedar</code></span> — five actions, one shape of rule</h2><p><strong>File:</strong> <span class="codespan-content"><code>policy.cedar</code></span></p><pre><code class="language-text">// Set membership uses `.contains()`, not `in` &mdash; Cedar's `in` operator is
+// entity-hierarchy membership (is this entity a descendant of that one), not
+// a general &quot;is this value in this set&quot; test.
+
+// Read: plain domain membership, any role. Matches twin-service's
+// isMemberOf &mdash; deliberately NO admin bypass here.
+permit(principal, action == Action::&quot;Read&quot;, resource)
+when { principal.domainsAsStandardCustomer.contains(resource.domain) };
+
+// ReadWithAdminBypass: domain membership, OR a global admin role anywhere.
+// Matches agent-service's can_access_domain (the twin RAG tool).
+permit(principal, action == Action::&quot;ReadWithAdminBypass&quot;, resource)
+when {
+  principal.domainsAsStandardCustomer.contains(resource.domain) ||
+  principal.maxRoleWeight &gt;= 100
+};
+
+// Edit: business_staff role or higher in the resource's domain. Matches
+// twin-service's geometry-mutating routes (move/resize/add/delete rooms).
+permit(principal, action == Action::&quot;Edit&quot;, resource)
+when { principal.domainsAsBusinessStaff.contains(resource.domain) };
+
+// ManageDomain: business_admin role or higher. Matches tenancy-service's
+// invite/createSubdomain/createInviteCode, and removing a member other than
+// yourself (self-removal is checked before Cedar is even called).
+permit(principal, action == Action::&quot;ManageDomain&quot;, resource)
+when { principal.domainsAsBusinessAdmin.contains(resource.domain) };
+
+// ModelOverride: a global role-weight gate. The required tier is
+// operator-configurable, so it's compared against context, not a literal.
+permit(principal, action == Action::&quot;ModelOverride&quot;, resource)
+when { principal.maxRoleWeight &gt;= context.requiredWeight };</code></pre><p>Every rule reduces to the same shape — a set-containment or weight-comparison test against pre-expanded attributes — which is what makes evaluating this identically across three unrelated Cedar bindings (<span class="codespan-content"><code>cedar-go</code></span>, Cedar&rsquo;s Rust engine, <span class="codespan-content"><code>cedarpy</code></span>) actually work: none of them need language-specific policy logic, only a language-specific way to build the same two entities and call the same engine.</p><div class="box note"><header><h4>The set-membership vs entity-hierarchy gotcha is written into the policy file itself</h4></header><div class="box-content"><p><span class="codespan-content"><code>resource.domain in principal.domainsAsStandardCustomer</code></span> reads as correct and silently denies every request — Cedar&rsquo;s <span class="codespan-content"><code>in</code></span> tests entity-hierarchy descent, not set membership. This is exactly the mistake <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a> documents as a real gotcha hit during development; the comment at the top of <span class="codespan-content"><code>policy.cedar</code></span> exists so the next person editing this file sees the warning before they can repeat it, not after.</p></div></div><hr /><h2 id="_3-the-go-api-surface">3. The Go API surface</h2><p><strong>File:</strong> <span class="codespan-content"><code>authz.go</code></span></p><pre><code class="language-go">func CanRead(memberships []authcontracts.Membership, domain string) bool {
+	return authorize(memberships, &quot;Read&quot;, domain, nil)
+}
+func CanReadWithAdminBypass(memberships []authcontracts.Membership, domain string) bool {
+	return authorize(memberships, &quot;ReadWithAdminBypass&quot;, domain, nil)
+}
+func CanEdit(memberships []authcontracts.Membership, domain string) bool {
+	return authorize(memberships, &quot;Edit&quot;, domain, nil)
+}
+func CanManageDomain(memberships []authcontracts.Membership, domain string) bool {
+	return authorize(memberships, &quot;ManageDomain&quot;, domain, nil)
+}
+
+// CanOverrideModelWeight is a GLOBAL role-weight gate &mdash; no Go service
+// currently needs this, but it's exposed so the golden conformance suite
+// can verify this action decides identically in every language, not just
+// the ones with a real caller yet.
+func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeight int64) bool {
+	return authorize(memberships, &quot;ModelOverride&quot;, &quot;&quot;, cedar.RecordMap{
+		&quot;requiredWeight&quot;: cedar.Long(requiredWeight),
+	})
+}</code></pre><p><span class="codespan-content"><code>CanOverrideModelWeight</code></span> is the one exported function with no real Go caller today — <span class="codespan-content"><code>agent-service</code></span>&rsquo;s Python is the only language that actually gates a model override. It stays in the Go API anyway, purely so the conformance suite below can prove the <em>rule itself</em> behaves identically everywhere, ahead of any Go service needing it.</p><hr /><h2 id="_4-the-golden-conformance-suite--identical-outcomes-not-identical-code">4. The golden conformance suite — identical outcomes, not identical code</h2><p><strong>Files:</strong> <span class="codespan-content"><code>fixtures/conformance.json</code></span>, <span class="codespan-content"><code>conformance_test.go</code></span> (Go) — with equivalent runners in <span class="codespan-content"><code>twin-service/tests/cedar_conformance.rs</code></span> and <span class="codespan-content"><code>agent-service/tests/unit/test_cedar_conformance.py</code></span>.</p><pre><code class="language-json">{
+  &quot;description&quot;: &quot;Golden authorization cases run through the real Cedar engine in every language that embeds server/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy).&quot;,
+  &quot;cases&quot;: [
+    { &quot;name&quot;: &quot;read: member of the domain, any role, is allowed&quot;,
+      &quot;memberships&quot;: [{ &quot;domain&quot;: &quot;eng&quot;, &quot;role&quot;: &quot;standard_customer&quot; }],
+      &quot;action&quot;: &quot;Read&quot;, &quot;domain&quot;: &quot;eng&quot;, &quot;expected&quot;: &quot;allow&quot; },
+    { &quot;name&quot;: &quot;read: not a member of the domain is denied&quot;,
+      &quot;memberships&quot;: [{ &quot;domain&quot;: &quot;other&quot;, &quot;role&quot;: &quot;admin&quot; }],
+      &quot;action&quot;: &quot;Read&quot;, &quot;domain&quot;: &quot;eng&quot;, &quot;expected&quot;: &quot;deny&quot; }
+  ]
+}</code></pre><p>Go&rsquo;s runner is a thin table-driven dispatch over the shared fixture — it doesn&rsquo;t hand-write test cases, it replays the same ones every other language replays:</p><pre><code class="language-go">func TestConformance(t *testing.T) {
+	f := loadFixture(t, &quot;fixtures/conformance.json&quot;)
+	for _, tc := range f.Cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			var got bool
+			switch tc.Action {
+			case &quot;Read&quot;:
+				got = authpolicy.CanRead(tc.Memberships, tc.Domain)
+			case &quot;ReadWithAdminBypass&quot;:
+				got = authpolicy.CanReadWithAdminBypass(tc.Memberships, tc.Domain)
+			// ...one case per action
+			}
+			if want := tc.Expected == &quot;allow&quot;; got != want {
+				t.Errorf(&quot;%s: got allow=%v, want allow=%v&quot;, tc.Name, got, want)
+			}
+		})
+	}
+}</code></pre><p>This is the guarantee that justifies having one shared policy bundle at all rather than three independent reimplementations of &ldquo;who can do what&rdquo;: a rule change to <span class="codespan-content"><code>policy.cedar</code></span> is tested once, in fixture form, and every language&rsquo;s CI proves its own engine binding produces the same decision — a Rust-only or Python-only regression in how entities are built would fail here, not in production.</p><hr /><h2 id="_5-distribution--no-package-manager-just-files">5. Distribution — no package manager, just files</h2><p>Unlike <a href="../auth-contracts">Auth Contracts</a> and <a href="../auth-middleware">Auth Middleware</a>, which are real Go modules with <span class="codespan-content"><code>go.mod</code></span> dependency edges, <span class="codespan-content"><code>auth-policy</code></span>&rsquo;s cross-language reach works because Cedar&rsquo;s own inputs — a schema, a policy file, a JSON fixture — are plain text. <span class="codespan-content"><code>twin-service</code></span> bakes them into its binary at compile time (<span class="codespan-content"><code>include_str!</code></span>, so a missing file is a build failure, not a runtime one); <span class="codespan-content"><code>agent-service</code></span> reads them once at process start and keeps <span class="codespan-content"><code>_POLICY</code></span>/<span class="codespan-content"><code>_SCHEMA</code></span> as module-level constants. Neither needed a real package dependency, a registry, or a build step of its own — the relative path from <span class="codespan-content"><code>server/&lt;service&gt;</code></span> back to <span class="codespan-content"><code>server/auth-policy</code></span> is stable because both live in the same monorepo.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

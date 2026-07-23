@@ -1,0 +1,101 @@
+openapi: 3.1.0
+info:
+  title: Common Error Responses
+  version: 1.0.0
+  description: Shared error contracts for Crowd Vision microservices.
+
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - type
+        - code
+        - message
+      properties:
+        type:
+          type: string
+          description: The category or domain of the error (e.g., 'AuthenticationError', 'ValidationError').
+        code:
+          type: string
+          description: A specific, machine-readable error code to be parsed by the client.
+        message:
+          type: string
+          description: A human-readable message describing the exact issue.
+
+  responses:
+    BadRequest:
+      description: "Bad Request (400) - Missing fields, validation errors, or missing request bodies."
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            generalError:
+              summary: General Bad Request
+              value:
+                type: "ValidationError"
+                code: "BAD_REQUEST"
+                message: "Raw request body unavailable for signature verification"
+
+    Unauthorized:
+      description: "Unauthorized (401) - Authentication failed, or token is missing/expired."
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missingToken:
+              summary: Missing Token
+              value:
+                type: "AuthenticationError"
+                code: "MISSING_TOKEN"
+                message: "Authentication token missing"
+            invalidToken:
+              summary: Invalid Token
+              value:
+                type: "AuthenticationError"
+                code: "INVALID_TOKEN"
+                message: "Invalid or expired token"
+
+    Forbidden:
+      description: "Forbidden (403) - The client lacks required permissions or signature."
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalidSignature:
+              summary: Invalid HMAC Signature
+              value:
+                type: "AuthorizationError"
+                code: "INVALID_SIGNATURE"
+                message: "Forbidden: Invalid signature"
+
+    NotFound:
+      description: "Not Found (404) - The requested resource does not exist."
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            buildingNotFound:
+              summary: Buildings Not Found
+              value:
+                type: "ResourceNotFoundError"
+                code: "NOT_FOUND"
+                message: "Buildings with ID {id} not found"
+
+    InternalServerError:
+      description: "Internal Server Error (500) - An unexpected condition was encountered on the server."
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            serverConfigError:
+              summary: Missing Admin Secret
+              value:
+                type: "ServerError"
+                code: "INTERNAL_ERROR"
+                message: "Server configuration error"

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Tenancy Service</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="domain-and-membership-management" data-depth="2"><a href="#domain-and-membership-management">Domain And Membership Management</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="the-accountdeleted-consumer" data-depth="2"><a href="#the-accountdeleted-consumer">The account.deleted Consumer</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service" aria-current="page">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="domain-and-membership-management" data-depth="2"><a href="#domain-and-membership-management">Domain And Membership Management</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="the-accountdeleted-consumer" data-depth="2"><a href="#the-accountdeleted-consumer">The account.deleted Consumer</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li></ol></nav></div><h1 id="tenancy-service" data-decorative="">Tenancy Service</h1><p>Implementation reference for <span class="codespan-content"><code>tenancy-service</code></span>. For its architectural role, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>; for the domain model, see <a href="../identity-access">Identity &amp; Access Context</a>.</p><p><span class="codespan-content"><code>tenancy-service</code></span> owns everything about domains and memberships: who belongs to which organization, with what role, and how they got there — self-service join, invite code, or direct provisioning. It never touches Keycloak and never mints a token; <a href="../claims-gateway"><span class="codespan-content"><code>claims-gateway</code></span></a> is the only caller that turns what this service knows into a signed <span class="codespan-content"><code>StandardClaims</code></span> token.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/tenancy/main.go</code></span></td><td>Wires Postgres, the optional Redis consumer, and the HTTP router together.</td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td>All 14 routes: end-user domain/membership operations plus the <span class="codespan-content"><code>/internal/*</code></span> routes other services call.</td></tr><tr><td><span class="codespan-content"><code>internal/api/internalauth.go</code></span></td><td>HMAC-SHA256 signature check guarding the <span class="codespan-content"><code>/internal/*</code></span> routes.</td></tr><tr><td><span class="codespan-content"><code>internal/service/tenancy.go</code></span></td><td>Domain creation, subdomains, invite codes, join/leave — the actual business rules.</td></tr><tr><td><span class="codespan-content"><code>internal/store/</code></span> (<span class="codespan-content"><code>store.go</code></span>, <span class="codespan-content"><code>postgres.go</code></span>)</td><td>The <span class="codespan-content"><code>Domain</code></span>/<span class="codespan-content"><code>Membership</code></span>/<span class="codespan-content"><code>InviteCode</code></span> structs and their Postgres persistence.</td></tr><tr><td><span class="codespan-content"><code>internal/events/account_deleted.go</code></span></td><td>A Redis Streams consumer that reaps memberships when an account is deleted elsewhere.</td></tr><tr><td><span class="codespan-content"><code>migrations/</code></span></td><td><span class="codespan-content"><code>0001_init</code></span> (domains, memberships), <span class="codespan-content"><code>0002_subdomains</code></span> (parent hierarchy), <span class="codespan-content"><code>0003_invite_codes</code></span>, <span class="codespan-content"><code>0004_public_domains</code></span>.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
+    subgraph &quot;End-user routes &mdash; RequireMeshClaims&quot;
+        H1[&quot;GET/POST /domains&quot;]
+        H2[&quot;POST /domains/:d/join&quot;]
+        H3[&quot;POST /domains/:d/invite&quot;]
+        H4[&quot;DELETE /domains/:d/members/:id&quot;]
+        H5[&quot;POST /domains/:d/subdomains&quot;]
+        H6[&quot;POST /domains/:d/invite-codes&quot;]
+        H7[&quot;POST /invite-codes/:code/redeem&quot;]
+    end
+    subgraph &quot;Internal routes &mdash; HMAC X-Signature&quot;
+        I1[&quot;GET /internal/memberships&quot;]
+        I2[&quot;POST /internal/provision&quot;]
+        I3[&quot;POST /internal/domains&quot;]
+    end
+    SVC[&quot;internal/service/tenancy.go&quot;]
+    STORE[&quot;internal/store\nDomain, Membership, InviteCode&quot;]
+    H1 --&gt; SVC
+    H2 --&gt; SVC
+    H3 --&gt;|&quot;CanManageDomain check&quot;| SVC
+    H4 --&gt;|&quot;self, or CanManageDomain&quot;| SVC
+    H5 --&gt;|&quot;CanManageDomain check&quot;| SVC
+    H6 --&gt;|&quot;CanManageDomain check&quot;| SVC
+    H7 --&gt; SVC
+    I1 --&gt; SVC
+    I2 --&gt; SVC
+    I3 --&gt; SVC
+    SVC --&gt; STORE
+    REDIS[&quot;events/account_deleted.go\nRedis Streams consumer&quot;] --&gt; SVC</pre></figure><hr /><h2 id="data-model">Data Model</h2><p><strong>File:</strong> <span class="codespan-content"><code>migrations/0001_init.up.sql</code></span>, <span class="codespan-content"><code>0002_subdomains.up.sql</code></span>, <span class="codespan-content"><code>0003_invite_codes.up.sql</code></span>, <span class="codespan-content"><code>0004_public_domains.up.sql</code></span></p><pre><code class="language-sql">create table domains (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null unique,
+  display_name text not null,
+  join_policy  text not null default 'invite-only'
+               check (join_policy in ('open-via-idp', 'invite-only')),
+  parent_id    uuid references domains(id) on delete cascade,
+  is_public    boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+
+create table memberships (
+  account_id  uuid not null,   -- Keycloak subject; not foreign-keyed, Keycloak owns the account
+  domain_id   uuid not null references domains(id) on delete cascade,
+  role        text not null,
+  external_id text,
+  joined_via  text not null default 'invite'
+              check (joined_via in ('self-idp', 'invite', 'local')),
+  primary key (account_id, domain_id)
+);
+
+create table invite_codes (
+  id          uuid primary key default gen_random_uuid(),
+  domain_id   uuid not null references domains(id) on delete cascade,
+  code        text not null unique,   -- 32 hex chars
+  role        text not null,
+  created_by  uuid not null,
+  expires_at  timestamptz not null,
+  redeemed_by uuid,
+  redeemed_at timestamptz
+);</code></pre><p><span class="codespan-content"><code>account_id</code></span> is deliberately not a foreign key — the account itself lives in Keycloak, outside this service&rsquo;s database, so there is nothing local to reference. <span class="codespan-content"><code>parent_id</code></span> on <span class="codespan-content"><code>domains</code></span> is what lets a domain express a subdomain hierarchy; <span class="codespan-content"><code>joined_via</code></span> records how a membership was created (self-service through a federated identity provider, an invite code, or provisioned directly), which is display/audit information rather than something any rule branches on today.</p><hr /><h2 id="domain-and-membership-management">Domain And Membership Management</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/service/tenancy.go</code></span></p><p><strong>Invite codes</strong> are single-use and time-limited. Redemption has to be atomic — two people racing to redeem the same code must not both succeed — so the check-and-mark happens in one SQL statement rather than a read-then-write:</p><pre><code class="language-sql">-- File: internal/store/postgres.go
+with redeemed as (
+  update invite_codes
+  set redeemed_by = $2, redeemed_at = now()
+  where code = $1 and redeemed_by is null and expires_at &gt; now()
+  returning id, domain_id, role, created_by, expires_at
+)
+select ... from redeemed join domains d on d.id = redeemed.domain_id</code></pre><p>Only the caller whose <span class="codespan-content"><code>UPDATE</code></span> actually matches a row (unredeemed, unexpired) gets a result back; every other concurrent redeemer sees zero rows and is told the code is invalid — Postgres&rsquo;s own row-level locking does the race-safety, not application logic.</p><p><strong>Leaving a domain</strong> treats self-removal and removing someone else as genuinely different operations — one is an identity check, the other is a policy decision:</p><pre><code class="language-go">// File: internal/api/handler.go
+func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
+	claims, _ := authmiddleware.FromContext(r.Context())
+	domain := chi.URLParam(r, &quot;domain&quot;)
+	target := chi.URLParam(r, &quot;accountId&quot;)
+
+	// Anyone may remove themselves &mdash; checked before Cedar since it's an
+	// identity comparison, not a policy decision; removing someone else
+	// needs domain admin.
+	if target != claims.Sub &amp;&amp; !authpolicy.CanManageDomain(claims.Memberships, domain) {
+		http.Error(w, &quot;forbidden&quot;, http.StatusForbidden)
+		return
+	}
+	// ...
+}</code></pre><p>And the service layer separately guards against a domain being left with no administrator at all — using <a href="../auth-contracts">Auth Contracts</a>&rsquo; plain <span class="codespan-content"><code>Can()</code></span> weight comparison, since this is a domain-internal invariant, not a Cedar authorization decision:</p><pre><code class="language-go">// File: internal/service/tenancy.go
+admins, targetIsAdmin := 0, false
+for _, m := range members {
+	if authcontracts.Can(m.Role, &quot;business_admin&quot;) {
+		admins++
+		if m.AccountID == accountID {
+			targetIsAdmin = true
+		}
+	}
+}
+if targetIsAdmin &amp;&amp; admins &lt;= 1 {
+	return ErrLastAdminCannotLeave
+}</code></pre><p>This is the one place in the platform where <span class="codespan-content"><code>Can()</code></span> (a plain role-weight comparison) and <span class="codespan-content"><code>CanManageDomain</code></span> (a Cedar authorization decision) both apply to the same operation, deliberately for different questions: Cedar decides <em>whether this caller may remove that member</em>; the weight check decides <em>whether removing them would leave the domain administratorless</em>, which has nothing to do with who&rsquo;s asking.</p><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /health</code></span></td><td>Public</td><td>Liveness probe.</td></tr><tr><td><span class="codespan-content"><code>GET /domains</code></span></td><td>Mesh claims</td><td>Lists domains with <span class="codespan-content"><code>is_public = true</code></span>, with member counts, for a &ldquo;browse organizations&rdquo; UI.</td></tr><tr><td><span class="codespan-content"><code>POST /domains</code></span></td><td>Mesh claims</td><td>Creates a root domain; the creator is auto-joined as <span class="codespan-content"><code>business_admin</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /me/memberships</code></span></td><td>Mesh claims</td><td>The caller&rsquo;s own domain memberships.</td></tr><tr><td><span class="codespan-content"><code>POST /domains/:domain/join</code></span></td><td>Mesh claims</td><td>Self-service join — only succeeds if the domain&rsquo;s <span class="codespan-content"><code>join_policy</code></span> is <span class="codespan-content"><code>open-via-idp</code></span>; <span class="codespan-content"><code>403</code></span> otherwise.</td></tr><tr><td><span class="codespan-content"><code>POST /domains/:domain/invite</code></span></td><td>Mesh claims + <span class="codespan-content"><code>CanManageDomain</code></span></td><td>Adds a known account directly, bypassing invite codes.</td></tr><tr><td><span class="codespan-content"><code>DELETE /domains/:domain/members/:accountId</code></span></td><td>Mesh claims (self, or + <span class="codespan-content"><code>CanManageDomain</code></span>)</td><td>Removes a membership; <span class="codespan-content"><code>409</code></span> if it would leave the domain without an admin.</td></tr><tr><td><span class="codespan-content"><code>GET /domains/:domain/subdomains</code></span></td><td>Mesh claims</td><td>Direct children only, not the full subtree.</td></tr><tr><td><span class="codespan-content"><code>POST /domains/:domain/subdomains</code></span></td><td>Mesh claims + <span class="codespan-content"><code>CanManageDomain</code></span></td><td>Creates a child domain under the caller&rsquo;s own domain.</td></tr><tr><td><span class="codespan-content"><code>POST /domains/:domain/invite-codes</code></span></td><td>Mesh claims + <span class="codespan-content"><code>CanManageDomain</code></span></td><td>Generates a 32-character code with a 7-day default TTL.</td></tr><tr><td><span class="codespan-content"><code>POST /invite-codes/:code/redeem</code></span></td><td>Mesh claims</td><td>Atomically joins the caller to the code&rsquo;s domain — see <em>Domain And Membership Management</em> above.</td></tr><tr><td><span class="codespan-content"><code>GET /internal/memberships?accountId=</code></span></td><td>HMAC <span class="codespan-content"><code>X-Signature</code></span></td><td>Called by <span class="codespan-content"><code>claims-gateway</code></span> on every login to build a token&rsquo;s <span class="codespan-content"><code>memberships</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /internal/provision</code></span></td><td>HMAC <span class="codespan-content"><code>X-Signature</code></span></td><td>Called by <span class="codespan-content"><code>claims-gateway</code></span> on first login and by <span class="codespan-content"><code>provisioner</code></span> when a new organization is created.</td></tr><tr><td><span class="codespan-content"><code>POST /internal/domains</code></span></td><td>HMAC <span class="codespan-content"><code>X-Signature</code></span></td><td>Called by <span class="codespan-content"><code>provisioner</code></span> to create the domain backing a newly-signed-up organization.</td></tr></tbody></table><hr /><h2 id="the-accountdeleted-consumer">The <span class="codespan-content"><code>account.deleted</code></span> Consumer</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/events/account_deleted.go</code></span></p><p>Because <span class="codespan-content"><code>memberships.account_id</code></span> isn&rsquo;t a foreign key (the account itself lives in Keycloak), tenancy-service can&rsquo;t rely on a database cascade to clean up when an account is deleted — it listens for the fact on a Redis Stream instead:</p><pre><code class="language-go">func (c *Consumer) Run(ctx context.Context) {
+	for {
+		res, err := c.rdb.XReadGroup(ctx, &amp;redis.XReadGroupArgs{
+			Group: Group, Consumer: c.name,
+			Streams: []string{Stream, &quot;&gt;&quot;}, Count: 32, Block: 5 * time.Second,
+		}).Result()
+		// ...
+		for _, msg := range messages {
+			accountID := msg.Values[&quot;accountId&quot;].(string)
+			if err := svc.ReapAccount(ctx, accountID); err != nil {
+				log.Printf(&quot;events: reap failed for %q, will redeliver: %v&quot;, accountID, err)
+				continue // not acked &mdash; Redis redelivers it
+			}
+			c.rdb.XAck(ctx, Stream, Group, msg.ID)
+		}
+	}
+}</code></pre><p>Using a consumer group (rather than a plain subscription) means a failed reap is never silently lost: the message stays pending until <span class="codespan-content"><code>XAck</code></span> succeeds, and a crashed instance&rsquo;s unacked messages become claimable by another. This consumer is fully implemented and correct — but as documented in <a href="../data-flow">Communication &amp; Data Flow</a>, no component in the codebase currently publishes to the <span class="codespan-content"><code>account.deleted</code></span> stream, so in practice a deleted Keycloak account&rsquo;s memberships are never actually reaped yet. That gap is tracked in <span class="codespan-content"><code>Kubeet/claude/issues/issues.md</code></span>, not here.</p><p><span class="codespan-content"><code>REDIS_URL</code></span> is optional: if it&rsquo;s unset, the service simply never starts this consumer — every other route works normally, since nothing else in the service depends on it.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td>required</td><td>Postgres connection string.</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret for <span class="codespan-content"><code>/internal/*</code></span> routes — shared with <span class="codespan-content"><code>claims-gateway</code></span>.</td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td>optional</td><td>If unset, the <span class="codespan-content"><code>account.deleted</code></span> consumer never starts; every other route is unaffected.</td></tr><tr><td><span class="codespan-content"><code>ADDR</code></span></td><td><span class="codespan-content"><code>:3000</code></span></td><td>HTTP listen address.</td></tr></tbody></table><p><span class="codespan-content"><code>tenancy-service</code></span> makes no outbound HTTP calls to any other service — it only talks to Postgres and, optionally, Redis. Every cross-service interaction is inbound: other services call <em>it</em>, either as an authenticated end user (via the mesh) or as a trusted internal caller (via HMAC).</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

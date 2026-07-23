@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Auth Contracts</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="who-imports-this" data-depth="2"><a href="#who-imports-this">Who imports this</a></li><li data-target-id="_1-standardclaims--the-one-shape-every-service-verifies" data-depth="2"><a href="#_1-standardclaims--the-one-shape-every-service-verifies">1. StandardClaims — the one shape every service verifies</a></li><li data-target-id="_2-the-role-ladder--rolesjson-and-can" data-depth="2"><a href="#_2-the-role-ladder--rolesjson-and-can">2. The role ladder — roles.json and Can()</a></li><li data-target-id="_3-the-conformance-fixture--a-drift-detector-for-the-shape-itself" data-depth="2"><a href="#_3-the-conformance-fixture--a-drift-detector-for-the-shape-itself">3. The conformance fixture — a drift detector for the shape itself</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts" aria-current="page">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="who-imports-this" data-depth="2"><a href="#who-imports-this">Who imports this</a></li><li data-target-id="_1-standardclaims--the-one-shape-every-service-verifies" data-depth="2"><a href="#_1-standardclaims--the-one-shape-every-service-verifies">1. StandardClaims — the one shape every service verifies</a></li><li data-target-id="_2-the-role-ladder--rolesjson-and-can" data-depth="2"><a href="#_2-the-role-ladder--rolesjson-and-can">2. The role ladder — roles.json and Can()</a></li><li data-target-id="_3-the-conformance-fixture--a-drift-detector-for-the-shape-itself" data-depth="2"><a href="#_3-the-conformance-fixture--a-drift-detector-for-the-shape-itself">3. The conformance fixture — a drift detector for the shape itself</a></li></ol></nav></div><h1 id="auth-contracts" data-decorative="">Auth Contracts</h1><p><span class="codespan-content"><code>auth-contracts</code></span> is the frozen shape of the identity token every Go service trusts, plus the one role-weight comparison every domain-scoped check reduces to. It has <strong>zero external dependencies</strong> — that&rsquo;s deliberate. Its whole reason to exist is to be imported by code that does very different jobs — <span class="codespan-content"><code>claims-gateway</code></span>, which signs the token; <span class="codespan-content"><code>auth-middleware</code></span>, which verifies it; and <span class="codespan-content"><code>auth-policy</code></span> and <span class="codespan-content"><code>tenancy-service</code></span>, which make authorization decisions from it — and none of those imports should have to drag in anything beyond this one small, stable shape.</p><hr /><h2 id="who-imports-this">Who imports this</h2><figure><pre class="mermaid">graph TD
+    AC[&quot;auth-contracts\nStandardClaims &middot; Membership &middot; RoleWeights &middot; Can()&quot;]
+    SIGN[&quot;claims-gateway/internal/signer\nmints the token&quot;]
+    MW[&quot;auth-middleware\nverifies the token&quot;]
+    AP[&quot;auth-policy\npre-expands memberships for Cedar&quot;]
+    TS[&quot;tenancy-service\nclaims.CanIn(domain, role)&quot;]
+    RS[&quot;rust: twin-service\nincludes roles.json at compile time&quot;]
+    PY[&quot;python: agent-service\nreads roles.json at import time&quot;]
+
+    SIGN --&gt; AC
+    MW --&gt; AC
+    AP --&gt; AC
+    TS --&gt; AC
+    AC -.-&gt;|&quot;roles.json, read directly\n(no Go dependency)&quot;| RS
+    AC -.-&gt;|&quot;roles.json, read directly\n(no Go dependency)&quot;| PY</pre></figure><p><span class="codespan-content"><code>claims-gateway</code></span>&rsquo;s signer <em>produces</em> a <span class="codespan-content"><code>StandardClaims</code></span> value; <span class="codespan-content"><code>auth-middleware</code></span>, <span class="codespan-content"><code>auth-policy</code></span>, and <span class="codespan-content"><code>tenancy-service</code></span> <em>consume</em> it. Two non-Go services — <span class="codespan-content"><code>twin-service</code></span> (Rust) and <span class="codespan-content"><code>agent-service</code></span> (Python) — read <span class="codespan-content"><code>roles.json</code></span> directly off disk rather than depending on this package, since there&rsquo;s no Go module boundary to cross for a static JSON file (see <a href="../auth-policy">Auth Policy</a> for how that split plays out for the Cedar bundle too).</p><hr /><h2 id="_1-standardclaims--the-one-shape-every-service-verifies">1. <span class="codespan-content"><code>StandardClaims</code></span> — the one shape every service verifies</h2><p><strong>File:</strong> <span class="codespan-content"><code>claims.go</code></span></p><pre><code class="language-go">// Membership is one (domain, role) pair. ExternalId carries the source IdP's identifier
+// for the membership, kept for audit and for unlinking a federated identity.
+type Membership struct {
+	Domain     string `json:&quot;domain&quot;`
+	Role       string `json:&quot;role&quot;`
+	ExternalID string `json:&quot;externalId,omitempty&quot;`
+}
+
+// StandardClaims is the one token shape every service verifies, regardless of
+// tier or which IdP authenticated the user.
+type StandardClaims struct {
+	Sub         string       `json:&quot;sub&quot;`
+	AccountName string       `json:&quot;accountName&quot;`
+	SID         string       `json:&quot;sid&quot;`
+	Memberships []Membership `json:&quot;memberships&quot;`
+}</code></pre><p>The struct carries no tier- or provider-specific fields. Whether an account signed up directly or federated in through an enterprise identity provider, and whether it holds one membership or twenty, it arrives at every downstream consumer in exactly this shape — none of them need to special-case a federation path.</p><p>Three methods answer the questions a consumer actually asks, rather than making every caller walk <span class="codespan-content"><code>Memberships</code></span> by hand:</p><pre><code class="language-go">// Returns the caller's role within domain, if they belong to it.
+func (c StandardClaims) RoleIn(domain string) (string, bool) {
+	for _, m := range c.Memberships {
+		if m.Domain == domain {
+			return m.Role, true
+		}
+	}
+	return &quot;&quot;, false
+}
+
+// Authorization decision scoped to one tenant.
+func (c StandardClaims) CanIn(domain, required string) bool {
+	role, ok := c.RoleIn(domain)
+	return ok &amp;&amp; Can(role, required)
+}
+
+// Tenants lists every domain the caller belongs to, in membership order &mdash;
+// used to scope bulk/`$in`-style queries and to populate a client's
+// active-tenant switcher.
+func (c StandardClaims) Tenants() []string {
+	tenants := make([]string, len(c.Memberships))
+	for i, m := range c.Memberships {
+		tenants[i] = m.Domain
+	}
+	return tenants
+}</code></pre><p><span class="codespan-content"><code>CanIn</code></span> is what <span class="codespan-content"><code>tenancy-service</code></span> calls directly for its own domain-scoped checks — it doesn&rsquo;t need Cedar&rsquo;s generality for a plain &ldquo;is this role at least this powerful, in this domain&rdquo; question. The same question asked with admin-bypass or resource-type nuance goes through <a href="../auth-policy">Auth Policy</a> instead.</p><p>A real test makes the domain-scoping explicit rather than leaving it implied:</p><pre><code class="language-go">func TestCanIn_ScopesTheCheckToTheDomain(t *testing.T) {
+	c := claims() // business_admin in &quot;acme&quot;, standard_customer in &quot;unibo&quot;
+	if !c.CanIn(&quot;acme&quot;, &quot;business_admin&quot;) {
+		t.Fatal(&quot;business_admin in acme should pass a business_admin check&quot;)
+	}
+	// admin in acme, but only standard_customer in unibo &mdash; the same person,
+	// different tenants, different outcome. This is the whole point of
+	// per-membership roles rather than a role on the user.
+	if c.CanIn(&quot;unibo&quot;, &quot;business_admin&quot;) {
+		t.Fatal(&quot;standard_customer in unibo must not pass a business_admin check&quot;)
+	}
+}</code></pre><hr /><h2 id="_2-the-role-ladder--rolesjson-and-can">2. The role ladder — <span class="codespan-content"><code>roles.json</code></span> and <span class="codespan-content"><code>Can()</code></span></h2><p><strong>File:</strong> <span class="codespan-content"><code>roles.go</code></span></p><p>The ladder itself is data, not code, embedded into the binary at compile time:</p><pre><code class="language-go">//go:embed roles.json
+var rolesRaw []byte
+
+// RoleWeights is the single role ladder shared by every service.
+var RoleWeights = mustLoadRoleWeights()
+
+func Can(principalRole, requiredRole string) bool {
+	have, ok := RoleWeights[principalRole]
+	if !ok {
+		return false
+	}
+	need, ok := RoleWeights[requiredRole]
+	if !ok {
+		return false
+	}
+	return have &gt;= need
+}</code></pre><pre><code class="language-json">{
+  &quot;admin&quot;: 100,
+  &quot;business_admin&quot;: 80,
+  &quot;business_staff&quot;: 60,
+  &quot;standard_customer&quot;: 10
+}</code></pre><p><span class="codespan-content"><code>Can</code></span> compares weights, not role names — an unrecognised role on either side (a typo, a role from a future migration nobody&rsquo;s deployed yet) fails the lookup and denies, rather than panicking or silently passing. This is the same &ldquo;at least this powerful&rdquo; comparison the domain model commits to in <a href="../identity-access">Identity &amp; Access Context</a> — <span class="codespan-content"><code>roles.json</code></span> is where that abstract ranking becomes the concrete numbers every language&rsquo;s implementation reads.</p><p><span class="codespan-content"><code>//go:embed</code></span> means the ladder ships inside the compiled binary — there&rsquo;s no runtime file read, and no way for a service to start with a <span class="codespan-content"><code>roles.json</code></span> that doesn&rsquo;t match what it was built against.</p><hr /><h2 id="_3-the-conformance-fixture--a-drift-detector-for-the-shape-itself">3. The conformance fixture — a drift detector for the shape itself</h2><p><strong>Files:</strong> <span class="codespan-content"><code>conformance_test.go</code></span>, <span class="codespan-content"><code>fixtures/standard-claims.json</code></span></p><pre><code class="language-go">// TestFixtureConforms asserts fixtures/standard-claims.json unmarshals cleanly
+// into StandardClaims with every required field populated. This is the drift
+// detector: any consumer (Go today, others later) asserts against the same
+// fixture file, so a shape change that breaks a consumer fails here first,
+// not in a production cookie.
+func TestFixtureConforms(t *testing.T) {
+	raw, _ := os.ReadFile(&quot;fixtures/standard-claims.json&quot;)
+	var claims StandardClaims
+	if err := json.Unmarshal(raw, &amp;claims); err != nil {
+		t.Fatalf(&quot;fixture does not conform to StandardClaims: %v&quot;, err)
+	}
+	// ...checks every required field is populated, and that each
+	// membership's role is a known entry in RoleWeights.
+}</code></pre><p>This is narrower than <a href="../auth-policy">Auth Policy</a>&rsquo;s cross-language conformance suite — today only this package&rsquo;s own Go test reads <span class="codespan-content"><code>fixtures/standard-claims.json</code></span>. Its purpose is to catch a <span class="codespan-content"><code>StandardClaims</code></span> field rename or removal against a realistic example token, before that change reaches <span class="codespan-content"><code>auth-middleware</code></span>&rsquo;s decoder or <span class="codespan-content"><code>claims-gateway</code></span>&rsquo;s signer.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

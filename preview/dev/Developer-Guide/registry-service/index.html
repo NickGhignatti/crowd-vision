@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Registry Service</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="the-organization-data-model" data-depth="2"><a href="#the-organization-data-model">The Organization Data Model</a></li><li data-target-id="signup" data-depth="2"><a href="#signup">Signup</a></li><li data-target-id="the-internal-auth-scheme" data-depth="2"><a href="#the-internal-auth-scheme">The Internal Auth Scheme</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service" aria-current="page">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="the-organization-data-model" data-depth="2"><a href="#the-organization-data-model">The Organization Data Model</a></li><li data-target-id="signup" data-depth="2"><a href="#signup">Signup</a></li><li data-target-id="the-internal-auth-scheme" data-depth="2"><a href="#the-internal-auth-scheme">The Internal Auth Scheme</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li></ol></nav></div><h1 id="registry-service" data-decorative="">Registry Service</h1><p>Implementation reference for <span class="codespan-content"><code>registry-service</code></span>. For its architectural role, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>.</p><p><span class="codespan-content"><code>registry-service</code></span> is the platform&rsquo;s system of record for <strong>organizations</strong> — the pre-tenancy concept of a customer who has signed up but may not yet have a working domain, a Keycloak realm, or any of the infrastructure that makes them usable. It never provisions anything itself; it only records what an organization is and what state it&rsquo;s in, and lets <a href="../provisioner"><span class="codespan-content"><code>provisioner</code></span></a> — the only reader of its internal routes — do the actual work asynchronously.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/registry/main.go</code></span></td><td>Loads config, runs migrations, mounts routes.</td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td>One public route (signup) and three internal routes (pending, status, suspend).</td></tr><tr><td><span class="codespan-content"><code>internal/api/internalauth.go</code></span></td><td>HMAC-SHA256 verification for the internal routes — see <em>The Internal Auth Scheme</em> below.</td></tr><tr><td><span class="codespan-content"><code>internal/service/registry.go</code></span></td><td>Validates a signup, defaults <span class="codespan-content"><code>identityMode</code></span>, creates the organization in <span class="codespan-content"><code>provisioning</code></span> state.</td></tr><tr><td><span class="codespan-content"><code>internal/store/</code></span> (<span class="codespan-content"><code>store.go</code></span>, <span class="codespan-content"><code>postgres.go</code></span>)</td><td>The <span class="codespan-content"><code>Organization</code></span> struct and its Postgres persistence.</td></tr><tr><td><span class="codespan-content"><code>migrations/0001_init.up.sql</code></span></td><td>The <span class="codespan-content"><code>organizations</code></span> table.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
+    subgraph &quot;Public &mdash; no auth&quot;
+        SIGNUP[&quot;POST /organizations&quot;]
+    end
+    subgraph &quot;Internal &mdash; HMAC X-Signature&quot;
+        PENDING[&quot;GET /internal/organizations/pending&quot;]
+        STATUS[&quot;POST /internal/organizations/:id/status&quot;]
+        SUSPEND[&quot;POST /internal/organizations/:id/suspend&quot;]
+    end
+    SVC[&quot;internal/service/registry.go&quot;]
+    STORE[&quot;internal/store\nOrganization&quot;]
+    SIGNUP --&gt; SVC
+    PENDING --&gt; SVC
+    STATUS --&gt; SVC
+    SUSPEND --&gt; SVC
+    SVC --&gt; STORE
+    PROV[&quot;provisioner\n(the only caller of the internal routes)&quot;] -.-&gt;|&quot;poll every 15s&quot;| PENDING
+    PROV -.-&gt;|&quot;mark ready / failed&quot;| STATUS</pre></figure><hr /><h2 id="the-organization-data-model">The Organization Data Model</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/store/store.go</code></span>, <span class="codespan-content"><code>migrations/0001_init.up.sql</code></span></p><pre><code class="language-go">type Organization struct {
+	ID            string
+	Name          string
+	DisplayName   string
+	Tier          string // &quot;pooled&quot; | &quot;dedicated&quot; | &quot;on-prem&quot;
+	Host          string
+	IdentityMode  string // &quot;platform&quot; | &quot;byo-idp&quot;
+	Issuer        string
+	LicenseStatus string // &quot;active&quot; | &quot;suspended&quot; | &quot;expired&quot;
+	Status        string // &quot;provisioning&quot; | &quot;ready&quot; | &quot;failed&quot; | &quot;suspended&quot;
+	StatusDetail  string
+}</code></pre><pre><code class="language-sql">create table organizations (
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null unique,
+  tier           text not null check (tier in ('pooled', 'dedicated', 'on-prem')),
+  identity_mode  text not null default 'platform' check (identity_mode in ('platform', 'byo-idp')),
+  license_status text not null default 'active' check (license_status in ('active', 'suspended', 'expired')),
+  status         text not null default 'provisioning' check (status in ('provisioning', 'ready', 'failed', 'suspended')),
+  status_detail  text,
+  created_at     timestamptz not null default now()
+);</code></pre><p>Two independent state machines live on one row. <span class="codespan-content"><code>status</code></span> tracks <em>provisioning progress</em>: every organization starts at <span class="codespan-content"><code>provisioning</code></span>, and only <span class="codespan-content"><code>provisioner</code></span> ever moves it to <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span> (through the internal routes below) or to <span class="codespan-content"><code>suspended</code></span>. <span class="codespan-content"><code>license_status</code></span> tracks <em>billing/licensing standing</em> (<span class="codespan-content"><code>active</code></span> → <span class="codespan-content"><code>suspended</code></span> or <span class="codespan-content"><code>expired</code></span>) and is orthogonal — a fully-provisioned, <span class="codespan-content"><code>ready</code></span> organization can still have its license suspended without touching <span class="codespan-content"><code>status</code></span> at all.</p><hr /><h2 id="signup">Signup</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/service/registry.go</code></span></p><pre><code class="language-go">// Signup creates an organization in &quot;provisioning&quot; state; the provisioner's
+// reconcile loop picks it up asynchronously. Registry-service
+// never provisions anything itself &mdash; it is only the system of record.
+func (s *Service) Signup(ctx context.Context, in SignupInput) (store.Organization, error) {
+	if !validTiers[in.Tier] {
+		return store.Organization{}, ErrInvalidTier
+	}
+	identityMode := in.IdentityMode
+	if identityMode == &quot;&quot; {
+		identityMode = &quot;platform&quot;
+	}
+	return s.store.Create(ctx, store.Organization{
+		Name: in.Name, DisplayName: in.DisplayName, Tier: in.Tier,
+		IdentityMode: identityMode, Issuer: in.Issuer,
+		LicenseStatus: &quot;active&quot;, Status: &quot;provisioning&quot;,
+	})
+}</code></pre><p>The comment in the source states the design directly: this function&rsquo;s entire job is to validate and persist. It doesn&rsquo;t call <span class="codespan-content"><code>provisioner</code></span>, doesn&rsquo;t create a Keycloak realm, doesn&rsquo;t touch <span class="codespan-content"><code>tenancy-service</code></span> — it writes one row and returns. Provisioning is <span class="codespan-content"><code>provisioner</code></span>&rsquo;s job, running on its own schedule, decoupled from the signup request&rsquo;s lifetime. A slow or failed provisioning step can never make <span class="codespan-content"><code>POST /organizations</code></span> itself slow or fail.</p><hr /><h2 id="the-internal-auth-scheme">The Internal Auth Scheme</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/api/internalauth.go</code></span></p><p>The three <span class="codespan-content"><code>/internal/*</code></span> routes are the only interface <span class="codespan-content"><code>provisioner</code></span> (or anything else internal) has to this service, and they&rsquo;re guarded by a shared-secret HMAC signature rather than a <span class="codespan-content"><code>StandardClaims</code></span> token — there is no end user involved in a reconcile loop, so there&rsquo;s no identity to check, only &ldquo;is this caller allowed to act as the control plane&rdquo;:</p><pre><code class="language-go">func requireInternalSignature(secret []byte) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sig := r.Header.Get(&quot;X-Signature&quot;)
+			body, _ := io.ReadAll(r.Body)
+			r.Body = io.NopCloser(bytes.NewReader(body)) // handler still needs to read it
+
+			mac := hmac.New(sha256.New, secret)
+			mac.Write(body)
+			expected := hex.EncodeToString(mac.Sum(nil))
+
+			if !hmac.Equal([]byte(sig), []byte(expected)) {
+				http.Error(w, &quot;invalid signature&quot;, http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}</code></pre><p><span class="codespan-content"><code>hmac.Equal</code></span> (rather than <span class="codespan-content"><code>==</code></span>) is a constant-time comparison — comparing a computed signature to a caller-supplied one byte-by-byte with early exit would leak timing information an attacker could use to guess the correct signature one byte at a time. <span class="codespan-content"><code>provisioner</code></span>&rsquo;s client signs with the identical scheme (see <a href="provisioner.qd)">Provisioner</a>, over the exact request body bytes for a <span class="codespan-content"><code>POST</code></span>, or over an empty byte slice for the bodyless <span class="codespan-content"><code>GET /internal/organizations/pending</code></span>.</p><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /health</code></span></td><td>Public</td><td>Liveness probe.</td></tr><tr><td><span class="codespan-content"><code>POST /organizations</code></span></td><td>Public</td><td>Signup — see above. <span class="codespan-content"><code>400</code></span> on an invalid tier. No prior identity exists at signup time, so this stays deliberately open.</td></tr><tr><td><span class="codespan-content"><code>GET /internal/organizations/pending</code></span></td><td>HMAC</td><td>Every organization with <span class="codespan-content"><code>status = 'provisioning'</code></span> — <span class="codespan-content"><code>provisioner</code></span>&rsquo;s poll target.</td></tr><tr><td><span class="codespan-content"><code>POST /internal/organizations/:id/status</code></span></td><td>HMAC</td><td>Sets <span class="codespan-content"><code>status</code></span> to <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span> (with a <span class="codespan-content"><code>detail</code></span> message); called by <span class="codespan-content"><code>provisioner</code></span> after it attempts to provision one organization.</td></tr><tr><td><span class="codespan-content"><code>POST /internal/organizations/:id/suspend</code></span></td><td>HMAC</td><td>Sets both <span class="codespan-content"><code>status</code></span> and <span class="codespan-content"><code>license_status</code></span> to <span class="codespan-content"><code>suspended</code></span>.</td></tr></tbody></table><div class="box note"><header><h4>There is no read route for a single organization</h4></header><div class="box-content"><p><span class="codespan-content"><code>GET /organizations/:id</code></span> was removed — it had no caller anywhere in the codebase (not <span class="codespan-content"><code>provisioner</code></span>, not the client, not any documented flow), while returning <span class="codespan-content"><code>tier</code></span> and <span class="codespan-content"><code>licenseStatus</code></span> to anyone who held or guessed an id with no authentication at all. Rather than design an auth scheme for a caller that doesn&rsquo;t exist, the unused route was deleted: less code, less attack surface. If a real need to read organization state by id shows up later (an admin dashboard, a status-polling UI), add the route back scoped to whatever caller actually needs it, with real authentication from day one.</p></div></div><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td>required</td><td>Postgres connection string.</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret for the <span class="codespan-content"><code>/internal/*</code></span> routes — shared with <span class="codespan-content"><code>provisioner</code></span>, not with <span class="codespan-content"><code>claims-gateway</code></span> or <span class="codespan-content"><code>tenancy-service</code></span>.</td></tr><tr><td><span class="codespan-content"><code>ADDR</code></span></td><td><span class="codespan-content"><code>:3000</code></span></td><td>HTTP listen address.</td></tr></tbody></table><p><span class="codespan-content"><code>registry-service</code></span> makes no outbound calls to any other service — every interaction with <span class="codespan-content"><code>provisioner</code></span> is <span class="codespan-content"><code>provisioner</code></span> calling in, on its own schedule.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

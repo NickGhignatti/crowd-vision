@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Provisioner</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="the-reconcile-loop" data-depth="2"><a href="#the-reconcile-loop">The Reconcile Loop</a></li><li data-target-id="calling-registry-service-and-tenancy-service" data-depth="2"><a href="#calling-registry-service-and-tenancy-service">Calling registry-service And tenancy-service</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="why-this-is-a-separate-service-at-all" data-depth="2"><a href="#why-this-is-a-separate-service-at-all">Why This Is A Separate Service At All</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner" aria-current="page">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="the-reconcile-loop" data-depth="2"><a href="#the-reconcile-loop">The Reconcile Loop</a></li><li data-target-id="calling-registry-service-and-tenancy-service" data-depth="2"><a href="#calling-registry-service-and-tenancy-service">Calling registry-service And tenancy-service</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="why-this-is-a-separate-service-at-all" data-depth="2"><a href="#why-this-is-a-separate-service-at-all">Why This Is A Separate Service At All</a></li></ol></nav></div><h1 id="provisioner" data-decorative="">Provisioner</h1><p>Implementation reference for <span class="codespan-content"><code>provisioner</code></span>. For its architectural role, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>.</p><p><span class="codespan-content"><code>provisioner</code></span> is the only service in the platform with essentially no inbound HTTP API — it exposes <span class="codespan-content"><code>GET /health</code></span> and nothing else. Its entire job runs on a timer: poll <a href="../registry-service"><span class="codespan-content"><code>registry-service</code></span></a> for organizations awaiting provisioning, create the corresponding domain in <a href="../tenancy-service"><span class="codespan-content"><code>tenancy-service</code></span></a>, and report the outcome back. It exists specifically to keep <span class="codespan-content"><code>registry-service</code></span>&rsquo;s <span class="codespan-content"><code>POST /organizations</code></span> fast and simple — signup writes one row and returns immediately; whatever provisioning actually requires happens here, decoupled, on its own schedule.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/provisioner/main.go</code></span></td><td>Loads config, builds both clients, runs the reconcile loop on a 15-second ticker, serves <span class="codespan-content"><code>/health</code></span>.</td></tr><tr><td><span class="codespan-content"><code>internal/reconciler/reconciler.go</code></span></td><td>The loop itself: list pending organizations, provision each, report status.</td></tr><tr><td><span class="codespan-content"><code>internal/registryclient/client.go</code></span></td><td>HMAC-signed calls to <span class="codespan-content"><code>registry-service</code></span>&rsquo;s <span class="codespan-content"><code>/internal/*</code></span> routes.</td></tr><tr><td><span class="codespan-content"><code>internal/tenancyclient/client.go</code></span></td><td>HMAC-signed calls to <span class="codespan-content"><code>tenancy-service</code></span>&rsquo;s <span class="codespan-content"><code>/internal/domains</code></span>.</td></tr><tr><td><span class="codespan-content"><code>internal/config/config.go</code></span></td><td>Env vars: both services&rsquo; URLs and the shared HMAC secret.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
+    MAIN[&quot;main.go\n15-second ticker&quot;] --&gt; REC[&quot;reconciler.go\nReconcileOnce()&quot;]
+    REC --&gt; RC[&quot;registryclient\nPending() / MarkReady() / MarkFailed()&quot;]
+    REC --&gt; TC[&quot;tenancyclient\nCreateDomain()&quot;]
+    RC -.-&gt;|&quot;HMAC-signed HTTP&quot;| REGISTRY[&quot;registry-service\n/internal/organizations/*&quot;]
+    TC -.-&gt;|&quot;HMAC-signed HTTP&quot;| TENANCY[&quot;tenancy-service\n/internal/domains&quot;]</pre></figure><hr /><h2 id="the-reconcile-loop">The Reconcile Loop</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/reconciler/reconciler.go</code></span></p><pre><code class="language-go">func (r *Reconciler) ReconcileOnce(ctx context.Context) error {
+	orgs, err := r.registry.Pending(ctx) // GET /internal/organizations/pending
+	if err != nil {
+		return fmt.Errorf(&quot;listing pending organizations: %w&quot;, err)
+	}
+	for _, org := range orgs {
+		r.reconcileOne(ctx, org)
+	}
+	return nil
+}
+
+func (r *Reconciler) reconcileOne(ctx context.Context, org Organization) {
+	if org.Tier != &quot;pooled&quot; {
+		_ = r.registry.MarkFailed(ctx, org.ID,
+			fmt.Sprintf(&quot;provisioner does not yet support tier %q (only pooled)&quot;, org.Tier))
+		return
+	}
+
+	joinPolicy := &quot;invite-only&quot;
+	if org.IdentityMode == &quot;byo-idp&quot; {
+		joinPolicy = &quot;open-via-idp&quot; // a federated org can let its own members self-join
+	}
+
+	if err := r.tenancy.CreateDomain(ctx, org.Name, org.DisplayName, joinPolicy); err != nil {
+		_ = r.registry.MarkFailed(ctx, org.ID, &quot;tenancy provisioning failed: &quot;+err.Error())
+		return
+	}
+	_ = r.registry.MarkReady(ctx, org.ID)
+}</code></pre><p>Two failure-handling decisions worth calling out. First, one organization failing never stops the batch — <span class="codespan-content"><code>reconcileOne</code></span> reports its own failure and <span class="codespan-content"><code>ReconcileOnce</code></span>&rsquo;s loop continues to the next organization, so one bad signup can&rsquo;t stall every other pending organization behind it. Second, only listing pending organizations in the first place is treated as fatal to the whole tick (it returns an error up to <span class="codespan-content"><code>main.go</code></span>, which logs it and simply waits for the next tick) — there&rsquo;s no per-organization retry backoff; a failed organization just stays <span class="codespan-content"><code>provisioning</code></span>&hellip; actually <span class="codespan-content"><code>failed</code></span>, and stays that way until someone or something acts on it again, since nothing currently re-queues a <span class="codespan-content"><code>failed</code></span> organization back to <span class="codespan-content"><code>provisioning</code></span>.</p><p>Provisioning today does exactly one thing: create a domain. It does not seed default data, create Keycloak realm configuration, or provision anything in any other service — &ldquo;provisioning an organization&rdquo; currently <em>means</em> &ldquo;create its <span class="codespan-content"><code>tenancy-service</code></span> domain,&rdquo; nothing more.</p><div class="box note"><header><h4>Only the <span class="codespan-content"><code>pooled</code></span> tier is supported</h4></header><div class="box-content"><p><span class="codespan-content"><code>dedicated</code></span> and <span class="codespan-content"><code>on-prem</code></span> organizations are accepted by <span class="codespan-content"><code>registry-service</code></span>&rsquo;s signup (any tier in its check constraint passes), but <span class="codespan-content"><code>provisioner</code></span> immediately marks them <span class="codespan-content"><code>failed</code></span> with an explanatory detail message rather than attempting anything — this is a real, current limitation stated in the code&rsquo;s own logic, not an oversight this page is inferring.</p></div></div><hr /><h2 id="calling-registry-service-and-tenancy-service">Calling registry-service And tenancy-service</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/registryclient/client.go</code></span>, <span class="codespan-content"><code>internal/tenancyclient/client.go</code></span></p><p>Both clients sign every request with the same HMAC-SHA256 scheme <span class="codespan-content"><code>registry-service</code></span>&rsquo;s <span class="codespan-content"><code>internalauth.go</code></span> and <span class="codespan-content"><code>tenancy-service</code></span>&rsquo;s equivalent check on the other end — but against <strong>two different secrets</strong>, since <span class="codespan-content"><code>provisioner</code></span> shares one secret with <span class="codespan-content"><code>registry-service</code></span> and (implicitly, via <span class="codespan-content"><code>tenancy-service</code></span>&rsquo;s own <span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span>) a potentially different one for domain creation:</p><pre><code class="language-go">func (c *Client) sign(body []byte) string {
+	mac := hmac.New(sha256.New, c.secret)
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func (c *Client) Pending(ctx context.Context) ([]Organization, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+&quot;/internal/organizations/pending&quot;, nil)
+	req.Header.Set(&quot;X-Signature&quot;, c.sign(nil)) // GET: sign the empty body
+	// ...
+}
+
+func (c *Client) MarkReady(ctx context.Context, id string) error {
+	return c.setStatus(ctx, id, map[string]string{&quot;status&quot;: &quot;ready&quot;})
+}
+
+func (c *Client) MarkFailed(ctx context.Context, id, detail string) error {
+	return c.setStatus(ctx, id, map[string]string{&quot;status&quot;: &quot;failed&quot;, &quot;detail&quot;: detail})
+}</code></pre><p><span class="codespan-content"><code>tenancy-service</code></span>&rsquo;s <span class="codespan-content"><code>CreateDomain</code></span> call treats both <span class="codespan-content"><code>201 Created</code></span> and <span class="codespan-content"><code>409 Conflict</code></span> as success:</p><pre><code class="language-go">// File: internal/tenancyclient/client.go
+// 201 or 409 (already exists) are both treated as success &mdash; CreateDomain
+// is meant to be idempotent, since a retried reconcile tick must not fail
+// just because a previous tick already created the domain.</code></pre><p>Treating a duplicate-domain conflict as success (rather than as an error to retry against) is what makes the whole loop safe to run every 15 seconds indefinitely: if <span class="codespan-content"><code>MarkReady</code></span> itself failed on a previous tick (network blip, <span class="codespan-content"><code>registry-service</code></span> briefly down) even though the domain was already created, the next tick re-attempts <span class="codespan-content"><code>CreateDomain</code></span>, gets <span class="codespan-content"><code>409</code></span>, and proceeds straight to <span class="codespan-content"><code>MarkReady</code></span> again — no organization gets stuck because provisioning &ldquo;half succeeded.&rdquo;</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>REGISTRY_URL</code></span></td><td>required</td><td>Base URL for <span class="codespan-content"><code>registry-service</code></span>.</td></tr><tr><td><span class="codespan-content"><code>TENANCY_URL</code></span></td><td>required</td><td>Base URL for <span class="codespan-content"><code>tenancy-service</code></span>.</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret for both outbound clients.</td></tr></tbody></table><p>The reconcile interval (15 seconds) and each HTTP client&rsquo;s timeout (5 seconds) are fixed in code, not configurable via environment variable.</p><hr /><h2 id="why-this-is-a-separate-service-at-all">Why This Is A Separate Service At All</h2><p>Folding this reconcile loop into <span class="codespan-content"><code>registry-service</code></span> itself was a real option — it&rsquo;s the only thing that reads <span class="codespan-content"><code>registry-service</code></span>&rsquo;s pending list. Keeping it separate means <span class="codespan-content"><code>registry-service</code></span> can stay a pure system-of-record (a database with a thin HTTP layer, no background goroutines, no scheduling) while the part of the system that actually <em>does</em> something on a timer — the part most likely to need new provisioning steps as the platform grows (Keycloak realm setup, seeding defaults, other tiers) — can change and redeploy independently, without touching the signup path at all.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

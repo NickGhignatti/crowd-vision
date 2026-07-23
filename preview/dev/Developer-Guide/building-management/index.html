@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Building Management Context</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="the-building-aggregate" data-depth="2"><a href="#the-building-aggregate">The Building Aggregate</a><ol><li data-target-id="aggregate-root-building" data-depth="3"><a href="#aggregate-root-building">Aggregate Root: Building</a></li><li data-target-id="entity-room" data-depth="3"><a href="#entity-room">Entity: Room</a></li><li data-target-id="value-objects-coordinates-and-dimensions" data-depth="3"><a href="#value-objects-coordinates-and-dimensions">Value Objects: Coordinates and Dimensions</a></li></ol></li><li data-target-id="multi-tenancy-as-a-domain-rule" data-depth="2"><a href="#multi-tenancy-as-a-domain-rule">Multi-Tenancy as a Domain Rule</a></li><li data-target-id="relationships-to-other-contexts" data-depth="2"><a href="#relationships-to-other-contexts">Relationships to Other Contexts</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management" aria-current="page">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="the-building-aggregate" data-depth="2"><a href="#the-building-aggregate">The Building Aggregate</a><ol><li data-target-id="aggregate-root-building" data-depth="3"><a href="#aggregate-root-building">Aggregate Root: Building</a></li><li data-target-id="entity-room" data-depth="3"><a href="#entity-room">Entity: Room</a></li><li data-target-id="value-objects-coordinates-and-dimensions" data-depth="3"><a href="#value-objects-coordinates-and-dimensions">Value Objects: Coordinates and Dimensions</a></li></ol></li><li data-target-id="multi-tenancy-as-a-domain-rule" data-depth="2"><a href="#multi-tenancy-as-a-domain-rule">Multi-Tenancy as a Domain Rule</a></li><li data-target-id="relationships-to-other-contexts" data-depth="2"><a href="#relationships-to-other-contexts">Relationships to Other Contexts</a></li></ol></nav></div><h1 id="building-management-context" data-decorative="">Building Management Context</h1><p><strong>Subdomain type:</strong> Core · <strong>Grounded in:</strong> <a href="../user-stories">User Stories</a> BM-1 through BM-5</p><p>This page describes the design-time model of the Building Management context — the structural backbone of the platform that the live-data contexts decorate. Concrete APIs and storage are left as decisions for whoever builds this model.</p><p>The context models the physical reality being monitored: buildings, the rooms inside them, and the geometry that places those rooms in the 3D digital twin.</p><hr /><h2 id="ubiquitous-language">Ubiquitous Language</h2><table><thead><tr><th>Term</th><th>Meaning in this context</th></tr></thead><tbody><tr><td>Building</td><td>A monitored physical structure, scoped to one or more domains.</td></tr><tr><td>Room</td><td>A bounded space inside a Building with a capacity and a position.</td></tr><tr><td>Geometry</td><td>The position and dimensions that render a Room in the 3D twin.</td></tr></tbody></table><hr /><h2 id="the-building-aggregate">The Building Aggregate</h2><p>We model <span class="codespan-content"><code>Building</code></span> as the single aggregate root, with <span class="codespan-content"><code>Room</code></span> as an entity that lives inside it. A Room has no meaning on its own — it is always created and changed in the context of its Building — which is why we draw the aggregate boundary around the Building rather than promoting Room to a root of its own.</p><figure><pre class="mermaid">classDiagram
+    class Building {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +id
+        +name
+        +domain[] domains
+        +Room[] rooms
+    }
+    class Room {
+        &lt;&lt;Entity&gt;&gt;
+        +id
+        +name
+        +Coordinates position
+        +Dimensions dimensions
+        +color
+    }
+    class Coordinates {
+        &lt;&lt;Value Object&gt;&gt;
+        +x
+        +y
+        +z
+    }
+    class Dimensions {
+        &lt;&lt;Value Object&gt;&gt;
+        +width
+        +height
+        +depth
+    }
+
+    Building &quot;1&quot; *-- &quot;many&quot; Room : contains
+    Room &quot;1&quot; *-- &quot;1&quot; Coordinates : positioned at
+    Room &quot;1&quot; *-- &quot;1&quot; Dimensions : sized by</pre></figure><h3 id="aggregate-root-building">Aggregate Root: Building</h3><ul><li>A Building is associated with one or more domains (by name, the shared identifier). We model tenancy as a many-to-many association so that a structure can be shared across organizations without duplication — the shape story <strong>BM-2</strong> asks for.</li><li><strong>Intended invariant:</strong> changes to a Room flow through its Building, so the aggregate is always saved as a coherent whole rather than as independently mutated rooms — the shape story <strong>BM-3</strong> relies on when a staff member edits a room.</li></ul><p>The aggregate as a whole, created in one coherent act with the system assigning identity, is what answers story <strong>BM-1</strong>.</p><h3 id="entity-room">Entity: Room</h3><ul><li>A Room is identified within its Building.</li><li>We deliberately keep only <em>structural</em> data on the Room — name, geometry. Live readings such as temperature and occupancy are <strong>not</strong> part of this model; they belong to the Telemetry contexts. This separation is a core design decision: it keeps the twin&rsquo;s structure stable while readings change continuously.</li></ul><h3 id="value-objects-coordinates-and-dimensions">Value Objects: Coordinates and Dimensions</h3><p>Geometry is modelled as immutable, identity-less value objects. Two rooms sharing the same coordinates are not &ldquo;the same place&rdquo; — position is defined entirely by its values, which is exactly the value-object contract, and the one story <strong>BM-5</strong> rests on.</p><hr /><h2 id="multi-tenancy-as-a-domain-rule">Multi-Tenancy as a Domain Rule</h2><p>A guiding decision for this context is that it should enforce tenancy <em>without</em> depending on the Identity &amp; Access context at request time. The principal&rsquo;s memberships arrive with the request (in the identity token), and a Building already records the domains it belongs to, so the rule can be evaluated entirely within this context.</p><figure><pre class="mermaid">sequenceDiagram
+    participant C as Client
+    participant B as Building Management
+    C-&gt;&gt;B: request buildings for a domain (with identity token)
+    Note over B: check the domain is among the principal's memberships
+    Note over B: select buildings associated with that domain
+    B--&gt;&gt;C: authorized buildings</pre></figure><p>This is the intended shape of the rule — the one story <strong>BM-4</strong> asks for — with the important property that answering it needs no call back to Identity &amp; Access. How the check is wired and how buildings are queried are left open at the model level.</p><hr /><h2 id="relationships-to-other-contexts">Relationships to Other Contexts</h2><p>This context is meant to act as an upstream supplier to three downstream contexts. The model assumes that, when a Building comes into existence, the downstream contexts are given the baseline they need.</p><table><thead><tr><th>Downstream Context</th><th>What this context is expected to supply</th><th>Pattern</th></tr></thead><tbody><tr><td>Telemetry Ingestion</td><td>A threshold baseline describing the Building&rsquo;s rooms.</td><td>Customer / Supplier</td></tr><tr><td>Telemetry Distribution</td><td>A default set of display preferences, plus the structural metrics the Building itself owns.</td><td>Customer / Supplier</td></tr><tr><td>Knowledge &amp; Assistance</td><td>Read-only access to Building and Room data.</td><td>Anti-Corruption Layer</td></tr></tbody></table><div class="box note"><header><h4>Design decision: provisioning is best-effort</h4></header><div class="box-content"><p>We intend the downstream provisioning to be <strong>best-effort rather than transactional</strong>: if seeding a downstream context does not succeed, creating the Building should still be allowed to complete, and the baseline can be re-established later. This deliberately softens the aggregate&rsquo;s consistency boundary at the network edge, trading strict consistency for availability. It is a decision we expect to revisit if the downstream baselines become safety-critical.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

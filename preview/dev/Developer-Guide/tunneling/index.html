@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Real-Time Client Communication</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="one-shared-connection-tied-to-authentication" data-depth="2"><a href="#one-shared-connection-tied-to-authentication">One Shared Connection, Tied To Authentication</a></li><li data-target-id="telemetry-subscription--one-store-reference-counted-buckets" data-depth="2"><a href="#telemetry-subscription--one-store-reference-counted-buckets">Telemetry Subscription — One Store, Reference-Counted Buckets</a><ol><li data-target-id="batching-updates-without-fighting-vuersquos-reactivity" data-depth="3"><a href="#batching-updates-without-fighting-vuersquos-reactivity">Batching updates without fighting Vue&rsquo;s reactivity</a></li><li data-target-id="recovering-from-a-dropped-connection" data-depth="3"><a href="#recovering-from-a-dropped-connection">Recovering from a dropped connection</a></li></ol></li><li data-target-id="component-level-access--usebuildingsensor" data-depth="2"><a href="#component-level-access--usebuildingsensor">Component-Level Access — useBuildingSensor</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling" aria-current="page">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="one-shared-connection-tied-to-authentication" data-depth="2"><a href="#one-shared-connection-tied-to-authentication">One Shared Connection, Tied To Authentication</a></li><li data-target-id="telemetry-subscription--one-store-reference-counted-buckets" data-depth="2"><a href="#telemetry-subscription--one-store-reference-counted-buckets">Telemetry Subscription — One Store, Reference-Counted Buckets</a><ol><li data-target-id="batching-updates-without-fighting-vuersquos-reactivity" data-depth="3"><a href="#batching-updates-without-fighting-vuersquos-reactivity">Batching updates without fighting Vue&rsquo;s reactivity</a></li><li data-target-id="recovering-from-a-dropped-connection" data-depth="3"><a href="#recovering-from-a-dropped-connection">Recovering from a dropped connection</a></li></ol></li><li data-target-id="component-level-access--usebuildingsensor" data-depth="2"><a href="#component-level-access--usebuildingsensor">Component-Level Access — useBuildingSensor</a></li></ol></nav></div><h1 id="real-time-client-communication" data-decorative="">Real-Time Client Communication</h1><p>This page documents how the Vue client talks to the backend over its <strong>one</strong> WebSocket connection — how that connection comes to exist, and how telemetry subscription is layered on top of it for components that need live sensor data. For how a reading gets from a physical sensor to the point where this connection receives it, see <a href="../contracts-architecture">Contracts Service Architecture</a> and <a href="../socket-architecture">Socket Service Architecture</a>; this page starts where those leave off — the moment a <span class="codespan-content"><code>telemetry</code></span> event lands in the browser.</p><hr /><h2 id="one-shared-connection-tied-to-authentication">One Shared Connection, Tied To Authentication</h2><p><strong>File:</strong> <span class="codespan-content"><code>client/src/services/socket.ts</code></span></p><p>The whole app shares a single Socket.IO client instance, created once at module load:</p><pre><code class="language-typescript">export const socket: Socket&lt;ServerToClientEvents, ClientToServerEvents&gt; = io(URL, {
+  autoConnect: false,
+  transports: ['websocket'],
+  withCredentials: true,
+})</code></pre><p><span class="codespan-content"><code>autoConnect: false</code></span> means nothing happens at load time — the connection is opened deliberately, from <span class="codespan-content"><code>App.vue</code></span>, once the user is actually authenticated:</p><pre><code class="language-typescript">// The socket handshake requires the auth cookie, so only connect once the user
+// is authenticated; drop the connection on logout. immediate covers the initial
+// state (and the false&rarr;true flip when hydrate() resolves from the cookie).
+watch(
+  () =&gt; authStore.isAuthenticated,
+  (authed) =&gt; (authed ? socket.connect() : socket.disconnect()),
+  { immediate: true },
+)</code></pre><p><span class="codespan-content"><code>withCredentials: true</code></span> is what makes this work: it&rsquo;s the client-side half of the httpOnly-cookie handshake documented in <a href="../socket">Socket Service</a> — the browser attaches the <span class="codespan-content"><code>authentication_token</code></span> cookie to the WebSocket upgrade request automatically, client code never reads or holds the token itself. Connecting only after <span class="codespan-content"><code>isAuthenticated</code></span> flips true means the very first handshake already carries a cookie worth authenticating; there&rsquo;s no unauthenticated connection attempt to fail and retry.</p><p><span class="codespan-content"><code>socket.ts</code></span> also owns the one piece of WebSocket-driven state that isn&rsquo;t telemetry: incoming <span class="codespan-content"><code>notification</code></span> events are appended straight to a shared <span class="codespan-content"><code>reactive</code></span> <span class="codespan-content"><code>socketState</code></span> (message, type, timestamp, a capped 100-item list, an unread counter) that any component can read directly — notifications don&rsquo;t need a bucketed, opt-in subscription model the way telemetry does, since there&rsquo;s only ever one feed a connected client cares about.</p><hr /><h2 id="telemetry-subscription--one-store-reference-counted-buckets">Telemetry Subscription — One Store, Reference-Counted Buckets</h2><p><strong>File:</strong> <span class="codespan-content"><code>client/src/stores/sensorData.ts</code></span></p><p>Multiple components routinely want the same building&rsquo;s same metric at once — the 3D model and the room list both read live temperature, for instance. Rather than each opening its own REST fetch, its own <span class="codespan-content"><code>subscribe_building</code></span> call, and its own telemetry handler, they all acquire a reference to one shared <strong>bucket</strong>, keyed by <span class="codespan-content"><code>(type, buildingId)</code></span>:</p><figure><pre class="mermaid">graph TD
+    APP[&quot;App.vue\nconnects socket.ts on login&quot;] --&gt; SOCKET[&quot;services/socket.ts\none shared Socket.IO client&quot;]
+    SOCKET --&gt; STORE[&quot;stores/sensorData.ts\nSensorDataStore &mdash; buckets by (type, buildingId)&quot;]
+    STORE --&gt; HOOK[&quot;composables/useBuildingSensor.ts\nacquire on mount, release on cleanup&quot;]
+    HOOK --&gt; C1[&quot;3D model view&quot;]
+    HOOK --&gt; C2[&quot;Room list&quot;]
+    HOOK --&gt; C3[&quot;...any other component&quot;]
+    SOCKET --&gt;|&quot;telemetry event&quot;| STORE</pre></figure><pre><code class="language-typescript">function acquire(buildingId: string, type: SensorType): SensorBucket {
+  const key = bucketKey(type, buildingId)
+  let bucket = buckets.get(key)
+  if (!bucket) {
+    const firstForBuilding = !hasBucketForBuilding(buildingId)
+    bucket = { data: shallowRef([]), isLoading: ref(false), error: ref(null), refCount: 0, abort: null }
+    buckets.set(key, bucket)
+    if (firstForBuilding) socket.emit('subscribe_building', buildingId)
+    void fetchBucket(type, buildingId, bucket)
+  }
+  bucket.refCount++
+  return bucket
+}
+
+function release(buildingId: string, type: SensorType) {
+  const key = bucketKey(type, buildingId)
+  const bucket = buckets.get(key)
+  if (bucket &amp;&amp; --bucket.refCount &lt;= 0) {
+    bucket.abort?.abort()
+    buckets.delete(key)
+  }
+  if (!hasBucketForBuilding(buildingId)) socket.emit('unsubscribe_building', buildingId)
+}</code></pre><p>Only the <em>first</em> caller for a building triggers <span class="codespan-content"><code>subscribe_building</code></span>; only the last <span class="codespan-content"><code>release</code></span> for that building triggers <span class="codespan-content"><code>unsubscribe_building</code></span> — the socket room&rsquo;s lifetime is derived entirely from whether any bucket still references that building, with no separate counter to keep in sync. <span class="codespan-content"><code>acquire</code></span> also kicks off a REST fetch (<span class="codespan-content"><code>GET /sensor/:type/entireBuilding?building=...</code></span>) for the initial snapshot, so a component sees the last known values immediately rather than waiting for the next telemetry tick; a second <span class="codespan-content"><code>acquire</code></span> for the same key doesn&rsquo;t refetch, it just bumps <span class="codespan-content"><code>refCount</code></span> and returns the existing bucket.</p><p>One global handler dispatches every incoming event to its bucket by an O(1) map lookup — there&rsquo;s no per-component listener to accumulate as more components mount:</p><pre><code class="language-typescript">function onTelemetry(rawEvent: unknown) {
+  const event = rawEvent as ApiDataPoint &amp; { type?: SensorType; buildingId?: string }
+  const key = bucketKey(event.type as SensorType, event.buildingId as string)
+  const bucket = buckets.get(key)
+  if (!bucket) return
+  const arr = bucket.data.value
+  const idx = arr.findIndex((d) =&gt; d.roomId === event.roomId)
+  if (idx &gt;= 0) arr[idx] = { ...arr[idx], ...event }
+  else arr.push(event)
+  dirty.add(key)
+  scheduleFlush()
+}</code></pre><h3 id="batching-updates-without-fighting-vuersquos-reactivity">Batching updates without fighting Vue&rsquo;s reactivity</h3><p>Every touched bucket is marked <span class="codespan-content"><code>dirty</code></span> and flushed together on the next animation frame, rather than triggering a reactive update per event:</p><pre><code class="language-typescript">function scheduleFlush() {
+  if (rafPending) return
+  rafPending = true
+  requestAnimationFrame(() =&gt; {
+    for (const key of dirty) {
+      const bucket = buckets.get(key)
+      if (bucket) bucket.data.value = bucket.data.value.slice()
+    }
+    dirty.clear()
+    rafPending = false
+  })
+}</code></pre><p>The flush <strong>swaps in a new array reference</strong> (<span class="codespan-content"><code>.slice()</code></span>) rather than notifying Vue about the same array mutated in place. This is deliberate: consumers read a bucket&rsquo;s data through a <span class="codespan-content"><code>computed</code></span>, and Vue&rsquo;s reactivity only re-notifies a <span class="codespan-content"><code>computed</code></span>&rsquo;s dependents when the underlying value changes <em>by identity</em> — an in-place mutation on the same array reference would be swallowed at that boundary and never reach the views. Batching to one rAF-scheduled reference swap per bucket, instead of a reactive trigger per telemetry event, keeps Vue&rsquo;s scheduler from competing with the Three.js render loop the 3D view depends on for a steady frame rate.</p><h3 id="recovering-from-a-dropped-connection">Recovering from a dropped connection</h3><pre><code class="language-typescript">function onReconnect() {
+  for (const buildingId of new Set([...buckets.keys()].map(buildingOf))) {
+    socket.emit('subscribe_building', buildingId)
+  }
+  for (const [key, bucket] of buckets) {
+    void fetchBucket(key.slice(0, key.indexOf(':')) as SensorType, buildingOf(key), bucket)
+  }
+}</code></pre><p>The server holds no memory of which rooms a reconnected socket was in — a fresh connection starts in no rooms at all. On <span class="codespan-content"><code>connect</code></span> (which also fires after every reconnect), the store re-joins every building it still has an active bucket for and re-fetches each one&rsquo;s snapshot, so a dropped connection loses at most the telemetry that arrived while disconnected, not the subscription itself.</p><hr /><h2 id="component-level-access--usebuildingsensor">Component-Level Access — <span class="codespan-content"><code>useBuildingSensor</code></span></h2><p><strong>File:</strong> <span class="codespan-content"><code>client/src/composables/building/useBuildingSensor.ts</code></span></p><pre><code class="language-typescript">export function useBuildingSensor(buildingId: Ref&lt;string | undefined&gt;, type: SensorType) {
+  const store = useSensorDataStore()
+  const bucket = shallowRef&lt;SensorBucket | null&gt;(null)
+
+  watch(
+    buildingId,
+    (id, _old, onCleanup) =&gt; {
+      if (!id) { bucket.value = null; return }
+      bucket.value = store.acquire(id, type)
+      onCleanup(() =&gt; store.release(id, type))
+    },
+    { immediate: true },
+  )
+
+  return {
+    data: computed(() =&gt; bucket.value?.data.value ?? []),
+    isLoading: computed(() =&gt; bucket.value?.isLoading.value ?? false),
+    error: computed(() =&gt; bucket.value?.error.value ?? null),
+  }
+}</code></pre><p>This is the only entry point a component actually uses — it never touches <span class="codespan-content"><code>sensorData.ts</code></span>&rsquo;s <span class="codespan-content"><code>acquire</code></span>/<span class="codespan-content"><code>release</code></span> directly. <span class="codespan-content"><code>watch(buildingId, ..., { immediate: true })</code></span> handles three cases identically: the initial mount, a component switching to a different building, and unmount (via <span class="codespan-content"><code>onCleanup</code></span>) — each transition releases the old bucket reference (if any) and acquires the new one, so the store&rsquo;s reference counts stay correct without the component needing any lifecycle logic of its own beyond calling this composable.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

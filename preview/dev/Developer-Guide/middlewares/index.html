@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Node Auth &amp; Error Middleware</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-authentication--trusting-the-mesh-not-re-verifying-a-jwt" data-depth="2"><a href="#_1-authentication--trusting-the-mesh-not-re-verifying-a-jwt">1. Authentication — trusting the mesh, not re-verifying a JWT</a></li><li data-target-id="_2-global-error-handling--globalerrorhandler" data-depth="2"><a href="#_2-global-error-handling--globalerrorhandler">2. Global Error Handling — globalErrorHandler</a><ol><li data-target-id="error-taxonomy" data-depth="3"><a href="#error-taxonomy">Error taxonomy</a></li></ol></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares" aria-current="page">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-authentication--trusting-the-mesh-not-re-verifying-a-jwt" data-depth="2"><a href="#_1-authentication--trusting-the-mesh-not-re-verifying-a-jwt">1. Authentication — trusting the mesh, not re-verifying a JWT</a></li><li data-target-id="_2-global-error-handling--globalerrorhandler" data-depth="2"><a href="#_2-global-error-handling--globalerrorhandler">2. Global Error Handling — globalErrorHandler</a><ol><li data-target-id="error-taxonomy" data-depth="3"><a href="#error-taxonomy">Error taxonomy</a></li></ol></li></ol></nav></div><h1 id="node-auth-amp-error-middleware" data-decorative="">Node Auth &amp; Error Middleware</h1><p>Implementation reference for the cross-cutting Express middleware shared by the Node services (<span class="codespan-content"><code>notification-service</code></span>, <span class="codespan-content"><code>sensor-service</code></span>, <span class="codespan-content"><code>chat-service</code></span>; <span class="codespan-content"><code>socket-service</code></span> carries the equivalent logic in <span class="codespan-content"><code>src/auth.ts</code></span>, since a WebSocket handshake isn&rsquo;t an Express request/response pipeline). Controllers and services hold business logic; <strong>request authentication and error shaping</strong> are delegated to the middleware documented here.</p><p>This is one of three same-shaped implementations of the same trust boundary, one per backend language: <span class="codespan-content"><code>twin-service</code></span>&rsquo;s Rust/Axum equivalent is the <span class="codespan-content"><code>GatewayClaims</code></span> extractor (<span class="codespan-content"><code>src/infra/claims.rs</code></span> — see <a href="../services/digital-twin.qd)">Digital Twin Service</a>, and the four Go identity-tier services use the dedicated <a href="../auth-middleware">Auth Middleware</a> package. All three decode the same header; none of them verify a JWT signature themselves. For the design rationale behind that split, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a> and <a href="../service-mesh">Service Mesh Architecture</a>.</p><hr /><h2 id="_1-authentication--trusting-the-mesh-not-re-verifying-a-jwt">1. Authentication — trusting the mesh, not re-verifying a JWT</h2><p><strong>Files:</strong> <span class="codespan-content"><code>src/middlewares/authentication.ts</code></span> in <span class="codespan-content"><code>notification-service</code></span>, <span class="codespan-content"><code>sensor-service</code></span>, <span class="codespan-content"><code>chat-service</code></span>; <span class="codespan-content"><code>src/auth.ts</code></span> in <span class="codespan-content"><code>socket-service</code></span>.</p><p>Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> verifies the gateway-minted JWT exactly once, at the mesh ingress, and injects the validated payload as a base64-encoded JSON header (<span class="codespan-content"><code>outputPayloadToHeader</code></span>). Every Node service downstream of that ingress trusts the header instead of re-verifying a signature — mTLS (enforced mesh-wide, <span class="codespan-content"><code>STRICT</code></span> mode) already authenticates the hop that carried it.</p><figure><pre class="mermaid">graph LR
+    subgraph &quot;Mesh Edge&quot;
+        IST[&quot;Istio RequestAuthentication\nverifies JWT once, RS256 against claims-gateway's JWKS&quot;]
+    end
+    subgraph &quot;Node Services &mdash; this package&quot;
+        N1[&quot;notification-service\nsrc/middlewares/authentication.ts&quot;]
+        N2[&quot;sensor-service\nsrc/middlewares/authentication.ts&quot;]
+        N3[&quot;chat-service\nsrc/middlewares/authentication.ts&quot;]
+        N4[&quot;socket-service\nsrc/auth.ts&quot;]
+    end
+    subgraph &quot;Same trust boundary, other languages&quot;
+        RS[&quot;twin-service\nGatewayClaims axum extractor&quot;]
+        GO[&quot;4 Go identity-tier services\nauth-middleware package&quot;]
+    end
+    IST --&gt;|&quot;x-gateway-claims header\n(base64 JSON)&quot;| N1
+    IST --&gt; N2
+    IST --&gt; N3
+    IST --&gt; N4
+    IST -.-&gt;|&quot;same header, same trust&quot;| RS
+    IST -.-&gt; GO</pre></figure><p>Representative implementation (<span class="codespan-content"><code>notification-service</code></span>):</p><pre><code class="language-typescript">// Istio's RequestAuthentication verifies the gateway JWT once at the ingress
+// and injects the validated payload as this base64 header
+// (outputPayloadToHeader) &mdash; notification-service trusts it rather than
+// re-verifying a JWT itself.
+export const requireAuthentication = (req: Request, _res: Response, next: NextFunction) =&gt; {
+  const header = req.headers[&quot;x-gateway-claims&quot;];
+  if (!header || typeof header !== &quot;string&quot;) {
+    throw new UnauthorizedError(&quot;Missing authentication token&quot;);
+  }
+
+  let payload: JwtPayload;
+  try {
+    payload = JSON.parse(Buffer.from(header, &quot;base64&quot;).toString(&quot;utf8&quot;)) as JwtPayload;
+  } catch {
+    throw new UnauthorizedError(&quot;Invalid authentication token&quot;);
+  }
+
+  if (!payload.accountName) {
+    throw new UnauthorizedError(&quot;Authentication token is missing an account&quot;);
+  }
+
+  req.account = normalizeGatewayClaims(payload);
+  req.authToken = header;
+  next();
+};</code></pre><figure><pre class="mermaid">sequenceDiagram
+    participant C as Client
+    participant IG as Istio Ingress Gateway
+    participant S as Node service
+    C-&gt;&gt;IG: request (cookie or Authorization: Bearer)
+    Note over IG: RequestAuthentication verifies the JWT's signature against claims-gateway's JWKS, once
+    IG-&gt;&gt;S: forwards request + x-gateway-claims header (base64 JSON payload)
+    Note over S: requireAuthentication decodes the header, no signature check
+    Note over S: normalizeGatewayClaims reshapes it onto req.account
+    S--&gt;&gt;C: 401 if header missing/malformed, otherwise handled request</pre></figure><p>Three real per-service differences, verified against each file rather than assumed uniform:</p><table><thead><tr><th>Service</th><th>On a missing/invalid header</th><th>Notes</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>notification-service</code></span> / <span class="codespan-content"><code>chat-service</code></span></td><td><span class="codespan-content"><code>throw new UnauthorizedError(...)</code></span>, caught by the global error handler (section 2)</td><td><span class="codespan-content"><code>chat-service</code></span> additionally exposes <span class="codespan-content"><code>req.userId</code></span> directly, since most of its routes key off it rather than the full claims object.</td></tr><tr><td><span class="codespan-content"><code>sensor-service</code></span></td><td>Responds directly with a 401 JSON error body, no <span class="codespan-content"><code>throw</code></span></td><td><span class="codespan-content"><code>sensor-service</code></span> has <strong>no</strong> global error handler; every controller shapes its own response, so this middleware can&rsquo;t rely on one existing downstream.</td></tr><tr><td><span class="codespan-content"><code>socket-service</code></span></td><td>Returns <span class="codespan-content"><code>null</code></span> from <span class="codespan-content"><code>authenticateClaimsHeader</code></span></td><td>Not Express — this runs once on the Socket.IO handshake, wired as handshake middleware (see <a href="../architecture/socket-architecture.qd)">Socket Service Architecture</a>; the caller decides how to reject a <span class="codespan-content"><code>null</code></span> identity.</td></tr></tbody></table><div class="box note"><header><h4><span class="codespan-content"><code>normalizeGatewayClaims</code></span> — a legacy shape holdover</h4></header><div class="box-content"><p>Every one of these files reshapes claims-gateway&rsquo;s <span class="codespan-content"><code>{sub, memberships:[{domain,role,externalId?}]}</code></span> payload onto <span class="codespan-content"><code>{accountId, accountMemberships:[{domainName,role,externalId?}]}</code></span> — the shape every route in these services already reads. It&rsquo;s a holdover from before the identity/tenancy layer was rebuilt in Go: nothing downstream needed to change, so the translation stayed at the edge instead of propagating a rename through every controller.</p></div></div><div class="box note"><header><h4>Always trust <span class="codespan-content"><code>req.account</code></span>, never the body or URL</h4></header><div class="box-content"><p>Controllers must read the caller identity from <span class="codespan-content"><code>req.account</code></span> (or <span class="codespan-content"><code>req.userId</code></span> in <span class="codespan-content"><code>chat-service</code></span>). An account identifier in the request body <strong>or URL path</strong> is attacker-controlled and must never be used for authorization.</p></div></div><hr /><h2 id="_2-global-error-handling--globalerrorhandler">2. Global Error Handling — <span class="codespan-content"><code>globalErrorHandler</code></span></h2><p><strong>Files:</strong> <span class="codespan-content"><code>src/middlewares/errorsMiddleware.ts</code></span> (handler), <span class="codespan-content"><code>src/models/error.ts</code></span> (taxonomy) — present in <span class="codespan-content"><code>notification-service</code></span> and <span class="codespan-content"><code>chat-service</code></span>; <span class="codespan-content"><code>sensor-service</code></span> deliberately has neither (see the table above).</p><p>The last middleware in the stack, where present. Controllers and services never write error responses directly; they <span class="codespan-content"><code>throw</code></span> typed errors, and this handler serialises them.</p><pre><code class="language-typescript">export const globalErrorHandler = (err: unknown, _req: Request, res: Response, _next: NextFunction) =&gt; {
+  if (err instanceof BaseError) {
+    return res.status(err.code).json({ type: err.type, message: err.message });
+  }
+  return res.status(500).json({
+    type: &quot;Internal Server Error&quot;,
+    message: &quot;An unexpected error occurred. Please try again later.&quot;,
+  });
+};</code></pre><p>Any error that is not a <span class="codespan-content"><code>BaseError</code></span> is scrubbed to a generic <span class="codespan-content"><code>500</code></span>, so stack traces and database internals never reach the client.</p><h3 id="error-taxonomy">Error taxonomy</h3><p><strong>File:</strong> <span class="codespan-content"><code>src/models/error.ts</code></span></p><table><thead><tr><th>Class</th><th>Status</th><th><span class="codespan-content"><code>type</code></span></th></tr></thead><tbody><tr><td><span class="codespan-content"><code>ValidationError</code></span></td><td>400</td><td>Validation Error</td></tr><tr><td><span class="codespan-content"><code>UnauthorizedError</code></span></td><td>401</td><td>Unauthorized Error</td></tr><tr><td><span class="codespan-content"><code>ForbiddenError</code></span></td><td>403</td><td>Forbidden Error</td></tr><tr><td><span class="codespan-content"><code>NotFoundError</code></span></td><td>404</td><td>Not Found Error</td></tr><tr><td><span class="codespan-content"><code>ConflictError</code></span></td><td>409</td><td>Conflict Error</td></tr><tr><td><span class="codespan-content"><code>InternalError</code></span></td><td>500</td><td>Internal Error</td></tr></tbody></table><p>Every error carries an HTTP <span class="codespan-content"><code>code</code></span> and a human-readable <span class="codespan-content"><code>type</code></span>, producing a stable <span class="codespan-content"><code>{ type, message }</code></span> envelope the frontend can branch on.</p><div class="box tip"><header><h4>Convention</h4></header><div class="box-content"><p>New endpoints in <span class="codespan-content"><code>notification-service</code></span> or <span class="codespan-content"><code>chat-service</code></span> should attach <span class="codespan-content"><code>requireAuthentication</code></span> and throw typed errors rather than handling HTTP status codes inline. <span class="codespan-content"><code>sensor-service</code></span> and <span class="codespan-content"><code>socket-service</code></span> are the deliberate exceptions — the former to keep its hot ingest path free of a shared handler&rsquo;s overhead, the latter because Socket.IO has no equivalent middleware chain. Role-based route gating lives in each domain&rsquo;s own service (<span class="codespan-content"><code>tenancy-service</code></span>&rsquo;s <span class="codespan-content"><code>claims.CanIn(domain, role)</code></span>, using <a href="auth-contracts.qd)">Auth Contracts</a> — not in a shared Node middleware.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

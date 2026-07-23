@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Auth Middleware</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-requireauthentication--real-signature-verification" data-depth="2"><a href="#_1-requireauthentication--real-signature-verification">1. RequireAuthentication — real signature verification</a></li><li data-target-id="_2-requiremeshclaims--trusting-the-mesh" data-depth="2"><a href="#_2-requiremeshclaims--trusting-the-mesh">2. RequireMeshClaims — trusting the mesh</a></li><li data-target-id="_3-fromcontext--retrieving-claims-downstream" data-depth="2"><a href="#_3-fromcontext--retrieving-claims-downstream">3. FromContext — retrieving claims downstream</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware" aria-current="page">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-requireauthentication--real-signature-verification" data-depth="2"><a href="#_1-requireauthentication--real-signature-verification">1. RequireAuthentication — real signature verification</a></li><li data-target-id="_2-requiremeshclaims--trusting-the-mesh" data-depth="2"><a href="#_2-requiremeshclaims--trusting-the-mesh">2. RequireMeshClaims — trusting the mesh</a></li><li data-target-id="_3-fromcontext--retrieving-claims-downstream" data-depth="2"><a href="#_3-fromcontext--retrieving-claims-downstream">3. FromContext — retrieving claims downstream</a></li></ol></nav></div><h1 id="auth-middleware" data-decorative="">Auth Middleware</h1><p><span class="codespan-content"><code>auth-middleware</code></span> is the Go equivalent of <a href="../middlewares">Node Auth &amp; Error Middleware</a>: the shared code every Go HTTP service wires in front of its routes to resolve <span class="codespan-content"><code>authcontracts.StandardClaims</code></span> — the caller&rsquo;s identity and memberships — from a request, before any handler runs.</p><p>Unlike the Node package, it exposes <strong>two</strong> distinct entry points, because the Go services that use it don&rsquo;t all receive requests the same way:</p><ul><li><strong><span class="codespan-content"><code>claims-gateway</code></span> has to verify a token for real.</strong> It&rsquo;s the service that issues the token in the first place (see <span class="codespan-content"><code>internal/signer</code></span>), and in Kubernetes it&rsquo;s also what every other verifier — Istio included — ultimately relies on, since Istio&rsquo;s own signature check is configured to fetch its public key from claims-gateway. It can&rsquo;t outsource its own verification to a system whose verification depends on it. It&rsquo;s also the fallback in environments with no mesh at all: in local docker-compose development (no Istio), Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> calls claims-gateway&rsquo;s own <span class="codespan-content"><code>/verify</code></span> endpoint directly, so claims-gateway has to be able to check a token completely on its own.</li><li><strong>Every other Go service only has to trust an already-checked header.</strong> <span class="codespan-content"><code>tenancy-service</code></span> (confirmed; see the diagram below) never receives a raw token — only requests that have already passed through Istio&rsquo;s ingress, where <span class="codespan-content"><code>RequestAuthentication</code></span> verified the JWT once and rewrote the verified payload into the <span class="codespan-content"><code>x-gateway-claims</code></span> header. Re-checking that signature inside <span class="codespan-content"><code>tenancy-service</code></span> would just repeat work Istio already did.</li></ul><figure><pre class="mermaid">graph TD
+    subgraph &quot;claims-gateway &mdash; issues tokens, verifies them for real&quot;
+        CG[&quot;internal/api/handler.go\nr.Use(RequireAuthentication(...))&quot;]
+    end
+    subgraph &quot;auth-middleware&quot;
+        RA[&quot;RequireAuthentication(jwks, issuer)\nverifies RS256 signature + issuer against claims-gateway's JWKS&quot;]
+        RM[&quot;RequireMeshClaims()\ntrusts the x-gateway-claims header, no signature check&quot;]
+        FC[&quot;FromContext(ctx)\nretrieves claims either one attached&quot;]
+    end
+    subgraph &quot;tenancy-service &mdash; only ever sees a pre-verified request&quot;
+        TS[&quot;internal/api/handler.go\nr.Use(RequireMeshClaims())&quot;]
+    end
+
+    CG --&gt; RA
+    TS --&gt; RM
+    RA --&gt;|&quot;context.WithValue&quot;| FC
+    RM --&gt;|&quot;context.WithValue&quot;| FC</pre></figure><p>The same split exists in every other language: see <a href="../middlewares">Node Auth &amp; Error Middleware</a> for the Node services and <a href="../digital-twin">Digital Twin Service</a> for <span class="codespan-content"><code>twin-service</code></span>&rsquo;s Rust extractor — both trust the same <span class="codespan-content"><code>x-gateway-claims</code></span> header rather than verifying anything themselves, for the same reason <span class="codespan-content"><code>tenancy-service</code></span> does here.</p><p>Not every Go service uses this package for its inbound auth. <span class="codespan-content"><code>registry-service</code></span> and <span class="codespan-content"><code>provisioner</code></span> are control-plane-to-control-plane only: their <span class="codespan-content"><code>/internal/*</code></span> routes are protected by a separate HMAC-SHA256 request-signing scheme (<span class="codespan-content"><code>X-Signature</code></span>, checked against a shared internal secret), not a <span class="codespan-content"><code>StandardClaims</code></span> token at all, and <span class="codespan-content"><code>provisioner</code></span> has no inbound HTTP handlers to protect in the first place — it only ever makes outbound calls, signing its own requests with that same HMAC scheme. Neither service currently needs <span class="codespan-content"><code>auth-middleware</code></span>.</p><hr /><h2 id="_1-requireauthentication--real-signature-verification">1. <span class="codespan-content"><code>RequireAuthentication</code></span> — real signature verification</h2><p><strong>File:</strong> <span class="codespan-content"><code>middleware.go</code></span></p><pre><code class="language-go">// Package authmiddleware verifies the internal RS256 token minted by
+// claims-gateway. RS256 (not HS256) is deliberate: the gateway signs with a
+// private key nothing else holds, so a compromised service can read and
+// verify tokens but never mint them.
+package authmiddleware
+
+// RequireAuthentication verifies the gateway-minted token against its JWKS
+// and pins both the signing algorithm and the issuer, so a token from a
+// different gateway &mdash; or a same-shape token an attacker crafted with alg
+// &quot;none&quot; or HS256 &mdash; is rejected before any claim is trusted.
+func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw := extractToken(r) // cookie, or a forwarded Bearer header
+			if raw == &quot;&quot; {
+				http.Error(w, &quot;unauthenticated&quot;, http.StatusUnauthorized)
+				return
+			}
+
+			var claims authcontracts.StandardClaims
+			token, err := jwt.ParseWithClaims(raw, jwt.MapClaims{}, jwks.Keyfunc,
+				jwt.WithValidMethods([]string{&quot;RS256&quot;}), // reject a token with a different alg
+				jwt.WithIssuer(issuer),                  // reject a token from a different signer
+			)
+			if err != nil || !token.Valid {
+				http.Error(w, &quot;invalid token&quot;, http.StatusUnauthorized)
+				return
+			}
+			// ...decode into claims, attach to context, call next.
+		})
+	}
+}</code></pre><p>Two lines carry the actual security properties, and both are backed by a real adversarial test rather than just a comment:</p><pre><code class="language-go">func TestRequireAuthentication_RejectsAlgNoneConfusion(t *testing.T) {
+	// Classic alg-confusion attempt: an unsigned token claiming alg &quot;none&quot;.
+	tok := jwt.NewWithClaims(jwt.SigningMethodNone, validClaims())
+	signed, _ := tok.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	// ...the middleware must reject it regardless, because it only accepts RS256.
+}
+
+func TestRequireAuthentication_RejectsWrongSigningKey(t *testing.T) {
+	trusted, _ := rsa.GenerateKey(rand.Reader, 2048)
+	attacker, _ := rsa.GenerateKey(rand.Reader, 2048)
+	kf := testKeyfunc(t, &amp;trusted.PublicKey)
+	// Token is well-formed and even carries the trusted key's kid, but is
+	// signed by a different private key &mdash; signature verification must fail.
+	tok := signRS256(t, attacker, validClaims())
+	// ...
+}</code></pre><p><span class="codespan-content"><code>jwt.WithValidMethods([]string{&quot;RS256&quot;})</code></span> is what makes the first test meaningful — without pinning the algorithm, a library that trusts the token&rsquo;s own <span class="codespan-content"><code>alg</code></span> header can be tricked into treating an HMAC signature (or no signature at all) as valid. <span class="codespan-content"><code>jwt.WithIssuer(issuer)</code></span> closes a related gap: a well-formed, correctly-signed token from an <em>unrelated</em> RS256 issuer would otherwise pass signature verification too.</p><p>The token can arrive two ways — a browser&rsquo;s cookie, or a service forwarding it as a Bearer header:</p><pre><code class="language-go">func extractToken(r *http.Request) string {
+	if header := r.Header.Get(&quot;Authorization&quot;); strings.HasPrefix(header, &quot;Bearer &quot;) {
+		return strings.TrimPrefix(header, &quot;Bearer &quot;)
+	}
+	if cookie, err := r.Cookie(CookieName); err == nil {
+		return cookie.Value
+	}
+	return &quot;&quot;
+}</code></pre><hr /><h2 id="_2-requiremeshclaims--trusting-the-mesh">2. <span class="codespan-content"><code>RequireMeshClaims</code></span> — trusting the mesh</h2><p><strong>File:</strong> <span class="codespan-content"><code>middleware.go</code></span></p><pre><code class="language-go">// Header Istio's RequestAuthentication injects after verifying the gateway JWT
+// once at the mesh ingress.
+const GatewayClaimsHeader = &quot;x-gateway-claims&quot;
+
+// RequireMeshClaims trusts the mesh-verified claims header instead of
+// verifying a JWT itself. Claims-gateway's own routes (e.g. /me) keep using
+// RequireAuthentication directly.
+func RequireMeshClaims() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			header := r.Header.Get(GatewayClaimsHeader)
+			if header == &quot;&quot; {
+				http.Error(w, &quot;unauthenticated&quot;, http.StatusUnauthorized)
+				return
+			}
+			raw, err := base64.StdEncoding.DecodeString(header)
+			if err != nil {
+				http.Error(w, &quot;invalid token&quot;, http.StatusUnauthorized)
+				return
+			}
+			var claims authcontracts.StandardClaims
+			if err := json.Unmarshal(raw, &amp;claims); err != nil || claims.Sub == &quot;&quot; {
+				http.Error(w, &quot;invalid token claims&quot;, http.StatusUnauthorized)
+				return
+			}
+			// ...attach to context, call next.
+		})
+	}
+}</code></pre><p>No <span class="codespan-content"><code>jwt.Parse</code></span>, no keyfunc, no signature check at all — a base64-decode and a JSON-unmarshal is the entire verification. That&rsquo;s not a shortcut; it&rsquo;s the deliberate consequence of <span class="codespan-content"><code>RequireAuthentication</code></span> having already done the real work once, upstream, at the mesh ingress. Doing it again here would check a signature that was already checked, against a public key every one of these services would otherwise need to fetch and cache for no additional safety.</p><hr /><h2 id="_3-fromcontext--retrieving-claims-downstream">3. <span class="codespan-content"><code>FromContext</code></span> — retrieving claims downstream</h2><p><strong>File:</strong> <span class="codespan-content"><code>middleware.go</code></span></p><pre><code class="language-go">type contextKey struct{}
+
+// FromContext retrieves the claims RequireAuthentication verified and
+// attached to the request context.
+func FromContext(ctx context.Context) (authcontracts.StandardClaims, bool) {
+	c, ok := ctx.Value(contextKey{}).(authcontracts.StandardClaims)
+	return c, ok
+}</code></pre><p>Both entry points attach the same <span class="codespan-content"><code>authcontracts.StandardClaims</code></span> type under the same unexported key, so a handler calls <span class="codespan-content"><code>FromContext</code></span> without needing to know or care which of the two verified it. The key is an empty <span class="codespan-content"><code>struct{}</code></span> type unique to this package, not a string — Go&rsquo;s usual defense against a context key collision with another package&rsquo;s middleware.</p><div class="box note"><header><h4>Why this split lives in one package, not two</h4></header><div class="box-content"><p><span class="codespan-content"><code>RequireAuthentication</code></span> and <span class="codespan-content"><code>RequireMeshClaims</code></span> produce the exact same <span class="codespan-content"><code>authcontracts.StandardClaims</code></span> shape and attach it to the context identically — the only difference is how much verification work each one does before trusting it. Keeping them in one package means <span class="codespan-content"><code>FromContext</code></span> and every consumer downstream of it are written once, and work unchanged whether a service ends up needing the strict, signature-checking entry point (<span class="codespan-content"><code>claims-gateway</code></span>) or the trusting, header-reading one (everyone else).</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

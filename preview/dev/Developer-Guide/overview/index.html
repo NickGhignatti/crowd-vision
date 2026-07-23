@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Architecture Overview</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="component-landscape" data-depth="2"><a href="#component-landscape">Component Landscape</a><ol><li data-target-id="libraries" data-depth="3"><a href="#libraries">Libraries</a></li><li data-target-id="services-2" data-depth="3"><a href="#services-2">Services</a></li></ol></li><li data-target-id="deployment-model-docker-compose-local-development" data-depth="2"><a href="#deployment-model-docker-compose-local-development">Deployment Model: Docker Compose (Local Development)</a><ol><li data-target-id="network-segregation-amp-database-isolation" data-depth="3"><a href="#network-segregation-amp-database-isolation">Network Segregation &amp; Database Isolation</a></li></ol></li><li data-target-id="deployment-model-kubernetes-production--staging" data-depth="2"><a href="#deployment-model-kubernetes-production--staging">Deployment Model: Kubernetes (Production / Staging)</a></li><li data-target-id="routing-table" data-depth="2"><a href="#routing-table">Routing Table</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview" aria-current="page">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="component-landscape" data-depth="2"><a href="#component-landscape">Component Landscape</a><ol><li data-target-id="libraries" data-depth="3"><a href="#libraries">Libraries</a></li><li data-target-id="services-2" data-depth="3"><a href="#services-2">Services</a></li></ol></li><li data-target-id="deployment-model-docker-compose-local-development" data-depth="2"><a href="#deployment-model-docker-compose-local-development">Deployment Model: Docker Compose (Local Development)</a><ol><li data-target-id="network-segregation-amp-database-isolation" data-depth="3"><a href="#network-segregation-amp-database-isolation">Network Segregation &amp; Database Isolation</a></li></ol></li><li data-target-id="deployment-model-kubernetes-production--staging" data-depth="2"><a href="#deployment-model-kubernetes-production--staging">Deployment Model: Kubernetes (Production / Staging)</a></li><li data-target-id="routing-table" data-depth="2"><a href="#routing-table">Routing Table</a></li></ol></nav></div><h1 id="architecture-overview" data-decorative="">Architecture Overview</h1><p>CrowdVision is a distributed, <strong>event-driven microservices</strong> system. The frontend is fully separated from the backend, and the backend services are isolated from one another, so the platform can scale parts independently, tolerate partial failure, and enforce strict data boundaries.</p><p>This page gives the whole-system picture — the components and the two deployment models. Inter-service communication and the real-time data path are covered in <a href="../data-flow">Communication &amp; Data Flow</a>; the cluster specifics in <a href="../deployment">Deployment &amp; Kubernetes</a>; the Istio mesh migration in <a href="../service-mesh">Service Mesh Architecture</a>.</p><hr /><h2 id="component-landscape">Component Landscape</h2><h3 id="libraries">Libraries</h3><p>Shared code embedded directly into other services — not independently deployed, no Dockerfile of their own.</p><table><thead><tr><th>Library</th><th>Role</th><th>Stack</th></tr></thead><tbody><tr><td>auth-contracts</td><td>Shared Kernel: the <span class="codespan-content"><code>StandardClaims</code></span>/<span class="codespan-content"><code>Membership</code></span> token shape and the role-weight ladder (<span class="codespan-content"><code>roles.json</code></span>). Consumed by auth-middleware, auth-policy, claims-gateway, tenancy-service.</td><td>Go module</td></tr><tr><td>auth-middleware</td><td>Two verification strategies: <span class="codespan-content"><code>RequireAuthentication</code></span> (full JWT verify against JWKS) and <span class="codespan-content"><code>RequireMeshClaims</code></span> (trusts the mesh-injected <span class="codespan-content"><code>x-gateway-claims</code></span> header). Consumed by claims-gateway and tenancy-service (the only Go HTTP services).</td><td>Go module</td></tr><tr><td>auth-policy</td><td>Cedar authorization bundle (<span class="codespan-content"><code>schema.cedarschema</code></span>, <span class="codespan-content"><code>policy.cedar</code></span>, <span class="codespan-content"><code>fixtures/conformance.json</code></span>) embedded and evaluated locally by each language: <span class="codespan-content"><code>cedar-go</code></span> (Go, tenancy-service), <span class="codespan-content"><code>cedar-policy</code></span> crate via <span class="codespan-content"><code>include_str!</code></span> at compile time (Rust, twin-service), <span class="codespan-content"><code>cedarpy</code></span> at runtime (Python, agent-service). One shared bundle, three independent embeddings — not a package import, a sibling directory each build copies in.</td><td>Go module + Rust/Python bindings</td></tr></tbody></table><h3 id="services-2">Services</h3><p>Independently deployable, each with its own container image.</p><table><thead><tr><th>Component</th><th>Role</th><th>Stack</th></tr></thead><tbody><tr><td>Keycloak</td><td>Identity provider for every tier — authentication, credentials, MFA, brokered/BYO-IdP login. See <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>.</td><td>Ops (Keycloak 26)</td></tr><tr><td>claims-gateway</td><td>Verifies the IdP token, resolves tenancy, mints the internal token every service trusts</td><td>Go</td></tr><tr><td>tenancy-service</td><td>Domains &amp; memberships — who belongs to which organization, with what role</td><td>Go / PostgreSQL</td></tr><tr><td>registry-service</td><td>Organization signup &amp; lifecycle (control plane; never deployed in a cell)</td><td>Go / PostgreSQL</td></tr><tr><td>provisioner</td><td>Reconciles pending organizations into running tenancy (pooled tier today). No external route — internal reconcile loop only.</td><td>Go</td></tr><tr><td>twin-service</td><td>Building Management — the spatial model</td><td>Rust / Axum / MongoDB</td></tr><tr><td>sensor-service</td><td>Telemetry Ingestion — readings &amp; thresholds</td><td>Node.js / Express / MongoDB</td></tr><tr><td>contracts-service</td><td>Telemetry Distribution — per-building filtering</td><td>Rust / Axum / MongoDB</td></tr><tr><td>notification-service</td><td>Alerting — push delivery</td><td>Node.js / Express / MongoDB</td></tr><tr><td>socket-service</td><td>Real-time transport to the browser</td><td>Node.js / Socket.IO</td></tr><tr><td>chat-service</td><td>Persists multi-turn chat sessions and orchestrates calls to agent-service</td><td>Node.js / MongoDB</td></tr><tr><td>agent-service</td><td>Assistant — maintained separately; see its <a href="../agent">reference</a></td><td>Python / PostgreSQL (pgvector)</td></tr><tr><td>client</td><td>The single-page application</td><td>Vue 3 / Vite</td></tr><tr><td>Gateway</td><td>Single entry point, routes by URL prefix</td><td>Caddy (compose) / Istio Gateway API (k8s)</td></tr><tr><td>Service Mesh</td><td>Kubernetes only: Istio in ambient mode — <span class="codespan-content"><code>ztunnel</code></span> gives every pod L4 mTLS, edge <span class="codespan-content"><code>RequestAuthentication</code></span> verifies the JWT once, <span class="codespan-content"><code>AuthorizationPolicy</code></span> enforces coarse authZ. Docker-compose&rsquo;s equivalent is Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> against claims-gateway&rsquo;s <span class="codespan-content"><code>/verify</code></span>. See <a href="../service-mesh">Service Mesh Architecture</a>.</td><td>Istio (ambient)</td></tr><tr><td>Broker</td><td>Publish/subscribe backbone for telemetry and alerts</td><td>Redis</td></tr><tr><td>Datastores</td><td>One database per stateful service</td><td>MongoDB (sensor-service, notification-service, chat-service — Node.js; twin-service, contracts-service — Rust), PostgreSQL (agent-service, tenancy-service, registry-service, Keycloak)</td></tr></tbody></table><p>The agent-service runs as part of the system but sits outside this guide&rsquo;s microservice set; it appears here for completeness only.</p><hr /><h2 id="deployment-model-docker-compose-local-development">Deployment Model: Docker Compose (Local Development)</h2><p>All incoming external traffic enters the system through a single <strong>Caddy</strong> reverse-proxy gateway exposed on port <span class="codespan-content"><code>80</code></span>. Caddy strips the service prefixes from the URLs and proxies the requests to the appropriate target containers on the internal Docker bridge network. For protected routes, Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> calls claims-gateway&rsquo;s <span class="codespan-content"><code>/verify</code></span> and copies the resulting <span class="codespan-content"><code>X-Gateway-Claims</code></span> header onto the request — the docker-compose equivalent of Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> + <span class="codespan-content"><code>outputPayloadToHeader</code></span> in the Kubernetes model below.</p><figure><pre class="mermaid">graph TD
+    Browser[&quot;Browser / Vue Client&quot;] --&gt;|HTTP + WS| Caddy[&quot;Caddy Gateway :80&quot;]
+    IoT[&quot;IoT Sensors (Simulated)&quot;] --&gt;|HTTP POST| Caddy
+
+    subgraph gateway-net [Shared Gateway Network]
+        Caddy --&gt;|/gateway/*| CG[&quot;claims-gateway :3000&quot;]
+        Caddy --&gt;|&quot;/tenancy/* (forward_auth)&quot;| TS[&quot;tenancy-service :3000&quot;]
+        Caddy --&gt;|&quot;/twin/* (forward_auth)&quot;| Twin[&quot;twin-service :3000&quot;]
+        Caddy --&gt;|&quot;/notification/* (forward_auth)&quot;| Notif[&quot;notification-service :3000&quot;]
+        Caddy --&gt;|&quot;/socket.io/* (forward_auth)&quot;| Socket[&quot;socket-server :3000&quot;]
+        Caddy --&gt;|&quot;/sensor/* (forward_auth, ingest exempt)&quot;| Sensor[&quot;sensor-service :3000&quot;]
+        Caddy --&gt;|&quot;/chat/* (forward_auth)&quot;| Chat[&quot;chat-service :3000&quot;]
+        Caddy --&gt;|/agent/* - no gate| Agent[&quot;agent-service :3000&quot;]
+        Caddy --&gt;|/contracts, /contracts/*| Contracts[&quot;contracts-service :3000&quot;]
+
+        Notif --&gt;|PUBLISH| Redis[(&quot;Redis Broker&quot;)]
+        Socket --&gt;|SUBSCRIBE| Redis
+        Contracts --- Redis
+    end
+
+    RegSvc[&quot;registry-service :3000&quot;]
+    ProvSvc[&quot;provisioner&lt;br/&gt;(no inbound route)&quot;]
+    ProvSvc --&gt;|&quot;HMAC-signed, internal&quot;| RegSvc
+    ProvSvc --&gt;|&quot;HMAC-signed, internal&quot;| TS
+
+    subgraph tenancy-net [Tenancy Private Network]
+        TS --- TenancyDB[(&quot;tenancy-db PostgreSQL&quot;)]
+    end
+
+    subgraph registry-net [Registry Private Network]
+        RegSvc --- RegistryDB[(&quot;registry-db PostgreSQL&quot;)]
+    end
+
+    subgraph twin-net [Twin Private Network]
+        Twin --- TwinDB[(&quot;twin-db MongoDB&quot;)]
+    end
+
+    subgraph notification-net [Notification Private Network]
+        Notif --- NotifDB[(&quot;notification-db MongoDB&quot;)]
+    end
+
+    subgraph sensor-net [Sensor Private Network]
+        Sensor --- SensorDB[(&quot;sensor-db MongoDB&quot;)]
+    end
+
+    subgraph chat-net [Chat Private Network]
+        Chat --- ChatDB[(&quot;chat-db MongoDB&quot;)]
+    end
+
+    subgraph contracts-net [Contracts Private Network]
+        Contracts --- ContractsDB[(&quot;contracts-service-db MongoDB&quot;)]
+    end
+
+    subgraph agent-net [Agent Private Network]
+        Agent --- AgentDB[(&quot;agent-db PostgreSQL / pgvector&quot;)]
+    end</pre></figure><h3 id="network-segregation-amp-database-isolation">Network Segregation &amp; Database Isolation</h3><p>Each stateful microservice is attached to two networks:</p><ul><li>The shared <strong>gateway-net</strong> (so Caddy can reach them).</li><li>A private <strong>database network</strong> (e.g., <span class="codespan-content"><code>tenancy-net</code></span>, <span class="codespan-content"><code>twin-net</code></span>, <span class="codespan-content"><code>notification-net</code></span>, <span class="codespan-content"><code>sensor-net</code></span>, <span class="codespan-content"><code>chat-net</code></span>, <span class="codespan-content"><code>contracts-net</code></span>, <span class="codespan-content"><code>agent-net</code></span>, <span class="codespan-content"><code>registry-net</code></span>). <span class="codespan-content"><code>claims-gateway</code></span> and <span class="codespan-content"><code>provisioner</code></span> have no private network of their own — both are stateless and own no database.</li></ul><p>This is the intended database-per-service boundary: no service is meant to reach another service&rsquo;s database directly, only through an API call or an event.</p><hr /><h2 id="deployment-model-kubernetes-production--staging">Deployment Model: Kubernetes (Production / Staging)</h2><p>In Kubernetes mode, Caddy is replaced by an <strong>Istio Gateway</strong> (Gateway API, <span class="codespan-content"><code>gatewayClassName: istio</code></span>) fronting an <strong>Istio ambient mesh</strong>: a per-node <span class="codespan-content"><code>ztunnel</code></span> DaemonSet gives every pod L4 mTLS and workload identity with no sidecar and no pod restarts, <span class="codespan-content"><code>PeerAuthentication</code></span> enforces <span class="codespan-content"><code>STRICT</code></span> mTLS across the <span class="codespan-content"><code>crowdvision</code></span> namespace, and a <span class="codespan-content"><code>RequestAuthentication</code></span> on the gateway verifies the claims-gateway-issued JWT exactly once — the validated payload is injected as a single <span class="codespan-content"><code>x-gateway-claims</code></span> header via <span class="codespan-content"><code>outputPayloadToHeader</code></span>, and every downstream service decodes that header instead of re-verifying the JWT itself. The full phased migration is documented in <a href="../service-mesh">Service Mesh Architecture</a>.</p><figure><pre class="mermaid">graph TD
+    Browser[&quot;Browser / Vue Client&quot;] --&gt;|HTTP port 80| LB[&quot;k3d LoadBalancer&quot;]
+    Simulator[&quot;Sensor Simulator (external Docker)&quot;] --&gt;|HTTP POST| LB
+
+    LB --&gt; IGW[&quot;Istio Gateway (Envoy)&lt;br/&gt;auto-provisioned: crowdvision-gateway-istio&quot;]
+
+    subgraph crowdvision [&quot;Namespace: crowdvision &mdash; Istio ambient, ztunnel mTLS STRICT on every pod&quot;]
+        IGW --&gt;|&quot;RequestAuthentication: JWT verified once&lt;br/&gt;outputPayloadToHeader to x-gateway-claims&quot;| HR{{&quot;Gateway API HTTPRoutes&quot;}}
+
+        HR --&gt;|/gateway| CGSvc[&quot;claims-gateway&quot;]
+        HR --&gt;|/tenancy| TSSvc[&quot;tenancy-service&quot;]
+        HR --&gt;|/twin| TwinSvc[&quot;twin-service&quot;]
+        HR --&gt;|/sensor| SensorSvc[&quot;sensor-service&quot;]
+        HR --&gt;|/notification| NotifSvc[&quot;notification-service&quot;]
+        HR --&gt;|/chat| ChatSvc[&quot;chat-service&quot;]
+        HR --&gt;|/socket.io| SocketSvc[&quot;socket-service&quot;]
+        HR --&gt;|&quot;/agent (excluded from JWT gate)&quot;| AgentSvc[&quot;agent-service&quot;]
+        HR --&gt;|/contracts| ContractsSvc[&quot;contracts-service&quot;]
+        HR --&gt;|&quot;/ catch-all&quot;| ClientSvc[&quot;client&quot;]
+
+        RegSvc[&quot;registry-service&quot;]
+        ProvSvc[&quot;provisioner&lt;br/&gt;(no Gateway route)&quot;]
+        ProvSvc --&gt;|&quot;HMAC-signed, in-mesh&quot;| RegSvc
+        ProvSvc --&gt;|&quot;HMAC-signed, in-mesh&quot;| TSSvc
+
+        TSSvc --- TenancyDB[(&quot;tenancy-db StatefulSet&quot;)]
+        RegSvc --- RegistryDB[(&quot;registry-db StatefulSet&quot;)]
+        TwinSvc --- TwinDB[(&quot;twin-db StatefulSet&quot;)]
+        NotifSvc --- NotifDB[(&quot;notification-db StatefulSet&quot;)]
+        SensorSvc --- SensorDB[(&quot;sensor-db StatefulSet&quot;)]
+        ChatSvc --- ChatDB[(&quot;chat-db StatefulSet&quot;)]
+        ContractsSvc --- ContractsDB[(&quot;contracts-service-db StatefulSet&quot;)]
+
+        SocketSvc --&gt;|SUBSCRIBE| RedisPod[(&quot;Redis Deployment&quot;)]
+        NotifSvc --&gt;|PUBLISH| RedisPod
+        ContractsSvc --- RedisPod
+    end</pre></figure><p>A key difference in the Kubernetes model is how the <strong>Sensor Simulator</strong> integrates. Because the simulator is an external Docker container (not a cluster workload), it reaches the cluster through the load balancer&rsquo;s public port, just like a browser. See the <a href="../sensor-simulator">External Sensor Simulator</a> page. The cluster internals — StatefulSets, Secrets, Gateway API routes — are detailed in <a href="../deployment">Deployment &amp; Kubernetes</a>; the mesh internals (ztunnel, <span class="codespan-content"><code>RequestAuthentication</code></span>, <span class="codespan-content"><code>AuthorizationPolicy</code></span>, Cedar) in <a href="../service-mesh">Service Mesh Architecture</a>.</p><p><span class="codespan-content"><code>agent-service</code></span> is deliberately excluded from the mesh&rsquo;s <span class="codespan-content"><code>AuthorizationPolicy</code></span>-enforced JWT gate: it also serves a local-dev evaluation bypass token that never holds a real gateway JWT, so it keeps checking for the mesh claims header first and falls back to its own token verification in-process.</p><hr /><h2 id="routing-table">Routing Table</h2><p>The routing table is identical across both deployment models. Only the component enforcing it differs (Caddy vs Istio Gateway API).</p><table><thead><tr><th>External Path Prefix</th><th>Internal Target Service</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>/gateway/</code></span></td><td><span class="codespan-content"><code>claims-gateway</code></span></td><td>Token exchange, <span class="codespan-content"><code>/me</code></span>, logout, JWKS.</td></tr><tr><td><span class="codespan-content"><code>/tenancy/</code></span></td><td><span class="codespan-content"><code>tenancy-service</code></span></td><td>Domains, subdomains, memberships, invite codes.</td></tr><tr><td><span class="codespan-content"><code>/twin/</code></span></td><td><span class="codespan-content"><code>twin-service</code></span></td><td>Building models, room CRUD, spatial data.</td></tr><tr><td><span class="codespan-content"><code>/notification/</code></span></td><td><span class="codespan-content"><code>notification-service</code></span></td><td>Processing sensor events, triggering Web Push alerts.</td></tr><tr><td><span class="codespan-content"><code>/sensor/</code></span></td><td><span class="codespan-content"><code>sensor-service</code></span></td><td>Ingesting time-series sensor readings (people count, temperature). <span class="codespan-content"><code>/sensor/ingest</code></span> is exempt from the auth gate — it is device/simulator-facing and carries no user token.</td></tr><tr><td><span class="codespan-content"><code>/chat/</code></span></td><td><span class="codespan-content"><code>chat-service</code></span></td><td>Persisted multi-turn chat sessions, forwarding to agent-service.</td></tr><tr><td><span class="codespan-content"><code>/agent/</code></span></td><td><span class="codespan-content"><code>agent-service</code></span></td><td>Tool-calling assistant for live building data and documentation search. Not gated by the mesh/gateway JWT check — see the exclusion note above.</td></tr><tr><td><span class="codespan-content"><code>/contracts/</code></span></td><td><span class="codespan-content"><code>contracts-service</code></span></td><td>Per-building telemetry filtering preferences. Not gated by the auth check.</td></tr><tr><td><span class="codespan-content"><code>/socket.io/</code></span></td><td><span class="codespan-content"><code>socket-service</code></span></td><td>Maintaining persistent WebSocket connections to the frontend.</td></tr><tr><td><span class="codespan-content"><code>/</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>Serves the Vue 3 SPA. Catch-all, must be defined last.</td></tr></tbody></table><div class="box note"><header><h4>Dev Mode</h4></header><div class="box-content"><p>Developer Mode Only: when running <span class="codespan-content"><code>just stack dev</code></span>, Caddy also exposes database GUIs at <span class="codespan-content"><code>/twin-db-gui/*</code></span>, <span class="codespan-content"><code>/sensor-db-gui/*</code></span>, <span class="codespan-content"><code>/notification-db-gui/*</code></span>, <span class="codespan-content"><code>/contracts-db-gui/*</code></span>, and <span class="codespan-content"><code>/chat-db-gui/*</code></span>. These are not present in Kubernetes deployments for security reasons.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

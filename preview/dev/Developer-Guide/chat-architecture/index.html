@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Chat Service Architecture</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture" aria-current="page">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav></div><h1 id="chat-service-architecture" data-decorative="">Chat Service Architecture</h1><p><strong>Bounded context:</strong> <a href="../knowledge-assistance">Knowledge &amp; Assistance</a> (shared with agent-service) · <strong>Stack:</strong> Node.js / Express · <strong>Code-level walkthrough:</strong> <a href="../chat">Chat Service</a></p><p>The chat-service owns conversations: it persists message history, enforces per-conversation limits, and forwards each question to <span class="codespan-content"><code>agent-service</code></span> for an answer. It holds no assistant logic itself — <span class="codespan-content"><code>agent-service</code></span> is stateless per request and never sees a conversation until chat-service sends it one.</p><hr /><h2 id="architectural-style">Architectural Style</h2><p>A <strong>layered architecture</strong> — Router → Controller → Service → Model — with one twist: the service layer has two members that do fundamentally different jobs. <span class="codespan-content"><code>services/conversation.ts</code></span> is ordinary persistence (Mongoose CRUD, scoped to the caller). <span class="codespan-content"><code>services/agent.ts</code></span> touches no model at all — it&rsquo;s a plain HTTP client to <span class="codespan-content"><code>agent-service</code></span>&rsquo;s <span class="codespan-content"><code>/ask</code></span>, forwarding the caller&rsquo;s <span class="codespan-content"><code>x-gateway-claims</code></span> header verbatim rather than re-authenticating.</p><figure><pre class="mermaid">graph TD
+    subgraph Router
+        R[router.ts]
+    end
+    subgraph &quot;Controller &mdash; controller/conversation.ts&quot;
+        C[&quot;createConversation &middot; listConversations &middot; getConversation\nrenameConversation &middot; deleteConversation &middot; sendMessage&quot;]
+    end
+    subgraph &quot;Service&quot;
+        CSV[&quot;services/conversation.ts\nCRUD, ownership checks, limits&quot;]
+        ASV[&quot;services/agent.ts\naskAgent &mdash; HTTP client only&quot;]
+    end
+    subgraph Model
+        M[&quot;models/conversation.ts&quot;]
+    end
+    R --&gt; C
+    C --&gt; CSV
+    CSV --&gt;|&quot;sendMessage: forward question + trimmed history&quot;| ASV
+    CSV --&gt; M
+    M -.-&gt; DB[(chat-db)]
+    ASV --&gt;|&quot;POST /ask, x-gateway-claims forwarded&quot;| AGENT[agent-service]</pre></figure><hr /><h2 id="key-architectural-decisions">Key Architectural Decisions</h2><ul><li><strong>Conversation state lives here, not in agent-service.</strong> <span class="codespan-content"><code>agent-service</code></span> answers one question at a time and remembers nothing between calls; chat-service is what makes a multi-turn conversation possible, by sending back a bounded slice of prior messages with every question.</li><li><strong>History sent to the assistant is capped, not the full conversation.</strong> Only the last <span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span> messages (10 by default) are sent to <span class="codespan-content"><code>agent-service</code></span> per question — a long conversation doesn&rsquo;t mean a growing prompt.</li><li><strong>Hard limits everywhere a user writes.</strong> A conversation caps at 100 messages, a message at 8000 characters, a title at 120 — all rejected at the service layer before anything is persisted, not enforced by the database schema.</li><li><strong>Every operation is ownership-scoped.</strong> <span class="codespan-content"><code>ownedConversation</code></span> checks <span class="codespan-content"><code>userId</code></span> and <span class="codespan-content"><code>conversationId</code></span> together on every read, write, and delete; a valid id for someone else&rsquo;s conversation resolves to &ldquo;not found,&rdquo; not &ldquo;forbidden,&rdquo; so existence isn&rsquo;t leaked either.</li><li><strong>Auto-titling from the first exchange.</strong> A new conversation starts titled &ldquo;New chat&rdquo;; the first question becomes the title (truncated to the limit) the moment the first exchange completes, with no separate naming step.</li><li><strong>Identity forwarded, not re-verified.</strong> <span class="codespan-content"><code>askAgent</code></span> passes the caller&rsquo;s <span class="codespan-content"><code>x-gateway-claims</code></span> header straight through to <span class="codespan-content"><code>agent-service</code></span> — the same mesh-injected header chat-service itself trusted, on the same trust chain every other migrated service uses.</li></ul><hr /><h2 id="integration">Integration</h2><ul><li>Owns <span class="codespan-content"><code>chat-db</code></span>; no other service reads it.</li><li>Calls <span class="codespan-content"><code>agent-service</code></span>&rsquo;s <span class="codespan-content"><code>/ask</code></span> for every message, forwarding the caller&rsquo;s identity — see <a href="../data-flow">Communication &amp; Data Flow</a>.</li></ul><p>For the conversation schema, the citation format, and the API, see the <a href="../chat">Chat Service</a> internals page.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

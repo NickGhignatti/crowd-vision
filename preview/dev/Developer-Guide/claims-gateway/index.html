@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Claims Gateway</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="token-minting" data-depth="2"><a href="#token-minting">Token Minting</a></li><li data-target-id="login--three-entry-points-one-function" data-depth="2"><a href="#login--three-entry-points-one-function">Login — Three Entry Points, One Function</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="profile-and-password-management" data-depth="2"><a href="#profile-and-password-management">Profile And Password Management</a></li><li data-target-id="calling-tenancy-service" data-depth="2"><a href="#calling-tenancy-service">Calling tenancy-service</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway" aria-current="page">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="token-minting" data-depth="2"><a href="#token-minting">Token Minting</a></li><li data-target-id="login--three-entry-points-one-function" data-depth="2"><a href="#login--three-entry-points-one-function">Login — Three Entry Points, One Function</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="profile-and-password-management" data-depth="2"><a href="#profile-and-password-management">Profile And Password Management</a></li><li data-target-id="calling-tenancy-service" data-depth="2"><a href="#calling-tenancy-service">Calling tenancy-service</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li></ol></nav></div><h1 id="claims-gateway" data-decorative="">Claims Gateway</h1><p>Implementation reference for <span class="codespan-content"><code>claims-gateway</code></span>. For its architectural role, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>; for the domain model, see <a href="../identity-access">Identity &amp; Access Context</a>.</p><p><span class="codespan-content"><code>claims-gateway</code></span> is the platform&rsquo;s only point of contact with Keycloak. Everything downstream — Istio&rsquo;s edge verification, every Go/Node/Rust/Python service that trusts the <span class="codespan-content"><code>x-gateway-claims</code></span> header — ultimately depends on this one service correctly exchanging a Keycloak identity for the platform&rsquo;s own <span class="codespan-content"><code>StandardClaims</code></span> token, signing it, and publishing the public key that lets everyone else verify it without calling back here. The service itself is <strong>stateless</strong>: it owns no database, and every piece of durable identity data lives either in Keycloak (credentials, profile) or in <span class="codespan-content"><code>tenancy-service</code></span> (memberships).</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/gateway/main.go</code></span></td><td>Loads config, runs OIDC discovery against Keycloak, wires the service together, mounts routes.</td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td>Every HTTP route: public (login/register/exchange) and authenticated (profile, <span class="codespan-content"><code>/me</code></span>, <span class="codespan-content"><code>/verify</code></span>).</td></tr><tr><td><span class="codespan-content"><code>internal/config/config.go</code></span></td><td>Env var loading; loads or generates the RS256 signing key; defaults (<span class="codespan-content"><code>issuer=cv-gateway</code></span>, token TTL 15 minutes).</td></tr><tr><td><span class="codespan-content"><code>internal/signer/signer.go</code></span></td><td>Mints <span class="codespan-content"><code>StandardClaims</code></span> JWTs and publishes the JWKS every verifier reads.</td></tr><tr><td><span class="codespan-content"><code>internal/service/exchange.go</code></span></td><td><span class="codespan-content"><code>Exchange()</code></span>: the one function every login path converges on — verify, look up memberships, sign.</td></tr><tr><td><span class="codespan-content"><code>internal/service/register.go</code></span></td><td>Password-grant login and registration, both of which call <span class="codespan-content"><code>Exchange()</code></span> once they have a Keycloak ID token.</td></tr><tr><td><span class="codespan-content"><code>internal/service/profile.go</code></span></td><td><span class="codespan-content"><code>/me</code></span>, <span class="codespan-content"><code>/profile</code></span>, and password-change logic, backed by Keycloak&rsquo;s admin API.</td></tr><tr><td><span class="codespan-content"><code>internal/keycloakadmin/client.go</code></span></td><td>The only code in the platform that speaks Keycloak&rsquo;s admin API: password grant, user creation, user lookup/update, admin-token caching.</td></tr><tr><td><span class="codespan-content"><code>internal/oidcverifier/verifier.go</code></span></td><td>Verifies a Keycloak-issued ID token; handles OIDC discovery separately from the <span class="codespan-content"><code>jwks_uri</code></span> fetch (see the gotcha box below).</td></tr><tr><td><span class="codespan-content"><code>internal/tenancyclient/client.go</code></span></td><td>HMAC-signed calls to <span class="codespan-content"><code>tenancy-service</code></span>&rsquo;s <span class="codespan-content"><code>/internal/*</code></span> routes: membership lookup and first-login provisioning.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
+    MAIN[&quot;main.rs\ncmd/gateway/main.go&quot;] --&gt; HANDLER[&quot;internal/api/handler.go&quot;]
+    HANDLER --&gt; EXCHANGE[&quot;internal/service/exchange.go\nExchange()&quot;]
+    HANDLER --&gt; REGISTER[&quot;internal/service/register.go\nLogin() / Register()&quot;]
+    HANDLER --&gt; PROFILE[&quot;internal/service/profile.go&quot;]
+    REGISTER --&gt; EXCHANGE
+    EXCHANGE --&gt; VERIFIER[&quot;internal/oidcverifier\nVerify() &mdash; checks Keycloak's ID token&quot;]
+    EXCHANGE --&gt; TENANCY[&quot;internal/tenancyclient\nMembershipsFor() / Provision()&quot;]
+    EXCHANGE --&gt; SIGNER[&quot;internal/signer\nSign() &mdash; mints StandardClaims JWT&quot;]
+    REGISTER --&gt; KCADMIN[&quot;internal/keycloakadmin\npassword grant, user CRUD&quot;]
+    PROFILE --&gt; KCADMIN
+    HANDLER --&gt; SIGNER
+    SIGNER -.-&gt;|&quot;publishes the JWKS endpoint&quot;| CONSUMERS[&quot;auth-middleware, Istio, every verifier&quot;]</pre></figure><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>OIDC_ISSUER</code></span></td><td>required</td><td>The <span class="codespan-content"><code>iss</code></span> value Keycloak-issued ID tokens carry — what the verifier checks the token against.</td></tr><tr><td><span class="codespan-content"><code>OIDC_DISCOVERY_URL</code></span></td><td><span class="codespan-content"><code>OIDC_ISSUER</code></span></td><td>Where the gateway itself reaches Keycloak for discovery/JWKS. Separate from <span class="codespan-content"><code>OIDC_ISSUER</code></span> because inside the cluster the gateway resolves Keycloak by its internal hostname, while <span class="codespan-content"><code>OIDC_ISSUER</code></span> is the externally-visible URL browsers&rsquo; tokens actually carry.</td></tr><tr><td><span class="codespan-content"><code>OIDC_CLIENT_ID</code></span></td><td>required</td><td>Keycloak&rsquo;s public client id, used to verify an ID token was issued for this app.</td></tr><tr><td><span class="codespan-content"><code>TENANCY_URL</code></span></td><td>required</td><td>Base URL for <span class="codespan-content"><code>tenancy-service</code></span>&rsquo;s internal routes.</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret shared with <span class="codespan-content"><code>tenancy-service</code></span>, signs every <span class="codespan-content"><code>internal/tenancyclient</code></span> call.</td></tr><tr><td><span class="codespan-content"><code>KEYCLOAK_REALM</code></span></td><td>required</td><td>The Keycloak realm this deployment authenticates against.</td></tr><tr><td><span class="codespan-content"><code>REGISTRATION_CLIENT_ID</code></span> / <span class="codespan-content"><code>REGISTRATION_CLIENT_SECRET</code></span></td><td>required</td><td>Keycloak&rsquo;s confidential client, used for password-grant and admin-API calls — different from <span class="codespan-content"><code>OIDC_CLIENT_ID</code></span>, which is the public browser-facing client.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_PRIVATE_KEY</code></span> / <span class="codespan-content"><code>GATEWAY_PRIVATE_KEY_FILE</code></span></td><td>generated if unset</td><td>PEM RSA private key for signing. Generating an ephemeral key when neither is set is a dev convenience — it invalidates every issued token on restart, so a real deployment always sets one.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_KEY_ID</code></span></td><td><span class="codespan-content"><code>cv-gateway-1</code></span></td><td>The <span class="codespan-content"><code>kid</code></span> published in the JWKS and stamped on every token, so a verifier with multiple historical keys picks the right one.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_ISSUER</code></span></td><td><span class="codespan-content"><code>cv-gateway</code></span></td><td>This gateway&rsquo;s own <span class="codespan-content"><code>iss</code></span> claim — distinct from <span class="codespan-content"><code>OIDC_ISSUER</code></span>, which is Keycloak&rsquo;s.</td></tr></tbody></table><p>Token TTL is fixed at 15 minutes, not configurable.</p><div class="box note"><header><h4>The OIDC discovery URL and the issuer are deliberately separate settings</h4></header><div class="box-content"><p>A browser&rsquo;s ID token carries <span class="codespan-content"><code>iss</code></span> set to the externally-reachable Keycloak URL (<span class="codespan-content"><code>OIDC_ISSUER</code></span>). But the gateway itself, running inside the cluster, often needs to reach Keycloak by an internal hostname for discovery and JWKS fetching (<span class="codespan-content"><code>OIDC_DISCOVERY_URL</code></span>) — the two URLs can point at the same Keycloak instance without being the same string. Verification checks the token&rsquo;s <span class="codespan-content"><code>iss</code></span> against <span class="codespan-content"><code>OIDC_ISSUER</code></span>; the HTTP calls to fetch keys go to <span class="codespan-content"><code>OIDC_DISCOVERY_URL</code></span>.</p></div></div><hr /><h2 id="token-minting">Token Minting</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/signer/signer.go</code></span></p><p><span class="codespan-content"><code>Signer</code></span> holds a 2048-bit RSA private key and mints the platform&rsquo;s own JWT — not Keycloak&rsquo;s. Every <span class="codespan-content"><code>authentication_token</code></span> cookie and every <span class="codespan-content"><code>/me</code></span> response is a token this service signed, carrying the shared <a href="../auth-contracts">Auth Contracts</a> <span class="codespan-content"><code>StandardClaims</code></span> shape:</p><pre><code class="language-go">func (s *Signer) Sign(claims authcontracts.StandardClaims, ttl time.Duration) (string, error) {
+	if claims.SID == &quot;&quot; {
+		claims.SID = uuid.NewString()
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		&quot;sub&quot;:         claims.Sub,
+		&quot;accountName&quot;: claims.AccountName,
+		&quot;sid&quot;:         claims.SID,
+		&quot;memberships&quot;: claims.Memberships,
+		&quot;iss&quot;:         s.issuer,
+		&quot;iat&quot;:         time.Now().Unix(),
+		&quot;exp&quot;:         time.Now().Add(ttl).Unix(),
+	})
+	tok.Header[&quot;kid&quot;] = s.kid
+	return tok.SignedString(s.key)
+}</code></pre><p>And publishes the corresponding public key at <span class="codespan-content"><code>GET /.well-known/jwks.json</code></span>:</p><pre><code class="language-go">func (s *Signer) JWKS() []byte {
+	jwk, err := jwkset.NewJWKFromKey(&amp;s.key.PublicKey, jwkset.JWKOptions{
+		Metadata: jwkset.JWKMetadataOptions{KID: s.kid, ALG: jwkset.ALG(&quot;RS256&quot;)},
+	})
+	// ...marshal to JWKS JSON
+	return raw
+}</code></pre><p>This is the one JWKS endpoint the whole platform depends on: <a href="../auth-middleware">Auth Middleware</a>&rsquo;s <span class="codespan-content"><code>RequireAuthentication</code></span> fetches it directly, and Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> fetches it (through the ingress gateway route, not the pod directly — see <a href="../service-mesh">Service Mesh Architecture</a>&rsquo;s gotcha on this) to verify the same tokens at the mesh edge.</p><hr /><h2 id="login--three-entry-points-one-function">Login — Three Entry Points, One Function</h2><p>Three routes accept different inputs, but all three end at the same <span class="codespan-content"><code>Exchange()</code></span>:</p><figure><pre class="mermaid">sequenceDiagram
+    participant C as Client
+    participant GW as claims-gateway
+    participant KC as Keycloak
+    participant T as tenancy-service
+    alt POST /exchange (browser already has a Keycloak ID token)
+        C-&gt;&gt;GW: idToken
+    else POST /login (username + password)
+        C-&gt;&gt;GW: username, password
+        GW-&gt;&gt;KC: password grant
+        KC--&gt;&gt;GW: idToken
+    else POST /register (email + password + name)
+        C-&gt;&gt;GW: email, password, name
+        GW-&gt;&gt;KC: create user (admin API)
+        GW-&gt;&gt;KC: password grant
+        KC--&gt;&gt;GW: idToken
+    end
+    Note over GW: Exchange(idToken)
+    GW-&gt;&gt;GW: verify idToken against Keycloak's JWKS
+    GW-&gt;&gt;T: GET /internal/memberships?accountId=...
+    T--&gt;&gt;GW: memberships
+    opt no memberships, first login
+        GW-&gt;&gt;T: POST /internal/provision
+    end
+    GW-&gt;&gt;GW: Sign(StandardClaims) &mdash; mint the platform's own JWT
+    GW--&gt;&gt;C: 200, sets authentication_token cookie</pre></figure><pre><code class="language-go">// File: internal/service/exchange.go
+func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, error) {
+	kc, err := g.verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return &quot;&quot;, fmt.Errorf(&quot;%w: %v&quot;, ErrInvalidIDToken, err)
+	}
+	memberships, err := g.tenancy.MembershipsFor(ctx, kc.Sub)
+	if err != nil {
+		return &quot;&quot;, fmt.Errorf(&quot;%w: %v&quot;, ErrTenancyUnavailable, err)
+	}
+	// tenancy-service has no record but Keycloak's token names an organization
+	if len(memberships) == 0 &amp;&amp; kc.Organization != &quot;&quot; {
+		memberships, err = g.provisionOnFirstLogin(ctx, kc)
+		if err != nil {
+			return &quot;&quot;, err
+		}
+	}
+	return g.signer.Sign(authcontracts.StandardClaims{
+		Sub: kc.Sub, AccountName: accountName(kc),
+		SID: uuid.NewString(), Memberships: memberships,
+	}, g.ttl)
+}</code></pre><p><span class="codespan-content"><code>Login</code></span> (password grant) and <span class="codespan-content"><code>Register</code></span> (create-user-then-login) are both thin wrappers that produce a raw Keycloak ID token and hand it to this same function — neither reimplements verification or membership lookup:</p><pre><code class="language-go">// File: internal/service/register.go
+func (g *Gateway) Login(ctx context.Context, username, password string) (string, error) {
+	idToken, err := g.authenticator.PasswordGrant(ctx, username, password)
+	if err != nil { /* ... */ }
+	return g.Exchange(ctx, idToken)
+}
+
+func (g *Gateway) Register(ctx context.Context, email, password, name string) (string, error) {
+	if err := g.registrar.CreateUser(ctx, email, password, name); err != nil { /* ... */ }
+	return g.Login(ctx, email, password)
+}</code></pre><p>Keeping verification, membership lookup, and signing in exactly one place means a browser that already holds a Keycloak session (<span class="codespan-content"><code>/exchange</code></span>), a client doing an in-app password login (<span class="codespan-content"><code>/login</code></span>), and a brand-new signup (<span class="codespan-content"><code>/register</code></span>) all get identical, consistently-shaped tokens — none of the three entry points can drift from what the others produce.</p><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /health</code></span></td><td>Public</td><td>Liveness probe.</td></tr><tr><td>The JWKS endpoint (see <em>Token Minting</em> above)</td><td>Public</td><td>Publishes the gateway&rsquo;s RSA public key — see <em>Token Minting</em> above.</td></tr><tr><td><span class="codespan-content"><code>POST /exchange</code></span></td><td>Public</td><td>Keycloak ID token in, platform token out — the core of <em>Login</em> above.</td></tr><tr><td><span class="codespan-content"><code>POST /login</code></span></td><td>Public</td><td>Username + password, via Keycloak&rsquo;s password grant, then <span class="codespan-content"><code>Exchange</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /register</code></span></td><td>Public</td><td>Creates a Keycloak user, then <span class="codespan-content"><code>Login</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /logout</code></span></td><td>Public</td><td>Clears the <span class="codespan-content"><code>authentication_token</code></span> cookie.</td></tr><tr><td><span class="codespan-content"><code>GET /me</code></span></td><td>Cookie/Bearer</td><td>Returns the caller&rsquo;s own <span class="codespan-content"><code>StandardClaims</code></span>, straight from the verified context.</td></tr><tr><td><span class="codespan-content"><code>GET /profile</code></span></td><td>Cookie/Bearer</td><td>Email, display name, picture — read from Keycloak&rsquo;s admin API.</td></tr><tr><td><span class="codespan-content"><code>PATCH /profile</code></span></td><td>Cookie/Bearer</td><td>Updates email/name in Keycloak, re-signs the session cookie so the new name is reflected immediately.</td></tr><tr><td><span class="codespan-content"><code>POST /profile/password</code></span></td><td>Cookie/Bearer</td><td>Verifies the current password (a password-grant call), then resets it via the admin API.</td></tr><tr><td><span class="codespan-content"><code>GET /verify</code></span></td><td>Cookie/Bearer</td><td>Copies the verified claims onto the <span class="codespan-content"><code>x-gateway-claims</code></span> header — this is the endpoint Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> (docker-compose) calls; Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> (Kubernetes) verifies independently instead of calling this route.</td></tr><tr><td><span class="codespan-content"><code>POST /refresh</code></span></td><td>Cookie/Bearer</td><td>Re-reads memberships from <span class="codespan-content"><code>tenancy-service</code></span> and re-signs the cookie — used after a membership changes (e.g. accepting an invite) so the client doesn&rsquo;t have to log out and back in.</td></tr></tbody></table><p>Every &ldquo;Cookie/Bearer&rdquo; route runs behind <a href="../auth-middleware">Auth Middleware</a>&rsquo;s <span class="codespan-content"><code>RequireAuthentication</code></span> — the one place in the platform that does real RS256 signature verification, because this service is the trust root every other verifier&rsquo;s key material traces back to.</p><hr /><h2 id="profile-and-password-management">Profile And Password Management</h2><p><span class="codespan-content"><code>/me</code></span> reads straight from the verified request context — no downstream call:</p><pre><code class="language-go">func meHandler(w http.ResponseWriter, r *http.Request) {
+	claims, _ := authmiddleware.FromContext(r.Context())
+	json.NewEncoder(w).Encode(claims)
+}</code></pre><p><span class="codespan-content"><code>/profile</code></span>, its <span class="codespan-content"><code>PATCH</code></span>, and the password-change endpoint all go through <span class="codespan-content"><code>internal/keycloakadmin</code></span>, the one client in the platform that calls Keycloak&rsquo;s admin API (user CRUD, not the OIDC token endpoint). A password change specifically re-verifies the <em>current</em> password via a password-grant call before resetting it — it doesn&rsquo;t trust the session alone to authorize a password change:</p><pre><code class="language-go">func (g *Gateway) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	email, _, _, err := g.profileReader.GetUser(ctx, userID)
+	// ...
+	if _, err := g.authenticator.PasswordGrant(ctx, email, currentPassword); err != nil {
+		return err // wrong current password &mdash; reject before touching anything
+	}
+	return g.passwordChanger.ResetPassword(ctx, userID, newPassword)
+}</code></pre><hr /><h2 id="calling-tenancy-service">Calling tenancy-service</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/tenancyclient/client.go</code></span></p><p>Every call is HMAC-SHA256 signed with <span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span> — the same scheme <a href="../registry-service"><span class="codespan-content"><code>registry-service</code></span></a> and <a href="../provisioner"><span class="codespan-content"><code>provisioner</code></span></a> use for their own internal calls, though claims-gateway&rsquo;s secret is shared specifically with <span class="codespan-content"><code>tenancy-service</code></span>, not those two.</p><pre><code class="language-go">func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+&quot;/internal/memberships?accountId=&quot;+accountID, nil)
+	req.Header.Set(&quot;X-Signature&quot;, c.sign(nil)) // GET: sign an empty body
+	// ...
+}</code></pre><p><span class="codespan-content"><code>Provision</code></span> is the first-login path: if Keycloak&rsquo;s token names an organization the account has no membership in yet, the gateway asks <span class="codespan-content"><code>tenancy-service</code></span> to create that membership before minting a token — <span class="codespan-content"><code>tenancy-service</code></span> can refuse with <span class="codespan-content"><code>403</code></span> if the domain isn&rsquo;t open for self-service join, which the gateway surfaces as <span class="codespan-content"><code>ErrInviteOnly</code></span> rather than silently granting access.</p><hr /><h2 id="data-model">Data Model</h2><p><span class="codespan-content"><code>claims-gateway</code></span> owns no database and persists nothing between requests. The two systems of record it depends on are external to it:</p><ul><li><strong>Keycloak</strong> holds credentials, email, profile attributes, and the organization claim used for first-login provisioning.</li><li><strong><span class="codespan-content"><code>tenancy-service</code></span></strong> holds the membership records (<span class="codespan-content"><code>domain</code></span>, <span class="codespan-content"><code>role</code></span>, <span class="codespan-content"><code>externalId</code></span>) that end up in every <span class="codespan-content"><code>StandardClaims</code></span> token.</li></ul><p>This statelessness is what makes the service trivially horizontally scalable — any instance can serve any request, since nothing but the (stateless) signing key and JWKS lives on the process.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

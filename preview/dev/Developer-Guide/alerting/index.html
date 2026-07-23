@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Alerting Context</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 1000.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 1000.0px;}
+
+@page {
+    size: 1000.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="two-aggregates-two-questions" data-depth="2"><a href="#two-aggregates-two-questions">Two Aggregates, Two Questions</a><ol><li data-target-id="aggregate-delivery-channel--ldquowhere-can-i-reach-this-principalrdquo" data-depth="3"><a href="#aggregate-delivery-channel--ldquowhere-can-i-reach-this-principalrdquo">Aggregate: Delivery Channel — &ldquo;where can I reach this principal?&rdquo;</a></li><li data-target-id="aggregate-alert-preference--ldquowhat-does-this-principal-wantrdquo" data-depth="3"><a href="#aggregate-alert-preference--ldquowhat-does-this-principal-wantrdquo">Aggregate: Alert Preference — &ldquo;what does this principal want?&rdquo;</a></li><li data-target-id="value-objects-deliverykeys-and-typepreference" data-depth="3"><a href="#value-objects-deliverykeys-and-typepreference">Value Objects: DeliveryKeys and TypePreference</a></li></ol></li><li data-target-id="how-alerting-fits-in" data-depth="2"><a href="#how-alerting-fits-in">How Alerting Fits In</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p>Developer Guide</p></div><p></p><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../user-stories">User Stories</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting" aria-current="page">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../sensor-architecture">Sensor Service Architecture</a></li><li><a href="../contracts-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li><li><a href="../middlewares">Node Auth &amp; Error Middleware</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy-service">Tenancy Service</a></li><li><a href="../registry-service">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../sensor">Sensor Service</a></li><li><a href="../contracts">Contracts Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../semantic-release">Commits &amp; Semantic Release</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="ubiquitous-language" data-depth="2"><a href="#ubiquitous-language">Ubiquitous Language</a></li><li data-target-id="two-aggregates-two-questions" data-depth="2"><a href="#two-aggregates-two-questions">Two Aggregates, Two Questions</a><ol><li data-target-id="aggregate-delivery-channel--ldquowhere-can-i-reach-this-principalrdquo" data-depth="3"><a href="#aggregate-delivery-channel--ldquowhere-can-i-reach-this-principalrdquo">Aggregate: Delivery Channel — &ldquo;where can I reach this principal?&rdquo;</a></li><li data-target-id="aggregate-alert-preference--ldquowhat-does-this-principal-wantrdquo" data-depth="3"><a href="#aggregate-alert-preference--ldquowhat-does-this-principal-wantrdquo">Aggregate: Alert Preference — &ldquo;what does this principal want?&rdquo;</a></li><li data-target-id="value-objects-deliverykeys-and-typepreference" data-depth="3"><a href="#value-objects-deliverykeys-and-typepreference">Value Objects: DeliveryKeys and TypePreference</a></li></ol></li><li data-target-id="how-alerting-fits-in" data-depth="2"><a href="#how-alerting-fits-in">How Alerting Fits In</a></li></ol></nav></div><h1 id="alerting-context" data-decorative="">Alerting Context</h1><p><strong>Subdomain type:</strong> Supporting · <strong>Grounded in:</strong> <a href="../user-stories">User Stories</a> AL-1 through AL-5</p><p>This page describes the design-time model of the Alerting context. Delivery mechanics and concrete APIs are left as decisions for whoever builds this model.</p><p>The context owns everything about <em>delivering alerts to people</em>. Its defining design decision is to separate two concerns that are easy to conflate: <strong>where</strong> a principal can be reached, and <strong>what</strong> a principal wants to hear about.</p><hr /><h2 id="ubiquitous-language">Ubiquitous Language</h2><table><thead><tr><th>Term</th><th>Meaning in this context</th></tr></thead><tbody><tr><td>Delivery Channel</td><td>A single device or endpoint an alert can be pushed to.</td></tr><tr><td>Alert Preference</td><td>A principal&rsquo;s per-domain choices about which kinds of alert to receive.</td></tr><tr><td>Alert Type</td><td>A category of alert (for example, a temperature alert).</td></tr><tr><td>Recipient</td><td>A principal eligible to receive a given alert, within a domain.</td></tr></tbody></table><hr /><h2 id="two-aggregates-two-questions">Two Aggregates, Two Questions</h2><p>We model the context as two separate aggregate roots so that the two concerns can change independently — a principal can revoke a device without losing their choices, and change their choices without touching their devices.</p><figure><pre class="mermaid">classDiagram
+    class DeliveryChannel {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +principal
+        +endpoint
+        +DeliveryKeys keys
+    }
+    class DeliveryKeys {
+        &lt;&lt;Value Object&gt;&gt;
+        +keyMaterial
+    }
+    class AlertPreference {
+        &lt;&lt;Aggregate Root&gt;&gt;
+        +principal
+        +domainName
+        +TypePreference[] preferences
+    }
+    class TypePreference {
+        &lt;&lt;Value Object&gt;&gt;
+        +AlertType type
+        +subscribed
+    }
+
+    DeliveryChannel &quot;1&quot; *-- &quot;1&quot; DeliveryKeys : secured by
+    AlertPreference &quot;1&quot; *-- &quot;many&quot; TypePreference : holds</pre></figure><h3 id="aggregate-delivery-channel--ldquowhere-can-i-reach-this-principalrdquo">Aggregate: Delivery Channel — <em>&ldquo;where can I reach this principal?&rdquo;</em></h3><ul><li>Represents one place an alert can be delivered, together with the material needed to deliver to it securely — the &ldquo;in the app while watching, as a push when not&rdquo; split story <strong>AL-1</strong> asks for.</li><li>A principal may have <strong>many</strong> channels — one per device. This is intentional, so reaching a principal can fan out across their devices, the enrollment-without-loss story <strong>AL-3</strong> relies on.</li><li><strong>Intended rule:</strong> a channel that becomes permanently undeliverable is pruned from the model rather than kept around — the automatic housekeeping story <strong>AL-4</strong> asks for.</li></ul><h3 id="aggregate-alert-preference--ldquowhat-does-this-principal-wantrdquo">Aggregate: Alert Preference — <em>&ldquo;what does this principal want?&rdquo;</em></h3><ul><li>Scoped to a principal within a domain (the shared identifier again), so choices are tenant-specific — the per-organization choice story <strong>AL-2</strong> asks for.</li><li><strong>Intended invariant:</strong> at most one Alert Preference per principal per domain.</li><li><span class="codespan-content"><code>AlertType</code></span> is modelled as an extensible set. We expect to start with a small number of types and add more, so the model is built to grow rather than fixed to today&rsquo;s list.</li></ul><h3 id="value-objects-deliverykeys-and-typepreference">Value Objects: DeliveryKeys and TypePreference</h3><p>Each aggregate carries one immutable, identity-less value object. <strong>DeliveryKeys</strong> is the key material that lets a Delivery Channel be reached securely — it belongs to its channel and nowhere else. A <strong>TypePreference</strong> is a single <em>(alert type, subscribed?)</em> choice held inside an Alert Preference. Neither has meaning on its own, so both are modelled as value objects their aggregate replaces rather than tracks by identity.</p><hr /><h2 id="how-alerting-fits-in">How Alerting Fits In</h2><p>The context is downstream of two others and feeds the platform&rsquo;s real-time flow. The interaction is drawn generically — the concrete trigger and delivery details are implementation decisions.</p><figure><pre class="mermaid">sequenceDiagram
+    participant Src as Reading source
+    participant Al as Alerting
+    participant BM as Building Management
+    participant U as Users
+    Src-&gt;&gt;Al: a reading worth alerting on
+    Note over Al: decide whether it crosses an alert threshold
+    Al-&gt;&gt;BM: which domains is this building in?
+    BM--&gt;&gt;Al: domain names
+    Note over Al: select recipients who opted in
+    Al-&gt;&gt;U: deliver the alert</pre></figure><table><thead><tr><th>Relationship</th><th>Pattern</th></tr></thead><tbody><tr><td>Consumes identity from Identity &amp; Access</td><td>Conformist (reads the identity token, never reshapes it)</td></tr><tr><td>Resolves a building&rsquo;s domains from Building Management</td><td>Customer / Supplier, translated into this context&rsquo;s own terms</td></tr><tr><td>Emits alerts into the real-time flow</td><td>Domain Event published to the platform</td></tr></tbody></table><p>Resolving a building&rsquo;s domains from another context, rather than storing its own copy, keeps this context&rsquo;s model focused on <em>delivery and intent</em> and leaves the structural truth where it belongs — and is exactly what story <strong>AL-5</strong> relies on to keep tenants from seeing each other&rsquo;s incidents.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>
