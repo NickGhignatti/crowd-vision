@@ -4,6 +4,9 @@ inputs:
   working_directory:
     required: true
     description: 'The directory of the specific Node service'
+  needs_shared_eslint:
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -15,7 +18,7 @@ runs:
         cache: npm
         cache-dependency-path: |
           ${{ inputs.working_directory }}/package-lock.json
-          tooling/eslint-config/package-lock.json
+          ${{ inputs.needs_shared_eslint == 'true' && 'tooling/eslint-config/package-lock.json' || '' }}
 
     - name: Install Service Dependencies
       shell: bash
@@ -23,6 +26,7 @@ runs:
       run: npm ci
 
     - name: Install Shared ESLint Config
+      if: ${{ inputs.needs_shared_eslint == 'true' }}
       shell: bash
       working-directory: tooling/eslint-config
       run: npm ci
