@@ -34,10 +34,8 @@ type fakePasswordChanger struct{ err error }
 
 func (f *fakePasswordChanger) ResetPassword(context.Context, string, string) error { return f.err }
 
-// gatewayWithProfileManagement builds a Gateway with both the password-auth
-// and profile-management dependencies wired, and a real signing key so /me
-// -style authenticated routes can be exercised with a genuine JWT (the fake
-// non-cryptographic signer used elsewhere can't be verified).
+// gatewayWithProfileManagement wires a Gateway with password-auth and profile deps
+// plus a real signing key, so authenticated routes can be exercised with a genuine JWT.
 func gatewayWithProfileManagement(
 	reader service.ProfileReader, updater service.ProfileUpdater, changer service.PasswordChanger,
 ) (*service.Gateway, *rsa.PrivateKey) {
@@ -124,11 +122,8 @@ func TestUpdateProfileHandler_UpdatesAndReturnsNoContent(t *testing.T) {
 	}
 }
 
-// TestUpdateProfileHandler_RefreshesTheSessionCookie is the regression test
-// for the stale-NavBar-name bug: a successful profile update must set a new
-// session cookie (see service.Gateway.UpdateProfile), not just 204 with the
-// old one left in place — otherwise /me keeps re-serving the pre-edit name
-// until the caller's next full login.
+// TestUpdateProfileHandler_RefreshesTheSessionCookie: a successful profile update
+// must set a new session cookie, else /me keeps re-serving the pre-edit name.
 func TestUpdateProfileHandler_RefreshesTheSessionCookie(t *testing.T) {
 	updater := &fakeProfileUpdater{}
 	gw, key := gatewayWithProfileManagement(&fakeProfileReader{}, updater, &fakePasswordChanger{})

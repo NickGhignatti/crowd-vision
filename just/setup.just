@@ -2,7 +2,6 @@ set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set working-directory := '..'
 
-# Bare `just setup` lists recipes.
 [private]
 default:
     @just --list setup
@@ -17,7 +16,6 @@ clean-install:
     mise exec -- node scripts/clean.mjs
     just setup install
 
-# cargo-audit is optional (won't fail the run).
 [doc("Security audit across every project (npm/uv/cargo), mirroring per-service CI.")]
 audit:
     mise exec -- moon run :audit

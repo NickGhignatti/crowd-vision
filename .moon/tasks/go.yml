@@ -17,9 +17,6 @@ tasks:
       - '**/*.go'
       - 'go.mod'
 
-  # No golangci-lint in this environment yet; `go vet` is stdlib and catches
-  # the same class of suspicious-construct bugs without a new dependency or
-  # cross-shell quoting games (Windows/Unix `bash -c` nesting broke here).
   # Swap to golangci-lint if/when it's adopted.
   lint:
     command: 'go vet ./...'

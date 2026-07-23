@@ -16,7 +16,6 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
       CARGO_INCREMENTAL: "0"
-      # Link with mold
       RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
 
     steps:
@@ -34,9 +33,7 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy, llvm-tools-preview
 
-      # Caches the cargo registry + target/ so dependency crates aren't recompiled
-      # on every run. `workspaces` must point at the crate dir — `uses:` steps do
-      # not honor the job's `working-directory` default.
+      # Caches the cargo registry + target/ so dependency crates aren't recompiled.
       - name: Cache cargo registry + build artifacts
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
@@ -63,7 +60,7 @@ jobs:
             jq -r '.data[0].totals as $t | "| **contracts-service** | \(($t.lines.percent*100|round)/100)% | \(($t.branches.percent*100|round)/100)% | \(($t.functions.percent*100|round)/100)% |"' coverage.json
           } >> "$GITHUB_STEP_SUMMARY" || true
 
-      - name: 🔒 Security audit
+      - name: Security audit
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

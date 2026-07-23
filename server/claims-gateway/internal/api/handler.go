@@ -1,8 +1,7 @@
-// Package api is claims-gateway's HTTP surface: the login-time exchange
-// endpoint, the JWKS every consumer verifies against, and a health check.
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,20 +13,12 @@ import (
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
 )
 
-// CookieName matches auth-middleware.CookieName — kept as a literal here to
-// avoid a dependency cycle-shaped coupling for one constant; a shared
-// constants package is not worth it for a single string (see CLAUDE.md).
 const CookieName = "authentication_token"
 
 type jwksProvider interface {
 	JWKS() []byte
 }
 
-// Mount wires every route. jwks/issuer are used to verify the gateway's OWN
-// minted tokens for /me — the browser can't decode its cookie itself (it's
-// HttpOnly by design), so this is the "who am I" round-trip the client's
-// session-rehydration needs. Construct jwks from the same Signer that mints
-// tokens (see cmd/gateway/main.go) — never over HTTP to itself.
 func Mount(gw *service.Gateway, jwks jwksProvider, verifyKeys keyfunc.Keyfunc, issuer string) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
@@ -46,17 +37,29 @@ func Mount(gw *service.Gateway, jwks jwksProvider, verifyKeys keyfunc.Keyfunc, i
 		r.Get("/profile", profileHandler(gw))
 		r.Patch("/profile", updateProfileHandler(gw))
 		r.Post("/profile/password", changePasswordHandler(gw))
+		r.Post("/refresh", refreshHandler(gw))
+		// Mirrors Istio's RequestAuthentication+outputPayloadToHeader: Caddy's forward_auth
+		// calls this and on 200 copies X-Gateway-Claims onto the request as x-gateway-claims.
+		r.Get("/verify", verifyHandler)
 	})
 	return r
 }
 
-// logoutHandler clears the internal token cookie. This is the "clear the
-// local session" half of logout, not "log out everywhere" — the existing
-// token remains cryptographically valid until its short TTL expires; that's
-// the accepted tradeoff (see CLAUDE.md's revocation gate) rather than
-// standing up session tracking for immediate global revocation. Terminating
-// the Keycloak SSO session too is a client-side concern (redirect to
-// Keycloak's end-session endpoint), not this handler's job.
+func verifyHandler(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.FromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	body, err := json.Marshal(claims)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("X-Gateway-Claims", base64.StdEncoding.EncodeToString(body))
+	w.WriteHeader(http.StatusOK)
+}
+
 func logoutHandler(w http.ResponseWriter, _ *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name: CookieName, Value: "", Path: "/", MaxAge: -1,
@@ -94,10 +97,6 @@ func exchangeHandler(gw *service.Gateway) http.HandlerFunc {
 	}
 }
 
-// loginHandler is the in-app equivalent of exchangeHandler for the password
-// login path: the browser sends credentials straight to us (never to
-// Keycloak — see internal/keycloakadmin), and gw.Login does the direct
-// grant + the same verify/lookup/sign pipeline exchangeHandler uses.
 func loginHandler(gw *service.Gateway) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -118,8 +117,7 @@ func loginHandler(gw *service.Gateway) http.HandlerFunc {
 	}
 }
 
-// registerHandler creates the Keycloak user and logs it in within the same
-// request — one client-visible call for the whole "create account" flow.
+// Creates the Keycloak user and logs it in within the same request.
 func registerHandler(gw *service.Gateway) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -141,10 +139,6 @@ func registerHandler(gw *service.Gateway) http.HandlerFunc {
 	}
 }
 
-// profileHandler returns the caller's own current email/display name, read
-// live from Keycloak — this is deliberately not part of the JWT (see
-// claims-gateway/CLAUDE.md on keeping StandardClaims frozen), so account
-// settings fetches it on demand instead.
 func profileHandler(gw *service.Gateway) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := authmiddleware.FromContext(r.Context())
@@ -163,11 +157,6 @@ func profileHandler(gw *service.Gateway) http.HandlerFunc {
 	}
 }
 
-// updateProfileHandler changes the caller's own email and/or display name.
-// Both fields are optional — omitting one leaves it untouched (see
-// keycloakadmin.Client.UpdateUser). On success it also refreshes the session
-// cookie (see service.Gateway.UpdateProfile) so a changed name shows up
-// immediately instead of waiting for the caller's next full login.
 func updateProfileHandler(gw *service.Gateway) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := authmiddleware.FromContext(r.Context())
@@ -195,10 +184,6 @@ func updateProfileHandler(gw *service.Gateway) http.HandlerFunc {
 	}
 }
 
-// changePasswordHandler is a sensitive-change re-auth flow: the caller must
-// present their current password (verified server-side against Keycloak via
-// the same primitive /login uses) before the new one is set — see
-// service.Gateway.ChangePassword.
 func changePasswordHandler(gw *service.Gateway) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := authmiddleware.FromContext(r.Context())
@@ -224,6 +209,25 @@ func changePasswordHandler(gw *service.Gateway) http.HandlerFunc {
 	}
 }
 
+// refreshHandler re-mints the caller's session cookie with their current
+// tenancy memberships. The client calls this after any membership change.
+func refreshHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := authmiddleware.FromContext(r.Context())
+		if !ok {
+			http.Error(w, "unauthenticated", http.StatusUnauthorized)
+			return
+		}
+		token, err := gw.RefreshSession(r.Context(), claims)
+		if err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		setSessionCookie(w, token)
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func setSessionCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name: CookieName, Value: token, Path: "/",
@@ -237,11 +241,6 @@ func writeSessionCookieAndToken(w http.ResponseWriter, token string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
-// writeAuthError maps every failure mode across /exchange, /login, and
-// /register onto the right status: caller-at-fault rejections (bad ID
-// token/credentials, taken email) are never retried by a client, while
-// unavailable-dependency failures (tenancy-service, Keycloak) are — that
-// distinction is why this isn't a flat 400/500 split.
 func writeAuthError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, service.ErrInvalidIDToken):

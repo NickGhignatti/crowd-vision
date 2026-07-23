@@ -1,25 +1,47 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { PerspectiveCamera } from 'three'
 import AutoRotate from '@/components/layouts/AutoRotate.vue'
 
-// 1. Mock @tresjs/core to capture the render loop callback
+// 1. Mock @tresjs/core to capture the render loop callback and the invalidate fn
 let renderCallback: ((args: { elapsed: number }) => void) | null = null
 
 const mockOnBeforeRender = vi.fn((cb) => {
   renderCallback = cb
 })
+const mockInvalidate = vi.fn()
 
 vi.mock('@tresjs/core', () => ({
   useLoop: () => ({
     onBeforeRender: mockOnBeforeRender,
   }),
+  useTresContext: () => ({ renderer: { invalidate: mockInvalidate } }),
 }))
+
+// Controllable requestAnimationFrame: pump ticks only fire when we drain them.
+let rafQueue: FrameRequestCallback[] = []
+let nextRafId = 0
+const flushRaf = (time = 16) => {
+  const pending = rafQueue
+  rafQueue = []
+  pending.forEach((cb) => cb(time))
+}
 
 describe('AutoRotate.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     renderCallback = null
+    rafQueue = []
+    nextRafId = 0
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      rafQueue.push(cb)
+      return ++nextRafId
+    })
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   const createMockCamera = () =>
@@ -91,6 +113,41 @@ describe('AutoRotate.vue', () => {
         renderCallback!({ elapsed: 10 })
       }).not.toThrow()
       expect(corruptedCamera.lookAt).not.toHaveBeenCalled()
+    })
+  })
+
+  // The canvas idles in on-demand render mode: onBeforeRender only fires when a
+  // frame actually renders, so rotation would deadlock (no frame -> no camera
+  // move -> no frame) unless something keeps requesting frames. AutoRotate pumps
+  // invalidate() every animation frame while active to break that cycle.
+  describe('frame pump', () => {
+    it('does not request frames while inactive', () => {
+      mount(AutoRotate, { props: { active: false, camera: createMockCamera() } })
+      flushRaf()
+      expect(mockInvalidate).not.toHaveBeenCalled()
+    })
+
+    it('requests a frame every animation frame while active', async () => {
+      const wrapper = mount(AutoRotate, { props: { active: false, camera: createMockCamera() } })
+
+      await wrapper.setProps({ active: true })
+      flushRaf()
+      expect(mockInvalidate).toHaveBeenCalledTimes(1)
+
+      flushRaf()
+      expect(mockInvalidate).toHaveBeenCalledTimes(2)
+    })
+
+    it('stops requesting frames once deactivated', async () => {
+      const wrapper = mount(AutoRotate, { props: { active: false, camera: createMockCamera() } })
+
+      await wrapper.setProps({ active: true })
+      flushRaf()
+      mockInvalidate.mockClear()
+
+      await wrapper.setProps({ active: false })
+      flushRaf()
+      expect(mockInvalidate).not.toHaveBeenCalled()
     })
   })
 })

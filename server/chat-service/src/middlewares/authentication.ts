@@ -1,7 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt, { type JwtPayload } from "jsonwebtoken";
-import { COOKIE_NAME, getGatewayIssuer } from "../config/config.js";
-import { getGatewaySigningKey } from "../config/gatewayJwks.js";
+import type { JwtPayload } from "jsonwebtoken";
 import { UnauthorizedError } from "../models/error.js";
 
 declare global {
@@ -9,6 +7,9 @@ declare global {
     interface Request {
       account?: JwtPayload;
       userId?: string;
+      // Raw x-gateway-claims header, forwarded to agent-service so it sees
+      // the same caller identity Istio verified at the edge.
+      authToken?: string;
     }
   }
 }
@@ -19,9 +20,7 @@ interface GatewayMembership {
   externalId?: string;
 }
 
-// Maps claims-gateway's StandardClaims shape onto the legacy
-// {accountId, accountMemberships:[{domainName,role}]} shape — see
-// twin-service's identical helper for the full rationale.
+// Maps claims-gateway's StandardClaims onto the legacy {accountId, accountMemberships} shape.
 const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   const memberships = (payload.memberships ?? []) as GatewayMembership[];
   return {
@@ -35,42 +34,32 @@ const normalizeGatewayClaims = (payload: JwtPayload): JwtPayload => {
   };
 };
 
-const verifyGatewayToken = async (
-  token: string,
-  kid: string | undefined,
-): Promise<JwtPayload> => {
-  const key = await getGatewaySigningKey(kid);
-  const payload = jwt.verify(token, key, {
-    algorithms: ["RS256"],
-    issuer: getGatewayIssuer(),
-  });
-  if (typeof payload === "string") throw new Error("invalid token payload");
-  return normalizeGatewayClaims(payload);
-};
-
-export const requireAuthentication = async (
+// Istio validates the gateway JWT at ingress and injects it as this header; chat-service trusts it rather than re-verifying.
+export const requireAuthentication = (
   req: Request,
   _res: Response,
   next: NextFunction,
 ) => {
-  const token = req.cookies?.[COOKIE_NAME] as string | undefined;
-  if (!token) throw new UnauthorizedError("Missing authentication token");
-
-  const header = jwt.decode(token, { complete: true })?.header;
+  const header = req.headers["x-gateway-claims"];
+  if (!header || typeof header !== "string") {
+    throw new UnauthorizedError("Missing authentication token");
+  }
 
   let payload: JwtPayload;
   try {
-    payload = await verifyGatewayToken(token, header?.kid);
+    payload = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as JwtPayload;
   } catch {
     throw new UnauthorizedError("Invalid authentication token");
   }
 
-  const userId = payload.accountId;
+  const normalized = normalizeGatewayClaims(payload);
+  const userId = normalized.accountId;
   if (typeof userId !== "string" || !userId) {
     throw new UnauthorizedError("Authentication token is missing an account id");
   }
 
-  req.account = payload;
+  req.account = normalized;
   req.userId = userId;
+  req.authToken = header;
   next();
 };

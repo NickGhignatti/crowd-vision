@@ -10,8 +10,9 @@ All Kubernetes operations run through `just` recipes from the repository root, s
 ## First-time setup and the core lifecycle
 
 ```bash
-# First time on a new cluster — installs the ingress controller, creates the
-# namespace, injects secrets from .env, then applies all manifests:
+# First time on a new cluster — creates the k3d cluster, installs the Gateway
+# API CRDs and Istio ambient mode, creates the namespace, injects secrets from
+# .env, then applies all manifests:
 just k8s setup
 
 # Re-apply all manifests after a change (idempotent — safe to run repeatedly):
@@ -23,6 +24,9 @@ just k8s delete
 
 .box {k8s-delete is destructive} type:{warning}
     `just k8s delete` removes the namespace and every PersistentVolumeClaim in it — all database data is permanently lost, with no undo. To pause without losing data, use `just k8s stop` and later `just k8s start`.
+
+.box {Istio's Gateway API is the only k8s ingress} type:{note}
+    `just k8s apply` applies the full Istio path — `k8s/istio-peer-authentication.yml` (namespace STRICT mTLS), `k8s/istio-gateway.yml` (the `Gateway` + per-service `HTTPRoute`s), `k8s/istio-request-authentication.yml` (edge JWT verification + `AuthorizationPolicy`), and `k8s/istio-agent-authz.yml` (restricts `agent-service` to its two legitimate in-mesh callers by workload identity) — no manual `kubectl apply` afterward. There is no nginx `Ingress` anymore: it had no edge authentication, so after the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header. Istio's `RequestAuthentication` is the only path that actually verifies tokens at the edge, so it's the ingress for every environment — local k3d and production alike.
 
 ---
 
@@ -44,20 +48,23 @@ Manifests must be applied in dependency order, because a service crashes if its 
       - Shared, non-sensitive environment values (service URLs, ports).
     - - 3. Stateful layer
       - `k8s/stateful/`
-      - MongoDB (one per service), the agent's Postgres, and Redis. Must be `Running` before the services start.
+      - MongoDB for `chat`, `contracts`, `notification`, `sensor`, and `twin`; Postgres for `agent` (pgvector), `registry`, and `tenancy`; plus Redis. Must be `Running` before the services start.
     - - 4. Deployments
       - `k8s/deployments/`
-      - The stateless application services and the client.
-    - - 5. Ingress and monitoring
-      - `k8s/ingress.yml`, `k8s/monitoring/`
-      - The nginx routing rules and the Prometheus/Grafana stack.
+      - The stateless application services and the client, including the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`).
+    - - 5. Mesh ingress and monitoring
+      - `k8s/istio-peer-authentication.yml`, `k8s/istio-gateway.yml`, `k8s/istio-request-authentication.yml`, `k8s/istio-agent-authz.yml`, `k8s/monitoring/`
+      - STRICT mTLS for the namespace, the `Gateway` + per-service `HTTPRoute`s, edge JWT verification + `AuthorizationPolicy`, the `agent-service` caller restriction, and the Prometheus/Grafana stack. The gateway is applied before the two `AuthorizationPolicy` manifests because both select the gateway workload by name; `istio-agent-authz.yml` also depends on `chat-service`'s `ServiceAccount` from step 4.
 
 ```bash
 kubectl apply -f k8s/namespace.yml
 kubectl apply -f k8s/configmaps/
 kubectl apply -f k8s/stateful/      # wait for these pods to reach Running
 kubectl apply -f k8s/deployments/
-kubectl apply -f k8s/ingress.yml
+kubectl apply -f k8s/istio-peer-authentication.yml
+kubectl apply -f k8s/istio-gateway.yml
+kubectl apply -f k8s/istio-request-authentication.yml
+kubectl apply -f k8s/istio-agent-authz.yml
 kubectl apply -f k8s/monitoring/
 ```
 
@@ -65,10 +72,16 @@ kubectl apply -f k8s/monitoring/
 
 ## Secrets
 
-Secrets are created directly on the cluster from your local `.env` and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, `GHCR_USERNAME`, and `GHCR_TOKEN`, and creates the corresponding Secret objects. It is idempotent — safe to re-run after rotating a key. There is no `JWT_SECRET` anymore — auth is RS256 against claims-gateway's JWKS (`GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` in the `common-config` ConfigMap, not a Secret, since they aren't sensitive); see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+Secrets are created directly on the cluster from your local `.env` (plus one file on disk) and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, and the control-plane secrets (`INTERNAL_SIGNING_SECRET`, `REGISTRY_DB_PASSWORD`, `TENANCY_DB_PASSWORD`), and creates the corresponding Secret objects — one per service, plus `registry-db-secret`/`tenancy-db-secret` for their StatefulSets. It is idempotent — safe to re-run after rotating a key. There is no `JWT_SECRET` anymore — Phase 2 of the mesh migration moved JWT verification to Istio's edge `RequestAuthentication` (`k8s/istio-request-authentication.yml`), so individual services no longer hold JWKS config at all; see [Service Mesh Architecture](../architecture/service-mesh.qd) and [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 .box {Namespace before secrets} type:{warning}
     The namespace must exist before secrets can be created. Run `kubectl apply -f k8s/namespace.yml` (or the full `just k8s setup`) before `just k8s secrets` if invoking it in isolation.
+
+.box {claims-gateway's signing key comes from disk, not `.env`} type:{note}
+    `just k8s secrets` also reads `secrets/gateway-dev-key.pem` off your local filesystem — the same stable RSA key `just stack env`'s `gateway-key.js` generates for the Docker Compose path (see [Setting Up the Environment](setting-up.qd)) — and uploads it as the `claims-gateway-key` Secret. Run `just stack env` (or just `node scripts/env/gateway-key.js`) at least once before `just k8s secrets`, even if you never run the Compose stack, or the command fails looking for a file that doesn't exist yet.
+
+.box {ghcr-pull-secret is optional} type:{note}
+    `crowdvision-*` packages on GHCR are public, so anonymous pulls already work — `just k8s secrets` only creates `ghcr-pull-secret` when `GHCR_USERNAME`/`GHCR_TOKEN` are present in `.env`, and skips it otherwise. Set them only if you're pulling from a private fork/registry. Supplying a placeholder or wrong token is worse than omitting them: GHCR 403s on invalid credentials rather than falling back to anonymous, which would break pulls of an otherwise-public image.
 
 .box {Agent provider key naming} type:{warning}
     The current `agent-service-secret` generator forwards the legacy `GOOGLE_API_KEY` and `DEEPSEEK_API_KEY` names, while the recommended provider setup uses `OPENROUTER_API_KEY`. Before deploying the agent, confirm the generated secret contains a key compatible with its configured `LLM_BASE_URL`. Kubernetes also does not deploy the documentation ingester or Langfuse — see the [Agent Service](../services/agent.qd) guide.
@@ -115,7 +128,43 @@ just k8s apply   # apply manifests
 ```
 
 .box {Image pull policy for local images} type:{note}
-    When using locally loaded images, set `imagePullPolicy: IfNotPresent` in the deployment manifests. With `Always`, Kubernetes attempts a GHCR pull and ignores the locally imported image.
+    All application containers in `k8s/deployments/*.yml` use `imagePullPolicy: IfNotPresent` (init containers using `busybox` are unaffected). With `Always`, Kubernetes always attempts a GHCR pull regardless of what's already imported locally — and in this environment the GHCR pull token returns 403, so `Always` would fail every deployment outright. If you rely on GHCR-published images instead of `just k8s load`, override this per-deployment rather than reverting it globally.
+
+---
+
+## Istio ambient mesh
+
+Kubernetes runs Istio in **ambient mode** as its ingress path (Gateway API) in every environment — local k3d and production alike. `docker-compose` + Caddy remains the primary day-to-day *dev loop*, but the k8s path is no longer a validation experiment: it's the deployment target, and Caddy's `forward_auth` mirrors Istio's edge auth byte-for-byte so the two stacks stay at parity (see [Service Mesh Architecture](../architecture/service-mesh.qd)). The one-time cluster bootstrap (`just k8s create` / `gateway-api` / `istio-install`) is below; `just k8s apply` then applies the Gateway, mTLS, and edge-auth manifests as part of the normal deploy.
+
+```bash
+just k8s create          # create the k3d cluster (traefik disabled — Istio owns ingress)
+just k8s gateway-api      # install the Gateway API CRDs (required for ambient's Gateway/HTTPRoute)
+just k8s istio-install    # install Istio ambient (istiod, ztunnel, istio-cni)
+```
+
+.box {k3d's CNI bin dir is /bin, not the generic k3s path} type:{warning}
+    Istio's CNI plugin must be told where to copy its binary via `--set values.cni.cniBinDir=...`. Generic Istio-on-k3s docs suggest `/var/lib/rancher/k3s/data/cni`, but **k3d's bundled node image configures containerd with `bin_dir = "/bin"`** (check with `docker exec <node> cat /var/lib/rancher/k3s/agent/etc/containerd/config.toml`). Using the generic k3s path installs the binary somewhere containerd never looks, so every pod scheduled on that node fails with `plugin type="istio-cni" ... failed to find plugin "istio-cni" in path [/bin]` — and forever retries. The correct value for k3d specifically is `--set values.cni.cniBinDir=/bin`.
+
+.box {A failed CNI install exhausts the flannel IP pool} type:{warning}
+    Each failed sandbox-creation retry (either from the wrong CNI bin dir above, or from ztunnel's DaemonSet racing istio-cni's own startup on a fresh cluster) can leak an IP from flannel's `10.42.0.1-10.42.0.254` pool without releasing it. After a few hundred retries the pool is exhausted and every future pod on that node fails with `no IP addresses available in range set`, even after the underlying CNI problem is fixed. There is no in-place recovery — `k3d cluster delete crowdvision && just k8s create` (a fresh node) is the only fix. Get the CNI bin dir right *before* the first install to avoid this entirely.
+
+.box {Git Bash mangles the CNI path arguments} type:{warning}
+    Running `istioctl install --set values.cni.cniBinDir=/bin` directly from Git Bash silently rewrites the leading `/` into a Windows path (e.g. `/bin` → `C:/Program Files/Git/bin`), because MSYS treats any argument starting with `/` as a path to translate. Set `MSYS2_ARG_CONV_EXCL="*"` before the call to disable this. `just k8s istio-install` itself is unaffected — `just`'s `windows-shell` setting always runs recipes through PowerShell on Windows, regardless of which shell invoked `just`, and PowerShell does no such path translation.
+
+Namespace enrollment (`istio.io/dataplane-mode: ambient`) is declared directly in `k8s/namespace.yml`'s labels — it takes effect the moment the namespace is created and is re-asserted on every `kubectl apply -f k8s/namespace.yml`, not just first-time setup. The Istio manifests are applied by `just k8s setup` / `just k8s apply`; the manual equivalent is:
+
+```bash
+kubectl apply -f k8s/namespace.yml
+kubectl apply -f k8s/istio-peer-authentication.yml
+kubectl apply -f k8s/istio-gateway.yml
+kubectl apply -f k8s/istio-request-authentication.yml
+kubectl apply -f k8s/istio-agent-authz.yml   # needs chat-service's ServiceAccount (k8s/deployments/) applied first
+```
+
+`k8s/istio-gateway.yml` defines one Istio `Gateway` (class `istio`, which auto-provisions an Envoy `Deployment`/`Service` named `<name>-istio`) plus one `HTTPRoute` per service, mirroring the Caddyfile's routes. Services that use `handle_path` in the Caddyfile (path prefix stripped before forwarding) get a matching Gateway API `URLRewrite`/`ReplacePrefixMatch` filter; `contracts-service`'s route needs this too even though its Caddyfile comment claims otherwise — the comment is stale, the directive (`handle_path`) always strips.
+
+.box {claims-gateway and agent/chat-service are expected to fail in this cluster} type:{note}
+    Three services are known-blocked in the local k3d cluster, independent of any mesh work: `claims-gateway` fails its OIDC discovery at boot because Keycloak runs only in the docker-compose dev stack, not in-cluster (it reaches for it at `host.k3d.internal:8090`, which is only live if you've started Keycloak via `docker compose`); `agent-service` needs a real embedding-provider API key (`OPENROUTER_API_KEY`, or one of the legacy aliases — see the box above) that isn't set by default; `chat-service`'s init container waits on `agent-service` and is blocked transitively. None of this is caused by Istio — it reproduces identically without the mesh.
 
 ---
 
@@ -140,7 +189,7 @@ Edit the hosts file as administrator (Windows: `C:\Windows\System32\drivers\etc\
 
 .tablebyrows {.headers}
     - - `just k8s setup`
-      - First-time setup: ingress controller, namespace, secrets, all manifests.
+      - First-time setup: cluster, Gateway API CRDs, Istio ambient, namespace, secrets, all manifests.
     - - `just k8s apply`
       - Apply all manifests in dependency order (idempotent).
     - - `just k8s secrets`
@@ -157,8 +206,12 @@ Edit the hosts file as administrator (Windows: `C:\Windows\System32\drivers\etc\
       - Rolling restart one service, or all deployments.
     - - `just k8s rollout <service>`
       - Watch a rolling update to completion.
-    - - `just k8s ingress`
-      - Install or reinstall the nginx Ingress Controller.
+    - - `just k8s create`
+      - Create the local k3d dev cluster (Traefik disabled).
+    - - `just k8s gateway-api`
+      - Install the Gateway API CRDs (required before `istio-install`).
+    - - `just k8s istio-install`
+      - Install Istio ambient mode with k3d-correct CNI paths.
     - - `just k8s validate`
       - Dry-run all manifests without touching the cluster.
     - - `just k8s stop` / `k8s-start`

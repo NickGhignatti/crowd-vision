@@ -8,7 +8,7 @@ services:
       watch:
         - action: sync
           path: ./app
-          target: /app/app
+          target: /app/server/agent-service/app
         - action: rebuild
           path: ./pyproject.toml
 

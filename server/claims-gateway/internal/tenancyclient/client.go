@@ -1,6 +1,3 @@
-// Package tenancyclient implements service.TenancyClient over HTTP against
-// tenancy-service's /internal/* routes — the one deliberate cross-service
-// hop in the whole design, made once per login, never per request.
 package tenancyclient
 
 import (

@@ -1,8 +1,9 @@
 """The twin RAG tool must call twin-service AS the asking user.
 
-twin-service authenticates its routes, so the tool has to forward the caller's JWT.
-These tests cover both halves: `require_user` keeping the raw token, and `auth_headers`
-attaching it as a bearer header (and omitting it when there is no token).
+twin-service trusts the mesh-injected x-gateway-claims header, so the tool
+has to forward the caller's claims. These tests cover both halves:
+`require_user` keeping the raw claims, and `auth_headers` attaching them as
+the x-gateway-claims header (and omitting it when there is no token).
 """
 
 import jwt
@@ -23,9 +24,9 @@ def _request(headers: dict[str, str]) -> Request:
     return Request(scope)
 
 
-def test_auth_headers_forwards_caller_jwt_as_bearer():
+def test_auth_headers_forwards_caller_claims():
     assert auth_headers(AuthUser(user_id="u1", raw_token="tok-123")) == {
-        "Authorization": "Bearer tok-123"
+        "x-gateway-claims": "tok-123"
     }
 
 
@@ -34,11 +35,9 @@ def test_auth_headers_empty_without_token():
 
 
 async def test_require_user_keeps_raw_token_for_forwarding(monkeypatch):
-    # Uses the eval-bypass HS256 path (see app/auth.py) rather than a real
-    # gateway RS256 token — simpler here since this test only cares that
-    # require_user preserves the raw token, not which path verified it.
+    # Uses the eval-bypass HS256 path (see app/auth.py) rather than the mesh claims
+    # header — simpler since this test only cares that the raw token is preserved.
     monkeypatch.setenv("EVAL_JWT_SECRET", SECRET)
-    monkeypatch.setenv("GATEWAY_JWKS_URI", "http://gateway.test/.well-known/jwks.json")
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     get_settings.cache_clear()
     try:

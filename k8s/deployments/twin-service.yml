@@ -1,4 +1,3 @@
-# ── Deployment ────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +12,9 @@ spec:
     metadata:
       labels:
         app: twin-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
@@ -43,7 +45,7 @@ spec:
       containers:
         - name: twin-service
           image: ghcr.io/nickghignatti/crowdvision-twin:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -51,9 +53,9 @@ spec:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: twin-service-secret   # MONGO_URI
+                name: twin-service-secret
             - configMapRef:
-                name: common-config         # PORT, CLIENT_URL, SENSOR_SERVICE_URL, GATEWAY_JWKS_URI, GATEWAY_ISSUER
+                name: common-config
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -85,7 +87,6 @@ spec:
           emptyDir: {}
 
 ---
-# ── Service ───────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:
@@ -97,3 +98,4 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
+      appProtocol: http

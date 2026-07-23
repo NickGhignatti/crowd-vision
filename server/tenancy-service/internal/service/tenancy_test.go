@@ -72,10 +72,8 @@ func TestCreateOwnDomain_CreatorBecomesBusinessAdmin(t *testing.T) {
 	}
 }
 
-// A self-created domain colliding with an existing name must be a hard
-// conflict, never the CreateDomain idempotency behaviour — otherwise any
-// authenticated user could "create" an existing organization's domain and
-// silently become its business_admin.
+// A self-created domain colliding with an existing name must be a hard conflict, never
+// CreateDomain's idempotency, or any user could hijack another org's domain as its admin.
 func TestCreateOwnDomain_RejectsExistingName(t *testing.T) {
 	svc, _ := newSvc()
 	ctx := context.Background()

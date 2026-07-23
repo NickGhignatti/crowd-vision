@@ -16,10 +16,12 @@ _TRANSIENT_STATUSES = {502, 503, 504}
 
 
 def auth_headers(user: AuthUser) -> dict[str, str]:
-    """Forward the caller's JWT so the downstream read authorizes as the asking
-    user rather than anonymously. Empty when there is no token (auth disabled)."""
+    """Forward the caller's mesh-verified claims so the downstream read
+    authorizes as the asking user rather than anonymously — mTLS already
+    authenticates this hop, the header carries WHO the original caller was.
+    Empty when there is no token (auth disabled)."""
     if user.raw_token:
-        return {"Authorization": f"Bearer {user.raw_token}"}
+        return {"x-gateway-claims": user.raw_token}
     return {}
 
 

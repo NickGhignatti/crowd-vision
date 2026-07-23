@@ -6,11 +6,7 @@ use crate::models::PreferenceDocument;
 
 #[derive(Clone)]
 pub struct AppState {
-    // Maps a Building ID to a list of allowed metric keys.
-    // Arc is used because Axum's State extractor requires the struct to be Clone.
     pub building_preferences: Arc<DashMap<String, Vec<String>>>,
-    // Typed handle to the MongoDB preferences collection.
-    // Collection<T> is Arc-backed internally, so Clone is cheap.
     pub mongo_col: Collection<PreferenceDocument>,
 }
 

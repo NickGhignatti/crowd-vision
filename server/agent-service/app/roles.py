@@ -1,6 +1,5 @@
-# Mirrors the shared role ladder in `auth-contracts/roles.json` (Go). Hierarchical
-# RBAC: a caller satisfies a required role iff their maximum role weight meets or
-# exceeds the required weight.
+# Mirrors the shared role ladder in `auth-contracts/roles.json` (Go). A caller
+# satisfies a required role iff their max role weight meets or exceeds it.
 ROLE_WEIGHTS: dict[str, int] = {
     "admin": 100,
     "business_admin": 80,

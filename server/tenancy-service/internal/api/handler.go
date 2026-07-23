@@ -1,6 +1,3 @@
-// Package api is the HTTP layer for tenancy-service — the Go analogue of the
-// Node services' controller/ layer: parse the request, call the service,
-// shape the response. No business rules live here.
 package api
 
 import (
@@ -10,17 +7,14 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/MicahParks/keyfunc/v3"
 	"github.com/go-chi/chi/v5"
 
 	authmiddleware "github.com/NickGhignatti/crowd-vision/server/auth-middleware"
+	authpolicy "github.com/NickGhignatti/crowd-vision/server/auth-policy"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/service"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/store"
 )
 
-// domainResponse is the wire shape for a domain — kept separate from
-// store.Domain (a persistence type with no JSON tags of its own) so the API
-// layer owns its own contract independent of storage representation.
 type domainResponse struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -42,12 +36,6 @@ func writeDomain(w http.ResponseWriter, status int, d store.Domain) {
 	writeJSON(w, status, toDomainResponse(d))
 }
 
-// account_id is a Postgres `uuid` column; a malformed value reaching the
-// store surfaces as an opaque database error, not a clean 4xx (caught live:
-// an internal caller sending a non-UUID accountId crashed the query with
-// "invalid input syntax for type uuid"). Validate at every entry point that
-// takes an accountId as a raw, externally-supplied string — this is a system
-// boundary, not an internal call between trusted layers.
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 func isValidAccountID(id string) bool {
@@ -55,17 +43,10 @@ func isValidAccountID(id string) bool {
 }
 
 type Config struct {
-	JWKS           keyfunc.Keyfunc
-	Issuer         string
 	InternalSecret []byte
 	TenancyEnabled bool
 }
 
-// Mount wires every route. Internal routes (called by claims-gateway and the
-// provisioner, never a browser) are HMAC-signed; end-user routes trust the
-// gateway-minted JWT. Everything under this function is absent — not merely
-// unauthorized — when tenancy is disabled, matching the disabled-cells-404
-// posture: a private cluster has nothing tenancy-shaped to probe.
 func Mount(r chi.Router, svc *service.Service, cfg Config) {
 	h := &handler{svc: svc}
 
@@ -81,7 +62,7 @@ func Mount(r chi.Router, svc *service.Service, cfg Config) {
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(authmiddleware.RequireAuthentication(cfg.JWKS, cfg.Issuer))
+		r.Use(authmiddleware.RequireMeshClaims())
 		r.Get("/domains", h.listPublicDomains)
 		r.Post("/domains", h.createOwnDomain)
 		r.Get("/me/memberships", h.myMemberships)
@@ -196,9 +177,6 @@ func (h *handler) createOwnDomain(w http.ResponseWriter, r *http.Request) {
 	writeDomain(w, http.StatusCreated, d)
 }
 
-// listPublicDomains is the "browse domains" directory — replaces
-// auth-service's getAllAllowedDomains + a separate member-counts round-trip
-// with one authenticated call.
 func (h *handler) listPublicDomains(w http.ResponseWriter, r *http.Request) {
 	domains, err := h.svc.PublicDomains(r.Context())
 	if err != nil {
@@ -212,9 +190,6 @@ func (h *handler) listPublicDomains(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// myMemberships is the fresh, authenticated equivalent of auth-service's
-// GET /domains/:accountName — the caller can only ever ask for their own
-// memberships (identity comes from the JWT, never a URL/body accountName).
 func (h *handler) myMemberships(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
 	ms, err := h.svc.MembershipsFor(r.Context(), claims.Sub)
@@ -245,7 +220,7 @@ func (h *handler) inviteMember(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
 	domain := chi.URLParam(r, "domain")
 
-	if !claims.CanIn(domain, "business_admin") {
+	if !authpolicy.CanManageDomain(claims.Memberships, domain) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -280,8 +255,9 @@ func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Anyone may remove themselves; removing someone else needs domain admin.
-	if target != claims.Sub && !claims.CanIn(domain, "business_admin") {
+	// Anyone may remove themselves (an identity check, not a policy decision);
+	// removing someone else needs domain admin.
+	if target != claims.Sub && !authpolicy.CanManageDomain(claims.Memberships, domain) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -297,7 +273,7 @@ func (h *handler) createSubdomain(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
 	parent := chi.URLParam(r, "domain")
 
-	if !claims.CanIn(parent, "business_admin") {
+	if !authpolicy.CanManageDomain(claims.Memberships, parent) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -326,9 +302,6 @@ func (h *handler) createSubdomain(w http.ResponseWriter, r *http.Request) {
 	writeDomain(w, http.StatusCreated, d)
 }
 
-// listSubdomains requires only authentication, not domain admin — matches
-// auth-service's original getSubdomainsFromDomain, which let any
-// authenticated user browse a domain's subdomain list.
 func (h *handler) listSubdomains(w http.ResponseWriter, r *http.Request) {
 	subs, err := h.svc.ListSubdomains(r.Context(), chi.URLParam(r, "domain"))
 	if err != nil {
@@ -346,7 +319,7 @@ func (h *handler) createInviteCode(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
 	domain := chi.URLParam(r, "domain")
 
-	if !claims.CanIn(domain, "business_admin") {
+	if !authpolicy.CanManageDomain(claims.Memberships, domain) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

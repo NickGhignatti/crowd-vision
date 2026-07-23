@@ -1,7 +1,7 @@
 .docname {Digital Twin Service Architecture}
 .include {docs}
 
-**Bounded context:** [Building Management](../domain/building-management.qd) · **Stack:** Node.js / Express · **Code-level walkthrough:** [Digital Twin Service](../services/digital-twin.qd)
+**Bounded context:** [Building Management](../domain/building-management.qd) · **Stack:** Rust / Axum · **Code-level walkthrough:** [Digital Twin Service](../services/digital-twin.qd)
 
 The twin-service realises the [Building Management](../domain/building-management.qd) context. It is the spatial source of truth — the structural model of buildings and rooms that the live-data services decorate.
 
@@ -9,20 +9,35 @@ The twin-service realises the [Building Management](../domain/building-managemen
 
 ## Architectural Style
 
-A layered Express service that runs **independently of any identity service**. It enforces multi-tenant isolation purely from the identity token presented with each request, never by querying another service's data.
+A flat, three-layer architecture — HTTP handlers, domain models, and infrastructure — wired directly through a shared `AppState`, with no interface layer between a handler and what it depends on. Handlers (`api/buildings.rs`) combine HTTP adaptation and business logic in one place, matching `contracts-service`'s established Rust convention: the language's own module system and `Result`-based error handling already do the job a thin controller layer would.
 
----
-
-## Internal Structure
+Identity and authorization arrive as **Axum extractors**, not as calls to another service. `GatewayClaims` (`infra/claims.rs`) implements `FromRequestParts`, so any handler that needs the caller's identity just declares it as an argument — decoding and validating the mesh-injected `x-gateway-claims` header happens before the handler body runs, with no network call to `claims-gateway` or `tenancy-service`. Authorization is the same shape: Cedar (`infra/authz.rs`) evaluates the request in-process against a policy bundle compiled into the binary via `include_str!`.
 
 .mermaid
-    graph TD
-        R[Router] --> C[Buildings Controller]
-        C --> S[Buildings Service]
-        S --> N[Name Normalisation Helper]
-        S --> M[Building Model]
-        M -.-> DB[(twin-db)]
-        S -.->|provisioning| EXT[sensor-service / contracts-service]
+    graph LR
+        subgraph Entry
+            R["lib.rs (Router)"]
+            CL["GatewayClaims extractor\ninfra/claims.rs"]
+        end
+        subgraph Handlers
+            H["api/buildings.rs"]
+        end
+        subgraph Infrastructure
+            DB["infra/db.rs\nMongoDB Collection (Building)"]
+            AZ["infra/authz.rs\nCedar, compiled-in policy"]
+            OUT["infra/outbound.rs\nsensor-service · contracts-service"]
+            MET["infra/metrics.rs"]
+            RL["infra/ratelimit.rs"]
+        end
+        R --> H
+        CL --> H
+        H --> DB
+        H --> AZ
+        H --> OUT
+        H --> MET
+        H --> RL
+
+The integration test suite runs against a real MongoDB instance, exercised through the full `Router` via `tower::ServiceExt::oneshot` — the same code path a real request takes, not a swapped-in double. Metrics are recorded through an Axum `Router::layer`, which wraps the entire request/response cycle regardless of how the inner handler responds — so `http_requests_total`/`http_request_duration_seconds` increment for every route, labeled by `{method, route, status_code}` using the route template rather than the raw URL, so cardinality stays bounded even with real ids in the path. Cedar's policy bundle (`schema.cedarschema`, `policy.cedar`) is compiled into the binary via Rust's `include_str!` rather than read from disk at process startup — the production Docker image doesn't need `server/auth-policy` present at runtime, only the builder stage does.
 
 ---
 
@@ -32,6 +47,7 @@ A layered Express service that runs **independently of any identity service**. I
 - **Tenancy from the token.** A building records the domains it belongs to; access is granted by matching those against the principal's memberships in the identity token — no per-request call to claims-gateway or tenancy-service.
 - **Best-effort downstream provisioning.** When a building is created, the service seeds the dependent contexts (a threshold baseline for ingestion, default display preferences for distribution). This is intentionally non-transactional: a failed seed does not fail the building creation (see the design note in [Building Management](../domain/building-management.qd)).
 - **Structure treated as static.** Geometry and topology are modelled as stable; only metadata evolves. This keeps the spatial model dependable while live readings churn elsewhere.
+- **Uniform geometry validation.** Every geometry-writing route — registration included — enforces the same position/dimension/capacity checks, returning `400` on a malformed room rather than storing bad data or surfacing an opaque `500`.
 
 ---
 

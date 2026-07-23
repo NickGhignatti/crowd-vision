@@ -1,9 +1,7 @@
 //go:build integration
 
-// Integration test for the actual Redis Streams transport (XAdd/XReadGroup/
-// XAck) — ProcessMessage's business logic is covered without Redis in
-// account_deleted_test.go; this suite only proves the consumer group wiring
-// itself is correct. Run with: go test -tags=integration ./internal/events/...
+// Integration test for the real Redis Streams transport (XAdd/XReadGroup/XAck); business logic
+// is covered without Redis in account_deleted_test.go. Run: go test -tags=integration ./internal/events/...
 package events_test
 
 import (

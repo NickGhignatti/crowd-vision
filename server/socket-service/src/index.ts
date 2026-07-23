@@ -6,11 +6,10 @@ import { register } from "./config/registry.js";
 import { relayTelemetry } from "./handlers/telemetry.js";
 import { relayNotification } from "./handlers/notification.js";
 import { handleConnection } from "./handlers/connection.js";
-import { authenticateToken, readCookie } from "./auth.js";
+import { authenticateClaimsHeader } from "./auth.js";
 
-// Composition root (imperative shell): build dependencies, wire the pure
-// handlers to them, and start listening. No logic lives here — that's in
-// core/ and handlers/, which is why this file is excluded from coverage.
+// Composition root (imperative shell): build dependencies, wire the pure handlers to them, and
+// start listening. No logic lives here — that's in core/ and handlers/ — hence excluded from coverage.
 
 const PORT = 3000;
 const app = express();
@@ -29,17 +28,14 @@ const io = new Server(server, {
 });
 
 io.use((socket, next) => {
-  const token = readCookie(
-    socket.handshake.headers.cookie,
-    "authentication_token",
+  // Istio validates the gateway JWT on the WS upgrade request and injects the claims as this
+  // header (see k8s/istio-request-authentication.yml); socket-service just decodes it.
+  const identity = authenticateClaimsHeader(
+    socket.handshake.headers["x-gateway-claims"] as string | undefined,
   );
-  authenticateToken(token)
-    .then((identity) => {
-      if (!identity) return next(new Error("unauthorized"));
-      socket.data.identity = identity; // server-authoritative; client can't forge rooms
-      next();
-    })
-    .catch(() => next(new Error("unauthorized")));
+  if (!identity) return next(new Error("unauthorized"));
+  socket.data.identity = identity; // server-authoritative; client can't forge rooms
+  next();
 });
 
 io.on("connection", handleConnection);

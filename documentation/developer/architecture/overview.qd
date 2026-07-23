@@ -3,22 +3,35 @@
 
 CrowdVision is a distributed, **event-driven microservices** system. The frontend is fully separated from the backend, and the backend services are isolated from one another, so the platform can scale parts independently, tolerate partial failure, and enforce strict data boundaries.
 
-This page gives the whole-system picture — the principles, the components, and the two deployment models. Inter-service communication and the real-time data path are covered in [Communication & Data Flow](data-flow.qd); the cluster specifics in [Deployment & Kubernetes](deployment.qd).
-
----
-
-## Architectural Principles
-
-- **One bounded context per service.** Each service owns a single context from the [Domain model](../domain/strategic-design.qd) and nothing else.
-- **Database per service.** No service reads another service's database; data crosses a boundary only through an API call or an event.
-- **Stateless services, stateful edges.** Application services hold no session state — identity travels in a signed token — so any instance can serve any request. Durable state lives only in the databases and the broker.
-- **One gateway in front.** All external traffic enters through a single reverse proxy that routes by URL prefix.
-- **Event-driven where it counts.** High-frequency telemetry and alerts move over a publish/subscribe broker rather than synchronous calls, decoupling producers from consumers.
-- **Polyglot by need.** Most services are Node.js/Express; the throughput-critical telemetry filter is Rust; the assistant is Python; the identity/tenancy control plane (added in the Keycloak-centric auth redesign — see [Identity & Tenancy Architecture](auth-architecture.qd)) is Go, chosen for fast CRUD iteration and small static binaries on services that never sit on the request hot path.
+This page gives the whole-system picture — the components and the two deployment models. Inter-service communication and the real-time data path are covered in [Communication & Data Flow](data-flow.qd); the cluster specifics in [Deployment & Kubernetes](deployment.qd); the Istio mesh migration in [Service Mesh Architecture](service-mesh.qd).
 
 ---
 
 ## Component Landscape
+
+### Libraries
+
+Shared code embedded directly into other services — not independently deployed, no Dockerfile of their own.
+
+.var {headers}
+   - Library
+   - Role
+   - Stack
+
+.tablebyrows {.headers}
+    - - auth-contracts
+      - Shared Kernel: the `StandardClaims`/`Membership` token shape and the role-weight ladder (`roles.json`). Consumed by auth-middleware, auth-policy, claims-gateway, tenancy-service.
+      - Go module
+    - - auth-middleware
+      - Two verification strategies: `RequireAuthentication` (full JWT verify against JWKS) and `RequireMeshClaims` (trusts the mesh-injected `x-gateway-claims` header). Consumed by claims-gateway and tenancy-service (the only Go HTTP services).
+      - Go module
+    - - auth-policy
+      - Cedar authorization bundle (`schema.cedarschema`, `policy.cedar`, `fixtures/conformance.json`) embedded and evaluated locally by each language: `cedar-go` (Go, tenancy-service), `cedar-policy` crate via `include_str!` at compile time (Rust, twin-service), `cedarpy` at runtime (Python, agent-service). One shared bundle, three independent embeddings — not a package import, a sibling directory each build copies in.
+      - Go module + Rust/Python bindings
+
+### Services
+
+Independently deployable, each with its own container image.
 
 .var {headers}
    - Component
@@ -39,38 +52,44 @@ This page gives the whole-system picture — the principles, the components, and
       - Organization signup & lifecycle (control plane; never deployed in a cell)
       - Go / PostgreSQL
     - - provisioner
-      - Reconciles pending organizations into running tenancy (pooled tier today)
+      - Reconciles pending organizations into running tenancy (pooled tier today). No external route — internal reconcile loop only.
       - Go
     - - twin-service
       - Building Management — the spatial model
-      - Node.js / Express
+      - Rust / Axum / MongoDB
     - - sensor-service
       - Telemetry Ingestion — readings & thresholds
-      - Node.js / Express
+      - Node.js / Express / MongoDB
     - - contracts-service
       - Telemetry Distribution — per-building filtering
-      - Rust / Axum
+      - Rust / Axum / MongoDB
     - - notification-service
       - Alerting — push delivery
-      - Node.js / Express
+      - Node.js / Express / MongoDB
     - - socket-service
       - Real-time transport to the browser
       - Node.js / Socket.IO
+    - - chat-service
+      - Persists multi-turn chat sessions and orchestrates calls to agent-service
+      - Node.js / MongoDB
     - - agent-service
       - Assistant — maintained separately; see its [reference](../services/agent.qd)
-      - Python
+      - Python / PostgreSQL (pgvector)
     - - client
       - The single-page application
       - Vue 3 / Vite
     - - Gateway
       - Single entry point, routes by URL prefix
-      - Caddy (compose) / nginx Ingress (k8s)
+      - Caddy (compose) / Istio Gateway API (k8s)
+    - - Service Mesh
+      - Kubernetes only: Istio in ambient mode — `ztunnel` gives every pod L4 mTLS, edge `RequestAuthentication` verifies the JWT once, `AuthorizationPolicy` enforces coarse authZ. Docker-compose's equivalent is Caddy's `forward_auth` against claims-gateway's `/verify`. See [Service Mesh Architecture](service-mesh.qd).
+      - Istio (ambient)
     - - Broker
       - Publish/subscribe backbone for telemetry and alerts
       - Redis
     - - Datastores
       - One database per stateful service
-      - MongoDB (Node services), PostgreSQL (agent-service, tenancy-service, registry-service, Keycloak)
+      - MongoDB (sensor-service, notification-service, chat-service — Node.js; twin-service, contracts-service — Rust), PostgreSQL (agent-service, tenancy-service, registry-service, Keycloak)
 
 The agent-service runs as part of the system but sits outside this guide's microservice set; it appears here for completeness only.
 
@@ -78,7 +97,7 @@ The agent-service runs as part of the system but sits outside this guide's micro
 
 ## Deployment Model: Docker Compose (Local Development)
 
-All incoming external traffic enters the system through a single **Caddy** reverse-proxy gateway exposed on port `80`. Caddy strips the service prefixes from the URLs and proxies the requests to the appropriate target containers on the internal Docker bridge network.
+All incoming external traffic enters the system through a single **Caddy** reverse-proxy gateway exposed on port `80`. Caddy strips the service prefixes from the URLs and proxies the requests to the appropriate target containers on the internal Docker bridge network. For protected routes, Caddy's `forward_auth` calls claims-gateway's `/verify` and copies the resulting `X-Gateway-Claims` header onto the request — the docker-compose equivalent of Istio's `RequestAuthentication` + `outputPayloadToHeader` in the Kubernetes model below.
 
 .mermaid
     graph TD
@@ -87,18 +106,31 @@ All incoming external traffic enters the system through a single **Caddy** rever
 
         subgraph gateway-net [Shared Gateway Network]
             Caddy -->|/gateway/*| CG["claims-gateway :3000"]
-            Caddy -->|/tenancy/*| TS["tenancy-service :3000"]
-            Caddy -->|/twin/*| Twin["twin-service :3000"]
-            Caddy -->|/notification/*| Notif["notification-service :3000"]
-            Caddy -->|/socket.io/*| Socket["socket-server :3000"]
-            Caddy -->|/sensor/*| Sensor["sensor-service :3000"]
+            Caddy -->|"/tenancy/* (forward_auth)"| TS["tenancy-service :3000"]
+            Caddy -->|"/twin/* (forward_auth)"| Twin["twin-service :3000"]
+            Caddy -->|"/notification/* (forward_auth)"| Notif["notification-service :3000"]
+            Caddy -->|"/socket.io/* (forward_auth)"| Socket["socket-server :3000"]
+            Caddy -->|"/sensor/* (forward_auth, ingest exempt)"| Sensor["sensor-service :3000"]
+            Caddy -->|"/chat/* (forward_auth)"| Chat["chat-service :3000"]
+            Caddy -->|/agent/* - no gate| Agent["agent-service :3000"]
+            Caddy -->|/contracts, /contracts/*| Contracts["contracts-service :3000"]
 
             Notif -->|PUBLISH| Redis[("Redis Broker")]
             Socket -->|SUBSCRIBE| Redis
+            Contracts --- Redis
         end
 
+        RegSvc["registry-service :3000"]
+        ProvSvc["provisioner<br/>(no inbound route)"]
+        ProvSvc -->|"HMAC-signed, internal"| RegSvc
+        ProvSvc -->|"HMAC-signed, internal"| TS
+
         subgraph tenancy-net [Tenancy Private Network]
-            TS --- TenancyDB[("tenancy_db PostgreSQL")]
+            TS --- TenancyDB[("tenancy-db PostgreSQL")]
+        end
+
+        subgraph registry-net [Registry Private Network]
+            RegSvc --- RegistryDB[("registry-db PostgreSQL")]
         end
 
         subgraph twin-net [Twin Private Network]
@@ -113,58 +145,79 @@ All incoming external traffic enters the system through a single **Caddy** rever
             Sensor --- SensorDB[("sensor-db MongoDB")]
         end
 
+        subgraph chat-net [Chat Private Network]
+            Chat --- ChatDB[("chat-db MongoDB")]
+        end
+
+        subgraph contracts-net [Contracts Private Network]
+            Contracts --- ContractsDB[("contracts-service-db MongoDB")]
+        end
+
+        subgraph agent-net [Agent Private Network]
+            Agent --- AgentDB[("agent-db PostgreSQL / pgvector")]
+        end
+
 ### Network Segregation & Database Isolation
 Each stateful microservice is attached to two networks:
 - The shared **gateway-net** (so Caddy can reach them).
-- A completely **private database network** (e.g., `tenancy-net`, `twin-net`, `notification-net`, `sensor-net`). `claims-gateway` has no private network of its own — it is stateless and owns no database.
+- A private **database network** (e.g., `tenancy-net`, `twin-net`, `notification-net`, `sensor-net`, `chat-net`, `contracts-net`, `agent-net`, `registry-net`). `claims-gateway` and `provisioner` have no private network of their own — both are stateless and own no database.
 
-This physically enforces the database-per-service pattern. The Twin Service cannot reach the Tenancy Database, so cross-domain data mutations are impossible by construction.
+This is the intended database-per-service boundary: no service is meant to reach another service's database directly, only through an API call or an event.
 
 ---
 
 ## Deployment Model: Kubernetes (Production / Staging)
 
-In Kubernetes mode, Caddy is replaced by an **nginx Ingress Controller**. The concept is identical — a single entry point routing by URL path — but the implementation is declarative YAML rather than a `Caddyfile`.
+In Kubernetes mode, Caddy is replaced by an **Istio Gateway** (Gateway API, `gatewayClassName: istio`) fronting an **Istio ambient mesh**: a per-node `ztunnel` DaemonSet gives every pod L4 mTLS and workload identity with no sidecar and no pod restarts, `PeerAuthentication` enforces `STRICT` mTLS across the `crowdvision` namespace, and a `RequestAuthentication` on the gateway verifies the claims-gateway-issued JWT exactly once — the validated payload is injected as a single `x-gateway-claims` header via `outputPayloadToHeader`, and every downstream service decodes that header instead of re-verifying the JWT itself. The full phased migration is documented in [Service Mesh Architecture](service-mesh.qd).
 
 .mermaid
     graph TD
         Browser["Browser / Vue Client"] -->|HTTP port 80| LB["k3d LoadBalancer"]
         Simulator["Sensor Simulator (external Docker)"] -->|HTTP POST| LB
 
-        LB --> Ingress["nginx Ingress Controller"]
+        LB --> IGW["Istio Gateway (Envoy)<br/>auto-provisioned: crowdvision-gateway-istio"]
 
-        subgraph crowdvision [Namespace: crowdvision]
-            Ingress -->|/twin| TwinSvc["twin-service ClusterIP"]
-            Ingress -->|/notification| NotifSvc["notification-service ClusterIP"]
-            Ingress -->|/sensor| SensorSvc["sensor-service ClusterIP"]
-            Ingress -->|/agent| AgentSvc["agent-service ClusterIP"]
-            Ingress -->|/socket.io| SocketSvc["socket-service ClusterIP"]
-            Ingress -->|/ catch-all| ClientSvc["client ClusterIP"]
+        subgraph crowdvision ["Namespace: crowdvision — Istio ambient, ztunnel mTLS STRICT on every pod"]
+            IGW -->|"RequestAuthentication: JWT verified once<br/>outputPayloadToHeader to x-gateway-claims"| HR{{"Gateway API HTTPRoutes"}}
 
-            TwinSvc --> TwinPod["twin-service Pod"]
-            TwinPod --- TwinDB[("twin-db StatefulSet")]
+            HR -->|/gateway| CGSvc["claims-gateway"]
+            HR -->|/tenancy| TSSvc["tenancy-service"]
+            HR -->|/twin| TwinSvc["twin-service"]
+            HR -->|/sensor| SensorSvc["sensor-service"]
+            HR -->|/notification| NotifSvc["notification-service"]
+            HR -->|/chat| ChatSvc["chat-service"]
+            HR -->|/socket.io| SocketSvc["socket-service"]
+            HR -->|"/agent (excluded from JWT gate)"| AgentSvc["agent-service"]
+            HR -->|/contracts| ContractsSvc["contracts-service"]
+            HR -->|"/ catch-all"| ClientSvc["client"]
 
-            NotifSvc --> NotifPod["notification-service Pod"]
-            NotifPod --- NotifDB[("notification-db StatefulSet")]
+            RegSvc["registry-service"]
+            ProvSvc["provisioner<br/>(no Gateway route)"]
+            ProvSvc -->|"HMAC-signed, in-mesh"| RegSvc
+            ProvSvc -->|"HMAC-signed, in-mesh"| TSSvc
 
-            SensorSvc --> SensorPod["sensor-service Pod"]
-            SensorPod --- SensorDB[("sensor-db StatefulSet")]
+            TSSvc --- TenancyDB[("tenancy-db StatefulSet")]
+            RegSvc --- RegistryDB[("registry-db StatefulSet")]
+            TwinSvc --- TwinDB[("twin-db StatefulSet")]
+            NotifSvc --- NotifDB[("notification-db StatefulSet")]
+            SensorSvc --- SensorDB[("sensor-db StatefulSet")]
+            ChatSvc --- ChatDB[("chat-db StatefulSet")]
+            ContractsSvc --- ContractsDB[("contracts-service-db StatefulSet")]
 
-            SocketSvc --> SocketPod["socket-service Pod"]
-            SocketPod -->|SUBSCRIBE| RedisPod[("Redis Deployment")]
-            NotifPod -->|PUBLISH| RedisPod
+            SocketSvc -->|SUBSCRIBE| RedisPod[("Redis Deployment")]
+            NotifSvc -->|PUBLISH| RedisPod
+            ContractsSvc --- RedisPod
         end
 
-A key difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it reaches the cluster through the load balancer's public port, just like a browser. See the [External Sensor Simulator](../config/sensor-simulator.qd) page. The cluster internals — StatefulSets, Secrets, Ingress rules — are detailed in [Deployment & Kubernetes](deployment.qd).
+A key difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it reaches the cluster through the load balancer's public port, just like a browser. See the [External Sensor Simulator](../config/sensor-simulator.qd) page. The cluster internals — StatefulSets, Secrets, Gateway API routes — are detailed in [Deployment & Kubernetes](deployment.qd); the mesh internals (ztunnel, `RequestAuthentication`, `AuthorizationPolicy`, Cedar) in [Service Mesh Architecture](service-mesh.qd).
 
-.box {Auth has no k8s presence yet} type:{warning}
-    `claims-gateway` and `tenancy-service` (the current identity/tenancy stack) have never been given k8s manifests — only docker-compose. The old `auth-service`'s k8s Deployment/Service/StatefulSet were deleted along with the service itself. The k8s deployment path therefore currently has no working auth end-to-end; see [Identity & Tenancy Architecture](auth-architecture.qd)'s "known gap" note.
+`agent-service` is deliberately excluded from the mesh's `AuthorizationPolicy`-enforced JWT gate: it also serves a local-dev evaluation bypass token that never holds a real gateway JWT, so it keeps checking for the mesh claims header first and falls back to its own token verification in-process.
 
 ---
 
 ## Routing Table
 
-The routing table is identical across both deployment models. Only the component enforcing it differs (Caddy vs nginx Ingress).
+The routing table is identical across both deployment models. Only the component enforcing it differs (Caddy vs Istio Gateway API).
 
 .var {headers}
    - External Path Prefix
@@ -174,10 +227,10 @@ The routing table is identical across both deployment models. Only the component
 .tablebyrows {.headers}
     - - `/gateway/`
       - `claims-gateway`
-      - Token exchange, `/me`, logout, JWKS (docker-compose only — see the k8s gap note above).
+      - Token exchange, `/me`, logout, JWKS.
     - - `/tenancy/`
       - `tenancy-service`
-      - Domains, subdomains, memberships, invite codes (docker-compose only).
+      - Domains, subdomains, memberships, invite codes.
     - - `/twin/`
       - `twin-service`
       - Building models, room CRUD, spatial data.
@@ -186,10 +239,16 @@ The routing table is identical across both deployment models. Only the component
       - Processing sensor events, triggering Web Push alerts.
     - - `/sensor/`
       - `sensor-service`
-      - Ingesting time-series sensor readings (people count, temperature).
+      - Ingesting time-series sensor readings (people count, temperature). `/sensor/ingest` is exempt from the auth gate — it is device/simulator-facing and carries no user token.
+    - - `/chat/`
+      - `chat-service`
+      - Persisted multi-turn chat sessions, forwarding to agent-service.
     - - `/agent/`
       - `agent-service`
-      - Tool-calling assistant for live building data and documentation search.
+      - Tool-calling assistant for live building data and documentation search. Not gated by the mesh/gateway JWT check — see the exclusion note above.
+    - - `/contracts/`
+      - `contracts-service`
+      - Per-building telemetry filtering preferences. Not gated by the auth check.
     - - `/socket.io/`
       - `socket-service`
       - Maintaining persistent WebSocket connections to the frontend.
@@ -198,10 +257,4 @@ The routing table is identical across both deployment models. Only the component
       - Serves the Vue 3 SPA. Catch-all, must be defined last.
 
 .box {Dev Mode} type:{note}
-    Developer Mode Only: when running `just stack dev`, Caddy also exposes `auth-db-express` and `twin-db-express` at `/auth-db-gui/*` and `/twin-db-gui/*`. These are not present in Kubernetes deployments for security reasons.
-
----
-
-## Real-Time Data Flow
-
-The platform's defining behaviour — a physical event reaching a browser in real time — spans several services and the broker. That end-to-end path, along with the synchronous and asynchronous communication patterns that connect the services, is documented in [Communication & Data Flow](data-flow.qd).
+    Developer Mode Only: when running `just stack dev`, Caddy also exposes database GUIs at `/twin-db-gui/*`, `/sensor-db-gui/*`, `/notification-db-gui/*`, `/contracts-db-gui/*`, and `/chat-db-gui/*`. These are not present in Kubernetes deployments for security reasons.

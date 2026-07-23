@@ -1,7 +1,10 @@
 services:
   agent-service:
     build:
-      context: .
+      # Repo-root context: agent-service reads the shared Cedar policy bundle at
+      # ../auth-policy (see app/cedar_authz.py and the Dockerfile's own header).
+      context: ../..
+      dockerfile: server/agent-service/Dockerfile
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-${DEEPSEEK_API_KEY:-${GOOGLE_API_KEY:-}}}
       - LLM_BASE_URL=${LLM_BASE_URL:-https://openrouter.ai/api/v1}
@@ -12,11 +15,8 @@ services:
       - TWIN_TIMEOUT_SECONDS=${TWIN_TIMEOUT_SECONDS:-10}
       - SENSOR_SERVICE_URL=${SENSOR_SERVICE_URL:-http://sensor-service:3000}
       - SENSOR_TIMEOUT_SECONDS=${SENSOR_TIMEOUT_SECONDS:-10}
-      - GATEWAY_JWKS_URI=http://claims-gateway:3000/.well-known/jwks.json
-      - GATEWAY_ISSUER=cv-gateway
       # Local-dev-only: lets evals/run_evals.py auto-mint a token against this
-      # compose-deployed instance (its default AGENT_URL). Empty in any real
-      # deployment — never set in k8s (see agent-service/CLAUDE.md).
+      # instance. Empty in any real deployment — never set in k8s.
       - EVAL_JWT_SECRET=${EVAL_JWT_SECRET:-}
       - POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
       - RERANKER=${RERANKER:-noop}

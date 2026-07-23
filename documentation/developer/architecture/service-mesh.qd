@@ -1,0 +1,156 @@
+.docname {Service Mesh Architecture}
+.include {docs}
+
+CrowdVision runs on a Kubernetes service mesh — **Istio in ambient mode** — with mTLS on every hop and end-user authentication verified once at the edge. The trust model is **hard perimeter, guarded interior**: the mesh edge is the single place a user's identity is authenticated, and inside the mesh every hop is encrypted and carries a cryptographic *workload* identity, but services trust the edge-verified user claims rather than re-checking them. What that deliberately does and does not defend against — and the concrete condition under which it must be tightened — is spelled out in [Security model & trust boundary](#security-model-and-trust-boundary) below. This page then tracks the mesh build-out phase by phase. For the local k3d cluster's day-to-day operation (creating it, applying manifests, secrets), see [Kubernetes Configuration](../config/kubernetes.qd). Authorization (Cedar) and the `twin-service` Rust rewrite happened alongside this work but are separate architectural concerns — see [Identity & Tenancy Architecture](auth-architecture.qd) and [Digital Twin Service Architecture](twin-architecture.qd) respectively.
+
+---
+
+## Security model and trust boundary
+
+The mesh is deliberately **hard perimeter, guarded interior** — not full zero-trust where every request is re-authorized at every hop. Three layers hold it up:
+
+- **Authentication happens once, at the edge.** The Istio ingress gateway verifies the claims-gateway JWT (`RequestAuthentication`) and injects the validated claims as the `x-gateway-claims` header. Downstream services decode that header; they do not re-verify a signature. Skipping per-service JWT crypto is the whole payoff of authenticating at the edge.
+- **Every hop is encrypted and workload-authenticated.** STRICT `PeerAuthentication` mTLS means there is no plaintext inter-service traffic, and every connection carries a cryptographic *workload* identity issued by the mesh. By default, though, any workload is allowed to open a connection to any other.
+- **Per-tenant authorization stays in-service.** Cedar answers the fine-grained "may *this* user, in *this* tenant, do *this*?" question where it arises (`twin-service`, `tenancy-service`).
+
+What this model does **not** defend against: a workload that is *already inside the mesh* can dial another service's ClusterIP directly, bypass the ingress gateway, and forge `x-gateway-claims` to impersonate any user — because mTLS authenticates the *connection*, not the *payload*, and services trust that header unsigned. That lateral-impersonation risk is **accepted for now**, with one exception: `agent-service` runs LLM tool-calling over untrusted input (user chat plus retrieved documents), which makes it the workload most likely to be steered into forging an internal request, so it is restricted to its legitimate callers by workload identity (`k8s/istio-agent-authz.yml`).
+
+.box {When this must be revisited} type:{warning}
+    The interior is treated as a single trust domain. That holds while a cluster serves exactly one tenant — an enterprise self-hosting CrowdVision on its own private cluster — or holds no real user data. It stops holding the moment **multiple tenants share one hosted cluster**: then "inside the mesh" spans several customers' data, and a single compromised or prompt-injected workload becomes a cross-tenant breach. That is the trigger to finish the interior: give each backend its own `ServiceAccount` and an inbound `AuthorizationPolicy` that admits only the ingress gateway plus that service's known internal callers (the same workload-identity pattern `agent-service` already uses). An external attacker is unaffected by this gap either way — service ClusterIPs are not routable from outside the cluster, and the only exposed entrypoint, the ingress gateway, requires the JWT.
+
+---
+
+## Why Istio, ambient mode
+
+Istio was chosen over Linkerd because Linkerd structurally lacks two load-bearing pieces this architecture needs: `RequestAuthentication` (end-user JWT validation — Linkerd only authorizes by workload mTLS identity, never by JWT claims) and Envoy's `ext_authz` extension point. Istio is also fully free including stable releases (CNCF-graduated, Apache 2.0); Linkerd's stable tier is paywalled above 50 employees.
+
+**Ambient mode**, not the older sidecar model: a per-node `ztunnel` DaemonSet handles L4 mTLS + workload identity for *all* traffic (cheap — AES-NI, per-connection, no L7 parsing), while an optional per-namespace `waypoint` proxy handles L7 policy (JWT validation, `AuthorizationPolicy`) only where actually needed. This matters because CrowdVision is data-intensive (sensor telemetry): forcing every pod through a full L7 sidecar (the old Istio model) would put unnecessary parsing overhead on high-volume data paths that don't need it. Ambient's L4/L7 split keeps bulk data traffic at L4 and reserves L7 for the edge, where auth decisions actually happen.
+
+## Target architecture
+
+```
+Keycloak (IdP)
+  → claims-gateway (token exchange → internal RS256 JWT)     [unchanged]
+  → Istio ingress gateway (Gateway API, Envoy)                [replaces Caddy in prod]
+  → Mesh: Istio AMBIENT
+        · ztunnel  = L4 mTLS + identity, ALL traffic
+        · waypoint = L7, ONLY at policy-enforcing entry points
+        · RequestAuthentication = JWT verified ONCE at the edge
+        · AuthorizationPolicy   = coarse authZ
+  → Cedar (embedded, local eval per service) = fine-grained tenant authZ
+  → services (TS/Python/Go/Rust) = business logic only, no JWT crypto
+```
+
+A decision made up front and not revisited per-phase: **sensor/Redis traffic stays in-mesh at L4.** mTLS overhead on the sensor ingestion path is negligible (ztunnel, AES-NI, opaque TCP) — benchmarked in Phase 1.
+
+## Phase sequence
+
+.var {headers}
+   - Phase
+   - Deliverable
+   - Status
+
+.tablebyrows {.headers}
+    - - 0
+      - Local k3d dev cluster, Istio ambient installed, all services deployed, Gateway API ingress
+      - Done
+    - - 1
+      - Ambient mesh enrollment + `PeerAuthentication: STRICT` mTLS
+      - Done
+    - - 2
+      - Edge `RequestAuthentication`; delete per-service JWT verifiers
+      - Done
+
+---
+
+## Phase 0 — Local dev cluster
+
+k3d cluster `crowdvision`, Istio ambient installed (`istiod`, `ztunnel`, `istio-cni`), Gateway API CRDs, all 12 services + their databases deployed, and a Gateway API `Gateway`/`HTTPRoute` set (`k8s/istio-gateway.yml`) mirroring the Caddyfile's routing. Setup commands and the real gotchas hit getting Istio running on k3d (wrong CNI bin dir, flannel IP pool exhaustion, Git Bash path mangling) are documented in [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh) rather than duplicated here.
+
+Real, pre-existing gaps found and fixed while standing up the cluster (none specific to the mesh — they were missing regardless of Istio):
+
+- `claims-gateway`, `provisioner`, `registry-service`, `tenancy-service` had no Kubernetes manifests at all (docker-compose only). Added deployments for all four, plus `registry-db`/`tenancy-db` Postgres StatefulSets and their secrets (`scripts/k8s/k8s-secrets.mjs`).
+- `contracts-service` was missing its MongoDB wiring in Kubernetes entirely (no `MONGO_URI`, no `contracts-service-db` StatefulSet).
+- `sensor-service`'s Dockerfile didn't copy `openapi.yaml` into the production image, so the service crashed on boot in a container (works fine outside Docker where the file is on disk next to the process).
+- The `ghcr.io/nickghignatti/*` packages are public and pull anonymously with no credentials — but GHCR 403s a pull that supplies *any* credentials that don't check out, rather than falling back to anonymous, so a misconfigured `ghcr-pull-secret` would fail every deployment with `imagePullPolicy: Always`. Local images built with `just k8s build` + `just k8s load` are used instead; all 12 deployment manifests now set `imagePullPolicy: IfNotPresent` on the application container (init containers using `busybox` are unaffected) — see the image-pull-policy note in the Kubernetes doc.
+
+Two services are expected to stay unhealthy in this cluster, independent of the mesh work: `claims-gateway` (Keycloak isn't deployed in-cluster) and `agent-service` (no real embedding API key configured). `chat-service` waits on `agent-service` at boot but has been observed to pass through regardless (its `nc -z` check only needs a TCP accept, not a healthy app). See the Kubernetes doc for the full explanation.
+
+---
+
+## Phase 1 — Ambient mesh + STRICT mTLS
+
+The `crowdvision` namespace carries the `istio.io/dataplane-mode: ambient` label (declared directly in `k8s/namespace.yml`, so ztunnel attaches with no pod restarts on every apply, not just first-time setup) and `k8s/istio-peer-authentication.yml` sets `PeerAuthentication mtls.mode: STRICT` for the namespace — plaintext inter-service traffic is now rejected. Rolled out staged (`PERMISSIVE` first, verified, then `STRICT`) — STRICT breaks anything not yet in the mesh, so verifying enrollment first matters.
+
+Verified for real, not just by config inspection:
+
+- `istioctl ztunnel-config workloads` shows every pod HBONE-enrolled.
+- A pod in a non-enrolled namespace (`default`) curling `twin-service` directly gets connection refused (`000`); a pod inside `crowdvision` gets `200`.
+- Every Gateway API route still returns its expected status after the STRICT flip.
+- `appProtocol` hints (`http` for all 12 app services, `tcp` for Redis/Mongo/Postgres) added to every `Service`, so Istio classifies traffic correctly instead of guessing from port numbers.
+
+The Redis benchmark gate (Decision B — keep Redis in-mesh at L4 despite the mTLS cost) was re-run and reconfirmed: absolute p50 latency stays under 5ms even with the HBONE hop, which is what matters for the sensor-data SLA — the relative throughput/latency percentages are noisy on this single-node, nested-virtualization dev setup and shouldn't be read as production numbers.
+
+---
+
+## Phase 2 — Edge JWT authentication
+
+`k8s/istio-request-authentication.yml` adds a `RequestAuthentication` on the Istio ingress gateway (JWKS fetched from claims-gateway, issuer `cv-gateway`) and an `AuthorizationPolicy` requiring a verified JWT principal on the protected service paths. Istio's `outputPayloadToHeader` injects the validated claims payload as one base64 header, `x-gateway-claims` — every migrated service decodes that header instead of verifying a JWT itself. Six services were migrated this way: `twin`, `sensor`, `notification`, `chat`, `socket`, `tenancy` (Go, via a new `authmiddleware.RequireMeshClaims()` added to the shared `server/auth-middleware` library, alongside — not replacing — `RequireAuthentication`, which `claims-gateway` still uses to verify its own tokens for `/me`). `agent-service` is deliberately excluded from the mesh-level JWT requirement; see the gotcha below.
+
+Each migrated service's old JWT-verification code (`config/gatewayJwks.ts` / `app/gateway_jwks.py`, the JWKS-fetching half of `internal/config`) was deleted, not just bypassed — no service still holds gateway signing-key material. Internal service-to-service calls that used to forward `Authorization: Bearer <rawJWT>` (twin→sensor threshold sync, notification→twin domain lookup, chat→agent, agent→twin) now forward `x-gateway-claims` verbatim instead — mTLS (Phase 1) already authenticates the hop; the header just carries who the original caller was. One of these forwarding calls (notification→twin) was looping back out through the public gateway URL for what was really an internal call; that got fixed to hit `twin-service`'s cluster-internal address directly, since forwarding a non-JWT claims blob back through `RequestAuthentication` would never have verified.
+
+.box {contracts-service was brought under the same enforcement afterward} type:{note}
+    `contracts-service` never verified JWTs, so it had no verifier to delete and wasn't one of the six above — but that left its dashboard-schema (`GET /`) and per-building preferences routes reachable anonymously: the edge gated every other user-facing service except `/contracts`, so anyone could read or overwrite any building's dashboard columns. It now decodes `x-gateway-claims` on those inbound routes (`401` on a missing/malformed header, via an extractor mirroring twin-service's), and `/contracts` is gated at both edges — `require_gateway_auth` in the `Caddyfile` and the `/contracts` entry in `istio-request-authentication.yml`'s `AuthorizationPolicy`. Its one internal caller, `twin-service`'s preferences-init, now forwards the building creator's claims like twin's other outbound calls, so `/preferences/init` requires the header too; `/health` and `/metrics` stay open for probes and scraping. Per-building *authorization* (does this user's domain own this building?) is still deferred to the Cedar phase — contracts holds no building→domain mapping — so this enforces authentication, not yet fine-grained authz.
+
+Every protected service is matched in the `AuthorizationPolicy` on **both** its exact path (`/twin`) and its subtree (`/twin/*`), not just the subtree. Istio's `/twin/*` matches `/twin/anything` but not the bare `/twin`, whereas the Gateway API `HTTPRoute`'s `PathPrefix: /twin` does route the bare `/twin` to the backend (rewritten to `/`). Listing only the wildcard would leave each service's root path ungated — the same anonymous-root exposure `/contracts` had — so the JWT requirement now covers both forms uniformly.
+
+### Gotchas actually hit (not just anticipated)
+
+.box {istiod can't reach a STRICT-mTLS pod for its own JWKS fetch} type:{warning}
+    istiod lives in `istio-system`, which is not ambient-enrolled. A `jwksUri` pointing directly at `claims-gateway`'s ClusterIP gets refused by ztunnel — a plain-HTTP request from a non-mesh source hitting a STRICT-mTLS pod. Fix: point `jwksUri` through the ingress gateway's own route (`http://crowdvision-gateway-istio.../gateway/.well-known/jwks.json`) instead of the pod directly — the gateway's inbound listener is the mesh's designated plaintext edge, and its own onward call to claims-gateway happens over its established mesh identity.
+
+.box {Envoy's default JWT extraction is header-only} type:{warning}
+    Specifying `fromHeaders` or `fromCookies` on a `RequestAuthentication` jwtRule REPLACES Envoy's default extraction (`Authorization: Bearer` + `access_token` query param), it doesn't add to it. Since browsers authenticate via a cookie and internal calls via `Authorization: Bearer`, both had to be listed explicitly — specifying only one would silently break the other caller.
+
+.box {agent-service can't be gated at the mesh edge} type:{warning}
+    `evals/run_evals.py`'s local-dev bypass token is HS256-signed with a secret that exists nowhere near claims-gateway — it was never going to pass `RequestAuthentication`, by design (it's not a real gateway token). `/agent/*` is excluded from the Istio `AuthorizationPolicy`'s protected paths and the Caddy `forward_auth` route; `agent-service` keeps checking for the mesh claims header first and falls back to its own eval-token verification, matching the plan's stated exception for this service.
+
+    Because that route is ungated, the edge never *injects* a verified `x-gateway-claims` for it — and `agent-service` decodes that header without a signature check (`app/auth.py`). So both edges **strip any client-supplied `x-gateway-claims` on the `/agent` route** (`header_up -X-Gateway-Claims` in the Caddyfile, a Gateway API `RequestHeaderModifier` `remove` in `istio-gateway.yml`); otherwise an external caller could forge it and be trusted as any user. Legitimate user traffic reaches agent through `chat-service` (internal, mesh-verified claims), not this edge route, and the eval runner authenticates with its HS256 token — neither uses the header this strips.
+
+    The header-strip only defeats an *external* caller, though — any other workload already inside the mesh could still reach `agent-service`'s ClusterIP directly and forge the header, since mTLS alone authenticates the connection, not the payload. `k8s/istio-agent-authz.yml` closes that gap with a workload-identity `AuthorizationPolicy`: only the ingress gateway's principal and `chat-service`'s principal (a dedicated `ServiceAccount`, not the shared `default` every other workload uses) may call `agent-service` at all. Enforced by ztunnel at L4 — ambient mode's identity check, not a waypoint — so it needs no L7 proxy on this path.
+
+.box {The persisted Keycloak realm can silently drift from realm-export.json} type:{warning}
+    Keycloak's `--import-realm` skips reimporting anything into a realm that "already exists" — so a role mapping or protocol mapper added to `keycloak/realm-export.json` after the first import never reaches a long-lived local Postgres volume. This surfaced as two different, confusing failures during Phase 2 verification: registration failing with a permissions error (missing `manage-users` role on `cv-gateway`'s service account) and, after that was patched via the Admin API, login failing with "invalid id token" (missing `cv-web-audience` protocol mapper on `cv-gateway`, so the password-grant ID token's `aud` never matched what claims-gateway's OIDC verifier expects). Patching gaps one at a time via the Admin API doesn't scale — once the pattern repeats, the reliable fix is deleting the `keycloak_postgres_data` volume and letting Keycloak reimport fresh from the committed file.
+
+The full local reset (only if starting from an existing/possibly-stale Keycloak):
+```bash
+docker stop crowd-vision-keycloak crowd-vision-keycloak-db
+docker rm crowd-vision-keycloak crowd-vision-keycloak-db
+docker volume rm crowd-vision_keycloak_postgres_data
+just stack env   # or the manual docker run equivalent — see docker-compose.yml
+```
+
+---
+
+## Running in production — what the mesh assumes
+
+The k8s manifests here stand up a *working* cluster (all 12 Deployments carry liveness/readiness probes and resource requests+limits), but a real production deploy still needs a few inputs this repo deliberately can't carry, because they're environment- or secret-specific. Rebasing to `master` gives you the mesh wiring — routing, mTLS, and edge authentication are all in the manifests — it does not give you these:
+
+- **Image pull access.** The 12 app Deployments reference `ghcr.io/nickghignatti/crowdvision-*:latest` with `imagePullPolicy: IfNotPresent`, chosen so the local k3d workflow uses images built and `just k8s load`-ed onto the node (the shared pull token 403s in the dev environment). A real cluster that hasn't pre-loaded those images needs an `imagePullSecret` with registry pull access, and — because the tag is `:latest` — either `imagePullPolicy: Always` or, better, immutable per-build tags so a rollout actually picks up new code.
+- **TLS at the edge.** The `Gateway` listens on plain HTTP `:80`. Production needs an HTTPS listener with a real certificate (cert-manager or a TLS `Secret`) and DNS pointing at the ingress gateway's external address.
+- **Keycloak in-cluster.** `claims-gateway` needs a reachable Keycloak with the `cv-gateway` realm imported (see the realm-drift gotcha above); it isn't deployed by these manifests.
+- **Real secrets.** `scripts/k8s/k8s-secrets.mjs` generates *dev* secrets. Production needs real values (DB credentials, the HMAC control-plane secret, VAPID keys, the Grafana admin password via `GRAFANA_ADMIN_PASSWORD`) supplied out-of-band, never committed. Grafana itself is reachable at the edge under `/grafana` without a gateway JWT — it is guarded only by its own login, so a strong admin password is the whole boundary there.
+- **Agent model key.** `agent-service` needs a real `OPENROUTER_API_KEY` (or one of the legacy aliases — see [Agent Service](../services/agent.qd)), or it boots but fails every model/embedding request.
+
+None of these are code changes — they're the operational inputs the mesh expects.
+
+## Local dev vs production — deliberate differences
+
+The docker-compose (Caddy) and Kubernetes (Istio) stacks are kept at parity on every *authenticated application route*: the same paths are gated in both, verified in Phase 2 and re-checked when `/contracts` was added. A few things exist only in the dev stack, on purpose:
+
+- **The Vue client** is served by its own Vite dev server (hot reload) in compose and reached directly, not through Caddy. In k8s it's the `client` Deployment behind the gateway's `/` catch-all route.
+- **Simulators** (`/simulator/tp`, `/simulator/aq`) and the **Mongo-Express DB GUIs** (`/*-db-gui`) are Caddy-only developer conveniences; they aren't deployed to k8s.
+- **Prometheus and Grafana** are reached through Caddy subpaths in dev; in k8s Grafana has its own `HTTPRoute` (`grafana-route` in `k8s/istio-gateway.yml`) and Prometheus is in-cluster only (see [Observability](observability.qd)).
+
+Fine-grained per-tenant authorization (Cedar) is embedded where a tenant/role decision is actually needed — today `twin-service` and `tenancy-service` — and rolls out per service rather than as a single mesh phase. It's a [separate concern](auth-architecture.qd) from the edge authentication this page covers, which is why the target-architecture diagram lists it as a layer without a matching phase row.
+

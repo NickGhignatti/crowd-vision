@@ -9,14 +9,8 @@ import { useBuildingsStore } from '@/stores/buildings.ts'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import type { Building, Room } from '@/models/building.ts'
 
-// ---------------------------------------------------------------------------
-// vi.hoisted() — all vi.fn() instances that need mockRejectedValue /
-// mockResolvedValue must live here. A plain module-scope const ends up in the
-// temporal dead zone when the hoisted vi.mock() factories execute, which
-// causes TypeScript to re-type them through the real Pinia store signature
-// and produce the `Mock<Procedure> | (() => Promise<void>)` union that
-// lacks mockRejectedValue.
-// ---------------------------------------------------------------------------
+// vi.hoisted(): vi.fn()s needing mockRejectedValue/mockResolvedValue must live here — a
+// module-scope const hits the TDZ under hoisted vi.mock() and loses proper mock typing.
 
 const { mockFetchMemberships, mockFetchBuildings } = vi.hoisted(() => ({
   mockFetchMemberships: vi.fn<() => Promise<void>>(),
@@ -87,9 +81,8 @@ describe('useBuildingModel', () => {
   let buildingsStoreMock: ReturnType<typeof makeBuildingsStoreMock>
 
   beforeEach(() => {
-    // The threshold cache is module-level and shared across tests; clear it so
-    // each test sees fresh threshold fetches and isn't polluted by a previous
-    // test's `hq`/`annex` results.
+    // The threshold cache is module-level and shared across tests; clear it so each test
+    // sees fresh threshold fetches, unpolluted by a previous test's `hq`/`annex` results.
     __resetThresholdCacheForTests()
 
     mockFetchMemberships.mockReset()

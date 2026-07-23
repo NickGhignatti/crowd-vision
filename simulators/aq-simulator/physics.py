@@ -18,9 +18,7 @@ class EnvironmentConditions:
     humidity: float      # Relative humidity            %RH     (comfort band 30-60)
 
 
-# --------------------------------------------------------------------------- #
-#  Per-pollutant physics helpers                                              #
-# --------------------------------------------------------------------------- #
+# Per-pollutant physics helpers
 
 def compute_pm25(conditions: EnvironmentConditions) -> float:
     """
@@ -83,9 +81,7 @@ def compute_all(conditions: EnvironmentConditions) -> dict[str, float]:
     }
 
 
-# --------------------------------------------------------------------------- #
-#  AQI helper (US EPA standard — PM2.5 and PM10 only)                         #
-# --------------------------------------------------------------------------- #
+# AQI helper (US EPA standard — PM2.5 and PM10 only)
 
 _AQI_PM25_BREAKPOINTS = [
     (0.0,   12.0,   0,   50),
@@ -107,9 +103,7 @@ def pm25_to_aqi(pm25: float) -> int:
     return 500  # Beyond scale
 
 
-# --------------------------------------------------------------------------- #
-#  Indoor AQI helper (Custom weighted index)                                  #
-# --------------------------------------------------------------------------- #
+# Indoor AQI helper (custom weighted index)
 
 _INDOOR_AQI_LIMITS = {
     "co2": 1000.0,

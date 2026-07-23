@@ -3,11 +3,12 @@ use futures::future::join_all;
 use log::error;
 use std::time::Duration;
 
+use crate::infra::claims::GatewayClaims;
 use crate::infra::discovery::discover_services;
 use crate::models::{MetricContract, MetricsDiscoveryResponse};
 
 // GET /metrics
-pub async fn get_dashboard_tables() -> impl IntoResponse {
+pub async fn get_dashboard_tables(_claims: GatewayClaims) -> impl IntoResponse {
     let metrics = collect_metrics(discover_services()).await;
     Json(serde_json::json!({ "metrics": metrics })).into_response()
 }

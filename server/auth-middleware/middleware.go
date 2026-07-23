@@ -1,11 +1,10 @@
-// Package authmiddleware verifies the internal RS256 token minted by
-// claims-gateway. RS256 (not HS256) is deliberate: the gateway signs with a
-// private key nothing else holds, so a compromised service can read and
-// verify tokens but never mint them.
+// Package authmiddleware verifies the internal RS256 JWT minted by claims-gateway.
 package authmiddleware
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -15,18 +14,11 @@ import (
 	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
 )
 
-// CookieName matches the Node fleet's existing convention
-// (server/*/src/config/config.ts: JWT_COOKIE_NAME, default
-// "authentication_token") so claims-gateway is a drop-in replacement for
-// auth-service's cookie — no client change needed for the strangler cutover.
-// Service-to-service calls forward the caller's identity as a Bearer header
-// instead — the same dual-source pattern the Node services already use.
 const CookieName = "authentication_token"
 
 type contextKey struct{}
 
-// FromContext retrieves the claims RequireAuthentication verified and
-// attached to the request context.
+// Retrieves the claims RequireAuthentication verified and attached to the request context.
 func FromContext(ctx context.Context) (authcontracts.StandardClaims, bool) {
 	c, ok := ctx.Value(contextKey{}).(authcontracts.StandardClaims)
 	return c, ok
@@ -42,12 +34,8 @@ func extractToken(r *http.Request) string {
 	return ""
 }
 
-// RequireAuthentication verifies the gateway-minted token against its JWKS
-// (jwks is expected to auto-refresh; construct it once at service startup,
-// not per request) and pins both the signing algorithm and the issuer, so a
-// token from a different gateway — or a same-shape token an attacker
-// crafted with alg "none" or HS256 — is rejected before any claim is
-// trusted.
+// RequireAuthentication verifies the gateway JWT against its JWKS and pins the
+// algorithm and issuer, rejecting alg-none/HS256 forgeries before trusting any claim.
 func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,8 +47,8 @@ func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handle
 
 			var claims authcontracts.StandardClaims
 			token, err := jwt.ParseWithClaims(raw, jwt.MapClaims{}, jwks.Keyfunc,
-				jwt.WithValidMethods([]string{"RS256"}),
-				jwt.WithIssuer(issuer),
+				jwt.WithValidMethods([]string{"RS256"}), // token with a different alg
+				jwt.WithIssuer(issuer),                  // token with a different signer
 			)
 			if err != nil || !token.Valid {
 				http.Error(w, "invalid token", http.StatusUnauthorized)
@@ -69,6 +57,37 @@ func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handle
 
 			mapClaims := token.Claims.(jwt.MapClaims)
 			if err := decodeClaims(mapClaims, &claims); err != nil {
+				http.Error(w, "invalid token claims", http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), contextKey{}, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+const GatewayClaimsHeader = "x-gateway-claims"
+
+// RequireMeshClaims trusts the mesh-verified claims header instead of verifying a
+// JWT itself. Claims-gateway's own routes (e.g. /me) still use RequireAuthentication.
+func RequireMeshClaims() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			header := r.Header.Get(GatewayClaimsHeader)
+			if header == "" {
+				http.Error(w, "unauthenticated", http.StatusUnauthorized)
+				return
+			}
+
+			raw, err := base64.StdEncoding.DecodeString(header)
+			if err != nil {
+				http.Error(w, "invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			var claims authcontracts.StandardClaims
+			if err := json.Unmarshal(raw, &claims); err != nil || claims.Sub == "" {
 				http.Error(w, "invalid token claims", http.StatusUnauthorized)
 				return
 			}

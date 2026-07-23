@@ -114,10 +114,8 @@ func TestReconcileOnce_MarksFailedWhenTenancyCreateErrors(t *testing.T) {
 	}
 }
 
-// Dedicated/on-prem provisioning (Helm cell stamping, Keycloak org/IdP
-// automation) is explicitly out of scope for this reconciler — see
-// CLAUDE.md. A dedicated-tier org must not be silently dropped or marked
-// ready; it's marked failed with a clear reason so it's visible, not lost.
+// Dedicated/on-prem provisioning is explicitly out of scope for this reconciler; such an org
+// must not be silently dropped or marked ready — it's marked failed so it's visible, not lost.
 func TestReconcileOnce_MarksUnsupportedTierAsFailed(t *testing.T) {
 	registry := &fakeRegistry{pending: []org{{ID: "org-1", Name: "acme", DisplayName: "Acme", Tier: "dedicated"}}}
 	tenancy := &fakeTenancy{}

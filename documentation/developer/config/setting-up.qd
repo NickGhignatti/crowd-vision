@@ -16,8 +16,9 @@ Don't worry — we have provided scripts to automate the hardest parts.
 
 Once `just` and `mise` are available, the remaining tools can be managed by `mise` automatically or installed manually:
 
-*   **Node.js v24**, **Python 3.12**, **Rust (stable)** — handled by `mise install`.
+*   **Node.js v24**, **Python 3.12**, **Rust (stable)**, **`istioctl` 1.30.2** — handled by `mise install`.
 *   **uv** — handled by `mise install` (or manually at <https://docs.astral.sh/uv/>).
+*   **Go** (stable) — install manually at <https://go.dev/dl/>. Unlike the other four languages, Go is **not** pinned in `.mise.toml`, so `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` rely on whatever `go` is already on your `PATH`. Needed only if you're working on one of those four services.
 *   **Docker & Docker Compose** (for running the isolated databases and services)
 *   **Git**
 *   **A local Kubernetes cluster + kubectl** (only if you plan to deploy via k8s)
@@ -38,9 +39,12 @@ mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires 
 just setup install
 ```
 
-`just setup install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every server service, and the sensor simulator; plus the Python and Rust services' dependencies. The exact set of packages is **derived from moon's project registry** (`.moon/workspace.yml`, via `moon query projects`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+`just setup install` installs every language's dependencies **in parallel** (via `scripts/install.mjs`): Node deps for `tooling/`, `tooling/eslint-config/` (the `@crowdvision/eslint-config` shared ESLint package), the client, every TypeScript server service, and the sensor simulator; plus the Python and Rust services' dependencies. The exact set of packages is **derived from moon's project registry** (`.moon/workspace.yml`, via `moon query projects`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. Shared JS dev tooling (semantic-release, commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
 
 The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked` and Rust uses `cargo fetch`. Set `JOBS=N` to cap parallelism (default 4): `JOBS=2 just setup install`.
+
+.box {Go modules aren't part of this step} type:{note}
+    `scripts/install.mjs` only buckets projects into JS/Python/Rust; the four `language: 'go'` projects (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) are skipped. This is usually harmless — `go build`/`go test`/`go vet` (what `just test`/`just lint` run for them) fetch missing modules on demand — but if you want them warmed up ahead of time, run `go mod download` inside each service directory yourself.
 
 ### Lockfiles & Cross-Platform Regeneration
 
@@ -71,13 +75,39 @@ Microservices require secrets to communicate securely, encrypt tokens, and send 
 
 ### Automatic Setup (Recommended)
 
-Run the interactive setup script. It skips any variable already present in `.env`, so it is safe to re-run at any time:
+Run the interactive setup script. It skips any variable already present in `.env`, so it is safe to re-run at any time — e.g. after pulling a change that introduces a new secret:
 
 ```bash
 just stack env
 ```
 
-These local-dev defaults are written to `.env` non-interactively (edit `.env` to override):
+This chains eight small, idempotent Node scripts (`scripts/env/*.js`), each responsible for one concern. Understanding the split helps when only one thing needs regenerating (see the per-script commands below).
+
+.var {headers}
+   - Script
+   - What it writes
+
+.tablebyrows {.headers}
+    - - `create.js`
+      - Creates an empty `.env` if none exists yet. Every other script appends to it.
+    - - `config.js`
+      - Core gateway config (table below) plus the one interactive prompt, `OPENROUTER_API_KEY`.
+    - - `token.js`
+      - `EVAL_JWT_SECRET` — a 256-bit hex secret.
+    - - `vapid.js`
+      - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — web push notification keys.
+    - - `langfuse.js`
+      - Self-hosted Langfuse (LLM trace UI) provisioning secrets and the agent's OpenTelemetry exporter config.
+    - - `keycloak.js`
+      - Keycloak admin credentials, its Postgres password, and the optional Google social-login client id/secret.
+    - - `controlplane.js`
+      - Shared secrets for the Go control plane (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`).
+    - - `gateway-key.js`
+      - A stable RSA signing key for `claims-gateway`, written to `secrets/gateway-dev-key.pem` — **not** `.env` (see below).
+
+#### Core gateway config
+
+Written non-interactively by `config.js` (edit `.env` to override):
 
 .var {headers}
    - Variable
@@ -95,25 +125,41 @@ These local-dev defaults are written to `.env` non-interactively (edit `.env` to
       - `http://localhost`
       - Base URL of the gateway; combined with the ports to build public-facing URLs.
 
-The only interactive prompt is the optional `OPENROUTER_API_KEY` (leave empty to skip — the agent-service boots without it, but `/ask` fails on the first LLM hop).
-
-The following secrets are **generated automatically** by `just stack env` and written to `.env` — you do not need to supply them manually:
-
-*   `EVAL_JWT_SECRET` — local-dev-only HS256 secret for `evals/run_evals.py` and the docs-ingestion script; never used in any deployed environment. Production auth is RS256 against claims-gateway's JWKS, no shared secret involved.
-*   `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — web push notification keys.
+The only interactive prompt in the whole `just stack env` chain is the optional `OPENROUTER_API_KEY` (leave empty to skip — the agent-service boots without it, but `/ask` fails on the first LLM/tool-calling hop; get a key at <https://openrouter.ai/keys>). Legacy `GOOGLE_API_KEY` / `DEEPSEEK_API_KEY` values already in `.env` are still honoured as aliases.
 
 .box type:{note}
     There is no `JWT_SECRET`/`INTERNAL_ADMIN_SECRET` anymore — those belonged to the now-deleted `auth-service`. See [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) for the current auth design.
 
-### Manual VAPID Key Generation
+#### Keycloak
 
-If you need to regenerate VAPID keys separately:
+`keycloak.js` generates `KEYCLOAK_ADMIN_USER` (`admin`), a random `KEYCLOAK_ADMIN_PASSWORD`, and `KEYCLOAK_DB_PASSWORD`, then appends two empty placeholders, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Those two are optional — filling them in enables the "Continue with Google" button on the hosted login page (set up an OAuth 2.0 client in Google Cloud Console first; see `keycloak/README-google.md` for the exact steps). Keycloak's admin console is reachable at `http://localhost:8090` once the stack is up, using the generated admin credentials.
+
+#### Langfuse (LLM observability)
+
+`langfuse.js` generates the self-hosted Langfuse v3 provisioning secrets (`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`, `LANGFUSE_INIT_*`, salt/encryption keys) and the OpenTelemetry exporter config the agent-service uses to ship traces there. The project and API keys are provisioned headlessly on Langfuse's first boot — nothing to click through. Once the stack is running, the UI is at `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there — see [Docker Compose Orchestration](docker-compose.qd)), logging in with `admin@crowd-vision.local` / `langfuse-admin`.
+
+.box type:{note}
+    Unset `OTEL_EXPORTER_OTLP_ENDPOINT` to fall back to compact console span output if you don't need a trace backend for local hacking.
+
+#### Control plane
+
+`controlplane.js` generates `INTERNAL_SIGNING_SECRET` — the shared HMAC key `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` use to authenticate their system-to-system calls, so it must be the same value across all four — plus `TENANCY_DB_PASSWORD` and `REGISTRY_DB_PASSWORD` for their respective Postgres instances.
+
+#### Gateway signing key
+
+`gateway-key.js` is the one script that doesn't touch `.env` at all: it writes a 2048-bit RSA private key to `secrets/gateway-dev-key.pem` (gitignored, mounted into the `claims-gateway` container as a file, since a multi-line PEM can't live in a `.env` value). Without a stable key on disk, `claims-gateway` would generate a fresh ephemeral one on every restart, invalidating every existing session and churning the JWKS every other service caches. The write is atomic and skips silently if the file already exists.
+
+### Regenerating a single secret
+
+Each script is safe to run on its own — they all skip already-present values:
 
 ```bash
-node scripts/env/vapid.js
+node scripts/env/vapid.js       # just VAPID keys
+node scripts/env/langfuse.js    # just Langfuse/OTEL config
+node scripts/env/keycloak.js    # just Keycloak secrets
 ```
 
-Copy the output into your `.env` file.
+To force a full regeneration of one secret, delete its line(s) from `.env` (or the file at `secrets/gateway-dev-key.pem`) first, then re-run `just stack env` or the specific script.
 
 ---
 
@@ -136,6 +182,16 @@ just stack dev exclude="client"      # skip the Vue client (e.g. run it separate
 
 See the [Running the Application](running.qd) page for the full Docker Compose reference.
 
+### Verifying the setup
+
+Once `docker compose ps` (or `just stack logs`) shows every container healthy, confirm the gateway and the auth path are actually wired up before moving on:
+
+```bash
+curl -i http://localhost/twin/health   # any service behind the gateway responds
+```
+
+Then open `http://localhost:8080` (or `http://localhost` if `CLIENT_PORT`/`SERVER_PORT` weren't changed) in a browser — the client should load and redirect to Keycloak's hosted login page when you try to sign in. If it instead hangs or 502s, see the **Debugging Tips** in [Running the Application](running.qd).
+
 ---
 
 ## 5. Bootstrapping the System (First Login)
@@ -151,30 +207,10 @@ If you are deploying CrowdVision to a local or remote Kubernetes cluster, follow
 ### Step 1: Create the k3d Cluster (run once per machine)
 
 ```bash
-k3d cluster create crowdvision \
-  --servers 1 \
-  --agents 3 \
-  --api-port 127.0.0.1:6550 \
-  -p "80:80@loadbalancer" \
-  -p "443:443@loadbalancer" \
-  --k3s-arg "--disable=traefik@server:*"
+just k8s create
 ```
 
-.var {headers}
-   - Flag
-   - Purpose
-
-.tablebyrows {.headers}
-    - - `--servers 1`
-      - One control plane node.
-    - - `--agents 3`
-      - Three worker nodes.
-    - - `--api-port 127.0.0.1:6550`
-      - Binds the K8s API server explicitly to localhost. **Required on Windows** — prevents `kubectl` connection failures when `host.docker.internal` resolves to a non-loopback IP.
-    - - `-p "80:80@loadbalancer"`
-      - Maps host port 80 to the k3d load balancer so `http://localhost/` reaches the nginx Ingress controller.
-    - - `--k3s-arg "--disable=traefik@server:*"`
-      - Disables the default Traefik ingress. CrowdVision uses nginx instead.
+This runs `k3d cluster create crowdvision -p "80:80@loadbalancer" -p "443:443@loadbalancer" --api-port 6550 --k3s-arg "--disable=traefik@server:0" --wait --timeout 120s` — a single-server, single-agent cluster with the default Traefik ingress disabled (CrowdVision's local k3d path routes through Istio's Gateway API instead — see [Kubernetes Configuration](kubernetes.qd)). `--wait --timeout 120s` blocks until the cluster is actually ready, so the next step never races a half-started API server.
 
 Verify the cluster is reachable:
 
@@ -213,18 +249,18 @@ just k8s setup
 ```
 
 This single command runs in order:
-1. Installs the nginx Ingress Controller into `ingress-nginx` namespace.
-2. Waits until the Ingress controller pod is `Running`.
-3. Creates the `crowdvision` namespace.
+1. Creates the k3d cluster (`just k8s create` — skip if you already did Step 1).
+2. Installs the Gateway API CRDs, then Istio in ambient mode (`istiod`, `ztunnel`, `istio-cni`) — see [Kubernetes Configuration](kubernetes.qd) for why ambient mode and the k3d-specific CNI flags matter.
+3. Creates the `crowdvision` namespace — already carrying the `istio.io/dataplane-mode=ambient` label declared in `k8s/namespace.yml`, so ztunnel enrollment happens the moment the namespace exists.
 4. Runs `just k8s secrets` — creates all Kubernetes Secret objects from your `.env`.
-5. Applies ConfigMaps, StatefulSets (databases), Deployments, Ingress, and monitoring.
+5. Applies ConfigMaps, StatefulSets (databases), Deployments, the Istio mesh manifests (`istio-peer-authentication.yml`, `istio-gateway.yml`, `istio-request-authentication.yml` — the `Gateway`/`HTTPRoute`s that make `http://crowdvision.local` work, STRICT mTLS, and edge JWT verification), and monitoring.
 
 .box type:{warning}
     `just k8s secrets` must run after the namespace exists. `just k8s setup` handles this ordering automatically. If you run `just k8s secrets` manually before creating the namespace, it will fail with "namespaces not found".
 
 ### Accessing the Platform
 
-After `just k8s setup` completes, the platform is available at `http://crowdvision.local`. All services route through the nginx Ingress controller on port 80.
+After `just k8s setup` completes, the platform is available at `http://crowdvision.local` — `just k8s apply` (the last step of `setup`) already applies `k8s/istio-gateway.yml`, no separate manual step needed. It defines one `HTTPRoute` per service, deliberately mirroring the Docker Compose gateway's paths (see [Docker Compose Orchestration](docker-compose.qd)):
 
 .var {headers}
    - Interface
@@ -233,15 +269,23 @@ After `just k8s setup` completes, the platform is available at `http://crowdvisi
 .tablebyrows {.headers}
     - - Vue Frontend
       - `http://crowdvision.local/`
-    - - Auth API
-      - `http://crowdvision.local/auth/`
+    - - Claims Gateway (Keycloak token exchange, `/me`, JWKS)
+      - `http://crowdvision.local/gateway/`
+    - - Tenancy Service
+      - `http://crowdvision.local/tenancy/`
     - - Twin API
       - `http://crowdvision.local/twin/`
     - - Sensor API
       - `http://crowdvision.local/sensor/`
+    - - Notification API
+      - `http://crowdvision.local/notification/`
+    - - Agent API
+      - `http://crowdvision.local/agent/`
+    - - Chat API
+      - `http://crowdvision.local/chat/`
+    - - Contracts API
+      - `http://crowdvision.local/contracts/`
     - - Socket.IO
       - `http://crowdvision.local/socket.io/`
-    - - Grafana
-      - `http://crowdvision.local/grafana/`
-    - - Prometheus
-      - `http://crowdvision.local/prometheus/`
+
+Keycloak itself isn't routed through the gateway — it isn't deployed to this cluster at all (see the note in [Kubernetes Configuration](kubernetes.qd) about `claims-gateway` being expected to fail locally unless Keycloak is separately reachable). Grafana and Prometheus likewise aren't part of `k8s/istio-gateway.yml` yet; use `just k8s logs` / `kubectl port-forward` to reach them in the meantime.

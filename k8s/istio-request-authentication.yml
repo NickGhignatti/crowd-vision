@@ -1,0 +1,80 @@
+# Verifies the claims-gateway JWT once at the ingress and injects the validated
+# claims as the base64 x-gateway-claims header for downstream services to decode.
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: gateway-jwt
+  namespace: crowdvision
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: crowdvision-gateway
+  jwtRules:
+    - issuer: cv-gateway
+      # jwksUri deliberately goes THROUGH the ingress gateway's own /gateway/* route cause
+      # inside the cluster plaintext messages are blocked by default
+      jwksUri: http://crowdvision-gateway-istio.crowdvision.svc.cluster.local/gateway/.well-known/jwks.json
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+      fromCookies:
+        - authentication_token
+      forwardOriginalToken: false
+      outputPayloadToHeader: x-gateway-claims
+
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: require-gateway-jwt
+  namespace: crowdvision
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: crowdvision-gateway
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            paths: ["/*"]
+            notPaths:
+              - /twin
+              - /twin/*
+              - /sensor
+              - /sensor/*
+              - /notification
+              - /notification/*
+              - /chat
+              - /chat/*
+              - /socket.io
+              - /socket.io/*
+              - /tenancy
+              - /tenancy/*
+              - /contracts
+              - /contracts/*
+    # Device/simulator telemetry carries no user token — sensor-service leaves
+    # POST /ingest unauthenticated, so allow this exact path with no principal.
+    - to:
+        - operation:
+            paths:
+              - /sensor/ingest
+    - from:
+        - source:
+            requestPrincipals: ["cv-gateway/*"]
+      to:
+        - operation:
+            paths:
+              - /twin
+              - /twin/*
+              - /sensor
+              - /sensor/*
+              - /notification
+              - /notification/*
+              - /chat
+              - /chat/*
+              - /socket.io
+              - /socket.io/*
+              - /tenancy
+              - /tenancy/*
+              - /contracts
+              - /contracts/*

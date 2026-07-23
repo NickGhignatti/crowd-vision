@@ -40,17 +40,13 @@ const mergeThresholdClone = (building: Building, threshold: ThresholdClone | nul
   }
 }
 
-// Module-level threshold cache with a 5-minute TTL. Thresholds change rarely
-// (admin action), so re-fetching on every page navigation wastes N parallel
-// requests at dashboard open time.
+// Module-level threshold cache with a 5-minute TTL. Thresholds change rarely (admin action),
+// so re-fetching on every page navigation wastes N parallel requests at dashboard open time.
 const thresholdCache = new Map<string, { data: ThresholdClone | null; expiresAt: number }>()
 const THRESHOLD_CACHE_TTL_MS = 5 * 60 * 1000
 
-/**
- * Test-only helper. Clears the module-level threshold cache so that
- * `fetchBuildings()` re-requests thresholds from scratch. Production code
- * must not depend on this — relying on the 5-minute TTL is the contract.
- */
+/** Test-only helper: clears the module-level threshold cache so `fetchBuildings()` re-requests
+ * from scratch. Production code must not depend on this — the 5-minute TTL is the contract. */
 export const __resetThresholdCacheForTests = () => {
   thresholdCache.clear()
 }
@@ -179,19 +175,12 @@ export function useBuildingModel() {
     building.value = allBuildings.value.find((b) => b.id === id) || null
   }
 
-  // Pushes a just-saved room set (from the model editor's atomic Save) into the
-  // live building so the scene reflects it immediately, no reload needed.
-  // `building.value` is a threshold-merged copy detached from the buildings
-  // store, so persisting via the store alone leaves this stale until a refetch.
-  // Updated in place (not a fresh building ref) so the watch above doesn't
-  // reset selectedFloor/selection out from under the user right after a save.
+  // Pushes a just-saved room set into the live (threshold-merged, store-detached) building so
+  // the scene updates immediately; done in place so the watch above doesn't reset selection.
   const applySavedRooms = (rooms: Building['rooms']) => {
     if (!building.value) return
-    // Deep copy (JSON round-trip, matching useModelEditor's cloneRooms): the
-    // caller passes the still-live edit draft, which keeps mutating if the user
-    // carries on editing after saving — a shared reference (even a shallow one,
-    // whose nested position/dimensions would still alias) would let post-save
-    // drags leak straight into the committed view.
+    // Deep copy (JSON round-trip, matching useModelEditor's cloneRooms): the caller's draft
+    // keeps mutating if editing continues, so a shared reference would leak post-save drags in.
     const copied = JSON.parse(JSON.stringify(rooms)) as Building['rooms']
     building.value.rooms = copied
     const listed = allBuildings.value.find((b) => b.id === building.value?.id)

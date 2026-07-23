@@ -2,12 +2,11 @@ set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 set working-directory := '..'
 
-# Bare `just k8s` lists recipes.
 [private]
 default:
     @just --list k8s
 
-# Windows: C:\Windows\System32\drivers\etc\hosts  (open as Administrator)
+# Windows: C:\Windows\System32\drivers\etc\hosts
 # Linux / Mac: /etc/hosts
 [doc("Print the line to add to your hosts file for local k3d access.")]
 hosts:
@@ -18,17 +17,21 @@ hosts:
 stop:
     k3d cluster stop crowdvision
 
-# Port bindings are preserved so the existing kubeconfig patch stays valid.
-# If kubectl fails after restart, re-run: kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<PORT>
-# (find PORT with: docker ps --filter name=k3d-crowdvision-serverlb)
 [doc("Resume a stopped cluster (port bindings preserved).")]
 start:
     k3d cluster start crowdvision
 
-[doc("Install the NGINX Ingress Controller into the cluster (run once per cluster).")]
-ingress:
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/cloud/deploy.yaml
-    kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=120s
+[doc("Create a fresh k3d cluster named crowdvision (run once).")]
+create:
+    k3d cluster create crowdvision -p "80:80@loadbalancer" -p "443:443@loadbalancer" --api-port 6550 --k3s-arg "--disable=traefik@server:0" --wait --timeout 120s
+
+[doc("Install the Gateway API CRDs (required for the ingress Gateway/HTTPRoute).")]
+gateway-api:
+    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
+
+[doc("Install Istio in ambient mode with k3d-correct CNI paths (run once per cluster).")]
+istio-install:
+    mise exec -- istioctl install --set profile=ambient --set values.cni.cniConfDir=/var/lib/rancher/k3s/agent/etc/cni/net.d --set values.cni.cniBinDir=/bin -y
 
 [doc("Create or update all Kubernetes secrets from your .env file.")]
 secrets:
@@ -40,7 +43,10 @@ validate:
     kubectl apply --dry-run=client -f k8s/configmaps/
     kubectl apply --dry-run=client -f k8s/stateful/
     kubectl apply --dry-run=client -f k8s/deployments/
-    kubectl apply --dry-run=client -f k8s/ingress.yml
+    kubectl apply --dry-run=client -f k8s/istio-peer-authentication.yml
+    kubectl apply --dry-run=client -f k8s/istio-gateway.yml
+    kubectl apply --dry-run=client -f k8s/istio-request-authentication.yml
+    kubectl apply --dry-run=client -f k8s/istio-agent-authz.yml
     kubectl apply --dry-run=client -f k8s/monitoring/
 
 [doc("Apply all manifests in dependency order — idempotent, safe to re-run.")]
@@ -49,11 +55,14 @@ apply:
     kubectl apply -f k8s/configmaps/
     kubectl apply -f k8s/stateful/
     kubectl apply -f k8s/deployments/
-    kubectl apply -f k8s/ingress.yml
+    kubectl apply -f k8s/istio-peer-authentication.yml
+    kubectl apply -f k8s/istio-gateway.yml
+    kubectl apply -f k8s/istio-request-authentication.yml
+    kubectl apply -f k8s/istio-agent-authz.yml
     kubectl apply -f k8s/monitoring/
 
-[doc("Full first-time cluster setup: ingress → namespace → secrets → manifests.")]
-setup: ingress
+[doc("Full first-time cluster setup: create → gateway-api → istio-install → namespace → secrets → manifests.")]
+setup: create gateway-api istio-install
     kubectl apply -f k8s/namespace.yml
     just k8s secrets
     just k8s apply
@@ -62,12 +71,16 @@ setup: ingress
 build:
     docker build -t ghcr.io/nickghignatti/crowdvision-client:latest ./client
     docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest ./server/chat-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest ./server/twin-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f server/twin-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./server/notification-service
     docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest ./server/sensor-service
     docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest ./server/socket-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest ./server/agent-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest -f server/agent-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-contracts:latest ./server/contracts-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-claims-gateway:latest -f server/claims-gateway/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-provisioner:latest -f server/provisioner/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-registry:latest -f server/registry-service/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-tenancy:latest -f server/tenancy-service/Dockerfile .
 
 [doc("Push all built images to GHCR (requires: docker login ghcr.io first).")]
 push:
@@ -79,25 +92,26 @@ push:
     docker push ghcr.io/nickghignatti/crowdvision-socket:latest
     docker push ghcr.io/nickghignatti/crowdvision-agent:latest
     docker push ghcr.io/nickghignatti/crowdvision-contracts:latest
+    docker push ghcr.io/nickghignatti/crowdvision-claims-gateway:latest
+    docker push ghcr.io/nickghignatti/crowdvision-provisioner:latest
+    docker push ghcr.io/nickghignatti/crowdvision-registry:latest
+    docker push ghcr.io/nickghignatti/crowdvision-tenancy:latest
 
 [doc("Build and push in one step (for VPS production deployments).")]
 build-push: build push
 
-# Requires k3d. Pass cluster= to target a different cluster name: just k8s load cluster=mycluster
 [doc("Load locally built images directly into k3d (local dev — skips GHCR).")]
 load cluster="crowdvision":
-    k3d image import ghcr.io/nickghignatti/crowdvision-client:latest ghcr.io/nickghignatti/crowdvision-chat:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest -c {{cluster}}
+    k3d image import ghcr.io/nickghignatti/crowdvision-client:latest ghcr.io/nickghignatti/crowdvision-chat:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest ghcr.io/nickghignatti/crowdvision-claims-gateway:latest ghcr.io/nickghignatti/crowdvision-provisioner:latest ghcr.io/nickghignatti/crowdvision-registry:latest ghcr.io/nickghignatti/crowdvision-tenancy:latest -c {{cluster}}
 
 [doc("Show all pods, deployments, services and StatefulSets in the namespace.")]
 status:
     kubectl get all -n crowdvision
 
-# Works for both Deployments and StatefulSets (uses label selector app=<service>)
 [doc("Follow live logs for a service: just k8s logs twin-service.")]
 logs service:
     kubectl logs -n crowdvision -l app={{service}} --tail=100 -f --max-log-requests=10
 
-# New pods start and become ready before old pods are terminated (zero downtime)
 [doc("Trigger a rolling restart for one service — picks up a new :latest image.")]
 restart service:
     kubectl rollout restart deployment/{{service}} -n crowdvision
@@ -110,7 +124,6 @@ restart-all:
 rollout service:
     kubectl rollout status deployment/{{service}} -n crowdvision
 
-# Database PVCs are also deleted. There is no undo.
 [doc("Permanently delete the namespace and ALL data inside it.")]
 delete:
     kubectl delete namespace crowdvision

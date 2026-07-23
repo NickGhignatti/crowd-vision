@@ -4,34 +4,13 @@ metadata:
   name: common-config
   namespace: crowdvision
 data:
-  # ── Shared port all Node.js / Python services listen on ───────────────────
   PORT: "3000"
 
-  # ── Internal service URLs (cluster-DNS, service-to-service) ───────────────
-  # Kubernetes DNS resolves <service-name> within the same namespace automatically.
-  # Full form is <service>.<namespace>.svc.cluster.local — the short form works
-  # because all our services are in the same namespace.
   REDIS_URL: "redis://redis:6379"
   SENSOR_SERVICE_URL: "http://sensor-service:3000"
   TWIN_SERVICE_URL: "http://twin-service:3000"
   CONTRACTS_SERVICE_URL: "http://contracts-service:3000"
 
-  # ── claims-gateway (RS256 token verification) ─────────────────────────────
-  # NOTE: claims-gateway has no k8s Deployment/Service yet — only docker-compose
-  # (see server/claims-gateway/CLAUDE.md and the strangler-migration doc). These
-  # values are correct/forward-looking for when it's deployed here; until then,
-  # any service reading them will fail to reach this URL in a k8s cluster.
-  GATEWAY_JWKS_URI: "http://claims-gateway:3000/.well-known/jwks.json"
-  GATEWAY_ISSUER: "cv-gateway"
-
-  # ── Gateway / public-facing URLs ──────────────────────────────────────────
-  # Local k3d:  http://crowdvision.local  (add to /etc/hosts → cluster ingress IP)
-  # VPS:        https://your-domain.com
-  # GATEWAY_URL: ingress used for backend server-to-server calls routed by path
-  # (e.g. /notification/preferences). PUBLIC_URL: browser-facing base for links
-  # and OIDC redirect URIs. In a single-domain setup both equal the ingress host.
   GATEWAY_URL: "http://crowdvision.local"
   PUBLIC_URL: "http://crowdvision.local"
-
-  # URL of the frontend — used by backend services for CORS allowed origins.
   CLIENT_URL: "http://crowdvision.local"

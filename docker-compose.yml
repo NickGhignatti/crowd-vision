@@ -39,15 +39,13 @@ services:
     image: redis:alpine
     container_name: langfuse-broker
     restart: always
+    profiles: ["agent"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
 
-  # Identity provider for every tier (Phase 1 of the auth/tenancy redesign).
-  # Own host port, not a Caddy subpath: Keycloak's own asset paths assume it
-  # owns the origin, the same reason langfuse-web gets a direct port below.
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     container_name: crowd-vision-keycloak
@@ -55,26 +53,16 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set in .env}
-      # Pinned (not dynamic per-request) so the `iss` claim Keycloak stamps
-      # into every token is stable — claims-gateway reaches Keycloak over the
-      # internal Docker hostname (OIDC_DISCOVERY_URL) but validates tokens
-      # against this externally-visible one (OIDC_ISSUER); see
-      # claims-gateway's oidcverifier package for why they can differ.
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8090}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set in .env}
       # Enables ${ENV_VAR:default} substitution in the imported realm JSON so the
-      # Google identity provider's client id/secret come from the environment,
-      # not from git. Only the realm-import path reads these.
+      # Google IdP client id/secret come from the environment, not git.
       JAVA_OPTS_APPEND: -Dkeycloak.migration.replace-placeholders=true
-      # Google social login (brokered). Empty by default — set both in .env to
-      # activate the "Continue with Google" button; see keycloak/README-google.md.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-not-configured}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-not-configured}
-      # Serve /health/ready on the management port (9000) so the healthcheck
-      # below — and claims-gateway's depends_on service_healthy — actually work.
       KC_HEALTH_ENABLED: "true"
     ports:
       - "8090:8080"
@@ -105,6 +93,7 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+      start_period: 60s
 
   prometheus:
     image: prom/prometheus:latest
@@ -115,6 +104,7 @@ services:
       - "--web.route-prefix=/"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus.rules.yml:/etc/prometheus/prometheus.rules.yml:ro
 
   grafana:
     image: grafana/grafana:latest
@@ -131,6 +121,7 @@ services:
     image: docker.io/langfuse/langfuse:3
     container_name: crowd-vision-langfuse
     restart: always
+    profiles: ["agent"]
     depends_on: &langfuse-depends-on
       langfuse-db:
         condition: service_healthy
@@ -185,6 +176,7 @@ services:
     image: docker.io/langfuse/langfuse-worker:3
     container_name: crowd-vision-langfuse-worker
     restart: always
+    profiles: ["agent"]
     depends_on: *langfuse-depends-on
     environment:
       <<: *langfuse-env
@@ -193,6 +185,7 @@ services:
     image: pgvector/pgvector:pg17
     container_name: crowd-vision-langfuse-db
     restart: always
+    profiles: ["agent"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -206,11 +199,13 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+      start_period: 60s
 
   clickhouse:
     image: docker.io/clickhouse/clickhouse-server
     container_name: crowd-vision-clickhouse
     restart: always
+    profiles: ["agent"]
     user: "101:101"
     environment:
       CLICKHOUSE_DB: default
@@ -230,6 +225,7 @@ services:
     image: cgr.dev/chainguard/minio
     container_name: crowd-vision-minio
     restart: always
+    profiles: ["agent"]
     entrypoint: sh
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:

@@ -1,16 +1,5 @@
-//
-// Single source of truth for the repo's package list is moon's project graph
-// (.moon/workspace.yml). Instead of maintaining a parallel hand-written list
-// that can silently drift, install.mjs and clean.mjs derive their workspaces
-// from `moon query projects`. Adding a package is then a one-place change:
-// register it with moon.
-//
-//   js     → typescript | javascript projects  (npm)
-//   python → python projects                   (uv)
-//   rust   → rust projects                      (cargo)
-//
-// Paths returned are repo-root-relative (moon's `source`), e.g. "server/auth-service".
-//
+// Derives install.mjs/clean.mjs's workspaces from `moon query projects` so the package
+// list can't drift from .moon/workspace.yml. Paths returned are repo-root-relative.
 
 import { execSync } from 'node:child_process';
 
@@ -23,11 +12,13 @@ export function queryWorkspaces() {
   const js = [];
   const python = [];
   const rust = [];
+  const go = [];
   for (const { source, language } of projects) {
     if (language === 'typescript' || language === 'javascript') js.push(source);
     else if (language === 'python') python.push(source);
     else if (language === 'rust') rust.push(source);
+    else if (language === 'go') go.push(source);
   }
 
-  return { js: js.sort(), python: python.sort(), rust: rust.sort() };
+  return { js: js.sort(), python: python.sort(), rust: rust.sort(), go: go.sort() };
 }

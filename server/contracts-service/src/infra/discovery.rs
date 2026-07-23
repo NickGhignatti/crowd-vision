@@ -14,10 +14,8 @@ mod tests {
     use super::discover_services;
     use std::env;
 
-    // Each test uses globally unique env-var names and values so that parallel
-    // test runs don't interfere with each other.  Values are unique UUIDs
-    // embedded as string literals, so a simple `.contains()` check is
-    // sufficient without asserting on exact vec length.
+    // Each test uses globally unique env-var names/values so parallel runs
+    // don't interfere; a `.contains()` check suffices over exact vec length.
 
     #[test]
     fn returns_value_of_key_ending_with_metrics_url() {

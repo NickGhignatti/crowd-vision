@@ -1,0 +1,127 @@
+.docname {Observability}
+.include {docs}
+
+This page covers metrics — what's instrumented, what scrapes it, and where the gaps are. CrowdVision has no centralized logging or distributed tracing today; each service logs to its own stdout, and the only tracing in the system is `agent-service`'s optional OpenTelemetry export to Langfuse for LLM call inspection, which is unrelated to the Prometheus stack described here — see [Agent Service](../services/agent.qd) for that.
+
+---
+
+## Two parallel stacks, not one
+
+Prometheus and Grafana are deployed twice, independently, with different configuration:
+
+.var {headers}
+   - Aspect
+   - docker-compose (dev)
+   - Kubernetes
+
+.tablebyrows {.headers}
+    - - Config source
+      - `prometheus.yml` (repo root), mounted read-only into the container
+      - `k8s/monitoring/prometheus.yml`'s `prometheus-config` ConfigMap
+    - - Target discovery
+      - Static: 4 hardcoded `job_name`/`targets` entries
+      - Kubernetes service discovery (`kubernetes_sd_configs`) for app pods and the mesh's own components, a static target for `istiod`, plus a `cadvisor` job via the API server proxy
+    - - Grafana datasource
+      - Not auto-provisioned — added manually via the UI
+      - Auto-provisioned via `GF_DATASOURCES_DEFAULT_*` env vars pointing at `http://prometheus:9090`
+    - - Exposed at
+      - `/prometheus/`, `/grafana/` (Caddy `handle_path`/`handle`)
+      - `/grafana` only (its Istio `HTTPRoute`) — Prometheus has no gateway route, reachable only in-cluster
+    - - Retention
+      - Whatever the image default is — not configured
+      - 15 days, backed by a 5Gi PVC (`--storage.tsdb.retention.time=15d`)
+
+Both stacks load the same seven alerting rules — see **Alerting rules** below.
+
+---
+
+## Alerting rules
+
+`prometheus.rules.yml` (repo root, docker-compose) and the `alert.rules.yml` key inside `k8s/monitoring/prometheus.yml`'s ConfigMap define the same `crowdvision-alerts` group — kept in sync by hand, since the two stacks have no shared config source. None of the queries filter by a `job`/`app` label: every metric name below is emitted by exactly one service today, so the metric name alone scopes the query, which is what keeps one rule set valid across both stacks despite their different target-discovery mechanisms (a docker-compose target's `job` label is the service name directly; a k8s pod's is `kubernetes-pods`, with the service name instead carried on an `app` label via `labelmap`).
+
+.var {headers}
+   - Alert
+   - Fires when
+   - `for`
+
+.tablebyrows {.headers}
+    - - `ServiceDown`
+      - Any scrape target's `up == 0` (covers all 4 instrumented services in both stacks, generically).
+      - 2m
+    - - `TwinServiceHighErrorRate` / `ChatServiceHighErrorRate`
+      - The error-to-total HTTP request ratio exceeds 5%.
+      - 5m
+    - - `TwinServiceHighLatency` / `ChatServiceHighLatency`
+      - p95 HTTP request duration exceeds 1s.
+      - 5m
+    - - `ContractsServiceFanoutLatencyHigh`
+      - p95 `telemetry_fanout_latency_ms` (sensor-ingestion-to-fan-out) exceeds 500ms.
+      - 5m
+    - - `NodeEventLoopLagHigh`
+      - `nodejs_eventloop_lag_seconds` (from `collectDefaultMetrics`) exceeds 100ms — fires for chat-service or socket-service, whichever instance is lagging.
+      - 5m
+
+.box {No Alertmanager — these only populate Prometheus's own Alerts page} type:{warning}
+    Neither stack deploys Alertmanager, so a firing alert is visible in Prometheus's `/alerts` UI and exposed as the `ALERTS` metric, but nothing routes it anywhere — no email, Slack, or PagerDuty notification is sent. Someone still has to be looking at the page. Wiring up Alertmanager (and a receiver) is a separate piece of work from defining the rules themselves.
+
+.box {socket-service and contracts-service have no error-rate/latency alert of their own} type:{note}
+    `contracts-service` has no HTTP-shaped error counter to alert on (only the fan-out latency histogram above); `socket-service` is a WebSocket relay with no request/response HTTP metrics at all — `ServiceDown` and `NodeEventLoopLagHigh` are its only coverage today. Both would need new instrumentation (an error counter, a request-duration histogram) before a matching alert could be written.
+
+---
+
+## What's actually instrumented
+
+Of the 11 backend services, only 4 expose a `/metrics` endpoint:
+
+.var {headers}
+   - Service
+   - Library
+   - Key metrics
+
+.tablebyrows {.headers}
+    - - twin-service (Rust)
+      - `prometheus` crate
+      - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — labeled `{method, route, status_code}`, using the route template (not the raw URL) so cardinality stays bounded even with real ids in the path
+    - - contracts-service (Rust)
+      - `prometheus` crate
+      - `telemetry_fanout_latency_ms`, `telemetry_events_received_total`, `telemetry_events_published_total` — business metrics specific to its sensor-data fan-out role, not generic HTTP counters
+    - - socket-service (Node)
+      - `prom-client` + `collectDefaultMetrics`
+      - `telemetry_relayed_total`, `socket_connected_clients`, plus default Node process metrics (event loop lag, heap, etc.)
+    - - chat-service (Node)
+      - `prom-client` + `collectDefaultMetrics`
+      - `chat_http_requests_total`, `chat_http_error_requests_total`, `chat_http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service
+
+`sensor-service`, `notification-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` have no metrics instrumentation at all — no `prom-client`, `prometheus_client`, or `promhttp`, no `/metrics` route.
+
+`twin-service`, `contracts-service`, `socket-service`, and `chat-service` carry `prometheus.io/scrape: "true"` / `prometheus.io/port: "3000"` pod annotations in their `Deployment` manifests, so Kubernetes' `kubernetes-pods` autodiscovery job (below) picks them up automatically — no per-service Prometheus config needed. The other 7 services stay unscraped in Kubernetes until they gain a `/metrics` endpoint and the matching annotations.
+
+---
+
+## cAdvisor: metrics without any code changes
+
+The Kubernetes `kubernetes-cadvisor` job doesn't depend on any service exposing anything — it reaches each node's built-in cAdvisor through the Kubernetes API server proxy (`/api/v1/nodes/<node>/proxy/metrics/cadvisor`) and gets per-container CPU, memory, network, and disk usage for every pod in the cluster, instrumented or not. This is the only metrics signal that currently covers all 12 services uniformly — it just can't see inside the application (request rates, error rates, latency), only its resource footprint.
+
+---
+
+## Mesh-layer metrics (Kubernetes only)
+
+Three additional scrape jobs in `k8s/monitoring/prometheus.yml` cover the Istio ambient mesh itself, not application code — none of this exists in the docker-compose/Caddy stack, since Caddy isn't a real mesh.
+
+.var {headers}
+   - Job
+   - Target
+   - What it covers
+
+.tablebyrows {.headers}
+    - - `istiod`
+      - Static target `istiod.istio-system:15014`
+      - Control-plane health: certificate issuance (`citadel_server_csr_count`), xDS push status, root cert expiry.
+    - - `istio-ztunnel`
+      - Pod discovery in `istio-system`, filtered to `app=ztunnel`, scraped on `:15020/stats/prometheus`
+      - Per-node L4 mTLS proxy stats (ztunnel is a DaemonSet with no Service, so this is pod discovery, not a static target).
+    - - `istio-ingress-gateway`
+      - Pod discovery in `crowdvision`, filtered to the `gateway.networking.k8s.io/gateway-name: crowdvision-gateway` label, scraped on `:15090/stats/prometheus`
+      - Envoy stats for the auto-provisioned ingress gateway (`envoy_server_uptime`, request/connection counters). Its Service only exposes the app port and a status port, not the Envoy stats port, so this is also pod discovery rather than a Service target.
+
+This closes the gap where mesh traffic was effectively unobserved — request rates, error rates, and TLS/handshake behavior at the mTLS and ingress layers are now queryable in Grafana alongside application metrics. Distributed tracing (Kiali, Jaeger) is still out of scope; this is metrics only.

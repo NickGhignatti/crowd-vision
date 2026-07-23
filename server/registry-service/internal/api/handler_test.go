@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -65,31 +66,6 @@ func TestSignup_RejectsInvalidTier(t *testing.T) {
 	}
 }
 
-func TestGetOrganization_ReturnsCreatedOrg(t *testing.T) {
-	r, _ := newTestServer(t)
-	body, _ := json.Marshal(map[string]string{"name": "unibo", "displayName": "UniBO", "tier": "pooled"})
-	createRec := httptest.NewRecorder()
-	r.ServeHTTP(createRec, httptest.NewRequest(http.MethodPost, "/organizations", bytes.NewReader(body)))
-	var created map[string]string
-	_ = json.Unmarshal(createRec.Body.Bytes(), &created)
-
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/organizations/"+created["id"], nil))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("got %d, want 200", rec.Code)
-	}
-}
-
-func TestGetOrganization_404ForUnknown(t *testing.T) {
-	r, _ := newTestServer(t)
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/organizations/ghost", nil))
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("got %d, want 404", rec.Code)
-	}
-}
-
 func TestInternalPending_RequiresSignature(t *testing.T) {
 	r, _ := newTestServer(t)
 	rec := httptest.NewRecorder()
@@ -120,7 +96,7 @@ func TestInternalPending_ListsProvisioningOrgs(t *testing.T) {
 }
 
 func TestInternalMarkReady_TransitionsStatus(t *testing.T) {
-	r, _ := newTestServer(t)
+	r, fake := newTestServer(t)
 	body, _ := json.Marshal(map[string]string{"name": "unibo", "displayName": "UniBO", "tier": "pooled"})
 	createRec := httptest.NewRecorder()
 	r.ServeHTTP(createRec, httptest.NewRequest(http.MethodPost, "/organizations", bytes.NewReader(body)))
@@ -137,11 +113,13 @@ func TestInternalMarkReady_TransitionsStatus(t *testing.T) {
 		t.Fatalf("got %d, want 204: %s", rec.Code, rec.Body.String())
 	}
 
-	getRec := httptest.NewRecorder()
-	r.ServeHTTP(getRec, httptest.NewRequest(http.MethodGet, "/organizations/"+created["id"], nil))
-	var got map[string]string
-	_ = json.Unmarshal(getRec.Body.Bytes(), &got)
-	if got["status"] != "ready" {
-		t.Fatalf("got status %q, want ready", got["status"])
+	// GET /organizations/{id} was removed (unused); verify the transition against
+	// the store directly instead of round-tripping through HTTP.
+	got, err := fake.Get(context.Background(), created["id"])
+	if err != nil {
+		t.Fatalf("fake.Get: %v", err)
+	}
+	if got.Status != "ready" {
+		t.Fatalf("got status %q, want ready", got.Status)
 	}
 }

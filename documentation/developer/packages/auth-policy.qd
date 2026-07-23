@@ -1,0 +1,233 @@
+.docname {Auth Policy}
+.include {docs}
+
+`auth-policy` is CrowdVision's single Cedar authorization bundle — one schema, one set of rules, evaluated **locally and embedded** in every service that needs a tenant/role decision beyond the plain "at least this powerful" check [Auth Contracts](auth-contracts.qd) already answers. There is no authorization network call on the data path: every language that needs a decision carries its own copy of the same policy text and evaluates it in-process.
+
+---
+
+## One bundle, three language runtimes
+
+.mermaid
+    graph TD
+        subgraph "server/auth-policy — source of truth"
+            SCHEMA["schema.cedarschema"]
+            POLICY["policy.cedar"]
+            CONF["fixtures/conformance.json\ngolden test cases"]
+        end
+        subgraph "Go — this package"
+            GOEMBED["policy.go\n//go:embed"]
+            GOAPI["authz.go\nCanRead · CanEdit · CanManageDomain · ..."]
+        end
+        subgraph "Rust — twin-service"
+            RSEMBED["infra/authz.rs\ninclude_str! macro, relative path"]
+        end
+        subgraph "Python — agent-service"
+            PYEMBED["cedar_authz.py\nreads the files directly at import time"]
+        end
+
+        SCHEMA --> GOEMBED
+        POLICY --> GOEMBED
+        SCHEMA -.->|"relative path, compile-time"| RSEMBED
+        POLICY -.->|"relative path, compile-time"| RSEMBED
+        SCHEMA -.->|"relative path, runtime"| PYEMBED
+        POLICY -.->|"relative path, runtime"| PYEMBED
+        CONF -.->|"same cases, same expected outcome"| GOAPI
+        CONF -.->|"same cases, same expected outcome"| RSEMBED
+        CONF -.->|"same cases, same expected outcome"| PYEMBED
+
+Go consumes this as a real module dependency (`go.mod`). Rust and Python don't — there's no package registry spanning Go modules, Cargo crates, and Python packages, so `twin-service` and `agent-service` instead read `policy.cedar`/`schema.cedarschema` directly off disk by relative path, at compile time (Rust's `include_str!`) or process start (Python's `Path.read_text()`). It's a plain-text file; there was nothing to gain from inventing a distribution mechanism for three ecosystems just to move it.
+
+---
+
+## 1. Why memberships are pre-expanded before Cedar ever sees them
+
+**File:** `schema.cedarschema`
+
+```text
+// Cedar's `.contains()` can't do role-weight comparison natively, so the
+// weight math happens in each service BEFORE calling Cedar: every membership
+// is expanded into which role tiers it qualifies for in that domain, and
+// those flat per-tier domain sets are what the Account entity actually
+// carries. Cedar's own job is only the containment/comparison check — the
+// tier thresholds themselves are policy.cedar's, not each service's.
+entity Account = {
+  domainsAsStandardCustomer: Set<String>,
+  domainsAsBusinessStaff: Set<String>,
+  domainsAsBusinessAdmin: Set<String>,
+  domainsAsAdmin: Set<String>,
+  maxRoleWeight: Long,
+};
+
+entity Resource = {
+  domain: String,
+};
+```
+
+Cedar entities carry attributes, not behaviour — there's no way to ask a policy "is this role's weight ≥ that role's weight" inline. So the weight comparison happens once, in code, before the request ever reaches Cedar: a caller's memberships are walked once and expanded into four flat domain sets, one per tier they qualify for. Go's version of that expansion:
+
+```go
+// Pre-expands raw memberships into the flat per-tier domain
+// sets and max role weight policy.cedar reads.
+func accountEntity(memberships []authcontracts.Membership) cedar.Entity {
+	var standardCustomer, businessStaff, businessAdmin, admin []cedar.Value
+	maxWeight := 0
+	for _, m := range memberships {
+		weight, ok := authcontracts.RoleWeights[m.Role]
+		if !ok {
+			continue
+		}
+		if weight > maxWeight {
+			maxWeight = weight
+		}
+		domain := cedar.String(m.Domain)
+		standardCustomer = append(standardCustomer, domain)
+		if weight >= authcontracts.RoleWeights["business_staff"] {
+			businessStaff = append(businessStaff, domain)
+		}
+		// ...same pattern for business_admin, admin
+	}
+	return cedar.Entity{
+		UID: cedar.NewEntityUID("Account", "caller"),
+		Attributes: cedar.NewRecord(cedar.RecordMap{
+			"domainsAsStandardCustomer": cedar.NewSet(standardCustomer...),
+			"domainsAsBusinessStaff":    cedar.NewSet(businessStaff...),
+			"maxRoleWeight":             cedar.Long(maxWeight),
+			// ...
+		}),
+	}
+}
+```
+
+`domainsAsStandardCustomer` ends up holding *every* domain the caller belongs to, regardless of role — "standard customer" here means "any role at all," the floor of the ladder. A `business_admin` in a domain appears in all four sets simultaneously; the policy picks whichever set matches the privilege the action requires.
+
+Every language does its own version of this expansion against [Auth Contracts](auth-contracts.qd)' `RoleWeights` — Go's is `accountEntity` above; `agent-service`'s Python only ever populates `domainsAsStandardCustomer` and `maxRoleWeight`, because its `AuthUser` has always kept roles and domains as two unpaired lists (a real fact about that service, not a bug — see [Agent Service Architecture](../architecture/agent-architecture.qd)).
+
+---
+
+## 2. `policy.cedar` — five actions, one shape of rule
+
+**File:** `policy.cedar`
+
+```text
+// Set membership uses `.contains()`, not `in` — Cedar's `in` operator is
+// entity-hierarchy membership (is this entity a descendant of that one), not
+// a general "is this value in this set" test.
+
+// Read: plain domain membership, any role. Matches twin-service's
+// isMemberOf — deliberately NO admin bypass here.
+permit(principal, action == Action::"Read", resource)
+when { principal.domainsAsStandardCustomer.contains(resource.domain) };
+
+// ReadWithAdminBypass: domain membership, OR a global admin role anywhere.
+// Matches agent-service's can_access_domain (the twin RAG tool).
+permit(principal, action == Action::"ReadWithAdminBypass", resource)
+when {
+  principal.domainsAsStandardCustomer.contains(resource.domain) ||
+  principal.maxRoleWeight >= 100
+};
+
+// Edit: business_staff role or higher in the resource's domain. Matches
+// twin-service's geometry-mutating routes (move/resize/add/delete rooms).
+permit(principal, action == Action::"Edit", resource)
+when { principal.domainsAsBusinessStaff.contains(resource.domain) };
+
+// ManageDomain: business_admin role or higher. Matches tenancy-service's
+// invite/createSubdomain/createInviteCode, and removing a member other than
+// yourself (self-removal is checked before Cedar is even called).
+permit(principal, action == Action::"ManageDomain", resource)
+when { principal.domainsAsBusinessAdmin.contains(resource.domain) };
+
+// ModelOverride: a global role-weight gate. The required tier is
+// operator-configurable, so it's compared against context, not a literal.
+permit(principal, action == Action::"ModelOverride", resource)
+when { principal.maxRoleWeight >= context.requiredWeight };
+```
+
+Every rule reduces to the same shape — a set-containment or weight-comparison test against pre-expanded attributes — which is what makes evaluating this identically across three unrelated Cedar bindings (`cedar-go`, Cedar's Rust engine, `cedarpy`) actually work: none of them need language-specific policy logic, only a language-specific way to build the same two entities and call the same engine.
+
+.box {The set-membership vs entity-hierarchy gotcha is written into the policy file itself} type:{note}
+    `resource.domain in principal.domainsAsStandardCustomer` reads as correct and silently denies every request — Cedar's `in` tests entity-hierarchy descent, not set membership. This is exactly the mistake [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) documents as a real gotcha hit during development; the comment at the top of `policy.cedar` exists so the next person editing this file sees the warning before they can repeat it, not after.
+
+---
+
+## 3. The Go API surface
+
+**File:** `authz.go`
+
+```go
+func CanRead(memberships []authcontracts.Membership, domain string) bool {
+	return authorize(memberships, "Read", domain, nil)
+}
+func CanReadWithAdminBypass(memberships []authcontracts.Membership, domain string) bool {
+	return authorize(memberships, "ReadWithAdminBypass", domain, nil)
+}
+func CanEdit(memberships []authcontracts.Membership, domain string) bool {
+	return authorize(memberships, "Edit", domain, nil)
+}
+func CanManageDomain(memberships []authcontracts.Membership, domain string) bool {
+	return authorize(memberships, "ManageDomain", domain, nil)
+}
+
+// CanOverrideModelWeight is a GLOBAL role-weight gate — no Go service
+// currently needs this, but it's exposed so the golden conformance suite
+// can verify this action decides identically in every language, not just
+// the ones with a real caller yet.
+func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeight int64) bool {
+	return authorize(memberships, "ModelOverride", "", cedar.RecordMap{
+		"requiredWeight": cedar.Long(requiredWeight),
+	})
+}
+```
+
+`CanOverrideModelWeight` is the one exported function with no real Go caller today — `agent-service`'s Python is the only language that actually gates a model override. It stays in the Go API anyway, purely so the conformance suite below can prove the *rule itself* behaves identically everywhere, ahead of any Go service needing it.
+
+---
+
+## 4. The golden conformance suite — identical outcomes, not identical code
+
+**Files:** `fixtures/conformance.json`, `conformance_test.go` (Go) — with equivalent runners in `twin-service/tests/cedar_conformance.rs` and `agent-service/tests/unit/test_cedar_conformance.py`.
+
+```json
+{
+  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds server/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy).",
+  "cases": [
+    { "name": "read: member of the domain, any role, is allowed",
+      "memberships": [{ "domain": "eng", "role": "standard_customer" }],
+      "action": "Read", "domain": "eng", "expected": "allow" },
+    { "name": "read: not a member of the domain is denied",
+      "memberships": [{ "domain": "other", "role": "admin" }],
+      "action": "Read", "domain": "eng", "expected": "deny" }
+  ]
+}
+```
+
+Go's runner is a thin table-driven dispatch over the shared fixture — it doesn't hand-write test cases, it replays the same ones every other language replays:
+
+```go
+func TestConformance(t *testing.T) {
+	f := loadFixture(t, "fixtures/conformance.json")
+	for _, tc := range f.Cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			var got bool
+			switch tc.Action {
+			case "Read":
+				got = authpolicy.CanRead(tc.Memberships, tc.Domain)
+			case "ReadWithAdminBypass":
+				got = authpolicy.CanReadWithAdminBypass(tc.Memberships, tc.Domain)
+			// ...one case per action
+			}
+			if want := tc.Expected == "allow"; got != want {
+				t.Errorf("%s: got allow=%v, want allow=%v", tc.Name, got, want)
+			}
+		})
+	}
+}
+```
+
+This is the guarantee that justifies having one shared policy bundle at all rather than three independent reimplementations of "who can do what": a rule change to `policy.cedar` is tested once, in fixture form, and every language's CI proves its own engine binding produces the same decision — a Rust-only or Python-only regression in how entities are built would fail here, not in production.
+
+---
+
+## 5. Distribution — no package manager, just files
+
+Unlike [Auth Contracts](auth-contracts.qd) and [Auth Middleware](auth-middleware.qd), which are real Go modules with `go.mod` dependency edges, `auth-policy`'s cross-language reach works because Cedar's own inputs — a schema, a policy file, a JSON fixture — are plain text. `twin-service` bakes them into its binary at compile time (`include_str!`, so a missing file is a build failure, not a runtime one); `agent-service` reads them once at process start and keeps `_POLICY`/`_SCHEMA` as module-level constants. Neither needed a real package dependency, a registry, or a build step of its own — the relative path from `server/<service>` back to `server/auth-policy` is stable because both live in the same monorepo.

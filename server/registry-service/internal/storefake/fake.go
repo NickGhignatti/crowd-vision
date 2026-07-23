@@ -1,5 +1,4 @@
-// Package storefake is an in-memory store.Store for unit-testing
-// internal/service and internal/api without a database.
+// In-memory store.Store for unit-testing
 package storefake
 
 import (

@@ -13,10 +13,7 @@ export function createThresholdHandlers(kernel: SensorKernel) {
   };
 
   return {
-    // PUT /thresholds/buildings/:buildingId
-    // Called by twin-service when a building is registered or updated.
-    // Forwards the payload to every sensor module so each type can initialise
-    // its own threshold records (modules that don't support thresholds are no-ops).
+    // PUT /thresholds/buildings/:buildingId.
     registerBuilding: async (req: Request, res: Response): Promise<void> => {
       try {
         const buildingId = req.params.buildingId as string;
@@ -70,9 +67,7 @@ export function createThresholdHandlers(kernel: SensorKernel) {
       }
     },
 
-    // GET /thresholds/buildings/:buildingId
-    // Returns a ThresholdClone for the digital-twin view: building-level maxTemperature
-    // plus per-room overrides, mapped from the internal maxTemp field name.
+    // GET /thresholds/buildings/:buildingId.
     getBuildingThresholdClone: async (
       req: Request,
       res: Response,

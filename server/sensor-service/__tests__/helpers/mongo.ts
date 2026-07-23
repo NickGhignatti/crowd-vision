@@ -1,17 +1,15 @@
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
-// Spins up a real in-memory MongoDB so the service layer is exercised against
-// genuine queries, aggregations and indexes — not mocks. One server per test
-// file (Jest isolates module state per file), torn down afterwards.
+// Spins up a real in-memory MongoDB so the service layer runs genuine queries/aggregations, not mocks.
+// One server per test file (Jest isolates module state per file), torn down afterwards.
 let mongod: MongoMemoryServer | undefined;
 
 export async function startMongo(): Promise<void> {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
-  // Time-series collections must exist before the first insert — otherwise a
-  // racing insert auto-creates a plain collection instead. Create every
-  // registered model's collection up front so the timeseries options apply.
+  // Time-series collections must exist before the first insert, or a racing insert
+  // auto-creates a plain collection instead — so create every model's collection up front.
   await Promise.all(
     mongoose
       .modelNames()

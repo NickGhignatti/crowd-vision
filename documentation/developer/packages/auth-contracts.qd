@@ -1,0 +1,170 @@
+.docname {Auth Contracts}
+.include {docs}
+
+`auth-contracts` is the frozen shape of the identity token every Go service trusts, plus the one role-weight comparison every domain-scoped check reduces to. It has **zero external dependencies** — that's deliberate. Its whole reason to exist is to be imported by code that does very different jobs — `claims-gateway`, which signs the token; `auth-middleware`, which verifies it; and `auth-policy` and `tenancy-service`, which make authorization decisions from it — and none of those imports should have to drag in anything beyond this one small, stable shape.
+
+---
+
+## Who imports this
+
+.mermaid
+    graph TD
+        AC["auth-contracts\nStandardClaims · Membership · RoleWeights · Can()"]
+        SIGN["claims-gateway/internal/signer\nmints the token"]
+        MW["auth-middleware\nverifies the token"]
+        AP["auth-policy\npre-expands memberships for Cedar"]
+        TS["tenancy-service\nclaims.CanIn(domain, role)"]
+        RS["rust: twin-service\nincludes roles.json at compile time"]
+        PY["python: agent-service\nreads roles.json at import time"]
+
+        SIGN --> AC
+        MW --> AC
+        AP --> AC
+        TS --> AC
+        AC -.->|"roles.json, read directly\n(no Go dependency)"| RS
+        AC -.->|"roles.json, read directly\n(no Go dependency)"| PY
+
+`claims-gateway`'s signer *produces* a `StandardClaims` value; `auth-middleware`, `auth-policy`, and `tenancy-service` *consume* it. Two non-Go services — `twin-service` (Rust) and `agent-service` (Python) — read `roles.json` directly off disk rather than depending on this package, since there's no Go module boundary to cross for a static JSON file (see [Auth Policy](auth-policy.qd) for how that split plays out for the Cedar bundle too).
+
+---
+
+## 1. `StandardClaims` — the one shape every service verifies
+
+**File:** `claims.go`
+
+```go
+// Membership is one (domain, role) pair. ExternalId carries the source IdP's identifier
+// for the membership, kept for audit and for unlinking a federated identity.
+type Membership struct {
+	Domain     string `json:"domain"`
+	Role       string `json:"role"`
+	ExternalID string `json:"externalId,omitempty"`
+}
+
+// StandardClaims is the one token shape every service verifies, regardless of
+// tier or which IdP authenticated the user.
+type StandardClaims struct {
+	Sub         string       `json:"sub"`
+	AccountName string       `json:"accountName"`
+	SID         string       `json:"sid"`
+	Memberships []Membership `json:"memberships"`
+}
+```
+
+The struct carries no tier- or provider-specific fields. Whether an account signed up directly or federated in through an enterprise identity provider, and whether it holds one membership or twenty, it arrives at every downstream consumer in exactly this shape — none of them need to special-case a federation path.
+
+Three methods answer the questions a consumer actually asks, rather than making every caller walk `Memberships` by hand:
+
+```go
+// Returns the caller's role within domain, if they belong to it.
+func (c StandardClaims) RoleIn(domain string) (string, bool) {
+	for _, m := range c.Memberships {
+		if m.Domain == domain {
+			return m.Role, true
+		}
+	}
+	return "", false
+}
+
+// Authorization decision scoped to one tenant.
+func (c StandardClaims) CanIn(domain, required string) bool {
+	role, ok := c.RoleIn(domain)
+	return ok && Can(role, required)
+}
+
+// Tenants lists every domain the caller belongs to, in membership order —
+// used to scope bulk/`$in`-style queries and to populate a client's
+// active-tenant switcher.
+func (c StandardClaims) Tenants() []string {
+	tenants := make([]string, len(c.Memberships))
+	for i, m := range c.Memberships {
+		tenants[i] = m.Domain
+	}
+	return tenants
+}
+```
+
+`CanIn` is what `tenancy-service` calls directly for its own domain-scoped checks — it doesn't need Cedar's generality for a plain "is this role at least this powerful, in this domain" question. The same question asked with admin-bypass or resource-type nuance goes through [Auth Policy](auth-policy.qd) instead.
+
+A real test makes the domain-scoping explicit rather than leaving it implied:
+
+```go
+func TestCanIn_ScopesTheCheckToTheDomain(t *testing.T) {
+	c := claims() // business_admin in "acme", standard_customer in "unibo"
+	if !c.CanIn("acme", "business_admin") {
+		t.Fatal("business_admin in acme should pass a business_admin check")
+	}
+	// admin in acme, but only standard_customer in unibo — the same person,
+	// different tenants, different outcome. This is the whole point of
+	// per-membership roles rather than a role on the user.
+	if c.CanIn("unibo", "business_admin") {
+		t.Fatal("standard_customer in unibo must not pass a business_admin check")
+	}
+}
+```
+
+---
+
+## 2. The role ladder — `roles.json` and `Can()`
+
+**File:** `roles.go`
+
+The ladder itself is data, not code, embedded into the binary at compile time:
+
+```go
+//go:embed roles.json
+var rolesRaw []byte
+
+// RoleWeights is the single role ladder shared by every service.
+var RoleWeights = mustLoadRoleWeights()
+
+func Can(principalRole, requiredRole string) bool {
+	have, ok := RoleWeights[principalRole]
+	if !ok {
+		return false
+	}
+	need, ok := RoleWeights[requiredRole]
+	if !ok {
+		return false
+	}
+	return have >= need
+}
+```
+
+```json
+{
+  "admin": 100,
+  "business_admin": 80,
+  "business_staff": 60,
+  "standard_customer": 10
+}
+```
+
+`Can` compares weights, not role names — an unrecognised role on either side (a typo, a role from a future migration nobody's deployed yet) fails the lookup and denies, rather than panicking or silently passing. This is the same "at least this powerful" comparison the domain model commits to in [Identity & Access Context](../domain/identity-access.qd) — `roles.json` is where that abstract ranking becomes the concrete numbers every language's implementation reads.
+
+`//go:embed` means the ladder ships inside the compiled binary — there's no runtime file read, and no way for a service to start with a `roles.json` that doesn't match what it was built against.
+
+---
+
+## 3. The conformance fixture — a drift detector for the shape itself
+
+**Files:** `conformance_test.go`, `fixtures/standard-claims.json`
+
+```go
+// TestFixtureConforms asserts fixtures/standard-claims.json unmarshals cleanly
+// into StandardClaims with every required field populated. This is the drift
+// detector: any consumer (Go today, others later) asserts against the same
+// fixture file, so a shape change that breaks a consumer fails here first,
+// not in a production cookie.
+func TestFixtureConforms(t *testing.T) {
+	raw, _ := os.ReadFile("fixtures/standard-claims.json")
+	var claims StandardClaims
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		t.Fatalf("fixture does not conform to StandardClaims: %v", err)
+	}
+	// ...checks every required field is populated, and that each
+	// membership's role is a known entry in RoleWeights.
+}
+```
+
+This is narrower than [Auth Policy](auth-policy.qd)'s cross-language conformance suite — today only this package's own Go test reads `fixtures/standard-claims.json`. Its purpose is to catch a `StandardClaims` field rename or removal against a realistic example token, before that change reaches `auth-middleware`'s decoder or `claims-gateway`'s signer.

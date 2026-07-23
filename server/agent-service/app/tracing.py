@@ -161,20 +161,15 @@ def configure_tracing() -> None:
     provider = TracerProvider(resource=resource)
 
     if settings.otel_endpoint:
-        # Pick the OTLP transport by protocol. Langfuse ingests OTLP/HTTP at
-        # /api/public/otel (the HTTP exporter appends /v1/traces) and reads the
-        # Basic-auth header from OTEL_EXPORTER_OTLP_HEADERS; gRPC stays the default
-        # for plain OTel collectors.
+        # Pick OTLP transport by protocol: Langfuse ingests OTLP/HTTP; gRPC is the
+        # default for plain OTel collectors.
         if settings.otel_protocol.lower().startswith("http"):
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         else:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-        # Construct with no args so endpoint + headers come from the standard
-        # OTEL_EXPORTER_OTLP_* env vars. This matters for the HTTP exporter: reading
-        # the endpoint from env appends the "/v1/traces" path (Langfuse's OTLP ingest
-        # lives at <endpoint>/v1/traces), whereas passing endpoint= would use it
-        # verbatim and 404.
+        # No-args construction reads endpoint/headers from OTEL_EXPORTER_OTLP_* env;
+        # the HTTP exporter needs this to append "/v1/traces" (passing endpoint= 404s).
         provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     else:
         # Local dev: emit compact one-line spans immediately (no batching delay).

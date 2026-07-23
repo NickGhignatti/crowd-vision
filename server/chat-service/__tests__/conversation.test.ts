@@ -1,82 +1,42 @@
-import jwt from "jsonwebtoken";
-import { generateKeyPairSync } from "crypto";
 import request from "supertest";
 import { app } from "../src/index.js";
 import { Conversation } from "../src/models/conversation.js";
-import { resetGatewayJwksCacheForTests } from "../src/config/gatewayJwks.js";
 
-const GATEWAY_ISSUER = "cv-gateway";
-const GATEWAY_JWKS_URI = "http://gateway.test/.well-known/jwks.json";
-const KID = "test-kid";
-const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const claimsHeaderFor = (payload: object) =>
+  Buffer.from(JSON.stringify(payload)).toString("base64");
 
-const signGateway = (payload: object) =>
-  jwt.sign(payload, privateKey, {
-    algorithm: "RS256",
-    keyid: KID,
-    issuer: GATEWAY_ISSUER,
-    expiresIn: "1h",
-  });
+const headerFor = (accountId: string) => claimsHeaderFor({ sub: accountId });
 
-const cookieFor = (accountId: string) =>
-  `authentication_token=${signGateway({ sub: accountId })}`;
-
-beforeAll(() => {
-  process.env.GATEWAY_JWKS_URI = GATEWAY_JWKS_URI;
-  process.env.GATEWAY_ISSUER = GATEWAY_ISSUER;
-  resetGatewayJwksCacheForTests();
-});
-
-beforeEach(() => {
-  // Overrides setup.ts's blanket fetch mock: this file's requests hit BOTH
-  // claims-gateway (auth) and agent-service (/ask) through global.fetch, so
-  // the mock has to route by URL instead of returning one fixed shape.
-  const jwk = publicKey.export({ format: "jwk" }) as { n: string; e: string };
-  jest.spyOn(global, "fetch").mockImplementation(async (url) => {
-    if (String(url).includes("jwks")) {
-      return {
-        ok: true,
-        json: async () => ({
-          keys: [{ kty: "RSA", kid: KID, use: "sig", alg: "RS256", n: jwk.n, e: jwk.e }],
-        }),
-      } as Response;
-    }
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ answer: "Agent reply", citations: [] }),
-    } as Response;
-  });
-});
+// setup.ts already provides a blanket agent-service fetch mock for every test.
 
 describe("conversation API", () => {
   it("creates, lists, opens, renames, and deletes a conversation", async () => {
-    const cookie = cookieFor("user-a");
+    const header = headerFor("user-a");
     const created = await request(app)
       .post("/conversations")
-      .set("Cookie", cookie)
+      .set("x-gateway-claims", header)
       .send({});
 
     expect(created.status).toBe(201);
     expect(created.body.title).toBe("New chat");
 
-    const list = await request(app).get("/conversations").set("Cookie", cookie);
+    const list = await request(app).get("/conversations").set("x-gateway-claims", header);
     expect(list.body.conversations).toHaveLength(1);
     expect(list.body.conversations[0].messages).toBeUndefined();
 
     const id = created.body._id as string;
     expect(
-      (await request(app).get(`/conversations/${id}`).set("Cookie", cookie)).status,
+      (await request(app).get(`/conversations/${id}`).set("x-gateway-claims", header)).status,
     ).toBe(200);
 
     const renamed = await request(app)
       .patch(`/conversations/${id}`)
-      .set("Cookie", cookie)
+      .set("x-gateway-claims", header)
       .send({ title: "Building questions" });
     expect(renamed.body.title).toBe("Building questions");
 
     expect(
-      (await request(app).delete(`/conversations/${id}`).set("Cookie", cookie))
+      (await request(app).delete(`/conversations/${id}`).set("x-gateway-claims", header))
         .status,
     ).toBe(204);
   });
@@ -87,20 +47,20 @@ describe("conversation API", () => {
       title: "Private",
       messages: [],
     });
-    const cookie = cookieFor("user-b");
+    const header = headerFor("user-b");
 
     const responses = await Promise.all([
-      request(app).get(`/conversations/${conversation.id}`).set("Cookie", cookie),
+      request(app).get(`/conversations/${conversation.id}`).set("x-gateway-claims", header),
       request(app)
         .patch(`/conversations/${conversation.id}`)
-        .set("Cookie", cookie)
+        .set("x-gateway-claims", header)
         .send({ title: "No" }),
       request(app)
         .delete(`/conversations/${conversation.id}`)
-        .set("Cookie", cookie),
+        .set("x-gateway-claims", header),
       request(app)
         .post(`/conversations/${conversation.id}/messages`)
-        .set("Cookie", cookie)
+        .set("x-gateway-claims", header)
         .send({ content: "No" }),
     ]);
 
@@ -108,7 +68,7 @@ describe("conversation API", () => {
   });
 
   it("forwards history and saves both messages after a successful response", async () => {
-    const cookie = cookieFor("user-a");
+    const header = headerFor("user-a");
     const conversation = await Conversation.create({
       userId: "user-a",
       title: "Existing",
@@ -135,7 +95,7 @@ describe("conversation API", () => {
 
     const response = await request(app)
       .post(`/conversations/${conversation.id}/messages`)
-      .set("Cookie", cookie)
+      .set("x-gateway-claims", header)
       .send({ content: "Follow-up" });
 
     expect(response.status).toBe(201);
@@ -152,7 +112,7 @@ describe("conversation API", () => {
       stream: false,
     });
     expect(jest.mocked(fetch).mock.calls[0]?.[1]?.headers).toMatchObject({
-      Cookie: cookie,
+      "x-gateway-claims": header,
     });
 
     const saved = await Conversation.findById(conversation.id);
@@ -161,7 +121,7 @@ describe("conversation API", () => {
   });
 
   it("does not save either message when agent-service fails", async () => {
-    const cookie = cookieFor("user-a");
+    const header = headerFor("user-a");
     const conversation = await Conversation.create({
       userId: "user-a",
       title: "Existing",
@@ -174,7 +134,7 @@ describe("conversation API", () => {
 
     const response = await request(app)
       .post(`/conversations/${conversation.id}/messages`)
-      .set("Cookie", cookie)
+      .set("x-gateway-claims", header)
       .send({ content: "Question" });
 
     expect(response.status).toBe(502);
@@ -183,7 +143,7 @@ describe("conversation API", () => {
   });
 
   it("caps forwarded history and rejects conversations at the message limit", async () => {
-    const cookie = cookieFor("user-a");
+    const header = headerFor("user-a");
     const messages = Array.from({ length: 100 }, (_, index) => ({
       role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
       content: `Message ${index}`,
@@ -197,7 +157,7 @@ describe("conversation API", () => {
 
     const response = await request(app)
       .post(`/conversations/${conversation.id}/messages`)
-      .set("Cookie", cookie)
+      .set("x-gateway-claims", header)
       .send({ content: "One more" });
 
     expect(response.status).toBe(409);
@@ -205,7 +165,7 @@ describe("conversation API", () => {
   });
 
   it("forwards only the configured recent history window", async () => {
-    const cookie = cookieFor("user-a");
+    const header = headerFor("user-a");
     const conversation = await Conversation.create({
       userId: "user-a",
       title: "Long chat",
@@ -218,7 +178,7 @@ describe("conversation API", () => {
 
     await request(app)
       .post(`/conversations/${conversation.id}/messages`)
-      .set("Cookie", cookie)
+      .set("x-gateway-claims", header)
       .send({ content: "Next" });
 
     const requestBody = JSON.parse(
@@ -239,18 +199,17 @@ describe("conversation API", () => {
     });
     const response = await request(app)
       .post(`/conversations/${conversation.id}/messages`)
-      .set("Cookie", cookieFor("user-a"))
+      .set("x-gateway-claims", headerFor("user-a"))
       .send({ content: " " });
     expect(response.status).toBe(400);
   });
 
   it("rejects tokens without the stable accountId claim", async () => {
-    const nameOnlyCookie =
-      `authentication_token=${signGateway({ accountName: "mutable-name" })}`;
+    const nameOnlyHeader = claimsHeaderFor({ accountName: "mutable-name" });
 
     const response = await request(app)
       .get("/conversations")
-      .set("Cookie", nameOnlyCookie);
+      .set("x-gateway-claims", nameOnlyHeader);
 
     expect(response.status).toBe(401);
     expect(response.body.message).toBe(

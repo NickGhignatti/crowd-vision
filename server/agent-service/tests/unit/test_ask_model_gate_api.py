@@ -22,7 +22,6 @@ from app.routes import ask as ask_route
 def _reset_settings(monkeypatch):
     # Settings is lru_cached; clear around each test so env tweaks take effect and the
     # default min-role (business_admin) holds for tests that don't set it.
-    monkeypatch.setenv("GATEWAY_JWKS_URI", "http://gateway.test/.well-known/jwks.json")
     monkeypatch.setenv("LLM_API_KEY", "test-key")
     monkeypatch.delenv("ALLOWED_MODELS", raising=False)
     monkeypatch.delenv("MODEL_OVERRIDE_MIN_ROLE", raising=False)

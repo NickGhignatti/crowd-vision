@@ -28,8 +28,6 @@ func main() {
 	tenancy := tenancyclient.New(cfg.TenancyURL, cfg.InternalSecret)
 	rec := reconciler.New(registry, tenancy)
 
-	// A trivial health server — the provisioner has no HTTP API of its own,
-	// just a liveness endpoint for k8s/compose healthchecks.
 	go func() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })

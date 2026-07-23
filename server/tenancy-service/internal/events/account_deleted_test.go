@@ -32,9 +32,8 @@ func TestProcessMessage_RedeliveryIsSafe(t *testing.T) {
 	svc := service.New(fake)
 	ctx := context.Background()
 
-	// Simulates an at-least-once redelivery after the first delivery already
-	// succeeded: the account has no memberships left, processing again must
-	// still succeed rather than erroring the message into a retry loop.
+	// Simulates an at-least-once redelivery: memberships are already gone, so
+	// processing again must still succeed rather than retrying forever.
 	if err := events.ProcessMessage(ctx, svc, "already-reaped"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

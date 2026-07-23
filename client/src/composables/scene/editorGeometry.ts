@@ -54,9 +54,8 @@ export interface SnapResult {
 
 const DEFAULT_SNAP_THRESHOLD = 0.75
 
-// Snaps one axis of `room` to the nearest neighbor edge/center within `threshold`,
-// trying every (room line, neighbor line) pair — each "line" is a room's min face,
-// center, or max face along that axis — and keeping the closest match.
+// Snaps one axis of `room` to the nearest neighbor edge/center within `threshold`, trying
+// every (room line, neighbor line) pair — each "line" being a min/center/max face — and keeping the closest.
 function snapAxis(
   axis: 'x' | 'z',
   roomCenter: number,
@@ -91,12 +90,8 @@ function snapAxis(
   return { value: roomCenter + best.delta, guide: { axis, value: best.guideValue } }
 }
 
-/**
- * Smart-guide snapping (Figma-style): aligns the moving room's edges/center to
- * a nearby room's edges/center on the same floor, within `threshold` world
- * units. Returns the snapped X/Z (unsnapped axes pass through unchanged) plus
- * the guide lines to draw for whichever axis actually snapped.
- */
+/** Smart-guide snapping (Figma-style): aligns the moving room's edges/center to a nearby
+ * room's on the same floor within `threshold`; returns snapped X/Z plus guide lines to draw. */
 export function snapToNeighbors(
   room: Room,
   allRooms: Room[],
@@ -148,12 +143,8 @@ export function mergeBoxes(
   }
 }
 
-/**
- * A loose "do these two rooms share a wall" heuristic for the merge command's
- * non-blocking warning: true if they overlap outright, or if one axis's
- * extents touch within `tolerance` while the other axis's ranges still
- * overlap (so two rooms touching only at a corner are NOT adjacent).
- */
+/** A loose "do these two rooms share a wall" heuristic for the merge command's non-blocking
+ * warning: true if they overlap, or if one axis touches within `tolerance` while the other overlaps. */
 export function boxesAreAdjacent(a: Room, b: Room, tolerance = 0.1): boolean {
   if (a.position.y !== b.position.y) return false
   if (boxesOverlap(a, b)) return true
@@ -174,13 +165,8 @@ export function boxesAreAdjacent(a: Room, b: Room, tolerance = 0.1): boolean {
 
 const DEFAULT_FLOOR_SNAP_THRESHOLD = 1.5
 
-/**
- * Magnetic Y snapping for vertical moves: within `threshold` of an existing
- * floor level, snap exactly onto it (moving a room a little vertically
- * shouldn't create a sliver half-floor); beyond that, pass the raw value
- * through so a deliberate large vertical drag can create a genuinely new
- * floor.
- */
+/** Magnetic Y snapping for vertical moves: within `threshold` of an existing floor level, snap
+ * onto it (avoids sliver half-floors); beyond that, pass the raw value through for a deliberate new floor. */
 export function snapToNearestFloorLevel(
   y: number,
   levels: number[],
@@ -203,12 +189,8 @@ export function snapToNearestFloorLevel(
 
 const MAX_PLACEMENT_ATTEMPTS = 40
 
-/**
- * A simple line-search for "Add Room": walks grid slots outward from the
- * origin on the given floor until one doesn't overlap an existing room. Gives
- * up and returns the origin after too many attempts — a slight overlap here
- * is only ever a non-blocking warning elsewhere in the editor, never a wall.
- */
+/** A simple line-search for "Add Room": walks grid slots outward from the origin until one
+ * doesn't overlap; gives up and returns the origin after too many attempts (overlap here is non-blocking). */
 export function findFreeSpot(
   existingRooms: Room[],
   floorY: number,

@@ -1,7 +1,5 @@
-// Package oidcverifier implements service.Verifier against a real OIDC
-// provider (Keycloak, or an on-prem customer's own IdP — same code path for
-// both, per the design). It is the only package that speaks OIDC; the rest
-// of the gateway only knows about the small IDTokenClaims shape.
+// Package oidcverifier implements service.Verifier against a real OIDC provider
+// (Keycloak or a customer's own IdP) — the only package that speaks OIDC.
 package oidcverifier
 
 import (
@@ -21,23 +19,8 @@ type Verifier struct {
 	inner *oidc.IDTokenVerifier
 }
 
-// New performs OIDC discovery against discoveryURL (fetching
-// .well-known/openid-configuration) once, at startup, but validates tokens'
-// `iss` claim against issuerURL. These deliberately differ in a container
-// deployment: the gateway reaches Keycloak over the internal Docker network
-// (discoveryURL, e.g. http://keycloak:8080/realms/crowdvision) while
-// browsers — and therefore the tokens Keycloak mints — use the
-// externally-visible hostname (issuerURL, e.g.
-// https://id.crowdvision.app/realms/crowdvision). Pass the same value for
-// both in a single-hostname deployment. clientID is the audience every
-// accepted ID token must carry.
-//
-// This does NOT use oidc.NewProvider, deliberately: when an IdP has a fixed
-// public hostname configured (Keycloak's KC_HOSTNAME), EVERY URL in its
-// discovery document — including jwks_uri — uses that external hostname,
-// which this process may have no route to from inside a container network.
-// Discovery is fetched manually here so jwks_uri can be rewritten onto
-// discoveryURL's own host before being used.
+// New validates tokens' `iss` against issuerURL (it differs from discoveryURL across
+// internal/browser hosts) and fetches JWKS manually so jwks_uri can be rewritten onto discoveryURL's host.
 func New(ctx context.Context, discoveryURL, issuerURL, clientID string) (*Verifier, error) {
 	jwksURL, err := discoverJWKSURL(ctx, discoveryURL)
 	if err != nil {
@@ -73,9 +56,8 @@ func discoverJWKSURL(ctx context.Context, discoveryURL string) (string, error) {
 		return "", fmt.Errorf("discovery document has no jwks_uri")
 	}
 
-	// Rewrite jwks_uri onto discoveryURL's own scheme+host — the discovery
-	// document may advertise an externally-visible hostname this process
-	// can't route to (see the package doc comment).
+	// Rewrite jwks_uri onto discoveryURL's scheme+host — the discovery doc may
+	// advertise an external hostname this process can't route to.
 	discU, err := url.Parse(discoveryURL)
 	if err != nil {
 		return "", err
@@ -96,10 +78,8 @@ func (v *Verifier) Verify(ctx context.Context, rawIDToken string) (service.IDTok
 
 	var raw struct {
 		PreferredUsername string `json:"preferred_username"`
-		// Name is Keycloak's built-in "full name" mapper output
-		// (trim(firstName+" "+lastName)) — present whenever the user has a
-		// first/last name set, which Google brokering already populates
-		// automatically and registration now sets too (see keycloakadmin).
+		// Name is Keycloak's "full name" mapper output (firstName+lastName),
+		// set by Google brokering and by registration (see keycloakadmin).
 		Name          string   `json:"name"`
 		EmailVerified bool     `json:"email_verified"`
 		Organization  []string `json:"organization"`
@@ -119,13 +99,8 @@ func (v *Verifier) Verify(ctx context.Context, rawIDToken string) (service.IDTok
 	}, nil
 }
 
-// firstOrganizationName narrows Keycloak's `organization` claim — a JSON
-// array of organization names/aliases (empirically confirmed against a live
-// Keycloak 26 instance; it is NOT a map, despite looking like one might be
-// more natural) — down to a single active organization. Multi-org tokens
-// exist — see the plan's multi-org design — but which one is "active" for a
-// given login is a client-driven choice made after this exchange, not
-// during it; today the gateway JIT-provisions at most the first one it sees.
+// firstOrganizationName narrows Keycloak's `organization` claim (a JSON array of
+// org names, not a map) to one; the gateway JIT-provisions the first it sees.
 func firstOrganizationName(orgs []string) string {
 	if len(orgs) == 0 {
 		return ""

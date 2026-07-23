@@ -1,41 +1,15 @@
-// Shared RS256 token-minting + JWKS-mock helpers for tests that need a
-// working authenticated request but aren't themselves testing the JWKS
-// verification edge cases (see authentication.test.ts for those).
-import jwt from "jsonwebtoken";
-import { generateKeyPairSync } from "crypto";
-import { resetGatewayJwksCacheForTests } from "../src/config/gatewayJwks.js";
+// Builds the base64 x-gateway-claims header the Istio ingress injects after verifying the
+// gateway JWT, for tests that need an authenticated request without exercising edge
+// verification (done once at ingress — see k8s/istio-request-authentication.yml).
+import type request from "supertest";
 
-export const GATEWAY_ISSUER = "cv-gateway";
-export const GATEWAY_JWKS_URI = "http://gateway.test/.well-known/jwks.json";
-const KID = "test-kid";
-
-const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-
-export function signGatewayToken(payload: object): string {
-  return jwt.sign(payload, privateKey, {
-    algorithm: "RS256",
-    keyid: KID,
-    issuer: GATEWAY_ISSUER,
-    expiresIn: "1h",
-  });
+export function claimsHeaderFor(accountName: string): string {
+  return Buffer.from(
+    JSON.stringify({ sub: `u-${accountName}`, accountName, memberships: [] }),
+  ).toString("base64");
 }
 
-let realFetch: typeof fetch;
-
-export function installGatewayJwksMock(): void {
-  process.env.GATEWAY_JWKS_URI = GATEWAY_JWKS_URI;
-  process.env.GATEWAY_ISSUER = GATEWAY_ISSUER;
-  resetGatewayJwksCacheForTests();
-  realFetch = global.fetch;
-  const jwk = publicKey.export({ format: "jwk" }) as { n: string; e: string };
-  global.fetch = jest.fn(async () => ({
-    ok: true,
-    json: async () => ({
-      keys: [{ kty: "RSA", kid: KID, use: "sig", alg: "RS256", n: jwk.n, e: jwk.e }],
-    }),
-  })) as unknown as typeof fetch;
-}
-
-export function restoreFetch(): void {
-  global.fetch = realFetch;
-}
+// Sets the mesh-injected claims header the auth middleware reads; the account is bound from
+// this header, never from the request body or URL.
+export const auth = <T extends request.Test>(req: T, account = "alice"): T =>
+  req.set("x-gateway-claims", claimsHeaderFor(account)) as T;

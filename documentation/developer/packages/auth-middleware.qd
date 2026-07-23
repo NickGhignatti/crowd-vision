@@ -1,0 +1,172 @@
+.docname {Auth Middleware}
+.include {docs}
+
+`auth-middleware` is the Go equivalent of [Node Auth & Error Middleware](middlewares.qd): the shared code every Go HTTP service wires in front of its routes to resolve `authcontracts.StandardClaims` — the caller's identity and memberships — from a request, before any handler runs.
+
+Unlike the Node package, it exposes **two** distinct entry points, because the Go services that use it don't all receive requests the same way:
+
+- **`claims-gateway` has to verify a token for real.** It's the service that issues the token in the first place (see `internal/signer`), and in Kubernetes it's also what every other verifier — Istio included — ultimately relies on, since Istio's own signature check is configured to fetch its public key from claims-gateway. It can't outsource its own verification to a system whose verification depends on it. It's also the fallback in environments with no mesh at all: in local docker-compose development (no Istio), Caddy's `forward_auth` calls claims-gateway's own `/verify` endpoint directly, so claims-gateway has to be able to check a token completely on its own.
+- **Every other Go service only has to trust an already-checked header.** `tenancy-service` (confirmed; see the diagram below) never receives a raw token — only requests that have already passed through Istio's ingress, where `RequestAuthentication` verified the JWT once and rewrote the verified payload into the `x-gateway-claims` header. Re-checking that signature inside `tenancy-service` would just repeat work Istio already did.
+
+.mermaid
+    graph TD
+        subgraph "claims-gateway — issues tokens, verifies them for real"
+            CG["internal/api/handler.go\nr.Use(RequireAuthentication(...))"]
+        end
+        subgraph "auth-middleware"
+            RA["RequireAuthentication(jwks, issuer)\nverifies RS256 signature + issuer against claims-gateway's JWKS"]
+            RM["RequireMeshClaims()\ntrusts the x-gateway-claims header, no signature check"]
+            FC["FromContext(ctx)\nretrieves claims either one attached"]
+        end
+        subgraph "tenancy-service — only ever sees a pre-verified request"
+            TS["internal/api/handler.go\nr.Use(RequireMeshClaims())"]
+        end
+
+        CG --> RA
+        TS --> RM
+        RA -->|"context.WithValue"| FC
+        RM -->|"context.WithValue"| FC
+
+The same split exists in every other language: see [Node Auth & Error Middleware](middlewares.qd) for the Node services and [Digital Twin Service](../services/digital-twin.qd) for `twin-service`'s Rust extractor — both trust the same `x-gateway-claims` header rather than verifying anything themselves, for the same reason `tenancy-service` does here.
+
+Not every Go service uses this package for its inbound auth. `registry-service` and `provisioner` are control-plane-to-control-plane only: their `/internal/*` routes are protected by a separate HMAC-SHA256 request-signing scheme (`X-Signature`, checked against a shared internal secret), not a `StandardClaims` token at all, and `provisioner` has no inbound HTTP handlers to protect in the first place — it only ever makes outbound calls, signing its own requests with that same HMAC scheme. Neither service currently needs `auth-middleware`.
+
+---
+
+## 1. `RequireAuthentication` — real signature verification
+
+**File:** `middleware.go`
+
+```go
+// Package authmiddleware verifies the internal RS256 token minted by
+// claims-gateway. RS256 (not HS256) is deliberate: the gateway signs with a
+// private key nothing else holds, so a compromised service can read and
+// verify tokens but never mint them.
+package authmiddleware
+
+// RequireAuthentication verifies the gateway-minted token against its JWKS
+// and pins both the signing algorithm and the issuer, so a token from a
+// different gateway — or a same-shape token an attacker crafted with alg
+// "none" or HS256 — is rejected before any claim is trusted.
+func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw := extractToken(r) // cookie, or a forwarded Bearer header
+			if raw == "" {
+				http.Error(w, "unauthenticated", http.StatusUnauthorized)
+				return
+			}
+
+			var claims authcontracts.StandardClaims
+			token, err := jwt.ParseWithClaims(raw, jwt.MapClaims{}, jwks.Keyfunc,
+				jwt.WithValidMethods([]string{"RS256"}), // reject a token with a different alg
+				jwt.WithIssuer(issuer),                  // reject a token from a different signer
+			)
+			if err != nil || !token.Valid {
+				http.Error(w, "invalid token", http.StatusUnauthorized)
+				return
+			}
+			// ...decode into claims, attach to context, call next.
+		})
+	}
+}
+```
+
+Two lines carry the actual security properties, and both are backed by a real adversarial test rather than just a comment:
+
+```go
+func TestRequireAuthentication_RejectsAlgNoneConfusion(t *testing.T) {
+	// Classic alg-confusion attempt: an unsigned token claiming alg "none".
+	tok := jwt.NewWithClaims(jwt.SigningMethodNone, validClaims())
+	signed, _ := tok.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	// ...the middleware must reject it regardless, because it only accepts RS256.
+}
+
+func TestRequireAuthentication_RejectsWrongSigningKey(t *testing.T) {
+	trusted, _ := rsa.GenerateKey(rand.Reader, 2048)
+	attacker, _ := rsa.GenerateKey(rand.Reader, 2048)
+	kf := testKeyfunc(t, &trusted.PublicKey)
+	// Token is well-formed and even carries the trusted key's kid, but is
+	// signed by a different private key — signature verification must fail.
+	tok := signRS256(t, attacker, validClaims())
+	// ...
+}
+```
+
+`jwt.WithValidMethods([]string{"RS256"})` is what makes the first test meaningful — without pinning the algorithm, a library that trusts the token's own `alg` header can be tricked into treating an HMAC signature (or no signature at all) as valid. `jwt.WithIssuer(issuer)` closes a related gap: a well-formed, correctly-signed token from an *unrelated* RS256 issuer would otherwise pass signature verification too.
+
+The token can arrive two ways — a browser's cookie, or a service forwarding it as a Bearer header:
+
+```go
+func extractToken(r *http.Request) string {
+	if header := r.Header.Get("Authorization"); strings.HasPrefix(header, "Bearer ") {
+		return strings.TrimPrefix(header, "Bearer ")
+	}
+	if cookie, err := r.Cookie(CookieName); err == nil {
+		return cookie.Value
+	}
+	return ""
+}
+```
+
+---
+
+## 2. `RequireMeshClaims` — trusting the mesh
+
+**File:** `middleware.go`
+
+```go
+// Header Istio's RequestAuthentication injects after verifying the gateway JWT
+// once at the mesh ingress.
+const GatewayClaimsHeader = "x-gateway-claims"
+
+// RequireMeshClaims trusts the mesh-verified claims header instead of
+// verifying a JWT itself. Claims-gateway's own routes (e.g. /me) keep using
+// RequireAuthentication directly.
+func RequireMeshClaims() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			header := r.Header.Get(GatewayClaimsHeader)
+			if header == "" {
+				http.Error(w, "unauthenticated", http.StatusUnauthorized)
+				return
+			}
+			raw, err := base64.StdEncoding.DecodeString(header)
+			if err != nil {
+				http.Error(w, "invalid token", http.StatusUnauthorized)
+				return
+			}
+			var claims authcontracts.StandardClaims
+			if err := json.Unmarshal(raw, &claims); err != nil || claims.Sub == "" {
+				http.Error(w, "invalid token claims", http.StatusUnauthorized)
+				return
+			}
+			// ...attach to context, call next.
+		})
+	}
+}
+```
+
+No `jwt.Parse`, no keyfunc, no signature check at all — a base64-decode and a JSON-unmarshal is the entire verification. That's not a shortcut; it's the deliberate consequence of `RequireAuthentication` having already done the real work once, upstream, at the mesh ingress. Doing it again here would check a signature that was already checked, against a public key every one of these services would otherwise need to fetch and cache for no additional safety.
+
+---
+
+## 3. `FromContext` — retrieving claims downstream
+
+**File:** `middleware.go`
+
+```go
+type contextKey struct{}
+
+// FromContext retrieves the claims RequireAuthentication verified and
+// attached to the request context.
+func FromContext(ctx context.Context) (authcontracts.StandardClaims, bool) {
+	c, ok := ctx.Value(contextKey{}).(authcontracts.StandardClaims)
+	return c, ok
+}
+```
+
+Both entry points attach the same `authcontracts.StandardClaims` type under the same unexported key, so a handler calls `FromContext` without needing to know or care which of the two verified it. The key is an empty `struct{}` type unique to this package, not a string — Go's usual defense against a context key collision with another package's middleware.
+
+.box {Why this split lives in one package, not two} type:{note}
+    `RequireAuthentication` and `RequireMeshClaims` produce the exact same `authcontracts.StandardClaims` shape and attach it to the context identically — the only difference is how much verification work each one does before trusting it. Keeping them in one package means `FromContext` and every consumer downstream of it are written once, and work unchanged whether a service ends up needing the strict, signature-checking entry point (`claims-gateway`) or the trusting, header-reading one (everyone else).

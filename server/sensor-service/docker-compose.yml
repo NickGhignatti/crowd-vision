@@ -6,8 +6,6 @@ services:
       - MONGO_URI=mongodb://sensor-db:27017/sensordb
       - CLIENT_URL=${DEV_URL}:${CLIENT_PORT}
       - REDIS_URL=redis://redis:6379
-      - GATEWAY_JWKS_URI=http://claims-gateway:3000/.well-known/jwks.json
-      - GATEWAY_ISSUER=cv-gateway
     depends_on:
       - sensor-db
 

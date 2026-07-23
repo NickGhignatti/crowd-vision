@@ -1,0 +1,54 @@
+.docname {Chat Service Architecture}
+.include {docs}
+
+**Bounded context:** [Knowledge & Assistance](../domain/knowledge-assistance.qd) (shared with agent-service) · **Stack:** Node.js / Express · **Code-level walkthrough:** [Chat Service](../services/chat.qd)
+
+The chat-service owns conversations: it persists message history, enforces per-conversation limits, and forwards each question to `agent-service` for an answer. It holds no assistant logic itself — `agent-service` is stateless per request and never sees a conversation until chat-service sends it one.
+
+---
+
+## Architectural Style
+
+A **layered architecture** — Router → Controller → Service → Model — with one twist: the service layer has two members that do fundamentally different jobs. `services/conversation.ts` is ordinary persistence (Mongoose CRUD, scoped to the caller). `services/agent.ts` touches no model at all — it's a plain HTTP client to `agent-service`'s `/ask`, forwarding the caller's `x-gateway-claims` header verbatim rather than re-authenticating.
+
+.mermaid
+    graph TD
+        subgraph Router
+            R[router.ts]
+        end
+        subgraph "Controller — controller/conversation.ts"
+            C["createConversation · listConversations · getConversation\nrenameConversation · deleteConversation · sendMessage"]
+        end
+        subgraph "Service"
+            CSV["services/conversation.ts\nCRUD, ownership checks, limits"]
+            ASV["services/agent.ts\naskAgent — HTTP client only"]
+        end
+        subgraph Model
+            M["models/conversation.ts"]
+        end
+        R --> C
+        C --> CSV
+        CSV -->|"sendMessage: forward question + trimmed history"| ASV
+        CSV --> M
+        M -.-> DB[(chat-db)]
+        ASV -->|"POST /ask, x-gateway-claims forwarded"| AGENT[agent-service]
+
+---
+
+## Key Architectural Decisions
+
+- **Conversation state lives here, not in agent-service.** `agent-service` answers one question at a time and remembers nothing between calls; chat-service is what makes a multi-turn conversation possible, by sending back a bounded slice of prior messages with every question.
+- **History sent to the assistant is capped, not the full conversation.** Only the last `HISTORY_MAX_MESSAGES` messages (10 by default) are sent to `agent-service` per question — a long conversation doesn't mean a growing prompt.
+- **Hard limits everywhere a user writes.** A conversation caps at 100 messages, a message at 8000 characters, a title at 120 — all rejected at the service layer before anything is persisted, not enforced by the database schema.
+- **Every operation is ownership-scoped.** `ownedConversation` checks `userId` and `conversationId` together on every read, write, and delete; a valid id for someone else's conversation resolves to "not found," not "forbidden," so existence isn't leaked either.
+- **Auto-titling from the first exchange.** A new conversation starts titled "New chat"; the first question becomes the title (truncated to the limit) the moment the first exchange completes, with no separate naming step.
+- **Identity forwarded, not re-verified.** `askAgent` passes the caller's `x-gateway-claims` header straight through to `agent-service` — the same mesh-injected header chat-service itself trusted, on the same trust chain every other migrated service uses.
+
+---
+
+## Integration
+
+- Owns `chat-db`; no other service reads it.
+- Calls `agent-service`'s `/ask` for every message, forwarding the caller's identity — see [Communication & Data Flow](data-flow.qd).
+
+For the conversation schema, the citation format, and the API, see the [Chat Service](../services/chat.qd) internals page.

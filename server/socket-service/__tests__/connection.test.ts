@@ -5,8 +5,7 @@ import { connectedClients } from "../src/config/registry.js";
 import type { SocketIdentity } from "../src/auth.js";
 
 // A fake socket that records registered handlers so a test can fire events.
-// `data.identity` mimics what the handshake middleware attaches before the
-// connection handler runs.
+// `data.identity` mimics what the handshake middleware attaches beforehand.
 function fakeSocket(domains: string[] = ["acme"]) {
   const handlers: Record<string, (arg: string) => void> = {};
   const identity: SocketIdentity = {

@@ -7,7 +7,7 @@ This page is the contract for working in the CrowdVision repository: how the mon
 
 ## The polyglot monorepo
 
-CrowdVision is a polyglot monorepo: a Vue client and five Node services in TypeScript, a Python `agent-service`, and a Rust `contracts-service`, orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`.
+CrowdVision is a polyglot monorepo: a Vue client, four Node services in TypeScript (`chat`, `notification`, `sensor`, `socket`), two Rust services (`contracts-service`, `twin-service`), a Python `agent-service`, and four Go services forming the identity/tenancy control plane (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) — orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`. See [Naming Conventions](naming-conventions.qd) for the per-language style each of these follows.
 
 Two structural facts shape everything you do:
 
@@ -15,7 +15,7 @@ Two structural facts shape everything you do:
 - **Every package is registered once** in `.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
 
 .box {Dependencies are not hoisted} type:{note}
-    When you add a dependency, install it inside that service's directory (`cd server/twin-service && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-service `npm install --prefix server/twin-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing.
+    When you add a Node dependency, install it inside that service's directory (`cd server/chat-service && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-service `npm install --prefix server/chat-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing. Rust and Go dependencies aren't hoisted either, but don't have this platform-resolution pitfall: `cargo add <crate>` / `go get <module>` inside the service directory is enough.
 
 ---
 
@@ -33,11 +33,11 @@ These rules preserve the boundaries the architecture depends on. A contribution 
     - - Keep services stateless
       - Hold no session state in a service; all caller authority travels in the signed token, so any instance can serve any request. Durable state belongs only in databases and the broker.
     - - One bounded context per service
-      - A service realises exactly one context from the [Domain model](../domain/strategic-design.qd). Logic that belongs to another context goes in that context's service, reached through its contract.
+      - A service realises exactly one context from [Domains & Contexts](../domain/strategic-design.qd). Logic that belongs to another context goes in that context's service, reached through its contract.
     - - Keep the frontend lightweight
       - Avoid adding a global store (Pinia/Vuex) unless genuinely necessary; prefer composables and local state.
     - - Test what you change
-      - Every backend service has a `__tests__` directory. New behaviour must be covered, and `just test all` must pass before you open a pull request.
+      - Every backend service has a test suite in its language's idiomatic location (`__tests__/` for the TypeScript services, in-module `#[cfg(test)]` plus `tests/` for the Rust services, `*_test.go` alongside the code for the Go services). New behaviour must be covered, and `just test all` must pass before you open a pull request.
     - - Route every tool through mise
       - Never rely on the ambient `PATH`. Use `just` recipes (which wrap `mise exec --`) or `mise exec -- <tool>` directly. Register any new package in `&#46;moon/workspace.yml`.
 
@@ -76,7 +76,7 @@ Running the same gates locally that CI runs avoids a slow round-trip through a f
 just lint affected   # mirrors ci-lint
 just test affected   # mirrors the per-service ci-* test legs
 just setup deps-check      # mirrors ci-deps  (npm ci / uv sync --locked / cargo check)
-just setup audit           # mirrors ci-audit (npm / uv / cargo audit)
+just setup audit           # mirrors ci-audit (npm / uv / cargo audit — no Go leg yet)
 ```
 
 .box {The commit message is part of the build} type:{warning}

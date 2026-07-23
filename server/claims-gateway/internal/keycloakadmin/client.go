@@ -1,10 +1,3 @@
-// Package keycloakadmin implements service.PasswordAuthenticator and
-// service.UserRegistrar over Keycloak's token endpoint and Admin REST API.
-// This is the only package that ever sends a raw password to Keycloak, and
-// it only ever runs server-side: the browser never holds cv-gateway's
-// confidential client secret, so it never talks to Keycloak directly for
-// in-app login/registration (unlike the redirect+PKCE flow, which the
-// browser drives itself).
 package keycloakadmin
 
 import (
@@ -39,18 +32,7 @@ func New(baseURL, realm, clientID, clientSecret string) *Client {
 	}
 }
 
-// PasswordGrant exchanges a username/password for an ID token via Keycloak's
-// Resource Owner Password Credentials grant. This is safe here because
-// cv-gateway is a confidential client whose secret never leaves this process
-// — the same grant on the public, browser-held cv-web client would not be.
-//
-// The resulting ID token's `aud` is cv-gateway, not cv-web — but
-// oidcverifier.Verify always checks for cv-web (the one audience every token
-// this gateway accepts must carry, since that's who the browser's PKCE flow
-// requests tokens for). realm-export.json's cv-gateway client carries a
-// "cv-web-audience" protocol mapper specifically so its tokens also satisfy
-// that check; without it every password login/registration 401s with
-// "invalid id token" despite correct credentials.
+// Exchanges a username/password for an ID token via Keycloak's Resource Owner Password Credentials grant.
 func (c *Client) PasswordGrant(ctx context.Context, username, password string) (string, error) {
 	resp, err := c.postForm(ctx, url.Values{
 		"grant_type":    {"password"},
@@ -75,20 +57,12 @@ func (c *Client) PasswordGrant(ctx context.Context, username, password string) (
 		}
 		return tok.IDToken, nil
 	case http.StatusBadRequest, http.StatusUnauthorized:
-		// Keycloak returns invalid_grant (400) for a wrong password/unknown
-		// user — this is the caller's fault, not a Keycloak outage.
 		return "", service.ErrInvalidCredentials
 	default:
 		return "", fmt.Errorf("keycloak token endpoint returned %d", resp.StatusCode)
 	}
 }
 
-// CreateUser provisions a Keycloak user via the Admin REST API — the only
-// way to create a user outside Keycloak's own hosted registration form.
-// username is set to email to match the realm's registrationEmailAsUsername.
-// name (optional) is stored as firstName — Keycloak's built-in "full name"
-// protocol mapper reads firstName+lastName into the ID token's name claim,
-// which claims-gateway's Exchange prefers as the account's display name.
 func (c *Client) CreateUser(ctx context.Context, email, password, name string) error {
 	adminToken, err := c.adminToken(ctx)
 	if err != nil {
@@ -136,13 +110,6 @@ func (c *Client) CreateUser(ctx context.Context, email, password, name string) e
 	}
 }
 
-// GetUser reads a Keycloak user's current email/display name/picture via the
-// Admin REST API — used to prefill the account settings form and to look up
-// the username needed to re-verify a password change (see
-// service.Gateway.ChangePassword). picture is Keycloak's "picture" user
-// attribute — populated by the google-picture identity provider mapper on
-// federated logins (see keycloak/realm-export.json), empty for
-// password-signup accounts that never linked a social IdP.
 func (c *Client) GetUser(ctx context.Context, userID string) (email, name, picture string, err error) {
 	adminToken, err := c.adminToken(ctx)
 	if err != nil {
@@ -185,11 +152,6 @@ func (c *Client) GetUser(ctx context.Context, userID string) (email, name, pictu
 	}
 }
 
-// UpdateUser patches a Keycloak user's email and/or display name. email and
-// name are each applied only when non-empty — a caller updating just the
-// name must not accidentally touch the email, and vice versa. Setting email
-// also sets username to match (keeps them in sync, per
-// registrationEmailAsUsername).
 func (c *Client) UpdateUser(ctx context.Context, userID, email, name string) error {
 	adminToken, err := c.adminToken(ctx)
 	if err != nil {
@@ -235,11 +197,6 @@ func (c *Client) UpdateUser(ctx context.Context, userID, email, name string) err
 	}
 }
 
-// ResetPassword sets a Keycloak user's password directly via the Admin REST
-// API. The caller (service.Gateway.ChangePassword) is responsible for
-// verifying the account's current password first — this method has no way
-// to do that itself, since the admin API can set any user's password
-// unconditionally.
 func (c *Client) ResetPassword(ctx context.Context, userID, newPassword string) error {
 	adminToken, err := c.adminToken(ctx)
 	if err != nil {
@@ -308,6 +265,8 @@ func (c *Client) postForm(ctx context.Context, form url.Values) (*http.Response,
 	return c.http.Do(req)
 }
 
+// compile-time interface assertions in order to ensure the Client implements
+// the required interfaces.
 var (
 	_ service.PasswordAuthenticator = (*Client)(nil)
 	_ service.UserRegistrar         = (*Client)(nil)

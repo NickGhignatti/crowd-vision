@@ -1,3 +1,4 @@
+use crate::infra::claims::GatewayClaims;
 use crate::infra::db;
 use crate::state::AppState;
 use axum::{
@@ -8,12 +9,10 @@ use axum::{
 const DEFAULT_COLUMNS: &[&str] = &["roomName", "roomMaxOccupancy"];
 
 pub async fn init_building_preferences(
+    _claims: GatewayClaims,
     Path(building_id): Path<String>,
     State(state): State<AppState>,
 ) -> StatusCode {
-    // Use or_insert_with to atomically detect whether the entry is new.
-    // The closure runs only on a Vacant entry (under the shard lock), so
-    // `is_new` is set without any TOCTOU window.
     let mut is_new = false;
     state
         .building_preferences
@@ -39,10 +38,19 @@ pub async fn init_building_preferences(
 #[cfg(test)]
 mod tests {
     use super::{DEFAULT_COLUMNS, init_building_preferences};
+    use crate::infra::claims::{ClaimsPayload, GatewayClaims};
     use crate::models::PreferenceDocument;
     use crate::state::AppState;
     use axum::extract::{Path, State};
     use axum::http::StatusCode;
+
+    fn claims() -> GatewayClaims {
+        GatewayClaims {
+            payload: ClaimsPayload {
+                sub: "u1".to_string(),
+            },
+        }
+    }
 
     async fn make_state() -> AppState {
         let opts = mongodb::options::ClientOptions::parse("mongodb://localhost:27017")
@@ -59,7 +67,8 @@ mod tests {
     async fn new_building_receives_default_columns() {
         let state = make_state().await;
         let status =
-            init_building_preferences(Path("bldg-1".to_string()), State(state.clone())).await;
+            init_building_preferences(claims(), Path("bldg-1".to_string()), State(state.clone()))
+                .await;
 
         assert_eq!(status, StatusCode::OK);
         let cols = state.building_preferences.get("bldg-1").unwrap();
@@ -77,7 +86,7 @@ mod tests {
             .insert("bldg-1".to_string(), vec!["custom-col".to_string()]);
 
         // init should not overwrite an existing entry.
-        init_building_preferences(Path("bldg-1".to_string()), State(state.clone())).await;
+        init_building_preferences(claims(), Path("bldg-1".to_string()), State(state.clone())).await;
 
         let cols = state.building_preferences.get("bldg-1").unwrap();
         assert_eq!(*cols, vec!["custom-col"]);
@@ -86,8 +95,8 @@ mod tests {
     #[tokio::test]
     async fn two_buildings_are_initialised_independently() {
         let state = make_state().await;
-        init_building_preferences(Path("bldg-a".to_string()), State(state.clone())).await;
-        init_building_preferences(Path("bldg-b".to_string()), State(state.clone())).await;
+        init_building_preferences(claims(), Path("bldg-a".to_string()), State(state.clone())).await;
+        init_building_preferences(claims(), Path("bldg-b".to_string()), State(state.clone())).await;
 
         assert!(state.building_preferences.contains_key("bldg-a"));
         assert!(state.building_preferences.contains_key("bldg-b"));

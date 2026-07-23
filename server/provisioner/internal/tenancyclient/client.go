@@ -1,5 +1,3 @@
-// Package tenancyclient implements reconciler.TenancyClient over HTTP
-// against tenancy-service's /internal/domains route.
 package tenancyclient
 
 import (
@@ -26,10 +24,6 @@ func New(baseURL string, secret []byte) *Client {
 	return &Client{baseURL: baseURL, secret: secret, http: &http.Client{Timeout: 5 * time.Second}}
 }
 
-// CreateDomain creates the domain a pooled-tier org needs to onboard.
-// tenancy-service's /internal/domains is itself idempotent (see its
-// CreateDomain doc comment), and this client also tolerates 409 defensively
-// — either way, a retried reconcile after a crash never fails forever.
 func (c *Client) CreateDomain(ctx context.Context, name, displayName, joinPolicy string) error {
 	body, err := json.Marshal(map[string]string{
 		"name": name, "displayName": displayName, "joinPolicy": joinPolicy,

@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 import request from "supertest";
-import { signGatewayToken, installGatewayJwksMock, restoreFetch } from "./gatewayTestAuth.js";
+import { auth, claimsHeaderFor } from "./gatewayTestAuth.js";
 
 jest.mock("../src/config/redis.js", () => ({
   __esModule: true,
@@ -15,7 +15,7 @@ jest.mock("../src/config/redis.js", () => ({
 jest.mock("../src/services/notificationService.js", () => ({
   __esModule: true,
   publishNotification: jest.fn(),
-  getGatewayUrl: jest.fn(() => "http://localhost:3000"),
+  getTwinServiceUrl: jest.fn(() => "http://twin-service:3000"),
 }));
 
 jest.mock("../src/services/pushService.js", () => {
@@ -44,22 +44,7 @@ const mockedSendPushToDomain = sendPushToDomain as jest.MockedFunction<
 >;
 const mockedRedisClient = redisClient as any;
 
-// Mint a JWT the auth middleware accepts; the account is bound from this token,
-// not from the request body/URL.
-const tokenFor = (accountName: string) =>
-  signGatewayToken({ sub: `u-${accountName}`, accountName });
-const auth = <T extends request.Test>(req: T, account = "alice"): T =>
-  req.set("Authorization", `Bearer ${tokenFor(account)}`) as T;
-
 describe("Notification controller branches", () => {
-  beforeAll(() => {
-    installGatewayJwksMock();
-  });
-
-  afterAll(() => {
-    restoreFetch();
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockedRedisClient.get.mockResolvedValue(null);
@@ -133,8 +118,8 @@ describe("Notification controller branches", () => {
     );
   });
 
-  it("forwards the caller's token to the twin domain lookup", async () => {
-    const token = tokenFor("alice");
+  it("forwards the caller's claims header to the twin domain lookup", async () => {
+    const header = claimsHeaderFor("alice");
     const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ["domain-a"],
@@ -142,14 +127,14 @@ describe("Notification controller branches", () => {
 
     await request(app)
       .post("/trigger")
-      .set("Authorization", `Bearer ${token}`)
+      .set("x-gateway-claims", header)
       .send({ buildingName: "building-1", notificationType: "temperature" });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain("/twin/domain/building-1");
-    expect((init.headers as Record<string, string>).Authorization).toBe(
-      `Bearer ${token}`,
+    expect(url).toContain("/domain/building-1");
+    expect((init.headers as Record<string, string>)["x-gateway-claims"]).toBe(
+      header,
     );
   });
 

@@ -159,6 +159,9 @@ Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon
     - - `&#46;moon/tasks/rust.yml`
       - `language: rust`
       - `build`, `test`, `lint`, `deps`, `audit`
+    - - `&#46;moon/tasks/go.yml`
+      - `language: go`
+      - `build` (`go build ./...`), `test` (`go test ./...`), `lint` (`go vet ./...` — no `golangci-lint` in this environment yet), `deps` (`go mod download`). No `audit` task yet.
     - - `&#46;moon/tasks/javascript.yml`
       - `language: javascript`
       - `deps` only — for support packages
@@ -197,6 +200,8 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
       - Has no unit suite wired into CI, so it excludes the inherited `test` task.
     - - `tooling`, `eslint-config`, `tests`
       - Tagged `language: 'javascript'` so they inherit only `deps`. (`server/tests` holds an integration-only Jest suite that runs via `just test integration`, never as a moon `:test`.)
+    - - `claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`
+      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in `.mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)) — and `scripts/install.mjs` doesn't fetch Go modules during `just setup install` (they resolve lazily on first `build`/`test`).
 
 ### Inspecting the graph
 
@@ -245,10 +250,10 @@ Thanks to the single registry, onboarding a package is a one-place change:
 
 1. Register it in `.moon/workspace.yml` under `projects:`.
 2. Add a minimal `moon.yml` in the package with its `language:` (and any genuine task overrides).
-3. It now flows automatically into `:build` / `:test` / `:lint` / `:audit` / `:deps`, and into `just setup install` / `just setup clean-install` (both derive from `moon query projects`).
+3. It now flows automatically into whichever tasks its language file defines (`:build` / `:test` / `:lint` / `:deps`, and `:audit` for every language except `go`), and — for `typescript`, `python`, and `rust` — into `just setup install` / `just setup clean-install` (both derive from `moon query projects`, but `scripts/install.mjs` doesn't have a `go` bucket, so a new Go package needs its modules fetched manually the first time; see [Setting Up the Environment](setting-up.qd)).
 
 .box {Choose the language deliberately} type:{warning}
-    `typescript` / `python` / `rust` inherit the full build/test/lint pipeline — use them only for packages that have those scripts. Use `javascript` for support packages that need dependency installs but have no build/test/lint (such as `tooling`).
+    `typescript` / `python` / `rust` / `go` each inherit their own full build/test/lint pipeline — use the one matching the package's actual scripts. Use `javascript` for support packages that need dependency installs but have no build/test/lint (such as `tooling`).
 
 ---
 

@@ -18,7 +18,7 @@ Every commit message must follow the [Conventional Commits](https://www.conventi
 ```
 
 - **type** — the kind of change (table below).
-- **scope** — the affected component, e.g. `auth`, `twin`, `ci` (see [Naming Conventions](naming-conventions.qd)).
+- **scope** — the affected component, e.g. `gateway`, `twin`, `ci` (see [Naming Conventions](naming-conventions.qd)).
 - **subject** — a concise, imperative description ("add", not "added").
 
 The convention is enforced on every pull request by the `ci-commitlint` workflow, which runs `@commitlint/config-conventional` (configured in `tooling/commitlint.config.js`). A non-conforming message blocks the merge.
@@ -39,21 +39,21 @@ The type determines how the next version is computed.
       - `feat(twin): add per-room colour overrides`
       - Minor bump (`1.1.0` → `1.2.0`).
     - - `fix`
-      - `fix(auth): reject expired refresh tokens`
+      - `fix(gateway): reject expired refresh tokens`
       - Patch bump (`1.1.0` → `1.1.1`).
     - - `docs`, `chore`, `refactor`, `test`, `ci`, `style`, `perf`, `build`
       - `docs(sensor): document the ingestion fast path`
       - No release.
     - - Breaking change
-      - `feat(auth)!: remove the /auth/v1 endpoints`
+      - `feat(gateway)!: remove the /gateway/v1 endpoints`
       - Major bump (`1.1.0` → `2.0.0`).
 
 A breaking change is signalled either by a `!` after the type/scope, or by a `BREAKING CHANGE:` footer:
 
 ```text
-feat(auth)!: remove the deprecated /auth/v1 endpoints
+feat(gateway)!: remove the deprecated /gateway/v1 endpoints
 
-BREAKING CHANGE: clients must migrate to /auth. The v1 routes are gone.
+BREAKING CHANGE: clients must migrate to /gateway. The v1 routes are gone.
 ```
 
 .box {Only feat and fix produce a release} type:{note}

@@ -1,10 +1,8 @@
 import { makeRequest } from '@/composables/core/useApi.ts'
 import { useAuthStore } from '@/stores/authentication.ts'
 
-// Account settings — self-service profile read/update, and password change.
-// Unlike the JWT (StandardClaims), email/name are fetched live from
-// claims-gateway's /gateway/profile on demand, never carried in the session
-// cookie every request sends.
+// Account settings — self-service profile read/update and password change. Unlike the JWT,
+// email/name are fetched live from claims-gateway's /gateway/profile, never in the session cookie.
 export function useAccountSettings() {
   async function fetchProfile(): Promise<{
     ok: boolean

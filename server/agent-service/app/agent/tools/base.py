@@ -10,10 +10,8 @@ if TYPE_CHECKING:
 
     from app.auth import AuthUser
 
-# Without the TypeVar, the protocol says: "every tool's run accepts any BaseModel."
-# But SearchDocsTool.run only accepts SearchDocsArgs.
-# That's a lie and pyright catches it.
-# ArgsT lets each tool say: "my Args is X, and my run accepts exactly X."
+# Without the TypeVar, the protocol claims every tool's run accepts any BaseModel,
+# but e.g. SearchDocsTool.run only accepts SearchDocsArgs; ArgsT lets pyright bind it.
 ArgsT = TypeVar("ArgsT", bound=BaseModel)
 
 

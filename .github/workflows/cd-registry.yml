@@ -52,6 +52,10 @@ jobs:
             crowdvision-simulator: 'simulators/sensor-simulator/**'
             crowdvision-aq-simulator: 'simulators/aq-simulator/**'
             crowdvision-client: 'client/**'
+            crowdvision-claims-gateway: 'server/claims-gateway/**'
+            crowdvision-provisioner: 'server/provisioner/**'
+            crowdvision-registry: 'server/registry-service/**'
+            crowdvision-tenancy: 'server/tenancy-service/**'
             workflow: '.github/workflows/cd-registry.yml'
 
       - name: Build matrix
@@ -61,18 +65,29 @@ jobs:
           INPUT: ${{ github.event.inputs.service }}
           CHANGED: ${{ steps.filter.outputs.changes }}
         run: |
-          # Single source of truth: image -> build context, in sync with the dorny context above.
           CONTEXTS='{
             "crowdvision-chat":"./server/chat-service",
-            "crowdvision-twin":"./server/twin-service",
+            "crowdvision-twin":".",
             "crowdvision-notification":"./server/notification-service",
             "crowdvision-socket":"./server/socket-service",
-            "crowdvision-agent":"./server/agent-service",
+            "crowdvision-agent":".",
             "crowdvision-sensor":"./server/sensor-service",
             "crowdvision-contracts":"./server/contracts-service",
             "crowdvision-simulator":"./simulators/sensor-simulator",
             "crowdvision-aq-simulator":"./simulators/aq-simulator",
-            "crowdvision-client":"./client"
+            "crowdvision-client":"./client",
+            "crowdvision-claims-gateway":".",
+            "crowdvision-provisioner":".",
+            "crowdvision-registry":".",
+            "crowdvision-tenancy":"."
+          }'
+          DOCKERFILES='{
+            "crowdvision-twin":"server/twin-service/Dockerfile",
+            "crowdvision-agent":"server/agent-service/Dockerfile",
+            "crowdvision-claims-gateway":"server/claims-gateway/Dockerfile",
+            "crowdvision-provisioner":"server/provisioner/Dockerfile",
+            "crowdvision-registry":"server/registry-service/Dockerfile",
+            "crowdvision-tenancy":"server/tenancy-service/Dockerfile"
           }'
 
           if [ "$EVENT" = "workflow_dispatch" ]; then
@@ -90,8 +105,8 @@ jobs:
             fi
           fi
 
-          MATRIX=$(jq -nc --argjson ctx "$CONTEXTS" --argjson sel "$SELECTED" \
-            '{include: ($sel | map(select($ctx[.] != null) | {image: ., context: $ctx[.]}))}')
+          MATRIX=$(jq -nc --argjson ctx "$CONTEXTS" --argjson dockerfiles "$DOCKERFILES" --argjson sel "$SELECTED" \
+            '{include: ($sel | map(select($ctx[.] != null) | {image: ., context: $ctx[.], dockerfile: ($dockerfiles[.] // "\($ctx[.])/Dockerfile")}))}')
           if [ "$(echo "$MATRIX" | jq '.include | length')" -gt 0 ]; then ANY=true; else ANY=false; fi
 
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
@@ -136,14 +151,13 @@ jobs:
         if: matrix.image == 'crowdvision-client'
         run: echo "BUILD_ARGS=VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}" >> $GITHUB_ENV
 
-      # Build into the runner's local daemon only (push: false + load: true).
-      # Publishing happens below, AFTER the Trivy gate passes, so a vulnerable
-      # image never reaches GHCR. load:true requires a single-platform build,
-      # which this is — revisit if `platforms:` is ever added.
+      # Build into the local daemon only (push: false + load: true) — publishing
+      # happens below, after the Trivy gate passes, so a vulnerable image never reaches GHCR. Revisit if `platforms:` (multi-arch) is added.
       - name: Build ${{ matrix.image }} (local, pre-scan)
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: false
           load: true
           build-args: ${{ env.BUILD_ARGS }}
@@ -151,20 +165,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ── Security scan (Trivy) ────────────────────────────────────────────────
-      # This scan gates the push step below: any finding fails the job BEFORE
-      # the image is published.
-      # Scope: OS packages ONLY (vuln-type: os). Application dependencies
-      # (npm/pip/cargo) are already gated PRE-MERGE by the per-service CI
-      # workflows (npm audit --audit-level=high --omit=dev, uv audit,
-      # cargo audit), so
-      # scanning libraries here too would duplicate that gate with a different DB —
-      # Trivy additionally flags bundled/vendored JS (e.g. swagger-ui-dist) that
-      # `overrides` cannot patch, producing unactionable failures. Trivy's job here
-      # is the OS layer the PR-time audits can't see.
-      #   - exit-code 1 + ignore-unfixed: block only on FIXABLE HIGH/CRITICAL OS CVEs.
-      #   - Base images run apk/apt upgrade at build time to keep this green.
-      #   - .trivyignore holds deliberate, justified CVE waivers.
+      # Gates the push below (finding = job fails before publish). OS packages only — app deps are already gated pre-merge by per-service audits.
       - name: Scan image for vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -185,13 +186,13 @@ jobs:
           sarif_file: trivy-results-${{ matrix.image }}.sarif
           category: trivy-${{ matrix.image }}
 
-      # Same context/build-args/cache as the pre-scan build, so this resolves
-      # entirely from the still-warm gha cache (no recompilation) and pushes
-      # the exact layers that were just scanned, now also tagged :latest.
+      # Same context/build-args/cache as the pre-scan build, so this resolves from
+      # the warm gha cache (no recompile) and pushes the exact scanned layers, now also tagged :latest.
       - name: Push ${{ matrix.image }} (scan passed)
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           build-args: ${{ env.BUILD_ARGS }}
           tags: |

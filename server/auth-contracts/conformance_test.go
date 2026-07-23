@@ -6,11 +6,8 @@ import (
 	"testing"
 )
 
-// TestFixtureConforms asserts fixtures/standard-claims.json unmarshals cleanly
-// into StandardClaims with every required field populated. This is the drift
-// detector: any consumer (Go today, others later) asserts against the same
-// fixture file, so a shape change that breaks a consumer fails here first,
-// not in a production cookie.
+// TestFixtureConforms is the drift detector: every consumer asserts against the same fixture
+// file, so a shape change that breaks a consumer fails here first, not in a production cookie.
 func TestFixtureConforms(t *testing.T) {
 	raw, err := os.ReadFile("fixtures/standard-claims.json")
 	if err != nil {

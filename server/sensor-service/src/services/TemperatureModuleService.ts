@@ -82,9 +82,6 @@ export class TemperatureService {
     };
     if (roomId) matchStage.roomId = roomId;
 
-    // Floor each timestamp to the nearest bucket boundary using pure arithmetic:
-    //   bucket_start = timestamp - (timestamp % bucketMs)
-    // This works for any MongoDB version without requiring $dateTrunc (5.0+).
     return Temperature.aggregate([
       { $match: matchStage },
       {
@@ -147,7 +144,6 @@ export class TemperatureService {
       const globalConfig = doc?.temperature;
       if (!globalConfig) return;
 
-      // Check for room-specific override, fallback to global building threshold
       const roomConfig =
         (globalConfig as any).rooms?.get?.(roomId) ||
         (globalConfig as any).rooms?.[roomId];

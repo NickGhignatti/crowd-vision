@@ -1,22 +1,5 @@
-//
-// Cross-platform parallel task runner.
-//
-// The buffered-parallel runner behind `just setup install` (audit/deps now run via
-// moon; see .moon/tasks/*.yml). Each task is:
-//
-//   { name, cwd, cmd, optional? }
-//
-//   name      label shown in the banner + summary
-//   cwd       directory to run in (relative to repo root)
-//   cmd       shell command string (quoting stays intact per-shell)
-//   optional  if true, a missing executable (ENOENT) is reported as "skipped"
-//             instead of failing the whole run — used for tools like cargo-audit
-//             that a contributor may not have installed.
-//
-// Output from each task is buffered and flushed as one block on completion so
-// parallel runs don't interleave. A concurrency cap (default 4, override via the
-// JOBS env var) keeps us from spawning a dozen heavy installs at once.
-//
+// Cross-platform parallel task runner behind `just setup install`. Each task is
+// { name, cwd, cmd, optional? }; optional tasks report a missing executable as "skipped".
 
 import { spawn } from 'node:child_process';
 
@@ -85,11 +68,7 @@ async function runPool(tasks, concurrency) {
   return results;
 }
 
-//
-// Run all tasks, print a summary, and exit the process with the right code:
-//   0  every task ok or skipped
-//   1  at least one task failed
-//
+// Run all tasks, print a summary, and exit with 0 if every task ok/skipped, else 1.
 export async function runTasks(tasks, { concurrency = concurrencyFromEnv(), label = 'task' } = {}) {
   if (tasks.length === 0) {
     console.error('No tasks to run.');

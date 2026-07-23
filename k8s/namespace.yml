@@ -6,3 +6,6 @@ metadata:
     app: crowdvision
     app.kubernetes.io/name: crowdvision
     app.kubernetes.io/managed-by: kubectl
+    # Enrolls every pod with ztunnel (Istio ambient mesh) — no sidecars, no restarts.
+    # Declared here so `just k8s apply` re-asserts enrollment on every run.
+    istio.io/dataplane-mode: ambient

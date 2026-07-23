@@ -77,9 +77,8 @@ class OpenAICompatClient:
         self.model = model or settings.answer_model
         self._max_tokens = settings.max_output_tokens
         self._temperature = settings.llm_temperature
-        # OpenRouter returns the *actual* charged cost in `usage.cost` when usage
-        # accounting is enabled. Other OpenAI-compatible endpoints (e.g. OpenAI
-        # itself) reject the extra body field, so gate it on the provider.
+        # OpenRouter returns the actual charged cost via `usage.cost`; other
+        # OpenAI-compatible endpoints reject the extra body field, so gate on provider.
         self._report_cost = "openrouter" in settings.llm_base_url.lower()
         # Used as gen_ai.system on generation spans.
         self._system = "openrouter" if self._report_cost else "openai"

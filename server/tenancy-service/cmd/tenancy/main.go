@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/MicahParks/keyfunc/v3"
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -49,12 +48,7 @@ func main() {
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
 	if cfg.TenancyEnabled {
-		jwks, err := keyfunc.NewDefaultCtx(ctx, []string{cfg.GatewayJWKSURL})
-		if err != nil {
-			log.Fatalf("fetching gateway jwks: %v", err)
-		}
 		api.Mount(r, svc, api.Config{
-			JWKS: jwks, Issuer: cfg.GatewayIssuer,
 			InternalSecret: cfg.InternalSecret, TenancyEnabled: true,
 		})
 

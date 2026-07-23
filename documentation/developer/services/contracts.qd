@@ -33,6 +33,18 @@ The source is organised by role: a composition root and shared kernel at the cra
     - - `src/infra/metrics.rs`
       - Prometheus registry, telemetry counters and fan-out latency, and the `GET /metrics` handler.
 
+.mermaid
+    graph TD
+        MAIN["main.rs\ncomposition root"] --> API["api/\ndashboard.rs, data.rs, init.rs"]
+        MAIN --> TUNNEL["tunnel.rs\nbackground worker"]
+        MAIN --> DB["infra/db.rs\nconnect + hydrate"]
+        API --> STATE["state.rs\nAppState: DashMap + Mongo handle"]
+        TUNNEL --> STATE
+        API --> DISC["infra/discovery.rs"]
+        API --> METRICS["infra/metrics.rs"]
+        TUNNEL --> METRICS
+        STATE -.-> DB
+
 ---
 
 ## Configuration
@@ -104,21 +116,23 @@ Reads and the tunnel operate purely in memory; durability is handled off the req
 
 ## HTTP API
 
+All routes except `/health` and `/metrics` require the mesh-verified `x-gateway-claims` header (decoded by a `GatewayClaims` extractor that returns `401` on a missing or malformed header) — the same contract every other service consumes. The user-facing routes are gated at the edge (`require_gateway_auth` in the `Caddyfile`, the `/contracts` `AuthorizationPolicy` rule in Kubernetes); `POST /preferences/init` is an internal call and receives the building creator's claims forwarded by twin-service. This enforces authentication only; per-building authorization is deferred to the Cedar phase.
+
 .var {headers}
    - Method · Path
    - Description
 
 .tablebyrows {.headers}
     - - `GET /preferences/{building_id}`
-      - Return `{ building_id, allowed_columns }`. `404` if the building has no entry.
+      - Return `{ building_id, allowed_columns }`. `404` if the building has no entry. Requires `x-gateway-claims`.
     - - `POST /preferences/{building_id}`
-      - Replace the allowed-column list (body `{ allowed_columns }`). Instant cache write + async persist. Returns `{ status, building_id, active_columns }`.
+      - Replace the allowed-column list (body `{ allowed_columns }`). Instant cache write + async persist. Returns `{ status, building_id, active_columns }`. Requires `x-gateway-claims`.
     - - `POST /preferences/init/{building_id}`
-      - Idempotently seed defaults `["roomName", "roomMaxOccupancy"]` with an atomic or-insert, so a repeat call is a safe no-op. Called by the twin-service on building creation.
+      - Idempotently seed defaults `["roomName", "roomMaxOccupancy"]` with an atomic or-insert, so a repeat call is a safe no-op. Called by the twin-service on building creation, forwarding the creator's `x-gateway-claims`.
     - - `GET /`
-      - The aggregated metric catalog (see Metric Discovery).
+      - The aggregated metric catalog (see Metric Discovery). Requires `x-gateway-claims`.
     - - `GET /metrics`
-      - Prometheus exposition: telemetry events received/published counters and fan-out latency.
+      - Prometheus exposition: telemetry events received/published counters and fan-out latency. Open (scraped in-cluster).
 
 ---
 

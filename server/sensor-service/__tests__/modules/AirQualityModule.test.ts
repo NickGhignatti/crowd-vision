@@ -6,10 +6,8 @@ jest.unstable_mockModule("src/models/airQualitySignal.ts", () => ({
 jest.unstable_mockModule("src/models/buildingThreshold.ts", () => ({
   BuildingThresholdModel: { findOne: jest.fn(), findOneAndUpdate: jest.fn() },
 }));
-// Redis is touched by:
-//   - BaseSensorModule.publishTelemetry (publish)
-//   - getAllLatest read-path cache (get + setEx)
-// All are stubbed so tests don't try to open a real socket.
+// Redis is touched by publishTelemetry (publish) and getAllLatest's cache (get/setEx);
+// all stubbed so tests don't open a real socket.
 jest.unstable_mockModule("src/config/redis.ts", () => ({
   default: {
     publish: jest.fn().mockResolvedValue(0 as never),

@@ -1,5 +1,4 @@
 $schema: "https://moonrepo.dev/schemas/toolchain.json"
 
 node:
-  # Let mise manage the Node version; moon uses whatever `node` is on PATH.
   packageManager: "npm"

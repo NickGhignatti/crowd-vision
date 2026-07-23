@@ -25,10 +25,13 @@ Before writing code, answer four questions:
    tools read-only unless authorization, confirmation, audit logging, and retry behavior are
    explicitly designed.
 
-.box type:{warning}
-    The current twin tools do not forward the caller JWT or enforce `ToolContext`
-    authorization. Do not copy that behavior for sensitive tools: authorize against `ctx.user`,
-    or call a downstream endpoint that enforces the caller's identity.
+.box type:{note}
+    The twin tools (`app/agent/tools/twin.py`) are the reference pattern for a sensitive tool:
+    each one calls `can_access_domain(ctx.user, args.domain)` before touching data, and forwards
+    the caller's identity downstream via `auth_headers(ctx.user)` rather than calling
+    twin-service with no identity at all. Follow the same shape for any new tool that reads or
+    writes real data — authorize against `ctx.user` first, and forward it to whatever backend
+    the tool calls.
 
 ---
 

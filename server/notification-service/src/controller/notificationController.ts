@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import {
-  getGatewayUrl,
+  getTwinServiceUrl,
   publishNotification,
 } from "../services/notificationService.js";
 import {
@@ -24,8 +24,8 @@ type SubscriptionRequestBody = {
   // Legacy / single updates
   enabled?: boolean;
   type?: NotificationType;
-  types?: NotificationType[]; // e.g. ["temperature", "air_quality"]
-  preferences?: { type: NotificationType; enabled: boolean }[]; // e.g. [{type: "temperature", enabled: true}]
+  types?: NotificationType[];
+  preferences?: { type: NotificationType; enabled: boolean }[];
   subscription?: {
     endpoint?: string;
     keys?: {
@@ -58,7 +58,7 @@ const isValidSubscription = (subscription: IncomingSubscription) =>
 const getDomainName = (body: { domainName?: string; domainId?: string }) =>
   body.domainName || body.domainId;
 
-/** Resolves domainName (or its deprecated alias domainId) and throws if absent. */
+/** Resolves domainName and throws if absent. */
 const requireDomainName = (
   body: { domainName?: string; domainId?: string },
 ): string => {
@@ -69,13 +69,14 @@ const requireDomainName = (
 
 const getDomainsForBuilding = async (
   buildingName: string,
-  authToken?: string,
+  claimsHeader?: string,
 ) => {
-  // twin-service authenticates its routes now; forward the caller's JWT.
+  // Called directly against twin-service's internal address (not the public gateway) so the
+  // caller's mesh-injected claims header forwards verbatim — mTLS already authenticates this hop.
   const response = await fetch(
-    `${getGatewayUrl()}/twin/domain/${encodeURIComponent(buildingName)}`,
-    authToken
-      ? { headers: { Authorization: `Bearer ${authToken}` } }
+    `${getTwinServiceUrl()}/domain/${encodeURIComponent(buildingName)}`,
+    claimsHeader
+      ? { headers: { "x-gateway-claims": claimsHeader } }
       : undefined,
   );
 
@@ -127,6 +128,9 @@ export const subscribe = async (req: Request, res: Response) => {
   const body = req.body as SubscriptionRequestBody;
   // Bind the subscription to the authenticated caller, never to a body field.
   const accountName = callerAccountName(req);
+  if (typeof accountName !== "string" || accountName.trim().length === 0) {
+    throw new ValidationError("Invalid authenticated account");
+  }
   const domainName = getDomainName(body);
   const subscription: IncomingSubscription = body.subscription?.endpoint
     ? body.subscription

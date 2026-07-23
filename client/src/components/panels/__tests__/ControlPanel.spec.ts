@@ -96,10 +96,8 @@ describe('ControlPanel', () => {
   })
 
   describe('forwarding to the nested EditToolbar', () => {
-    // EditToolbar isn't stubbed here on purpose — this proves the
-    // inheritAttrs:false + v-bind="$attrs" wiring actually delivers
-    // ControlPanel's undeclared props/listeners (dirty, @save, ...) to it,
-    // not just that ControlPanel renders *a* child.
+    // EditToolbar isn't stubbed here on purpose — this proves inheritAttrs:false + v-bind="$attrs"
+    // actually delivers ControlPanel's undeclared props/listeners to it, not just that a child renders.
     const editToolbarProps = {
       dirty: true,
       isSaving: false,
@@ -122,9 +120,8 @@ describe('ControlPanel', () => {
     })
 
     it('forwards EditToolbar events up through ControlPanel', async () => {
-      // v-bind="$attrs" binds the caller's onSave listener directly onto
-      // EditToolbar — ControlPanel never re-emits 'save' itself, so the
-      // listener has to be observed directly rather than via wrapper.emitted().
+      // v-bind="$attrs" binds the caller's onSave listener directly onto EditToolbar — ControlPanel
+      // never re-emits 'save', so the listener must be observed directly, not via wrapper.emitted().
       const onSave = vi.fn()
       const wrapper = mount(ControlPanel, {
         props: { ...defaultProps, isEditing: true, ...editToolbarProps, onSave },

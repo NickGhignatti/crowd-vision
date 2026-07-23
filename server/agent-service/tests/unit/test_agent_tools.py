@@ -151,7 +151,7 @@ async def test_latest_sensor_data_projects_and_names_building_readings(monkeypat
     def sensor_handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/peopleCount/entireBuilding"
         assert request.url.params["building"] == "building-1"
-        assert request.headers["Authorization"] == "Bearer caller-jwt"
+        assert request.headers["x-gateway-claims"] == "caller-jwt"
         return httpx.Response(
             200,
             json={
@@ -266,7 +266,7 @@ async def test_sensor_history_forwards_validated_query_and_projects_points(monke
         assert request.url.params["roomId"] == "room-1"
         assert request.url.params["timeRange"] == "1W"
         assert request.url.params["aggMode"] == "max"
-        assert request.headers["Authorization"] == "Bearer caller-jwt"
+        assert request.headers["x-gateway-claims"] == "caller-jwt"
         return httpx.Response(
             200,
             json={
@@ -305,7 +305,7 @@ async def test_list_sensors_projects_room_devices_and_forwards_auth(monkeypatch)
 
     def sensor_handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/sensors/buildings/building-1/rooms/room-1"
-        assert request.headers["Authorization"] == "Bearer caller-jwt"
+        assert request.headers["x-gateway-claims"] == "caller-jwt"
         return httpx.Response(
             200,
             json={

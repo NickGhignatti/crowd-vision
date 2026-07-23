@@ -9,9 +9,8 @@ import {
 } from "@jest/globals";
 import { startMongo, stopMongo, clearCollections } from "../helpers/mongo.js";
 
-// Redis is the service's cache + alert bus — mock it so tests exercise Mongo
-// logic without a broker. unstable_mockModule (unlike jest.mock) is not hoisted
-// and may close over `redisMock`.
+// Redis is the service's cache + alert bus — mocked so tests exercise Mongo logic without a broker.
+// unstable_mockModule (unlike jest.mock) isn't hoisted and may close over `redisMock`.
 const redisMock = {
   get: jest.fn<(key: string) => Promise<string | null>>(async () => null),
   setEx: jest.fn(async () => "OK"),

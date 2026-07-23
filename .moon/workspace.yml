@@ -15,12 +15,12 @@ projects:
   contracts-service: "server/contracts-service"
   auth-contracts: "server/auth-contracts"
   auth-middleware: "server/auth-middleware"
+  auth-policy: "server/auth-policy"
   tenancy-service: "server/tenancy-service"
   claims-gateway: "server/claims-gateway"
   registry-service: "server/registry-service"
   provisioner: "server/provisioner"
   sensor-simulator: "simulators/sensor-simulator"
-  # Support packages: deps-only (see .moon/tasks/javascript.yml), no build/test/lint.
   tooling: "tooling"
   eslint-config: "tooling/eslint-config"
   tests: "server/tests"

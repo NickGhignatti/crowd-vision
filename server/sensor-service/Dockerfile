@@ -21,5 +21,6 @@ RUN node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json',
     && npm install --omit=dev \
     && npm cache clean --force
 COPY --from=builder /app/dist ./dist
+COPY openapi.yaml ./openapi.yaml
 EXPOSE 3000
 CMD ["npm", "start"]

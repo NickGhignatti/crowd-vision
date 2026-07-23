@@ -33,8 +33,8 @@ const ownedConversation = async (userId: string, conversationId: string) => {
     throw new NotFoundError("Conversation not found");
   }
   const conversation = await Conversation.findOne({
-    _id: conversationId,
-    userId,
+    _id: { $eq: conversationId },
+    userId: { $eq: userId },
   });
   if (!conversation) throw new NotFoundError("Conversation not found");
   return conversation;
@@ -48,7 +48,7 @@ export const createConversation = (userId: string, title?: unknown) =>
   });
 
 export const listConversations = (userId: string) =>
-  Conversation.find({ userId })
+  Conversation.find({ userId: { $eq: userId } })
     .sort({ updatedAt: -1 })
     .select("-messages")
     .lean();
@@ -75,8 +75,8 @@ export const deleteConversation = async (
     throw new NotFoundError("Conversation not found");
   }
   const deleted = await Conversation.findOneAndDelete({
-    _id: conversationId,
-    userId,
+    _id: { $eq: conversationId },
+    userId: { $eq: userId },
   });
   if (!deleted) throw new NotFoundError("Conversation not found");
 };
@@ -85,7 +85,7 @@ export const sendMessage = async (
   userId: string,
   conversationId: string,
   content: unknown,
-  cookie: string,
+  claimsHeader: string,
 ) => {
   const question = validateText(content, "content", MAX_MESSAGE_LENGTH);
   const conversation = await ownedConversation(userId, conversationId);
@@ -99,7 +99,7 @@ export const sendMessage = async (
       role,
       content: previousContent,
     }));
-  const answer = await askAgent(question, history, cookie);
+  const answer = await askAgent(question, history, claimsHeader);
   const now = new Date();
   const userMessage: IChatMessage = {
     role: "user",

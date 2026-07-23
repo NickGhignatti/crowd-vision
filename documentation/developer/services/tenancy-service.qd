@@ -1,0 +1,274 @@
+.docname {Tenancy Service}
+.include {docs}
+
+Implementation reference for `tenancy-service`. For its architectural role, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd); for the domain model, see [Identity & Access Context](../domain/identity-access.qd).
+
+`tenancy-service` owns everything about domains and memberships: who belongs to which organization, with what role, and how they got there — self-service join, invite code, or direct provisioning. It never touches Keycloak and never mints a token; [`claims-gateway`](claims-gateway.qd) is the only caller that turns what this service knows into a signed `StandardClaims` token.
+
+---
+
+## Source Layout
+
+.var {headers}
+   - Path
+   - Responsibility
+
+.tablebyrows {.headers}
+    - - `cmd/tenancy/main.go`
+      - Wires Postgres, the optional Redis consumer, and the HTTP router together.
+    - - `internal/api/handler.go`
+      - All 14 routes: end-user domain/membership operations plus the `/internal/*` routes other services call.
+    - - `internal/api/internalauth.go`
+      - HMAC-SHA256 signature check guarding the `/internal/*` routes.
+    - - `internal/service/tenancy.go`
+      - Domain creation, subdomains, invite codes, join/leave — the actual business rules.
+    - - `internal/store/` (`store.go`, `postgres.go`)
+      - The `Domain`/`Membership`/`InviteCode` structs and their Postgres persistence.
+    - - `internal/events/account_deleted.go`
+      - A Redis Streams consumer that reaps memberships when an account is deleted elsewhere.
+    - - `migrations/`
+      - `0001_init` (domains, memberships), `0002_subdomains` (parent hierarchy), `0003_invite_codes`, `0004_public_domains`.
+
+.mermaid
+    graph TD
+        subgraph "End-user routes — RequireMeshClaims"
+            H1["GET/POST /domains"]
+            H2["POST /domains/:d/join"]
+            H3["POST /domains/:d/invite"]
+            H4["DELETE /domains/:d/members/:id"]
+            H5["POST /domains/:d/subdomains"]
+            H6["POST /domains/:d/invite-codes"]
+            H7["POST /invite-codes/:code/redeem"]
+        end
+        subgraph "Internal routes — HMAC X-Signature"
+            I1["GET /internal/memberships"]
+            I2["POST /internal/provision"]
+            I3["POST /internal/domains"]
+        end
+        SVC["internal/service/tenancy.go"]
+        STORE["internal/store\nDomain, Membership, InviteCode"]
+        H1 --> SVC
+        H2 --> SVC
+        H3 -->|"CanManageDomain check"| SVC
+        H4 -->|"self, or CanManageDomain"| SVC
+        H5 -->|"CanManageDomain check"| SVC
+        H6 -->|"CanManageDomain check"| SVC
+        H7 --> SVC
+        I1 --> SVC
+        I2 --> SVC
+        I3 --> SVC
+        SVC --> STORE
+        REDIS["events/account_deleted.go\nRedis Streams consumer"] --> SVC
+
+---
+
+## Data Model
+
+**File:** `migrations/0001_init.up.sql`, `0002_subdomains.up.sql`, `0003_invite_codes.up.sql`, `0004_public_domains.up.sql`
+
+```sql
+create table domains (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null unique,
+  display_name text not null,
+  join_policy  text not null default 'invite-only'
+               check (join_policy in ('open-via-idp', 'invite-only')),
+  parent_id    uuid references domains(id) on delete cascade,
+  is_public    boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+
+create table memberships (
+  account_id  uuid not null,   -- Keycloak subject; not foreign-keyed, Keycloak owns the account
+  domain_id   uuid not null references domains(id) on delete cascade,
+  role        text not null,
+  external_id text,
+  joined_via  text not null default 'invite'
+              check (joined_via in ('self-idp', 'invite', 'local')),
+  primary key (account_id, domain_id)
+);
+
+create table invite_codes (
+  id          uuid primary key default gen_random_uuid(),
+  domain_id   uuid not null references domains(id) on delete cascade,
+  code        text not null unique,   -- 32 hex chars
+  role        text not null,
+  created_by  uuid not null,
+  expires_at  timestamptz not null,
+  redeemed_by uuid,
+  redeemed_at timestamptz
+);
+```
+
+`account_id` is deliberately not a foreign key — the account itself lives in Keycloak, outside this service's database, so there is nothing local to reference. `parent_id` on `domains` is what lets a domain express a subdomain hierarchy; `joined_via` records how a membership was created (self-service through a federated identity provider, an invite code, or provisioned directly), which is display/audit information rather than something any rule branches on today.
+
+---
+
+## Domain And Membership Management
+
+**File:** `internal/service/tenancy.go`
+
+**Invite codes** are single-use and time-limited. Redemption has to be atomic — two people racing to redeem the same code must not both succeed — so the check-and-mark happens in one SQL statement rather than a read-then-write:
+
+```sql
+-- File: internal/store/postgres.go
+with redeemed as (
+  update invite_codes
+  set redeemed_by = $2, redeemed_at = now()
+  where code = $1 and redeemed_by is null and expires_at > now()
+  returning id, domain_id, role, created_by, expires_at
+)
+select ... from redeemed join domains d on d.id = redeemed.domain_id
+```
+
+Only the caller whose `UPDATE` actually matches a row (unredeemed, unexpired) gets a result back; every other concurrent redeemer sees zero rows and is told the code is invalid — Postgres's own row-level locking does the race-safety, not application logic.
+
+**Leaving a domain** treats self-removal and removing someone else as genuinely different operations — one is an identity check, the other is a policy decision:
+
+```go
+// File: internal/api/handler.go
+func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
+	claims, _ := authmiddleware.FromContext(r.Context())
+	domain := chi.URLParam(r, "domain")
+	target := chi.URLParam(r, "accountId")
+
+	// Anyone may remove themselves — checked before Cedar since it's an
+	// identity comparison, not a policy decision; removing someone else
+	// needs domain admin.
+	if target != claims.Sub && !authpolicy.CanManageDomain(claims.Memberships, domain) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	// ...
+}
+```
+
+And the service layer separately guards against a domain being left with no administrator at all — using [Auth Contracts](../packages/auth-contracts.qd)' plain `Can()` weight comparison, since this is a domain-internal invariant, not a Cedar authorization decision:
+
+```go
+// File: internal/service/tenancy.go
+admins, targetIsAdmin := 0, false
+for _, m := range members {
+	if authcontracts.Can(m.Role, "business_admin") {
+		admins++
+		if m.AccountID == accountID {
+			targetIsAdmin = true
+		}
+	}
+}
+if targetIsAdmin && admins <= 1 {
+	return ErrLastAdminCannotLeave
+}
+```
+
+This is the one place in the platform where `Can()` (a plain role-weight comparison) and `CanManageDomain` (a Cedar authorization decision) both apply to the same operation, deliberately for different questions: Cedar decides *whether this caller may remove that member*; the weight check decides *whether removing them would leave the domain administratorless*, which has nothing to do with who's asking.
+
+---
+
+## HTTP API
+
+.var {headers}
+   - Method · Path
+   - Auth
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `GET /health`
+      - Public
+      - Liveness probe.
+    - - `GET /domains`
+      - Mesh claims
+      - Lists domains with `is_public = true`, with member counts, for a "browse organizations" UI.
+    - - `POST /domains`
+      - Mesh claims
+      - Creates a root domain; the creator is auto-joined as `business_admin`.
+    - - `GET /me/memberships`
+      - Mesh claims
+      - The caller's own domain memberships.
+    - - `POST /domains/:domain/join`
+      - Mesh claims
+      - Self-service join — only succeeds if the domain's `join_policy` is `open-via-idp`; `403` otherwise.
+    - - `POST /domains/:domain/invite`
+      - Mesh claims + `CanManageDomain`
+      - Adds a known account directly, bypassing invite codes.
+    - - `DELETE /domains/:domain/members/:accountId`
+      - Mesh claims (self, or + `CanManageDomain`)
+      - Removes a membership; `409` if it would leave the domain without an admin.
+    - - `GET /domains/:domain/subdomains`
+      - Mesh claims
+      - Direct children only, not the full subtree.
+    - - `POST /domains/:domain/subdomains`
+      - Mesh claims + `CanManageDomain`
+      - Creates a child domain under the caller's own domain.
+    - - `POST /domains/:domain/invite-codes`
+      - Mesh claims + `CanManageDomain`
+      - Generates a 32-character code with a 7-day default TTL.
+    - - `POST /invite-codes/:code/redeem`
+      - Mesh claims
+      - Atomically joins the caller to the code's domain — see *Domain And Membership Management* above.
+    - - `GET /internal/memberships?accountId=`
+      - HMAC `X-Signature`
+      - Called by `claims-gateway` on every login to build a token's `memberships`.
+    - - `POST /internal/provision`
+      - HMAC `X-Signature`
+      - Called by `claims-gateway` on first login and by `provisioner` when a new organization is created.
+    - - `POST /internal/domains`
+      - HMAC `X-Signature`
+      - Called by `provisioner` to create the domain backing a newly-signed-up organization.
+
+---
+
+## The `account.deleted` Consumer
+
+**File:** `internal/events/account_deleted.go`
+
+Because `memberships.account_id` isn't a foreign key (the account itself lives in Keycloak), tenancy-service can't rely on a database cascade to clean up when an account is deleted — it listens for the fact on a Redis Stream instead:
+
+```go
+func (c *Consumer) Run(ctx context.Context) {
+	for {
+		res, err := c.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
+			Group: Group, Consumer: c.name,
+			Streams: []string{Stream, ">"}, Count: 32, Block: 5 * time.Second,
+		}).Result()
+		// ...
+		for _, msg := range messages {
+			accountID := msg.Values["accountId"].(string)
+			if err := svc.ReapAccount(ctx, accountID); err != nil {
+				log.Printf("events: reap failed for %q, will redeliver: %v", accountID, err)
+				continue // not acked — Redis redelivers it
+			}
+			c.rdb.XAck(ctx, Stream, Group, msg.ID)
+		}
+	}
+}
+```
+
+Using a consumer group (rather than a plain subscription) means a failed reap is never silently lost: the message stays pending until `XAck` succeeds, and a crashed instance's unacked messages become claimable by another. This consumer is fully implemented and correct — but as documented in [Communication & Data Flow](../architecture/data-flow.qd), no component in the codebase currently publishes to the `account.deleted` stream, so in practice a deleted Keycloak account's memberships are never actually reaped yet. That gap is tracked in `Kubeet/claude/issues/issues.md`, not here.
+
+`REDIS_URL` is optional: if it's unset, the service simply never starts this consumer — every other route works normally, since nothing else in the service depends on it.
+
+---
+
+## Configuration
+
+.var {headers}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.headers}
+    - - `DATABASE_URL`
+      - required
+      - Postgres connection string.
+    - - `INTERNAL_SIGNING_SECRET`
+      - required
+      - HMAC secret for `/internal/*` routes — shared with `claims-gateway`.
+    - - `REDIS_URL`
+      - optional
+      - If unset, the `account.deleted` consumer never starts; every other route is unaffected.
+    - - `ADDR`
+      - `:3000`
+      - HTTP listen address.
+
+`tenancy-service` makes no outbound HTTP calls to any other service — it only talks to Postgres and, optionally, Redis. Every cross-service interaction is inbound: other services call *it*, either as an authenticated end user (via the mesh) or as a trusted internal caller (via HMAC).

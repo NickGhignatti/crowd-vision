@@ -40,8 +40,13 @@ output/
 .claude
 .agents
 
+# graphify knowledge graph (generated from code; rebuild with `graphify update .`)
+graphify-out/
+
 # Auto-generated runtime compose file (scripts/compose-run.mjs)
 compose.runtime.yml
 
 # Moon build tool — cache directory (config files in .moon/ are committed)
 .moon/cache
+.planning/
+.tools/

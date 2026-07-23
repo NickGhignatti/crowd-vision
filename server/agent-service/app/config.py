@@ -18,10 +18,8 @@ class Settings(BaseSettings):
         alias="POSTGRES_URL",
     )
 
-    # LLM provider (any OpenAI-compatible endpoint: OpenRouter, OpenAI, etc.)
-    # A single key/base-url drives both chat and embeddings. The legacy
-    # GOOGLE_API_KEY / DEEPSEEK_API_KEY names are accepted as fallbacks so existing
-    # deployments keep working without an env rename.
+    # LLM provider (any OpenAI-compatible endpoint). Legacy GOOGLE_API_KEY /
+    # DEEPSEEK_API_KEY names are accepted as fallbacks to avoid an env rename.
     llm_api_key: str = Field(
         default="",
         validation_alias=AliasChoices(
@@ -33,16 +31,12 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("LLM_BASE_URL", "OPENROUTER_BASE_URL"),
     )
 
-    # Authentication — claims-gateway mints an RS256 token, verified against
-    # its published JWKS (see app/gateway_jwks.py). No shared secret here.
-    gateway_jwks_uri: str = Field(default="", alias="GATEWAY_JWKS_URI")
-    gateway_issuer: str = Field(default="cv-gateway", alias="GATEWAY_ISSUER")
+    # Gateway JWT is verified once at the mesh edge; this service only reads the
+    # already-verified x-gateway-claims header (see app/auth.py). No JWT material here.
     jwt_cookie_name: str = Field(default="authentication_token", alias="JWT_COOKIE_NAME")
     require_auth: bool = Field(default=True, alias="REQUIRE_AUTH")
-    # Local-dev-only bypass for evals/run_evals.py's auto-minted tokens — an
-    # HS256 secret that exists nowhere in any deployed environment (never set
-    # in docker-compose.yml or k8s secrets). Empty ⇒ disabled; see
-    # app/auth.py's `_decode` for how this is scoped away from real traffic.
+    # Local-dev-only bypass for evals/run_evals.py tokens; never set in any deployed
+    # env. Empty ⇒ disabled (see app/auth.py `_decode`).
     eval_jwt_secret: str = Field(default="", alias="EVAL_JWT_SECRET")
 
     # Models
@@ -66,16 +60,12 @@ class Settings(BaseSettings):
     twin_timeout_seconds: float = Field(default=10.0, alias="TWIN_TIMEOUT_SECONDS", gt=0)
     sensor_timeout_seconds: float = Field(default=10.0, alias="SENSOR_TIMEOUT_SECONDS", gt=0)
     max_tool_hops: int = Field(default=6, alias="MAX_TOOL_HOPS", ge=1)
-    # Cap on generated tokens per LLM call. Besides bounding cost, sending an
-    # explicit max_tokens keeps OpenRouter's credit/affordability pre-check happy:
-    # models that advertise a huge default max output (e.g. Gemini's 65k) otherwise
-    # get a 402 "requires more credits" on low-balance accounts.
+    # Cap on generated tokens per call; also avoids OpenRouter's 402 "requires more
+    # credits" pre-check for models with huge default max output (e.g. Gemini's 65k).
     max_output_tokens: int = Field(default=2048, alias="MAX_OUTPUT_TOKENS", gt=0)
 
-    # Per-request chat-model override (`/ask` `model` field) is a privileged eval/ops
-    # feature, not for end users — it spends the shared OpenRouter balance. It is
-    # honoured only for callers at/above this role, and (when set) the model must be
-    # in the allowlist. Empty allowlist ⇒ no allowlist constraint (still role-gated).
+    # Per-request chat-model override (`/ask` model field) is privileged eval/ops only
+    # (spends shared balance); role-gated, and must be in allowlist when non-empty.
     model_override_min_role: str = Field(default="business_admin", alias="MODEL_OVERRIDE_MIN_ROLE")
     allowed_models: str = Field(default="", alias="ALLOWED_MODELS")
 
@@ -85,10 +75,8 @@ class Settings(BaseSettings):
 
     # Observability
     otel_endpoint: str = Field(default="", alias="OTEL_EXPORTER_OTLP_ENDPOINT")
-    # "http/protobuf" routes traces to an OTLP/HTTP collector (e.g. Langfuse at
-    # /api/public/otel); anything else (default) uses the OTLP/gRPC exporter.
-    # Endpoint + auth headers are read from the standard OTEL_EXPORTER_OTLP_* env
-    # vars by the exporter itself.
+    # "http/protobuf" routes to an OTLP/HTTP collector (e.g. Langfuse); anything else
+    # uses OTLP/gRPC. Endpoint/auth read from standard OTEL_EXPORTER_OTLP_* env vars.
     otel_protocol: str = Field(default="", alias="OTEL_EXPORTER_OTLP_PROTOCOL")
     observe_payloads: bool = Field(default=False, alias="OBSERVE_PAYLOADS")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
@@ -132,8 +120,6 @@ class Settings(BaseSettings):
 def validate_startup_settings(settings: Settings) -> None:
     """Reject missing runtime secrets without making Settings construction stateful."""
     missing: list[str] = []
-    if settings.require_auth and not settings.gateway_jwks_uri:
-        missing.append("GATEWAY_JWKS_URI (required when REQUIRE_AUTH=true)")
     if not settings.llm_api_key:
         missing.append("OPENROUTER_API_KEY or LLM_API_KEY")
     if missing:

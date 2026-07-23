@@ -33,6 +33,12 @@ const emit = defineEmits<{
   'headers-updated': [headers: TableHeader[]]
 }>()
 
+// This component has two roots (the table card and the floating swap dropdown),
+// so Vue can't auto-inherit a parent-passed `class` — it would warn on every
+// re-render (and the dashboard re-renders on every telemetry tick). Forward
+// attrs explicitly onto the card, which is what any passed class is meant for.
+defineOptions({ inheritAttrs: false })
+
 const { t } = useI18n()
 const buildingIdRef = toRef(props, 'selectedBuildingId')
 const userPermission = useUserPermissions()
@@ -106,7 +112,7 @@ const { isAutoPlaying, toggleAutoPlay } = useAutoPlay(() => {
 </script>
 
 <template>
-  <div
+  <div v-bind="$attrs"
     class="w-full max-w-5xl bg-white rounded-2xl shadow-sm border border-slate-300 flex flex-col h-full overflow-hidden">
     <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 -translate-y-2"
       enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-150 ease-in"

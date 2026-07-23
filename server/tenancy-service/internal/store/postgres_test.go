@@ -1,9 +1,7 @@
 //go:build integration
 
-// Integration tests against a real Postgres via testcontainers-go — the SQL
-// itself (migrations, upsert conflict handling) can't be verified by the
-// storefake, so this suite is the check that the queries above are actually
-// correct. Run with: go test -tags=integration ./internal/store/...
+// Integration tests against a real Postgres via testcontainers-go; the storefake can't verify
+// the SQL itself. Run with: go test -tags=integration ./internal/store/...
 package store_test
 
 import (

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { toRefs } from 'vue'
-import { useLoop } from '@tresjs/core'
+import { toRefs, watch, onUnmounted } from 'vue'
+import { useLoop, useTresContext } from '@tresjs/core'
 import { PerspectiveCamera } from 'three'
 
 const props = defineProps<{
@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const { active, camera } = toRefs(props)
 const { onBeforeRender } = useLoop()
+const { renderer } = useTresContext()
 
 onBeforeRender(({ elapsed }) => {
   const currentCamera = camera?.value
@@ -27,6 +28,28 @@ onBeforeRender(({ elapsed }) => {
     currentCamera.lookAt(0, 0, 0)
   }
 })
+
+// The canvas renders on-demand, so onBeforeRender only fires when a frame is
+// actually drawn. That would deadlock rotation (no frame -> no camera move ->
+// no frame), so while active we request a frame every rAF tick. Each request
+// paints one frame, which runs the callback above, keeping the orbit alive
+// without forcing the whole scene into continuous 'always' rendering.
+let pumpId = 0
+const pump = () => {
+  if (!active.value) return
+  renderer.invalidate()
+  pumpId = requestAnimationFrame(pump)
+}
+
+watch(active, (isActive) => {
+  if (isActive) {
+    pumpId = requestAnimationFrame(pump)
+  } else {
+    cancelAnimationFrame(pumpId)
+  }
+})
+
+onUnmounted(() => cancelAnimationFrame(pumpId))
 </script>
 
 <template>

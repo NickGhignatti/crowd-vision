@@ -95,9 +95,9 @@ Every Node service follows the same internal layout, so the file you want is alw
 
 ---
 
-## Rust — contracts-service
+## Rust — contracts-service & twin-service
 
-The contracts-service follows idiomatic Rust style.
+Both Rust services follow idiomatic Rust style.
 
 .var {headers}
    - Artefact
@@ -117,6 +117,33 @@ The contracts-service follows idiomatic Rust style.
     - - Constants
       - `SCREAMING_SNAKE_CASE`
       - `RAW_CHANNEL`, `DEFAULT_COLUMNS`
+
+---
+
+## Go — Identity & Tenancy Control Plane
+
+`claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` follow idiomatic Go style (`gofmt`, checked by `go vet` in `just lint`).
+
+.var {headers}
+   - Artefact
+   - Convention
+   - Example
+
+.tablebyrows {.headers}
+    - - Packages and files
+      - `snake_case` or single lowercase word, matching the package name
+      - `internal/api/handler.go`, `internal/store/`
+    - - Exported functions and types
+      - `PascalCase`
+      - `func Mount(...)`, `type Config struct`
+    - - Unexported functions, types, and variables
+      - `camelCase` (Go's own export rule: capitalisation *is* visibility, not a separate style choice)
+      - `func writeDomain(...)`, `type handler struct`, `func isValidAccountID(...)`
+    - - Constants
+      - `PascalCase` or `camelCase` per Go convention (no `SCREAMING_SNAKE_CASE` — that's not idiomatic Go)
+      - as appropriate to exported/unexported
+
+Package layout follows the standard Go project layout: `internal/api` (HTTP handlers), `internal/service` (business logic), `internal/store` (persistence, often with a `storefake` sibling for tests), `internal/events` (Redis Stream consumers/producers), `internal/config`.
 
 ---
 
@@ -158,12 +185,12 @@ Conventional-commit scopes use the service or area name, so history can be filte
 
 ```text
 feat(twin): add per-room colour overrides
-fix(auth): reject expired refresh tokens
+fix(gateway): reject expired refresh tokens
 docs(sensor): document the ingestion fast path
 chore(ci): pin the kubeconform version
 ```
 
-Common scopes: `auth`, `twin`, `sensor`, `notification`, `socket`, `contracts`, `client`, `agent`, `ci`, `docs`, `k8s`. The full commit format is covered in [Commits & Semantic Release](semantic-release.qd).
+Common scopes: `gateway` (claims-gateway), `tenancy`, `registry`, `provisioner`, `twin`, `sensor`, `notification`, `socket`, `contracts`, `client`, `agent`, `ci`, `docs`, `k8s`. The full commit format is covered in [Commits & Semantic Release](semantic-release.qd).
 
 ---
 
@@ -177,7 +204,7 @@ Common scopes: `auth`, `twin`, `sensor`, `notification`, `socket`, `contracts`, 
 .tablebyrows {.headers}
     - - Environment variables
       - `UPPER_SNAKE_CASE`
-      - `GATEWAY_JWKS_URI`, `SENSOR_SERVICE_URL`
+      - `GATEWAY_ISSUER`, `SENSOR_SERVICE_URL`
     - - Docker images
       - `crowdvision-<service>` under the org namespace
       - `ghcr.io/nickghignatti/crowdvision-twin`

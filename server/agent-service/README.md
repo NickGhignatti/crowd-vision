@@ -80,9 +80,13 @@ and troubleshooting. The design-level documentation lives in the Quarkdown **Dev
 
 ## API
 
-`/health` is public. `/ask` and `/ingest` require the JWT issued by `claims-gateway` (RS256,
-verified against its JWKS), supplied as the `authentication_token` cookie or a Bearer token.
-Set `REQUIRE_AUTH=false` only for isolated local development.
+`/health` is public. `/ask` and `/ingest` require an authenticated caller. The gateway JWT is
+verified once at the mesh edge (Istio `RequestAuthentication`, or Caddy `forward_auth` in dev)
+and injected as the base64 `x-gateway-claims` header, which this service trusts without
+re-verifying a signature (see [app/auth.py](app/auth.py)). The local eval runner instead
+presents its own HS256 token (`evals/run_evals.py`) as the `authentication_token` cookie or a
+Bearer token, verified against `EVAL_JWT_SECRET`. Set `REQUIRE_AUTH=false` only for isolated
+local development.
 
 ### Ask With JSON
 
@@ -284,8 +288,6 @@ an `xfail` row.
 | `ALLOWED_MODELS` | empty | Optional comma-separated override allowlist; empty permits any model for privileged callers |
 | `LLM_TIMEOUT_SECONDS` / `EMBED_TIMEOUT_SECONDS` | `30` / `15` | Provider request timeouts |
 | `POSTGRES_URL` | Docker-local agent DB | Async SQLAlchemy connection URL |
-| `GATEWAY_JWKS_URI` | empty | claims-gateway's published JWKS endpoint, used to verify the RS256 token |
-| `GATEWAY_ISSUER` | `cv-gateway` | Expected `iss` claim on the verified token |
 | `EVAL_JWT_SECRET` | empty | Local-dev-only HS256 bypass for `evals/run_evals.py`; never set in any deployed environment |
 | `JWT_COOKIE_NAME` | `authentication_token` | JWT cookie read by protected routes |
 | `REQUIRE_AUTH` | `true` | Protect `/ask` and `/ingest` |
@@ -305,8 +307,8 @@ LLM traces, tool calls, latency, tokens, and cost are visible in Langfuse at
 
 `CORS_ORIGINS` exists in settings but is not currently consumed by FastAPI middleware.
 Invalid numeric bounds, unsupported role/log-format values, and malformed service URL schemes
-fail during settings loading. Service startup also fails when the provider key is missing, or
-when authentication is enabled without `GATEWAY_JWKS_URI`.
+fail during settings loading. Service startup also fails when the provider key
+(`OPENROUTER_API_KEY` / `LLM_API_KEY`) is missing.
 
 ### Langfuse Login
 
@@ -327,10 +329,12 @@ secrets and `OTEL_EXPORTER_OTLP_*` variables; `just stack env` does not currentl
 
 ### `/ask` Or `/ingest` Returns `401`
 
-- Confirm the request includes `authentication_token=<jwt>` or a Bearer token.
-- Confirm `GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` point at a reachable claims-gateway, and the token
-  was actually minted by it (an eval-minted HS256 token only works if `EVAL_JWT_SECRET` matches
-  on both sides).
+- For real user traffic, confirm the request reaches agent-service through the edge (which
+  injects `x-gateway-claims`) or through chat-service — a caller hitting `/agent` directly with a
+  raw gateway JWT gets no injected header, since the `/agent` edge route is ungated and strips any
+  client-supplied `x-gateway-claims`.
+- For the eval runner, confirm the `authentication_token` cookie or Bearer token is an HS256 token
+  and `EVAL_JWT_SECRET` matches on both sides.
 - Regenerate the local environment with `just stack env` if the token or secret is stale.
 
 ### Provider Requests Fail

@@ -36,8 +36,6 @@ pub async fn metrics_handler() -> impl IntoResponse {
     encoder
         .encode(&prometheus::gather(), &mut buffer)
         .expect("metrics encode");
-    // `format_type()` borrows `encoder`, which is dropped at the end of this
-    // function — take an owned copy so the response doesn't reference a local.
     let content_type = encoder.format_type().to_owned();
     ([(axum::http::header::CONTENT_TYPE, content_type)], buffer)
 }

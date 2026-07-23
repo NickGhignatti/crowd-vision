@@ -4,8 +4,7 @@ services:
       context: .
     ports:
       - "3001:3000"
-    # Resolve `host.docker.internal` on hosts that don't provide it automatically
-    # (Docker Engine / WSL2). The simulator rewrites localhost targets to this
-    # hostname to reach the gateway published on the host's port 80.
+    # Resolve `host.docker.internal` on hosts that don't provide it automatically;
+    # the simulator rewrites localhost targets to it to reach the host's gateway.
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -32,9 +32,8 @@ func TestCanIn_ScopesTheCheckToTheDomain(t *testing.T) {
 	if !c.CanIn("acme", "business_admin") {
 		t.Fatal("business_admin in acme should pass a business_admin check")
 	}
-	// admin in acme, but only standard_customer in unibo — the same person,
-	// different tenants, different outcome. This is the whole point of
-	// per-membership roles rather than a role on the user.
+	// admin in acme, but only standard_customer in unibo — same person, different tenants,
+	// different outcome: the whole point of per-membership roles.
 	if c.CanIn("unibo", "business_admin") {
 		t.Fatal("standard_customer in unibo must not pass a business_admin check")
 	}

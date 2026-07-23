@@ -4,10 +4,8 @@ import { useAuthStore } from './authentication'
 import type { DomainMembership, Domain } from '@/models/domain'
 import type { DomainRow, DomainToAddWithVisibilityPayload } from '@/interfaces/domain'
 
-// Roles a business_admin can mint an invite code for — mirrors auth-contracts'
-// role ladder minus the platform-level "admin" role, which is never
-// domain-scoped. tenancy-service itself enforces who may actually redeem
-// each code; this list only decides which QR tabs getDomainQRs offers.
+// Roles a business_admin can mint an invite code for — mirrors auth-contracts' role ladder
+// minus platform-level "admin". tenancy-service enforces actual redemption; this only gates the QR tabs offered.
 const INVITABLE_ROLES = ['business_admin', 'business_staff', 'standard_customer']
 
 export const useDomainsStore = defineStore('domains', {
@@ -169,12 +167,15 @@ export const useDomainsStore = defineStore('domains', {
         throw new Error(message || 'Failed to create domain')
       }
 
+      // Creating a domain makes the caller its business_admin in tenancy, but that only
+      // reaches the mesh once re-minted into the session JWT — otherwise /twin/buildings/<newDomain> 403s.
+      await this._authStore.refreshSession()
+
       return await response.json()
     },
 
-    // Self-service join for a domain whose join_policy allows it
-    // (open-via-idp) — replaces the old internal/OIDC branch entirely; OIDC
-    // per-domain login no longer exists, Keycloak is the only IdP now.
+    // Self-service join for a domain whose join_policy allows it (open-via-idp); Keycloak is
+    // the sole IdP, so this doesn't touch per-domain OIDC.
     async subscribeToDomain(domain: { name: string }) {
       const response = await makeRequest(
         `/tenancy/domains/${encodeURIComponent(domain.name)}/join`,
@@ -184,6 +185,7 @@ export const useDomainsStore = defineStore('domains', {
 
       if (!response.ok) throw new Error(`Failed to subscribe to ${domain.name}`)
 
+      await this._authStore.refreshSession()
       await this.fetchMemberships(true)
     },
 
@@ -206,10 +208,8 @@ export const useDomainsStore = defineStore('domains', {
       await this.fetchMemberships(true)
     },
 
-    // Replaces the old TOTP-QR flow: mints one invite code per grantable role
-    // and hands the raw codes back keyed by role. QrCodeCard already turns any
-    // string into a QR image, so an invite code works as a drop-in payload for
-    // what used to be an otpauth:// URI — no changes needed there.
+    // Mints one invite code per grantable role, keyed by role. QrCodeCard turns any string
+    // into a QR image, so an invite code works as a drop-in payload with no changes needed there.
     async getDomainQRs(domainName: string) {
       const qrCodes: Record<string, string> = {}
 
@@ -234,9 +234,8 @@ export const useDomainsStore = defineStore('domains', {
       return qrCodes
     },
 
-    // The joining-side counterpart to getDomainQRs — redeems a code minted by
-    // a business_admin, replacing the old TOTP-QR "scan to join" flow with
-    // "paste the code you were given".
+    // The joining-side counterpart to getDomainQRs: redeems a code minted by a business_admin
+    // ("paste the code you were given").
     async redeemInviteCode(code: string) {
       const response = await makeRequest(
         `/tenancy/invite-codes/${encodeURIComponent(code.trim())}/redeem`,
@@ -248,6 +247,7 @@ export const useDomainsStore = defineStore('domains', {
         throw new Error(message || 'Failed to redeem invite code')
       }
 
+      await this._authStore.refreshSession()
       await this.fetchMemberships(true)
     },
 

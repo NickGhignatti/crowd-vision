@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claims-gateway
+  namespace: crowdvision
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claims-gateway
+  template:
+    metadata:
+      labels:
+        app: claims-gateway
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      initContainers:
+        - name: wait-for-tenancy
+          image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z tenancy-service 3000; do
+                echo "waiting for tenancy-service..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
+      containers:
+        - name: claims-gateway
+          image: ghcr.io/nickghignatti/crowdvision-claims-gateway:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          ports:
+            - containerPort: 3000
+          env:
+            - name: ADDR
+              value: ":3000"
+            - name: OIDC_DISCOVERY_URL
+              value: "http://host.k3d.internal:8090/realms/crowdvision"
+            - name: OIDC_ISSUER
+              value: "http://localhost:8090/realms/crowdvision"
+            - name: OIDC_CLIENT_ID
+              value: "cv-web"
+            - name: TENANCY_URL
+              value: "http://tenancy-service:3000"
+            - name: GATEWAY_ISSUER
+              value: "cv-gateway"
+            - name: KEYCLOAK_REALM
+              value: "crowdvision"
+            - name: REGISTRATION_CLIENT_ID
+              value: "cv-gateway"
+            - name: GATEWAY_PRIVATE_KEY_FILE
+              value: "/run/secrets/gateway-key.pem"
+          envFrom:
+            - secretRef:
+                name: claims-gateway-secret   # INTERNAL_SIGNING_SECRET, REGISTRATION_CLIENT_SECRET
+          volumeMounts:
+            - name: gateway-key
+              mountPath: /run/secrets
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+              ephemeral-storage: "100Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+              ephemeral-storage: "500Mi"
+      volumes:
+        - name: gateway-key
+          secret:
+            secretName: claims-gateway-key
+        - name: tmp
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claims-gateway
+  namespace: crowdvision
+spec:
+  selector:
+    app: claims-gateway
+  ports:
+    - port: 3000
+      targetPort: 3000
+      appProtocol: http

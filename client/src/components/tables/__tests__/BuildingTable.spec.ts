@@ -34,9 +34,8 @@ vi.mock('@/composables/building/useBuildingSensor', () => ({
   }),
 }))
 
-// BuildingTable transitively pulls in stores/composables (domain store,
-// useColumnManager) that call the network. Stub the central HTTP helper so
-// none of those calls explode with "Cannot read properties of undefined".
+// BuildingTable transitively pulls in stores/composables (domain store, useColumnManager)
+// that call the network — stub the HTTP helper so none of those calls throw on undefined.
 vi.mock('@/composables/core/useApi', () => ({
   makeRequest: vi.fn().mockResolvedValue({
     ok: true,
@@ -82,9 +81,8 @@ const createWrapper = (props = {}, options = {}) =>
   })
 
 describe('BuildingTable', () => {
-  // vitest is configured with `mockReset: true`, which wipes implementations
-  // between tests. Re-install the makeRequest stub before each one so
-  // composables/stores that fire on mount don't crash on undefined responses.
+  // vitest's `mockReset: true` wipes implementations between tests; re-install the makeRequest
+  // stub before each one so composables/stores firing on mount don't crash on undefined responses.
   beforeEach(() => {
     vi.mocked(makeRequest).mockResolvedValue({
       ok: true,

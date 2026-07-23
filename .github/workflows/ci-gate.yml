@@ -13,7 +13,6 @@ permissions:
   pull-requests: read
 
 jobs:
-  # ── Detect which paths changed ─────────────────────────────────────────────
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -25,6 +24,13 @@ jobs:
       sensor: ${{ steps.filter.outputs.sensor }}
       socket: ${{ steps.filter.outputs.socket }}
       twin: ${{ steps.filter.outputs.twin }}
+      claims_gateway: ${{ steps.filter.outputs.claims_gateway }}
+      tenancy: ${{ steps.filter.outputs.tenancy }}
+      registry: ${{ steps.filter.outputs.registry }}
+      provisioner: ${{ steps.filter.outputs.provisioner }}
+      auth_policy: ${{ steps.filter.outputs.auth_policy }}
+      auth_contracts: ${{ steps.filter.outputs.auth_contracts }}
+      auth_middleware: ${{ steps.filter.outputs.auth_middleware }}
       k8s: ${{ steps.filter.outputs.k8s }}
       shared: ${{ steps.filter.outputs.shared }}
       ci: ${{ steps.filter.outputs.ci }}
@@ -34,10 +40,10 @@ jobs:
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
-      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
         id: filter
         with:
           filters: |
@@ -65,6 +71,27 @@ jobs:
             twin:
               - 'server/twin-service/**'
               - '.github/workflows/ci-twin.yml'
+            claims_gateway:
+              - 'server/claims-gateway/**'
+              - '.github/workflows/ci-claims-gateway.yml'
+            tenancy:
+              - 'server/tenancy-service/**'
+              - '.github/workflows/ci-tenancy-service.yml'
+            registry:
+              - 'server/registry-service/**'
+              - '.github/workflows/ci-registry-service.yml'
+            provisioner:
+              - 'server/provisioner/**'
+              - '.github/workflows/ci-provisioner.yml'
+            auth_policy:
+              - 'server/auth-policy/**'
+              - '.github/workflows/ci-auth-policy.yml'
+            auth_contracts:
+              - 'server/auth-contracts/**'
+              - '.github/workflows/ci-auth-contracts.yml'
+            auth_middleware:
+              - 'server/auth-middleware/**'
+              - '.github/workflows/ci-auth-middleware.yml'
             k8s:
               - 'k8s/**'
               - '.github/workflows/ci-k8s.yml'
@@ -80,8 +107,6 @@ jobs:
             simulators:
               - 'simulators/**'
               - '.github/workflows/ci-simulators.yml'
-            # Any dependency manifest/lockfile across all ecosystems — gates the
-            # PR against newly-introduced vulnerable dependencies.
             deps:
               - '**/package.json'
               - '**/package-lock.json'
@@ -91,21 +116,24 @@ jobs:
               - '**/Cargo.toml'
               - '**/Cargo.lock'
 
-      # Build the Docker matrix (include-form) from the changed services that
-      # ship an image. Only these get a PR-time build
       - name: Compute changed Docker images
         id: docker
         run: |
           inc='[]'
-          add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" '$a + [{context:$c, image:$i}]'); }
+          add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" --arg d "$1/Dockerfile" '$a + [{context:$c, image:$i, dockerfile:$d}]'); }
+          add_repo_root() { inc=$(jq -cn --argjson a "$inc" --arg i "$2" --arg d "$1/Dockerfile" '$a + [{context:".", image:$i, dockerfile:$d}]'); }
           if [ "${{ steps.filter.outputs.chat }}" = "true" ];         then add "./server/chat-service"         "crowdvision-chat"; fi
-          if [ "${{ steps.filter.outputs.twin }}" = "true" ];         then add "./server/twin-service"         "crowdvision-twin"; fi
+          if [ "${{ steps.filter.outputs.twin }}" = "true" ];         then add_repo_root "server/twin-service" "crowdvision-twin"; fi
           if [ "${{ steps.filter.outputs.notification }}" = "true" ]; then add "./server/notification-service" "crowdvision-notification"; fi
           if [ "${{ steps.filter.outputs.socket }}" = "true" ];       then add "./server/socket-service"       "crowdvision-socket"; fi
-          if [ "${{ steps.filter.outputs.agent }}" = "true" ];        then add "./server/agent-service"        "crowdvision-agent"; fi
+          if [ "${{ steps.filter.outputs.agent }}" = "true" ];        then add_repo_root "server/agent-service" "crowdvision-agent"; fi
           if [ "${{ steps.filter.outputs.sensor }}" = "true" ];       then add "./server/sensor-service"       "crowdvision-sensor"; fi
           if [ "${{ steps.filter.outputs.contracts }}" = "true" ];    then add "./server/contracts-service"    "crowdvision-contracts"; fi
           if [ "${{ steps.filter.outputs.client }}" = "true" ];       then add "./client"                      "crowdvision-client"; fi
+          if [ "${{ steps.filter.outputs.claims_gateway }}" = "true" ]; then add_repo_root "server/claims-gateway"   "crowdvision-claims-gateway"; fi
+          if [ "${{ steps.filter.outputs.tenancy }}" = "true" ];         then add_repo_root "server/tenancy-service" "crowdvision-tenancy"; fi
+          if [ "${{ steps.filter.outputs.registry }}" = "true" ];        then add_repo_root "server/registry-service" "crowdvision-registry"; fi
+          if [ "${{ steps.filter.outputs.provisioner }}" = "true" ];     then add_repo_root "server/provisioner"     "crowdvision-provisioner"; fi
           echo "matrix={\"include\":$inc}" >> "$GITHUB_OUTPUT"
           if [ "$inc" = "[]" ]; then
             echo "has_images=false" >> "$GITHUB_OUTPUT"
@@ -153,6 +181,43 @@ jobs:
     if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
     uses: ./.github/workflows/ci-twin.yml
 
+  claims-gateway:
+    needs: changes
+    if: needs.changes.outputs.claims_gateway == 'true'
+    uses: ./.github/workflows/ci-claims-gateway.yml
+
+  tenancy-service:
+    needs: changes
+    if: needs.changes.outputs.tenancy == 'true'
+    uses: ./.github/workflows/ci-tenancy-service.yml
+
+  registry-service:
+    needs: changes
+    if: needs.changes.outputs.registry == 'true'
+    uses: ./.github/workflows/ci-registry-service.yml
+
+  provisioner:
+    needs: changes
+    if: needs.changes.outputs.provisioner == 'true'
+    uses: ./.github/workflows/ci-provisioner.yml
+
+  auth-policy:
+    needs: changes
+    if: needs.changes.outputs.auth_policy == 'true'
+    uses: ./.github/workflows/ci-auth-policy.yml
+
+  auth-contracts:
+    needs: changes
+    if: needs.changes.outputs.auth_contracts == 'true'
+    uses: ./.github/workflows/ci-auth-contracts.yml
+
+  auth-middleware:
+    needs: changes
+    # auth-middleware's go.mod replaces auth-contracts with a local path, so it
+    # builds directly against auth-contracts' source and must re-run when it changes.
+    if: needs.changes.outputs.auth_middleware == 'true' || needs.changes.outputs.auth_contracts == 'true'
+    uses: ./.github/workflows/ci-auth-middleware.yml
+
   docker:
     needs: changes
     if: needs.changes.outputs.has_images == 'true'
@@ -171,21 +236,17 @@ jobs:
     if: needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
 
-      # The image bundles shellcheck, but it is disabled here until its findings on the
-      # existing run: blocks are triaged — install shellcheck locally, run
-      # `actionlint`, fix what it reports, then drop `-shellcheck=` so CI
-      # gains that layer too.
       - name: actionlint
-        uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
+        uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
         with:
           args: -no-color -shellcheck=
 
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
 
@@ -204,7 +265,6 @@ jobs:
     if: needs.changes.outputs.simulators == 'true'
     uses: ./.github/workflows/ci-simulators.yml
 
-  # Blocks a PR that introduces a dependency with a known high/critical CVE.
   dependency-review:
     needs: changes
     if: needs.changes.outputs.deps == 'true'
@@ -223,6 +283,13 @@ jobs:
       - sensor
       - socket
       - twin
+      - claims-gateway
+      - tenancy-service
+      - registry-service
+      - provisioner
+      - auth-policy
+      - auth-contracts
+      - auth-middleware
       - docker
       - k8s
       - workflows-lint
@@ -237,15 +304,11 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
         run: |
           echo "results: $RESULTS"
-          # The fan-out root must have succeeded — if it failed or was
-          # cancelled, every service job was skipped without ever being
-          # evaluated, and a green gate here would be a false pass.
           if [ "$CHANGES" != "success" ]; then
             echo "::error::'changes' ended in '$CHANGES' — CI never actually evaluated this PR"
             exit 1
           fi
-          # Whitelist: success (ran and passed) or skipped (path filter says
-          # unaffected). Anything else — failure, cancelled — fails the gate.
+          # Whitelist: success (ran and passed) or skipped.
           read -ra results <<< "$RESULTS"
           for r in "${results[@]}"; do
             case "$r" in

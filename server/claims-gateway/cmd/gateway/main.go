@@ -29,6 +29,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// OIDC discovery against Keycloak, fail-fast if unreachable at boot.
 	verifier, err := oidcverifier.New(ctx, cfg.OIDCDiscoveryURL, cfg.OIDCIssuer, cfg.OIDCClientID)
 	if err != nil {
 		log.Fatalf("oidc discovery: %v", err)
@@ -37,15 +38,13 @@ func main() {
 	sign := signer.New(cfg.SigningKey, cfg.SigningKeyID, cfg.Issuer)
 
 	// keycloakadmin holds the confidential cv-gateway client secret and is
-	// the only thing that ever talks to Keycloak's token/admin endpoints for
-	// password login/registration — the browser never does.
+	// the only thing that ever talks to Keycloak's token/admin endpoints.
 	kcAdmin := keycloakadmin.New(cfg.KeycloakBaseURL, cfg.KeycloakRealm, cfg.RegistrationClientID, cfg.RegistrationClientSecret)
-	gw := service.New(verifier, tenancy, sign, cfg.TokenTTL).
-		WithPasswordAuth(kcAdmin, kcAdmin).
-		WithProfileManagement(kcAdmin, kcAdmin, kcAdmin)
+	gw := service.New(verifier, tenancy, sign, cfg.TokenTTL). // RSA signer for internal token
+									WithPasswordAuth(kcAdmin, kcAdmin).
+									WithProfileManagement(kcAdmin, kcAdmin, kcAdmin)
 
-	// /me verifies the gateway's OWN minted tokens — built directly from the
-	// Signer's own JWKS bytes, never over HTTP to itself.
+	// /me verifies the gateway's OWN minted tokens.
 	verifyKeys, err := keyfunc.NewJWKSetJSON(sign.JWKS())
 	if err != nil {
 		log.Fatalf("building self-verification keyfunc: %v", err)

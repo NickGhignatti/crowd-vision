@@ -1,24 +1,44 @@
-FROM node:26-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-# @crowdvision/eslint-config is a lint-only dep that resolves via file:../../tooling/eslint-config,
-# a path that does not exist inside this Docker build context. Strip it and the stale lock file
-# before installing so npm does not fail with EMISSINGTARGET.
-RUN node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json','utf8'));delete (p.devDependencies||{})['@crowdvision/eslint-config'];fs.writeFileSync('package.json',JSON.stringify(p,null,2))" \
-    && rm -f package-lock.json \
-    && npm install
-COPY . .
-RUN npm run build
+FROM rust:1.96-bookworm AS chef
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends mold \
+    && rm -rf /var/lib/apt/lists/* \
+    && cargo install cargo-chef --locked
+WORKDIR /app/server/twin-service
+ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
-FROM node:26-alpine AS production
+# ── capture the dependency graph ────────────────────────────────────────
+FROM chef AS planner
+COPY server/twin-service .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS dev
+RUN cargo install cargo-watch --locked
+COPY --from=planner /app/server/twin-service/recipe.json recipe.json
+RUN cargo chef cook --recipe-path recipe.json
+COPY server/auth-policy /app/server/auth-policy
+COPY server/auth-contracts /app/server/auth-contracts
+COPY server/twin-service .
+CMD ["cargo", "watch", "-x", "run"]
+
+FROM chef AS builder
+COPY --from=planner /app/server/twin-service/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+COPY server/auth-policy /app/server/auth-policy
+COPY server/auth-contracts /app/server/auth-contracts
+COPY server/twin-service .
+RUN cargo build --release
+
+FROM debian:bookworm-slim AS production
+# Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
+# hadolint ignore=DL3005
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends ca-certificates=20230311+deb12u1 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-# Patch base-image OS CVEs so the cd-registry Trivy scan (OS-scoped) stays green.
-RUN apk upgrade --no-cache
-COPY package*.json ./
-RUN node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json','utf8'));delete (p.devDependencies||{})['@crowdvision/eslint-config'];fs.writeFileSync('package.json',JSON.stringify(p,null,2))" \
-    && rm -f package-lock.json \
-    && npm install --omit=dev \
-    && npm cache clean --force
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server/twin-service/target/release/twin-service /usr/local/bin/twin-service
+
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["twin-service"]

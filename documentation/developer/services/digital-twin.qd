@@ -3,7 +3,7 @@
 
 Implementation reference for the `twin-service`. For its architectural role, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd); for the domain model, see [Building Management](../domain/building-management.qd).
 
-A Node.js / Express service in TypeScript. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services.
+A Rust / Axum service. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services (see *Downstream Synchronisation* below — the two services that receive that clone, and what happens if sending it fails).
 
 ---
 
@@ -14,20 +14,43 @@ A Node.js / Express service in TypeScript. It is the spatial source of truth: it
    - Responsibility
 
 .tablebyrows {.headers}
-    - - `src/router.ts`
-      - Route table for building CRUD, plus health, metrics, and the `/contracts` metric catalog.
-    - - `src/controller/buildings.ts`
-      - HTTP adapters over the building service.
-    - - `src/services/buildings.ts`
-      - Core CRUD logic and orchestration of downstream synchronisation.
-    - - `src/services/names.ts`
-      - Pure helpers for normalising and backfilling building/room display names.
-    - - `src/services/sensors.ts`
-      - Pushes the threshold clone to the sensor-service.
-    - - `src/services/contractsService.ts`
-      - Seeds default display preferences in the contracts-service.
-    - - `src/models/building.ts`
-      - Mongoose schema for `Building`, `Room`, and the geometry value objects.
+    - - `src/lib.rs`
+      - Builds the `axum::Router` (public infra routes + protected building routes + rate-limit/metrics layers). Reused by both `main.rs` and the integration test suite.
+    - - `src/main.rs`
+      - Reads env config, connects Mongo, starts the Axum server with graceful shutdown.
+    - - `src/api/buildings.rs`
+      - Every building/room HTTP handler, matching this repo's existing Rust convention of keeping HTTP handlers in one module (see `contracts-service`).
+    - - `src/models.rs`
+      - `Building`/`Room`/`Coordinates`/`Dimensions`, the lenient `PositionInput`/`DimensionsInput` request types, name-normalisation helpers, and the `AppError` → HTTP response mapping.
+    - - `src/infra/db.rs`
+      - MongoDB access (find/insert/replace/aggregate) over the `Building` collection.
+    - - `src/infra/claims.rs`
+      - `GatewayClaims`, an Axum extractor that decodes the `x-gateway-claims` header — the mesh-injected identity every protected handler requires as an argument (extraction itself 401s on a missing/invalid header, so there's no separate auth middleware layer).
+    - - `src/infra/authz.rs`
+      - Cedar authorization (`is_member_of`, `can_edit_domains`, `scope_to_memberships`) against the shared `server/auth-policy` bundle.
+    - - `src/infra/outbound.rs`
+      - Fire-and-forget/best-effort sync calls to sensor-service and contracts-service.
+    - - `src/infra/metrics.rs`
+      - Prometheus registry, the `track_metrics` layer, and the `/health`/`/metrics` handlers.
+    - - `src/infra/ratelimit.rs`
+      - Per-IP fixed-window rate limiter.
+    - - `tests/http.rs`
+      - Full HTTP-level suite (`tower::ServiceExt::oneshot` against the real `Router`) covering every route.
+    - - `tests/cedar_conformance.rs`
+      - Runs `server/auth-policy/fixtures/conformance.json`'s 22 golden cases through the real `cedar-policy` engine.
+
+.mermaid
+    graph TD
+        MAIN["main.rs\nentry point"] --> LIB["lib.rs\nbuilds the Router"]
+        LIB --> API["api/buildings.rs\nall HTTP handlers"]
+        API --> CLAIMS["infra/claims.rs\nGatewayClaims extractor"]
+        API --> AUTHZ["infra/authz.rs\nCedar Read/Edit checks"]
+        API --> DB["infra/db.rs\nMongo access"]
+        API --> OUT["infra/outbound.rs\nsensor/contracts sync"]
+        API --> MODELS["models.rs\nBuilding/Room, AppError"]
+        LIB --> METRICS["infra/metrics.rs\nPrometheus layer"]
+        LIB --> RATE["infra/ratelimit.rs\nper-IP limiter"]
+        AUTHZ -.->|"include_str!, compile time"| POLICY["server/auth-policy\npolicy.cedar + schema"]
 
 ---
 
@@ -39,41 +62,47 @@ A Node.js / Express service in TypeScript. It is the spatial source of truth: it
    - Purpose
 
 .tablebyrows {.headers}
+    - - `MONGO_URI`
+      - `mongodb://localhost:27017`
+      - Connection string; database name is `crowdvision`, collection `buildings`.
     - - `SENSOR_SERVICE_URL`
       - `http://localhost:3000`
       - Target for the threshold clone sync.
     - - `CONTRACTS_SERVICE_URL`
       - `http://localhost:3001`
       - Target for default-preference seeding.
+    - - `PORT`
+      - `3000`
+      - HTTP listen port.
     - - `NODE_ENV`
       - —
-      - When `test`, threshold sync and preference seeding are skipped.
+      - When `test`, threshold sync, preference seeding, and the rate limiter are all disabled.
 
 ---
 
 ## Data Model
 
-```typescript
-interface IBuilding {
-  id: string;        // server-generated UUID (crypto.randomUUID); unique
-  name: string;
-  rooms: Room[];     // embedded
-  domains: string[]; // tenant names; indexed { domains: 1 }
+```rust
+struct Building {
+    id: String,        // server-generated UUID (uuid::Uuid::new_v4); unique
+    name: String,
+    rooms: Vec<Room>,
+    domains: Vec<String>,
 }
 
-interface Room {
-  id: string;        // taken from the uploaded model file; stable
-  name: string;
-  capacity: number;
-  position: { x: number; y: number; z: number };   // value object
-  dimensions: { width: number; height: number; depth: number }; // value object
-  color?: string;
+struct Room {
+    id: String,         // client-supplied on /register and PUT rooms; server-generated on POST room
+    name: String,
+    capacity: f64,
+    position: Coordinates,     // { x, y, z }
+    dimensions: Dimensions,    // { width, height, depth }
+    color: Option<String>,
 }
 ```
 
-- `id` is generated server-side; a client-supplied `id` on creation is ignored.
-- The `{ domains: 1 }` index makes `Building.find({ domains })` an index seek rather than a collection scan.
-- Geometry is stored as `_id: false` subdocuments. The schema enables timestamps.
+- `id` is generated server-side on `POST /register` and `POST /building/:id/room`; a client-supplied `id` there is ignored. `PUT /building/:id/rooms` (bulk replace) takes client-supplied room ids.
+- The Mongo collection carries a unique index on `id` and a non-unique index on `domains` (`Building.find({ domains: X })` stays an index seek).
+- No internal database fields (`_id`, a document version, timestamps) leak into API responses — the `Building`/`Room` structs only carry fields a client actually reads.
 
 ---
 
@@ -85,34 +114,45 @@ interface Room {
 
 .tablebyrows {.headers}
     - - `POST /register`
-      - Create a building from `{ name, rooms, domains }`. Assigns a UUID, normalises names, persists, then synchronises downstream. Returns the full document. `201`.
+      - Create a building from `{ name, rooms, domains }`. Assigns a UUID, normalises names, validates room geometry (see the box below), persists, then synchronises downstream. Returns the full document. `201`.
     - - `GET /building/:id`
-      - Fetch one building by UUID; backfills names on read. `404` if absent.
+      - Fetch one building by UUID; backfills names on read. `404` if absent. No domain-membership check beyond authentication — building ids are server-generated UUIDs, not enumerable.
     - - `GET /buildings/:domain`
-      - List buildings scoped to a tenant (`domains` contains `:domain`). Returns `[]` when none.
+      - List buildings scoped to a tenant (`domains` contains `:domain`); requires membership in that domain (`403` otherwise). Returns `[]` when none.
+    - - `POST /buildings/counts`
+      - Building counts per requested domain, silently dropping domains the caller isn't a member of. `400` if `domains` isn't an array of strings, or exceeds 500 entries.
     - - `GET /domain/:buildingName`
       - Return the flattened list of domains for buildings matching the name. Used by notification-service for recipient resolution.
     - - `PATCH /building/:buildingId`
-      - Update `name` and/or `domains` (and an optional `maxTemperature` forwarded to the clone). Re-syncs.
+      - Update `name` and/or `domains` (and an optional `maxTemperature` forwarded to the clone). Requires an editing role in one of the building's own domains. Re-syncs.
     - - `PATCH /building/:buildingId/room/:roomId`
-      - Update a room's `name`, `color`, or `capacity`. Re-syncs.
+      - Update a room's `name`, `color`, `capacity`, `position`, and/or `dimensions`. Re-syncs.
+    - - `POST /building/:buildingId/room`
+      - Create a room with a server-assigned id. Re-syncs, then best-effort seeds default sensor thresholds.
+    - - `DELETE /building/:buildingId/room/:roomId`
+      - Delete a room; blocked if it's the building's last room (`400`).
+    - - `PUT /building/:buildingId/rooms`
+      - Atomically replace the whole rooms array — the editor's bulk-save path. Validates every room before writing any of them (no partial write on a bad room).
     - - `GET /contracts`
       - Return this service's metric catalog (`roomName`, `roomMaxOccupancy`). **Public.**
-    - - `GET /health/`, `GET /metrics/`
-      - Liveness and Prometheus metrics. **Public.**
+    - - `GET /health`, `GET /metrics`
+      - Liveness and Prometheus metrics. **Public.** Registered both with and without a trailing slash — see the gotcha box on [Kubernetes Configuration](../config/kubernetes.qd).
 
-.box {All building routes require a verified JWT} type:{note}
-    `router.ts` mounts `requireAuthentication` ahead of every building route (only `/health`, `/metrics`, and `/contracts` stay public). The middleware (`src/middlewares/authentication.ts`) verifies the HS256 token and accepts it from **either** the `authentication_token` cookie (browser) **or** an `Authorization: Bearer` header (trusted services forwarding the caller's identity — e.g. the agent-service's twin tool). It also stashes the raw token on `req.authToken` so the service can forward it on its own outbound call (the sensor threshold clone, see below). This closes the previous gap where the identity token was never verified inside the service.
+.box {Every building/room route requires the mesh-verified claims header} type:{note}
+    Istio's `RequestAuthentication` verifies the caller's JWT once at the ingress and injects the payload as the base64 `x-gateway-claims` header (`outputPayloadToHeader`) — twin-service never verifies a JWT itself. Every protected handler takes a `GatewayClaims` argument (an Axum extractor, `src/infra/claims.rs`); extraction itself 401s the request if the header is missing or malformed, so there's no separate auth middleware layer to wire in — the type signature *is* the auth gate. Geometry-mutating routes additionally require `can_edit_domains` (Cedar `Edit` action) against the target building's own domains, not just any domain membership.
+
+.box {Registration validates room geometry} type:{note}
+    `/register` validates every room's `position`, `dimensions`, and `capacity` before persisting, the same validation every other geometry-writing route (`createRoom`, `updateRoom`, `replaceRooms`) applies — a malformed room is rejected with a `400 Validation Error`, never silently stored.
 
 ---
 
 ## Name Normalisation
 
-`services/names.ts` keeps display names consistent on both write and read.
+Free functions in `src/models.rs`.
 
-- `normalizeBuildingName(name, id)` resolves to the trimmed `name`, else `id`, else the literal `"Building"`.
-- `normalizeRoomNames(rooms)` trims each room name, falling back to the room `id`.
-- `backfillNames(building)` re-applies these rules when a building is read and persists only if something changed — so older documents are healed lazily.
+- `normalize_building_name(name, id)` resolves to the trimmed `name`, else `id`, else the literal `"Building"`.
+- `normalize_room_name(name, id)` trims the room name, falling back to the room `id`.
+- Every building load (`GET`, and every mutating handler's initial fetch) backfills blank names and persists the fix if anything changed — so a document with a blank name gets healed the next time it's touched, without a separate migration.
 
 ---
 
@@ -129,22 +169,36 @@ A building's structure is mirrored to two services. The two paths have **differe
         participant S as sensor-service
         participant K as contracts-service
         C->>T: POST /register { name, rooms, domains }
-        Note over T: normalise names, assign UUID
-        T->>DB: building.save()
+        Note over T: normalise names, validate geometry, assign UUID
+        T->>DB: insert
         T->>S: PUT /thresholds/buildings/:id (clone)
-        Note over T,S: throws on non-2xx — registration fails
+        Note over T,S: fails the registration on a non-2xx response
         T->>K: POST /preferences/init/:id
         Note over T,K: best-effort — errors logged, swallowed
         T-->>C: 201 building
 
-- **Sensor threshold clone** (`syncBuildingClone`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`. It is gated by `shouldSyncThresholds()` (skipped under test) and **throws on a non-OK response**, so a sensor-service failure fails the building operation. The sensor-service now authenticates this route, so the call forwards the caller's JWT as `Authorization: Bearer ${req.authToken}`.
-- **Contracts preference seeding** (`initBuildingPreferences`): a `POST` that is skipped under test and **swallows errors** (logged only), so it never blocks building creation.
+- **Sensor threshold clone** (`sync_building_clone`, `src/infra/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`. Skipped entirely under `NODE_ENV=test`, and returns an error (failing the building operation) on a non-2xx response. Forwards the caller's `x-gateway-claims` header verbatim — sensor-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
+- **Contracts preference seeding** (`init_building_preferences`): a `POST`, best-effort — logged and swallowed on any error, never blocks building creation.
 
 .box {Known gap: synchronous coupling} type:{note}
-    The sensor clone is an inline, synchronous REST call inside `addBuilding`/`updateBuilding`. The roadmap is to replace it with a published `TWIN_UPDATED` event so the sensor-service can update its copy asynchronously, decoupling the two services.
+    The sensor clone is an inline, synchronous REST call inside the register/update/room handlers. The roadmap is to replace it with a published `TWIN_UPDATED` event so sensor-service can update its copy asynchronously, decoupling the two services.
 
 ---
 
 ## Error Handling
 
-The service uses the same `BaseError` hierarchy and global error middleware shared across the Node services (`ValidationError` 400, `NotFoundError` 404, …) — see [Shared Auth Middleware](middlewares.qd). Building/room lookups raise `NotFoundError` when the target does not exist.
+`AppError` (`src/models.rs`) implements `IntoResponse`, mapping to a stable `{ type, message }` JSON shape and status code: `Validation` → 400, `NotFound` → 404, `Unauthorized` → 401, `Forbidden` → 403. Unexpected errors (a Mongo failure, a Cedar entity-build failure) are logged via `log::error!` and mapped to a generic `500` — every error is logged, and no internal detail leaks past the generic `500` message.
+
+---
+
+## Metrics
+
+`track_metrics` is an Axum `Router::layer`, which wraps the *entire* request/response cycle regardless of how the inner handler responds — `MatchedPath` (the route template, e.g. `/building/{id}`, not the literal path with real ids) is available to layers added this way, so every registered route is observed regardless of the response it produces. Verified live: registering a building and then curling `/metrics` shows real `http_requests_total`/`http_request_duration_seconds`/`http_error_requests_total` series with the correct method/route/status_code labels.
+
+---
+
+## Cedar Authorization
+
+`src/infra/authz.rs` embeds the shared `server/auth-policy` bundle via `include_str!` — resolved at **compile time**, the same way Go's `//go:embed` does. Only Python's binding reads `schema.cedarschema`/`policy.cedar` from disk, at process start, since it has no equivalent embed mechanism. Compile-time embedding here means the production Docker image doesn't need `server/auth-policy` present at all; only the builder stage does, since the bytes are already baked into the compiled binary by the time `cargo build` finishes. See [Auth Policy](../packages/auth-policy.qd) for the full Cedar model (pre-expanded role-tier sets, `.contains()` vs `in`, the golden conformance suite).
+
+twin-service uses two of Cedar's five shared actions: `Read` (`is_member_of`/`scope_to_memberships`) and `Edit` (`can_edit_domains`, tried against every one of a building's domains — permits if any qualifies). A third function, `authorize_any`, exists purely so the golden conformance suite can exercise all five actions through this binding too, matching the precedent set by agent-service's `can_override_model`.

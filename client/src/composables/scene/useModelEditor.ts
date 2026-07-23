@@ -11,11 +11,8 @@ const MIN_ROOM_DIMENSION = 0.5
 const MAX_HISTORY = 50
 
 export type EditorTool = 'move' | 'resize'
-// The 2D floor-plan editor's own tool, deliberately separate from the 3D
-// gizmo's EditorTool — 'select' (click/drag existing rooms, the default) vs
-// 'add' (drag on empty space to draw a new room) gate fundamentally different
-// pointer behavior than 3D's move/resize, so merging them into one type would
-// just create meaningless cross-combinations (e.g. "resize" + "add").
+// Separate from 3D's EditorTool: 'select' vs 'add' gate fundamentally different pointer
+// behavior, so merging into one type would allow meaningless combos like "resize"+"add".
 export type PlanTool = 'select' | 'add'
 export type ResizeAxis = 'width' | 'height' | 'depth'
 export type ResizeAnchor = 'min' | 'max' | 'center'
@@ -31,13 +28,8 @@ const AXIS_TO_POSITION_KEY: Record<ResizeAxis, 'x' | 'y' | 'z'> = {
 const cloneBuilding = (building: Building): Building => JSON.parse(JSON.stringify(building))
 const cloneRooms = (rooms: Room[]): Room[] => JSON.parse(JSON.stringify(rooms))
 
-/**
- * Draft-then-commit editing session for the digital twin model editor. Every
- * mutation lands on a deep-cloned `draft`, never on the live `building` — this
- * keeps telemetry coloring untouched mid-edit, makes Cancel free, and makes
- * Save a single diffed request instead of a PATCH per drag (see
- * MODEL_EDITOR_PLAN.md §2).
- */
+/** Draft-then-commit editing session: mutations land on a deep-cloned `draft`, never the
+ * live `building`, so Cancel is free and Save is one diffed request (MODEL_EDITOR_PLAN.md §2). */
 export function useModelEditor() {
   const buildingsStore = useBuildingsStore()
 
@@ -48,15 +40,12 @@ export function useModelEditor() {
   const isSaving = ref(false)
   const activeTool = ref<EditorTool>('move')
   const planTool = ref<PlanTool>('select')
-  // Set while the user is picking the second room for a merge (the toolbar's
-  // Merge button arms this on the currently-selected room; the *next* room
-  // click completes the merge instead of just re-selecting — see ModelView).
+  // Set while picking the second room for a merge: the toolbar's Merge button arms this on the
+  // selected room, then the *next* room click completes the merge instead of re-selecting (see ModelView).
   const mergeCandidateId = ref<string | null>(null)
 
-  // Undo/redo snapshots the whole rooms array once per user *gesture* (a full
-  // drag, a committed inspector edit, a nudge) — callers mark gesture
-  // boundaries with beginGesture(), not on every intermediate update, or
-  // undo would only step back a single mouse-move's worth of change.
+  // Undo/redo snapshots the whole rooms array once per user *gesture* (a drag, an inspector
+  // edit, a nudge) — callers mark boundaries with beginGesture(), not every intermediate update.
   const history = ref<Room[][]>([])
   const future = ref<Room[][]>([])
 
@@ -100,9 +89,8 @@ export function useModelEditor() {
     selectedId.value = id
   }
 
-  // Arms merge mode on the currently-selected room; a no-op if nothing is
-  // selected. The caller (ModelView) routes the *next* room click to
-  // mergeRooms() instead of a normal select while this is set.
+  // Arms merge mode on the selected room (no-op if none selected); the caller (ModelView)
+  // routes the *next* room click to mergeRooms() instead of a normal select while this is set.
   const beginMerge = () => {
     if (!selectedId.value) return
     mergeCandidateId.value = selectedId.value
@@ -141,13 +129,8 @@ export function useModelEditor() {
     draft.value.rooms = future.value.pop()!
   }
 
-  // X/Z always move (grid-snapped by default). Y is optional — omitting it
-  // preserves the room's current floor (the historical floor-plane-only
-  // behavior); passing it moves the room vertically too. Callers pass
-  // snapX/snapZ/snapY: false for an axis that neighbor- or floor-level-
-  // snapping already resolved (see ModelView's applySnappedMove), or when the
-  // free-move modifier is held, so grid-snap doesn't override a more precise
-  // value.
+  // X/Z always move (grid-snapped by default); Y is optional and only moves the room vertically
+  // if passed. Callers pass snap*: false when neighbor/floor snapping or free-move already resolved it.
   const moveRoom = (
     id: string,
     position: { x: number; z: number; y?: number },
@@ -171,12 +154,8 @@ export function useModelEditor() {
     }
   }
 
-  // Resizes one axis to `newDimensionRaw`, compensating position so the given
-  // face stays put: 'min' anchors the negative-axis face (growth happens on
-  // the positive side), 'max' anchors the positive-axis face, and 'center'
-  // leaves the room's center untouched — the last is what the 3D gizmo uses,
-  // since three.js's TransformControls scale mode is pivot-centered and any
-  // other anchor would visibly jump the room on drag release.
+  // Resizes one axis, compensating position so the given face stays put: 'min'/'max' anchor
+  // that face; 'center' (used by the 3D gizmo, whose TransformControls is pivot-centered) doesn't move it.
   const resizeRoom = (
     id: string,
     axis: ResizeAxis,
@@ -199,10 +178,8 @@ export function useModelEditor() {
     room.position = { ...room.position, [positionKey]: room.position[positionKey] + centerShift }
   }
 
-  // Adds a brand-new room to the draft (the 2D floor-plan editor's "draw a
-  // rectangle" flow). The id is client-generated — the bulk PUT /rooms Save
-  // path treats any id not already on the building as an insert, so the
-  // server never needs to hand one back mid-session.
+  // Adds a room to the draft (2D editor's "draw a rectangle" flow). The id is client-generated
+  // — the bulk PUT /rooms Save path treats any unknown id as an insert.
   const addRoom = (seed: {
     position: Room['position']
     dimensions: Room['dimensions']
@@ -224,9 +201,8 @@ export function useModelEditor() {
     return room
   }
 
-  // Blocks deleting the building's last room — an empty building has nothing
-  // left to edit. Returns whether the delete actually happened, so the caller
-  // can surface a message when it's blocked.
+  // Blocks deleting the building's last room (an empty building has nothing left to edit).
+  // Returns whether the delete happened, so the caller can surface a message when blocked.
   const deleteRoom = (id: string): boolean => {
     if (!draft.value) return false
     if (draft.value.rooms.length <= 1) return false
@@ -257,11 +233,8 @@ export function useModelEditor() {
     return duplicate
   }
 
-  // Merges room B into room A: A keeps its own name/color, its capacity
-  // becomes the sum of both, and its box grows to the union of both boxes.
-  // Room B is dropped. Sensor/threshold reassignment for the dropped room is
-  // a server-side, best-effort concern (see MODEL_EDITOR_PLAN.md §3.4) — the
-  // generic bulk Save can't distinguish "merged away" from "just deleted".
+  // Merges B into A: A keeps its name/color, sums capacities, and its box grows to the union.
+  // B is dropped; sensor/threshold reassignment is a server-side best-effort concern (§3.4).
   const mergeRooms = (survivorId: string, absorbedId: string): Room | null => {
     if (!draft.value) return null
     const survivor = draft.value.rooms.find((r) => r.id === survivorId)

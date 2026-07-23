@@ -3,75 +3,49 @@ package api_test
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
-	"github.com/MicahParks/jwkset"
-	"github.com/MicahParks/keyfunc/v3"
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/api"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/service"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/storefake"
 )
 
-const (
-	issuer         = "cv-gateway"
-	internalSecret = "test-internal-secret"
-)
+const internalSecret = "test-internal-secret"
 
-func newTestServer(t *testing.T) (http.Handler, *storefake.Fake, *rsa.PrivateKey) {
+func newTestServer(t *testing.T) (http.Handler, *storefake.Fake) {
 	t.Helper()
 	fake := storefake.New()
 	svc := service.New(fake)
 
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generating key: %v", err)
-	}
-	jwk, err := jwkset.NewJWKFromKey(&key.PublicKey, jwkset.JWKOptions{
-		Metadata: jwkset.JWKMetadataOptions{KID: "test-kid", ALG: jwkset.ALG("RS256")},
-	})
-	if err != nil {
-		t.Fatalf("building jwk: %v", err)
-	}
-	raw, _ := json.Marshal(jwkset.JWKSMarshal{Keys: []jwkset.JWKMarshal{jwk.Marshal()}})
-	kf, err := keyfunc.NewJWKSetJSON(raw)
-	if err != nil {
-		t.Fatalf("building keyfunc: %v", err)
-	}
-
 	r := chi.NewRouter()
 	api.Mount(r, svc, api.Config{
-		JWKS:           kf,
-		Issuer:         issuer,
 		InternalSecret: []byte(internalSecret),
 		TenancyEnabled: true,
 	})
-	return r, fake, key
+	return r, fake
 }
 
-func signUser(t *testing.T, key *rsa.PrivateKey, accountID string, memberships []map[string]string) string {
+// signUser builds the base64 x-gateway-claims header the mesh injects after verifying the
+// gateway JWT once at the edge; RequireMeshClaims decodes it directly, no signing needed here.
+func signUser(t *testing.T, accountID string, memberships []map[string]string) string {
 	t.Helper()
-	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+	payload := map[string]any{
 		"sub": accountID, "accountName": accountID, "sid": "sid-1",
 		"memberships": memberships,
-		"iss":         issuer, "exp": time.Now().Add(time.Hour).Unix(),
-	})
-	tok.Header["kid"] = "test-kid"
-	signed, err := tok.SignedString(key)
-	if err != nil {
-		t.Fatalf("signing: %v", err)
 	}
-	return signed
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshaling claims: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString(raw)
 }
 
 func signedInternalRequest(t *testing.T, method, path string, body []byte) *http.Request {
@@ -87,7 +61,7 @@ func signedInternalRequest(t *testing.T, method, path string, body []byte) *http
 }
 
 func TestInternalMemberships_RejectsMissingSignature(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/internal/memberships?accountId=11111111-1111-1111-1111-111111111111", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -98,7 +72,7 @@ func TestInternalMemberships_RejectsMissingSignature(t *testing.T) {
 }
 
 func TestInternalMemberships_EmptyForNewAccount(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	req := signedInternalRequest(t, http.MethodGet, "/internal/memberships?accountId=55555555-5555-5555-5555-555555555555", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -114,12 +88,12 @@ func TestInternalMemberships_EmptyForNewAccount(t *testing.T) {
 }
 
 func TestCreateOwnDomain_CreatorBecomesBusinessAdmin(t *testing.T) {
-	r, _, key := newTestServer(t)
-	token := signUser(t, key, "11111111-1111-1111-1111-111111111111", nil)
+	r, _ := newTestServer(t)
+	token := signUser(t, "11111111-1111-1111-1111-111111111111", nil)
 
 	body, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme Inc"})
 	req := httptest.NewRequest(http.MethodPost, "/domains", bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("x-gateway-claims", token)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -138,15 +112,15 @@ func TestCreateOwnDomain_CreatorBecomesBusinessAdmin(t *testing.T) {
 }
 
 func TestCreateOwnDomain_RejectsExistingName(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	token := signUser(t, key, "22222222-2222-2222-2222-222222222222", nil)
+	token := signUser(t, "22222222-2222-2222-2222-222222222222", nil)
 	body, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Not Acme"})
 	req2 := httptest.NewRequest(http.MethodPost, "/domains", bytes.NewReader(body))
-	req2.Header.Set("Authorization", "Bearer "+token)
+	req2.Header.Set("x-gateway-claims", token)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req2)
 
@@ -156,7 +130,7 @@ func TestCreateOwnDomain_RejectsExistingName(t *testing.T) {
 }
 
 func TestCreateOwnDomain_RequiresAuthentication(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	body, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme"})
 	req := httptest.NewRequest(http.MethodPost, "/domains", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -168,24 +142,24 @@ func TestCreateOwnDomain_RequiresAuthentication(t *testing.T) {
 }
 
 func TestCreateSubdomain_RequiresBusinessAdminOfParent(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	lowToken := signUser(t, key, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "standard_customer"}})
+	lowToken := signUser(t, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "standard_customer"}})
 	body, _ := json.Marshal(map[string]string{"name": "acme-eng", "displayName": "Eng"})
 	req2 := httptest.NewRequest(http.MethodPost, "/domains/acme/subdomains", bytes.NewReader(body))
-	req2.Header.Set("Authorization", "Bearer "+lowToken)
+	req2.Header.Set("x-gateway-claims", lowToken)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req2)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("standard_customer: got %d, want 403", rec.Code)
 	}
 
-	adminToken := signUser(t, key, "22222222-2222-2222-2222-222222222222", []map[string]string{{"domain": "acme", "role": "business_admin"}})
+	adminToken := signUser(t, "22222222-2222-2222-2222-222222222222", []map[string]string{{"domain": "acme", "role": "business_admin"}})
 	req3 := httptest.NewRequest(http.MethodPost, "/domains/acme/subdomains", bytes.NewReader(body))
-	req3.Header.Set("Authorization", "Bearer "+adminToken)
+	req3.Header.Set("x-gateway-claims", adminToken)
 	rec2 := httptest.NewRecorder()
 	r.ServeHTTP(rec2, req3)
 	if rec2.Code != http.StatusCreated {
@@ -194,21 +168,21 @@ func TestCreateSubdomain_RequiresBusinessAdminOfParent(t *testing.T) {
 }
 
 func TestListSubdomains_OnlyAuthenticationRequired(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	adminToken := signUser(t, key, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "business_admin"}})
+	adminToken := signUser(t, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "business_admin"}})
 	subBody, _ := json.Marshal(map[string]string{"name": "acme-eng", "displayName": "Eng"})
 	createSubReq := httptest.NewRequest(http.MethodPost, "/domains/acme/subdomains", bytes.NewReader(subBody))
-	createSubReq.Header.Set("Authorization", "Bearer "+adminToken)
+	createSubReq.Header.Set("x-gateway-claims", adminToken)
 	r.ServeHTTP(httptest.NewRecorder(), createSubReq)
 
 	// Any authenticated user, no admin role anywhere, can list.
-	plainToken := signUser(t, key, "33333333-3333-3333-3333-333333333333", nil)
+	plainToken := signUser(t, "33333333-3333-3333-3333-333333333333", nil)
 	listReq := httptest.NewRequest(http.MethodGet, "/domains/acme/subdomains", nil)
-	listReq.Header.Set("Authorization", "Bearer "+plainToken)
+	listReq.Header.Set("x-gateway-claims", plainToken)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, listReq)
 
@@ -223,15 +197,15 @@ func TestListSubdomains_OnlyAuthenticationRequired(t *testing.T) {
 }
 
 func TestInviteCode_CreateAndRedeem_GrantsTheStatedRole(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	adminToken := signUser(t, key, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "business_admin"}})
+	adminToken := signUser(t, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "business_admin"}})
 	codeBody, _ := json.Marshal(map[string]string{"role": "business_staff"})
 	createReq := httptest.NewRequest(http.MethodPost, "/domains/acme/invite-codes", bytes.NewReader(codeBody))
-	createReq.Header.Set("Authorization", "Bearer "+adminToken)
+	createReq.Header.Set("x-gateway-claims", adminToken)
 	createRec := httptest.NewRecorder()
 	r.ServeHTTP(createRec, createReq)
 	if createRec.Code != http.StatusCreated {
@@ -240,9 +214,9 @@ func TestInviteCode_CreateAndRedeem_GrantsTheStatedRole(t *testing.T) {
 	var created map[string]string
 	_ = json.Unmarshal(createRec.Body.Bytes(), &created)
 
-	redeemerToken := signUser(t, key, "22222222-2222-2222-2222-222222222222", nil)
+	redeemerToken := signUser(t, "22222222-2222-2222-2222-222222222222", nil)
 	redeemReq := httptest.NewRequest(http.MethodPost, "/invite-codes/"+created["code"]+"/redeem", nil)
-	redeemReq.Header.Set("Authorization", "Bearer "+redeemerToken)
+	redeemReq.Header.Set("x-gateway-claims", redeemerToken)
 	redeemRec := httptest.NewRecorder()
 	r.ServeHTTP(redeemRec, redeemReq)
 	if redeemRec.Code != http.StatusNoContent {
@@ -260,15 +234,15 @@ func TestInviteCode_CreateAndRedeem_GrantsTheStatedRole(t *testing.T) {
 }
 
 func TestInviteCode_CreateRequiresBusinessAdmin(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	lowToken := signUser(t, key, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "standard_customer"}})
+	lowToken := signUser(t, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "standard_customer"}})
 	codeBody, _ := json.Marshal(map[string]string{"role": "business_staff"})
 	codeReq := httptest.NewRequest(http.MethodPost, "/domains/acme/invite-codes", bytes.NewReader(codeBody))
-	codeReq.Header.Set("Authorization", "Bearer "+lowToken)
+	codeReq.Header.Set("x-gateway-claims", lowToken)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, codeReq)
 
@@ -278,10 +252,10 @@ func TestInviteCode_CreateRequiresBusinessAdmin(t *testing.T) {
 }
 
 func TestInviteCode_RedeemUnknownCodeIsBadRequest(t *testing.T) {
-	r, _, key := newTestServer(t)
-	token := signUser(t, key, "11111111-1111-1111-1111-111111111111", nil)
+	r, _ := newTestServer(t)
+	token := signUser(t, "11111111-1111-1111-1111-111111111111", nil)
 	req := httptest.NewRequest(http.MethodPost, "/invite-codes/not-a-real-code/redeem", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("x-gateway-claims", token)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -290,12 +264,10 @@ func TestInviteCode_RedeemUnknownCodeIsBadRequest(t *testing.T) {
 	}
 }
 
-// TestInternalMemberships_RejectsMalformedAccountID reproduces a bug caught
-// live: a non-UUID accountId reaching the Postgres store (a `uuid` column)
-// surfaced as an opaque 500 instead of a clean 400. account_id format must
-// be validated at this HTTP boundary, not left to the database to reject.
+// TestInternalMemberships_RejectsMalformedAccountID: a non-UUID accountId reaching Postgres's
+// `uuid` column used to surface as an opaque 500 instead of a clean 400.
 func TestInternalMemberships_RejectsMalformedAccountID(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	req := signedInternalRequest(t, http.MethodGet, "/internal/memberships?accountId=not-a-uuid", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -306,7 +278,7 @@ func TestInternalMemberships_RejectsMalformedAccountID(t *testing.T) {
 }
 
 func TestInternalProvision_RejectsMalformedAccountID(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	body, _ := json.Marshal(map[string]string{"accountId": "not-a-uuid", "domainName": "unibo", "role": "standard_customer"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/provision", body)
 	rec := httptest.NewRecorder()
@@ -318,7 +290,7 @@ func TestInternalProvision_RejectsMalformedAccountID(t *testing.T) {
 }
 
 func TestInternalDomainsAndProvision_JITFlow(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 
 	createBody, _ := json.Marshal(map[string]string{
 		"name": "unibo", "displayName": "UniBO", "joinPolicy": "open-via-idp",
@@ -351,7 +323,7 @@ func TestInternalDomainsAndProvision_JITFlow(t *testing.T) {
 }
 
 func TestInternalProvision_RespectsInviteOnlyPolicy(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme", "joinPolicy": "invite-only"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
@@ -367,14 +339,14 @@ func TestInternalProvision_RespectsInviteOnlyPolicy(t *testing.T) {
 }
 
 func TestJoinDomain_EndUserSelfService(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "unibo", "displayName": "UniBO", "joinPolicy": "open-via-idp"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	token := signUser(t, key, "11111111-1111-1111-1111-111111111111", nil)
+	token := signUser(t, "11111111-1111-1111-1111-111111111111", nil)
 	req = httptest.NewRequest(http.MethodPost, "/domains/unibo/join", bytes.NewReader([]byte(`{"role":"standard_customer"}`)))
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("x-gateway-claims", token)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -384,7 +356,7 @@ func TestJoinDomain_EndUserSelfService(t *testing.T) {
 }
 
 func TestJoinDomain_RequiresAuthentication(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	req := httptest.NewRequest(http.MethodPost, "/domains/unibo/join", bytes.NewReader([]byte(`{"role":"standard_customer"}`)))
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -395,16 +367,16 @@ func TestJoinDomain_RequiresAuthentication(t *testing.T) {
 }
 
 func TestInviteMember_RequiresBusinessAdminInThatDomain(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "acme", "displayName": "Acme", "joinPolicy": "invite-only"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
 	// standard_customer in acme cannot invite.
-	lowToken := signUser(t, key, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "standard_customer"}})
+	lowToken := signUser(t, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "acme", "role": "standard_customer"}})
 	req = httptest.NewRequest(http.MethodPost, "/domains/acme/invite",
 		bytes.NewReader([]byte(`{"accountId":"22222222-2222-2222-2222-222222222222","role":"business_staff"}`)))
-	req.Header.Set("Authorization", "Bearer "+lowToken)
+	req.Header.Set("x-gateway-claims", lowToken)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -412,10 +384,10 @@ func TestInviteMember_RequiresBusinessAdminInThatDomain(t *testing.T) {
 	}
 
 	// business_admin in acme can invite.
-	adminToken := signUser(t, key, "33333333-3333-3333-3333-333333333333", []map[string]string{{"domain": "acme", "role": "business_admin"}})
+	adminToken := signUser(t, "33333333-3333-3333-3333-333333333333", []map[string]string{{"domain": "acme", "role": "business_admin"}})
 	req = httptest.NewRequest(http.MethodPost, "/domains/acme/invite",
 		bytes.NewReader([]byte(`{"accountId":"22222222-2222-2222-2222-222222222222","role":"business_staff"}`)))
-	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.Header.Set("x-gateway-claims", adminToken)
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
@@ -424,7 +396,7 @@ func TestInviteMember_RequiresBusinessAdminInThatDomain(t *testing.T) {
 }
 
 func TestInviteMember_AdminInAnotherDomainCannotInviteHere(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	for _, name := range []string{"acme", "other-co"} {
 		body, _ := json.Marshal(map[string]string{"name": name, "displayName": name, "joinPolicy": "invite-only"})
 		req := signedInternalRequest(t, http.MethodPost, "/internal/domains", body)
@@ -432,10 +404,10 @@ func TestInviteMember_AdminInAnotherDomainCannotInviteHere(t *testing.T) {
 	}
 
 	// business_admin of "other-co" — not a member of "acme" at all.
-	token := signUser(t, key, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "other-co", "role": "business_admin"}})
+	token := signUser(t, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "other-co", "role": "business_admin"}})
 	req := httptest.NewRequest(http.MethodPost, "/domains/acme/invite",
 		bytes.NewReader([]byte(`{"accountId":"22222222-2222-2222-2222-222222222222","role":"business_staff"}`)))
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("x-gateway-claims", token)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -445,18 +417,18 @@ func TestInviteMember_AdminInAnotherDomainCannotInviteHere(t *testing.T) {
 }
 
 func TestLeaveDomain_SelfLeaveAlwaysAllowed(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "unibo", "displayName": "UniBO", "joinPolicy": "open-via-idp"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	token := signUser(t, key, "11111111-1111-1111-1111-111111111111", nil)
+	token := signUser(t, "11111111-1111-1111-1111-111111111111", nil)
 	joinReq := httptest.NewRequest(http.MethodPost, "/domains/unibo/join", bytes.NewReader([]byte(`{"role":"standard_customer"}`)))
-	joinReq.Header.Set("Authorization", "Bearer "+token)
+	joinReq.Header.Set("x-gateway-claims", token)
 	r.ServeHTTP(httptest.NewRecorder(), joinReq)
 
 	leaveReq := httptest.NewRequest(http.MethodDelete, "/domains/unibo/members/11111111-1111-1111-1111-111111111111", nil)
-	leaveReq.Header.Set("Authorization", "Bearer "+token)
+	leaveReq.Header.Set("x-gateway-claims", token)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, leaveReq)
 
@@ -466,21 +438,21 @@ func TestLeaveDomain_SelfLeaveAlwaysAllowed(t *testing.T) {
 }
 
 func TestListPublicDomains_OnlyListsPublicOnesWithMemberCounts(t *testing.T) {
-	r, _, key := newTestServer(t)
-	token := signUser(t, key, "11111111-1111-1111-1111-111111111111", nil)
+	r, _ := newTestServer(t)
+	token := signUser(t, "11111111-1111-1111-1111-111111111111", nil)
 
 	publicBody, _ := json.Marshal(map[string]any{"name": "unibo", "displayName": "UniBO", "isPublic": true})
 	req := httptest.NewRequest(http.MethodPost, "/domains", bytes.NewReader(publicBody))
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("x-gateway-claims", token)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
 	privateBody, _ := json.Marshal(map[string]any{"name": "acme", "displayName": "Acme"})
 	req2 := httptest.NewRequest(http.MethodPost, "/domains", bytes.NewReader(privateBody))
-	req2.Header.Set("Authorization", "Bearer "+token)
+	req2.Header.Set("x-gateway-claims", token)
 	r.ServeHTTP(httptest.NewRecorder(), req2)
 
 	listReq := httptest.NewRequest(http.MethodGet, "/domains", nil)
-	listReq.Header.Set("Authorization", "Bearer "+token)
+	listReq.Header.Set("x-gateway-claims", token)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, listReq)
 
@@ -498,7 +470,7 @@ func TestListPublicDomains_OnlyListsPublicOnesWithMemberCounts(t *testing.T) {
 }
 
 func TestListPublicDomains_RequiresAuthentication(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/domains", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -509,18 +481,18 @@ func TestListPublicDomains_RequiresAuthentication(t *testing.T) {
 }
 
 func TestMyMemberships_ReturnsFreshMembershipsForTheCaller(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "unibo", "displayName": "UniBO", "joinPolicy": "open-via-idp"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	token := signUser(t, key, "11111111-1111-1111-1111-111111111111", nil)
+	token := signUser(t, "11111111-1111-1111-1111-111111111111", nil)
 	joinReq := httptest.NewRequest(http.MethodPost, "/domains/unibo/join", bytes.NewReader([]byte(`{"role":"standard_customer"}`)))
-	joinReq.Header.Set("Authorization", "Bearer "+token)
+	joinReq.Header.Set("x-gateway-claims", token)
 	r.ServeHTTP(httptest.NewRecorder(), joinReq)
 
 	meReq := httptest.NewRequest(http.MethodGet, "/me/memberships", nil)
-	meReq.Header.Set("Authorization", "Bearer "+token)
+	meReq.Header.Set("x-gateway-claims", token)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, meReq)
 
@@ -535,7 +507,7 @@ func TestMyMemberships_ReturnsFreshMembershipsForTheCaller(t *testing.T) {
 }
 
 func TestMyMemberships_RequiresAuthentication(t *testing.T) {
-	r, _, _ := newTestServer(t)
+	r, _ := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/me/memberships", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -546,14 +518,14 @@ func TestMyMemberships_RequiresAuthentication(t *testing.T) {
 }
 
 func TestLeaveDomain_CannotRemoveSomeoneElseWithoutBusinessAdmin(t *testing.T) {
-	r, _, key := newTestServer(t)
+	r, _ := newTestServer(t)
 	createBody, _ := json.Marshal(map[string]string{"name": "unibo", "displayName": "UniBO", "joinPolicy": "open-via-idp"})
 	req := signedInternalRequest(t, http.MethodPost, "/internal/domains", createBody)
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	standardToken := signUser(t, key, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "unibo", "role": "standard_customer"}})
+	standardToken := signUser(t, "11111111-1111-1111-1111-111111111111", []map[string]string{{"domain": "unibo", "role": "standard_customer"}})
 	leaveReq := httptest.NewRequest(http.MethodDelete, "/domains/unibo/members/22222222-2222-2222-2222-222222222222", nil)
-	leaveReq.Header.Set("Authorization", "Bearer "+standardToken)
+	leaveReq.Header.Set("x-gateway-claims", standardToken)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, leaveReq)
 

@@ -4,10 +4,8 @@ import { mount } from '@vue/test-utils'
 import { useUserPermissions } from '@/composables/auth/useUserPermissions.ts'
 import { useDomainsStore } from '@/stores/domain.ts'
 
-// ---------------------------------------------------------------------------
-// Helper: mounts the composable inside a minimal host component so that Vue
-// lifecycle hooks (onMounted) are exercised exactly as they would be in prod.
-// ---------------------------------------------------------------------------
+// Mounts the composable inside a minimal host component so Vue lifecycle hooks (onMounted)
+// are exercised exactly as they would be in production.
 function mountComposable() {
   let composable!: ReturnType<typeof useUserPermissions>
 
@@ -24,9 +22,8 @@ function mountComposable() {
 
 describe('useUserPermissions', () => {
   beforeEach(() => {
-    // Stub fetchMemberships at the store level for every test so that the
-    // onMounted call never reaches useApi or the network. The onMounted
-    // section re-spies explicitly to also assert call counts.
+    // Stub fetchMemberships at the store level so onMounted never reaches useApi/network;
+    // the onMounted section below re-spies explicitly to also assert call counts.
     vi.spyOn(useDomainsStore(), 'fetchMemberships').mockResolvedValue()
   })
 

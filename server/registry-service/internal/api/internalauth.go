@@ -9,9 +9,8 @@ import (
 	"net/http"
 )
 
-// requireInternalSignature protects the provisioner-only routes with an HMAC
-// over the raw body — the same X-Signature convention tenancy-service uses,
-// kept consistent across every control-plane/internal caller relationship.
+// requireInternalSignature protects the provisioner-only routes with an HMAC over the raw
+// body — the same X-Signature convention tenancy-service uses.
 func requireInternalSignature(secret []byte) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

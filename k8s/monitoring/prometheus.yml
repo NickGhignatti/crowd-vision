@@ -1,6 +1,3 @@
-# ── ServiceAccount ────────────────────────────────────────────────────────────
-# Prometheus runs as this identity. The ClusterRoleBinding below grants it
-# read-only access to the Kubernetes API for pod/node discovery.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -8,9 +5,6 @@ metadata:
   namespace: crowdvision
 
 ---
-# ── ClusterRole ───────────────────────────────────────────────────────────────
-# Read-only permissions on the resources Prometheus needs to discover targets.
-# ClusterRole (not Role) because node metrics live outside the crowdvision namespace.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -26,9 +20,6 @@ rules:
     verbs: [get]
 
 ---
-# ── ClusterRoleBinding ────────────────────────────────────────────────────────
-# Links the ClusterRole to the ServiceAccount so the Prometheus pod inherits
-# the permissions when it makes API calls.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -43,8 +34,6 @@ subjects:
     namespace: crowdvision
 
 ---
-# ── ConfigMap: scrape configuration ──────────────────────────────────────────
-# Prometheus reads this file on startup. It defines what to scrape and how often.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -53,21 +42,55 @@ metadata:
 data:
   prometheus.yml: |
     global:
-      scrape_interval: 15s       # poll every target every 15 seconds
-      evaluation_interval: 15s   # evaluate alerting rules every 15 seconds
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    rule_files:
+      - alert.rules.yml   # the sibling key below; the whole ConfigMap is mounted as one directory
 
     scrape_configs:
-
-      # ── Prometheus self-monitoring ────────────────────────────────────────
       - job_name: prometheus
         static_configs:
           - targets: [localhost:9090]
-
-      # ── cAdvisor: container CPU / memory / network / disk ─────────────────
-      # cAdvisor is built into every kubelet and exposes per-container metrics.
-      # We reach it via the Kubernetes API server proxy (avoids TLS cert issues).
-      # This gives you graphs like "CPU used by auth-service container" without
-      # any code changes to your services.
+      - job_name: istiod
+        static_configs:
+          - targets: [istiod.istio-system:15014]
+      - job_name: istio-ztunnel
+        metrics_path: /stats/prometheus
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [istio-system]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: ztunnel
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:15020
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+      - job_name: istio-ingress-gateway
+        metrics_path: /stats/prometheus
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [crowdvision]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_gateway_networking_k8s_io_gateway_name]
+            action: keep
+            regex: crowdvision-gateway
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:15090
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
       - job_name: kubernetes-cadvisor
         scheme: https
         tls_config:
@@ -86,16 +109,6 @@ data:
             target_label: __metrics_path__
             replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
 
-      # ── Pod autodiscovery: opt-in /metrics scraping ───────────────────────
-      # Any pod annotated with prometheus.io/scrape: "true" is scraped.
-      # When you add a prom-client /metrics endpoint to a Node.js service,
-      # just add these two annotations to its Deployment and Prometheus
-      # picks it up automatically — no config changes needed here.
-      #
-      #   annotations:
-      #     prometheus.io/scrape: "true"
-      #     prometheus.io/port: "3000"
-      #     prometheus.io/path: "/metrics"   # optional, defaults to /metrics
       - job_name: kubernetes-pods
         kubernetes_sd_configs:
           - role: pod
@@ -106,19 +119,16 @@ data:
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
             action: keep
             regex: "true"
-          # Use the custom path annotation if present, otherwise default to /metrics
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
             action: replace
             target_label: __metrics_path__
             regex: (.+)
             replacement: $1
-          # Use the custom port annotation if present
           - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
             action: replace
             regex: ([^:]+)(?::\d+)?;(\d+)
             replacement: $1:$2
             target_label: __address__
-          # Carry pod labels into Prometheus labels (app=auth-service, etc.)
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
           - source_labels: [__meta_kubernetes_namespace]
@@ -128,8 +138,75 @@ data:
             action: replace
             target_label: pod
 
+  # Mirrors repo-root prometheus.rules.yml (docker-compose stack) — keep both in sync.
+  # No label filters: each metric name is emitted by only one service, so the name alone scopes it.
+  alert.rules.yml: |
+    groups:
+      - name: crowdvision-alerts
+        rules:
+          - alert: ServiceDown
+            expr: up == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Scrape target down ({{ $labels.job }})"
+              description: "Prometheus has failed to scrape {{ $labels.job }} (instance {{ $labels.instance }}) for the last 2 minutes."
+
+          - alert: TwinServiceHighErrorRate
+            expr: (sum(rate(http_error_requests_total[5m])) / sum(rate(http_requests_total[5m]))) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "twin-service HTTP error rate above 5%"
+              description: "{{ $value | humanizePercentage }} of twin-service requests have errored over the last 5 minutes."
+
+          - alert: ChatServiceHighErrorRate
+            expr: (sum(rate(chat_http_error_requests_total[5m])) / sum(rate(chat_http_requests_total[5m]))) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "chat-service HTTP error rate above 5%"
+              description: "{{ $value | humanizePercentage }} of chat-service requests have errored over the last 5 minutes."
+
+          - alert: TwinServiceHighLatency
+            expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "twin-service p95 latency above 1s"
+              description: "twin-service's 95th percentile request duration has been above 1 second for 5 minutes."
+
+          - alert: ChatServiceHighLatency
+            expr: histogram_quantile(0.95, sum(rate(chat_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "chat-service p95 latency above 1s"
+              description: "chat-service's 95th percentile request duration has been above 1 second for 5 minutes."
+
+          - alert: ContractsServiceFanoutLatencyHigh
+            expr: histogram_quantile(0.95, sum(rate(telemetry_fanout_latency_ms_bucket[5m])) by (le)) > 500
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "contracts-service fan-out latency above 500ms"
+              description: "contracts-service's 95th percentile sensor-ingestion-to-fan-out latency has been above 500ms for 5 minutes."
+
+          - alert: NodeEventLoopLagHigh
+            expr: nodejs_eventloop_lag_seconds > 0.1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node.js event loop lag above 100ms ({{ $labels.job }})"
+              description: "{{ $labels.job }}'s Node.js event loop has been lagging by more than 100ms for 5 minutes, indicating the process is struggling to keep up."
 ---
-# ── Deployment ────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -145,7 +222,7 @@ spec:
       labels:
         app: prometheus
     spec:
-      serviceAccountName: prometheus   # grants the pod the ClusterRole permissions
+      serviceAccountName: prometheus
       containers:
         - name: prometheus
           image: prom/prometheus:v3
@@ -156,8 +233,8 @@ spec:
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus
-            - --storage.tsdb.retention.time=15d   # keep 15 days of metrics
-            - --web.enable-lifecycle               # allows hot-reload via POST /-/reload
+            - --storage.tsdb.retention.time=15d
+            - --web.enable-lifecycle
           ports:
             - containerPort: 9090
           volumeMounts:
@@ -201,9 +278,6 @@ spec:
           emptyDir: {}
 
 ---
-# ── PersistentVolumeClaim ─────────────────────────────────────────────────────
-# Stores the time-series metric data. Without this, all historical data is lost
-# when the Prometheus pod restarts.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -213,15 +287,10 @@ spec:
   accessModes: [ReadWriteOnce]
   resources:
     requests:
-      storage: 5Gi   # 15 days of container metrics for ~10 services
-  # Local k3d:        omit storageClassName — uses default "local-path"
-  # Hetzner VPS:      storageClassName: hcloud-volumes
-  # DigitalOcean VPS: storageClassName: do-block-storage
+  # storageClassName by target — k3d: omit (default local-path); Hetzner: hcloud-volumes;
+  # DigitalOcean: do-block-storage.
 
 ---
-# ── Service ───────────────────────────────────────────────────────────────────
-# Internal only — Grafana reaches Prometheus via http://prometheus:9090
-# Prometheus is not exposed through the Ingress (no authentication by default).
 apiVersion: v1
 kind: Service
 metadata:

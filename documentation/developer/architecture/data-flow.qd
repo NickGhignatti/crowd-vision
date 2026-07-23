@@ -1,85 +1,192 @@
 .docname {Communication & Data Flow}
 .include {docs}
 
-CrowdVision uses two communication styles, chosen deliberately per interaction:
+CrowdVision uses three communication styles, chosen deliberately per relationship:
 
-- **Synchronous (request/response)** over HTTP through the gateway — for user-driven actions and for the few service-to-service calls that need an immediate answer.
-- **Asynchronous (publish/subscribe)** over Redis — for the high-frequency telemetry and alert flows, where producers must not be coupled to, or blocked by, consumers.
+- **Synchronous, user-driven** — HTTP through the gateway, and the handful of service-to-service calls made on a user's behalf. The caller's identity travels with the request.
+- **Synchronous, control-plane** — HTTP calls between backend-only services that have no end user attached (signup provisioning). Authenticated by a shared secret instead of a user identity, because there is no user identity to carry.
+- **Asynchronous (publish/subscribe)** — over Redis, for the high-frequency telemetry and alert flows, where producers must not be coupled to, or blocked by, consumers.
 
-This page maps both, and then walks the two end-to-end real-time paths.
+This page maps all three, then walks five end-to-end flows.
+
+---
+
+## Identity & Trust: How a Caller's Identity Travels
+
+There is no central session store and no per-request call back to an identity authority. Two distinct mechanisms carry trust, and which one applies depends on whether a human is behind the request:
+
+.var {headers}
+   - Mechanism
+   - Used when
+   - How it works
+
+.tablebyrows {.headers}
+    - - `x-gateway-claims` header, forwarded verbatim
+      - The call happens **on behalf of an end user** (a service calling another service mid-request, to fulfil something a user asked for).
+      - `claims-gateway` verifies the user once, mints a signed token; the mesh (Istio `RequestAuthentication` in k8s, Caddy `forward_auth` in compose) verifies it once more at the edge and injects the verified claims as one header. Every service downstream decodes that header instead of re-verifying a JWT, and if it calls another service, it forwards the **same header unchanged** — mTLS already authenticates the network hop itself, so the header only needs to carry *who the original caller was*, not prove the hop is legitimate.
+    - - HMAC `X-Signature`, shared secret
+      - The call is **control-plane, backend-only**, with no end user in the loop (organization provisioning).
+      - Caller computes `HMAC-SHA256(sharedSecret, requestBody)`, sends it as `X-Signature`; callee recomputes and compares with `hmac.Equal` (constant-time). There is no user identity to forward — this authenticates the *calling service itself*.
+
+Both patterns exist for the same reason: nobody re-implements JWT verification or invents a second signing scheme per pair of services. Every mesh-claims consumer and every HMAC consumer reuses one shared convention, respectively — see [Identity & Tenancy Architecture](auth-architecture.qd) and [Service Mesh Architecture](service-mesh.qd) for the full verification mechanics.
+
+A third category — **no authentication at all** — is used only where forwarding an identity would be meaningless or actively wrong: device-facing ingestion (a sensor has no user token to present) and a small number of internal bootstrap calls that write nothing sensitive (flagged individually in the table below).
 
 ---
 
 ## Synchronous Communication
 
-All external requests enter through the single gateway, which routes by URL prefix (see the routing table in the [Overview](overview.qd)). A handful of **service-to-service** calls also happen over HTTP on the internal network:
+### Browser ↔ Gateway
+
+All external traffic enters through the single gateway (Caddy in compose, Istio Gateway API in k8s), which routes by URL prefix. See the routing table in the [Overview](overview.qd) — not repeated here.
+
+### Service-to-Service Calls
 
 .var {headers}
-   - Caller
-   - Callee
+   - Caller → Callee
+   - Method + Path
+   - Auth
    - Purpose
 
 .tablebyrows {.headers}
-    - - twin-service
-      - sensor-service
+    - - twin-service → sensor-service
+      - `PUT /thresholds/buildings/{id}`
+      - `x-gateway-claims` forwarded
       - On building creation/update, push a threshold baseline for the building's rooms.
-    - - twin-service
-      - contracts-service
-      - Seed a new building's default display preferences.
-    - - sensor-service
-      - notification-service
-      - Forward a temperature reading that may warrant an alert.
-    - - notification-service
-      - twin-service
-      - Resolve which domains a building belongs to before selecting recipients.
-    - - contracts-service
-      - sensor-service / twin-service
+    - - twin-service → sensor-service
+      - `PATCH /thresholds/peopleCount/buildings/{id}/rooms/{id}`
+      - `x-gateway-claims` forwarded
+      - Seed a new room's people-count threshold.
+    - - twin-service → contracts-service
+      - `POST /preferences/init/{buildingId}`
+      - **None**
+      - Best-effort seed of a new building's default display preferences; failure is logged, never surfaced to the caller.
+    - - notification-service → twin-service
+      - `GET /domain/{buildingName}`
+      - `x-gateway-claims` forwarded if present
+      - Resolve which domain(s) a building belongs to, to select alert recipients.
+    - - contracts-service → sensor-service / twin-service
+      - `GET /contracts` (target from `*_METRICS_URL` env, not hardcoded)
+      - **None**
       - Discover each service's self-describing metric catalog.
-    - - claims-gateway
-      - tenancy-service
-      - Once per login (never per request): resolve — or first-login-provision — the caller's memberships before minting the internal token.
-    - - provisioner
-      - registry-service / tenancy-service
-      - Reconcile loop: list pending organizations, create the tenancy domain, report the org back to ready/failed.
+    - - chat-service → agent-service
+      - `POST /ask`
+      - `x-gateway-claims` forwarded
+      - Forward a user's chat message to the assistant, under the user's own identity.
+    - - agent-service → twin-service
+      - `GET /buildings/{domain}`
+      - `x-gateway-claims` forwarded
+      - Tool call: read live building data to answer a question.
+    - - agent-service → sensor-service
+      - `GET /{metric}/latest`, `/{metric}/entireBuilding`, `/{metric}/dashboard`, `/sensors/buildings/{id}[/rooms/{id}]`
+      - `x-gateway-claims` forwarded
+      - Tool calls: read live sensor readings to answer a question.
+    - - claims-gateway → tenancy-service
+      - `POST /internal/provision`
+      - HMAC `X-Signature`
+      - Once per login (never per request): first-login-provision the caller's membership from their verified IdP claim.
+    - - claims-gateway → tenancy-service
+      - `GET /internal/memberships`
+      - HMAC `X-Signature`
+      - Resolve the caller's existing memberships before minting the internal token.
+    - - provisioner → registry-service
+      - `GET /internal/organizations/pending`
+      - HMAC `X-Signature`
+      - Reconcile loop: list organizations awaiting provisioning.
+    - - provisioner → registry-service
+      - `POST /internal/organizations/{id}/status`
+      - HMAC `X-Signature`
+      - Report an organization back to `ready`/`failed`.
+    - - provisioner → tenancy-service
+      - `POST /internal/domains`
+      - HMAC `X-Signature`
+      - Create the tenancy domain for a newly-approved organization (idempotent — tolerates `409` as success).
 
 These calls are intentionally few. The design keeps the request path short and avoids synchronous chains on the hot path; anything high-frequency goes over the broker instead.
 
-.box {Identity travels with the request} type:{note}
-    There is no central session store. `claims-gateway` verifies the caller against Keycloak (or an on-prem customer's own IdP), calls `tenancy-service` **once, at login**, and mints a signed internal token; every other service verifies that token **locally** and reads the principal's memberships, roles, and domains from it. No service calls `claims-gateway` or `tenancy-service` to authorize an individual request — the hot path has zero network hops for auth. See [Identity & Tenancy Architecture](auth-architecture.qd).
+.box {One outbound call carries no auth — by design, not by omission} type:{note}
+    `contracts-service`'s own outbound discovery calls send no header of any kind: they only *read* a metric catalog from `twin-service` and `sensor-service`'s public `/contracts` endpoints, with no sensitive side effect for an unauthenticated caller to exploit. Every call that reads or writes something a specific user's authorization should gate carries `x-gateway-claims` — including the `twin-service → contracts-service` preferences-init call, which forwards the building creator's claims verbatim, the same as twin's other outbound calls. `contracts-service` now requires that header on all of its own inbound user-facing routes (dashboard schema and preferences), so those are no longer reachable anonymously.
+
+.box {registry-service and tenancy-service never call out} type:{tip}
+    Both are pure receivers of the calls above — neither has an outbound HTTP client for any peer service. Only `claims-gateway` talks to Keycloak (Admin API for user management, OIDC endpoints for token exchange/verification); no other service holds Keycloak credentials or configuration.
+
+### Device Ingestion
+
+`POST /ingest` on `sensor-service` — no authentication (a physical sensor or simulator has no user token to present), and exempt from the gateway's auth gate for the same reason. The endpoint responds `202 Accepted` immediately and validates/persists/evaluates thresholds in the background (`setImmediate`), so a slow downstream step never makes an IoT device wait or retry.
 
 ---
 
 ## Asynchronous Communication
 
-Redis is the publish/subscribe backbone. Three channels carry the event flow:
+Redis is the publish/subscribe backbone for everything high-frequency. Four channels and one stream carry the event flow:
 
 .var {headers}
-   - Channel
+   - Channel / Stream
    - Publisher
    - Subscriber
    - Carries
 
 .tablebyrows {.headers}
-    - - `telemetry:raw`
+    - - `telemetry:raw` (pub/sub)
       - sensor-service
       - contracts-service
       - Every accepted reading, as a normalized event.
-    - - `telemetry:filtered:{buildingId}`
+    - - `telemetry:filtered:{buildingId}` (pub/sub)
       - contracts-service
       - socket-service
       - Every reading for that building, routed by the event's own `buildingId`.
-    - - `notifications`
+    - - `alerts:temperature` (pub/sub)
+      - sensor-service
+      - notification-service
+      - A temperature reading that crossed a configured threshold — the trigger for the alert path, not yet a user-facing notification.
+    - - `notifications` (pub/sub)
       - notification-service
       - socket-service
-      - Alert events for delivery to the browser.
+      - The resolved, recipient-scoped alert event (carries `domainName`), ready for in-app delivery.
+    - - `account.deleted` (stream, consumer group)
+      - *(no publisher found in this codebase — see the gap note below)*
+      - tenancy-service
+      - `{accountId}` — triggers membership cleanup for a deleted Keycloak account.
 
 Publishers never know who (if anyone) is listening, and the broker absorbs bursts, so a slow or restarting consumer cannot back-pressure a sensor.
 
+.box {account.deleted has a consumer but no publisher} type:{warning}
+    `tenancy-service`'s consumer (`internal/events/account_deleted.go`) is fully implemented — consumer group, at-least-once redelivery on processing failure, idempotent reap — but no component in this codebase ever calls `XAdd` on this stream. It is presumably meant to come from a Keycloak event listener that does not yet exist. As things stand, deleting a Keycloak account does not currently clean up its memberships. See `claude/issues/issues.md` for tracking.
+
+.box {sensor:latest:temperature:{buildingId} is a cache, not a message} type:{note}
+    sensor-service also uses Redis as a 10-second TTL cache for each room's latest temperature reading (`GET`/`SETEX`), independent of the pub/sub channels above. It exists purely to serve fast reads for `agent-service`'s dashboard tool calls without re-querying the primary datastore, not to communicate between services.
+
 ---
 
-## Path 1: Live Telemetry to the Browser
+## Browser-Facing Real-Time Channels
 
-The defining flow: a reading becomes a live update on the dashboard, shaped per building.
+### Socket.IO (socket-service)
+
+.var {headers}
+   - Direction
+   - Event
+   - Detail
+
+.tablebyrows {.headers}
+    - - Client → Server
+      - `subscribe_building` / `unsubscribe_building` (buildingId)
+      - Join/leave the `building:{id}` room.
+    - - Server → Client
+      - `telemetry`
+      - Relayed from the Redis `telemetry:filtered:{buildingId}` channel to everyone in that building's room.
+    - - Server → Client
+      - `notification`
+      - Relayed from the Redis `notifications` channel to everyone in the resolved `domain:{name}` room; authenticated clients auto-join their domain room on connection.
+
+### Web Push (notification-service)
+
+The client fetches the server's public VAPID key (`GET /notification/public-key`), calls the browser's `pushManager.subscribe()`, and registers the resulting subscription (`POST /notification/subscribe`). When an alert fires, `notification-service` sends a push payload (`{title, message, icon}`) via the `web-push` package directly to the browser's push service — this path does **not** go through Redis or socket-service, and works even if the user has no tab open. A service worker (`client/public/service-worker.js`) handles the `push` event to show an OS-level notification and `notificationclick` to focus/open the app.
+
+---
+
+## End-to-End Flows
+
+### Path 1: Live Telemetry to the Browser
 
 .mermaid
     sequenceDiagram
@@ -90,8 +197,9 @@ The defining flow: a reading becomes a live update on the dashboard, shaped per 
         participant WS as socket-service
         participant UI as Vue client
 
-        Sensor->>SS: submit reading
-        Note over SS: validate, persist, normalize
+        Sensor->>SS: POST /ingest (no auth)
+        SS-->>Sensor: 202 Accepted
+        Note over SS: background: validate, persist, normalize
         SS->>R: PUBLISH telemetry:raw
         R-->>CS: telemetry:raw event
         Note over CS: read the event's own buildingId → route
@@ -99,38 +207,101 @@ The defining flow: a reading becomes a live update on the dashboard, shaped per 
         R-->>WS: telemetry:filtered:{buildingId} event
         WS->>UI: emit "telemetry" to room building:{id}
 
-`contracts-service` is the routing stage: it republishes each reading to its own building's channel (an O(1) lookup on the event's `buildingId`), so a reading reaches exactly one building's feed and never leaks into another's. It does **not** filter by metric type — every metric a building produces is forwarded, and the dashboard's column preferences only decide what the table *displays*, client-side. `socket-service` then delivers it to exactly the clients watching that building (see [Socket Service](../services/socket.qd)).
+`contracts-service` is the routing stage: it republishes each reading to its own building's channel (an O(1) lookup on the event's `buildingId`), so a reading reaches exactly one building's feed and never leaks into another's. It does **not** filter by metric type — every metric a building produces is forwarded, and the dashboard's column preferences only decide what the table *displays*, client-side.
 
----
-
-## Path 2: Threshold Alert to the User
-
-When a reading crosses a configured bound, the alert path runs in parallel to the telemetry path.
+### Path 2: Threshold Alert to the User
 
 .mermaid
     sequenceDiagram
         participant SS as sensor-service
+        participant R as Redis
         participant NS as notification-service
         participant TW as twin-service
-        participant R as Redis
         participant WS as socket-service
+        participant Push as Browser push service
         participant U as User
 
-        SS->>NS: temperature reading worth checking
+        Note over SS: background: reading crosses a configured bound
+        SS->>R: PUBLISH alerts:temperature
+        R-->>NS: alerts:temperature event
         Note over NS: throttle repeats (per-room cooldown)
-        NS->>TW: which domains is this building in?
-        TW-->>NS: domain names
+        NS->>TW: GET /domain/{buildingName}
+        TW-->>NS: domain name(s)
         Note over NS: select opted-in recipients
-        NS->>R: PUBLISH notifications
-        NS->>U: Web Push to registered devices
-        R-->>WS: notifications event (domainName)
-        WS->>U: emit "notification" to that domain's room
+        NS->>R: PUBLISH notifications {domainName}
+        NS->>Push: web-push send (VAPID)
+        R-->>WS: notifications event
+        WS->>U: emit "notification" to room domain:{name}
+        Push-->>U: service worker "push" → OS notification
 
-The alert path is owned by [notification-service](../services/notification.qd): it suppresses repeats with a short cooldown, resolves recipients via `twin-service`, and fans out over two channels — an in-app event through the broker and socket, and a Web Push to offline devices. The in-app event carries the resolved `domainName`, so socket-service delivers it only to that domain's connected members rather than broadcasting.
+Unlike Path 1, this is a **two-hop async chain**, not one publish: `sensor-service` never calls `notification-service` directly — the threshold trigger and the resolved, recipient-scoped notification are two distinct Redis events, with `notification-service` sitting in between doing the one synchronous call it needs (resolving domains from `twin-service`) and fanning out over both delivery paths — in-app (broker + socket) and Web Push (direct, works with no tab open).
+
+### Path 3: Assistant Tool-Calling
+
+.mermaid
+    sequenceDiagram
+        participant U as Browser
+        participant Chat as chat-service
+        participant Agent as agent-service
+        participant Twin as twin-service
+        participant Sensor as sensor-service
+
+        U->>Chat: POST /chat/... (x-gateway-claims via gateway)
+        Chat->>Agent: POST /ask {question}, x-gateway-claims forwarded
+        Note over Agent: LLM decides which tool(s) to call
+        Agent->>Twin: GET /buildings/{domain}, x-gateway-claims forwarded
+        Twin-->>Agent: building data
+        Agent->>Sensor: GET /{metric}/latest, x-gateway-claims forwarded
+        Sensor-->>Agent: reading
+        Agent-->>Chat: answer
+        Chat-->>U: chat response
+
+Every tool call `agent-service` makes carries the *original user's* `x-gateway-claims` header, forwarded across two hops (`chat-service → agent-service → twin-service`/`sensor-service`) — so `twin-service` and `sensor-service` apply the same Cedar authorization to an assistant-driven read as they would to a direct API call from that user. `chat-service` persists the conversation in its own MongoDB independently of this flow.
+
+### Path 4: Login & Identity Resolution
+
+.mermaid
+    sequenceDiagram
+        participant U as User
+        participant CG as claims-gateway
+        participant KC as Keycloak
+        participant TS as tenancy-service
+
+        U->>CG: POST /login (credentials or IdP redirect)
+        CG->>KC: verify credentials / verify token
+        KC-->>CG: verified identity + Organization claim
+        CG->>TS: GET /internal/memberships (HMAC)
+        alt no membership yet
+            CG->>TS: POST /internal/provision (HMAC)
+            TS-->>CG: membership created from the Organization claim
+        end
+        CG-->>U: signed internal token (StandardClaims)
+
+This is the **only** point where `tenancy-service` is consulted for identity — once per login, never per request. Every subsequent request in a session is authorized locally, from the token/header, with zero further network hops for auth. See [Identity & Tenancy Architecture](auth-architecture.qd) for how the membership itself is derived, and [Service Mesh Architecture](service-mesh.qd) for how the resulting token becomes the `x-gateway-claims` header at the mesh edge.
+
+### Path 5: Organization Signup & Provisioning
+
+.mermaid
+    sequenceDiagram
+        participant C as New customer
+        participant RS as registry-service
+        participant P as provisioner
+        participant TS as tenancy-service
+
+        C->>RS: POST /organizations (no auth — no credentials exist yet)
+        RS-->>C: 201, status=provisioning
+        loop every 15s
+            P->>RS: GET /internal/organizations/pending (HMAC)
+        end
+        P->>TS: POST /internal/domains (HMAC, idempotent)
+        TS-->>P: 201 or 409 (both = success)
+        P->>RS: POST /internal/organizations/{id}/status (HMAC)
+
+This is the control-plane path: no end user is authenticated mid-flow, so every internal hop uses the HMAC `X-Signature` scheme rather than a forwarded identity header. See [Overview](overview.qd) for what `registry-service`/`provisioner`/`tenancy-service` each own.
 
 ---
 
-## Why Two Styles
+## Why Three Styles
 
 .var {headers}
    - Concern
@@ -138,12 +309,12 @@ The alert path is owned by [notification-service](../services/notification.qd): 
    - Reason
 
 .tablebyrows {.headers}
-    - - User actions (login, CRUD)
-      - Synchronous
-      - The caller needs an immediate, ordered result.
-    - - Provisioning between services
-      - Synchronous (best-effort)
-      - Simple to reason about; failures are tolerated and re-tried later.
+    - - User actions (login, CRUD, assistant queries)
+      - Synchronous, identity forwarded
+      - The caller needs an immediate, ordered result, and downstream services need to know who's asking.
+    - - Organization provisioning
+      - Synchronous, HMAC-signed
+      - No user identity exists to carry; the calling *service* authenticates itself instead. Failures are tolerated and retried on the next reconcile tick.
     - - Telemetry & alerts
       - Asynchronous
-      - High volume, many consumers, and producers that must never block.
+      - High volume, many consumers, and producers that must never block on a slow subscriber.

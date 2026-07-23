@@ -1,11 +1,3 @@
-// Package events consumes account.deleted from Redis Streams and reaps the
-// account's memberships. This is the replacement for the foreign key that
-// can't exist across a service boundary — identity lives in Keycloak, a
-// separate deployable with its own database (Postgres-per-service).
-//
-// At-least-once delivery (a consumer group, not plain pub/sub) is
-// deliberate: losing this event permanently orphans a membership row. The
-// handler is idempotent (see service.ReapAccount), so redelivery is safe.
 package events
 
 import (
@@ -47,9 +39,6 @@ func isBusyGroup(err error) bool {
 	return err != nil && len(err.Error()) >= 9 && err.Error()[:9] == "BUSYGROUP"
 }
 
-// Run blocks, reading and acking messages until ctx is cancelled. A message
-// is only acked after ProcessMessage succeeds — a failed reap is redelivered
-// on the next read rather than silently dropped.
 func (c *Consumer) Run(ctx context.Context) {
 	for {
 		select {
@@ -75,7 +64,7 @@ func (c *Consumer) Run(ctx context.Context) {
 				accountID, _ := msg.Values["accountId"].(string)
 				if err := ProcessMessage(ctx, c.svc, accountID); err != nil {
 					log.Printf("events: reap failed for %q, will redeliver: %v", accountID, err)
-					continue // do NOT ack — redelivered on the next XReadGroup
+					continue
 				}
 				c.rdb.XAck(ctx, Stream, Group, msg.ID)
 			}
@@ -83,8 +72,7 @@ func (c *Consumer) Run(ctx context.Context) {
 	}
 }
 
-// ProcessMessage is the pure, directly-testable core: given an accountID,
-// reap its memberships. Idempotent — reaping twice (redelivery) is a no-op.
+// ProcessMessage is the pure, directly-testable core: given an accountID reap its memberships.
 func ProcessMessage(ctx context.Context, svc *service.Service, accountID string) error {
 	if accountID == "" {
 		return nil // malformed event; nothing to do, don't retry forever

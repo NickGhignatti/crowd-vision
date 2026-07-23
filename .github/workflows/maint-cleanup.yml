@@ -34,5 +34,4 @@ jobs:
           package-name: ${{ matrix.package-name }}
           package-type: "container"
           min-versions-to-keep: 3
-          # explicitly protect the 'latest' tag from deletion
           ignore-versions: "latest"

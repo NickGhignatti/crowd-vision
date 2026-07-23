@@ -1,40 +1,51 @@
 .docname {Deployment & Kubernetes}
 .include {docs}
 
-This page covers how CrowdVision is deployed on Kubernetes: how the cluster is structured, what each manifest type does, how the nginx Ingress works, and how data is persisted across pod restarts. For the high-level deployment models and the gateway, see the [Architecture Overview](overview.qd).
+This page covers how CrowdVision is deployed on Kubernetes: how the cluster is structured, what each manifest type does, how ingress routing works, and how data is persisted across pod restarts. For the high-level deployment models and the gateway, see the [Architecture Overview](overview.qd). For the Istio ambient mesh migration this cluster is also used to validate, see [Service Mesh Architecture](service-mesh.qd).
 
 ---
 
 ## 🗂️ Manifest Structure
 
-All Kubernetes configuration lives in the `k8s/` directory:
+All Kubernetes configuration lives in the `k8s/` directory. All 12 application services now have manifests — identity/tenancy (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) is no longer docker-compose-only:
 
 ```bash
 k8s/
 ├── namespace.yml              # The crowdvision namespace
-├── ingress.yml                # nginx Ingress routing rules (2 objects)
+├── istio-gateway.yml          # Gateway API Gateway + HTTPRoutes — the k8s ingress
+├── istio-peer-authentication.yml   # Namespace STRICT mTLS
+├── istio-request-authentication.yml # Edge JWT verification + AuthorizationPolicy
 ├── configmaps/
 │   └── common.yml             # Non-sensitive shared environment variables
-├── secrets/                   # GITIGNORED — sensitive credentials
-│   ├── twin.yml
-│   ├── notification.yml
-│   └── agent.yml
-├── stateful/                  # Databases and stateful services
-│   ├── twin-db.yml
-│   ├── notification-db.yml
-│   ├── sensor-db.yml
+├── secrets/                   # Gitignored, and not even materialised as files —
+│                               # see "ConfigMaps and Secrets" below
+├── stateful/                  # Databases and Redis (9 StatefulSets)
+│   ├── twin-db.yml            # MongoDB
+│   ├── notification-db.yml    # MongoDB
+│   ├── sensor-db.yml          # MongoDB
+│   ├── chat-db.yml            # MongoDB
+│   ├── contracts-service-db.yml  # MongoDB
+│   ├── registry-db.yml        # PostgreSQL
+│   ├── tenancy-db.yml         # PostgreSQL
+│   ├── agent-db.yml           # PostgreSQL
 │   └── redis.yml
-└── deployments/               # Stateless application services
+├── monitoring/
+│   ├── prometheus.yml
+│   └── grafana.yml
+└── deployments/                # Stateless application services (12)
     ├── twin-service.yml
-    ├── notification-service.yml
     ├── sensor-service.yml
+    ├── notification-service.yml
     ├── socket-service.yml
+    ├── chat-service.yml
     ├── agent-service.yml
+    ├── contracts-service.yml
+    ├── claims-gateway.yml
+    ├── tenancy-service.yml
+    ├── registry-service.yml
+    ├── provisioner.yml
     └── client.yml
 ```
-
-.box {claims-gateway and tenancy-service have no k8s manifests yet} type:{warning}
-    The current identity/tenancy stack (`claims-gateway`, `tenancy-service`, plus `registry-service`/`provisioner`) only runs via docker-compose — see [Identity & Tenancy Architecture](auth-architecture.qd)'s "known gap" note. The old `auth-service`/`auth-db` manifests were deleted along with the service, not replaced.
 
 ---
 
@@ -42,19 +53,23 @@ k8s/
 
 Kubernetes separates configuration into two object types based on sensitivity.
 
-**ConfigMap (`k8s/configmaps/common.yml`)** — stores non-sensitive, shared configuration injected as environment variables into all pods that reference it:
+**ConfigMap (`k8s/configmaps/common.yml`)** — stores non-sensitive, shared configuration injected as environment variables into pods that reference it:
 
 ```yaml
 data:
-  REDIS_URL: "redis://redis:6379"
-  TWIN_SERVICE_URL: "http://twin-service:3000"
-  GATEWAY_JWKS_URI: "http://claims-gateway:3000/.well-known/jwks.json"
-  GATEWAY_ISSUER: "cv-gateway"
-  CLIENT_URL: "http://localhost"
   PORT: "3000"
+  REDIS_URL: "redis://redis:6379"
+  SENSOR_SERVICE_URL: "http://sensor-service:3000"
+  TWIN_SERVICE_URL: "http://twin-service:3000"
+  CONTRACTS_SERVICE_URL: "http://contracts-service:3000"
+  GATEWAY_URL: "http://crowdvision.local"
+  PUBLIC_URL: "http://crowdvision.local"
+  CLIENT_URL: "http://crowdvision.local"
 ```
 
-**Secrets** — store sensitive values (database URIs, JWT keys, API keys). The `k8s/secrets/` directory is intentionally empty and gitignored. Secrets are created directly on the cluster from your local `.env` file using `just k8s secrets` — they never touch the git repository. Kubernetes base64-encodes them automatically before storing in etcd.
+There is no `GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` here — that was true when each service verified gateway JWTs itself, but [Service Mesh Architecture](service-mesh.qd)'s Phase 2 moved JWT verification to Istio's edge `RequestAuthentication`; migrated services now just decode the `x-gateway-claims` header Istio injects, and no longer fetch JWKS themselves.
+
+**Secrets** — store sensitive values (database URIs, signing secrets, API keys). Nothing under `k8s/secrets/` is ever materialised as a file, gitignored or otherwise — `just k8s secrets` runs `scripts/k8s/k8s-secrets.mjs`, which reads your local `.env` and pipes `kubectl create secret ... --dry-run=client -o yaml` straight into `kubectl apply`. Secret values never touch the git repository or disk on the cluster side. The script creates one secret per service (plus per-Postgres-StatefulSet init secrets and `ghcr-pull-secret` for image pulls) and is idempotent — safe to re-run after rotating a key. One secret, `claims-gateway-key`, is file-based rather than env-based (a PEM signing key mounted as a volume) — see [Kubernetes Configuration](../config/kubernetes.qd) for the full secrets walkthrough.
 
 .box type:{warning}
     `stringData` is not encryption — it is base64 encoding. Real security comes from RBAC controlling who can `kubectl get secret`. For production, consider integrating an external secrets manager (HashiCorp Vault, AWS Secrets Manager) that injects values at runtime.
@@ -65,9 +80,9 @@ data:
 
 CrowdVision uses two different Kubernetes workload types depending on whether the service needs persistent identity.
 
-**Deployments** are used for all stateless application services (`twin-service`, `sensor-service`, `client`, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.
+**Deployments** are used for all 12 stateless application services (`twin-service`, `sensor-service`, `client`, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.
 
-**StatefulSets** are used for all databases (MongoDB × 3) and Redis. StatefulSets give each pod:
+**StatefulSets** are used for every database and Redis — 9 in total, and not a single engine: five MongoDB StatefulSets (`twin-db`, `notification-db`, `sensor-db`, `chat-db`, `contracts-service-db`), three PostgreSQL StatefulSets (`registry-db`, `tenancy-db`, `agent-db` — the Go and Python services that use a relational store), and one Redis. StatefulSets give each pod:
 - A **stable, predictable name** — `twin-db-0`, `twin-db-1` (never random hashes).
 - A **dedicated PersistentVolumeClaim (PVC)** — the storage is bound to `twin-db-0` specifically. If the pod is rescheduled to a different node, Kubernetes remounts the same volume there.
 - A **headless Service** (`clusterIP: None`) — enables direct per-pod DNS (`twin-db-0.twin-db.crowdvision.svc.cluster.local`).
@@ -84,38 +99,11 @@ CrowdVision uses two different Kubernetes workload types depending on whether th
 
 ## 🌐 Ingress Configuration
 
-The Ingress resource is split into two objects in `k8s/ingress.yml` because they require different annotation sets.
+Kubernetes ingress is Istio's Gateway API. `k8s/istio-gateway.yml` defines one `Gateway` (class `istio`, which auto-provisions its own Envoy Deployment/Service named `crowdvision-gateway-istio`) plus one `HTTPRoute` per service, fronting the Istio ambient mesh. It's the single k8s ingress for every environment — local k3d and production alike. There is no nginx `Ingress`: it had no edge authentication, so once the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header outright (see [Service Mesh Architecture](service-mesh.qd)).
 
-**Ingress 1: API services (with URL rewriting)**
+**Per-service routes.** Each API route gets a `URLRewrite`/`ReplacePrefixMatch` filter that strips the service prefix before forwarding — so `/twin/buildings` reaches `twin-service` as `/buildings`. `socket-service`'s route and the client's `/` catch-all forward the path unrewritten; `/grafana` is forwarded intact to Grafana, which owns that subpath. Gateway API matches by path specificity, so the client catch-all is evaluated last regardless of file order. The routes cover every service including `claims-gateway` (`/gateway`) and `tenancy-service` (`/tenancy`).
 
-All API services use a regex path with a capture group and the `rewrite-target: /$2` annotation. This strips the service prefix before forwarding — so a request to `/twin/buildings` reaches `twin-service` as `/buildings`, not `/twin/buildings`.
-
-```yaml
-annotations:
-  nginx.ingress.kubernetes.io/use-regex: "true"
-  nginx.ingress.kubernetes.io/rewrite-target: /$2
-
-# Path pattern — two capture groups:
-path: /auth(/|$)(.*)
-# Group 1: (/|$)  — matches the slash or end of path
-# Group 2: (.*)   — captures everything after /auth/
-# $2 in rewrite-target = the captured remainder → forwarded as /login
-```
-
-**Ingress 2: WebSocket and client (no rewriting)**
-
-The second Ingress object handles the Vue client and Socket.IO. No URL rewriting is needed — the client serves from `/` and Socket.IO expects to receive requests at `/socket.io/`. This object also sets sticky session cookies so that Socket.IO polling handshakes are consistently routed to the same backend pod.
-
-```yaml
-annotations:
-  nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-  nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-  nginx.ingress.kubernetes.io/affinity: "cookie"
-  nginx.ingress.kubernetes.io/session-cookie-name: "route"
-```
-
-.box type:{note}
-    The `/` catch-all rule for the Vue client uses the path `/()(.*)` — an empty first capture group followed by the full path as group 2. This ensures `rewrite-target: /$2` forwards `/assets/bundle.js` correctly rather than rewriting all asset requests to `/`.
+**Edge security.** The Gateway runs with Istio ambient enrollment underneath it — `ztunnel` L4 mTLS, `PeerAuthentication: STRICT`, and edge `RequestAuthentication` verifying the gateway JWT once and injecting the validated claims as `x-gateway-claims`. An `AuthorizationPolicy` requires a verified JWT principal on the protected service paths (`/twin`, `/sensor`, `/notification`, `/chat`, `/socket.io`, `/tenancy`, `/contracts`); `/gateway`, `/agent`, `/sensor/ingest`, `/grafana`, and the client SPA are deliberately open. `docker-compose` + Caddy's `forward_auth` mirrors this exactly for the dev loop. See [Service Mesh Architecture](service-mesh.qd) for the full migration and [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh) for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).
 
 ---
 
@@ -133,16 +121,24 @@ initContainers:
       - until nc -z twin-db 27017; do echo "waiting..."; sleep 2; done
 ```
 
-The `initContainer` runs before the main container. It polls `twin-db:27017` every 2 seconds using `netcat`. Only when the TCP connection succeeds does Kubernetes start the main `twin-service` container. The pod shows `Init:0/1` in `kubectl get pods` during this wait.
+The `initContainer` runs before the main container. It polls `twin-db:27017` every 2 seconds using `netcat`. Only when the TCP connection succeeds does Kubernetes start the main `twin-service` container. The pod shows `Init:0/1` (or `Init:N/M` with multiple init containers) in `kubectl get pods` during this wait.
+
+The same pattern gates on other **services**, not just databases, wherever there's a real startup-order dependency:
+
+- `tenancy-service` has two init containers in sequence — `wait-for-db` (`tenancy-db:5432`) and `wait-for-redis` (`redis:6379`).
+- `provisioner` waits on `registry-service:3000` and `tenancy-service:3000` directly, since it calls both over HTTP at signup time and has no database of its own.
+- `claims-gateway` waits on `tenancy-service:3000`.
 
 ---
 
 ## 🔄 Rolling Updates & Rollbacks
 
-Every application Deployment uses `imagePullPolicy: Always` in VPS production — every rollout restart pulls the freshest `:latest` image from GHCR. When you run `kubectl rollout restart deployment/twin-service`, Kubernetes creates a new pod with the fresh image, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down.
+Every application container in `k8s/deployments/*.yml` sets `imagePullPolicy: IfNotPresent`, in every environment — not just local k3d. This wasn't the original design (`Always` is the more natural default for a `:latest`-tagged VPS deployment), but the `ghcr.io/nickghignatti/*` pull token doesn't currently have pull access in the environments this has been tested against, and `Always` would fail every deployment outright with a 403 rather than degrade gracefully. Init containers (`busybox`) and the StatefulSet database images (`postgres`, `mongo`) are unaffected and still use `Always`. If you rely on GHCR-published images instead of `just k8s load`, override `imagePullPolicy` per-deployment rather than reverting it globally.
+
+When you run `kubectl rollout restart deployment/twin-service`, Kubernetes creates a new pod, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down. All application containers also carry `securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }` plus explicit `resources.requests`/`limits`, with an `emptyDir` volume mounted at `/tmp` for the services that write there despite the read-only root filesystem.
 
 .box type:{note}
-    **Local k3d development:** Set `imagePullPolicy: IfNotPresent` instead of `Always`. When you load images with `just k8s load`, Kubernetes must use the locally-imported image — `Always` would cause it to attempt a GHCR pull and either fail (if unauthenticated) or silently use a stale remote image.
+    **Local k3d development:** `just k8s load` imports images built locally straight into k3d's containerd. Since every application container already defaults to `IfNotPresent`, this works out of the box — Kubernetes uses the locally-imported image without attempting a GHCR pull.
 
 ```bash
 # Roll out a single service

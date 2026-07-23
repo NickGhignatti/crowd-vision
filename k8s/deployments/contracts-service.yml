@@ -1,4 +1,3 @@
-# ── Deployment ────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,10 +12,36 @@ spec:
     metadata:
       labels:
         app: contracts-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
       initContainers:
+        - name: wait-for-mongo
+          image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z contracts-service-db 27017; do
+                echo "waiting for contracts-service-db..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+              ephemeral-storage: "10Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+              ephemeral-storage: "50Mi"
         - name: wait-for-redis
           image: busybox:1.36
           imagePullPolicy: Always
@@ -89,18 +114,18 @@ spec:
       containers:
         - name: contracts-service
           image: ghcr.io/nickghignatti/crowdvision-contracts:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
           envFrom:
+            - secretRef:
+                name: contracts-service-secret   # MONGO_URI
             - configMapRef:
                 name: common-config   # PORT, REDIS_URL
           env:
-            # contracts-service uses these names instead of the ConfigMap keys.
-            # Inline here to avoid adding contracts-specific vars to the shared ConfigMap.
             - name: SENSOR_METRICS_URL
               value: "http://sensor-service:3000"
             - name: TWIN_METRICS_URL
@@ -136,7 +161,6 @@ spec:
           emptyDir: {}
 
 ---
-# ── Service ───────────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Service
 metadata:
@@ -148,3 +172,4 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
+      appProtocol: http

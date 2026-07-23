@@ -34,7 +34,7 @@ Every pull request must pass `CI Gate / CI Passed` — the single aggregated che
 .mermaid
     graph LR
         PR[Pull Request] --> CHANGES[changes<br/>path filter]
-        CHANGES --> SVC[Service legs<br/>auth · chat · agent · client<br/>contracts · notification<br/>sensor · socket · twin]
+        CHANGES --> SVC[Service legs<br/>chat · agent · client<br/>contracts · notification<br/>sensor · socket · twin<br/>claims-gateway · tenancy-service<br/>registry-service · provisioner]
         CHANGES --> DOCKER[docker<br/>hadolint + build]
         CHANGES --> K8S[k8s<br/>kubeconform · pluto · kube-score]
         CHANGES --> LINT[workflows-lint<br/>actionlint]
@@ -75,7 +75,7 @@ Each service has a dedicated reusable workflow that the gate calls when that ser
       - Node.js 24 / Jest
     - - `ci-twin.yml`
       - `server/twin-service`
-      - Node.js 24 / Jest
+      - Rust stable / cargo llvm-cov
     - - `ci-sensor.yml`
       - `server/sensor-service`
       - Node.js 24 / Jest
@@ -94,11 +94,26 @@ Each service has a dedicated reusable workflow that the gate calls when that ser
     - - `ci-agent.yml`
       - `server/agent-service`
       - Python 3.12 / pytest
+    - - `ci-claims-gateway.yml`
+      - `server/claims-gateway`
+      - Go 1.25 / `go test`
+    - - `ci-tenancy-service.yml`
+      - `server/tenancy-service`
+      - Go 1.25 / `go test`
+    - - `ci-registry-service.yml`
+      - `server/registry-service`
+      - Go 1.25 / `go test`
+    - - `ci-provisioner.yml`
+      - `server/provisioner`
+      - Go 1.23 / `go test`
 
-The **Node services** share the same shape: `npm ci`, install the shared `tooling/eslint-config/`, lint, build, test with coverage, then audit. The **client** splits into a `quality` job (lint, type-check, audit), a `test` job that shards Vitest across three parallel runners, and a `coverage` job that runs the suite unsharded to produce a single coverage report. The **contracts** service runs `cargo fmt --check` and `cargo clippy -- -D warnings` before `cargo llvm-cov` (its tests run under coverage instrumentation), then a `rustsec/audit-check`. The **agent** runs `ruff check`, `ruff format --check`, and `pyright` in a `quality` job, with `pytest` (unit + integration, with `--cov`) in a separate `tests` job. Coverage reporting is detailed in the **Code coverage** section below.
+The **Node services** (`chat`, `sensor`, `socket`, `notification`) share the same shape: `npm ci`, install the shared `tooling/eslint-config/`, lint, build, test with coverage, then audit. The **client** splits into a `quality` job (lint, type-check, audit), a `test` job that shards Vitest across three parallel runners, and a `coverage` job that runs the suite unsharded to produce a single coverage report. The **two Rust services** (`contracts-service`, `twin-service`) both run `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` before `cargo llvm-cov`, then a `rustsec/audit-check`; `twin-service`'s job additionally installs `mold` and spins up a real `mongo:7` service container, since its integration tests exercise MongoDB directly rather than mocking it. The **agent** runs `ruff check`, `ruff format --check`, and `pyright` in a `quality` job, with `pytest` (unit + integration, with `--cov`) in a separate `tests` job. The **four Go services** each run `go vet` (lint), `go build`, then `go test -coverprofile` — `actions/setup-go`'s `go-version-file` picks up each service's own pinned version (`provisioner` is still on Go 1.23, the other three on 1.25); none of them run an audit step yet (see the note below). Coverage reporting is detailed in the **Code coverage** section below.
 
 .box {The dependency audit is split into two steps} type:{note}
     Every Node service runs the audit twice. **`npm audit --audit-level=high --omit=dev`** is **blocking** — a fixable high/critical vulnerability in a *production* dependency fails the build. **`npm audit --audit-level=high`** (the full tree, including dev deps) runs straight after with `continue-on-error: true`, so dev-only advisories are surfaced in the log without blocking a merge. The split keeps the gate honest about what ships to users while still reporting everything.
+
+.box {The four Go services don't have an audit step yet} type:{note}
+    Unlike every other language here, there's no `govulncheck`-equivalent step in the four Go CI workflows — `.moon/tasks/go.yml` doesn't define an `audit` task either, so `just setup audit` silently skips them too (see [The Toolchain](../config/toolchain.qd)). Build/lint/test coverage is in place; dependency vulnerability scanning for Go is still open.
 
 ---
 
@@ -115,7 +130,7 @@ Every service CI workflow now measures **code coverage** as part of its test run
     - - Node.js services + client
       - `jest --coverage` · `vitest run --coverage`
       - Istanbul `coverage-summary.json`
-    - - `contracts-service`
+    - - `contracts-service`, `twin-service`
       - `cargo llvm-cov --json`
       - LLVM JSON
     - - `agent-service`
@@ -162,7 +177,7 @@ These legs validate properties that span the codebase rather than a single servi
     - - `ci-docker.yml`
       - The `docker` leg. For each **changed** service that ships an image: hadolint on its `Dockerfile`, then a `push: false` Docker build (a PR-time build check — `cd-registry` does the real publish on `master`). The gha layer cache is scoped per image so services reuse their own layers without evicting each other.
     - - `ci-k8s.yml`
-      - The `k8s` leg. Validates `k8s/` with **kubeconform** (schema, against Kubernetes 1.32.0, `-strict`), **pluto** (deprecated/removed API versions), and **kube-score** (best-practice scoring, with a curated set of ignored tests).
+      - The `k8s` leg. Validates `k8s/` with **kubeconform** (schema, against Kubernetes 1.32.0, `-strict`, plus the [CRDs-catalog](https://github.com/datreeio/CRDs-catalog) schema location so Istio/Gateway API kinds — `Gateway`, `HTTPRoute`, `PeerAuthentication`, `RequestAuthentication`, `AuthorizationPolicy` — are actually schema-checked rather than erroring with "could not find schema"), **pluto** (deprecated/removed API versions), and **kube-score** (best-practice scoring, with a curated set of ignored tests).
     - - `workflows-lint`
       - A job defined inline in `ci-gate.yml` that validates the workflow files themselves whenever anything under the `&#46;github/` tree changes. **actionlint** (digest-pinned container) catches malformed expressions and invalid action inputs; shellcheck is bundled but disabled (`-shellcheck=`) until its `run:`-block findings are triaged. **zizmor** (pinned version, run `--offline --min-severity medium`) then audits for security smells actionlint misses: template injection in `run:` blocks, credential persistence (it is why every read-only checkout sets `persist-credentials: false`), over-broad token permissions, and dangerous triggers.
     - - `ci-infra.yml`
@@ -183,7 +198,7 @@ Triggered on every push to `master`. Runs semantic-release from `tooling/`: it r
 
 ### cd-registry
 
-Triggered on push to `master` when source changes under `server/**`, `simulators/**`, `client/**`, or the workflow file itself. It publishes Docker images to GHCR tagged both `:latest` and `:<git-sha>`.
+Triggered on push to `master` when source changes under `server/**`, `simulators/**`, `client/**`, or the workflow file itself. It publishes Docker images to GHCR tagged both `:latest` and `:<git-sha>`, for all fourteen images — the ten TypeScript/Rust/Python services and simulators, plus `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner`.
 
 The publish is **gated by a vulnerability scan that runs before anything reaches the registry**. Each image is built into the runner's local daemon (`push: false`, `load: true`), scanned by **Trivy**, and pushed **only if the scan passes** — so a vulnerable image is never published. The push step rebuilds from the still-warm gha cache, so it costs no recompilation.
 
@@ -204,9 +219,9 @@ To keep the OS scan green, every production image upgrades its base-OS packages 
 
 ## Static security analysis (CodeQL)
 
-`ci-codeql.yml` runs GitHub's SAST for `javascript-typescript`, `python`, and `rust` with the `security-extended` query suite. It runs automatically on **every pull request to `master`**, on **every push to `master`** (to refresh the Security tab's default-branch baseline), and on a **weekly schedule** (Monday 03:00 UTC) to catch CVEs newly disclosed against unchanged code. Manual `workflow_dispatch` is retained for on-demand re-scans, and a concurrency guard cancels a scan superseded by a newer commit.
+`ci-codeql.yml` runs GitHub's SAST for `javascript-typescript`, `python`, `rust`, and `go` with the `security-extended` query suite. It runs automatically on **every pull request to `master`**, on **every push to `master`** (to refresh the Security tab's default-branch baseline), and on a **weekly schedule** (Monday 03:00 UTC) to catch CVEs newly disclosed against unchanged code. Manual `workflow_dispatch` is retained for on-demand re-scans, and a concurrency guard cancels a scan superseded by a newer commit.
 
-All three languages use **`build-mode: none`** — CodeQL extracts from source without a compile. For `javascript-typescript` and `python` that is the natural mode; for `rust` (`contracts-service`) it means no Rust toolchain or mold-linker setup is needed, and the crate is found under `server/contracts-service` without a root `Cargo.toml`.
+All four languages use **`build-mode: none`** — CodeQL extracts from source without a compile. For `javascript-typescript` and `python` that is the natural mode; for `rust` (`contracts-service` and `twin-service`) and `go` (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) it means no toolchain setup is needed for CodeQL's own purposes, and each of the several independent crates/modules is found and extracted directly from source without a root `Cargo.toml`/`go.work` tying them together.
 
 It runs as a **standalone workflow rather than a leg of the gate**, on purpose: CodeQL needs `security-events: write` to upload results, whereas the gate's token is deliberately read-only, and a reusable workflow cannot hold more permission than its caller. Keeping CodeQL separate preserves the gate's least-privilege token. Add **CodeQL** as a second required status check in branch protection (alongside `CI Gate / CI Passed`) to block merges on new high-severity findings.
 
@@ -233,7 +248,7 @@ Both checks also run inside the per-service CI workflows on every pull request, 
 
 ## Docker image registry
 
-All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and `:<git-sha>`. The Kubernetes deployment manifests reference `:latest`.
+All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and `:<git-sha>`, published automatically by `cd-registry` on every push to `master` that touches them. The Kubernetes deployment manifests reference `:latest`.
 
 .var {headers}
    - Service
@@ -260,6 +275,14 @@ All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and 
       - `ghcr.io/nickghignatti/crowdvision-simulator`
     - - `aq-simulator`
       - `ghcr.io/nickghignatti/crowdvision-aq-simulator`
+    - - `claims-gateway`
+      - `ghcr.io/nickghignatti/crowdvision-claims-gateway`
+    - - `provisioner`
+      - `ghcr.io/nickghignatti/crowdvision-provisioner`
+    - - `registry-service`
+      - `ghcr.io/nickghignatti/crowdvision-registry`
+    - - `tenancy-service`
+      - `ghcr.io/nickghignatti/crowdvision-tenancy`
 
 ---
 
@@ -274,4 +297,4 @@ just setup deps-check      # lockfile sync
 just setup audit           # vulnerability audit
 ```
 
-Per-service tests are available as `just test auth`, `just test chat`, `just test twin`, `just test sensor`, `just test notification`, `just test socket`, `just test client`, and `just test agent`. Full backend integration tests run via `just test integration` (it composes the full stack — see [Docker Compose Orchestration](../config/docker-compose.qd)).
+Per-service tests are available as `just test chat`, `just test twin`, `just test sensor`, `just test notification`, `just test socket`, `just test client`, and `just test agent` (no per-service recipe for `contracts-service` or the four Go control-plane services — use `just test affected`/`all`, which cover every registered project via `moon run :test`). Full backend integration tests run via `just test integration` (it composes the full stack — see [Docker Compose Orchestration](../config/docker-compose.qd)).

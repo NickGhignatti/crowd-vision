@@ -37,19 +37,17 @@ export const buildAccumulator = (mode: AggMode, field: string) => {
     case "max":
       return { $max: field };
     default:
-      return { $avg: field }; // covers 'avg' and safe fallthrough
+      return { $avg: field };
   }
 };
 
 export const getTimeRange = (input: string | null | undefined): TimeRange => {
   const validRanges: TimeRange[] = ["1D", "1W", "1M", "custom"];
 
-  // Check if the input exists and is one of the valid options
   if (input && validRanges.includes(input as TimeRange)) {
     return input as TimeRange;
   }
 
-  // Default fallback
   return "1D";
 };
 
@@ -58,7 +56,7 @@ export const getDateRange = (
   customStart?: Date,
   customEnd: Date = new Date(),
 ) => {
-  const end = customEnd; // Defaults to NOW
+  const end = customEnd;
   let start = new Date();
 
   switch (range) {
@@ -76,7 +74,6 @@ export const getDateRange = (
       start = customStart;
       break;
     default:
-      // Default fallback (e.g., last 24h)
       start.setHours(end.getHours() - 24);
   }
 

@@ -1,8 +1,3 @@
--- organizations is a control-plane billing/provisioning entity, deliberately
--- distinct from tenancy-service's `domains`: an organization exists once
--- (registry-service, never deployed inside a cell); a domain is the pooled
--- cell's in-cluster tenant concept. Conflating the two was implicit in
--- earlier iterations of this design; this table keeps them separate.
 create table organizations (
   id             uuid primary key default gen_random_uuid(),
   name           text not null unique,

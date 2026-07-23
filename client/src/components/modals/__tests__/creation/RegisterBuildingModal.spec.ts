@@ -4,9 +4,8 @@ import { setActivePinia, createPinia } from 'pinia'
 import { ref, computed } from 'vue'
 import RegisterBuildingModal from '../../creation/RegisterBuildingModal.vue'
 
-// ── mock composable ───────────────────────────────────────────────────────────
-// Use real Vue refs so v-if="hasData && draft" unwraps correctly in the template.
-// vi.mock factory runs lazily (after module-level code), so ref/computed are safe.
+// Real Vue refs (not plain values) so v-if="hasData && draft" unwraps correctly in the
+// template; vi.mock's factory runs lazily, so ref/computed are safe to reference here.
 
 const draftRef = ref<any>(null)
 const mockSubmit = vi.fn().mockResolvedValue(undefined)

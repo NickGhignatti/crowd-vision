@@ -8,10 +8,8 @@ services:
         VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
         VITE_SIMULATOR_URL_AQ: ${DEV_URL}/simulator/aq
         VITE_SIMULATOR_URL_TP: ${DEV_URL}/simulator/tp
-        # Browser-reachable Keycloak URL — deliberately NOT the internal
-        # Docker hostname claims-gateway uses (OIDC_DISCOVERY_URL); the
-        # browser redirects here directly, same split as claims-gateway's
-        # discovery-vs-issuer URLs (see its CLAUDE.md).
+        # Browser-reachable Keycloak URL — NOT the internal Docker hostname claims-gateway
+        # uses (OIDC_DISCOVERY_URL); same discovery-vs-issuer split as claims-gateway (see its CLAUDE.md).
         VITE_KEYCLOAK_URL: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8090}
     ports:
       - "${CLIENT_PORT}:8080"

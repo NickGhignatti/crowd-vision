@@ -1,7 +1,3 @@
-# ── Headless Service ──────────────────────────────────────────────────────────
-# clusterIP: None required by kube-score — the StatefulSet governing Service
-# must be headless. Consumers still reach redis via redis:6379 (DNS resolves
-# to the pod IP directly, which is fine for a single-replica StatefulSet).
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,13 +10,9 @@ spec:
   ports:
     - port: 6379
       targetPort: 6379
+      appProtocol: tcp
 
 ---
-# ── StatefulSet ───────────────────────────────────────────────────────────────
-# Changed from Deployment to StatefulSet so that:
-#   1. Redis gets a stable pod name (redis-0) and a dedicated PVC.
-#   2. Data survives pod rescheduling — Socket.IO room state and any queues
-#      are not silently lost when the node is drained or updated.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -39,7 +31,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7-alpine   # pinned to major version
+          image: redis:7-alpine
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
@@ -51,7 +43,7 @@ spec:
             - containerPort: 6379
           volumeMounts:
             - name: redis-data
-              mountPath: /data   # Redis writes AOF and RDB files here
+              mountPath: /data
             - name: tmp
               mountPath: /tmp
           readinessProbe:
@@ -86,7 +78,4 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 512Mi   # pub/sub state and AOF log are small
-        # Local k3d:           omit storageClassName — uses default "local-path"
-        # Hetzner VPS:         storageClassName: hcloud-volumes
-        # DigitalOcean VPS:    storageClassName: do-block-storage
+            storage: 512Mi

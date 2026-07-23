@@ -5,7 +5,18 @@ Implementation reference for the `socket-service`. For its architectural role, s
 
 A small Node.js service built on **Socket.IO** and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split: pure relay helpers and token verification in `core/` and `auth.ts`, the broker- and socket-event handlers in `handlers/`, the metrics registry in `config/`, and a thin composition root in `index.ts` that wires them together.
 
-Connections are **authenticated**: a Socket.IO handshake middleware verifies the claims-gateway-minted JWT before any event is processed, so the service knows which account and domains each socket belongs to.
+Connections are **authenticated**: a Socket.IO handshake middleware decodes the mesh-verified claims header before any event is processed, so the service knows which account and domains each socket belongs to.
+
+.mermaid
+    graph TD
+        IDX["index.ts\ncomposition root"] --> AUTH["auth.ts\nauthenticateClaimsHeader"]
+        IDX --> CONN["handlers/connection.ts"]
+        IDX --> TEL["handlers/telemetry.ts"]
+        IDX --> NOTIF["handlers/notification.ts"]
+        CONN --> REL["core/relay.ts\npure: roomForBuilding, roomForDomain, buildingIdFromChannel"]
+        TEL --> REL
+        NOTIF --> REL
+        IDX --> METRICS["config/metrics.ts"]
 
 ---
 
@@ -23,12 +34,6 @@ Connections are **authenticated**: a Socket.IO handshake middleware verifies the
     - - `CLIENT_URL`
       - `http://localhost:5173`
       - Allowed CORS origin for the Socket.IO server (credentials enabled).
-    - - `GATEWAY_JWKS_URI`
-      - —
-      - claims-gateway's published JWKS endpoint, used to verify the handshake token's RS256 signature.
-    - - `GATEWAY_ISSUER`
-      - `cv-gateway`
-      - Expected `iss` claim on the verified token.
 
 The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs the Kubernetes probes.
 
@@ -38,9 +43,9 @@ The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs
 
 A Socket.IO handshake middleware (`io.use`) runs once per connection, before any event handler:
 
-- It reads the `authentication_token` cookie from the handshake headers. The cookie is httpOnly, so the browser sends it automatically with the WebSocket upgrade (the client sets `withCredentials`); client JavaScript never touches the token.
-- `authenticateToken` (in `auth.ts`, pure and unit-tested) verifies the JWT's RS256 signature against claims-gateway's JWKS and its `iss` claim, then extracts a `SocketIdentity`: `accountId`, `accountName`, and the `domains` the account is a member of (from the token's `memberships`).
-- A missing, malformed, expired, or untrusted-issuer/key token rejects the connection with `unauthorized`. On success the identity is attached to `socket.data` so the connection is **server-authoritative** — the client cannot claim rooms it has no right to.
+- It reads the `x-gateway-claims` header from the handshake request. Istio's `RequestAuthentication` verifies the gateway JWT exactly once, at the mesh ingress — the browser authenticates via its `authentication_token` cookie on the handshake's initial HTTP request, and Istio extracts the JWT from that cookie before injecting the verified payload as this header.
+- `authenticateClaimsHeader` (in `auth.ts`, pure and unit-tested) base64-decodes the header and extracts a `SocketIdentity`: `accountId`, `accountName`, and the `domains` the account is a member of (from the payload's `memberships`). There is no signature check here — socket-service trusts the header rather than re-verifying a JWT itself, the same trust model as every other migrated service (see [Node Auth & Error Middleware](../packages/middlewares.qd)).
+- A missing or malformed header rejects the connection with `unauthorized`. On success the identity is attached to `socket.data` so the connection is **server-authoritative** — the client cannot claim rooms it has no right to.
 
 ---
 
@@ -87,7 +92,7 @@ Domain rooms are **not** client-controlled: on connection the service reads the 
         participant WS as socket-service
         participant R as Redis
         UI->>WS: connect (authentication_token cookie)
-        Note over WS: verify JWT → join domain:{...} rooms
+        Note over WS: Istio verifies the JWT, injects x-gateway-claims — WS decodes it, joins domain:{...} rooms
         UI->>WS: subscribe_building(B)
         Note over WS: member? → socket joins room building:B
         R-->>WS: telemetry:filtered:B message

@@ -1,9 +1,9 @@
 .docname {Telemetry Distribution Context}
 .include {docs}
 
-**Realised by:** contracts-service · **Subdomain type:** Core
+**Subdomain type:** Core · **Grounded in:** [User Stories](../requirements/user-stories.qd) TD-1 through TD-4
 
-This page describes the design-time model of the Telemetry Distribution context. The runtime mechanics — how routing is made fast, how streams are carried to the browser — are architectural concerns documented in the [Contracts Service](../services/contracts.qd) and [Architecture Overview](../architecture/overview.qd) pages.
+This page describes the design-time model of the Telemetry Distribution context. The runtime mechanics — how routing is made fast, how streams are carried to the browser — are left as decisions for whoever builds this model; the domain states only the rules those mechanics must respect.
 
 At the domain level, this context owns two things: the **metric catalog** each building chooses from, and each building's **display preference** (which metrics its dashboard table shows, and in what order). Readings themselves are simply routed to the building they belong to.
 
@@ -48,9 +48,9 @@ The aggregate root is a Building's Preference: which metrics it shows, in what o
 
         BuildingPreference "1" o-- "many" Metric : selects
 
-- A Preference is keyed by its Building, so there is exactly one Preference per Building.
-- The allowed metrics are an *ordered* collection; reordering is a meaningful change to the model, not an incidental detail.
-- We left open, at design time, how durable a Preference must be and how quickly a change must take effect — those service-level qualities are decided in the implementation.
+- A Preference is keyed by its Building, so there is exactly one Preference per Building. Choosing from the catalog and having that choice stick is the shape story **TD-1** asks for.
+- The allowed metrics are an *ordered* collection; reordering is a meaningful change to the model, not an incidental detail — the arrangement story **TD-2** relies on.
+- We left open, at design time, how durable a Preference must be and how quickly a change must take effect — those qualities are decisions for whoever builds this model.
 
 ### Value Object: Metric
 
@@ -81,7 +81,7 @@ distribute(reading):
     deliver the reading to reading.building's view
 ```
 
-Preference does **not** gate this. It once did — distribution used to drop any metric a Building had not selected — but that coupled every live view to the dashboard's column choices (e.g. the 3D model went stale when temperature was removed from the table). Preference is now purely a **display** concern: it decides which metrics a Building's dashboard *table* renders, applied at the view, while the feed carries every metric the Building produces.
+This unconditional delivery is what story **TD-3** asks for — live values appearing without a refresh. Preference does **not** gate this. It once did — distribution used to drop any metric a Building had not selected — but that coupled every live view to the dashboard's column choices (e.g. the 3D model went stale when temperature was removed from the table). Preference is now purely a **display** concern: it decides which metrics a Building's dashboard *table* renders, applied at the view, while the feed carries every metric the Building produces.
 
 The model says nothing about *how* readings arrive or are carried onward — that this must hold at high throughput is a quality we hand to the implementation.
 

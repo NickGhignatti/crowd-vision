@@ -1,19 +1,5 @@
-//
-// Cross-platform Docker Compose orchestrator.
-//
-// Strategy:
-//   1. Walk the service folders, filter by exclude patterns.
-//   2. Write a runtime compose file (compose.runtime.yml) that lists the kept
-//      compose files inside an `include:` block.
-//   3. Run `docker compose -f compose.runtime.yml ...`.
-//
-// Why a generated file with `include:`?
-//   - Passing multiple `-f` files makes Docker Compose resolve relative paths
-//     (like `build.context: .`) relative to the FIRST file's directory.
-//     That breaks per-service Dockerfile lookups.
-//   - `include:` instead resolves paths relative to each included file, so
-//     `build.context: .` in server/twin-service/docker-compose.yml correctly
-//     points at server/twin-service/.
+// Cross-platform Docker Compose orchestrator: writes compose.runtime.yml listing
+// kept service files under `include:` (resolves build.context per-file, unlike -f).
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
@@ -23,10 +9,8 @@ import { join, sep } from "node:path";
 
 const [, , mode = "dev", ...rawExcludes] = process.argv;
 
-// Accept both `just stack dev "agent simulator"` (positional) and
-// `just stack dev exclude="agent simulator"` (named — Just may pass through as
-// the literal `exclude=...`). Strip the prefix if present, then split on
-// whitespace so a single quoted multi-word arg expands cleanly.
+// Accept positional (`dev "agent simulator"`) or named (`dev exclude="..."`) forms:
+// strip any `exclude=` prefix, then split on whitespace to expand quoted multi-word args.
 const excludePatterns = rawExcludes
   .flatMap((arg) => arg.replace(/^exclude=/, "").split(/\s+/))
   .filter(Boolean);
@@ -55,10 +39,8 @@ const isExcluded = (name) =>
 
 const norm = (p) => p.split(sep).join("/");
 
-// Each entry is an array of paths: a single-path entry becomes one sub-project,
-// a multi-path entry merges base + override into one sub-project (Compose's
-// `include: - path: [a, b]` form). Two separate include entries cannot define
-// the same service — that triggers "conflicts with imported resource".
+// Each entry is a path array: one path = one sub-project, multiple = base+override
+// merged. Separate entries can't share a service ("conflicts with imported resource").
 const includes = [];
 const addInclude = (path) => includes.push([norm(path)]);
 
@@ -114,16 +96,51 @@ const runtimeYaml =
 
 writeFileSync(RUNTIME_FILE, runtimeYaml);
 
+// ── Clear stray fixed-name containers ────────────────────────────────────────
+// A pinned `container_name:` orphaned by an interrupted run name-clashes the next
+// `up` (no compose project label to reconcile it), so force-remove non-running matches.
+const cfg = spawnSync(
+  "docker",
+  ["compose", "-f", RUNTIME_FILE, "config", "--format", "json"],
+  { encoding: "utf8" },
+);
+if (cfg.status === 0) {
+  const names = new Set(
+    Object.values(JSON.parse(cfg.stdout).services ?? {})
+      .map((s) => s.container_name)
+      .filter(Boolean),
+  );
+  const ps = spawnSync(
+    "docker",
+    ["ps", "-a", "--format", "{{.Names}}\t{{.State}}"],
+    { encoding: "utf8" },
+  );
+  const strays = (ps.stdout ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.split("\t"))
+    .filter(([name, state]) => names.has(name) && state !== "running")
+    .map(([name]) => name);
+  if (strays.length) {
+    console.log(`Removing stray containers: ${strays.join(", ")}`);
+    spawnSync("docker", ["rm", "-f", ...strays], { stdio: "inherit" });
+  }
+}
+
 // ── Build and run the docker command ─────────────────────────────────────────
+
+// The Langfuse/ClickHouse/MinIO stack (root docker-compose.yml) only exists to trace
+// agent-service, so it's opted out the same way as excluding the agent-service folder.
+const agentProfileArgs = isExcluded("agent") ? [] : ["--profile", "agent"];
 
 let dockerArgs;
 if (isDown) {
-  dockerArgs = ["compose", "-f", RUNTIME_FILE, "down", "--remove-orphans"];
+  dockerArgs = ["compose", ...agentProfileArgs, "-f", RUNTIME_FILE, "down", "--remove-orphans"];
 } else if (isBuild) {
-  dockerArgs = ["compose", "-f", RUNTIME_FILE, "build"];
+  dockerArgs = ["compose", ...agentProfileArgs, "-f", RUNTIME_FILE, "build"];
 } else if (isIntegration) {
   dockerArgs = [
     "compose",
+    ...agentProfileArgs,
     "-f",
     RUNTIME_FILE,
     "up",
@@ -133,10 +150,10 @@ if (isDown) {
     "--abort-on-container-exit",
   ];
 } else if (isStart) {
-  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--build', '-d', '--remove-orphans'];
+  dockerArgs = ['compose', ...agentProfileArgs, '-f', RUNTIME_FILE, 'up', '--build', '-d', '--remove-orphans'];
 } else {
   // dev
-  dockerArgs = ['compose', '-f', RUNTIME_FILE, 'up', '--watch', '--remove-orphans'];
+  dockerArgs = ['compose', ...agentProfileArgs, '-f', RUNTIME_FILE, 'up', '--watch', '--remove-orphans'];
   if (isDevBuild) dockerArgs.push("--build");
 }
 
