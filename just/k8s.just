@@ -31,7 +31,7 @@ gateway-api:
 
 [doc("Install Istio in ambient mode with k3d-correct CNI paths (run once per cluster).")]
 istio-install:
-    MSYS2_ARG_CONV_EXCL="*" mise exec -- istioctl install --set profile=ambient --set values.cni.cniConfDir=/var/lib/rancher/k3s/agent/etc/cni/net.d --set values.cni.cniBinDir=/bin -y
+    mise exec -- istioctl install --set profile=ambient --set values.cni.cniConfDir=/var/lib/rancher/k3s/agent/etc/cni/net.d --set values.cni.cniBinDir=/bin -y
 
 [doc("Create or update all Kubernetes secrets from your .env file.")]
 secrets:

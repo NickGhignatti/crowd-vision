@@ -24,9 +24,9 @@ for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
   if (m) env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, '')
 }
 
-function need(key) {
+function need(key, hint = 'Run `just stack env` to (re)generate it.') {
   if (!env[key]) {
-    console.error(`❌  Missing ${key} in .env. Run \`just stack env\` to (re)generate it.`)
+    console.error(`❌  Missing ${key} in .env. ${hint}`)
     process.exit(1)
   }
   return env[key]
@@ -205,12 +205,14 @@ applySecret('claims-gateway-secret', {
 // session/JWKS cache (mirrors docker-compose's secrets/gateway-dev-key.pem mount).
 applyFileSecret('claims-gateway-key', 'gateway-key.pem', resolve(root, 'secrets/gateway-dev-key.pem'))
 
-// Image pull credentials for ghcr.io (private registry)
-applyDockerSecret(
-  'ghcr-pull-secret',
-  'ghcr.io',
-  need('GHCR_USERNAME'),
-  need('GHCR_TOKEN'),
-)
+// Image pull credentials for ghcr.io — optional: the crowdvision-* packages are
+// public, so anonymous pulls already work. Only needed if you're pulling from a
+// private fork/registry. (A wrong/placeholder token is worse than none: GHCR 403s
+// on bad credentials instead of falling back to anonymous.)
+if (env['GHCR_USERNAME'] && env['GHCR_TOKEN']) {
+  applyDockerSecret('ghcr-pull-secret', 'ghcr.io', env['GHCR_USERNAME'], env['GHCR_TOKEN'])
+} else {
+  console.log('⏩  ghcr-pull-secret (skipped — GHCR_USERNAME/GHCR_TOKEN not set, not required for public images)')
+}
 
 console.log('\n✅  All secrets applied.')
