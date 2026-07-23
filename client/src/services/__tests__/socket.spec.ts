@@ -1,4 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { useAuthStore } from '@/stores/authentication'
+
+vi.mock('@/stores/authentication', () => ({
+  useAuthStore: vi.fn(),
+}))
 
 // vi.hoisted() runs before vi.mock() factories, making these values safe to reference inside
 // the mock — a plain module-scope `const` would be in the temporal dead zone at that point.
@@ -71,9 +76,10 @@ describe('socket service', () => {
       expect(socket).toBe(mockSocket)
     })
 
-    it('registers handlers for connect, disconnect and notification', () => {
+    it('registers handlers for connect, disconnect, connect_error and notification', () => {
       expect(handlers).toHaveProperty('connect')
       expect(handlers).toHaveProperty('disconnect')
+      expect(handlers).toHaveProperty('connect_error')
       expect(handlers).toHaveProperty('notification')
     })
   })
@@ -227,6 +233,70 @@ describe('socket service', () => {
     ])('stores type "%s" correctly', (_, type) => {
       fireEvent('notification', makeIncoming({ type }))
       expect(socketState.notifications[0]?.type).toBe(type)
+    })
+  })
+
+  describe('on connect_error', () => {
+    // Socket.IO does not auto-retry a handshake rejected by server-side middleware
+    // (our auth check), so these tests drive the retry timer manually and must not
+    // leak a pending timer into the next test — fake timers, torn down every time,
+    // guarantee that.
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('does not mark the socket as connected', () => {
+      fireEvent('connect_error', new Error('xhr poll error'))
+      expect(socketState.connected).toBe(false)
+    })
+
+    it('logs the error so a failed handshake is visible in the console', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const error = new Error('xhr poll error')
+
+      fireEvent('connect_error', error)
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('connect_error'), error)
+      consoleErrorSpy.mockRestore()
+    })
+
+    describe('auth-recovery retry', () => {
+      it('re-verifies the session and reconnects once it is valid again', async () => {
+        const hydrate = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useAuthStore).mockReturnValue({ hydrate, isAuthenticated: true } as never)
+
+        fireEvent('connect_error', new Error('unauthorized'))
+        await vi.advanceTimersByTimeAsync(3000)
+
+        expect(hydrate).toHaveBeenCalledWith(true)
+        expect(mockSocket.connect).toHaveBeenCalled()
+      })
+
+      it('does not reconnect if the session is still invalid', async () => {
+        const hydrate = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useAuthStore).mockReturnValue({ hydrate, isAuthenticated: false } as never)
+
+        fireEvent('connect_error', new Error('unauthorized'))
+        await vi.advanceTimersByTimeAsync(3000)
+
+        expect(mockSocket.connect).not.toHaveBeenCalled()
+      })
+
+      it('debounces repeated errors into a single retry', async () => {
+        const hydrate = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useAuthStore).mockReturnValue({ hydrate, isAuthenticated: true } as never)
+
+        fireEvent('connect_error', new Error('unauthorized'))
+        fireEvent('connect_error', new Error('unauthorized'))
+        fireEvent('connect_error', new Error('unauthorized'))
+        await vi.advanceTimersByTimeAsync(3000)
+
+        expect(hydrate).toHaveBeenCalledTimes(1)
+      })
     })
   })
 

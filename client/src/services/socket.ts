@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client'
 import { reactive } from 'vue'
+import { useAuthStore } from '@/stores/authentication'
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -26,6 +27,21 @@ socket.on('connect', () => {
 
 socket.on('disconnect', () => {
   socketState.connected = false
+})
+
+const RECONNECT_DELAY_MS = 3000
+let retryTimer: ReturnType<typeof setTimeout> | undefined
+
+socket.on('connect_error', (error) => {
+  console.error('[socket] connect_error', error)
+
+  clearTimeout(retryTimer)
+  retryTimer = setTimeout(() => {
+    const authStore = useAuthStore()
+    void authStore.hydrate(true).then(() => {
+      if (authStore.isAuthenticated) socket.connect()
+    })
+  }, RECONNECT_DELAY_MS)
 })
 
 socket.on('notification', (data) => {
