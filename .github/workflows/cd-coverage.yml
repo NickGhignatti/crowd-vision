@@ -24,7 +24,6 @@ jobs:
           - { key: notification, dir: server/notification-service }
           - { key: sensor, dir: server/sensor-service }
           - { key: socket, dir: server/socket-service }
-          - { key: twin, dir: server/twin-service }
           - { key: client, dir: client }
     defaults:
       run:
@@ -92,12 +91,18 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  contracts:
-    name: coverage (contracts)
+  rust:
+    name: coverage (rust)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { key: twin, dir: server/twin-service }
+          - { key: contracts, dir: server/contracts-service }
     defaults:
       run:
-        working-directory: server/contracts-service
+        working-directory: ${{ matrix.dir }}
     env:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
@@ -128,15 +133,65 @@ jobs:
       - name: Upload report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: contracts
-          path: server/contracts-service/coverage.json
+          name: ${{ matrix.key }}
+          path: ${{ matrix.dir }}/coverage/coverage-summary.json
+          if-no-files-found: error
+          retention-days: 1
+
+  go:
+    name: coverage (go)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { key: auth-contracts, dir: server/auth-contracts }
+          - { key: auth-middleware, dir: server/auth-middleware }
+          - { key: auth-policy, dir: server/auth-policy }
+          - { key: claims-gateway, dir: server/claims-gateway }
+          - { key: provider, dir: server/provider }
+          - { key: registry-service, dir: server/registry-service }
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Run tests with coverage
+        run: go test -v -coverprofile=coverage.out ./...
+
+      - name: Convert coverage to XML (Cobertura)
+        run: |
+          go install github.com/boumenot/gocover-cobertura@latest
+          $(go env GOPATH)/bin/gocover-cobertura < coverage.out > coverage.xml
+
+      - name: Upload report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.key }}
+          path: ${{ matrix.dir }}/coverage.xml
           if-no-files-found: error
           retention-days: 1
 
   # ── Aggregate the reports and publish to the coverage-data orphan branch ────
   publish:
     name: publish coverage-data
-    needs: [node, agent, contracts]
+    needs: [node, agent, rust, go]
     runs-on: ubuntu-latest
     permissions:
       contents: write
