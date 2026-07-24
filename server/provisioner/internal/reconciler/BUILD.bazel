@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "reconciler",
+    srcs = ["reconciler.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/provisioner/internal/reconciler",
+    visibility = ["//server/provisioner:__subpackages__"],
+)
+
+go_test(
+    name = "reconciler_test",
+    srcs = ["reconciler_test.go"],
+    deps = [":reconciler"],
+)

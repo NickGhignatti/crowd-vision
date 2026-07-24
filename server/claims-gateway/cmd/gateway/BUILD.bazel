@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("//tools/oci:defs.bzl", "go_service_image")
+
+go_library(
+    name = "gateway_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/claims-gateway/cmd/gateway",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//server/claims-gateway/internal/api",
+        "//server/claims-gateway/internal/config",
+        "//server/claims-gateway/internal/keycloakadmin",
+        "//server/claims-gateway/internal/oidcverifier",
+        "//server/claims-gateway/internal/service",
+        "//server/claims-gateway/internal/signer",
+        "//server/claims-gateway/internal/tenancyclient",
+        "@com_github_micahparks_keyfunc_v3//:keyfunc",
+    ],
+)
+
+go_binary(
+    name = "gateway",
+    embed = [":gateway_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_service_image(
+    name = "image",
+    binary = ":gateway",
+)

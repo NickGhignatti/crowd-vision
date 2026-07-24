@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "auth-policy",
+    srcs = [
+        "authz.go",
+        "policy.go",
+    ],
+    embedsrcs = [
+        "policy.cedar",
+        "schema.cedarschema",
+    ],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/auth-policy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//server/auth-contracts",
+        "@com_github_cedar_policy_cedar_go//:cedar-go",
+    ],
+)
+
+go_test(
+    name = "auth-policy_test",
+    srcs = ["conformance_test.go"],
+    data = glob(["fixtures/**"]),  # keep: read via relative path, not go:embed
+    deps = [
+        ":auth-policy",
+        "//server/auth-contracts",
+    ],
+)

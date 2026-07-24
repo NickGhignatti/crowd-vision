@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "auth-middleware",
+    srcs = ["middleware.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/auth-middleware",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//server/auth-contracts",
+        "@com_github_golang_jwt_jwt_v5//:jwt",
+        "@com_github_micahparks_keyfunc_v3//:keyfunc",
+    ],
+)
+
+go_test(
+    name = "auth-middleware_test",
+    srcs = ["middleware_test.go"],
+    deps = [
+        ":auth-middleware",
+        "@com_github_golang_jwt_jwt_v5//:jwt",
+        "@com_github_micahparks_jwkset//:jwkset",
+        "@com_github_micahparks_keyfunc_v3//:keyfunc",
+    ],
+)

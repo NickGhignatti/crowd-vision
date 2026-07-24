@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "service",
+    srcs = ["tenancy.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/service",
+    visibility = ["//server/tenancy-service:__subpackages__"],
+    deps = [
+        "//server/auth-contracts",
+        "//server/tenancy-service/internal/store",
+    ],
+)
+
+go_test(
+    name = "service_test",
+    srcs = ["tenancy_test.go"],
+    deps = [
+        ":service",
+        "//server/tenancy-service/internal/store",
+        "//server/tenancy-service/internal/storefake",
+    ],
+)

@@ -1,0 +1,29 @@
+# CrowdVision .bazelrc — Phase 0 (bootstrap only; see BAZEL_MIGRATION.md).
+
+# Enables build:windows / build:linux / build:macos config sections below,
+# so per-OS flags (e.g. the Rust linker choice in Phase 2) don't leak across
+# platforms.
+common --enable_platform_specific_config
+
+# Local disk cache — always on, per-machine. This is separate from the
+# remote cache below; both can be active at once.
+build --disk_cache=~/.cache/bazel-disk-cache
+
+# Remote cache — disabled until a cache server (bazel-remote or BuildBuddy) is
+# provisioned. This, not the coordinator choice itself, is the actual
+# rebuild-time win (BAZEL_MIGRATION.md §3) — wire it in before declaring the
+# migration done.
+# build --remote_cache=grpc://localhost:9092
+# build --remote_upload_local_results=true
+
+# Windows disables runfiles symlinks by default, which breaks any test/binary
+# that reads data-dependency files by relative path at runtime (e.g. Go tests
+# reading testdata via os.Open rather than go:embed) — confirmed via
+# server/auth-contracts and server/auth-policy's fixture-reading tests, which
+# fail without this and pass with it. Costs a real copy instead of a symlink,
+# but there's no working alternative on this platform.
+build:windows --enable_runfiles
+
+# Windows is second-class in Bazel more broadly (weaker sandboxing, rougher
+# rule edges — see §7 in BAZEL_MIGRATION.md). More platform toolchain config
+# is added here as each language phase lands.

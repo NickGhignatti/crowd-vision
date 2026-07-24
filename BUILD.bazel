@@ -1,0 +1,5 @@
+load("@gazelle//:def.bzl", "gazelle")
+
+# Regenerates BUILD.bazel files for the Go services under server/* from their
+# go.mod/go.work and source imports. Run via `bazel run //:gazelle`.
+gazelle(name = "gazelle")

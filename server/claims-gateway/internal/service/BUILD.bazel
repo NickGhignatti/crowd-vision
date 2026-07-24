@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "service",
+    srcs = [
+        "exchange.go",
+        "profile.go",
+        "register.go",
+    ],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service",
+    visibility = ["//server/claims-gateway:__subpackages__"],
+    deps = [
+        "//server/auth-contracts",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_test(
+    name = "service_test",
+    srcs = [
+        "exchange_test.go",
+        "profile_test.go",
+        "register_test.go",
+    ],
+    deps = [
+        ":service",
+        "//server/auth-contracts",
+    ],
+)

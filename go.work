@@ -1,0 +1,11 @@
+go 1.25.0
+
+use (
+	./server/auth-contracts
+	./server/auth-middleware
+	./server/auth-policy
+	./server/claims-gateway
+	./server/provisioner
+	./server/registry-service
+	./server/tenancy-service
+)

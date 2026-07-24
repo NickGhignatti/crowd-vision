@@ -1,0 +1,6 @@
+# Directories Bazel (and Gazelle's repo walk) must never treat as packages —
+# dependency trees and generated output, not source.
+client/node_modules
+node_modules
+.venv
+__pycache__

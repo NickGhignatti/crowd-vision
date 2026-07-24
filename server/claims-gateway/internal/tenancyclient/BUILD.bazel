@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "tenancyclient",
+    srcs = ["client.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/tenancyclient",
+    visibility = ["//server/claims-gateway:__subpackages__"],
+    deps = [
+        "//server/auth-contracts",
+        "//server/claims-gateway/internal/service",
+    ],
+)
+
+go_test(
+    name = "tenancyclient_test",
+    srcs = ["client_test.go"],
+    deps = [
+        ":tenancyclient",
+        "//server/claims-gateway/internal/service",
+    ],
+)

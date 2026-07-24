@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "auth-contracts",
+    srcs = [
+        "claims.go",
+        "roles.go",
+    ],
+    embedsrcs = ["roles.json"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/auth-contracts",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "auth-contracts_test",
+    srcs = [
+        "claims_test.go",
+        "conformance_test.go",
+        "roles_test.go",
+    ],
+    data = glob(["fixtures/**"]),  # keep: read via relative path, not go:embed
+    embed = [":auth-contracts"],
+)

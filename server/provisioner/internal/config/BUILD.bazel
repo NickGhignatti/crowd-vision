@@ -1,0 +1,8 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "config",
+    srcs = ["config.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/provisioner/internal/config",
+    visibility = ["//server/provisioner:__subpackages__"],
+)

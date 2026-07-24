@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "api",
+    srcs = ["handler.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/api",
+    visibility = ["//server/claims-gateway:__subpackages__"],
+    deps = [
+        "//server/auth-middleware",
+        "//server/claims-gateway/internal/service",
+        "@com_github_go_chi_chi_v5//:chi",
+        "@com_github_micahparks_keyfunc_v3//:keyfunc",
+    ],
+)
+
+go_test(
+    name = "api_test",
+    srcs = [
+        "handler_test.go",
+        "profile_handler_test.go",
+        "register_handler_test.go",
+    ],
+    deps = [
+        ":api",
+        "//server/auth-contracts",
+        "//server/claims-gateway/internal/service",
+        "@com_github_golang_jwt_jwt_v5//:jwt",
+        "@com_github_micahparks_jwkset//:jwkset",
+        "@com_github_micahparks_keyfunc_v3//:keyfunc",
+    ],
+)

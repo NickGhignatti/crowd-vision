@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "storefake",
+    srcs = ["fake.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/registry-service/internal/storefake",
+    visibility = ["//server/registry-service:__subpackages__"],
+    deps = ["//server/registry-service/internal/store"],
+)

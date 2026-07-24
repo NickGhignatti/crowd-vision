@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "config",
+    srcs = ["config.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/config",
+    visibility = ["//server/claims-gateway:__subpackages__"],
+)
+
+go_test(
+    name = "config_test",
+    srcs = [
+        "config_test.go",
+        "keycloak_test.go",
+    ],
+    embed = [":config"],
+)

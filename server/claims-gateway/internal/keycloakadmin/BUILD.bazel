@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "keycloakadmin",
+    srcs = ["client.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/keycloakadmin",
+    visibility = ["//server/claims-gateway:__subpackages__"],
+    deps = ["//server/claims-gateway/internal/service"],
+)
+
+go_test(
+    name = "keycloakadmin_test",
+    srcs = ["client_test.go"],
+    deps = [
+        ":keycloakadmin",
+        "//server/claims-gateway/internal/service",
+    ],
+)

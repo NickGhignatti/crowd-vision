@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "oidcverifier",
+    srcs = ["verifier.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/oidcverifier",
+    visibility = ["//server/claims-gateway:__subpackages__"],
+    deps = [
+        "//server/claims-gateway/internal/service",
+        "@com_github_coreos_go_oidc_v3//oidc",
+    ],
+)
+
+go_test(
+    name = "oidcverifier_test",
+    srcs = ["verifier_test.go"],
+    deps = [
+        ":oidcverifier",
+        "@com_github_golang_jwt_jwt_v5//:jwt",
+        "@com_github_micahparks_jwkset//:jwkset",
+    ],
+)

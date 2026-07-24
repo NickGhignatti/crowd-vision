@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "registryclient",
+    srcs = ["client.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/provisioner/internal/registryclient",
+    visibility = ["//server/provisioner:__subpackages__"],
+    deps = ["//server/provisioner/internal/reconciler"],
+)
+
+go_test(
+    name = "registryclient_test",
+    srcs = ["client_test.go"],
+    deps = [":registryclient"],
+)

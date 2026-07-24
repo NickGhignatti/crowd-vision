@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "events",
+    srcs = ["account_deleted.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/events",
+    visibility = ["//server/tenancy-service:__subpackages__"],
+    deps = [
+        "//server/tenancy-service/internal/service",
+        "@com_github_redis_go_redis_v9//:go-redis",
+    ],
+)
+
+go_test(
+    name = "events_test",
+    srcs = ["account_deleted_test.go"],
+    deps = [
+        ":events",
+        "//server/tenancy-service/internal/service",
+        "//server/tenancy-service/internal/storefake",
+    ],
+)

@@ -1,0 +1,45 @@
+"""bzlmod root module for CrowdVision.
+
+Per-language rulesets (rules_rust, rules_python, aspect rules_js/ts, rules_oci
+for non-Go images) are added in their respective migration phases. Phase 1
+adds Go (rules_go + Gazelle).
+"""
+
+module(
+    name = "crowdvision",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "rules_go", version = "0.62.0")
+bazel_dep(name = "gazelle", version = "0.52.2")
+
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(version = "1.25.0")
+
+# The 7 Go services each keep their own go.mod (independent modules, some with
+# local `replace` directives onto siblings). Gazelle's go_deps extension only
+# accepts one `from_file` tag per Bazel module, so go.work (kept in sync with
+# the modules under server/*) is how they're aggregated into one dependency
+# resolution. This does not change plain `go build`/`go test` behavior for
+# moon — verified: all 7 modules still build/vet identically with go.work
+# present.
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_work = "//:go.work")
+use_repo(go_deps, "com_github_cedar_policy_cedar_go", "com_github_coreos_go_oidc_v3", "com_github_go_chi_chi_v5", "com_github_golang_jwt_jwt_v5", "com_github_golang_migrate_migrate_v4", "com_github_google_uuid", "com_github_jackc_pgx_v5", "com_github_micahparks_jwkset", "com_github_micahparks_keyfunc_v3", "com_github_redis_go_redis_v9", "com_github_testcontainers_testcontainers_go_modules_postgres", "com_github_testcontainers_testcontainers_go_modules_redis")
+
+# rules_oci — replaces the "inject a prebuilt binary into a Dockerfile" build
+# for the 4 binary-producing Go services (BAZEL_MIGRATION.md §3).
+bazel_dep(name = "rules_oci", version = "2.3.0")
+bazel_dep(name = "rules_pkg", version = "1.2.0")
+
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Digest pinned to the manifest-list index for gcr.io/distroless/static-debian12:nonroot
+# (checked via `docker buildx imagetools inspect`) — reproducible, unlike a mutable tag.
+oci.pull(
+    name = "distroless_static_nonroot",
+    image = "gcr.io/distroless/static-debian12",
+    digest = "sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "distroless_static_nonroot", "distroless_static_nonroot_linux_amd64")
