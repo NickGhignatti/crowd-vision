@@ -11,7 +11,7 @@ CrowdVision is a polyglot monorepo: a Vue client, four Node services in TypeScri
 
 Two structural facts shape everything you do:
 
-- **There is no root `package.json` and no npm workspaces.** Each Node service installs its own `node_modules`. Shared JavaScript dev tooling (commitlint) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+- **There is no root `package.json` and no npm workspaces.** Each Node service installs its own `node_modules`. `tooling/` holds only the shared ESLint flat config, `@crowdvision/eslint-config`, at `tooling/eslint-config/`.
 - **Every package is registered once** in `.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
 
 .box {Dependencies are not hoisted} type:{note}
@@ -80,7 +80,7 @@ just setup audit           # mirrors ci-audit (npm / uv / cargo audit — no Go 
 ```
 
 .box {The commit message is part of the build} type:{warning}
-    `ci-commitlint` rejects any commit message that does not follow Conventional Commits, and release-please derives the next version directly from those messages. A malformed message blocks the pull request. See [Commits & Release Please](release-please.qd).
+    Nothing in CI rejects a malformed commit message — release-please just derives the next version directly from whatever prefix each message has, silently treating anything non-conforming as no-release. Follow Conventional Commits because the release pipeline depends on it, not because a check enforces it. See [Commits & Release Please](release-please.qd).
 
 ---
 

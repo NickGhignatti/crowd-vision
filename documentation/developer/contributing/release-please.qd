@@ -1,7 +1,7 @@
 .docname {Commits & Release Please}
 .include {docs}
 
-CrowdVision automates versioning, changelog generation, and releases with [release-please](https://github.com/googleapis/release-please). Version numbers are not chosen by hand — they are derived from commit messages. This makes the commit message a functional input to the build, which is why its format is enforced.
+CrowdVision automates versioning, changelog generation, and releases with [release-please](https://github.com/googleapis/release-please). Version numbers are not chosen by hand — they are derived from commit messages. This makes the commit message a functional input to the build: get the format wrong and the commit just contributes nothing to the next version, rather than being rejected outright (see the note below).
 
 ---
 
@@ -21,7 +21,8 @@ Every commit message must follow the [Conventional Commits](https://www.conventi
 - **scope** — the affected component, e.g. `gateway`, `twin`, `ci` (see [Naming Conventions](naming-conventions.qd)).
 - **subject** — a concise, imperative description ("add", not "added").
 
-The convention is enforced on every pull request by the `ci-commitlint` workflow, which runs `@commitlint/config-conventional` (configured in `tooling/commitlint.config.js`). A non-conforming message blocks the merge.
+.box {Not mechanically enforced} type:{warning}
+    Nothing in CI currently rejects a non-conforming commit message. release-please just reads whatever prefix a commit has — `feat`/`fix` bump the version, anything else (including a typo'd type) is silently treated as no-release. Follow the convention because release-please depends on it, not because a check will catch you if you don't.
 
 ---
 

@@ -1,4 +1,0 @@
-# Shared dev tooling (commitlint, shared eslint config). Release-please runs
-# entirely inside its GitHub Action — nothing here to install for it.
-# `language: javascript` keeps it out of :build/:test/:lint but still gives it `deps` and visibility to `moon query projects` (used by `just setup install`).
-language: 'javascript'

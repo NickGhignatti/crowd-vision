@@ -18,10 +18,6 @@ jobs:
     name: Release Please
     runs-on: ubuntu-latest
     steps:
-      # A dedicated PAT (not GITHUB_TOKEN) so the release PR release-please opens
-      # is authored by a real identity — PRs opened by the default GITHUB_TOKEN
-      # don't trigger other workflows, which would leave the release PR without
-      # CI checks.
       - name: Run Release Please
         uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071
         with:
