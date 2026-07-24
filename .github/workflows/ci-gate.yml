@@ -104,29 +104,24 @@ jobs:
 
       - name: Compute changed Docker images
         id: docker
+        env:
+          # steps.filter.outputs isn't directly indexable in bash, so pass the
+          # whole outputs object through as JSON and look keys up with jq.
+          CHANGED: ${{ toJSON(steps.filter.outputs) }}
         run: |
-          inc='[]'
           # lang tells ci-docker.yml which build strategy to use: go/rust/node
           # images inject a pre-built artifact from the matching CI job; python
           # and client have no artifact-injection Dockerfile and build from
-          # their own real Dockerfile instead.
-          add() { inc=$(jq -cn --argjson a "$inc" --arg c "$1" --arg i "$2" --arg l "$3" '$a + [{context:$c, image:$i, lang:$l}]'); }
+          # their own real Dockerfile instead. Metadata comes from the single
+          # registry in .github/services.json (also used by cd-registry.yml,
+          # cd-coverage.yml, and maint-cleanup.yml).
+          MATRIX=$(jq -cn --slurpfile reg .github/services.json --argjson changed "$CHANGED" '
+            [ $reg[0][] | select(.image and (.ci != false)) | select($changed[(.filter_key // .key)] == "true") |
+              {context: ("./" + .dir), image: .image, lang: .lang} ]
+          ')
 
-          if [ "${{ steps.filter.outputs.agent }}" = "true" ]; then add "./server/agent-service" "crowdvision-agent" "python"; fi
-          if [ "${{ steps.filter.outputs.chat }}" = "true" ]; then add "./server/chat-service" "crowdvision-chat" "node"; fi
-          if [ "${{ steps.filter.outputs.claims_gateway }}" = "true" ]; then add "./server/claims-gateway"   "crowdvision-claims-gateway" "go"; fi
-          if [ "${{ steps.filter.outputs.contracts }}" = "true" ];    then add "./server/contracts-service"    "crowdvision-contracts" "rust"; fi
-          if [ "${{ steps.filter.outputs.notification }}" = "true" ]; then add "./server/notification-service" "crowdvision-notification" "node"; fi
-          if [ "${{ steps.filter.outputs.provisioner }}" = "true" ];     then add "./server/provisioner"     "crowdvision-provisioner" "go"; fi
-          if [ "${{ steps.filter.outputs.registry }}" = "true" ];        then add "./server/registry-service" "crowdvision-registry" "go"; fi
-          if [ "${{ steps.filter.outputs.sensor }}" = "true" ];       then add "./server/sensor-service"       "crowdvision-sensor" "node"; fi
-          if [ "${{ steps.filter.outputs.socket }}" = "true" ]; then add "./server/socket-service" "crowdvision-socket" "node"; fi
-          if [ "${{ steps.filter.outputs.tenancy }}" = "true" ];         then add "./server/tenancy-service" "crowdvision-tenancy" "go"; fi
-          if [ "${{ steps.filter.outputs.twin }}" = "true" ]; then add "./server/twin-service" "crowdvision-twin" "rust"; fi
-          if [ "${{ steps.filter.outputs.client }}" = "true" ];       then add "./client"                      "crowdvision-client" "client"; fi
-
-          echo "matrix={\"include\":$inc}" >> "$GITHUB_OUTPUT"
-          if [ "$inc" = "[]" ]; then echo "has_images=false" >> "$GITHUB_OUTPUT"; else echo "has_images=true" >> "$GITHUB_OUTPUT"; fi
+          echo "matrix={\"include\":$MATRIX}" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then echo "has_images=false" >> "$GITHUB_OUTPUT"; else echo "has_images=true" >> "$GITHUB_OUTPUT"; fi
 
   client:
     needs: changes

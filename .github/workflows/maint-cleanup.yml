@@ -1,4 +1,4 @@
-name: Cleanup Packages
+name: Maint Cleanup Packages
 
 on:
   workflow_dispatch:
@@ -9,33 +9,33 @@ permissions:
   packages: write
 
 jobs:
+  # Reads .github/services.json — the single source of truth for the service
+  # list also used by ci-gate.yml, cd-registry.yml, and cd-coverage.yml.
+  load-registry:
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: List all published images
+        id: list
+        run: echo "images=$(jq -c '[.[] | select(.image) | .image]' .github/services.json)" >> "$GITHUB_OUTPUT"
+
   cleanup:
+    needs: load-registry
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package-name:
-          # Backend microservices
-          - crowdvision-agent
-          - crowdvision-chat
-          - crowdvision-claims-gateway
-          - crowdvision-contracts
-          - crowdvision-notification
-          - crowdvision-provisioner
-          - crowdvision-registry
-          - crowdvision-sensor
-          - crowdvision-socket
-          - crowdvision-tenancy
-          - crowdvision-twin
-          # Frontend
-          - crowdvision-client
-          # Simulators
-          - crowdvision-simulator
-          - crowdvision-aq-simulator
+        package-name: ${{ fromJSON(needs.load-registry.outputs.images) }}
 
     steps:
       - name: Delete old package versions for ${{ matrix.package-name }}
-        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5
+        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55
         with:
           package-name: ${{ matrix.package-name }}
           package-type: "container"

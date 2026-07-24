@@ -1,4 +1,4 @@
-name: Coverage
+name: CD Coverage
 
 on:
   push:
@@ -13,16 +13,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Reads .github/services.json — the single source of truth for the service
+  # list also used by ci-gate.yml, cd-registry.yml, and maint-cleanup.yml —
+  # and splits it into one matrix per language.
+  load-registry:
+    runs-on: ubuntu-latest
+    outputs:
+      node: ${{ steps.split.outputs.node }}
+      python: ${{ steps.split.outputs.python }}
+      rust: ${{ steps.split.outputs.rust }}
+      go: ${{ steps.split.outputs.go }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Split registry by language
+        id: split
+        run: |
+          for lang in node python rust go; do
+            matrix=$(jq -c --arg l "$lang" '[.[] | select(.lang == $l and .ci != false) | {key, dir, needs_mongo: (.needs_mongo // false)}]' .github/services.json)
+            echo "$lang=$matrix" >> "$GITHUB_OUTPUT"
+          done
+
   node:
     name: coverage (node)
+    needs: load-registry
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { key: chat, dir: server/chat-service }
-          - { key: notification, dir: server/notification-service }
-          - { key: sensor, dir: server/sensor-service }
-          - { key: socket, dir: server/socket-service }
+        include: ${{ fromJSON(needs.load-registry.outputs.node) }}
 
     uses: ./.github/workflows/templates/node/coverage-report.yml
     with:
@@ -31,19 +52,24 @@ jobs:
 
   python:
     name: coverage (python)
-    uses: ./.github/workflows/templates/python/coverage-report.yml
-    with:
-      service_key: "agent"
-      working_directory: "server/agent-service"
-
-  rust:
-    name: coverage (rust)
+    needs: load-registry
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { key: twin, dir: server/twin-service, needs_mongo: true }
-          - { key: contracts, dir: server/contracts-service, needs_mongo: false }
+        include: ${{ fromJSON(needs.load-registry.outputs.python) }}
+
+    uses: ./.github/workflows/templates/python/coverage-report.yml
+    with:
+      service_key: ${{ matrix.key }}
+      working_directory: ${{ matrix.dir }}
+
+  rust:
+    name: coverage (rust)
+    needs: load-registry
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.load-registry.outputs.rust) }}
 
     uses: ./.github/workflows/templates/rust/coverage-report.yml
     with:
@@ -52,23 +78,17 @@ jobs:
       needs_mongo: ${{ matrix.needs_mongo }}
 
   go:
-      name: coverage (go)
-      strategy:
-        fail-fast: false
-        matrix:
-          include:
-            - { key: auth-contracts, dir: server/auth-contracts }
-            - { key: auth-middleware, dir: server/auth-middleware }
-            - { key: auth-policy, dir: server/auth-policy }
-            - { key: claims-gateway, dir: server/claims-gateway }
-            - { key: provisioner, dir: server/provisioner }
-            - { key: registry-service, dir: server/registry-service }
-            - { key: tenancy-service, dir: server/tenancy-service }
+    name: coverage (go)
+    needs: load-registry
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.load-registry.outputs.go) }}
 
-      uses: ./.github/workflows/templates/go/coverage-report.yml
-      with:
-        service_key: ${{ matrix.key }}
-        working_directory: ${{ matrix.dir }}
+    uses: ./.github/workflows/templates/go/coverage-report.yml
+    with:
+      service_key: ${{ matrix.key }}
+      working_directory: ${{ matrix.dir }}
 
   publish:
     name: publish coverage-data
@@ -78,17 +98,17 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
 
       - name: Download coverage reports
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: coverage-artifacts
 

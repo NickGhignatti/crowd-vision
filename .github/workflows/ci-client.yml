@@ -1,10 +1,6 @@
 name: CI Client
 
 on:
-  push:
-    branches-ignore: [master]
-    paths:
-      - 'client/**'
   workflow_call:
 
 jobs:

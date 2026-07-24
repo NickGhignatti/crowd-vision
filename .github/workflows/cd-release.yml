@@ -1,4 +1,4 @@
-name: Release
+name: CD Release
 
 on:
   push:
@@ -16,19 +16,19 @@ permissions:
 
 jobs:
   release:
-    name: 🚀 Publish Release
+    name: Publish Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         # zizmor: ignore[artipacked] — semantic-release pushes the tag, CHANGELOG
         # and version bumps back to the repo, so the credential MUST persist here.
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           fetch-depth: 0
           token: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: 24.x
           cache: "npm"

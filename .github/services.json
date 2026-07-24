@@ -1,0 +1,19 @@
+[
+  { "key": "auth-contracts", "dir": "server/auth-contracts", "lang": "go", "builds_binary": false },
+  { "key": "auth-middleware", "dir": "server/auth-middleware", "lang": "go", "builds_binary": false },
+  { "key": "auth-policy", "dir": "server/auth-policy", "lang": "go", "builds_binary": false },
+  { "key": "claims-gateway", "dir": "server/claims-gateway", "lang": "go", "filter_key": "claims_gateway", "image": "crowdvision-claims-gateway", "cd_context": ".", "dockerfile": "server/claims-gateway/Dockerfile" },
+  { "key": "provisioner", "dir": "server/provisioner", "lang": "go", "image": "crowdvision-provisioner", "cd_context": ".", "dockerfile": "server/provisioner/Dockerfile" },
+  { "key": "registry-service", "dir": "server/registry-service", "lang": "go", "filter_key": "registry", "image": "crowdvision-registry", "cd_context": ".", "dockerfile": "server/registry-service/Dockerfile" },
+  { "key": "tenancy-service", "dir": "server/tenancy-service", "lang": "go", "filter_key": "tenancy", "image": "crowdvision-tenancy", "cd_context": ".", "dockerfile": "server/tenancy-service/Dockerfile" },
+  { "key": "chat", "dir": "server/chat-service", "lang": "node", "image": "crowdvision-chat" },
+  { "key": "notification", "dir": "server/notification-service", "lang": "node", "image": "crowdvision-notification" },
+  { "key": "sensor", "dir": "server/sensor-service", "lang": "node", "image": "crowdvision-sensor" },
+  { "key": "socket", "dir": "server/socket-service", "lang": "node", "image": "crowdvision-socket" },
+  { "key": "twin", "dir": "server/twin-service", "lang": "rust", "needs_mongo": true, "image": "crowdvision-twin", "cd_context": ".", "dockerfile": "server/twin-service/Dockerfile" },
+  { "key": "contracts", "dir": "server/contracts-service", "lang": "rust", "needs_mongo": false, "image": "crowdvision-contracts" },
+  { "key": "agent", "dir": "server/agent-service", "lang": "python", "image": "crowdvision-agent", "cd_context": ".", "dockerfile": "server/agent-service/Dockerfile" },
+  { "key": "client", "dir": "client", "lang": "client", "image": "crowdvision-client" },
+  { "key": "sensor-simulator", "dir": "simulators/sensor-simulator", "lang": "node", "image": "crowdvision-simulator", "ci": false },
+  { "key": "aq-simulator", "dir": "simulators/aq-simulator", "lang": "python", "image": "crowdvision-aq-simulator", "ci": false }
+]
