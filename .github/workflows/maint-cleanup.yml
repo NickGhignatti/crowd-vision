@@ -5,14 +5,13 @@ on:
   schedule:
     - cron: "0 2 * * 0"
 
-permissions:
-  packages: write
-
 jobs:
   # Reads .github/services.json — the single source of truth for the service
   # list also used by ci-gate.yml, cd-registry.yml, and cd-coverage.yml.
   load-registry:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       images: ${{ steps.list.outputs.images }}
     steps:
@@ -28,6 +27,8 @@ jobs:
   cleanup:
     needs: load-registry
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     strategy:
       fail-fast: false
       matrix:

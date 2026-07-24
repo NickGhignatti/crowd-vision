@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
 
       - name: Start Mongo
         if: ${{ inputs.needs_mongo }}
@@ -29,7 +31,9 @@ jobs:
           service_key: ${{ inputs.service_key }}
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@75a348306ce8f67c0b06fc62c32a8546140ba955
+        with:
+          tool: cargo-llvm-cov
 
       - name: Run tests with coverage
         working-directory: ${{ inputs.working_directory }}

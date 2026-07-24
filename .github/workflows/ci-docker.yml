@@ -24,7 +24,9 @@ jobs:
 
       - name: Extract Service Key
         id: parse
-        run: echo "service_key=$(echo '${{ matrix.image }}' | sed 's/crowdvision-//')" >> "$GITHUB_OUTPUT"
+        run: echo "service_key=$(echo '${MATRIX_IMAGE}' | sed 's/crowdvision-//')" >> "$GITHUB_OUTPUT"
+        env:
+          MATRIX_IMAGE: ${{ matrix.image }}
 
       # go/rust/node CI jobs upload their compiled output as an artifact so
       # the Docker build doesn't need to recompile. python and client have no
@@ -39,7 +41,7 @@ jobs:
       - name: Resolve Dockerfile and build args
         id: build
         run: |
-          case "${{ matrix.lang }}" in
+          case "${MATRIX_LANG}" in
             go)
               echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
               echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/app-binary" >> "$GITHUB_OUTPUT"
@@ -47,7 +49,7 @@ jobs:
             rust)
               # cargo names the binary after the crate (server/twin-service -> "twin-service"),
               # which is also the basename of matrix.context.
-              bin=$(basename "${{ matrix.context }}")
+              bin=$(basename "${MATRIX_CONTEXT}")
               echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
               echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/$bin" >> "$GITHUB_OUTPUT"
               ;;
@@ -55,7 +57,7 @@ jobs:
               {
                 echo "file=.github/docker/Dockerfile.node.ci"
                 echo "args<<ARGSEOF"
-                echo "SERVICE_DIR=${{ matrix.context }}"
+                echo "SERVICE_DIR=${MATRIX_CONTEXT}"
                 echo "ARTIFACT_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}"
                 echo "ARGSEOF"
               } >> "$GITHUB_OUTPUT"
@@ -64,10 +66,13 @@ jobs:
               # No pre-built artifact for these — build from the service's own
               # real Dockerfile, with the repo root as context so it can still
               # COPY sibling directories (e.g. agent-service <- auth-policy).
-              echo "file=${{ matrix.context }}/Dockerfile" >> "$GITHUB_OUTPUT"
+              echo "file=${MATRIX_CONTEXT}/Dockerfile" >> "$GITHUB_OUTPUT"
               echo "args=" >> "$GITHUB_OUTPUT"
               ;;
           esac
+        env:
+          MATRIX_LANG: ${{ matrix.lang }}
+          MATRIX_CONTEXT: ${{ matrix.context }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
