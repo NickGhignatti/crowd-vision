@@ -1,0 +1,46 @@
+name: Node CI Template
+on:
+  workflow_call:
+    inputs:
+      service_key: { required: true, type: string }
+      working_directory: { required: true, type: string }
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          working_directory: ${{ inputs.working_directory }}
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Run Tests
+        run: npm run test
+
+      - name: Audit Production Dependencies
+        run: npm audit --audit-level=high --omit=dev
+
+      - name: Audit All Dependencies
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Upload Dist Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dist-${{ inputs.service_key }}
+          path: ${{ inputs.working_directory }}/dist
+          retention-days: 1

@@ -79,7 +79,7 @@ each next to what we actually did to meet it.
     - - **A clear development process and DevOps practices**
       - GitHub Flow on a single protected branch, Conventional Commits and a branch-naming convention, every change reviewed and gated by CI (see Sections 1.3 and 3.3).
     - - **Full-scale automation, including CI and CD**
-      - One CI gate fans out build / test / lint / audit / scan per service; `semantic-release` then versions and deploys every merge (see Section 3.4).
+      - One CI gate fans out build / test / lint / audit / scan per service; `release-please` then versions and deploys every merged release PR (see Section 3.4).
     - - **Deploy automation via containerization and/or orchestration**
       - Every service ships as a Docker image; the system runs under Docker Compose locally and on Kubernetes in production (see Section 3.2).
     - - **Technically involve two or more target platforms**
@@ -96,9 +96,10 @@ Three habits carried the day-to-day:
 - **Build & quality.** **moon** runs each project's `build` / `test` / `lint` / `audit` tasks,
   caches the results, and only re-runs what a change actually touched, so a one-line edit never
   rebuilds the whole repo. Every service brings its own tests, linting and dependency audit.
-- **Release & deployment.** We don't pick version numbers — **semantic-release** reads them straight
-  off the commit history. Every merge to `master` cuts a release, builds and scans the images, and
-  pushes them to **GHCR**, which is exactly where production pulls from.
+- **Release & deployment.** We don't pick version numbers — **release-please** reads them straight
+  off the commit history and proposes them as a release pull request. Merging that PR cuts the
+  release, builds and scans the images, and pushes them to **GHCR**, which is exactly where
+  production pulls from.
 
 ## 1.4 Licensing
 
@@ -353,15 +354,16 @@ Security isn't a separate stage — it's woven in:
 - **Supply chain** — every third-party action is pinned to a full commit SHA (enforced by a repo
   setting).
 
-And the release itself runs without anyone touching it: every push to `master` runs
-**semantic-release** (work out the version → write the changelog → bump every manifest → tag →
-publish), alongside a `cd-registry` job that rebuilds and pushes only the images whose source moved.
+And the release itself needs only a merge to trigger: every push to `master` runs
+**release-please** (work out the version → open/update a release pull request with the changelog and
+every bumped manifest), and merging that PR tags and publishes the release, alongside a
+`cd-registry` job that rebuilds and pushes only the images whose source moved.
 
 .box {Read more} type:{tip}
     The gate's decision logic, every leg, and the release/registry mechanics:
     [CI/CD Pipeline → The CI gate](../../dev/Developer-Guide/cicd/#the-ci-gate) and
     [→ CD workflows](../../dev/Developer-Guide/cicd/#cd-workflows). The versioning rules:
-    [Commits & Semantic Release](../../dev/Developer-Guide/semantic-release/#the-release-pipeline).
+    [Commits & Release Please](../../dev/Developer-Guide/release-please/#the-release-pipeline).
 
 ---
 
@@ -451,14 +453,14 @@ Some choices shaped the *process* more than the product, and they're the ones wo
 - **A single list for the whole toolchain.** Because installs, cleans and the whole task graph all
   come from `moon query projects`, the package list cannot drift. Adding a service is a single line
   that then flows into build, test, lint, audit and install on its own.
-- **A small script instead of Lerna.** A tiny `fs` script (`bump-versions.mjs`) keeps every manifest
-  — `package.json`, `Cargo.toml`, `pyproject.toml` — in step, which let us sidestep the npm-workspace
-  constraints that Lerna could not satisfy in our layout.
+- **Glob-matched extra-files instead of Lerna.** `release-please-config.json` keeps every manifest
+  — `package.json`, `Cargo.toml`, `pyproject.toml` — in step via glob patterns, which let us
+  sidestep the npm-workspace constraints that Lerna could not satisfy in our layout.
 
 .box {Read more} type:{tip}
     The toolchain single source of truth and the Lerna call:
     [The Toolchain](../../dev/Developer-Guide/toolchain/) ·
-    [Contributing](../../dev/Developer-Guide/contributing/#why-bump-versionsmjs-instead-of-lerna).
+    [Contributing](../../dev/Developer-Guide/contributing/#why-release-pleases-extra-files-instead-of-lerna).
 
 ---
 

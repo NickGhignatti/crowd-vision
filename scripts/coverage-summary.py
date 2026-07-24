@@ -6,16 +6,21 @@ Reads the coverage report each stack produces and emits:
   - summary.json {service: {lines, branches}} percentages, the PR-delta baseline
 
 Three input formats are supported:
-  - istanbul   coverage-summary.json   (Jest + Vitest)        .total.<metric>.{covered,total}
-  - cobertura  coverage.xml            (pytest-cov)           root @lines-covered/@lines-valid
-  - llvmcov    coverage.json           (cargo llvm-cov --json) .data[0].totals.<metric>.{covered,count}
+  - istanbul   coverage-summary.json   (Jest + Vitest)                  .total.<metric>.{covered,total}
+  - cobertura  coverage.xml            (pytest-cov; gocover-cobertura)  root @lines-covered/@lines-valid
+  - llvmcov    coverage-summary.json   (cargo llvm-cov --json)          .data[0].totals.<metric>.{covered,count}
 
 Usage:
     python scripts/coverage-summary.py [ARTIFACTS_ROOT] [OUT_DIR]
 
 ARTIFACTS_ROOT defaults to "coverage-artifacts" and is expected to contain one
-sub-directory per service (named by the short key in SERVICES below), each
+sub-directory per service (named by its "key" in .github/services.json), each
 holding that service's report file. OUT_DIR defaults to the current directory.
+
+The service list itself is read from .github/services.json — the same
+registry cd-coverage.yml uses to build its per-language matrices — so this
+stays in sync with whatever services actually produce a coverage report,
+rather than a hand-maintained copy that drifts.
 
 Stdlib only — runs anywhere Python 3.10+ is available.
 """
@@ -27,17 +32,27 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-# service key -> (format, report path relative to its artifact sub-directory)
-SERVICES: dict[str, tuple[str, str]] = {
-    "chat": ("istanbul", "coverage-summary.json"),
-    "notification": ("istanbul", "coverage-summary.json"),
-    "sensor": ("istanbul", "coverage-summary.json"),
-    "socket": ("istanbul", "coverage-summary.json"),
-    "twin": ("istanbul", "coverage-summary.json"),
-    "client": ("istanbul", "coverage-summary.json"),
-    "agent": ("cobertura", "coverage.xml"),
-    "contracts": ("llvmcov", "coverage.json"),
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# language -> (format, report path relative to a service's artifact sub-directory),
+# mirroring how each templates/<lang>/coverage-report.yml produces its report.
+LANG_FORMATS: dict[str, tuple[str, str]] = {
+    "node": ("istanbul", "coverage-summary.json"),
+    "python": ("cobertura", "coverage.xml"),
+    "rust": ("llvmcov", "coverage-summary.json"),
+    "go": ("cobertura", "coverage.xml"),
 }
+
+
+def _load_services(registry_path: Path) -> dict[str, tuple[str, str]]:
+    """service key -> (format, report filename), for every service cd-coverage.yml tracks."""
+    registry = json.loads(registry_path.read_text())
+    return {
+        entry["key"]: LANG_FORMATS[entry["lang"]]
+        for entry in registry
+        if entry.get("lang") in LANG_FORMATS and entry.get("ci") is not False
+    }
+
 
 # (covered, total) per metric; metrics we keep in the summary
 Counts = dict[str, tuple[int, int]]
@@ -88,12 +103,12 @@ def _color(pct: float) -> str:
     return "red"
 
 
-def aggregate(root: Path) -> tuple[dict, dict]:
+def aggregate(root: Path, services: dict[str, tuple[str, str]]) -> tuple[dict, dict]:
     """Return (badge, summary) dicts. Missing reports are warned and skipped."""
     summary: dict[str, dict[str, float]] = {}
     lines_covered = lines_total = 0
 
-    for service, (fmt, rel) in SERVICES.items():
+    for service, (fmt, rel) in services.items():
         report = root / service / rel
         if not report.exists():
             print(f"warning: no coverage report for {service} at {report}", file=sys.stderr)
@@ -119,7 +134,8 @@ def main(argv: list[str]) -> int:
     out_dir = Path(argv[2]) if len(argv) > 2 else Path(".")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    badge, summary = aggregate(root)
+    services = _load_services(REPO_ROOT / ".github" / "services.json")
+    badge, summary = aggregate(root, services)
     if not summary:
         print("error: no coverage reports found, refusing to write empty output", file=sys.stderr)
         return 1

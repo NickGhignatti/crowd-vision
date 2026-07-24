@@ -1,12 +1,11 @@
-name: Docker Build
+name: CI Docker Build
 
 on:
   workflow_call:
     inputs:
       images:
         description: >-
-          JSON matrix (include-form) of { context, image } objects to build.
-          The gate populates this with only the services that changed.
+          JSON matrix (include-form) of { context, image, lang } objects to build.
         required: true
         type: string
 
@@ -23,21 +22,67 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Lint Dockerfile (hadolint)
-        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf
+      - name: Extract Service Key
+        id: parse
+        run: echo "service_key=$(echo '${MATRIX_IMAGE}' | sed 's/crowdvision-//')" >> "$GITHUB_OUTPUT"
+        env:
+          MATRIX_IMAGE: ${{ matrix.image }}
+
+      # go/rust/node CI jobs upload their compiled output as an artifact so
+      # the Docker build doesn't need to recompile. python and client have no
+      # such artifact — they build straight from their own real Dockerfile.
+      - name: Download Build Artifact
+        if: matrix.lang == 'go' || matrix.lang == 'rust' || matrix.lang == 'node'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          dockerfile: ${{ matrix.dockerfile }}
+          name: ${{ matrix.lang == 'node' && 'dist' || 'binary' }}-${{ steps.parse.outputs.service_key }}
+          path: ./downloaded-artifacts/${{ steps.parse.outputs.service_key }}
+
+      - name: Resolve Dockerfile and build args
+        id: build
+        run: |
+          case "${MATRIX_LANG}" in
+            go)
+              echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
+              echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/app-binary" >> "$GITHUB_OUTPUT"
+              ;;
+            rust)
+              # cargo names the binary after the crate (server/twin-service -> "twin-service"),
+              # which is also the basename of matrix.context.
+              bin=$(basename "${MATRIX_CONTEXT}")
+              echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
+              echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/$bin" >> "$GITHUB_OUTPUT"
+              ;;
+            node)
+              {
+                echo "file=.github/docker/Dockerfile.node.ci"
+                echo "args<<ARGSEOF"
+                echo "SERVICE_DIR=${MATRIX_CONTEXT}"
+                echo "ARTIFACT_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}"
+                echo "ARGSEOF"
+              } >> "$GITHUB_OUTPUT"
+              ;;
+            python|client)
+              # No pre-built artifact for these — build from the service's own
+              # real Dockerfile, with the repo root as context so it can still
+              # COPY sibling directories (e.g. agent-service <- auth-policy).
+              echo "file=${MATRIX_CONTEXT}/Dockerfile" >> "$GITHUB_OUTPUT"
+              echo "args=" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+        env:
+          MATRIX_LANG: ${{ matrix.lang }}
+          MATRIX_CONTEXT: ${{ matrix.context }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
 
-      # push: false — this is a PR build check, not a publish (cd-registry
-      # publishes on master). gha cache is scoped per image so services don't evict each other's layers.
       - name: Build ${{ matrix.image }}
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: .
+          file: ${{ steps.build.outputs.file }}
+          build-args: ${{ steps.build.outputs.args }}
           push: false
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}

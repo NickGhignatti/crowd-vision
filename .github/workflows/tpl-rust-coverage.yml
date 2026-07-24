@@ -1,0 +1,50 @@
+name: Rust Coverage Template
+on:
+  workflow_call:
+    inputs:
+      service_key: { required: true, type: string }
+      working_directory: { required: true, type: string }
+      needs_mongo: { required: false, type: boolean, default: false }
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Start Mongo
+        if: ${{ inputs.needs_mongo }}
+        uses: ./.github/actions/setup-mongo
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          working_directory: ${{ inputs.working_directory }}
+          service_key: ${{ inputs.service_key }}
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@75a348306ce8f67c0b06fc62c32a8546140ba955
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Run tests with coverage
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          mkdir -p coverage
+          cargo llvm-cov --all-targets --json --summary-only --output-path coverage/coverage-summary.json
+
+      - name: Upload report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ inputs.service_key }}
+          path: ${{ inputs.working_directory }}/coverage/coverage-summary.json
+          if-no-files-found: error
+          retention-days: 1

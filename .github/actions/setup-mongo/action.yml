@@ -1,0 +1,11 @@
+name: 'Setup MongoDB'
+description: 'Start MongoDB in Docker and wait for it to be ready'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Start MongoDB
+      shell: bash
+      run: |
+        docker run -d -p 27017:27017 --name mongo mongo:7
+        until docker exec mongo mongosh --eval "print(\"waited for connection\")"; do sleep 1; done

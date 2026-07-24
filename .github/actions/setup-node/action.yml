@@ -1,0 +1,32 @@
+name: 'Setup Node Environment'
+description: 'Install Node.js, configure cache, and install dependencies including shared tooling'
+inputs:
+  working_directory:
+    required: true
+    description: 'The directory of the specific Node service'
+  needs_shared_eslint:
+    required: false
+    default: 'false'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+      with:
+        node-version: 24.x
+        cache: npm
+        cache-dependency-path: |
+          ${{ inputs.working_directory }}/package-lock.json
+          ${{ inputs.needs_shared_eslint == 'true' && 'tooling/eslint-config/package-lock.json' || '' }}
+
+    - name: Install Service Dependencies
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: npm ci
+
+    - name: Install Shared ESLint Config
+      if: ${{ inputs.needs_shared_eslint == 'true' }}
+      shell: bash
+      working-directory: tooling/eslint-config
+      run: npm ci

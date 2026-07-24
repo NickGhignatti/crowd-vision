@@ -1,0 +1,114 @@
+.docname {Commits & Release Please}
+.include {docs}
+
+CrowdVision automates versioning, changelog generation, and releases with [release-please](https://github.com/googleapis/release-please). Version numbers are not chosen by hand — they are derived from commit messages. This makes the commit message a functional input to the build: get the format wrong and the commit just contributes nothing to the next version, rather than being rejected outright (see the note below).
+
+---
+
+## Conventional Commits
+
+Every commit message must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```text
+<type>(<optional scope>): <subject>
+
+<optional body>
+
+<optional footer(s)>
+```
+
+- **type** — the kind of change (table below).
+- **scope** — the affected component, e.g. `gateway`, `twin`, `ci` (see [Naming Conventions](naming-conventions.qd)).
+- **subject** — a concise, imperative description ("add", not "added").
+
+.box {Not mechanically enforced} type:{warning}
+    Nothing in CI currently rejects a non-conforming commit message. release-please just reads whatever prefix a commit has — `feat`/`fix` bump the version, anything else (including a typo'd type) is silently treated as no-release. Follow the convention because release-please depends on it, not because a check will catch you if you don't.
+
+---
+
+## Type to release impact
+
+The type determines how the next version is computed.
+
+.var {headers}
+   - Type
+   - Example
+   - Release impact
+
+.tablebyrows {.headers}
+    - - `feat`
+      - `feat(twin): add per-room colour overrides`
+      - Minor bump (`1.1.0` → `1.2.0`).
+    - - `fix`
+      - `fix(gateway): reject expired refresh tokens`
+      - Patch bump (`1.1.0` → `1.1.1`).
+    - - `docs`, `chore`, `refactor`, `test`, `ci`, `style`, `perf`, `build`
+      - `docs(sensor): document the ingestion fast path`
+      - No release.
+    - - Breaking change
+      - `feat(gateway)!: remove the /gateway/v1 endpoints`
+      - Major bump (`1.1.0` → `2.0.0`).
+
+A breaking change is signalled either by a `!` after the type/scope, or by a `BREAKING CHANGE:` footer:
+
+```text
+feat(gateway)!: remove the deprecated /gateway/v1 endpoints
+
+BREAKING CHANGE: clients must migrate to /gateway. The v1 routes are gone.
+```
+
+.box {Only feat and fix produce a release} type:{note}
+    Commits typed `chore`, `docs`, `ci`, `test`, `refactor`, etc. are safe to merge freely — they never trigger a version bump. Only `feat` (minor) and `fix` (patch) do, and a breaking change escalates to major.
+
+---
+
+## The release pipeline
+
+Releases are gated by a pull request rather than pushed straight to `master`. On every push to `master`, the `cd-release` workflow runs `googleapis/release-please-action`, configured by the repo-root `release-please-config.json` and `.release-please-manifest.json`.
+
+.mermaid
+    flowchart TD
+        M["Push to master"] --> RP["release-please-action<br/>reads commits since last tag"]
+        RP --> PR["Open/update the release PR<br/>CHANGELOG.md + every version file"]
+        PR --> REVIEW["A maintainer reviews and merges the release PR"]
+        REVIEW --> M2["That merge is itself a push to master"]
+        M2 --> RP2["release-please-action runs again,<br/>recognises the release PR as merged"]
+        RP2 --> TAG["Create the tag + publish the GitHub Release"]
+
+Step by step:
+
+1. **Analyses commits** since the last Git tag and computes the next version from their types.
+2. **Opens or updates a release PR** — a standing PR (title `chore(master): release <version>`) whose diff is `CHANGELOG.md` plus every version file listed under `extra-files` in `release-please-config.json`. Pushing more qualifying commits to `master` updates this same PR in place rather than opening a new one.
+3. **The release PR is a normal PR.** It is authored using a dedicated PAT rather than the default `GITHUB_TOKEN`, specifically so it triggers `ci-gate` like any other pull request — a PR opened by the default token would not.
+4. **Merging the release PR cuts the release.** The merge is itself a push to `master`, which runs `cd-release` again; this time release-please-action recognises its own PR was just merged, creates the Git tag, and publishes the GitHub Release with the generated notes.
+
+Because the release only happens on a deliberate merge, there is no `[skip ci]` commit to worry about — the release PR's merge commit is a normal merge, and `cd-registry` reacts to it exactly like any other push that touches `server/**`, `simulators/**`, or `client/**`.
+
+### Files bumped by the release PR
+
+```text
+CHANGELOG.md
+client/package.json               + package-lock.json
+server/*/package.json             + package-lock.json
+server/*/Cargo.toml
+server/*/pyproject.toml
+```
+
+These globs (in `release-please-config.json`'s `extra-files`) are resolved fresh on every run, so a new Node/Rust/Python service under `server/` is picked up automatically — no config edit needed to add one. `server/tests/package.json` also matches the `server/*/package.json` glob but has no `version` field, so release-please leaves it untouched.
+
+.box {Why one shared version instead of one per package} type:{note}
+    None of these per-service version fields are read at runtime — no service exposes a `/version` endpoint or bakes its `package.json` version into a binary. They exist purely so `npm ci` doesn't reject a `package.json`/`package-lock.json` pair with mismatched versions. Rather than version each service independently, the repo tracks a single version at `.` (`release-type: simple`, no manifest of its own) and stamps it into every other file via `extra-files` — matching how the whole monorepo has always shipped as one release, not fourteen.
+
+---
+
+## Worked example
+
+A branch merges three commits since the last `v1.4.2` tag:
+
+```text
+fix(sensor): clamp negative people counts to zero
+feat(twin): support multi-floor buildings
+docs(twin): note the floor-selection control
+```
+
+release-please sees a `feat` (the highest-ranked change), so the next version is a **minor** bump: `v1.5.0`. It opens (or updates) a release PR titled `chore(master): release 1.5.0`, with the changelog entry and every manifest bumped to `1.5.0`. The `docs` commit contributes a changelog line but does not affect the version. Once that PR is reviewed and merged, release-please tags `v1.5.0` and publishes the release; `cd-registry` then builds and pushes the Docker images for whatever changed — see [CI/CD Pipeline](cicd.qd).

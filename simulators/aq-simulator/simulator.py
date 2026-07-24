@@ -21,10 +21,10 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from schemas import AirQualityReading, BuildingConfig
-from scenarios import EnvironmentModel, Scenario
 from errors import SensorErrorModel
-from physics import compute_all, pm25_to_aqi, compute_indoor_aqi
+from physics import compute_all, compute_indoor_aqi, pm25_to_aqi
+from scenarios import EnvironmentModel, Scenario
+from schemas import AirQualityReading, BuildingConfig
 
 logger = logging.getLogger("simulator")
 
@@ -233,7 +233,7 @@ class Simulator:
                 await self._send_signals(building, dt_hours)
             except asyncio.CancelledError:
                 return
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - one bad tick must not kill the loop
                 logger.error("Tick error for building=%s: %s", building.building_id, exc)
             await asyncio.sleep(building.interval)
 

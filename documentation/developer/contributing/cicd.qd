@@ -1,7 +1,7 @@
 .docname {CI/CD Pipeline}
 .include {docs}
 
-CrowdVision uses a fully automated CI/CD pipeline on GitHub Actions. Every pull request to `master` is gated by a suite of checks — builds, tests, linting, security audits, Docker and Kubernetes validation, and a guard that refuses to let any unreviewed path merge unchecked. Merging to `master` automatically triggers a versioned release and pushes Docker images to GHCR. This page documents the workflows; the commit format and release mechanics that drive them are covered in [Commits & Semantic Release](semantic-release.qd).
+CrowdVision uses a fully automated CI/CD pipeline on GitHub Actions. Every pull request to `master` is gated by a suite of checks — builds, tests, linting, security audits, Docker and Kubernetes validation, and a guard that refuses to let any unreviewed path merge unchecked. Merging to `master` keeps a standing release pull request up to date; merging that release PR cuts a versioned release and pushes Docker images to GHCR. This page documents the workflows; the commit format and release mechanics that drive them are covered in [Commits & Release Please](release-please.qd).
 
 ---
 
@@ -105,7 +105,7 @@ Each service has a dedicated reusable workflow that the gate calls when that ser
       - Go 1.25 / `go test`
     - - `ci-provisioner.yml`
       - `server/provisioner`
-      - Go 1.23 / `go test`
+      - Go 1.25 / `go test`
 
 The **Node services** (`chat`, `sensor`, `socket`, `notification`) share the same shape: `npm ci`, install the shared `tooling/eslint-config/`, lint, build, test with coverage, then audit. The **client** splits into a `quality` job (lint, type-check, audit), a `test` job that shards Vitest across three parallel runners, and a `coverage` job that runs the suite unsharded to produce a single coverage report. The **two Rust services** (`contracts-service`, `twin-service`) both run `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` before `cargo llvm-cov`, then a `rustsec/audit-check`; `twin-service`'s job additionally installs `mold` and spins up a real `mongo:7` service container, since its integration tests exercise MongoDB directly rather than mocking it. The **agent** runs `ruff check`, `ruff format --check`, and `pyright` in a `quality` job, with `pytest` (unit + integration, with `--cov`) in a separate `tests` job. The **four Go services** each run `go vet` (lint), `go build`, then `go test -coverprofile` — `actions/setup-go`'s `go-version-file` picks up each service's own pinned version (`provisioner` is still on Go 1.23, the other three on 1.25); none of them run an audit step yet (see the note below). Coverage reporting is detailed in the **Code coverage** section below.
 
@@ -130,11 +130,14 @@ Every service CI workflow now measures **code coverage** as part of its test run
     - - Node.js services + client
       - `jest --coverage` · `vitest run --coverage`
       - Istanbul `coverage-summary.json`
-    - - `contracts-service`, `twin-service`
+    - - Rust services
       - `cargo llvm-cov --json`
       - LLVM JSON
     - - `agent-service`
       - `pytest --cov`
+      - Cobertura `coverage.xml`
+    - - Go services
+      - `go test`
       - Cobertura `coverage.xml`
 
 The Node and Rust services write a coverage summary into the GitHub **job summary** (rendered from the report with `jq`); the agent surfaces its figures directly in the `pytest` log via `--cov-report=term-missing`.
@@ -181,7 +184,7 @@ These legs validate properties that span the codebase rather than a single servi
     - - `workflows-lint`
       - A job defined inline in `ci-gate.yml` that validates the workflow files themselves whenever anything under the `&#46;github/` tree changes. **actionlint** (digest-pinned container) catches malformed expressions and invalid action inputs; shellcheck is bundled but disabled (`-shellcheck=`) until its `run:`-block findings are triaged. **zizmor** (pinned version, run `--offline --min-severity medium`) then audits for security smells actionlint misses: template injection in `run:` blocks, credential persistence (it is why every read-only checkout sets `persist-credentials: false`), over-broad token permissions, and dangerous triggers.
     - - `ci-infra.yml`
-      - The `infra` leg. Cheap, real validation for repo scripts and release tooling whenever `scripts/` or `tooling/` change: `node --check` parses every tracked `&#46;mjs`/`&#46;js`, `bash -n` checks every shell script, and `npm ci` in `tooling/` proves the release-tooling lockfile is still in sync. Keeps routine script edits green automatically.
+      - The `infra` leg. Cheap, real validation for repo scripts whenever `scripts/` or `tooling/` change: `node --check` parses every tracked `&#46;mjs`/`&#46;js`, and `bash -n` checks every shell script. Keeps routine script edits green automatically.
     - - `ci-dependency-review.yml`
       - The `dependency-review` leg. On any PR that changes a dependency manifest or lockfile, it fails if the PR **introduces** a dependency carrying a known high/critical advisory (`fail-on-severity: high`). It complements the per-service audit steps: those see the merged lockfile state, whereas this diffs exactly what the PR adds, catching a vulnerable package at the moment it is introduced. Requires the repository's dependency graph (on by default for public repos).
 
@@ -194,7 +197,7 @@ These legs validate properties that span the codebase rather than a single servi
 
 ### cd-release
 
-Triggered on every push to `master`. Runs semantic-release from `tooling/`: it reads commits since the last tag, computes the next version, updates `CHANGELOG.md`, bumps every manifest, tags the repository, and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Semantic Release](semantic-release.qd).
+Triggered on every push to `master`. Runs `googleapis/release-please-action`, which reads commits since the last tag and either opens/updates a release pull request (CHANGELOG.md + every version manifest) or, if its own release PR was just merged, tags the repository and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Release Please](release-please.qd).
 
 ### cd-registry
 

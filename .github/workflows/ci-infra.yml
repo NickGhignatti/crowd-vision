@@ -1,4 +1,4 @@
-name: infra-ci
+name: CI Infra
 
 on:
   workflow_call:
@@ -35,10 +35,6 @@ jobs:
             bash -n "$f" || { echo "::error file=$f::shell syntax error"; status=1; }
           done
           exit $status
-
-      - name: Validate tooling lockfile
-        working-directory: tooling
-        run: npm ci
 
       - name: Install just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3

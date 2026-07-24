@@ -1,7 +1,7 @@
 .docname {Contributing & Golden Rules}
 .include {docs}
 
-This page is the contract for working in the CrowdVision repository: how the monorepo is organised, the architectural rules contributions must respect, and the day-to-day workflow from clone to merged pull request. The related conventions are detailed on their own pages: [Naming Conventions](naming-conventions.qd), [Commits & Semantic Release](semantic-release.qd), and [CI/CD Pipeline](cicd.qd).
+This page is the contract for working in the CrowdVision repository: how the monorepo is organised, the architectural rules contributions must respect, and the day-to-day workflow from clone to merged pull request. The related conventions are detailed on their own pages: [Naming Conventions](naming-conventions.qd), [Commits & Release Please](release-please.qd), and [CI/CD Pipeline](cicd.qd).
 
 ---
 
@@ -11,7 +11,7 @@ CrowdVision is a polyglot monorepo: a Vue client, four Node services in TypeScri
 
 Two structural facts shape everything you do:
 
-- **There is no root `package.json` and no npm workspaces.** Each Node service installs its own `node_modules`. Shared JavaScript dev tooling (semantic-release, commitlint, the bump script) lives in `tooling/`; the shared ESLint flat config is the `@crowdvision/eslint-config` package at `tooling/eslint-config/`.
+- **There is no root `package.json` and no npm workspaces.** Each Node service installs its own `node_modules`. `tooling/` holds only the shared ESLint flat config, `@crowdvision/eslint-config`, at `tooling/eslint-config/`.
 - **Every package is registered once** in `.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
 
 .box {Dependencies are not hoisted} type:{note}
@@ -63,7 +63,7 @@ These rules preserve the boundaries the architecture depends on. A contribution 
 4. **Format and lint** with `just lint fix`, then verify with `just lint affected`.
 5. **Test** with `just test affected` (or `just test all` for the full suite).
 6. **Verify dependencies** with `just setup deps-check` (lockfile sync) and `just setup audit` (vulnerabilities) — these mirror the `ci-deps` and `ci-audit` gates.
-7. **Commit** using Conventional Commits, see [Commits & Semantic Release](semantic-release.qd).
+7. **Commit** using Conventional Commits, see [Commits & Release Please](release-please.qd).
 8. **Open a pull request** to `master`. The single required check is `ci-gate / ci-passed`.
 
 ---
@@ -80,12 +80,12 @@ just setup audit           # mirrors ci-audit (npm / uv / cargo audit — no Go 
 ```
 
 .box {The commit message is part of the build} type:{warning}
-    `ci-commitlint` rejects any commit message that does not follow Conventional Commits, and semantic-release derives the next version directly from those messages. A malformed message blocks the pull request. See [Commits & Semantic Release](semantic-release.qd).
+    Nothing in CI rejects a malformed commit message — release-please just derives the next version directly from whatever prefix each message has, silently treating anything non-conforming as no-release. Follow Conventional Commits because the release pipeline depends on it, not because a check enforces it. See [Commits & Release Please](release-please.qd).
 
 ---
 
-## Why bump-versions.mjs instead of Lerna
+## Why release-please's extra-files instead of Lerna
 
-Release-time version bumps across every manifest are applied by `tooling/bump-versions.mjs`, a plain Node `fs` script, rather than Lerna.
+Release-time version bumps across every manifest are applied by `release-please-config.json`'s `extra-files` glob patterns (see [Commits & Release Please](release-please.qd)), rather than Lerna or npm workspaces.
 
-Lerna 9 dropped its own package-discovery field and now delegates entirely to npm workspaces. npm workspaces cannot point upward with `../` — workspace paths must be strict descendants of the directory owning the `package.json`. Because `tooling/` sits inside the repository rather than above the services, a `tooling/package.json` declaring `"workspaces": ["../client", "../server/*"]` is rejected by npm outright. `bump-versions.mjs` sidesteps the constraint entirely: it opens each manifest by relative path and writes the new version — no workspaces, no Lerna discovery, nothing beyond Node itself.
+Lerna 9 dropped its own package-discovery field and now delegates entirely to npm workspaces. npm workspaces cannot point upward with `../` — workspace paths must be strict descendants of the directory owning the `package.json`. Because `tooling/` sits inside the repository rather than above the services, a `tooling/package.json` declaring `"workspaces": ["../client", "../server/*"]` is rejected by npm outright. Tracking a single `release-type: simple` package at the repo root and listing every other manifest as a glob-matched `extra-file` sidesteps the constraint entirely — no workspaces, no Lerna discovery involved.

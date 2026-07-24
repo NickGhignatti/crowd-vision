@@ -8,6 +8,7 @@ from enum import Enum
 
 from physics import EnvironmentConditions
 
+
 class Scenario(str, Enum):
     CLEAN_INDOOR   = "clean_indoor"
     OCCUPIED_OFFICE= "occupied_office"
