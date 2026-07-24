@@ -45,7 +45,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.load-registry.outputs.node) }}
 
-    uses: ./.github/workflows/templates/node/coverage-report.yml
+    uses: ./.github/workflows/tpl-node-coverage.yml
     with:
       service_key: ${{ matrix.key }}
       working_directory: ${{ matrix.dir }}
@@ -58,7 +58,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.load-registry.outputs.python) }}
 
-    uses: ./.github/workflows/templates/python/coverage-report.yml
+    uses: ./.github/workflows/tpl-python-coverage.yml
     with:
       service_key: ${{ matrix.key }}
       working_directory: ${{ matrix.dir }}
@@ -71,7 +71,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.load-registry.outputs.rust) }}
 
-    uses: ./.github/workflows/templates/rust/coverage-report.yml
+    uses: ./.github/workflows/tpl-rust-coverage.yml
     with:
       service_key: ${{ matrix.key }}
       working_directory: ${{ matrix.dir }}
@@ -85,7 +85,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.load-registry.outputs.go) }}
 
-    uses: ./.github/workflows/templates/go/coverage-report.yml
+    uses: ./.github/workflows/tpl-go-coverage.yml
     with:
       service_key: ${{ matrix.key }}
       working_directory: ${{ matrix.dir }}

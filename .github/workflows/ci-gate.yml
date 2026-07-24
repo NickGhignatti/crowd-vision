@@ -134,7 +134,7 @@ jobs:
   auth-contracts:
     needs: changes
     if: needs.changes.outputs.auth_contracts == 'true'
-    uses: ./.github/workflows/templates/go/ci.yml
+    uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-contracts
       working_directory: server/auth-contracts
@@ -145,7 +145,7 @@ jobs:
     # auth-middleware's go.mod replaces auth-contracts with a local path, so it
     # builds directly against auth-contracts' source and must re-run when it changes.
     if: needs.changes.outputs.auth_middleware == 'true' || needs.changes.outputs.auth_contracts == 'true'
-    uses: ./.github/workflows/templates/go/ci.yml
+    uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-middleware
       working_directory: server/auth-middleware
@@ -154,7 +154,7 @@ jobs:
   auth-policy:
     needs: changes
     if: needs.changes.outputs.auth_policy == 'true'
-    uses: ./.github/workflows/templates/go/ci.yml
+    uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-policy
       working_directory: server/auth-policy
@@ -163,7 +163,7 @@ jobs:
   claims-gateway:
     needs: changes
     if: needs.changes.outputs.claims_gateway == 'true'
-    uses: ./.github/workflows/templates/go/ci.yml
+    uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: claims-gateway
       working_directory: server/claims-gateway
@@ -171,7 +171,7 @@ jobs:
   provisioner:
     needs: changes
     if: needs.changes.outputs.provisioner == 'true'
-    uses: ./.github/workflows/templates/go/ci.yml
+    uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: provisioner
       working_directory: server/provisioner
@@ -179,7 +179,7 @@ jobs:
   registry-service:
     needs: changes
     if: needs.changes.outputs.registry == 'true'
-    uses: ./.github/workflows/templates/go/ci.yml
+    uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: registry-service
       working_directory: server/registry-service
@@ -187,7 +187,7 @@ jobs:
   tenancy-service:
     needs: changes
     if: needs.changes.outputs.tenancy == 'true'
-    uses: ./.github/workflows/templates/go/ci.yml
+    uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: tenancy-service
       working_directory: server/tenancy-service
@@ -195,7 +195,7 @@ jobs:
   chat:
     needs: changes
     if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/templates/node/ci.yml
+    uses: ./.github/workflows/tpl-node-ci.yml
     with:
       service_key: chat
       working_directory: server/chat-service
@@ -203,7 +203,7 @@ jobs:
   notification:
     needs: changes
     if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/templates/node/ci.yml
+    uses: ./.github/workflows/tpl-node-ci.yml
     with:
       service_key: notification
       working_directory: server/notification-service
@@ -211,7 +211,7 @@ jobs:
   sensor:
     needs: changes
     if: needs.changes.outputs.sensor == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/templates/node/ci.yml
+    uses: ./.github/workflows/tpl-node-ci.yml
     with:
       service_key: sensor
       working_directory: server/sensor-service
@@ -219,7 +219,7 @@ jobs:
   socket:
     needs: changes
     if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/templates/node/ci.yml
+    uses: ./.github/workflows/tpl-node-ci.yml
     with:
       service_key: socket
       working_directory: server/socket-service
@@ -227,7 +227,7 @@ jobs:
   twin:
     needs: changes
     if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/templates/rust/ci.yml
+    uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: twin
       working_directory: server/twin-service
@@ -236,7 +236,7 @@ jobs:
   contracts:
     needs: changes
     if: needs.changes.outputs.contracts == 'true'
-    uses: ./.github/workflows/templates/rust/ci.yml
+    uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: contracts
       working_directory: server/contracts-service
@@ -245,7 +245,7 @@ jobs:
   agent:
     needs: changes
     if: needs.changes.outputs.agent == 'true'
-    uses: ./.github/workflows/templates/python/ci.yml
+    uses: ./.github/workflows/tpl-python-ci.yml
     with:
       service_key: agent
       working_directory: server/agent-service
