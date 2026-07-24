@@ -17,6 +17,8 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: 24.x
+          cache: "npm"
+          cache-dependency-path: tooling/package-lock.json
 
       - name: Syntax-check JavaScript
         run: |
