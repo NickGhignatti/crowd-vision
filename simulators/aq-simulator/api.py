@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
 
-from schemas import BuildingConfig, StopRequest, StatusResponse
+from schemas import BuildingConfig, StatusResponse, StopRequest
 from simulator import Simulator
 
 app = FastAPI(title="Air Quality Simulator")

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, field_validator
+
 from scenarios import Scenario
+
 
 def _strip_newlines(value: str) -> str:
     # Drop CR/LF so user-supplied ids can't forge log lines (log injection).
