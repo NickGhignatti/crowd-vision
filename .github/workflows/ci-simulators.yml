@@ -1,36 +1,24 @@
-name: simulators-ci
+name: CI - Simulators
 
 on:
   workflow_call:
 
 jobs:
-  sensor-simulator:
-    name: sensor-simulator (Node)
+  node-simulators:
+    name: sensor-simulator
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./simulators/sensor-simulator
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        uses: actions/checkout@v4
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-node-env
         with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: |
-            simulators/sensor-simulator/package-lock.json
-            tooling/eslint-config/package-lock.json
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Install Shared ESLint Config
-        working-directory: tooling/eslint-config
-        run: npm ci
+          working_directory: ./simulators/sensor-simulator
+          needs_shared_eslint: 'true'
 
       - name: Lint
         run: npm run lint
@@ -38,8 +26,8 @@ jobs:
       - name: Build
         run: npm run build
 
-  aq-simulator:
-    name: aq-simulator (Python)
+  python-simulators:
+    name: aq-simulator
     runs-on: ubuntu-latest
     defaults:
       run:

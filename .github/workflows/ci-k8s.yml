@@ -1,4 +1,4 @@
-name: Kubernetes Manifests
+name: CI - Kubernetes Manifests
 
 on:
   workflow_call:
@@ -9,43 +9,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
-      - name: Install kubeconform
+      - name: Install K8s Tooling
         run: |
-          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          # 1. Kubeconform
+          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
           tar xf kubeconform.tar.gz kubeconform
           sudo mv kubeconform /usr/local/bin/
 
-      - name: Validate manifests (kubeconform)
+          # 2. Pluto
+          curl -sSLo pluto.tar.gz https://github.com/FairwindsOps/pluto/releases/download/v5.24.0/pluto_5.24.0_linux_amd64.tar.gz
+          tar xf pluto.tar.gz pluto
+          sudo mv pluto /usr/local/bin/
+
+          # 3. Kube-score
+          curl -sSLo kube-score https://github.com/zegl/kube-score/releases/download/v1.20.0/kube-score_1.20.0_linux_amd64
+          chmod +x kube-score
+          sudo mv kube-score /usr/local/bin/
+
+      - name: Validate manifests
         run: |
-          find k8s/ -name '*.yml' | xargs kubeconform \
+          find k8s/ -type f -name '*.yml' -print0 | xargs -0 kubeconform \
             -strict \
             -summary \
             -kubernetes-version 1.32.0 \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
-      - name: Install pluto
-        run: |
-          curl -sSLo pluto.tar.gz https://github.com/FairwindsOps/pluto/releases/download/v5.24.0/pluto_5.24.0_linux_amd64.tar.gz
-          tar xf pluto.tar.gz pluto
-          sudo mv pluto /usr/local/bin/
-
-      - name: Check for deprecated API versions (pluto)
+      - name: Check for deprecated API versions
         run: pluto detect-files -d k8s/
 
-      - name: Install kube-score
+      - name: Score manifests
         run: |
-          curl -sSLo kube-score https://github.com/zegl/kube-score/releases/download/v1.20.0/kube-score_1.20.0_linux_amd64
-          chmod +x kube-score
-          sudo mv kube-score /usr/local/bin/
-
-      - name: Score manifests (kube-score)
-        run: |
-          find k8s/ -name '*.yml' | xargs kube-score score \
+          find k8s/ -type f -name '*.yml' -print0 | xargs -0 kube-score score \
             --ignore-test pod-networkpolicy \
             --ignore-test pod-disruption-budget \
             --ignore-test container-security-context-user-group-id \
