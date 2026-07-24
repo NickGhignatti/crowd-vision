@@ -249,13 +249,12 @@
 
     <script>
         // Code-coverage card: fetched live from the coverage-data orphan branch.
+        // Service labels come from .github/services.json on master — the same
+        // registry the CI/CD workflows read — instead of a hand-maintained list,
+        // so a service rename/removal here can't go stale like the old list did.
         (function () {
             const BASE = "https://raw.githubusercontent.com/NickGhignatti/crowd-vision/coverage-data";
-            const SERVICES = [
-                ["auth", "auth-service"], ["chat", "chat-service"], ["notification", "notification-service"],
-                ["sensor", "sensor-service"], ["socket", "socket-service"], ["twin", "twin-service"],
-                ["client", "client"], ["agent", "agent-service"], ["contracts", "contracts-service"],
-            ];
+            const REGISTRY_URL = "https://raw.githubusercontent.com/NickGhignatti/crowd-vision/master/.github/services.json";
             const overallEl = document.getElementById("cov-overall");
             const bodyEl = document.getElementById("cov-body");
             const colorFor = (p) => (p >= 80 ? "#22c55e" : p >= 60 ? "#f59e0b" : "#ef4444");
@@ -273,9 +272,10 @@
 
             async function load() {
                 try {
-                    const [sRes, bRes] = await Promise.all([
+                    const [sRes, bRes, rRes] = await Promise.all([
                         fetch(BASE + "/summary.json", { cache: "no-store" }),
                         fetch(BASE + "/badge.json", { cache: "no-store" }),
+                        fetch(REGISTRY_URL, { cache: "no-store" }),
                     ]);
                     if (!sRes.ok) throw new Error("no summary");
                     const summary = await sRes.json();
@@ -285,7 +285,9 @@
                         overallEl.textContent = overall + " overall";
                         overallEl.style.color = colorFor(parseFloat(overall));
                     } else { overallEl.textContent = ""; }
-                    const rows = SERVICES
+                    const registry = rRes.ok ? await rRes.json() : [];
+                    const services = registry.map((s) => [s.key, s.dir.split("/").pop()]);
+                    const rows = services
                         .filter(([k]) => k in summary)
                         .map(([k, name]) => row(name, Number(summary[k].lines) || 0))
                         .join("");

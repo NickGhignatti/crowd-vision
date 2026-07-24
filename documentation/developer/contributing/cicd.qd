@@ -1,7 +1,7 @@
 .docname {CI/CD Pipeline}
 .include {docs}
 
-CrowdVision uses a fully automated CI/CD pipeline on GitHub Actions. Every pull request to `master` is gated by a suite of checks — builds, tests, linting, security audits, Docker and Kubernetes validation, and a guard that refuses to let any unreviewed path merge unchecked. Merging to `master` automatically triggers a versioned release and pushes Docker images to GHCR. This page documents the workflows; the commit format and release mechanics that drive them are covered in [Commits & Semantic Release](semantic-release.qd).
+CrowdVision uses a fully automated CI/CD pipeline on GitHub Actions. Every pull request to `master` is gated by a suite of checks — builds, tests, linting, security audits, Docker and Kubernetes validation, and a guard that refuses to let any unreviewed path merge unchecked. Merging to `master` keeps a standing release pull request up to date; merging that release PR cuts a versioned release and pushes Docker images to GHCR. This page documents the workflows; the commit format and release mechanics that drive them are covered in [Commits & Release Please](release-please.qd).
 
 ---
 
@@ -197,7 +197,7 @@ These legs validate properties that span the codebase rather than a single servi
 
 ### cd-release
 
-Triggered on every push to `master`. Runs semantic-release from `tooling/`: it reads commits since the last tag, computes the next version, updates `CHANGELOG.md`, bumps every manifest, tags the repository, and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Semantic Release](semantic-release.qd).
+Triggered on every push to `master`. Runs `googleapis/release-please-action`, which reads commits since the last tag and either opens/updates a release pull request (CHANGELOG.md + every version manifest) or, if its own release PR was just merged, tags the repository and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Release Please](release-please.qd).
 
 ### cd-registry
 

@@ -26,7 +26,7 @@ change is documented in the Developer Guide:
 
 - [Contributing & Golden Rules](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/contributing/)
 - [Naming Conventions](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/naming-conventions/)
-- [Commits & Semantic Release](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/semantic-release/)
+- [Commits & Release Please](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/release-please/)
 
 (Source: `documentation/developer/contributing/`.)
 

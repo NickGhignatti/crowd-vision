@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
+    }
+  },
+  "extra-files": [
+    { "type": "json", "path": "client/package.json", "jsonpath": "$.version" },
+    { "type": "json", "path": "client/package-lock.json", "jsonpath": "$.version" },
+    { "type": "json", "path": "client/package-lock.json", "jsonpath": "$.packages[''].version" },
+    { "type": "json", "path": "server/*/package.json", "jsonpath": "$.version", "glob": true },
+    { "type": "json", "path": "server/*/package-lock.json", "jsonpath": "$.version", "glob": true },
+    { "type": "json", "path": "server/*/package-lock.json", "jsonpath": "$.packages[''].version", "glob": true },
+    { "type": "toml", "path": "server/*/Cargo.toml", "jsonpath": "$.package.version", "glob": true },
+    { "type": "toml", "path": "server/*/pyproject.toml", "jsonpath": "$.project.version", "glob": true }
+  ]
+}

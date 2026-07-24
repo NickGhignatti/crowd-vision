@@ -11,35 +11,20 @@ concurrency:
 
 permissions:
   contents: write
-  issues: write
   pull-requests: write
 
 jobs:
-  release:
-    name: Publish Release
+  release-please:
+    name: Release Please
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        # zizmor: ignore[artipacked] — semantic-release pushes the tag, CHANGELOG
-        # and version bumps back to the repo, so the credential MUST persist here.
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      # A dedicated PAT (not GITHUB_TOKEN) so the release PR release-please opens
+      # is authored by a real identity — PRs opened by the default GITHUB_TOKEN
+      # don't trigger other workflows, which would leave the release PR without
+      # CI checks.
+      - name: Run Release Please
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071
         with:
-          fetch-depth: 0
           token: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
-        with:
-          node-version: 24.x
-          cache: "npm"
-          cache-dependency-path: tooling/package-lock.json
-
-      - name: Install Tooling Dependencies
-        working-directory: tooling
-        run: npm ci
-
-      - name: Run Semantic Release
-        working-directory: tooling
-        env:
-          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
-        run: npx semantic-release
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
