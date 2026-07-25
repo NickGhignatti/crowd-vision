@@ -1,5 +1,10 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
 
+# roles.json is shared source of truth for twin-service's Rust authz module
+# (server/twin-service/src/infra/authz.rs, via include_str!), not just Go's
+# go:embed above.
+exports_files(["roles.json"])
+
 go_library(
     name = "auth-contracts",
     srcs = [

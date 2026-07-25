@@ -1,8 +1,8 @@
 """bzlmod root module for CrowdVision.
 
-Per-language rulesets (rules_rust, rules_python, aspect rules_js/ts, rules_oci
-for non-Go images) are added in their respective migration phases. Phase 1
-adds Go (rules_go + Gazelle).
+Per-language rulesets (rules_python, aspect rules_js/ts) are added in their
+respective migration phases. Phase 1 added Go (rules_go + Gazelle). Phase 2
+adds Rust (rules_rust + crate_universe).
 """
 
 module(
@@ -12,6 +12,11 @@ module(
 
 bazel_dep(name = "rules_go", version = "0.62.0")
 bazel_dep(name = "gazelle", version = "0.52.2")
+
+# Direct dep (not just transitive via rules_go/rules_rust) so BUILD files here
+# can reference @platforms//os:windows etc. in select()s — e.g. to mark the
+# Rust targets incompatible with native Windows (BAZEL_MIGRATION.md §7).
+bazel_dep(name = "platforms", version = "1.1.0")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.25.0")
@@ -43,3 +48,40 @@ oci.pull(
     platforms = ["linux/amd64"],
 )
 use_repo(oci, "distroless_static_nonroot", "distroless_static_nonroot_linux_amd64")
+
+# Rust services (twin-service, contracts-service) link against a system TLS
+# backend (reqwest/mongodb's default, matching their existing Dockerfiles
+# which install ca-certificates) — "static" has no libc/certs, so they need
+# the "cc" distroless variant instead, which bundles glibc + ca-certificates.
+oci.pull(
+    name = "distroless_cc_nonroot",
+    image = "gcr.io/distroless/cc-debian12",
+    digest = "sha256:fccdbb0a547c14e23fcf4ce8ad62ca5d43b4faae8d22cd292f490fef9946c96e",
+    platforms = ["linux/amd64"],
+)
+use_repo(oci, "distroless_cc_nonroot", "distroless_cc_nonroot_linux_amd64")
+
+# rules_rust + crate_universe. twin-service and contracts-service each keep
+# their own independent Cargo.toml/Cargo.lock (not a Cargo workspace) — unlike
+# Go's go_deps, crate_universe's `from_cargo` allows multiple differently-named
+# tags per module, so no go.work-equivalent aggregation file is needed.
+bazel_dep(name = "rules_rust", version = "0.71.3")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(edition = "2024")
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "twin_service_crates",
+    cargo_lockfile = "//server/twin-service:Cargo.lock",
+    manifests = ["//server/twin-service:Cargo.toml"],
+)
+crate.from_cargo(
+    name = "contracts_service_crates",
+    cargo_lockfile = "//server/contracts-service:Cargo.lock",
+    manifests = ["//server/contracts-service:Cargo.toml"],
+)
+use_repo(crate, "twin_service_crates", "contracts_service_crates")

@@ -4,3 +4,15 @@ client/node_modules
 node_modules
 .venv
 __pycache__
+
+# Bazel's own convenience symlinks (bazel-<module name>, bazel-out, etc). Not
+# globbable in .bazelignore, listed explicitly. Needed because a Windows-side
+# bazel invocation and a WSL-side one share this same mounted source tree —
+# each leaves its own symlinks, and neither recognizes the other's as "its
+# own" to auto-exclude, so both must be listed for `//...` to resolve cleanly
+# from either side.
+bazel-crowdvision
+bazel-out
+bazel-bin
+bazel-testlogs
+bazel-genfiles

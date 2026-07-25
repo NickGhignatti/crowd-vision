@@ -1,16 +1,21 @@
-"""Packages a Go binary onto the distroless static base, replacing the old
-"inject a prebuilt binary into a Dockerfile" build (BAZEL_MIGRATION.md §3).
+"""Packages a service binary into an OCI image, replacing the old "inject a
+prebuilt binary into a Dockerfile" build (BAZEL_MIGRATION.md §3).
 """
 
 load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
-def go_service_image(name, binary, migrations = None, port = 3000):
-    """Builds an oci_image running `binary` from /app on the distroless nonroot base.
+def service_image(name, binary, base = "@distroless_static_nonroot", migrations = None, port = 3000):
+    """Builds an oci_image running `binary` from /app on the given distroless base.
 
     Args:
         name: target name for the resulting oci_image.
-        binary: label of the go_binary to run as the entrypoint.
+        binary: label of the go_binary/rust_binary to run as the entrypoint.
+        base: label of the pulled base image. Statically-linked Go binaries use
+            the minimal "static" distroless variant (the default); binaries
+            linking a system TLS backend (e.g. Rust services using reqwest's
+            default TLS) need the "cc" variant instead, which bundles glibc +
+            ca-certificates.
         migrations: optional label of a filegroup of SQL migrations, laid out
             at /app/migrations (read via a `file://migrations` relative path
             by services that run their own migrations at startup).
@@ -40,7 +45,7 @@ def go_service_image(name, binary, migrations = None, port = 3000):
 
     oci_image(
         name = name,
-        base = "@distroless_static_nonroot",
+        base = base,
         tars = [":" + t for t in tars],
         entrypoint = ["/usr/local/bin/" + binary.split(":")[-1]],
         exposed_ports = ["{}/tcp".format(port)],

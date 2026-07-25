@@ -1,0 +1,40 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
+load("@contracts_service_crates//:defs.bzl", "aliases", "all_crate_deps")
+load("//tools/oci:defs.bzl", "service_image")
+
+# Native Windows build is broken independent of anything in this repo — see
+# server/twin-service/BUILD.bazel for the `ring` crate issue, and
+# BAZEL_MIGRATION.md §7. This crate additionally hits its own distinct
+# Windows-only cargo_build_script path bug via a transitive dependency
+# (rustc_version_runtime). Verified working build/test/fmt/clippy on Linux
+# via WSL — treat as Linux/CI-only for now, same as the rules_oci image
+# targets.
+WINDOWS_INCOMPATIBLE = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+rust_binary(
+    name = "contracts-service",
+    srcs = glob(["src/**/*.rs"]),
+    edition = "2024",
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
+    aliases = aliases(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True),
+)
+
+rust_test(
+    name = "contracts_service_test",
+    crate = ":contracts-service",
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
+    aliases = aliases(),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    deps = all_crate_deps(normal_dev = True),
+)
+
+service_image(
+    name = "image",
+    binary = ":contracts-service",
+    base = "@distroless_cc_nonroot",
+)

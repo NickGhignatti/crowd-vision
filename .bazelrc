@@ -27,3 +27,15 @@ build:windows --enable_runfiles
 # Windows is second-class in Bazel more broadly (weaker sandboxing, rougher
 # rule edges — see §7 in BAZEL_MIGRATION.md). More platform toolchain config
 # is added here as each language phase lands.
+
+# Rust: `cargo fmt --check` / `cargo clippy --all-targets -- -D warnings`
+# equivalents, matching .github/actions/setup-rust. Opt in with
+# `bazel build --config=rustfmt` / `--config=clippy` (matches rules_rust's own
+# convention) rather than always-on, since running these aspects over every
+# target on every build/test invocation would slow down the inner dev loop.
+build:rustfmt --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect
+build:rustfmt --output_groups=+rustfmt_checks
+
+build:clippy --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect
+build:clippy --output_groups=+clippy_checks
+build:clippy --@rules_rust//rust/settings:clippy_flags=-Dwarnings

@@ -1,0 +1,61 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+load("@twin_service_crates//:defs.bzl", "aliases", "all_crate_deps")
+load("//tools/oci:defs.bzl", "service_image")
+
+# authz.rs pulls these in at compile time via include_str! from the Go
+# auth-contracts/auth-policy services (shared source of truth), not a Rust
+# dependency in the normal sense.
+AUTHZ_SHARED_FILES = [
+    "//server/auth-contracts:roles.json",
+    "//server/auth-policy:policy.cedar",
+    "//server/auth-policy:schema.cedarschema",
+]
+
+# Native Windows build is broken independent of anything in this repo: `ring`
+# (pulled in transitively via reqwest/rustls) fails its cc-rs build step under
+# Bazel+MSVC ("Cannot open include file: 'ring_core_generated/prefix_symbols.h'"),
+# a known rough edge of rules_rust on Windows (BAZEL_MIGRATION.md §7). Verified
+# working build/test/fmt/clippy on Linux via WSL — treat as Linux/CI-only for
+# now, same as the rules_oci image targets.
+WINDOWS_INCOMPATIBLE = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+rust_library(
+    name = "twin_service",
+    srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]),
+    compile_data = AUTHZ_SHARED_FILES,
+    crate_name = "twin_service",
+    edition = "2024",
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
+    aliases = aliases(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True),
+)
+
+rust_binary(
+    name = "twin-service",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
+    aliases = aliases(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = [":twin_service"] + all_crate_deps(normal = True),
+)
+
+rust_test(
+    name = "twin_service_test",
+    crate = ":twin_service",
+    compile_data = AUTHZ_SHARED_FILES,
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
+    aliases = aliases(),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    deps = all_crate_deps(normal_dev = True),
+)
+
+service_image(
+    name = "image",
+    binary = ":twin-service",
+    base = "@distroless_cc_nonroot",
+)

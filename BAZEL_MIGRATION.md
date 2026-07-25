@@ -101,9 +101,33 @@ lands. moon/mise/just are not touched until Phase 7.
       successfully under WSL. Treat OCI image builds as Linux/CI-only until rules_oci fixes
       Windows support. See §7 for the two other real findings from this phase (multi-module
       `go.work` requirement, `--enable_runfiles` requirement).
-- [ ] **Phase 2 — Rust (2 services).** `twin-service`, `contracts-service` via
+- [x] **Phase 2 — Rust (2 services).** `twin-service`, `contracts-service` via
       `crate_universe`. Port `fmt --check` / `clippy -D warnings` / `test` / release build +
       image. Resolve the linker story (§7).
+      Done. `bazel build/test //server/twin-service/... //server/contracts-service/...`,
+      `--config=rustfmt`, and `--config=clippy` all green on Linux (WSL); `twin-service`'s 5
+      Mongo-integration tests need a live `MONGO_URI` (same precondition as CI's
+      `needs_mongo: true` — not a Bazel gap). Both `service_image` OCI targets build on Linux,
+      on the `cc` distroless variant (not `static` — these link a system TLS backend, matching
+      their existing Dockerfiles' `ca-certificates` install). Unlike Go's go.work requirement,
+      `crate_universe`'s `from_cargo` supports multiple differently-named tags per module
+      directly, so each service's independent Cargo.lock needed no aggregation file. One
+      real cross-language finding: `twin-service`'s `authz.rs` pulls `roles.json`/
+      `policy.cedar`/`schema.cedarschema` from the Go `auth-contracts`/`auth-policy`
+      directories via `include_str!` — Bazel's sandbox needed those files declared as
+      `compile_data` (exposed via `exports_files()` in the Go services' BUILD files) since,
+      unlike plain `cargo build`, the sandbox doesn't see arbitrary relative-path filesystem
+      reads by default. **Both Rust crates fail to build natively on Windows** — confirmed as
+      genuine, pre-existing rules_rust/MSVC gaps, not our config, by building the identical
+      targets successfully on Linux: `ring` (via reqwest/rustls) fails its cc-rs build step
+      under MSVC, and one crate's build script hits an unrelated Windows path bug. Both crates'
+      targets are `target_compatible_with`-gated off Windows, so `bazel build/test //...`
+      cleanly skips them there instead of failing. Linker story: kept the rules_rust default
+      (Windows already matches the repo's existing rust-lld convention; Linux's default is
+      "gold," not "mold" — deferred pinning mold to Phase 6, since it requires `mold` actually
+      installed on whatever's running the build, same as today's CI `apt-get install mold`
+      step, and forcing it now would break any dev machine without it, e.g. this session's
+      WSL box).
 - [ ] **Phase 3 — Python.** `agent-service`, `simulators/*`, and the evals suite via
       `rules_python` + `uv`. Keep the `pytest` integration + eval-runner entrypoints working.
 - [ ] **Phase 4 — TS/Node (5 services + client).** `chat`, `notification`, `sensor`,
@@ -162,7 +186,13 @@ CI runs raw toolchain commands today, **not** moon — so this is real work, not
 - **Rust linker.** CI currently forces `mold` (`RUSTFLAGS=-C link-arg=-fuse-ld=mold`, Linux
   only). Under `rules_rust` this becomes a per-platform toolchain flag; on Windows keep the
   default/`rust-lld` (matches the existing `build-speed-strategy` note). mold is not available
-  on Windows — do not carry the flag across platforms.
+  on Windows — do not carry the flag across platforms. **Resolution (Phase 2):** left on
+  rules_rust's default toolchain rather than pinning mold — the Linux default ("gold," with a
+  deprecation warning but a working build) doesn't require anything extra installed, whereas
+  mold does (this session's own WSL box didn't have it). Pin it later as a `--config=ci` flag
+  in Phase 6, alongside actually installing mold on the CI runner (mirroring today's
+  `apt-get install mold` in `.github/actions/setup-rust`) — don't force an environment
+  dependency onto every dev box for a speed optimization.
 - **Bazel on Windows is second-class.** It works, but sandboxing is weaker and some rules have
   rough edges. Budget for Windows-specific `.bazelrc` platform config and test every phase on
   Windows *and* Linux before moving on. Two concrete Phase 1 findings, now handled:
@@ -177,6 +207,25 @@ CI runs raw toolchain commands today, **not** moon — so this is real work, not
     `server/*`) because Gazelle's `go_deps` extension accepts only one `from_file` tag per
     Bazel module. Verified this doesn't change plain `go build`/`go test` behavior that moon
     still relies on.
+  - Three more Phase 2 findings, now handled:
+    - `crate_universe`'s dependency splicing needs Windows Developer Mode enabled (unprivileged
+      symlink creation — `SeCreateSymbolicLinkPrivilege`). Standard, officially-documented
+      Bazel-on-Windows prerequisite, not fixable per-repo; enabled once for this dev box.
+    - `ring` (pulled in transitively by both Rust services via reqwest/rustls) fails its cc-rs
+      native build under Bazel + MSVC on Windows (`ring_core_generated/prefix_symbols.h` not
+      found); a second, unrelated crate hits a separate Windows-only `cargo_build_script` path
+      bug. Both are open, pre-existing rules_rust/Windows gaps — confirmed by building the
+      identical targets successfully on Linux via WSL. Both Rust crates' targets are
+      `target_compatible_with`-gated off `@platforms//os:windows`, so `bazel build/test //...`
+      cleanly *skips* them on Windows instead of failing outright — same treatment as the Go
+      phase's `oci_image` targets, but via the more precise "genuinely incompatible" mechanism
+      rather than `manual`.
+    - Cross-language compile-time file sharing needs explicit Bazel wiring: `twin-service`'s
+      Rust `authz.rs` reads `roles.json`/`policy.cedar`/`schema.cedarschema` from the Go
+      `auth-contracts`/`auth-policy` packages via `include_str!`. Bazel's sandbox doesn't see
+      arbitrary relative-path filesystem reads the way plain `cargo build` does — fixed via
+      `exports_files()` in those Go packages' `BUILD.bazel` plus `compile_data` on the Rust
+      targets.
 - **Editor/LSP integration** is `mise`'s quiet remaining job (tool versions for `gopls`,
   `rust-analyzer`). After removing `mise`, point editors at Bazel-provided toolchains
   (`rules_rust` ships a `rust-analyzer` aspect; Gazelle/`bazel-go` for gopls). Confirm this
