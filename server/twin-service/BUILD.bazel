@@ -24,38 +24,41 @@ WINDOWS_INCOMPATIBLE = select({
 
 rust_library(
     name = "twin_service",
-    srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]),
+    srcs = glob(
+        ["src/**/*.rs"],
+        exclude = ["src/main.rs"],
+    ),
+    aliases = aliases(),
     compile_data = AUTHZ_SHARED_FILES,
     crate_name = "twin_service",
     edition = "2024",
-    target_compatible_with = WINDOWS_INCOMPATIBLE,
-    aliases = aliases(),
     proc_macro_deps = all_crate_deps(proc_macro = True),
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
     deps = all_crate_deps(normal = True),
 )
 
 rust_binary(
     name = "twin-service",
     srcs = ["src/main.rs"],
-    edition = "2024",
-    target_compatible_with = WINDOWS_INCOMPATIBLE,
     aliases = aliases(),
+    edition = "2024",
     proc_macro_deps = all_crate_deps(proc_macro = True),
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
     deps = [":twin_service"] + all_crate_deps(normal = True),
 )
 
 rust_test(
     name = "twin_service_test",
-    crate = ":twin_service",
-    compile_data = AUTHZ_SHARED_FILES,
-    target_compatible_with = WINDOWS_INCOMPATIBLE,
     aliases = aliases(),
+    compile_data = AUTHZ_SHARED_FILES,
+    crate = ":twin_service",
     proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
     deps = all_crate_deps(normal_dev = True),
 )
 
 service_image(
     name = "image",
-    binary = ":twin-service",
     base = "@distroless_cc_nonroot",
+    binary = ":twin-service",
 )

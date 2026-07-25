@@ -1,0 +1,19 @@
+# Referenced from each Node service's BUILD.bazel via the "file:../../tooling/eslint-config"
+# devDependency — npm_link_all_packages needs a "pkg" target here implementing
+# NpmPackageInfo to resolve the link, even though eslint itself isn't wired into any Bazel
+# target yet (lint is deferred — see BAZEL_MIGRATION.md Phase 4).
+load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+
+exports_files([
+    "package.json",
+    "index.mjs",
+])
+
+npm_package(
+    name = "pkg",
+    srcs = [
+        "index.mjs",
+        "package.json",
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,4 @@
+# rules_js-only: pnpm-lock.yaml is generated from package-lock.json (`pnpm import`) so
+# Bazel's aspect_rules_js can consume it; this repo still uses npm, not pnpm, day to day.
+# No packages here have install/postinstall scripts, so this list stays empty.
+onlyBuiltDependencies: []

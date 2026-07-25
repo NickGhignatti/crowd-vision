@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Express } from "express";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import { connectMongo } from "./config/db.js";
@@ -7,7 +7,9 @@ import { metricsMiddleware } from "./middlewares/metrics.js";
 import router from "./router.js";
 
 const PORT = 3000;
-export const app = express();
+// Explicit annotation: under Bazel's rules_js node_modules layout, tsc can't infer a
+// portable type reference for this export (TS2883) without it.
+export const app: Express = express();
 // Behind the Caddy/ingress proxy: trust one hop so express-rate-limit reads the real client IP.
 app.set("trust proxy", 1);
 

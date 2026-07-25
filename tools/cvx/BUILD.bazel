@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+exports_files(["go.mod"])
+
+go_library(
+    name = "cvx_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/NickGhignatti/crowd-vision/tools/cvx",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "cvx",
+    embed = [":cvx_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "cvx_test",
+    srcs = ["main_test.go"],
+    embed = [":cvx_lib"],
+)

@@ -1,0 +1,52 @@
+load("@aspect_rules_ts//ts:defs.bzl", "ts_config", "ts_project")
+load("@sensor_service_npm//:defs.bzl", "npm_link_all_packages")
+
+exports_files([
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+])
+
+npm_link_all_packages(name = "node_modules")
+
+ts_config(
+    name = "tsconfig",
+    src = "tsconfig.build.json",
+    deps = ["tsconfig.json"],
+)
+
+ts_project(
+    name = "lib",
+    srcs = glob(["src/**/*.ts"]),
+    data = ["package.json"],
+    declaration = True,
+    declaration_map = True,
+    out_dir = "dist",
+    root_dir = "src",
+    source_map = True,
+    transpiler = "tsc",
+    tsconfig = ":tsconfig",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":node_modules/@types/bcrypt",
+        ":node_modules/@types/cookie-parser",
+        ":node_modules/@types/express",
+        ":node_modules/@types/jest",
+        ":node_modules/@types/jsonwebtoken",
+        ":node_modules/@types/mongoose",
+        ":node_modules/@types/node",
+        ":node_modules/@types/swagger-ui-express",
+        ":node_modules/@types/yamljs",
+        ":node_modules/bcrypt",
+        ":node_modules/cookie-parser",
+        ":node_modules/dotenv",
+        ":node_modules/express",
+        ":node_modules/express-rate-limit",
+        ":node_modules/jsonwebtoken",
+        ":node_modules/mongoose",
+        ":node_modules/redis",
+        ":node_modules/swagger-ui-express",
+        ":node_modules/yamljs",
+    ],
+)

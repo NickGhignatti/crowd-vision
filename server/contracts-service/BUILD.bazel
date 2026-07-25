@@ -1,5 +1,5 @@
-load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
 load("@contracts_service_crates//:defs.bzl", "aliases", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
 load("//tools/oci:defs.bzl", "service_image")
 
 # Native Windows build is broken independent of anything in this repo — see
@@ -17,24 +17,24 @@ WINDOWS_INCOMPATIBLE = select({
 rust_binary(
     name = "contracts-service",
     srcs = glob(["src/**/*.rs"]),
-    edition = "2024",
-    target_compatible_with = WINDOWS_INCOMPATIBLE,
     aliases = aliases(),
+    edition = "2024",
     proc_macro_deps = all_crate_deps(proc_macro = True),
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
     deps = all_crate_deps(normal = True),
 )
 
 rust_test(
     name = "contracts_service_test",
-    crate = ":contracts-service",
-    target_compatible_with = WINDOWS_INCOMPATIBLE,
     aliases = aliases(),
+    crate = ":contracts-service",
     proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    target_compatible_with = WINDOWS_INCOMPATIBLE,
     deps = all_crate_deps(normal_dev = True),
 )
 
 service_image(
     name = "image",
-    binary = ":contracts-service",
     base = "@distroless_cc_nonroot",
+    binary = ":contracts-service",
 )

@@ -1,10 +1,3 @@
-"""bzlmod root module for CrowdVision.
-
-Per-language rulesets (rules_python, aspect rules_js/ts) are added in their
-respective migration phases. Phase 1 added Go (rules_go + Gazelle). Phase 2
-adds Rust (rules_rust + crate_universe).
-"""
-
 module(
     name = "crowdvision",
     version = "0.0.0",
@@ -12,35 +5,20 @@ module(
 
 bazel_dep(name = "rules_go", version = "0.62.0")
 bazel_dep(name = "gazelle", version = "0.52.2")
-
-# Direct dep (not just transitive via rules_go/rules_rust) so BUILD files here
-# can reference @platforms//os:windows etc. in select()s — e.g. to mark the
-# Rust targets incompatible with native Windows (BAZEL_MIGRATION.md §7).
 bazel_dep(name = "platforms", version = "1.1.0")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.25.0")
 
-# The 7 Go services each keep their own go.mod (independent modules, some with
-# local `replace` directives onto siblings). Gazelle's go_deps extension only
-# accepts one `from_file` tag per Bazel module, so go.work (kept in sync with
-# the modules under server/*) is how they're aggregated into one dependency
-# resolution. This does not change plain `go build`/`go test` behavior for
-# moon — verified: all 7 modules still build/vet identically with go.work
-# present.
 go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_work = "//:go.work")
 use_repo(go_deps, "com_github_cedar_policy_cedar_go", "com_github_coreos_go_oidc_v3", "com_github_go_chi_chi_v5", "com_github_golang_jwt_jwt_v5", "com_github_golang_migrate_migrate_v4", "com_github_google_uuid", "com_github_jackc_pgx_v5", "com_github_micahparks_jwkset", "com_github_micahparks_keyfunc_v3", "com_github_redis_go_redis_v9", "com_github_testcontainers_testcontainers_go_modules_postgres", "com_github_testcontainers_testcontainers_go_modules_redis")
 
-# rules_oci — replaces the "inject a prebuilt binary into a Dockerfile" build
-# for the 4 binary-producing Go services (BAZEL_MIGRATION.md §3).
 bazel_dep(name = "rules_oci", version = "2.3.0")
 bazel_dep(name = "rules_pkg", version = "1.2.0")
-
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 
-# Digest pinned to the manifest-list index for gcr.io/distroless/static-debian12:nonroot
-# (checked via `docker buildx imagetools inspect`) — reproducible, unlike a mutable tag.
+# Go services base docker images
 oci.pull(
     name = "distroless_static_nonroot",
     image = "gcr.io/distroless/static-debian12",
@@ -49,10 +27,7 @@ oci.pull(
 )
 use_repo(oci, "distroless_static_nonroot", "distroless_static_nonroot_linux_amd64")
 
-# Rust services (twin-service, contracts-service) link against a system TLS
-# backend (reqwest/mongodb's default, matching their existing Dockerfiles
-# which install ca-certificates) — "static" has no libc/certs, so they need
-# the "cc" distroless variant instead, which bundles glibc + ca-certificates.
+# cc variant due to the need for glibc + ca-certificates
 oci.pull(
     name = "distroless_cc_nonroot",
     image = "gcr.io/distroless/cc-debian12",
@@ -61,16 +36,10 @@ oci.pull(
 )
 use_repo(oci, "distroless_cc_nonroot", "distroless_cc_nonroot_linux_amd64")
 
-# rules_rust + crate_universe. twin-service and contracts-service each keep
-# their own independent Cargo.toml/Cargo.lock (not a Cargo workspace) — unlike
-# Go's go_deps, crate_universe's `from_cargo` allows multiple differently-named
-# tags per module, so no go.work-equivalent aggregation file is needed.
 bazel_dep(name = "rules_rust", version = "0.71.3")
-
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(edition = "2024")
 use_repo(rust, "rust_toolchains")
-
 register_toolchains("@rust_toolchains//:all")
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
@@ -85,3 +54,65 @@ crate.from_cargo(
     manifests = ["//server/contracts-service:Cargo.toml"],
 )
 use_repo(crate, "twin_service_crates", "contracts_service_crates")
+
+bazel_dep(name = "rules_python", version = "1.7.0")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")
+use_repo(python, "python_3_12")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pypi",
+    python_version = "3.12",
+    requirements_lock = "//server/agent-service:requirements_lock.txt",
+)
+use_repo(pip, "pypi")
+
+bazel_dep(name = "aspect_rules_js", version = "3.2.3")
+bazel_dep(name = "aspect_rules_ts", version = "3.9.2")
+bazel_dep(name = "rules_nodejs", version = "6.7.5")
+
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node")
+node.toolchain(node_version = "24.0.0")
+use_repo(node, "nodejs_toolchains")
+
+pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm")
+use_repo(pnpm, "pnpm")
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
+
+# Each service owns its dependencies (no root package.json — see CLAUDE.md), so like
+# per-service Cargo.lock/uv.lock in Phases 2/3, npm_translate_lock runs once per service
+# lockfile rather than one hub for the whole repo. rules_js only understands pnpm-lock.yaml
+# natively, not npm's package-lock.json; letting npm_translate_lock's update_pnpm_lock
+# auto-run `pnpm import` at build time silently produced an empty lock on Windows (a real
+# finding, not a config error — see BAZEL_MIGRATION.md Phase 4), so pnpm-lock.yaml is instead
+# pre-generated once via `pnpm import` (like uv export for Python in Phase 3) and checked in.
+npm.npm_translate_lock(
+    name = "chat_service_npm",
+    pnpm_lock = "//server/chat-service:pnpm-lock.yaml",
+)
+npm.npm_translate_lock(
+    name = "notification_service_npm",
+    pnpm_lock = "//server/notification-service:pnpm-lock.yaml",
+)
+npm.npm_translate_lock(
+    name = "sensor_service_npm",
+    pnpm_lock = "//server/sensor-service:pnpm-lock.yaml",
+)
+npm.npm_translate_lock(
+    name = "socket_service_npm",
+    pnpm_lock = "//server/socket-service:pnpm-lock.yaml",
+)
+use_repo(npm, "chat_service_npm", "notification_service_npm", "sensor_service_npm", "socket_service_npm")
+
+rules_ts_ext = use_extension("@aspect_rules_ts//ts:extensions.bzl", "ext")
+
+# TypeScript 6.0.3 isn't in rules_ts's built-in version mirror yet, so the exact
+# version + integrity (both from chat-service's package-lock.json) are required.
+rules_ts_ext.deps(
+    ts_integrity = "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==",
+    ts_version = "6.0.3",
+)
+use_repo(rules_ts_ext, "npm_typescript")

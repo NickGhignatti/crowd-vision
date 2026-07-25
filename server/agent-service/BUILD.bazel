@@ -1,0 +1,101 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+exports_files(["requirements_lock.txt"])
+
+py_library(
+    name = "app_lib",
+    srcs = glob(["app/**/*.py"]),
+    # cedar_authz.py reads these by relative path (Path(__file__).parent...),
+    # same cross-language sharing twin-service's Rust authz.rs relies on
+    # (Phase 2) — auth-policy/auth-contracts already exports_files() them.
+    data = [
+        "//server/auth-contracts:roles.json",
+        "//server/auth-policy:fixtures/conformance.json",
+        "//server/auth-policy:policy.cedar",
+        "//server/auth-policy:schema.cedarschema",
+    ],
+    imports = ["."],
+    visibility = ["//visibility:private"],
+    deps = [
+        "@pypi//alembic",
+        "@pypi//asyncpg",
+        "@pypi//cedarpy",
+        "@pypi//fastapi",
+        "@pypi//httpx",
+        "@pypi//markdown_it_py",
+        "@pypi//numpy",
+        "@pypi//openai",
+        "@pypi//opentelemetry_api",
+        "@pypi//opentelemetry_exporter_otlp",
+        "@pypi//opentelemetry_instrumentation_fastapi",
+        "@pypi//opentelemetry_instrumentation_httpx",
+        "@pypi//opentelemetry_instrumentation_sqlalchemy",
+        "@pypi//opentelemetry_sdk",
+        "@pypi//pgvector",
+        "@pypi//psycopg",
+        "@pypi//psycopg_binary",
+        "@pypi//pydantic",
+        "@pypi//pydantic_ai",
+        "@pypi//pydantic_settings",
+        "@pypi//pyjwt",
+        "@pypi//sqlalchemy",
+        "@pypi//structlog",
+        "@pypi//tiktoken",
+        "@pypi//uvicorn",
+    ],
+)
+
+# run_evals.py is loaded both as `from evals import run_evals` and via
+# importlib.util.spec_from_file_location by the unit tests that exercise it.
+py_library(
+    name = "evals_lib",
+    srcs = glob(["evals/**/*.py"]),
+    data = ["evals/dataset.json"],
+    imports = ["."],
+    visibility = ["//visibility:private"],
+)
+
+py_test(
+    name = "unit_test",
+    srcs = ["pytest_runner.py"] + glob([
+        "tests/__init__.py",
+        "tests/unit/**/*.py",
+    ]),
+    args = ["server/agent-service/tests/unit"],
+    imports = ["."],
+    main = "pytest_runner.py",
+    deps = [
+        ":app_lib",
+        ":evals_lib",
+        "@pypi//httpx",
+        "@pypi//pytest",
+        "@pypi//pytest_asyncio",
+        "@pypi//pytest_cov",
+    ],
+)
+
+# Needs a Docker daemon (testcontainers spins up pgvector/postgres) — same class
+# of external precondition as twin-service's MONGO_URI requirement (Phase 2).
+py_test(
+    name = "integration_test",
+    srcs = ["pytest_runner.py"] + glob([
+        "tests/__init__.py",
+        "tests/integration/**/*.py",
+    ]),
+    args = ["server/agent-service/tests/integration"],
+    data = ["alembic.ini"] + glob(["alembic/**/*.py"]),
+    imports = ["."],
+    main = "pytest_runner.py",
+    tags = [
+        "manual",
+        "requires-docker",
+    ],
+    deps = [
+        ":app_lib",
+        "@pypi//httpx",
+        "@pypi//pytest",
+        "@pypi//pytest_asyncio",
+        "@pypi//pytest_cov",
+        "@pypi//testcontainers",
+    ],
+)

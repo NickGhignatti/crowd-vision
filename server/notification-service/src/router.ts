@@ -9,7 +9,9 @@ import {
 } from "./controller/notificationController.js";
 import { requireAuthentication } from "./middlewares/authentication.js";
 
-const router = Router();
+// Explicit annotation: under Bazel's rules_js node_modules layout, tsc can't infer a
+// portable type reference for this export (TS2883) without it.
+const router: Router = Router();
 
 // --- Public: health probe and the (non-secret) VAPID public key. ---
 router.get("/health", (_req, res) => res.status(200).send());

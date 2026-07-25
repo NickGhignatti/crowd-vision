@@ -2,8 +2,16 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 # policy.cedar and schema.cedarschema are shared source of truth for
 # twin-service's Rust authz module (server/twin-service/src/infra/authz.rs,
-# via include_str!), not just Go's go:embed above.
-exports_files(["policy.cedar", "schema.cedarschema"])
+# via include_str!) and agent-service's Python authz module
+# (server/agent-service/app/cedar_authz.py), not just Go's go:embed above.
+exports_files([
+    "policy.cedar",
+    "schema.cedarschema",
+])
+
+# agent-service's conformance test reads this fixture the same way
+# auth-policy's own conformance_test.go does below.
+exports_files(["fixtures/conformance.json"])
 
 go_library(
     name = "auth-policy",

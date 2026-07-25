@@ -7,7 +7,9 @@ const redisClient = createClient({
   url: process.env.REDIS_URL || "redis://localhost:6379",
 });
 
-export const redisSubscriber = redisClient.duplicate();
+// Explicit annotation: under Bazel's rules_js node_modules layout, tsc can't infer a
+// portable type reference for this export (TS2883) without it.
+export const redisSubscriber: ReturnType<typeof redisClient.duplicate> = redisClient.duplicate();
 
 redisClient.on("error", (err) => console.error("❌ Redis Client Error", err));
 

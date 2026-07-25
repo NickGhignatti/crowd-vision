@@ -1,8 +1,17 @@
 # Directories Bazel (and Gazelle's repo walk) must never treat as packages —
-# dependency trees and generated output, not source.
+# dependency trees and generated output, not source. Each entry is a path
+# prefix, not a glob — bare "node_modules" only covers the repo root, so every
+# service with its own checked-out node_modules needs its own line (a
+# same-named on-disk node_modules/<pkg> directory otherwise shadows the
+# rules_js-generated node_modules/<pkg> link target of the same label).
 client/node_modules
 node_modules
+server/chat-service/node_modules
+server/notification-service/node_modules
+server/sensor-service/node_modules
+server/socket-service/node_modules
 .venv
+server/agent-service/.venv
 __pycache__
 
 # Bazel's own convenience symlinks (bazel-<module name>, bazel-out, etc). Not

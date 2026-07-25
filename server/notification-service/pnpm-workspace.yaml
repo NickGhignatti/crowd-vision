@@ -1,0 +1,6 @@
+# rules_js-only: pnpm-lock.yaml is generated from package-lock.json (`pnpm import`) so
+# Bazel's aspect_rules_js can consume it; this repo still uses npm, not pnpm, day to day.
+# Left empty deliberately: the `lib` Bazel target only transpiles/typechecks (tsc), it never
+# executes bcrypt/esbuild/fsevents/mongodb-memory-server, so none of their install scripts
+# need to run.
+onlyBuiltDependencies: []

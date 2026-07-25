@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Express } from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
@@ -11,7 +11,9 @@ import { initializeEventListeners } from "./services/eventListener.js";
 
 dotenv.config();
 
-export const app = express();
+// Explicit annotation: under Bazel's rules_js node_modules layout, tsc can't infer a
+// portable type reference for this export (TS2883) without it.
+export const app: Express = express();
 // Behind the Caddy/ingress proxy: trust one hop so express-rate-limit reads the real client IP.
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
