@@ -1,0 +1,78 @@
+{
+  "auto_install_extensions": {
+    "vue": true,
+    "justfile": true,
+  },
+
+  "format_on_save": "on",
+
+  "languages": {
+    "Python": {
+      "format_on_save": "on",
+      "formatter": [
+        { "code_actions": { "source.organizeImports.ruff": true } },
+        { "language_server": { "name": "ruff" } },
+      ],
+    },
+    "Go": {
+      "format_on_save": "on",
+    },
+    "Rust": {
+      "format_on_save": "on",
+    },
+    "TypeScript": {
+      "format_on_save": "on",
+    },
+    "TSX": {
+      "format_on_save": "on",
+    },
+    "Vue.js": {
+      "format_on_save": "on",
+    },
+    "JSON": {
+      "format_on_save": "on",
+    },
+    "YAML": {
+      "format_on_save": "on",
+    },
+  },
+
+  "lsp": {
+    // contracts-service and twin-service are two independent crates (no
+    // workspace Cargo.toml ties them together), so rust-analyzer needs to be
+    // told about both explicitly or it will only pick up whichever one the
+    // active buffer happens to be under.
+    "rust-analyzer": {
+      "initialization_options": {
+        "linkedProjects": [
+          "server/contracts-service/Cargo.toml",
+          "server/twin-service/Cargo.toml",
+        ],
+      },
+    },
+
+    "gopls": {
+      "initialization_options": {
+        "hints": {
+          "assignVariableTypes": true,
+          "compositeLiteralFields": true,
+          "compositeLiteralTypes": true,
+          "constantValues": true,
+          "functionTypeParameters": true,
+          "parameterNames": true,
+          "rangeVariableTypes": true,
+        },
+      },
+    },
+
+    // All JS/TS packages (client, server/*-service, sensor-simulator, tests)
+    // use flat eslint.config.* + eslint 10, each with its own nearest config.
+    "eslint": {
+      "settings": {
+        "experimental": {
+          "useFlatConfig": true,
+        },
+      },
+    },
+  },
+}

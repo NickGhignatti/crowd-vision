@@ -1,0 +1,20 @@
+// aq-simulator is a standalone Python 3.14 project (see Dockerfile), with its
+// own .venv/ here — unrelated to server/agent-service's venv/interpreter.
+{
+  "lsp": {
+    "basedpyright": {
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    },
+    "pyright": {
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    }
+  }
+}

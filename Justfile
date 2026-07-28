@@ -1,6 +1,3 @@
-# Cross-platform task runner (bash on Unix / PowerShell on Windows).
-# Recipes live in ./just/*.just as submodules — run `just --list` to see the
-# groups, and `just <group>` (e.g. `just k8s`) to list a group's recipes.
 set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
