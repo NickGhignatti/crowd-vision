@@ -1,6 +1,6 @@
 services:
   socket-server:
-    cpuset: "0-10"
+    cpus: "2"
     build:
       context: .
     container_name: crowd-vision-socket

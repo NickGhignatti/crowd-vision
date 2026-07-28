@@ -1,11 +1,11 @@
 services:
   gateway:
-    cpuset: "0-10"
+    cpus: "2"
     image: caddy:latest
     ports:
-      - "80:80"
+      - "${SERVER_PORT}:80"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./Caddyfile:/etc/caddy/Caddyfile:z
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -26,7 +26,7 @@ services:
         required: false
 
   redis:
-    cpuset: "0-10"
+    cpus: "2"
     image: redis:alpine
     container_name: services-broker
     restart: always
@@ -38,7 +38,7 @@ services:
       retries: 5
 
   redis-langfuse:
-    cpuset: "0-10"
+    cpus: "2"
     image: redis:alpine
     container_name: langfuse-broker
     restart: always
@@ -50,7 +50,7 @@ services:
       retries: 5
 
   keycloak:
-    cpuset: "0-10"
+    cpus: "2"
     image: quay.io/keycloak/keycloak:26.0
     container_name: crowd-vision-keycloak
     command: ["start-dev", "--features=organization", "--import-realm"]
@@ -71,7 +71,7 @@ services:
     ports:
       - "8090:8080"
     volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro,z
     depends_on:
       keycloak-db:
         condition: service_healthy
@@ -83,7 +83,7 @@ services:
       start_period: 30s
 
   keycloak-db:
-    cpuset: "0-10"
+    cpus: "2"
     image: postgres:17-alpine
     container_name: crowd-vision-keycloak-db
     restart: always
@@ -101,23 +101,23 @@ services:
       start_period: 60s
 
   prometheus:
-    cpuset: "0-10"
+    cpus: "2"
     image: prom/prometheus:latest
     container_name: crowd-vision-prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--web.external-url=${DEV_URL}/prometheus/"
+      - "--web.external-url=${DEV_URL}:${SERVER_PORT}/prometheus/"
       - "--web.route-prefix=/"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus.rules.yml:/etc/prometheus/prometheus.rules.yml:ro
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
+      - ./prometheus.rules.yml:/etc/prometheus/prometheus.rules.yml:ro,z
 
   grafana:
-    cpuset: "0-10"
+    cpus: "2"
     image: grafana/grafana:latest
     container_name: crowd-vision-grafana
     environment:
-      - GF_SERVER_ROOT_URL=${DEV_URL}/grafana/
+      - GF_SERVER_ROOT_URL=${DEV_URL}:${SERVER_PORT}/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - grafana_data:/var/lib/grafana
@@ -125,7 +125,7 @@ services:
       - prometheus
 
   langfuse-web:
-    cpuset: "0-10"
+    cpus: "2"
     image: docker.io/langfuse/langfuse:3
     container_name: crowd-vision-langfuse
     restart: always
@@ -181,7 +181,7 @@ services:
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-langfuse-admin}
 
   langfuse-worker:
-    cpuset: "0-10"
+    cpus: "2"
     image: docker.io/langfuse/langfuse-worker:3
     container_name: crowd-vision-langfuse-worker
     restart: always
@@ -191,7 +191,7 @@ services:
       <<: *langfuse-env
 
   langfuse-db:
-    cpuset: "0-10"
+    cpus: "2"
     image: pgvector/pgvector:pg17
     container_name: crowd-vision-langfuse-db
     restart: always
@@ -212,7 +212,7 @@ services:
       start_period: 60s
 
   clickhouse:
-    cpuset: "0-10"
+    cpus: "2"
     image: docker.io/clickhouse/clickhouse-server
     container_name: crowd-vision-clickhouse
     restart: always
@@ -233,7 +233,7 @@ services:
       start_period: 60s
 
   minio:
-    cpuset: "0-10"
+    cpus: "2"
     image: cgr.dev/chainguard/minio
     container_name: crowd-vision-minio
     restart: always

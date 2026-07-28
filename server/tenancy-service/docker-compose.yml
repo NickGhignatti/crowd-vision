@@ -1,6 +1,6 @@
 services:
   tenancy-service:
-    cpuset: "0-10"
+    cpus: "2"
     build:
       context: ../..
       dockerfile: server/tenancy-service/Dockerfile
@@ -15,7 +15,7 @@ services:
         condition: service_healthy
 
   tenancy-db:
-    cpuset: "0-10"
+    cpus: "2"
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: tenancy

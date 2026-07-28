@@ -1,6 +1,6 @@
 services:
   twin-service:
-    cpuset: "0-10"
+    cpus: "2"
     build:
       # Repo-root context: twin-service needs to see its sibling ../auth-policy
       # dir (shared Cedar policy bundle) during build.
@@ -14,7 +14,7 @@ services:
       - twin-db
 
   twin-db:
-    cpuset: "0-10"
+    cpus: "2"
     image: mongo:latest
     volumes:
       - twin-data:/data/db

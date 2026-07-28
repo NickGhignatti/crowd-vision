@@ -1,6 +1,6 @@
 services:
   claims-gateway:
-    cpuset: "0-10"
+    cpus: "2"
     build:
       context: ../..
       dockerfile: server/claims-gateway/Dockerfile
@@ -19,7 +19,7 @@ services:
       - REGISTRATION_CLIENT_SECRET=${CV_GATEWAY_CLIENT_SECRET:-dev-only-not-for-production}
       - GATEWAY_PRIVATE_KEY_FILE=/run/secrets/gateway-key.pem
     volumes:
-      - ../../secrets/gateway-dev-key.pem:/run/secrets/gateway-key.pem:ro
+      - ../../secrets/gateway-dev-key.pem:/run/secrets/gateway-key.pem:ro,z
     depends_on:
       keycloak:
         condition: service_healthy
