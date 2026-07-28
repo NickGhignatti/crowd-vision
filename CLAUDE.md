@@ -90,7 +90,7 @@ cd client && mise exec -- npx vitest run src/path/to/File.spec.ts -t "test name"
 Other:
 ```bash
 just k8s create              # spin up local k3d cluster + Istio ambient (see just k8s --list)
-just docs build               # build documentation/{user,developer,reports} via Quarkdown
+just docs build               # build documentation/{user,developer} via Quarkdown
 just db clear                     # drop chat/twin/notification/agent databases
 ```
 

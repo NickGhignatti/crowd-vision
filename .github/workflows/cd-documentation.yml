@@ -43,20 +43,8 @@ jobs:
       - name: Build dev docs
         run: quarkdown c documentation/developer/main.qd --out landing-page/dev
 
-      - name: Build SPE report
-        run: quarkdown c documentation/reports/spe/main.qd --out landing-page/reports
-
-      - name: Build ASW report
-        run: quarkdown c documentation/reports/asw/main.qd --out landing-page/reports --allow global-read
-
-      - name: Build report PDFs
-        run: |
-          quarkdown c documentation/reports/spe/main.qd --out landing-page/reports --pdf --pdf-no-sandbox --timeout 120
-          quarkdown c documentation/reports/asw/main.qd --out landing-page/reports --pdf --pdf-no-sandbox --timeout 120 --allow global-read
-
-      - name: Deploy to GitHub Pages (preview)
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./landing-page
-          destination_dir: preview
