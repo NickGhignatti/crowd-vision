@@ -41,7 +41,7 @@ def agent_calls(monkeypatch):
         calls["history"] = history
         return AnswerResult(answer="ok", citations=[], retrieved=[], usage=Usage(1, 1, 0.0))
 
-    monkeypatch.setattr(ask_route._agent, "answer", _answer)
+    monkeypatch.setattr(ask_route._get_agent(), "answer", _answer)
     return calls
 
 

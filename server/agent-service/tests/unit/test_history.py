@@ -39,7 +39,7 @@ def client(monkeypatch):
     async def _no_session():
         yield None
 
-    monkeypatch.setattr(ask_route._agent, "answer", _answer)
+    monkeypatch.setattr(ask_route._get_agent(), "answer", _answer)
     app.dependency_overrides[get_session] = _no_session
     app.dependency_overrides[require_user] = lambda: AuthUser("user-1")
     with TestClient(app) as test_client:

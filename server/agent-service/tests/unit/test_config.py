@@ -51,11 +51,12 @@ def test_settings_construction_does_not_require_runtime_secrets(monkeypatch):
     assert settings.observe_payloads is False
 
 
-def test_startup_rejects_missing_runtime_secrets(monkeypatch):
+def test_startup_warns_on_missing_runtime_secrets(monkeypatch, caplog):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("LLM_API_KEY", raising=False)
-    with pytest.raises(RuntimeError, match=r"OPENROUTER_API_KEY"):
-        validate_startup_settings(Settings())
+    with caplog.at_level("WARNING"):
+        validate_startup_settings(Settings())  # must not raise — /ask fails per-request instead
+    assert "OPENROUTER_API_KEY" in caplog.text
 
 
 def test_startup_allows_auth_disabled(monkeypatch):

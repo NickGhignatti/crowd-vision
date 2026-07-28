@@ -1,4 +1,5 @@
 import json
+from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -13,7 +14,14 @@ from app.db import get_session
 from app.models.api import AskRequest, AskResponse, CitationModel, UsageModel
 
 router = APIRouter(tags=["ask"])
-_agent = Agent()
+
+
+@lru_cache
+def _get_agent() -> Agent:
+    # Lazy: constructing Agent() builds the OpenAI client, which raises immediately
+    # if no LLM key is configured. Deferring past import time means a missing key
+    # fails the first /ask call, not the whole process at startup.
+    return Agent()
 
 
 def _resolve_override_llm(model: str | None, user: AuthUser) -> LLMClient | None:
@@ -82,7 +90,7 @@ async def ask(
     if payload.stream:
 
         async def sse():
-            async for event in _agent.stream_answer(
+            async for event in _get_agent().stream_answer(
                 session,
                 payload.question,
                 user,
@@ -93,7 +101,7 @@ async def ask(
 
         return StreamingResponse(sse(), media_type="text/event-stream")
 
-    result = await _agent.answer(
+    result = await _get_agent().answer(
         session,
         payload.question,
         user,

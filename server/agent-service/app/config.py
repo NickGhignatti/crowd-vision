@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 from typing import Literal
 
@@ -118,12 +119,17 @@ class Settings(BaseSettings):
 
 
 def validate_startup_settings(settings: Settings) -> None:
-    """Reject missing runtime secrets without making Settings construction stateful."""
-    missing: list[str] = []
+    """Warn about missing runtime secrets rather than crash the process.
+
+    No LLM key means /ask fails per-request (the real place for that error) instead
+    of taking down the whole container — and everything depending on this service's
+    healthcheck along with it.
+    """
     if not settings.llm_api_key:
-        missing.append("OPENROUTER_API_KEY or LLM_API_KEY")
-    if missing:
-        raise RuntimeError(f"missing required agent-service configuration: {', '.join(missing)}")
+        logging.getLogger(__name__).warning(
+            "agent_service.no_llm_key: OPENROUTER_API_KEY/LLM_API_KEY not set — "
+            "/ask will fail until one is configured"
+        )
 
 
 @lru_cache
