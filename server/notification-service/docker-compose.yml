@@ -1,5 +1,6 @@
 services:
   notification-service:
+    cpuset: "0-10"
     build:
       context: .
     environment:
@@ -14,6 +15,7 @@ services:
       - notification-db
 
   notification-db:
+    cpuset: "0-10"
     image: mongo:latest
     volumes:
       - notification-data:/data/db

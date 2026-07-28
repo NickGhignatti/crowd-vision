@@ -1,5 +1,6 @@
 services:
   claims-gateway:
+    cpuset: "0-10"
     build:
       context: ../..
       dockerfile: server/claims-gateway/Dockerfile

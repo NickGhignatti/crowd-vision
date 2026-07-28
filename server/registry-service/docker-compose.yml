@@ -1,5 +1,6 @@
 services:
   registry-service:
+    cpuset: "0-10"
     build:
       context: ../..
       dockerfile: server/registry-service/Dockerfile
@@ -12,6 +13,7 @@ services:
         condition: service_healthy
 
   registry-db:
+    cpuset: "0-10"
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: registry

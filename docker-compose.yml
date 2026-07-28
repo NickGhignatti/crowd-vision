@@ -1,5 +1,6 @@
 services:
   gateway:
+    cpuset: "0-10"
     image: caddy:latest
     ports:
       - "80:80"
@@ -25,6 +26,7 @@ services:
         required: false
 
   redis:
+    cpuset: "0-10"
     image: redis:alpine
     container_name: services-broker
     restart: always
@@ -36,6 +38,7 @@ services:
       retries: 5
 
   redis-langfuse:
+    cpuset: "0-10"
     image: redis:alpine
     container_name: langfuse-broker
     restart: always
@@ -47,6 +50,7 @@ services:
       retries: 5
 
   keycloak:
+    cpuset: "0-10"
     image: quay.io/keycloak/keycloak:26.0
     container_name: crowd-vision-keycloak
     command: ["start-dev", "--features=organization", "--import-realm"]
@@ -79,6 +83,7 @@ services:
       start_period: 30s
 
   keycloak-db:
+    cpuset: "0-10"
     image: postgres:17-alpine
     container_name: crowd-vision-keycloak-db
     restart: always
@@ -96,6 +101,7 @@ services:
       start_period: 60s
 
   prometheus:
+    cpuset: "0-10"
     image: prom/prometheus:latest
     container_name: crowd-vision-prometheus
     command:
@@ -107,6 +113,7 @@ services:
       - ./prometheus.rules.yml:/etc/prometheus/prometheus.rules.yml:ro
 
   grafana:
+    cpuset: "0-10"
     image: grafana/grafana:latest
     container_name: crowd-vision-grafana
     environment:
@@ -118,6 +125,7 @@ services:
       - prometheus
 
   langfuse-web:
+    cpuset: "0-10"
     image: docker.io/langfuse/langfuse:3
     container_name: crowd-vision-langfuse
     restart: always
@@ -173,6 +181,7 @@ services:
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-langfuse-admin}
 
   langfuse-worker:
+    cpuset: "0-10"
     image: docker.io/langfuse/langfuse-worker:3
     container_name: crowd-vision-langfuse-worker
     restart: always
@@ -182,6 +191,7 @@ services:
       <<: *langfuse-env
 
   langfuse-db:
+    cpuset: "0-10"
     image: pgvector/pgvector:pg17
     container_name: crowd-vision-langfuse-db
     restart: always
@@ -202,6 +212,7 @@ services:
       start_period: 60s
 
   clickhouse:
+    cpuset: "0-10"
     image: docker.io/clickhouse/clickhouse-server
     container_name: crowd-vision-clickhouse
     restart: always
@@ -222,6 +233,7 @@ services:
       start_period: 60s
 
   minio:
+    cpuset: "0-10"
     image: cgr.dev/chainguard/minio
     container_name: crowd-vision-minio
     restart: always

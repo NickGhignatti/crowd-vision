@@ -1,5 +1,6 @@
 services:
   agent-service:
+    cpuset: "0-10"
     build:
       # Repo-root context: agent-service reads the shared Cedar policy bundle at
       # ../auth-policy (see app/cedar_authz.py and the Dockerfile's own header).
@@ -41,6 +42,7 @@ services:
       start_period: 15s
 
   agent-db:
+    cpuset: "0-10"
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: agent
@@ -50,6 +52,7 @@ services:
       - agent-data:/var/lib/postgresql/data
 
   agent-ingester:
+    cpuset: "0-10"
     image: node:20-alpine
     working_dir: /workspace
     environment:

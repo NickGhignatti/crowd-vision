@@ -1,5 +1,6 @@
 services:
   sensor-service:
+    cpuset: "0-10"
     build:
       context: .
     environment:
@@ -10,6 +11,7 @@ services:
       - sensor-db
 
   sensor-db:
+    cpuset: "0-10"
     image: mongo:latest
     volumes:
       - sensor-data:/data/db

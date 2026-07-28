@@ -1,5 +1,6 @@
 services:
   chat-service:
+    cpuset: "0-10"
     build:
       context: .
     environment:
@@ -10,6 +11,7 @@ services:
       - chat-db
 
   chat-db:
+    cpuset: "0-10"
     image: mongo:latest
     volumes:
       - chat-data:/data/db

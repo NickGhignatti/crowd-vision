@@ -1,5 +1,6 @@
 services:
   provisioner:
+    cpuset: "0-10"
     build:
       context: ../..
       dockerfile: server/provisioner/Dockerfile
