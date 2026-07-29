@@ -5,18 +5,12 @@ ARG ARTIFACT_PATH
 
 WORKDIR /repo
 
-# package.json/lockfile come from source (context is the repo root). npm ci
-# validates the lockfile's file: link to the shared eslint-config sibling
-# (../../tooling/eslint-config) even with --omit=dev, so SERVICE_DIR's real
-# depth from repo root must be preserved here — flattening into a single
-# WORKDIR breaks that relative path and npm ci fails with EMISSINGTARGET.
 COPY tooling/eslint-config ./tooling/eslint-config
 COPY ${SERVICE_DIR}/package*.json ./${SERVICE_DIR}/
 
 WORKDIR /repo/${SERVICE_DIR}
 RUN npm ci --omit=dev
 
-# compiled dist/ comes from the CI job's uploaded artifact, not a fresh build.
 COPY ${ARTIFACT_PATH} ./dist
 
 CMD ["node", "dist/index.js"]

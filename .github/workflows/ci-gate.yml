@@ -109,12 +109,6 @@ jobs:
           # whole outputs object through as JSON and look keys up with jq.
           CHANGED: ${{ toJSON(steps.filter.outputs) }}
         run: |
-          # lang tells ci-docker.yml which build strategy to use: go/rust/node
-          # images inject a pre-built artifact from the matching CI job; python
-          # and frontend have no artifact-injection Dockerfile and build from
-          # their own real Dockerfile instead. Metadata comes from the single
-          # registry in .github/services.json (also used by cd-registry.yml,
-          # cd-coverage.yml, and maint-cleanup.yml).
           MATRIX=$(jq -cn --slurpfile reg .github/services.json --argjson changed "$CHANGED" '
             [ $reg[0][] | select(.image and (.ci != false)) | select($changed[(.filter_key // .key)] == "true") |
               {context: ("./" + .dir), image: .image, lang: .lang} ]
@@ -128,9 +122,6 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     uses: ./.github/workflows/ci-frontend.yml
 
-  # Every service calls its language's CI template directly (rather than
-  # going through an intermediate discovery/matrix workflow) so each one gets
-  # its own PR status check and to avoid stacking reusable-workflow nesting.
   auth-contracts:
     needs: changes
     if: needs.changes.outputs.auth_contracts == 'true'
@@ -278,7 +269,6 @@ jobs:
     if: needs.changes.outputs.k8s == 'true'
     uses: ./.github/workflows/ci-k8s.yml
 
-  # Statically validates the workflow files themselves.
   workflows-lint:
     needs: changes
     if: needs.changes.outputs.ci == 'true'
@@ -356,7 +346,6 @@ jobs:
             echo "::error::'changes' ended in '$CHANGES' — CI never actually evaluated this PR"
             exit 1
           fi
-          # Whitelist: success (ran and passed) or skipped.
           read -ra results <<< "$RESULTS"
           for r in "${results[@]}"; do
             case "$r" in
