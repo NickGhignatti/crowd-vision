@@ -24,7 +24,7 @@ const kernel = new SensorKernel()
   .register(new AirQualityModule());
 
 export const getClientUrl = () =>
-  process.env.CLIENT_URL ?? "http://localhost:8080";
+  process.env.FRONTEND_URL ?? "http://localhost:8080";
 
 app.use(express.json());
 app.use(cookieParser());

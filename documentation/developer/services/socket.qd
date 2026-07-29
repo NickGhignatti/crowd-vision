@@ -31,7 +31,7 @@ Connections are **authenticated**: a Socket.IO handshake middleware decodes the 
     - - `REDIS_URL`
       - empty
       - Broker connection for the subscriber.
-    - - `CLIENT_URL`
+    - - `FRONTEND_URL`
       - `http://localhost:5173`
       - Allowed CORS origin for the Socket.IO server (credentials enabled).
 

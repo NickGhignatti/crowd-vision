@@ -115,10 +115,10 @@ Written non-interactively by `config.js` (edit `.env` to override):
    - Description
 
 .tablebyrows {.headers}
-    - - `SERVER_PORT`
+    - - `BACKEND_PORT`
       - `80`
       - Host port the API gateway (Caddy) listens on.
-    - - `CLIENT_PORT`
+    - - `FRONTEND_PORT`
       - `8080`
       - Port the Vue frontend is served on.
     - - `DEV_URL`
@@ -190,7 +190,7 @@ Once `docker compose ps` (or `just stack logs`) shows every container healthy, c
 curl -i http://localhost/twin/health   # any service behind the gateway responds
 ```
 
-Then open `http://localhost:8080` (or `http://localhost` if `CLIENT_PORT`/`SERVER_PORT` weren't changed) in a browser — the frontend should load and redirect to Keycloak's hosted login page when you try to sign in. If it instead hangs or 502s, see the **Debugging Tips** in [Running the Application](running.qd).
+Then open `http://localhost:8080` (or `http://localhost` if `FRONTEND_PORT`/`BACKEND_PORT` weren't changed) in a browser — the frontend should load and redirect to Keycloak's hosted login page when you try to sign in. If it instead hangs or 502s, see the **Debugging Tips** in [Running the Application](running.qd).
 
 ---
 

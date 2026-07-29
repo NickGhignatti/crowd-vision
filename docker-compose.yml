@@ -3,7 +3,7 @@ services:
     cpus: "2"
     image: caddy:latest
     ports:
-      - "${SERVER_PORT}:80"
+      - "${BACKEND_PORT}:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:z
       - caddy_data:/data
@@ -106,7 +106,7 @@ services:
     container_name: crowd-vision-prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--web.external-url=${DEV_URL}:${SERVER_PORT}/prometheus/"
+      - "--web.external-url=${DEV_URL}:${BACKEND_PORT}/prometheus/"
       - "--web.route-prefix=/"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
@@ -117,7 +117,7 @@ services:
     image: grafana/grafana:latest
     container_name: crowd-vision-grafana
     environment:
-      - GF_SERVER_ROOT_URL=${DEV_URL}:${SERVER_PORT}/grafana/
+      - GF_SERVER_ROOT_URL=${DEV_URL}:${BACKEND_PORT}/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - grafana_data:/var/lib/grafana
