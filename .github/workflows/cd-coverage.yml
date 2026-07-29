@@ -44,25 +44,6 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.load-registry.outputs.node) }}
-        Description
-        This issue proposes extending the digital twin ingestion pipeline to support the upload of architectural floor plans. Currently, the system is restricted to accepting only logical JSON representations, which limits the ability to capture and visualize the physical structure of a facility. By integrating floor plan documentation, the platform will be capable of ingesting both the underlying logical data model and the rich spatial context of the physical environment.
-
-        Goals
-        Ingestion Expansion: Extend the existing upload flow to accept graphical or architectural floor plan files as valid inputs alongside standard JSON payloads.
-
-        Spatial Context Enrichment: Utilize the uploaded floor plans to accurately map internal spaces, establish structural relationships, and provide a visual foundation for the digital twin.
-
-        Streamlined Onboarding: Provide a more accessible and intuitive starting point for users to configure new building profiles, bypassing the complexity of manually drafting spatial data in JSON format.
-
-        Considerations
-        File Format Compatibility: The engineering team must evaluate and define which file formats (e.g., PDF, DXF, PNG, SVG) will be supported to ensure a reliable extraction process while accommodating standard architectural deliverables.
-
-        Data Consistency: The extraction process must ensure that the spatial geometry derived from the visual floor plans maps cleanly to the platform's existing JSON schema, preventing data corruption or structural discrepancies in the resulting twin.
-
-        Suggestions
-        Leverage Existing Prototyping: An internal script developed by @NickGhignatti, which translates floor plans into valid digital twin JSON models, is currently available. This script should be reviewed and utilized as the foundational starting point for the new ingestion pipeline.
-
-        Automation and Refinement: Developers are encouraged to analyze the existing script to identify areas for optimization—such as handling complex multi-floor layouts or improving room boundary detection—to ensure the extraction process is robust and production-ready.
     uses: ./.github/workflows/tpl-node-coverage.yml
     with:
       service_key: ${{ matrix.key }}
