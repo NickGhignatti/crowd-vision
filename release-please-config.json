@@ -3,7 +3,10 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "prerelease": true,
+      "prerelease-type": "alpha",
+      "bump-minor-pre-major": true
     },
     "client": {
       "release-type": "node",
