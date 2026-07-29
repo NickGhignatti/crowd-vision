@@ -29,7 +29,7 @@ jobs:
           MATRIX_IMAGE: ${{ matrix.image }}
 
       # go/rust/node CI jobs upload their compiled output as an artifact so
-      # the Docker build doesn't need to recompile. python and client have no
+      # the Docker build doesn't need to recompile. python and frontend have no
       # such artifact — they build straight from their own real Dockerfile.
       - name: Download Build Artifact
         if: matrix.lang == 'go' || matrix.lang == 'rust' || matrix.lang == 'node'
@@ -47,7 +47,7 @@ jobs:
               echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/app-binary" >> "$GITHUB_OUTPUT"
               ;;
             rust)
-              # cargo names the binary after the crate (server/twin-service -> "twin-service"),
+              # cargo names the binary after the crate (backend/twin-service -> "twin-service"),
               # which is also the basename of matrix.context.
               bin=$(basename "${MATRIX_CONTEXT}")
               echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
@@ -62,7 +62,7 @@ jobs:
                 echo "ARGSEOF"
               } >> "$GITHUB_OUTPUT"
               ;;
-            python|client)
+            python|frontend)
               # No pre-built artifact for these — build from the service's own
               # real Dockerfile, with the repo root as context so it can still
               # COPY sibling directories (e.g. agent-service <- auth-policy).

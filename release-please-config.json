@@ -8,63 +8,63 @@
       "prerelease-type": "alpha",
       "bump-minor-pre-major": true
     },
-    "client": {
+    "frontend": {
       "release-type": "node",
-      "component": "client"
+      "component": "frontend"
     },
-    "server/chat-service": {
+    "backend/chat-service": {
       "release-type": "node",
       "component": "chat-service"
     },
-    "server/notification-service": {
+    "backend/notification-service": {
       "release-type": "node",
       "component": "notification-service"
     },
-    "server/sensor-service": {
+    "backend/sensor-service": {
       "release-type": "node",
       "component": "sensor-service"
     },
-    "server/socket-service": {
+    "backend/socket-service": {
       "release-type": "node",
       "component": "socket-service"
     },
-    "server/agent-service": {
+    "backend/agent-service": {
       "release-type": "python",
       "component": "agent-service"
     },
-    "server/claims-gateway": {
+    "backend/claims-gateway": {
       "release-type": "go",
       "component": "claims-gateway"
     },
-    "server/provisioner": {
+    "backend/provisioner": {
       "release-type": "go",
       "component": "provisioner"
     },
-    "server/registry-service": {
+    "backend/registry-service": {
       "release-type": "go",
       "component": "registry-service"
     },
-    "server/tenancy-service": {
+    "backend/tenancy-service": {
       "release-type": "go",
       "component": "tenancy-service"
     },
-    "server/auth-contracts": {
+    "backend/auth-contracts": {
       "release-type": "go",
       "component": "auth-contracts"
     },
-    "server/auth-middleware": {
+    "backend/auth-middleware": {
       "release-type": "go",
       "component": "auth-middleware"
     },
-    "server/auth-policy": {
+    "backend/auth-policy": {
       "release-type": "go",
       "component": "auth-policy"
     },
-    "server/twin-service": {
+    "backend/twin-service": {
       "release-type": "rust",
       "component": "twin-service"
     },
-    "server/contracts-service": {
+    "backend/contracts-service": {
       "release-type": "rust",
       "component": "contracts-service"
     }

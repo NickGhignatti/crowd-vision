@@ -1,8 +1,8 @@
-# Build context is the repo root — see server/tenancy-service/Dockerfile.
+# Build context is the repo root — see backend/tenancy-service/Dockerfile.
 FROM golang:1.25-bookworm AS base
 WORKDIR /app
-COPY server/provisioner ./server/provisioner
-WORKDIR /app/server/provisioner
+COPY backend/provisioner ./backend/provisioner
+WORKDIR /app/backend/provisioner
 
 FROM base AS dev
 RUN go install github.com/air-verse/air@v1.67.1

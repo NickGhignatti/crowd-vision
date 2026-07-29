@@ -45,8 +45,8 @@
     "rust-analyzer": {
       "initialization_options": {
         "linkedProjects": [
-          "server/contracts-service/Cargo.toml",
-          "server/twin-service/Cargo.toml",
+          "backend/contracts-service/Cargo.toml",
+          "backend/twin-service/Cargo.toml",
         ],
       },
     },
@@ -65,7 +65,7 @@
       },
     },
 
-    // All JS/TS packages (client, server/*-service, sensor-simulator, tests)
+    // All JS/TS packages (frontend, backend/*-service, sensor-simulator, tests)
     // use flat eslint.config.* + eslint 10, each with its own nearest config.
     "eslint": {
       "settings": {

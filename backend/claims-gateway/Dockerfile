@@ -1,9 +1,9 @@
 FROM golang:1.25-bookworm AS base
 WORKDIR /app
-COPY server/auth-contracts ./server/auth-contracts
-COPY server/auth-middleware ./server/auth-middleware
-COPY server/claims-gateway ./server/claims-gateway
-WORKDIR /app/server/claims-gateway
+COPY backend/auth-contracts ./backend/auth-contracts
+COPY backend/auth-middleware ./backend/auth-middleware
+COPY backend/claims-gateway ./backend/claims-gateway
+WORKDIR /app/backend/claims-gateway
 
 FROM base AS dev
 RUN go install github.com/air-verse/air@v1.67.1

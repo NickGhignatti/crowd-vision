@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: client
+  name: frontend
   namespace: crowdvision
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: client
+      app: frontend
   template:
     metadata:
       labels:
-        app: client
+        app: frontend
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
       containers:
-        - name: client
-          image: ghcr.io/nickghignatti/crowdvision-client:latest
+        - name: frontend
+          image: ghcr.io/nickghignatti/crowdvision-frontend:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -58,11 +58,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: client
+  name: frontend
   namespace: crowdvision
 spec:
   selector:
-    app: client
+    app: frontend
   ports:
     - port: 8080
       targetPort: 8080

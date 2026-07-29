@@ -1,7 +1,7 @@
 FROM golang:1.25-bookworm AS base
 WORKDIR /app
-COPY server/registry-service ./server/registry-service
-WORKDIR /app/server/registry-service
+COPY backend/registry-service ./backend/registry-service
+WORKDIR /app/backend/registry-service
 
 FROM base AS dev
 RUN go install github.com/air-verse/air@v1.67.1
@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 go build -o /out/registry-service ./cmd/registry
 FROM gcr.io/distroless/static-debian12:nonroot AS production
 WORKDIR /app
 COPY --from=builder /out/registry-service /usr/local/bin/registry-service
-COPY server/registry-service/migrations ./migrations
+COPY backend/registry-service/migrations ./migrations
 
 EXPOSE 3000
 CMD ["registry-service"]

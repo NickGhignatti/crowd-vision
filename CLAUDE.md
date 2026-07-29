@@ -30,19 +30,19 @@ installs its own dependencies independently. Orchestration is two-layered:
 
 | Component | Stack | Role |
 |---|---|---|
-| `client` | Vue 3 / Vite | SPA — 3D digital twin, dashboards |
-| `server/claims-gateway` | Go | IdP token exchange → internal RS256 JWT (the only service that verifies a raw JWT signature) |
-| `server/tenancy-service` | Go / PostgreSQL | Domains & memberships; the only Go service that evaluates Cedar |
-| `server/registry-service` | Go / PostgreSQL | Organization signup & lifecycle (control plane, never in a cell) |
-| `server/provisioner` | Go | Reconcile loop: pending orgs → running tenancy (pooled tier only today) |
-| `server/twin-service` | Rust / Axum / MongoDB | Building spatial model |
-| `server/contracts-service` | Rust / Axum / MongoDB | Per-building telemetry-dashboard filtering |
-| `server/sensor-service` | Node / Express / MongoDB | Telemetry ingestion (readings, thresholds) |
-| `server/notification-service` | Node / Express / MongoDB | Alerting, Web Push delivery |
-| `server/socket-service` | Node / Socket.IO | Real-time transport to the browser |
-| `server/chat-service` | Node / MongoDB | Persists chat sessions, orchestrates `agent-service` |
-| `server/agent-service` | Python / FastAPI / PostgreSQL+pgvector | RAG assistant; maintained separately from the rest |
-| `server/auth-contracts`, `auth-middleware`, `auth-policy` | Go modules (+ Rust/Python Cedar bindings) | Shared libraries, embedded — not independently deployed |
+| `frontend` | Vue 3 / Vite | SPA — 3D digital twin, dashboards |
+| `backend/claims-gateway` | Go | IdP token exchange → internal RS256 JWT (the only service that verifies a raw JWT signature) |
+| `backend/tenancy-service` | Go / PostgreSQL | Domains & memberships; the only Go service that evaluates Cedar |
+| `backend/registry-service` | Go / PostgreSQL | Organization signup & lifecycle (control plane, never in a cell) |
+| `backend/provisioner` | Go | Reconcile loop: pending orgs → running tenancy (pooled tier only today) |
+| `backend/twin-service` | Rust / Axum / MongoDB | Building spatial model |
+| `backend/contracts-service` | Rust / Axum / MongoDB | Per-building telemetry-dashboard filtering |
+| `backend/sensor-service` | Node / Express / MongoDB | Telemetry ingestion (readings, thresholds) |
+| `backend/notification-service` | Node / Express / MongoDB | Alerting, Web Push delivery |
+| `backend/socket-service` | Node / Socket.IO | Real-time transport to the browser |
+| `backend/chat-service` | Node / MongoDB | Persists chat sessions, orchestrates `agent-service` |
+| `backend/agent-service` | Python / FastAPI / PostgreSQL+pgvector | RAG assistant; maintained separately from the rest |
+| `backend/auth-contracts`, `auth-middleware`, `auth-policy` | Go modules (+ Rust/Python Cedar bindings) | Shared libraries, embedded — not independently deployed |
 | `simulators/*` | Python (`aq-simulator`), Node (`sensor-simulator`) | Synthetic telemetry generators |
 | `tooling/eslint-config` | Node | Shared flat ESLint config, `@crowdvision/eslint-config` |
 
@@ -62,7 +62,7 @@ just lint fix            # format + autofix everywhere (always runs, not cached)
 just lint affected        # mirrors ci-lint
 just test affected        # mirrors the per-service CI test legs
 just test all              # full suite
-just test <chat|twin|notification|sensor|socket|client|agent>   # one service's unit tests
+just test <chat|twin|notification|sensor|socket|frontend|agent>   # one service's unit tests
 just test agent-integration   # agent-service's separate integration suite
 just test integration           # full backend integration suite against a composed stack
 just setup deps-check      # npm ci / uv sync --locked / cargo check — lockfile-in-sync gate
@@ -78,13 +78,13 @@ mise exec -- go test ./internal/service/... -run TestName -v
 mise exec -- cargo test test_name
 
 # Python (agent-service, uv-managed)
-mise exec -- uv run --directory server/agent-service pytest tests/test_file.py::test_name
+mise exec -- uv run --directory backend/agent-service pytest tests/test_file.py::test_name
 
 # Node (Jest — chat/notification/sensor/socket-service)
-cd server/<service> && mise exec -- npx jest path/to/file.test.ts -t "test name"
+cd backend/<service> && mise exec -- npx jest path/to/file.test.ts -t "test name"
 
-# Vue client (Vitest)
-cd client && mise exec -- npx vitest run src/path/to/File.spec.ts -t "test name"
+# Vue frontend (Vitest)
+cd frontend && mise exec -- npx vitest run src/path/to/File.spec.ts -t "test name"
 ```
 
 Other:
@@ -96,9 +96,9 @@ just db clear                     # drop chat/twin/notification/agent databases
 
 .box notes worth internalizing before you push:
 - **No root `package.json`.** Add a Node dependency inside that service's directory
-  (`cd server/chat-service && npm install <pkg>`), then regenerate the lockfile for Linux
+  (`cd backend/chat-service && npm install <pkg>`), then regenerate the lockfile for Linux
   before committing (`just setup clean-install`, or
-  `npm install --prefix server/<svc> --package-lock-only --cpu=x64 --os=linux`) —
+  `npm install --prefix backend/<svc> --package-lock-only --cpu=x64 --os=linux`) —
   otherwise CI's `npm ci` fails on missing Linux optional packages. Rust/Go don't have this
   pitfall: `cargo add` / `go get` inside the service dir is enough.
 - **Go isn't pinned in `.mise.toml`**; its modules are fetched on demand (see
@@ -129,7 +129,7 @@ token check in-process.
 **Authorization (Cedar)**: fine-grained per-tenant authz is a separate concern from identity,
 embedded and evaluated **locally** (no remote PDP) wherever a tenant/role decision actually
 arises — today `tenancy-service` (`cedar-go`) and `twin-service` (`cedar-policy` Rust crate,
-`include_str!`'d at compile time). One shared policy bundle (`server/auth-policy`:
+`include_str!`'d at compile time). One shared policy bundle (`backend/auth-policy`:
 `schema.cedarschema`, `policy.cedar`, `fixtures/conformance.json`), three independent
 embeddings — a sibling directory each build copies in, not a package import. Role *weights*
 are pre-expanded into flat per-tier domain sets (`domainsAsStandardCustomer`,
@@ -161,7 +161,7 @@ serves more than one tenant.
 `/gateway`→claims-gateway, `/tenancy`→tenancy-service, `/twin`→twin-service,
 `/sensor`→sensor-service (`/sensor/ingest` ungated — device-facing), `/notification`,
 `/chat`, `/agent` (ungated, see above), `/contracts` (own auth, gated separately),
-`/socket.io`, `/` catch-all→client. `registry-service` and `provisioner` have no external
+`/socket.io`, `/` catch-all→frontend. `registry-service` and `provisioner` have no external
 route by design — control-plane-internal, reached only via HMAC-signed calls
 (`internal/api/internalauth.go` in each).
 
@@ -201,7 +201,7 @@ accepted regardless of CI status (full detail:
   release-please just silently treats it as no-release, so this is enforced by discipline,
   not tooling. Scope = service/area name: `feat(twin): …`, `fix(gateway): …`,
   `chore(ci): …`. Common scopes: `gateway`, `tenancy`, `registry`, `provisioner`, `twin`,
-  `sensor`, `notification`, `socket`, `contracts`, `client`, `agent`, `ci`, `docs`, `k8s`.
+  `sensor`, `notification`, `socket`, `contracts`, `frontend`, `agent`, `ci`, `docs`, `k8s`.
 - **Branches**: `<type>/<short-kebab-description>` mirroring the commit type, e.g.
   `feat/private-domains`, `fix/jwt-expiry-off-by-one`.
 - **Naming per language** (full tables: `documentation/developer/contributing/naming-conventions.qd`):

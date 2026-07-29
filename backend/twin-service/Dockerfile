@@ -4,29 +4,29 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends mold \
     && rm -rf /var/lib/apt/lists/* \
     && cargo install cargo-chef --locked
-WORKDIR /app/server/twin-service
+WORKDIR /app/backend/twin-service
 ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
 # ── capture the dependency graph ────────────────────────────────────────
 FROM chef AS planner
-COPY server/twin-service .
+COPY backend/twin-service .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS dev
 RUN cargo install cargo-watch --locked
-COPY --from=planner /app/server/twin-service/recipe.json recipe.json
+COPY --from=planner /app/backend/twin-service/recipe.json recipe.json
 RUN cargo chef cook --recipe-path recipe.json
-COPY server/auth-policy /app/server/auth-policy
-COPY server/auth-contracts /app/server/auth-contracts
-COPY server/twin-service .
+COPY backend/auth-policy /app/backend/auth-policy
+COPY backend/auth-contracts /app/backend/auth-contracts
+COPY backend/twin-service .
 CMD ["cargo", "watch", "-x", "run"]
 
 FROM chef AS builder
-COPY --from=planner /app/server/twin-service/recipe.json recipe.json
+COPY --from=planner /app/backend/twin-service/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
-COPY server/auth-policy /app/server/auth-policy
-COPY server/auth-contracts /app/server/auth-contracts
-COPY server/twin-service .
+COPY backend/auth-policy /app/backend/auth-policy
+COPY backend/auth-contracts /app/backend/auth-contracts
+COPY backend/twin-service .
 RUN cargo build --release
 
 FROM debian:bookworm-slim AS production
@@ -38,7 +38,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/server/twin-service/target/release/twin-service /usr/local/bin/twin-service
+COPY --from=builder /app/backend/twin-service/target/release/twin-service /usr/local/bin/twin-service
 
 EXPOSE 3000
 CMD ["twin-service"]

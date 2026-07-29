@@ -9,22 +9,22 @@ cd "$PROJECT_ROOT"
 
 echo ""
 echo "==> Starting services..."
-docker compose -f docker-compose.yml -f server/tests/docker-compose.integration.yml up -d --build
+docker compose -f docker-compose.yml -f backend/tests/docker-compose.integration.yml up -d --build
 
 echo ""
 echo "==> Installing test dependencies..."
-npm install --prefix server/tests
+npm install --prefix backend/tests
 
 echo ""
 echo "==> Running tests..."
 set +e
-npm test --prefix server/tests
+npm test --prefix backend/tests
 TEST_EXIT=$?
 set -e
 
 echo ""
 echo "==> Stopping services..."
-docker compose -f docker-compose.yml -f server/tests/docker-compose.integration.yml down -v
+docker compose -f docker-compose.yml -f backend/tests/docker-compose.integration.yml down -v
 
 echo ""
 if [ $TEST_EXIT -eq 0 ]; then

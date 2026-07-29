@@ -15,8 +15,8 @@
       "description": "Per-service grouping: one PR per service for all its non-major updates (npm + docker + lang manifests).",
       "matchFileNames": ["frontend/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "client",
-      "addLabels": ["dependencies", "client"]
+      "groupName": "frontend",
+      "addLabels": ["dependencies", "frontend"]
     },
     {
       "matchFileNames": ["server/auth-service/**"],
@@ -25,49 +25,49 @@
       "addLabels": ["dependencies", "auth-service"]
     },
     {
-      "matchFileNames": ["server/chat-service/**"],
+      "matchFileNames": ["backend/chat-service/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "chat-service",
       "addLabels": ["dependencies", "chat-service"]
     },
     {
-      "matchFileNames": ["server/twin-service/**"],
+      "matchFileNames": ["backend/twin-service/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "twin-service",
       "addLabels": ["dependencies", "twin-service"]
     },
     {
-      "matchFileNames": ["server/notification-service/**"],
+      "matchFileNames": ["backend/notification-service/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "notification-service",
       "addLabels": ["dependencies", "notification-service"]
     },
     {
-      "matchFileNames": ["server/sensor-service/**"],
+      "matchFileNames": ["backend/sensor-service/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "sensor-service",
       "addLabels": ["dependencies", "sensor-service"]
     },
     {
-      "matchFileNames": ["server/socket-service/**"],
+      "matchFileNames": ["backend/socket-service/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "socket-service",
       "addLabels": ["dependencies", "socket-service"]
     },
     {
-      "matchFileNames": ["server/agent-service/**"],
+      "matchFileNames": ["backend/agent-service/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "agent-service",
       "addLabels": ["dependencies", "agent-service"]
     },
     {
-      "matchFileNames": ["server/contracts-service/**"],
+      "matchFileNames": ["backend/contracts-service/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "contracts-service",
       "addLabels": ["dependencies", "contracts-service"]
     },
     {
-      "matchFileNames": ["server/tests/**"],
+      "matchFileNames": ["backend/tests/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "server-tests",
       "addLabels": ["dependencies", "server-tests"]

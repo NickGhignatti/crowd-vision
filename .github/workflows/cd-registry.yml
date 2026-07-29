@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Image(s) to build: 'all' or comma-separated (e.g. crowdvision-twin,crowdvision-client)"
+        description: "Image(s) to build: 'all' or comma-separated (e.g. crowdvision-twin,crowdvision-frontend)"
         required: false
         default: "all"
   push:
@@ -52,7 +52,7 @@ jobs:
             crowdvision-contracts: 'backend/contracts-service/**'
             crowdvision-simulator: 'simulators/sensor-simulator/**'
             crowdvision-aq-simulator: 'simulators/aq-simulator/**'
-            crowdvision-client: 'frontend/**'
+            crowdvision-frontend: 'frontend/**'
             crowdvision-claims-gateway: 'backend/claims-gateway/**'
             crowdvision-provisioner: 'backend/provisioner/**'
             crowdvision-registry: 'backend/registry-service/**'
@@ -134,8 +134,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set Client Build Args
-        if: matrix.image == 'crowdvision-client'
+      - name: Set Frontend Build Args
+        if: matrix.image == 'crowdvision-frontend'
         run: echo "BUILD_ARGS=VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}" >> $GITHUB_ENV
 
       # Build into the local daemon only (push: false + load: true) — publishing

@@ -42,7 +42,7 @@ jobs:
       - name: Build Release Binary
         run: cargo build --release
 
-      # The compiled binary is named after the crate (server/twin-service ->
+      # The compiled binary is named after the crate (backend/twin-service ->
       # "twin-service"), not the short service_key used for the artifact name.
       - name: Locate Release Binary
         id: bin
