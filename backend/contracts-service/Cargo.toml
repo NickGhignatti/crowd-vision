@@ -21,3 +21,6 @@ prometheus = "0.14"
 
 [dev-dependencies]
 wiremock = "0.6"
+
+[profile.release]
+overflow-checks = true

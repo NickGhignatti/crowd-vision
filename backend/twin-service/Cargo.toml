@@ -24,3 +24,6 @@ urlencoding = "2"
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 wiremock = "0.6"
+
+[profile.release]
+overflow-checks = true

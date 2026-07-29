@@ -24,7 +24,7 @@ jobs:
 
       - name: Extract Service Key
         id: parse
-        run: echo "service_key=$(echo '${MATRIX_IMAGE}' | sed 's/crowdvision-//')" >> "$GITHUB_OUTPUT"
+        run: echo "service_key=${MATRIX_IMAGE#crowdvision-}" >> "$GITHUB_OUTPUT"
         env:
           MATRIX_IMAGE: ${{ matrix.image }}
 
