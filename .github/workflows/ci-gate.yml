@@ -52,7 +52,7 @@ jobs:
             agent:
               - 'server/agent-service/**'
             client:
-              - 'client/**'
+              - 'frontend/**'
               - '.github/workflows/ci-client.yml'
             contracts:
               - 'server/contracts-service/**'

@@ -10,9 +10,9 @@ on:
   push:
     branches: ["master"]
     paths:
-      - "server/**"
+      - "backend/**"
       - "simulators/**"
-      - "client/**"
+      - "frontend/**"
       - ".github/services.json"
       - ".github/workflows/cd-registry.yml"
 
@@ -43,20 +43,20 @@ jobs:
         uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
         with:
           filters: |
-            crowdvision-chat: 'server/chat-service/**'
-            crowdvision-twin: 'server/twin-service/**'
-            crowdvision-notification: 'server/notification-service/**'
-            crowdvision-socket: 'server/socket-service/**'
-            crowdvision-agent: 'server/agent-service/**'
-            crowdvision-sensor: 'server/sensor-service/**'
-            crowdvision-contracts: 'server/contracts-service/**'
+            crowdvision-chat: 'backend/chat-service/**'
+            crowdvision-twin: 'backend/twin-service/**'
+            crowdvision-notification: 'backend/notification-service/**'
+            crowdvision-socket: 'backend/socket-service/**'
+            crowdvision-agent: 'backend/agent-service/**'
+            crowdvision-sensor: 'backend/sensor-service/**'
+            crowdvision-contracts: 'backend/contracts-service/**'
             crowdvision-simulator: 'simulators/sensor-simulator/**'
             crowdvision-aq-simulator: 'simulators/aq-simulator/**'
-            crowdvision-client: 'client/**'
-            crowdvision-claims-gateway: 'server/claims-gateway/**'
-            crowdvision-provisioner: 'server/provisioner/**'
-            crowdvision-registry: 'server/registry-service/**'
-            crowdvision-tenancy: 'server/tenancy-service/**'
+            crowdvision-client: 'frontend/**'
+            crowdvision-claims-gateway: 'backend/claims-gateway/**'
+            crowdvision-provisioner: 'backend/provisioner/**'
+            crowdvision-registry: 'backend/registry-service/**'
+            crowdvision-tenancy: 'backend/tenancy-service/**'
             workflow:
               - '.github/services.json'
               - '.github/workflows/cd-registry.yml'

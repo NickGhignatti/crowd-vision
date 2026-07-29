@@ -180,7 +180,7 @@ Publishers never know who (if anyone) is listening, and the broker absorbs burst
 
 ### Web Push (notification-service)
 
-The client fetches the server's public VAPID key (`GET /notification/public-key`), calls the browser's `pushManager.subscribe()`, and registers the resulting subscription (`POST /notification/subscribe`). When an alert fires, `notification-service` sends a push payload (`{title, message, icon}`) via the `web-push` package directly to the browser's push service — this path does **not** go through Redis or socket-service, and works even if the user has no tab open. A service worker (`client/public/service-worker.js`) handles the `push` event to show an OS-level notification and `notificationclick` to focus/open the app.
+The client fetches the server's public VAPID key (`GET /notification/public-key`), calls the browser's `pushManager.subscribe()`, and registers the resulting subscription (`POST /notification/subscribe`). When an alert fires, `notification-service` sends a push payload (`{title, message, icon}`) via the `web-push` package directly to the browser's push service — this path does **not** go through Redis or socket-service, and works even if the user has no tab open. A service worker (`frontend/public/service-worker.js`) handles the `push` event to show an OS-level notification and `notificationclick` to focus/open the app.
 
 ---
 

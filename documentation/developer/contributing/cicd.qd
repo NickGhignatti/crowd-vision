@@ -201,7 +201,7 @@ Triggered on every push to `master`. Runs `googleapis/release-please-action`, wh
 
 ### cd-registry
 
-Triggered on push to `master` when source changes under `server/**`, `simulators/**`, `client/**`, or the workflow file itself. It publishes Docker images to GHCR tagged both `:latest` and `:<git-sha>`, for all fourteen images — the ten TypeScript/Rust/Python services and simulators, plus `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner`.
+Triggered on push to `master` when source changes under `server/**`, `simulators/**`, `frontend/**`, or the workflow file itself. It publishes Docker images to GHCR tagged both `:latest` and `:<git-sha>`, for all fourteen images — the ten TypeScript/Rust/Python services and simulators, plus `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner`.
 
 The publish is **gated by a vulnerability scan that runs before anything reaches the registry**. Each image is built into the runner's local daemon (`push: false`, `load: true`), scanned by **Trivy**, and pushed **only if the scan passes** — so a vulnerable image is never published. The push step rebuilds from the still-warm gha cache, so it costs no recompilation.
 

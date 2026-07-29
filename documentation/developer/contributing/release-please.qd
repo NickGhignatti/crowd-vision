@@ -82,13 +82,13 @@ Step by step:
 3. **The release PR is a normal PR.** It is authored using a dedicated PAT rather than the default `GITHUB_TOKEN`, specifically so it triggers `ci-gate` like any other pull request — a PR opened by the default token would not.
 4. **Merging the release PR cuts the release.** The merge is itself a push to `master`, which runs `cd-release` again; this time release-please-action recognises its own PR was just merged, creates the Git tag, and publishes the GitHub Release with the generated notes.
 
-Because the release only happens on a deliberate merge, there is no `[skip ci]` commit to worry about — the release PR's merge commit is a normal merge, and `cd-registry` reacts to it exactly like any other push that touches `server/**`, `simulators/**`, or `client/**`.
+Because the release only happens on a deliberate merge, there is no `[skip ci]` commit to worry about — the release PR's merge commit is a normal merge, and `cd-registry` reacts to it exactly like any other push that touches `server/**`, `simulators/**`, or `frontend/**`.
 
 ### Files bumped by the release PR
 
 ```text
 CHANGELOG.md
-client/package.json               + package-lock.json
+frontend/package.json               + package-lock.json
 server/*/package.json             + package-lock.json
 server/*/Cargo.toml
 server/*/pyproject.toml

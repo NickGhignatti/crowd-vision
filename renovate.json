@@ -13,7 +13,7 @@
     },
     {
       "description": "Per-service grouping: one PR per service for all its non-major updates (npm + docker + lang manifests).",
-      "matchFileNames": ["client/**"],
+      "matchFileNames": ["frontend/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "client",
       "addLabels": ["dependencies", "client"]
