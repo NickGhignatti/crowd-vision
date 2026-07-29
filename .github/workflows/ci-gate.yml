@@ -181,7 +181,7 @@ jobs:
     if: needs.changes.outputs.registry == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
-      service_key: registry-service
+      service_key: registry
       working_directory: backend/registry-service
 
   tenancy-service:
@@ -189,7 +189,7 @@ jobs:
     if: needs.changes.outputs.tenancy == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
-      service_key: tenancy-service
+      service_key: tenancy
       working_directory: backend/tenancy-service
 
   chat:

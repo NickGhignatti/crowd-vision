@@ -47,7 +47,7 @@ jobs:
       # "twin-service"), not the short service_key used for the artifact name.
       - name: Locate Release Binary
         id: bin
-        run: echo "name=$(basename '${INPUTS_WORKING_DIRECTORY}')" >> "$GITHUB_OUTPUT"
+        run: echo "name=$(basename "$INPUTS_WORKING_DIRECTORY")" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_WORKING_DIRECTORY: ${{ inputs.working_directory }}
 
