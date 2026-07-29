@@ -3,13 +3,13 @@
 
 The Python `agent-service` is CrowdVision's tool-calling assistant. It answers questions
 by combining a permission-filtered documentation knowledge base with live building and
-room data from `twin-service`.
+room data from `twin-service`\.
 
 It is built on **FastAPI** — an async Python web framework chosen because the agent spends
 most of its time waiting on network I/O (the language-model provider, the database, the
 twin-service), and an async stack lets one worker handle many in-flight requests instead of
 blocking a thread per call. For local commands and troubleshooting, see the service
-`README.md`. For writing a new tool, see [Adding an Agent Tool](../contributing/adding-agent-tools.qd).
+`README.md`\. For writing a new tool, see [Adding an Agent Tool](../contributing/adding-agent-tools.qd).
 
 ---
 
@@ -53,12 +53,12 @@ building's rooms).
         E --> F[response]
 
 The loop is bounded by `MAX_TOOL_HOPS` so a confused model cannot spin forever; hitting the
-limit returns the IDK marker with `decision=tool_loop_exhausted`. Tool errors are handed back
+limit returns the IDK marker with `decision=tool_loop_exhausted`\. Tool errors are handed back
 to the model as ordinary tool-result messages rather than raised, so the model gets a chance
 to recover (retry with different arguments, or give up cleanly).
 
 `stream=true` runs the same loop and then emits the finished answer as a single Server-Sent
-Events `token` event followed by `done`. It is **not** per-token streaming yet — the event
+Events `token` event followed by `done`\. It is **not** per-token streaming yet — the event
 shape exists so the client contract is stable when true streaming is added later.
 
 ---
@@ -162,8 +162,8 @@ system prompt steers the model to `get_latest_sensor_data` / `get_sensor_history
 ## Knowledge Base And Retrieval
 
 In Docker Compose, the one-shot `agent-ingester` waits for the service to become healthy,
-then ingests `.qd`, `.md`, and `.markdown` files from `documentation/user` and
-`documentation/developer`.
+then ingests `\.qd`, `\.md`, and `\.markdown` files from `documentation/user` and
+`documentation/developer`\.
 
 ```bash
 just agent ingest
@@ -211,7 +211,7 @@ against the chunks actually returned:
 
 1. `extract_citations` resolves each marker to a real retrieved chunk.
 2. Valid markers become structured citation objects in the response.
-3. Unknown markers are reported in `retrieval.hallucinated_citations`.
+3. Unknown markers are reported in `retrieval.hallucinated_citations`\.
 4. `strip_hallucinated` removes the invented markers from the displayed answer.
 
 This guards against a model citing a source it never saw. Note the limit: it proves a marker
@@ -221,8 +221,8 @@ points at a real retrieved chunk, not that the chunk actually supports the sente
 
 ## API
 
-Docker Compose exposes the service through Caddy at `http://localhost/agent`. Kubernetes
-uses the same `/agent` ingress prefix. Inside the service network it listens on port `3000`.
+Docker Compose exposes the service through Caddy at `http://localhost/agent`\. Kubernetes
+uses the same `/agent` ingress prefix. Inside the service network it listens on port `3000`\.
 
 .var {headers}
    - Endpoint
@@ -243,7 +243,7 @@ uses the same `/agent` ingress prefix. Inside the service network it listens on 
       - Public FastAPI UI
       - Interactive OpenAPI documentation.
 
-`/ingest` requires the `admin` role (Cedar's `IngestDocuments` action — a global, non-domain-scoped gate, since re-ingesting the knowledge base isn't scoped to any one domain), enforced in `app/routes/ingest.py` via `cedar_authz.can_ingest_documents`. A caller below that tier gets `403`.
+`/ingest` requires the `admin` role (Cedar's `IngestDocuments` action — a global, non-domain-scoped gate, since re-ingesting the knowledge base isn't scoped to any one domain), enforced in `app/routes/ingest.py` via `cedar_authz.can_ingest_documents`\. A caller below that tier gets `403`\.
 
 The request schema currently exposes `top_k`, but it is not wired into retrieval. Retrieval
 depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
@@ -296,7 +296,7 @@ MAX_OUTPUT_TOKENS=2048
 ```
 
 `LLM_API_KEY`, `DEEPSEEK_API_KEY`, and `GOOGLE_API_KEY` are accepted as legacy key aliases,
-but the supplied key must authenticate against `LLM_BASE_URL`.
+but the supplied key must authenticate against `LLM_BASE_URL`\.
 
 Privileged callers may override the answer model per `/ask` request:
 
@@ -326,7 +326,7 @@ Postgres extension that adds a `vector` column type and similarity operators, wh
 lets semantic search live in the same database as everything else instead of a separate vector
 store.
 
-The initial migration defines `embedding vector(768)`. The vector dimension is fixed in the
+The initial migration defines `embedding vector(768)`\. The vector dimension is fixed in the
 schema, so changing `EMBEDDING_DIM` requires a matching migration *and* re-ingestion — an
 environment-variable change alone is not enough. Runtime queries use async SQLAlchemy with
 `asyncpg`; Alembic uses a synchronous driver for migrations.
@@ -366,7 +366,7 @@ that its marker is now stale and should be removed so the row goes back to guard
 behavior normally.
 
 For the dataset schema, the scoring and exit-code contract, model sweeps, and how to configure
-the judge, see the agent-service `README.md`.
+the judge, see the agent-service `README.md`\.
 
 ---
 
@@ -397,7 +397,7 @@ when payload capture is disabled.
 
 .box {Local Langfuse login} type:{note}
     URL `http://localhost:3030` (`http://localhost/langfuse` redirects there); default email
-    `admin@crowd-vision.local`, password `langfuse-admin`. Set `LANGFUSE_INIT_USER_EMAIL` and
+    `admin@crowd-vision.local`, password `langfuse-admin`\. Set `LANGFUSE_INIT_USER_EMAIL` and
     `LANGFUSE_INIT_USER_PASSWORD` before the first Langfuse startup to change the initial
     login; changing them later does not update an existing user.
 
@@ -430,7 +430,7 @@ Kubernetes manifests.
       - `OPENROUTER_API_KEY` and model variables forwarded by Compose
       - Verify `agent-service-secret`; current secret generation still uses legacy key names
 
-The source of truth for runtime settings is `backend/agent-service/app/config.py`.
+The source of truth for runtime settings is `backend/agent-service/app/config.py`\.
 `LLM_TEMPERATURE` controls the default generation temperature, while `TWIN_TIMEOUT_SECONDS`
 controls live-data request timeouts. Invalid numeric bounds, unsupported model-override roles
 or log formats, and malformed service URL schemes fail during settings loading. Startup also

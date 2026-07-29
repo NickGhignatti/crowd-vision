@@ -1,22 +1,44 @@
 .docname {Non Functional Requirements}
 .include {docs}
 
-### 1. Database-per-Service Architecture
-* **The Requirement:** Every backend microservice (Auth, Twin, Notification) must operate its own dedicated MongoDB instance.
-* **Why this is required:** Isolation prevents "noisy neighbor" problems. If an administrator runs a massive, complex query to fetch a detailed 3D building schema in the Twin service, it must absolutely not drain database resources and prevent new users from logging in via the Auth service.
+Non-functional requirements here are **constraints**: rules the system has to satisfy, independent of any particular technology choice. Each carries a [MoSCoW](https://en.wikipedia.org/wiki/MoSCoW_method) priority — **Must**, **Should**, or **Could** — reflecting what's load-bearing (Must), valuable but not essential (Should), or nice-to-have (Could). They are distinct from [Quality Attributes](quality-attributes.qd) — the measurable *how well* (performance, scalability, availability) — which are documented separately. Each is traced back to [User Stories](user-stories.qd) or [Business Requirements](business-requirements.qd) that require it.
 
-### 2. Decoupled Event Messaging (Redis Pub/Sub)
-* **The Requirement:** Service-to-service communication for real-time events must use Redis pub/sub as a message broker rather than direct HTTP polling.
-* **Why this is required:** As the system grows, multiple services might need to react to a sensor event (e.g., the Socket server to update UI, the Push server to send mobile alerts, and the LLM service to log an anomaly). Redis decouples the producer from the consumers, allowing us to add new reacting services without slowing down the initial data ingestion.
+---
 
-### 3. Strict SSO Security (OIDC with PKCE)
-* **The Requirement:** Enterprise Single Sign-On (SSO) must utilize PKCE (`code_challenge_method: S256`). The OAuth `state` parameter must be an opaque token, with verification context stored securely on the server.
-* **Why this is required:** Security is paramount for enterprise deployments. Encoding data directly into the OAuth `state` parameter makes the system vulnerable to state-tampering and CSRF attacks. Enforcing server-side state verification guarantees that a malicious actor cannot hijack an authentication flow.
+### 1. Decentralized Authorization Evaluation
+* `Must` **The Requirement:** The system shall evaluate authorization decisions locally without requiring a network round-trip to a central authority.
+* **Why this is required:** A central authority queried on every decision becomes a bottleneck and single point of failure — its latency and uptime cap the latency and uptime of everything that depends on it. Grounded in **AA-5** (switch organizations without re-authenticating) and every "instant" story (**LD-4**, **AL-3**) where per-request latency cannot be hidden.
 
-### 4. Stateless Authentication (JWT)
-* **The Requirement:** User sessions must rely on JSON Web Tokens (JWTs) with a 3-hour expiry. IoT device tokens are granted a 5-year expiry. 
-* **Why this is required:** Verifying tokens using middleware cryptography eliminates the need to query the database on every single API request. This drastically reduces latency and database load. A 3-hour expiry ensures that if a token is compromised, the window of vulnerability is short.
+### 2. Strict Tenant Data Isolation
+* `Must` **The Requirement:** The system shall ensure data belonging to one tenant is never readable by a principal outside it, regardless of any other access path in the system.
+* **Why this is required:** The platform holds data for independent organizations; a single cross-tenant leak breaks the trust the entire multi-tenant model depends on. Grounded in **BT-4** (see only my organizations' buildings), **AA-6** (private, invite-only domains), and **AI-4** (assistant scoped to accessible organizations).
 
-### 5. High-Performance Client Architecture
-* **The Requirement:** The Vue 3 frontend must be built around the performant behavior of making the less amount of API calls possible.
-* **Why this is required:** The dashboard receives potentially hundreds of WebSocket updates per minute.
+### 3. Complete Access Audit Trail
+* `Must` **The Requirement:** The system shall log every access to tenant data (who, what, when) in an immutable log that cannot be altered or deleted after creation.
+* **Why this is required:** GDPR requires proving who accessed what and when; an audit trail that can be edited after the fact proves nothing. Required by EU data protection obligations stated in Business Requirements.
+
+### 4. Accessible Interface Conformance
+* `Must` **The Requirement:** The system shall ensure every user-facing interface conforms to WCAG 2.1 AA accessibility standards.
+* **Why this is required:** A dashboard or twin that only works by sight excludes a screen-reader user from the platform entirely — that's not a degraded experience, it's no access at all. Grounded in **LD-7** (dashboard data available through accessible markup) and inclusive design principles.
+
+### 5. EU Data Residency
+* `Must` **The Requirement:** The system shall ensure all data belonging to EU tenants resides exclusively in EU infrastructure; no default transfer to non-EU regions.
+* **Why this is required:** Required by Business Requirements (European market focus, GDPR compliance, Italy data residency preferences). Cross-border data transfer requires explicit legal basis and tenant consent.
+
+### 6. No Hardcoded Secrets
+* `Must` **The Requirement:** The system shall not store credentials, API keys, tokens, or other secrets in code, configuration files, or logs; all secrets must be stored in a secure external system and rotated regularly.
+* **Why this is required:** Required by Business Requirements (SaaS security table-stakes) and GDPR obligation to protect personal data in transit and at rest. Hardcoded secrets are the fastest path to a data breach.
+
+### 7. Graceful Degradation
+* `Should` **The Requirement:** The system shall degrade gracefully when non-critical services fail: show stale or partial data with a warning rather than crashing the critical path.
+* **Why this is required:** Sensor service outage should not make the dashboard unusable; it should show last-known values and indicate staleness. Improves resilience and user trust in partial failures.
+
+### 8. Internationalization
+* `Could` **The Requirement:** The system shall support English and Italian at minimum in the UI; no user-facing text shall be hardcoded without localization keys.
+* **Why this is required:** Supports Business Requirements' European market focus (Italy priority). Enables fast expansion to other languages without code changes.
+
+---
+
+**Traceability:** NFRs 1–2, 4 trace to specific User Stories. NFRs 3, 5, 6 derive from Business Requirements (GDPR compliance, EU data strategy, SaaS security table-stakes). NFRs 7–8 are operational/strategic priorities (resilience, market expansion).
+
+The measurable *how well* counterpart to these constraints — performance, scalability, availability — is covered separately in [Quality Attributes](quality-attributes.qd).

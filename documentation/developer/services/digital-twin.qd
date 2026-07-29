@@ -1,7 +1,7 @@
 .docname {Digital Twin Service}
 .include {docs}
 
-Implementation reference for the `twin-service`. For its architectural role, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd); for the domain model, see [Building Management](../domain/building-management.qd).
+Implementation reference for the `twin-service`\. For its architectural role, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd); for the domain model, see [Building Management](../domain/building-management.qd).
 
 A Rust / Axum service. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services (see *Downstream Synchronisation* below — the two services that receive that clone, and what happens if sending it fails).
 
@@ -64,7 +64,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
 .tablebyrows {.headers}
     - - `MONGO_URI`
       - `mongodb://localhost:27017`
-      - Connection string; database name is `crowdvision`, collection `buildings`.
+      - Connection string; database name is `crowdvision`, collection `buildings`\.
     - - `SENSOR_SERVICE_URL`
       - `http://localhost:3000`
       - Target for the threshold clone sync.
@@ -114,7 +114,7 @@ struct Room {
 
 .tablebyrows {.headers}
     - - `POST /register`
-      - Create a building from `{ name, rooms, domains }`. Assigns a UUID, normalises names, validates room geometry (see the box below), persists, then synchronises downstream. Returns the full document. `201`.
+      - Create a building from `{ name, rooms, domains }`\. Assigns a UUID, normalises names, validates room geometry (see the box below), persists, then synchronises downstream. Returns the full document. `201`\.
     - - `GET /building/:id`
       - Fetch one building by UUID; backfills names on read. `404` if absent. No domain-membership check beyond authentication — building ids are server-generated UUIDs, not enumerable.
     - - `GET /buildings/:domain`
@@ -126,7 +126,7 @@ struct Room {
     - - `PATCH /building/:buildingId`
       - Update `name` and/or `domains` (and an optional `maxTemperature` forwarded to the clone). Requires an editing role in one of the building's own domains. Re-syncs.
     - - `PATCH /building/:buildingId/room/:roomId`
-      - Update a room's `name`, `color`, `capacity`, `position`, and/or `dimensions`. Re-syncs.
+      - Update a room's `name`, `color`, `capacity`, `position`, and/or `dimensions`\. Re-syncs.
     - - `POST /building/:buildingId/room`
       - Create a room with a server-assigned id. Re-syncs, then best-effort seeds default sensor thresholds.
     - - `DELETE /building/:buildingId/room/:roomId`
@@ -148,10 +148,10 @@ struct Room {
 
 ## Name Normalisation
 
-Free functions in `src/models.rs`.
+Free functions in `src/models.rs`\.
 
-- `normalize_building_name(name, id)` resolves to the trimmed `name`, else `id`, else the literal `"Building"`.
-- `normalize_room_name(name, id)` trims the room name, falling back to the room `id`.
+- `normalize_building_name(name, id)` resolves to the trimmed `name`, else `id`, else the literal `"Building"`\.
+- `normalize_room_name(name, id)` trims the room name, falling back to the room `id`\.
 - Every building load (`GET`, and every mutating handler's initial fetch) backfills blank names and persists the fix if anything changed — so a document with a blank name gets healed the next time it's touched, without a separate migration.
 
 ---
@@ -177,7 +177,7 @@ A building's structure is mirrored to two services. The two paths have **differe
         Note over T,K: best-effort — errors logged, swallowed
         T-->>C: 201 building
 
-- **Sensor threshold clone** (`sync_building_clone`, `src/infra/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`. Skipped entirely under `NODE_ENV=test`, and returns an error (failing the building operation) on a non-2xx response. Forwards the caller's `x-gateway-claims` header verbatim — sensor-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
+- **Sensor threshold clone** (`sync_building_clone`, `src/infra/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error (failing the building operation) on a non-2xx response. Forwards the caller's `x-gateway-claims` header verbatim — sensor-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
 - **Contracts preference seeding** (`init_building_preferences`): a `POST`, best-effort — logged and swallowed on any error, never blocks building creation.
 
 .box {Known gap: synchronous coupling} type:{note}
@@ -199,6 +199,6 @@ A building's structure is mirrored to two services. The two paths have **differe
 
 ## Cedar Authorization
 
-`src/infra/authz.rs` embeds the shared `backend/auth-policy` bundle via `include_str!` — resolved at **compile time**, the same way Go's `//go:embed` does. Only Python's binding reads `schema.cedarschema`/`policy.cedar` from disk, at process start, since it has no equivalent embed mechanism. Compile-time embedding here means the production Docker image doesn't need `backend/auth-policy` present at all; only the builder stage does, since the bytes are already baked into the compiled binary by the time `cargo build` finishes. See [Auth Policy](../packages/auth-policy.qd) for the full Cedar model (pre-expanded role-tier sets, `.contains()` vs `in`, the golden conformance suite).
+`src/infra/authz.rs` embeds the shared `backend/auth-policy` bundle via `include_str!` — resolved at **compile time**, the same way Go's `//go:embed` does. Only Python's binding reads `schema.cedarschema`/`policy.cedar` from disk, at process start, since it has no equivalent embed mechanism. Compile-time embedding here means the production Docker image doesn't need `backend/auth-policy` present at all; only the builder stage does, since the bytes are already baked into the compiled binary by the time `cargo build` finishes. See [Auth Policy](../packages/auth-policy.qd) for the full Cedar model (pre-expanded role-tier sets, `\.contains()` vs `in`, the golden conformance suite).
 
-twin-service uses two of Cedar's five shared actions: `Read` (`is_member_of`/`scope_to_memberships`) and `Edit` (`can_edit_domains`, tried against every one of a building's domains — permits if any qualifies). A third function, `authorize_any`, exists purely so the golden conformance suite can exercise all five actions through this binding too, matching the precedent set by agent-service's `can_override_model`.
+twin-service uses two of Cedar's five shared actions: `Read` (`is_member_of`/`scope_to_memberships`) and `Edit` (`can_edit_domains`, tried against every one of a building's domains — permits if any qualifies). A third function, `authorize_any`, exists purely so the golden conformance suite can exercise all five actions through this binding too, matching the precedent set by agent-service's `can_override_model`\.

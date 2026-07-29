@@ -1,26 +1,35 @@
 .docname {Functional Requirements}
 .include {docs}
 
-To effectively contribute to CrowdVision, developers must understand both what the system is expected to do (Functional) and how well it is expected to perform those tasks (Non-Functional). 
+To effectively contribute to CrowdVision, developers must understand both what the system is expected to do (Functional) and how well it is expected to perform those tasks (Non-Functional).
+
+Scope: a Functional Requirement here is behavior **CrowdVision's users experience** — a tenant, staff member, or administrator interacting with the product. Each FR traces to one or more User Stories and respects the constraints in Business Requirements.
 
 ---
 
-### 1. Real-Time Data Visualisation
-* **The Requirement:** The system must stream high-frequency crowd headcount and temperature data from simulated or physical IoT sensors directly to the client interface. The 3D view and data tables must reflect this data instantly.
-* **Why this is required:** The core value proposition of CrowdVision is immediate situational awareness. Facility managers must know exactly what is happening *right now* to dispatch security to an overcrowded room or adjust HVAC systems before a room becomes uncomfortably hot. Stale, polled data is insufficient for emergency responses.
+### 1. Identity & Membership
+* **The Requirement:** The system shall let a principal register and authenticate, hold membership with a specific role in one or more organizations, and access all of them through a single sign-in. Authentication may be direct or via an organization-configured external identity provider.
 
-### 2. Automated Alerting & Push Notifications
-* **The Requirement:** The system must continuously evaluate live sensor data against pre-defined thresholds (e.g., maximum capacity or `maxTemperature`). Breaches must trigger broadcasts via WebSockets for active users and Web Push Notifications via VAPID for offline browsers.
-* **Why this is required:** Administrators cannot stare at a dashboard 24/7. The system must act as an automated watchman, proactively pushing critical safety alerts to staff members' devices so they can intervene only when necessary.
+### 2. Domain Creation
+* **The Requirement:** The system shall let a user create a new organization immediately after registering, without requiring an existing administrator to provision it.
 
-### 3. Digital Twin Lifecycle Management (CRUD)
-* **The Requirement:** Administrators must be able to upload JSON schemas defining building structures (room 3D coordinates/dimensions) and edit room metadata (capacity, thresholds, names, colours) dynamically after deployment.
-* **Why this is required:** Physical buildings evolve—rooms are repurposed, capacities are adjusted due to changing regulations (like social distancing), and layouts are modified. The software must provide tools to keep the digital twin perfectly synced with physical reality without requiring developer intervention or database migrations.
+### 3. Domain Structure & Visibility
+* **The Requirement:** The system shall let a Domain Administrator structure an organization into subdomains and restrict its visibility so it is discoverable only by invitation.
 
-### 4. Multi-Tenancy & Domain Access Control
-* **The Requirement:** A single backend deployment must serve multiple distinct organizations ("Domains"). Access to data is strictly governed by a user's role-based memberships (e.g., Admin, Business Staff, Viewer) within those specific domains.
-* **Why this is required:** Deploying a separate server infrastructure for every single client is expensive and difficult to maintain. Multi-tenancy allows efficient resource sharing. Furthermore, users like external contractors or regional managers often need access to multiple organizations seamlessly using a single account.
+### 4. Digital Twin Management
+* **The Requirement:** The system shall let a Domain Administrator provision a digital twin of a building from an uploaded description without developer intervention, and edit the building structure after creation: rename and reorder rooms, highlight rooms, organize by floor, rename the building. Rooms shall render at their true position and size in the 3D view.
 
-### 5. Future: Historical Analytics & AI Assistant
-* **The Requirement:** The system is planned to aggregate historical data for charting, and introduce an LLM-powered assistant capable of answering natural-language queries about the building's status.
-* **Why this is required:** While real-time data is for *operations*, historical data is for *planning* (e.g., deciding if the university needs to build more study rooms). The AI Assistant lowers the learning curve, allowing non-technical staff to extract complex insights just by asking questions.
+### 5. Building Multi-Tenancy
+* **The Requirement:** The system shall let a single building be scoped to and shared across multiple organizations, and shall show each user only the buildings of organizations they belong to.
+
+### 6. Sensor Data & Thresholds
+* **The Requirement:** The system shall let a Domain Administrator connect or remove sensors from a building and configure a single authoritative set of measurement thresholds per building, overridable per room, with every recorded reading kept immutable.
+
+### 7. Alerting & Notifications
+* **The Requirement:** The system shall notify subscribed staff members in real time, across their registered devices, when a threshold is breached, scoped to their organization and to the alert types they opted into.
+
+### 8. Live Dashboard
+* **The Requirement:** The system shall present a live, auto-updating tabular view of a building's rooms, with a configurable, reorderable set of columns drawn from every metric the platform can measure, defaulted sensibly on building creation, and support aggregating readings over a chosen time window.
+
+### 9. AI Assistant
+* **The Requirement:** The system shall let a user ask plain-language questions about the platform or their accessible organizations and receive a cited, scope-limited answer, explicitly declining any question it cannot ground in evidence.

@@ -1,0 +1,46 @@
+.docname {Business Requirements}
+.include {docs}
+
+Business Requirements capture why CrowdVision exists, who it serves, and the non-negotiable constraints that shape every decision downstream. They sit above user stories: stories detail *what users need*, BRs explain *why those needs matter to the business*.
+
+---
+
+## Vision & Purpose
+
+CrowdVision is a digital-twin platform for real-time building intelligence and management. It surfaces occupancy, environmental conditions, and spatial data as an interactive 3D model, giving facility operators and administrators a unified, intuitive view of complex spaces — replacing fragmented sensor dashboards and manual inspection with live, actionable data.
+
+---
+
+## Target Market
+
+- **Enterprise organizations** with multi-building campuses or portfolios: offices, data centers, manufacturing facilities, research centers
+- **Universities & educational institutions** with diverse spaces: dormitories, lecture halls, research labs, administrative buildings
+- **Mixed-use organizations** — any entity operating multiple physical spaces where real-time visibility into occupancy, environmental health, and spatial management creates operational value
+
+---
+
+## Business Model
+
+**SaaS Subscription Model (per organization)**
+- Organizations subscribe for a fixed monthly fee, covering core features: building management, live dashboard, sensor integration, alerts, AI assistant
+- Pricing is per-organization, not per-user, not per-sensor, not per-building — simplifies billing and removes adoption friction
+
+**Deployment Options**
+1. **Shared SaaS (managed)** — CrowdVision-hosted, multi-tenant, included in subscription cost
+2. **Dedicated Hosting** — Single-tenant instance on CrowdVision infrastructure, premium price
+3. **Self-Hosted Licensing** — Organization deploys in their own infrastructure (cloud or on-premise), one-time or annual license fee + support contract
+
+**Rationale:** Multi-tenant SaaS reaches broad market; dedicated hosting captures price-insensitive, compliance-sensitive segments; self-hosted licensing enables air-gapped deployments and gives large enterprises optionality.
+
+---
+
+## Geographic & Regulatory Scope
+
+**Primary market:** Europe, with initial focus on Italy
+
+**Regulatory compliance required:**
+- **GDPR** — all tenant data (occupancy, user activity, building information) is personal data or connected to personal data; strict data processing, retention, and cross-border transfer rules apply
+- **Italy-specific** — data residency preferences, local privacy laws, administrative burdens (to be detailed as legal review proceeds)
+- **Future:** readiness for HIPAA (healthcare buildings), SOC 2 (enterprise security), industry-specific standards (to be added as market expands)
+
+**Data residency:** EU data must reside in EU infrastructure; no default transfer to US or other regions without explicit opt-in and legal basis.
