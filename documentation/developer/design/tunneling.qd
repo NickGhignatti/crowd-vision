@@ -118,7 +118,7 @@ function scheduleFlush() {
 }
 ```
 
-The flush **swaps in a new array reference** (`.slice()`) rather than notifying Vue about the same array mutated in place. This is deliberate: consumers read a bucket's data through a `computed`, and Vue's reactivity only re-notifies a `computed`'s dependents when the underlying value changes *by identity* — an in-place mutation on the same array reference would be swallowed at that boundary and never reach the views. Batching to one rAF-scheduled reference swap per bucket, instead of a reactive trigger per telemetry event, keeps Vue's scheduler from competing with the Three.js render loop the 3D view depends on for a steady frame rate.
+The flush **swaps in a new array reference** (`\.slice()`) rather than notifying Vue about the same array mutated in place. This is deliberate: consumers read a bucket's data through a `computed`, and Vue's reactivity only re-notifies a `computed`'s dependents when the underlying value changes *by identity* — an in-place mutation on the same array reference would be swallowed at that boundary and never reach the views. Batching to one rAF-scheduled reference swap per bucket, instead of a reactive trigger per telemetry event, keeps Vue's scheduler from competing with the Three.js render loop the 3D view depends on for a steady frame rate.
 
 ### Recovering from a dropped connection
 

@@ -64,7 +64,7 @@ BREAKING CHANGE: clients must migrate to /gateway. The v1 routes are gone.
 
 ## The release pipeline
 
-Releases are gated by a pull request rather than pushed straight to `master`. On every push to `master`, the `cd-release` workflow runs `googleapis/release-please-action`, configured by the repo-root `release-please-config.json` and `.release-please-manifest.json`.
+Releases are gated by a pull request rather than pushed straight to `master`\. On every push to `master`, the `cd-release` workflow runs `googleapis/release-please-action`, configured by the repo-root `release-please-config.json` and `\.release-please-manifest.json`\.
 
 .mermaid
     flowchart TD
@@ -78,11 +78,11 @@ Releases are gated by a pull request rather than pushed straight to `master`. On
 Step by step:
 
 1. **Analyses commits** since the last Git tag and computes the next version from their types.
-2. **Opens or updates a release PR** — a standing PR (title `chore(master): release <version>`) whose diff is `CHANGELOG.md` plus every version file listed under `extra-files` in `release-please-config.json`. Pushing more qualifying commits to `master` updates this same PR in place rather than opening a new one.
+2. **Opens or updates a release PR** — a standing PR (title `chore(master): release <version>`) whose diff is `CHANGELOG.md` plus every version file listed under `extra-files` in `release-please-config.json`\. Pushing more qualifying commits to `master` updates this same PR in place rather than opening a new one.
 3. **The release PR is a normal PR.** It is authored using a dedicated PAT rather than the default `GITHUB_TOKEN`, specifically so it triggers `ci-gate` like any other pull request — a PR opened by the default token would not.
 4. **Merging the release PR cuts the release.** The merge is itself a push to `master`, which runs `cd-release` again; this time release-please-action recognises its own PR was just merged, creates the Git tag, and publishes the GitHub Release with the generated notes.
 
-Because the release only happens on a deliberate merge, there is no `[skip ci]` commit to worry about — the release PR's merge commit is a normal merge, and `cd-registry` reacts to it exactly like any other push that touches `backend/**`, `simulators/**`, or `frontend/**`.
+Because the release only happens on a deliberate merge, there is no `[skip ci]` commit to worry about — the release PR's merge commit is a normal merge, and `cd-registry` reacts to it exactly like any other push that touches `backend/**`, `simulators/**`, or `frontend/**`\.
 
 ### Files bumped by the release PR
 
@@ -97,7 +97,7 @@ backend/*/pyproject.toml
 These globs (in `release-please-config.json`'s `extra-files`) are resolved fresh on every run, so a new Node/Rust/Python service under `backend/` is picked up automatically — no config edit needed to add one. `backend/tests/package.json` also matches the `backend/*/package.json` glob but has no `version` field, so release-please leaves it untouched.
 
 .box {Why one shared version instead of one per package} type:{note}
-    None of these per-service version fields are read at runtime — no service exposes a `/version` endpoint or bakes its `package.json` version into a binary. They exist purely so `npm ci` doesn't reject a `package.json`/`package-lock.json` pair with mismatched versions. Rather than version each service independently, the repo tracks a single version at `.` (`release-type: simple`, no manifest of its own) and stamps it into every other file via `extra-files` — matching how the whole monorepo has always shipped as one release, not fourteen.
+    None of these per-service version fields are read at runtime — no service exposes a `/version` endpoint or bakes its `package.json` version into a binary. They exist purely so `npm ci` doesn't reject a `package.json`/`package-lock.json` pair with mismatched versions. Rather than version each service independently, the repo tracks a single version at `\.` (`release-type: simple`, no manifest of its own) and stamps it into every other file via `extra-files` — matching how the whole monorepo has always shipped as one release, not fourteen.
 
 ---
 
@@ -111,4 +111,4 @@ feat(twin): support multi-floor buildings
 docs(twin): note the floor-selection control
 ```
 
-release-please sees a `feat` (the highest-ranked change), so the next version is a **minor** bump: `v1.5.0`. It opens (or updates) a release PR titled `chore(master): release 1.5.0`, with the changelog entry and every manifest bumped to `1.5.0`. The `docs` commit contributes a changelog line but does not affect the version. Once that PR is reviewed and merged, release-please tags `v1.5.0` and publishes the release; `cd-registry` then builds and pushes the Docker images for whatever changed — see [CI/CD Pipeline](cicd.qd).
+release-please sees a `feat` (the highest-ranked change), so the next version is a **minor** bump: `v1.5.0`\. It opens (or updates) a release PR titled `chore(master): release 1.5.0`, with the changelog entry and every manifest bumped to `1.5.0`\. The `docs` commit contributes a changelog line but does not affect the version. Once that PR is reviewed and merged, release-please tags `v1.5.0` and publishes the release; `cd-registry` then builds and pushes the Docker images for whatever changed — see [CI/CD Pipeline](cicd.qd).

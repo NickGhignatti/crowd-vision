@@ -7,7 +7,7 @@ CrowdVision uses a fully automated CI/CD pipeline on GitHub Actions. Every pull 
 
 ## Workflow naming
 
-All workflow files live in `.github/workflows/` and use a three-prefix convention that mirrors their purpose.
+All workflow files live in `\.github/workflows/` and use a three-prefix convention that mirrors their purpose.
 
 .var {headers}
    - Prefix
@@ -55,8 +55,8 @@ The `changes` job runs `dorny/paths-filter` once and emits a boolean per area. E
 
 The final `ci-passed` job depends on every leg and runs with `if: always()`, so it reports even when a leg was skipped. Its verdict logic is deliberately strict:
 
-- **Whitelist, not blacklist.** Each leg's result must be `success` **or** `skipped`. Anything else — `failure`, `cancelled`, or any future result value — fails the gate. A blacklist that only checked for `failure` would let an unknown state slip through green.
-- **The fan-out root must have succeeded.** If the `changes` job itself failed or was cancelled, every leg was skipped *without ever being evaluated* — a green gate there would be a false pass. So `ci-passed` hard-fails unless `changes` ended in `success`.
+- **Whitelist, not blacklist.** Each leg's result must be `success` **or** `skipped`\. Anything else — `failure`, `cancelled`, or any future result value — fails the gate. A blacklist that only checked for `failure` would let an unknown state slip through green.
+- **The fan-out root must have succeeded.** If the `changes` job itself failed or was cancelled, every leg was skipped *without ever being evaluated* — a green gate there would be a false pass. So `ci-passed` hard-fails unless `changes` ended in `success`\.
 
 ---
 
@@ -113,7 +113,7 @@ The **Node services** (`chat`, `sensor`, `socket`, `notification`) share the sam
     Every Node service runs the audit twice. **`npm audit --audit-level=high --omit=dev`** is **blocking** — a fixable high/critical vulnerability in a *production* dependency fails the build. **`npm audit --audit-level=high`** (the full tree, including dev deps) runs straight after with `continue-on-error: true`, so dev-only advisories are surfaced in the log without blocking a merge. The split keeps the gate honest about what ships to users while still reporting everything.
 
 .box {The four Go services don't have an audit step yet} type:{note}
-    Unlike every other language here, there's no `govulncheck`-equivalent step in the four Go CI workflows — `.moon/tasks/go.yml` doesn't define an `audit` task either, so `just setup audit` silently skips them too (see [The Toolchain](../config/toolchain.qd)). Build/lint/test coverage is in place; dependency vulnerability scanning for Go is still open.
+    Unlike every other language here, there's no `govulncheck`-equivalent step in the four Go CI workflows — `\.moon/tasks/go.yml` doesn't define an `audit` task either, so `just setup audit` silently skips them too (see [The Toolchain](../config/toolchain.qd)). Build/lint/test coverage is in place; dependency vulnerability scanning for Go is still open.
 
 ---
 
@@ -140,7 +140,7 @@ Every service CI workflow now measures **code coverage** as part of its test run
       - `go test`
       - Cobertura `coverage.xml`
 
-The Node and Rust services write a coverage summary into the GitHub **job summary** (rendered from the report with `jq`); the agent surfaces its figures directly in the `pytest` log via `--cov-report=term-missing`.
+The Node and Rust services write a coverage summary into the GitHub **job summary** (rendered from the report with `jq`); the agent surfaces its figures directly in the `pytest` log via `--cov-report=term-missing`\.
 
 .box {The coverage summary runs always} type:{note}
     The step that publishes the coverage table is guarded by **`if: always()`**, so it runs **even when a test fails** — by default a failed step skips every step after it, yet the coverage of a red run is often exactly when you want to read it. This does **not** weaken the gate: `always()` governs only that one reporting step, so a failing test still fails the job. Coverage is **report-only for now** — no minimum threshold is enforced, so it surfaces the numbers on every run but cannot itself block a merge.
@@ -149,7 +149,7 @@ The Node and Rust services write a coverage summary into the GitHub **job summar
 
 ## Simulator CI
 
-The two device simulators ship as GHCR images but are not application services, so they get a dedicated `ci-simulators.yml` — one job each, gated on `simulators/`.
+The two device simulators ship as GHCR images but are not application services, so they get a dedicated `ci-simulators.yml` — one job each, gated on `simulators/`\.
 
 .var {headers}
    - Job
@@ -189,7 +189,7 @@ These legs validate properties that span the codebase rather than a single servi
       - The `dependency-review` leg. On any PR that changes a dependency manifest or lockfile, it fails if the PR **introduces** a dependency carrying a known high/critical advisory (`fail-on-severity: high`). It complements the per-service audit steps: those see the merged lockfile state, whereas this diffs exactly what the PR adds, catching a vulnerable package at the moment it is introduced. Requires the repository's dependency graph (on by default for public repos).
 
 .box {Every third-party action is pinned to a commit SHA} type:{note}
-    Each `uses:` across every workflow references a full 40-character commit SHA (with the human-readable version kept as a trailing comment, e.g. `# v6`), never a moving tag like `@v4`. A tag can be silently repointed at malicious code by whoever controls the action; a commit SHA cannot. The repository setting **Settings → Actions → "Require actions to be pinned to a full-length commit SHA"** enforces this, so no future workflow can reintroduce an unpinned action. Local reusable workflows (`uses: ./.github/workflows/…`) are exempt — they live in this repo. Bumping a version means resolving the new tag to its SHA (`git ls-remote`) and updating both the SHA and the comment.
+    Each `uses:` across every workflow references a full 40-character commit SHA (with the human-readable version kept as a trailing comment, e.g. `# v6`), never a moving tag like `@v4`\. A tag can be silently repointed at malicious code by whoever controls the action; a commit SHA cannot. The repository setting **Settings → Actions → "Require actions to be pinned to a full-length commit SHA"** enforces this, so no future workflow can reintroduce an unpinned action. Local reusable workflows (`uses: ./.github/workflows/…`) are exempt — they live in this repo. Bumping a version means resolving the new tag to its SHA (`git ls-remote`) and updating both the SHA and the comment.
 
 ---
 
@@ -197,11 +197,11 @@ These legs validate properties that span the codebase rather than a single servi
 
 ### cd-release
 
-Triggered on every push to `master`. Runs `googleapis/release-please-action`, which reads commits since the last tag and either opens/updates a release pull request (CHANGELOG.md + every version manifest) or, if its own release PR was just merged, tags the repository and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Release Please](release-please.qd).
+Triggered on every push to `master`\. Runs `googleapis/release-please-action`, which reads commits since the last tag and either opens/updates a release pull request (CHANGELOG.md + every version manifest) or, if its own release PR was just merged, tags the repository and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Release Please](release-please.qd).
 
 ### cd-registry
 
-Triggered on push to `master` when source changes under `backend/**`, `simulators/**`, `frontend/**`, or the workflow file itself. It publishes Docker images to GHCR tagged both `:latest` and `:<git-sha>`, for all fourteen images — the ten TypeScript/Rust/Python services and simulators, plus `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner`.
+Triggered on push to `master` when source changes under `backend/**`, `simulators/**`, `frontend/**`, or the workflow file itself. It publishes Docker images to GHCR tagged both `:latest` and `:<git-sha>`, for all fourteen images — the ten TypeScript/Rust/Python services and simulators, plus `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner`\.
 
 The publish is **gated by a vulnerability scan that runs before anything reaches the registry**. Each image is built into the runner's local daemon (`push: false`, `load: true`), scanned by **Trivy**, and pushed **only if the scan passes** — so a vulnerable image is never published. The push step rebuilds from the still-warm gha cache, so it costs no recompilation.
 
@@ -216,7 +216,7 @@ The workflow does **not** rebuild every image on every push. A `changes` job det
 
 The Trivy scan is deliberately scoped to **OS packages only** (`vuln-type: os`). Application dependencies are not re-scanned here because they are already gated pre-merge by the per-service audits. The division of labour is: **the service CI workflows own language dependencies at PR time; `cd-registry` Trivy owns the base-OS layer at push time** — the part the dependency audits cannot see.
 
-To keep the OS scan green, every production image upgrades its base-OS packages at build time (`apk upgrade` on Alpine images, `apt-get upgrade` on the Debian-based contracts, agent, and aq-simulator images). The Debian upgrade lines carry `# hadolint ignore=DL3005`. Any residual fixable CVE that cannot be patched in-build is waived in the repo-root `.trivyignore`, where each entry must carry a justifying comment.
+To keep the OS scan green, every production image upgrades its base-OS packages at build time (`apk upgrade` on Alpine images, `apt-get upgrade` on the Debian-based contracts, agent, and aq-simulator images). The Debian upgrade lines carry `# hadolint ignore=DL3005`\. Any residual fixable CVE that cannot be patched in-build is waived in the repo-root `\.trivyignore`, where each entry must carry a justifying comment.
 
 ---
 
@@ -251,7 +251,7 @@ Both checks also run inside the per-service CI workflows on every pull request, 
 
 ## Docker image registry
 
-All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and `:<git-sha>`, published automatically by `cd-registry` on every push to `master` that touches them. The Kubernetes deployment manifests reference `:latest`.
+All images are hosted at `ghcr.io/nickghignatti/` and tagged both `:latest` and `:<git-sha>`, published automatically by `cd-registry` on every push to `master` that touches them. The Kubernetes deployment manifests reference `:latest`\.
 
 .var {headers}
    - Service

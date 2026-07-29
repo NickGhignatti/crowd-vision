@@ -62,7 +62,7 @@ Run `just --list` to see every recipe. The recipe catalogue is documented in [Ru
 
 ## mise — the toolchain manager
 
-[mise](https://mise.jdx.dev/) pins every language runtime and CLI to an exact version, per project, across platforms. The pins live in `.mise.toml` at the repository root:
+[mise](https://mise.jdx.dev/) pins every language runtime and CLI to an exact version, per project, across platforms. The pins live in `\.mise.toml` at the repository root:
 
 ```toml
 [tools]
@@ -125,7 +125,7 @@ A script therefore works both when launched via `just` (already under `mise exec
 
 ### One project registry
 
-Every package is registered once in `.moon/workspace.yml`. This is the single list of packages in the repository; nothing else maintains a parallel copy.
+Every package is registered once in `\.moon/workspace.yml`. This is the single list of packages in the repository; nothing else maintains a parallel copy.
 
 ```yaml
 projects:
@@ -141,7 +141,7 @@ projects:
 
 ### Tasks defined once per language
 
-Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon.yml` files, the pipeline is defined once per language in `.moon/tasks/*.yml`, each scoped with `inheritedBy` so it applies only to projects of that language.
+Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon.yml` files, the pipeline is defined once per language in `\.moon/tasks/*.yml`, each scoped with `inheritedBy` so it applies only to projects of that language.
 
 .var {headers}
    - File
@@ -200,7 +200,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
     - - `tooling`, `eslint-config`, `tests`
       - Tagged `language: 'javascript'` so they inherit only `deps`. (`backend/tests` holds an integration-only Jest suite that runs via `just test integration`, never as a moon `:test`.)
     - - `claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`
-      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in `.mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)) — and `scripts/install.mjs` doesn't fetch Go modules during `just setup install` (they resolve lazily on first `build`/`test`).
+      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in `\.mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)) — and `scripts/install.mjs` doesn't fetch Go modules during `just setup install` (they resolve lazily on first `build`/`test`).
 
 ### Inspecting the graph
 
@@ -247,7 +247,7 @@ So `just setup install` installs exactly the packages moon knows about; no drift
 
 Thanks to the single registry, onboarding a package is a one-place change:
 
-1. Register it in `.moon/workspace.yml` under `projects:`.
+1. Register it in `\.moon/workspace.yml` under `projects:`.
 2. Add a minimal `moon.yml` in the package with its `language:` (and any genuine task overrides).
 3. It now flows automatically into whichever tasks its language file defines (`:build` / `:test` / `:lint` / `:deps`, and `:audit` for every language except `go`), and — for `typescript`, `python`, and `rust` — into `just setup install` / `just setup clean-install` (both derive from `moon query projects`, but `scripts/install.mjs` doesn't have a `go` bucket, so a new Go package needs its modules fetched manually the first time; see [Setting Up the Environment](setting-up.qd)).
 

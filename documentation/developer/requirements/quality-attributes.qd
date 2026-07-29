@@ -1,0 +1,96 @@
+.docname {Quality Attributes}
+.include {docs}
+
+Quality Attributes are the measurable *how well* — as opposed to the [Non-Functional Requirements](non-functional-requirements.qd), which are binary must/must-not constraints. Each is written as a **Quality Attribute Scenario**: a six-part structure — Source of stimulus, Stimulus, Artifact, Environment, Response, Response Measure — that turns a vague "-ility" into something testable. The Response Measure here stays qualitative; the real numbers live as Acceptance Criteria on the grounding stories in [User Stories](user-stories.qd), since a target belongs to the story it holds a team accountable for, not to the general shape of the quality itself.
+
+Where a scenario measures how well an [NFR](non-functional-requirements.qd) constraint is satisfied, that relationship is called out rather than restated.
+
+---
+
+## Performance
+
+### QA-1: Live Data Freshness
+* **Source of stimulus:** A sensor.
+* **Stimulus:** A new reading is ingested for a room currently shown on a building's dashboard or 3D view.
+* **Artifact:** The Live Dashboard / 3D twin view.
+* **Environment:** Normal operation, view open in a user's browser.
+* **Response:** The updated value appears without a manual refresh.
+* **Response Measure:** Perceived as instantaneous — no visible staleness, no refresh action required.
+
+*Grounded in **LD-4**, **AL-3**.*
+
+### QA-2: Tenancy Check Latency
+* **Source of stimulus:** A user with memberships in multiple organizations.
+* **Stimulus:** The user switches organization, or opens any organization-scoped screen.
+* **Artifact:** The tenancy check performed on every request.
+* **Environment:** Normal operation, any number of organizations the user belongs to.
+* **Response:** The correct, tenant-scoped data is returned.
+* **Response Measure:** No perceptible delay attributable to the check, regardless of how many organizations the user belongs to.
+
+*Grounded in **AA-5**, **BT-4**, **AI-4**. This is the measurable counterpart of [NFR-1](non-functional-requirements.qd#_1-decentralized-authorization-evaluation), Decentralized Authorization Evaluation — that constraint is what makes this response measure achievable.*
+
+### QA-7: Building Upload
+* **Source of stimulus:** A Domain Administrator.
+* **Stimulus:** Uploads a building description to provision its digital twin.
+* **Artifact:** The twin-provisioning pipeline.
+* **Environment:** Normal operation.
+* **Response:** The twin becomes available for viewing and editing.
+* **Response Measure:** Fast enough that the administrator isn't left waiting on a blocking, long-running upload.
+
+*Grounded in **BT-1**.*
+
+---
+
+## Scalability
+
+### QA-3: Organization Growth
+* **Source of stimulus:** A prospective customer.
+* **Stimulus:** A new organization self-registers a domain.
+* **Artifact:** The platform as a whole.
+* **Environment:** Any number of organizations already onboarded.
+* **Response:** The new organization becomes fully usable — sign-in, building creation, dashboard, alerts all work — without degrading existing tenants.
+* **Response Measure:** Zero manual provisioning step from the Platform Administrator, and no measurable slowdown for existing tenants.
+
+*Grounded in **AA-7**, **LD-5**.*
+
+---
+
+## Recoverability
+
+### QA-4: Deployment Rollback
+* **Source of stimulus:** The Platform Administrator.
+* **Stimulus:** A newly deployed release is found to be faulty.
+* **Artifact:** The running system.
+* **Environment:** Production, after a release has already gone live.
+* **Response:** The previous known-good version is restored.
+* **Response Measure:** Recovery requires no manual data repair.
+
+*Grounded in removed Platform Operations story. This is the measurable counterpart of [NFR-7](non-functional-requirements.qd#_7-graceful-degradation), Graceful Degradation.*
+
+---
+
+## Observability
+
+### QA-5: Incident Detection & Diagnosis
+* **Source of stimulus:** A fault anywhere in the system.
+* **Stimulus:** A request fails, or a component becomes unhealthy.
+* **Artifact:** The affected component and every component the failing request passed through.
+* **Environment:** Normal production operation.
+* **Response:** The Platform Administrator is made aware of the fault and can trace the failing request across every component it touched.
+* **Response Measure:** A fault is detected and its path traceable before a user has to report it.
+
+*Grounded in removed Platform Operations stories.*
+
+---
+
+## Usability
+
+### QA-6: Trustworthy Uncertainty
+* **Source of stimulus:** A user.
+* **Stimulus:** Asks the AI assistant a question the platform's recorded knowledge and live data cannot answer.
+* **Artifact:** The AI Assistant.
+* **Environment:** Normal operation, any Inquiry.
+* **Response:** The assistant states plainly that it doesn't know, instead of producing an unsupported answer.
+* **Response Measure:** Every answer is either grounded in a citation or is an explicit "I don't know" — never an ungrounded claim presented as fact.
+
+*Grounded in **AI-2**, **AI-5**.*

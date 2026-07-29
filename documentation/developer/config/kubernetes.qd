@@ -23,7 +23,7 @@ just k8s delete
 ```
 
 .box {k8s-delete is destructive} type:{warning}
-    `just k8s delete` removes the namespace and every PersistentVolumeClaim in it — all database data is permanently lost, with no undo. To pause without losing data, use `just k8s stop` and later `just k8s start`.
+    `just k8s delete` removes the namespace and every PersistentVolumeClaim in it — all database data is permanently lost, with no undo. To pause without losing data, use `just k8s stop` and later `just k8s start`\.
 
 .box {Istio's Gateway API is the only k8s ingress} type:{note}
     `just k8s apply` applies the full Istio path — `k8s/istio-peer-authentication.yml` (namespace STRICT mTLS), `k8s/istio-gateway.yml` (the `Gateway` + per-service `HTTPRoute`s), `k8s/istio-request-authentication.yml` (edge JWT verification + `AuthorizationPolicy`), and `k8s/istio-agent-authz.yml` (restricts `agent-service` to its two legitimate in-mesh callers by workload identity) — no manual `kubectl apply` afterward. There is no nginx `Ingress` anymore: it had no edge authentication, so after the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header. Istio's `RequestAuthentication` is the only path that actually verifies tokens at the edge, so it's the ingress for every environment — local k3d and production alike.
@@ -72,19 +72,19 @@ kubectl apply -f k8s/monitoring/
 
 ## Secrets
 
-Secrets are created directly on the cluster from your local `.env` (plus one file on disk) and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, and the control-plane secrets (`INTERNAL_SIGNING_SECRET`, `REGISTRY_DB_PASSWORD`, `TENANCY_DB_PASSWORD`), and creates the corresponding Secret objects — one per service, plus `registry-db-secret`/`tenancy-db-secret` for their StatefulSets. It is idempotent — safe to re-run after rotating a key. There is no `JWT_SECRET` anymore — Phase 2 of the mesh migration moved JWT verification to Istio's edge `RequestAuthentication` (`k8s/istio-request-authentication.yml`), so individual services no longer hold JWKS config at all; see [Service Mesh Architecture](../architecture/service-mesh.qd) and [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+Secrets are created directly on the cluster from your local `\.env` (plus one file on disk) and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, and the control-plane secrets (`INTERNAL_SIGNING_SECRET`, `REGISTRY_DB_PASSWORD`, `TENANCY_DB_PASSWORD`), and creates the corresponding Secret objects — one per service, plus `registry-db-secret`/`tenancy-db-secret` for their StatefulSets. It is idempotent — safe to re-run after rotating a key. There is no `JWT_SECRET` anymore — Phase 2 of the mesh migration moved JWT verification to Istio's edge `RequestAuthentication` (`k8s/istio-request-authentication.yml`), so individual services no longer hold JWKS config at all; see [Service Mesh Architecture](../architecture/service-mesh.qd) and [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 .box {Namespace before secrets} type:{warning}
     The namespace must exist before secrets can be created. Run `kubectl apply -f k8s/namespace.yml` (or the full `just k8s setup`) before `just k8s secrets` if invoking it in isolation.
 
-.box {claims-gateway's signing key comes from disk, not `.env`} type:{note}
+.box {claims-gateway's signing key comes from disk, not `\.env`} type:{note}
     `just k8s secrets` also reads `secrets/gateway-dev-key.pem` off your local filesystem — the same stable RSA key `just stack env`'s `gateway-key.js` generates for the Docker Compose path (see [Setting Up the Environment](setting-up.qd)) — and uploads it as the `claims-gateway-key` Secret. Run `just stack env` (or just `node scripts/env/gateway-key.js`) at least once before `just k8s secrets`, even if you never run the Compose stack, or the command fails looking for a file that doesn't exist yet.
 
 .box {ghcr-pull-secret is optional} type:{note}
-    `crowdvision-*` packages on GHCR are public, so anonymous pulls already work — `just k8s secrets` only creates `ghcr-pull-secret` when `GHCR_USERNAME`/`GHCR_TOKEN` are present in `.env`, and skips it otherwise. Set them only if you're pulling from a private fork/registry. Supplying a placeholder or wrong token is worse than omitting them: GHCR 403s on invalid credentials rather than falling back to anonymous, which would break pulls of an otherwise-public image.
+    `crowdvision-*` packages on GHCR are public, so anonymous pulls already work — `just k8s secrets` only creates `ghcr-pull-secret` when `GHCR_USERNAME`/`GHCR_TOKEN` are present in `\.env`, and skips it otherwise. Set them only if you're pulling from a private fork/registry. Supplying a placeholder or wrong token is worse than omitting them: GHCR 403s on invalid credentials rather than falling back to anonymous, which would break pulls of an otherwise-public image.
 
 .box {Agent provider key naming} type:{warning}
-    The current `agent-service-secret` generator forwards the legacy `GOOGLE_API_KEY` and `DEEPSEEK_API_KEY` names, while the recommended provider setup uses `OPENROUTER_API_KEY`. Before deploying the agent, confirm the generated secret contains a key compatible with its configured `LLM_BASE_URL`. Kubernetes also does not deploy the documentation ingester or Langfuse — see the [Agent Service](../services/agent.qd) guide.
+    The current `agent-service-secret` generator forwards the legacy `GOOGLE_API_KEY` and `DEEPSEEK_API_KEY` names, while the recommended provider setup uses `OPENROUTER_API_KEY`\. Before deploying the agent, confirm the generated secret contains a key compatible with its configured `LLM_BASE_URL`\. Kubernetes also does not deploy the documentation ingester or Langfuse — see the [Agent Service](../services/agent.qd) guide.
 
 ---
 
@@ -143,7 +143,7 @@ just k8s istio-install    # install Istio ambient (istiod, ztunnel, istio-cni)
 ```
 
 .box {k3d's CNI bin dir is /bin, not the generic k3s path} type:{warning}
-    Istio's CNI plugin must be told where to copy its binary via `--set values.cni.cniBinDir=...`. Generic Istio-on-k3s docs suggest `/var/lib/rancher/k3s/data/cni`, but **k3d's bundled node image configures containerd with `bin_dir = "/bin"`** (check with `docker exec <node> cat /var/lib/rancher/k3s/agent/etc/containerd/config.toml`). Using the generic k3s path installs the binary somewhere containerd never looks, so every pod scheduled on that node fails with `plugin type="istio-cni" ... failed to find plugin "istio-cni" in path [/bin]` — and forever retries. The correct value for k3d specifically is `--set values.cni.cniBinDir=/bin`.
+    Istio's CNI plugin must be told where to copy its binary via `--set values.cni.cniBinDir=...`\. Generic Istio-on-k3s docs suggest `/var/lib/rancher/k3s/data/cni`, but **k3d's bundled node image configures containerd with `bin_dir = "/bin"`** (check with `docker exec <node> cat /var/lib/rancher/k3s/agent/etc/containerd/config.toml`). Using the generic k3s path installs the binary somewhere containerd never looks, so every pod scheduled on that node fails with `plugin type="istio-cni" ... failed to find plugin "istio-cni" in path [/bin]` — and forever retries. The correct value for k3d specifically is `--set values.cni.cniBinDir=/bin`\.
 
 .box {A failed CNI install exhausts the flannel IP pool} type:{warning}
     Each failed sandbox-creation retry (either from the wrong CNI bin dir above, or from ztunnel's DaemonSet racing istio-cni's own startup on a fresh cluster) can leak an IP from flannel's `10.42.0.1-10.42.0.254` pool without releasing it. After a few hundred retries the pool is exhausted and every future pod on that node fails with `no IP addresses available in range set`, even after the underlying CNI problem is fixed. There is no in-place recovery — `k3d cluster delete crowdvision && just k8s create` (a fresh node) is the only fix. Get the CNI bin dir right *before* the first install to avoid this entirely.
@@ -193,7 +193,7 @@ Edit the hosts file as administrator (Windows: `C:\Windows\System32\drivers\etc\
     - - `just k8s apply`
       - Apply all manifests in dependency order (idempotent).
     - - `just k8s secrets`
-      - Create or update secrets from `&#46;env`.
+      - Create or update secrets from `&#46;env`\.
     - - `just k8s build` / `k8s-push` / `k8s-build-push`
       - Build, push, or both, for the GHCR-tagged images.
     - - `just k8s load`

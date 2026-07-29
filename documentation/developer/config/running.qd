@@ -16,7 +16,7 @@ just stack dev
 ```
 
 **What happens:**
-1. `just stack env` runs first to verify your `.env` and generate any missing keys (see [Setting Up the Environment](setting-up.qd) for the full list of what it generates).
+1. `just stack env` runs first to verify your `\.env` and generate any missing keys (see [Setting Up the Environment](setting-up.qd) for the full list of what it generates).
 2. A runtime compose file is generated that includes all service compose files.
 3. Docker Compose launches with `--watch` — saving a file triggers an instant hot-reload inside the running container.
 4. All services start: Caddy proxy, Redis, Keycloak, every service's own database (MongoDB or Postgres, depending on the service), all backend microservices, and the Vue frontend.
@@ -37,7 +37,7 @@ just stack dev exclude="frontend"
 ```
 
 .box type:{note}
-    Exclusion matches by **folder name substring**. `"simulator"` will skip `aq-simulator` and `sensor-simulator`. Use a more specific substring to target a single service.
+    Exclusion matches by **folder name substring**. `"simulator"` will skip `aq-simulator` and `sensor-simulator`\. Use a more specific substring to target a single service.
 
 ### Accessing the Application (Docker mode)
 
@@ -58,7 +58,7 @@ just stack dev exclude="frontend"
       - Hosted login/registration UI, and its own admin console (generated admin credentials — see [Setting Up the Environment](setting-up.qd)). Not routed through Caddy.
     - - Langfuse
       - `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there)
-      - LLM trace UI for the agent. Login `admin@crowd-vision.local` / `langfuse-admin`.
+      - LLM trace UI for the agent. Login `admin@crowd-vision.local` / `langfuse-admin`\.
     - - Twin DB GUI
       - `http://localhost/twin-db-gui/`
       - Mongo Express for the twin database. Dev mode only.
@@ -115,7 +115,7 @@ just db clear-sensor
 
 ## Bootstrapping (First-Time Provisioning)
 
-Login and registration are Keycloak's hosted UI now — there is no seed script for an admin account. To bootstrap a fresh stack: register through the frontend's normal sign-in flow (redirects to Keycloak), then create your own domain through the Domains page (`POST /tenancy/domains`); the creator automatically becomes that domain's `business_admin`. The old `scripts/ops/provision.js` (which called auth-service's `/business/register`) has been removed along with `auth-service` — enterprise self-registration has no current equivalent, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+Login and registration are Keycloak's hosted UI now — there is no seed script for an admin account. To bootstrap a fresh stack: register through the frontend's normal sign-in flow (redirects to Keycloak), then create your own domain through the Domains page (`POST /tenancy/domains`); the creator automatically becomes that domain's `business_admin`\. The old `scripts/ops/provision.js` (which called auth-service's `/business/register`) has been removed along with `auth-service` — enterprise self-registration has no current equivalent, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 ---
 
@@ -162,7 +162,7 @@ just k8s rollout twin-service
 ```
 
 .box {Six of the twelve images build from the repo root, not their own directory} type:{note}
-    `twin-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` all build with `-f backend/<service>/Dockerfile .` from the **repository root**, not `./backend/<service>`. Reason differs by language but is the same shape both times: `twin-service`/`agent-service` read the shared Cedar authorization policy bundle at `backend/auth-policy` and the role-weight ladder at `backend/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat-service`, `contracts-service`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
+    `twin-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` all build with `-f backend/<service>/Dockerfile .` from the **repository root**, not `\./backend/<service>`\. Reason differs by language but is the same shape both times: `twin-service`/`agent-service` read the shared Cedar authorization policy bundle at `backend/auth-policy` and the role-weight ladder at `backend/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat-service`, `contracts-service`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
 
 ### Managing Cluster Lifecycle
 
@@ -234,7 +234,7 @@ just test integration
     `just test all` and `just lint all` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test affected` / `just lint affected` on a feature branch to only process the services your changes actually touch. There is no `just test <service>` recipe for `contracts-service` or the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`) — they're still covered by `just test all` / `just test affected` (both run `moon run :test`, which includes every registered project regardless of language), just not individually by name.
 
 .box {The agent's golden-dataset evaluation} type:{note}
-    `just test eval [models="..."] [judge="..."]` runs the agent's golden-dataset evaluation against your local stack, auto-minting the JWTs it needs. This isn't a pass/fail test — it scores model responses (optionally with an LLM judge) and is meant to be run manually when tuning prompts or comparing models, not as part of the regular test loop. See `backend/agent-service/evals/run_evals.py`.
+    `just test eval [models="..."] [judge="..."]` runs the agent's golden-dataset evaluation against your local stack, auto-minting the JWTs it needs. This isn't a pass/fail test — it scores model responses (optionally with an LLM judge) and is meant to be run manually when tuning prompts or comparing models, not as part of the regular test loop. See `backend/agent-service/evals/run_evals.py`\.
 
 ---
 
@@ -257,7 +257,7 @@ mise exec -- moon run :audit --affected
     `just setup deps-check` is the fastest way to catch a lockfile drift before pushing (the classic `npm ci can only install packages when your package.json and package-lock.json are in sync`). If it fails, regenerate the offending lockfile with `just setup clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). The Rust `cargo audit` leg is marked **allow-failure**: if `cargo-audit` isn't installed it is reported but does not fail the run (`cargo install cargo-audit` to enable it).
 
 .box {Go projects aren't part of the audit sweep yet} type:{note}
-    `.moon/tasks/go.yml` defines `build`, `test`, `lint` (`go vet`), and `deps` (`go mod download`) for the four Go control-plane services, but no `audit` task — so `just setup audit` silently skips them (moon only runs a task for projects that define it). There's no `govulncheck`-equivalent leg yet for `claims-gateway`, `tenancy-service`, `registry-service`, or `provisioner`.
+    `\.moon/tasks/go.yml` defines `build`, `test`, `lint` (`go vet`), and `deps` (`go mod download`) for the four Go control-plane services, but no `audit` task — so `just setup audit` silently skips them (moon only runs a task for projects that define it). There's no `govulncheck`-equivalent leg yet for `claims-gateway`, `tenancy-service`, `registry-service`, or `provisioner`\.
 
 ---
 
@@ -293,7 +293,7 @@ mise exec -- moon run :audit --affected
     - - `just test integration`
       - Run backend integration tests.
     - - `just agent ingest`
-      - Re-ingest all documentation into the agent's knowledge base — run after editing anything under `documentation/`.
+      - Re-ingest all documentation into the agent's knowledge base — run after editing anything under `documentation/`\.
     - - `just lint all`
       - Lint every service (moon-cached).
     - - `just lint affected`
@@ -311,7 +311,7 @@ mise exec -- moon run :audit --affected
     - - `just docs preview [dir=...]`
       - Quarkdown live-reloading server for one guide while editing.
     - - `just docs serve`
-      - Build both guides, then live-serve the whole `landing-page/` site at `:8080`.
+      - Build both guides, then live-serve the whole `landing-page/` site at `:8080`\.
 
 ---
 
@@ -322,7 +322,7 @@ mise exec -- moon run :audit --affected
 The Caddy proxy forwards to the service container but nothing is listening. Most common causes:
 
 **1. The `dev` script in `package.json` points to a non-existent file.**
-Every Node.js/TypeScript service must reference `src/index.ts` via `ts-node/esm`, not a compiled `.js` file. Check the service's `package.json`:
+Every Node.js/TypeScript service must reference `src/index.ts` via `ts-node/esm`, not a compiled `\.js` file. Check the service's `package.json`:
 
 ```bash
 # Correct pattern (all TypeScript services):
@@ -332,9 +332,9 @@ Every Node.js/TypeScript service must reference `src/index.ts` via `ts-node/esm`
 If it says `src/index.js` and that file does not exist, nodemon exits silently and the service never starts — manifesting as 502.
 
 **2. Environment variable is empty or wrong.**
-Open the service logs: `just stack logs <service-name>`. Look for connection errors to MongoDB or Redis at startup.
+Open the service logs: `just stack logs <service-name>`\. Look for connection errors to MongoDB or Redis at startup.
 
-**3. Missing `.env` variable.**
+**3. Missing `\.env` variable.**
 Run `just stack env` to fill any gaps. The script skips variables already present, so it is safe to re-run.
 
 ---
@@ -348,7 +348,7 @@ just stack dev exclude="simulator"         # skips aq-simulator and sensor-simul
 just stack dev exclude="simulator frontend"  # also skips the Vue frontend
 ```
 
-If exclusion suddenly stops working after editing the Justfile: verify that `dev` still takes only ONE parameter (`exclude=""`). Adding a second parameter before `exclude` in the recipe definition breaks named-argument resolution in `just`.
+If exclusion suddenly stops working after editing the Justfile: verify that `dev` still takes only ONE parameter (`exclude=""`). Adding a second parameter before `exclude` in the recipe definition breaks named-argument resolution in `just`\.
 
 ---
 

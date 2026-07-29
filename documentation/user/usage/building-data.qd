@@ -9,7 +9,7 @@ A building is created by uploading a single JSON file that describes its rooms a
 
 1. Open the **Digital Twin** view.
 2. In the left menu, click **Register Building**.
-3. Select your `.json` file.
+3. Select your `\.json` file.
 4. Review the name, thresholds, and per-room capacity, then save. The building appears in the 3D scene.
 
 Alternatively, from the **Administrator Panel**, select a domain and use **Upload Building Data (JSON)** to attach the building to that domain at the same time.
@@ -86,7 +86,7 @@ A building cannot be built room by room in the UI; the whole structure is one fi
     - - `name`
       - string
       - No
-      - Display name. Defaults to `id`.
+      - Display name. Defaults to `id`\.
     - - `capacity`
       - number
       - Yes
@@ -98,7 +98,7 @@ A building cannot be built room by room in the UI; the whole structure is one fi
     - - `dimensions`
       - object
       - Yes
-      - `{ width, height, depth }` — the room's size, same unit as `position`.
+      - `{ width, height, depth }` — the room's size, same unit as `position`\.
     - - `color`
       - string (hex)
       - No
@@ -112,7 +112,7 @@ Rooms are placed by their `position` (centre) and `dimensions` (size). The origi
 - **y** — floor level. Ground floor uses `y: 0`; upper floors use positive `y` spaced by floor height.
 - **z** — front/back.
 
-To place rooms side by side without overlap, offset `x` or `z` by at least `width / 2 + neighbour_width / 2`.
+To place rooms side by side without overlap, offset `x` or `z` by at least `width / 2 + neighbour_width / 2`\.
 
 .box {Thresholds are set after upload} type:{note}
     Temperature limits are **not** part of the JSON. Set them per room or per building after upload, through Edit Room / Edit Building (see [The Digital Twin](twin.qd)).

@@ -44,7 +44,7 @@ Go consumes this as a real module dependency (`go.mod`). Rust and Python don't �
 **File:** `schema.cedarschema`
 
 ```text
-// Cedar's `.contains()` can't do role-weight comparison natively, so the
+// Cedar's `\.contains()` can't do role-weight comparison natively, so the
 // weight math happens in each service BEFORE calling Cedar: every membership
 // is expanded into which role tiers it qualifies for in that domain, and
 // those flat per-tier domain sets are what the Account entity actually
@@ -109,7 +109,7 @@ Every language does its own version of this expansion against [Auth Contracts](a
 **File:** `policy.cedar`
 
 ```text
-// Set membership uses `.contains()`, not `in` — Cedar's `in` operator is
+// Set membership uses `\.contains()`, not `in` — Cedar's `in` operator is
 // entity-hierarchy membership (is this entity a descendant of that one), not
 // a general "is this value in this set" test.
 
@@ -185,7 +185,7 @@ func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeig
 
 ## 4. The golden conformance suite — identical outcomes, not identical code
 
-**Files:** `fixtures/conformance.json`, `conformance_test.go` (Go) — with equivalent runners in `twin-service/tests/cedar_conformance.rs` and `agent-service/tests/unit/test_cedar_conformance.py`.
+**Files:** `fixtures/conformance.json`, `conformance_test.go` (Go) — with equivalent runners in `twin-service/tests/cedar_conformance.rs` and `agent-service/tests/unit/test_cedar_conformance.py`\.
 
 ```json
 {

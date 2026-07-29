@@ -69,10 +69,10 @@ data:
 
 There is no `GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` here — that was true when each service verified gateway JWTs itself, but [Service Mesh Architecture](service-mesh.qd)'s Phase 2 moved JWT verification to Istio's edge `RequestAuthentication`; migrated services now just decode the `x-gateway-claims` header Istio injects, and no longer fetch JWKS themselves.
 
-**Secrets** — store sensitive values (database URIs, signing secrets, API keys). Nothing under `k8s/secrets/` is ever materialised as a file, gitignored or otherwise — `just k8s secrets` runs `scripts/k8s/k8s-secrets.mjs`, which reads your local `.env` and pipes `kubectl create secret ... --dry-run=client -o yaml` straight into `kubectl apply`. Secret values never touch the git repository or disk on the cluster side. The script creates one secret per service (plus per-Postgres-StatefulSet init secrets and `ghcr-pull-secret` for image pulls) and is idempotent — safe to re-run after rotating a key. One secret, `claims-gateway-key`, is file-based rather than env-based (a PEM signing key mounted as a volume) — see [Kubernetes Configuration](../config/kubernetes.qd) for the full secrets walkthrough.
+**Secrets** — store sensitive values (database URIs, signing secrets, API keys). Nothing under `k8s/secrets/` is ever materialised as a file, gitignored or otherwise — `just k8s secrets` runs `scripts/k8s/k8s-secrets.mjs`, which reads your local `\.env` and pipes `kubectl create secret ... --dry-run=client -o yaml` straight into `kubectl apply`\. Secret values never touch the git repository or disk on the cluster side. The script creates one secret per service (plus per-Postgres-StatefulSet init secrets and `ghcr-pull-secret` for image pulls) and is idempotent — safe to re-run after rotating a key. One secret, `claims-gateway-key`, is file-based rather than env-based (a PEM signing key mounted as a volume) — see [Kubernetes Configuration](../config/kubernetes.qd) for the full secrets walkthrough.
 
 .box type:{warning}
-    `stringData` is not encryption — it is base64 encoding. Real security comes from RBAC controlling who can `kubectl get secret`. For production, consider integrating an external secrets manager (HashiCorp Vault, AWS Secrets Manager) that injects values at runtime.
+    `stringData` is not encryption — it is base64 encoding. Real security comes from RBAC controlling who can `kubectl get secret`\. For production, consider integrating an external secrets manager (HashiCorp Vault, AWS Secrets Manager) that injects values at runtime.
 
 ---
 
@@ -101,9 +101,9 @@ CrowdVision uses two different Kubernetes workload types depending on whether th
 
 Kubernetes ingress is Istio's Gateway API. `k8s/istio-gateway.yml` defines one `Gateway` (class `istio`, which auto-provisions its own Envoy Deployment/Service named `crowdvision-gateway-istio`) plus one `HTTPRoute` per service, fronting the Istio ambient mesh. It's the single k8s ingress for every environment — local k3d and production alike. There is no nginx `Ingress`: it had no edge authentication, so once the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header outright (see [Service Mesh Architecture](service-mesh.qd)).
 
-**Per-service routes.** Each API route gets a `URLRewrite`/`ReplacePrefixMatch` filter that strips the service prefix before forwarding — so `/twin/buildings` reaches `twin-service` as `/buildings`. `socket-service`'s route and the client's `/` catch-all forward the path unrewritten; `/grafana` is forwarded intact to Grafana, which owns that subpath. Gateway API matches by path specificity, so the client catch-all is evaluated last regardless of file order. The routes cover every service including `claims-gateway` (`/gateway`) and `tenancy-service` (`/tenancy`).
+**Per-service routes.** Each API route gets a `URLRewrite`/`ReplacePrefixMatch` filter that strips the service prefix before forwarding — so `/twin/buildings` reaches `twin-service` as `/buildings`\. `socket-service`'s route and the client's `/` catch-all forward the path unrewritten; `/grafana` is forwarded intact to Grafana, which owns that subpath. Gateway API matches by path specificity, so the client catch-all is evaluated last regardless of file order. The routes cover every service including `claims-gateway` (`/gateway`) and `tenancy-service` (`/tenancy`).
 
-**Edge security.** The Gateway runs with Istio ambient enrollment underneath it — `ztunnel` L4 mTLS, `PeerAuthentication: STRICT`, and edge `RequestAuthentication` verifying the gateway JWT once and injecting the validated claims as `x-gateway-claims`. An `AuthorizationPolicy` requires a verified JWT principal on the protected service paths (`/twin`, `/sensor`, `/notification`, `/chat`, `/socket.io`, `/tenancy`, `/contracts`); `/gateway`, `/agent`, `/sensor/ingest`, `/grafana`, and the client SPA are deliberately open. `docker-compose` + Caddy's `forward_auth` mirrors this exactly for the dev loop. See [Service Mesh Architecture](service-mesh.qd) for the full migration and [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh) for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).
+**Edge security.** The Gateway runs with Istio ambient enrollment underneath it — `ztunnel` L4 mTLS, `PeerAuthentication: STRICT`, and edge `RequestAuthentication` verifying the gateway JWT once and injecting the validated claims as `x-gateway-claims`\. An `AuthorizationPolicy` requires a verified JWT principal on the protected service paths (`/twin`, `/sensor`, `/notification`, `/chat`, `/socket.io`, `/tenancy`, `/contracts`); `/gateway`, `/agent`, `/sensor/ingest`, `/grafana`, and the client SPA are deliberately open. `docker-compose` + Caddy's `forward_auth` mirrors this exactly for the dev loop. See [Service Mesh Architecture](service-mesh.qd) for the full migration and [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh) for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).
 
 ---
 
@@ -121,19 +121,19 @@ initContainers:
       - until nc -z twin-db 27017; do echo "waiting..."; sleep 2; done
 ```
 
-The `initContainer` runs before the main container. It polls `twin-db:27017` every 2 seconds using `netcat`. Only when the TCP connection succeeds does Kubernetes start the main `twin-service` container. The pod shows `Init:0/1` (or `Init:N/M` with multiple init containers) in `kubectl get pods` during this wait.
+The `initContainer` runs before the main container. It polls `twin-db:27017` every 2 seconds using `netcat`\. Only when the TCP connection succeeds does Kubernetes start the main `twin-service` container. The pod shows `Init:0/1` (or `Init:N/M` with multiple init containers) in `kubectl get pods` during this wait.
 
 The same pattern gates on other **services**, not just databases, wherever there's a real startup-order dependency:
 
 - `tenancy-service` has two init containers in sequence — `wait-for-db` (`tenancy-db:5432`) and `wait-for-redis` (`redis:6379`).
 - `provisioner` waits on `registry-service:3000` and `tenancy-service:3000` directly, since it calls both over HTTP at signup time and has no database of its own.
-- `claims-gateway` waits on `tenancy-service:3000`.
+- `claims-gateway` waits on `tenancy-service:3000`\.
 
 ---
 
 ## 🔄 Rolling Updates & Rollbacks
 
-Every application container in `k8s/deployments/*.yml` sets `imagePullPolicy: IfNotPresent`, in every environment — not just local k3d. This wasn't the original design (`Always` is the more natural default for a `:latest`-tagged VPS deployment), but the `ghcr.io/nickghignatti/*` pull token doesn't currently have pull access in the environments this has been tested against, and `Always` would fail every deployment outright with a 403 rather than degrade gracefully. Init containers (`busybox`) and the StatefulSet database images (`postgres`, `mongo`) are unaffected and still use `Always`. If you rely on GHCR-published images instead of `just k8s load`, override `imagePullPolicy` per-deployment rather than reverting it globally.
+Every application container in `k8s/deployments/*.yml` sets `imagePullPolicy: IfNotPresent`, in every environment — not just local k3d. This wasn't the original design (`Always` is the more natural default for a `:latest`-tagged VPS deployment), but the `ghcr.io/nickghignatti/*` pull token doesn't currently have pull access in the environments this has been tested against, and `Always` would fail every deployment outright with a 403 rather than degrade gracefully. Init containers (`busybox`) and the StatefulSet database images (`postgres`, `mongo`) are unaffected and still use `Always`\. If you rely on GHCR-published images instead of `just k8s load`, override `imagePullPolicy` per-deployment rather than reverting it globally.
 
 When you run `kubectl rollout restart deployment/twin-service`, Kubernetes creates a new pod, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down. All application containers also carry `securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }` plus explicit `resources.requests`/`limits`, with an `emptyDir` volume mounted at `/tmp` for the services that write there despite the read-only root filesystem.
 

@@ -63,14 +63,14 @@ include:
 A single-path entry becomes one sub-project; a multi-path entry merges a service's base file with its dev override into one sub-project (two separate include entries cannot define the same service — that raises a conflict).
 
 .box {Do not commit the runtime file} type:{warning}
-    `compose.runtime.yml` is regenerated on every `just stack dev` / `start` / `down` / `build`. It is a build artifact, not source — treat it as disposable and never edit it by hand.
+    `compose.runtime.yml` is regenerated on every `just stack dev` / `start` / `down` / `build`\. It is a build artifact, not source — treat it as disposable and never edit it by hand.
 
 ### How the include list is built
 
-1. Always include the root `docker-compose.yml`.
+1. Always include the root `docker-compose.yml`\.
 2. Walk `backend/` (skipping `tests/`) and `simulators/`, adding each folder's `docker-compose.yml` and — in development modes — its `docker-compose.dev.yml` if present.
 3. Add `frontend` unless excluded.
-4. For the integration mode, also include `backend/tests/docker-compose.integration.yml`.
+4. For the integration mode, also include `backend/tests/docker-compose.integration.yml`\.
 
 ### Excluding services
 
@@ -109,7 +109,7 @@ The first argument to the orchestrator selects the `docker compose` invocation. 
       - `down --remove-orphans` — stop and remove everything.
     - - `just test integration`
       - `integration`
-      - `up --build --exit-code-from integration-tests --abort-on-container-exit`.
+      - `up --build --exit-code-from integration-tests --abort-on-container-exit`\.
     - - (CI) `compose-run.mjs build`
       - `build`
       - `build` only — used by the `ci-docker` workflow to validate the whole stack builds.
@@ -123,7 +123,7 @@ The orchestrator runs `docker compose` with `COMPOSE_BAKE=true`, which delegates
 
 ## Environment and the dev loop
 
-Every stack-starting recipe (`dev`, `dev-build`, `start`) depends on the `env` recipe, which regenerates `.env` (VAPID keys, the local-dev-only eval JWT secret, Langfuse secrets) before Compose runs — see [Setting Up Your Environment](setting-up.qd).
+Every stack-starting recipe (`dev`, `dev-build`, `start`) depends on the `env` recipe, which regenerates `\.env` (VAPID keys, the local-dev-only eval JWT secret, Langfuse secrets) before Compose runs — see [Setting Up Your Environment](setting-up.qd).
 
 Typical local loop:
 
