@@ -4,16 +4,66 @@
     ".": {
       "release-type": "simple",
       "changelog-path": "CHANGELOG.md"
+    },
+    "client": {
+      "release-type": "node",
+      "component": "client"
+    },
+    "server/chat-service": {
+      "release-type": "node",
+      "component": "chat-service"
+    },
+    "server/notification-service": {
+      "release-type": "node",
+      "component": "notification-service"
+    },
+    "server/sensor-service": {
+      "release-type": "node",
+      "component": "sensor-service"
+    },
+    "server/socket-service": {
+      "release-type": "node",
+      "component": "socket-service"
+    },
+    "server/agent-service": {
+      "release-type": "python",
+      "component": "agent-service"
+    },
+    "server/claims-gateway": {
+      "release-type": "go",
+      "component": "claims-gateway"
+    },
+    "server/provisioner": {
+      "release-type": "go",
+      "component": "provisioner"
+    },
+    "server/registry-service": {
+      "release-type": "go",
+      "component": "registry-service"
+    },
+    "server/tenancy-service": {
+      "release-type": "go",
+      "component": "tenancy-service"
+    },
+    "server/auth-contracts": {
+      "release-type": "go",
+      "component": "auth-contracts"
+    },
+    "server/auth-middleware": {
+      "release-type": "go",
+      "component": "auth-middleware"
+    },
+    "server/auth-policy": {
+      "release-type": "go",
+      "component": "auth-policy"
+    },
+    "server/twin-service": {
+      "release-type": "rust",
+      "component": "twin-service"
+    },
+    "server/contracts-service": {
+      "release-type": "rust",
+      "component": "contracts-service"
     }
-  },
-  "extra-files": [
-    { "type": "json", "path": "client/package.json", "jsonpath": "$.version" },
-    { "type": "json", "path": "client/package-lock.json", "jsonpath": "$.version" },
-    { "type": "json", "path": "client/package-lock.json", "jsonpath": "$.packages[''].version" },
-    { "type": "json", "path": "server/*/package.json", "jsonpath": "$.version", "glob": true },
-    { "type": "json", "path": "server/*/package-lock.json", "jsonpath": "$.version", "glob": true },
-    { "type": "json", "path": "server/*/package-lock.json", "jsonpath": "$.packages[''].version", "glob": true },
-    { "type": "toml", "path": "server/*/Cargo.toml", "jsonpath": "$.package.version", "glob": true },
-    { "type": "toml", "path": "server/*/pyproject.toml", "jsonpath": "$.project.version", "glob": true }
-  ]
+  }
 }
