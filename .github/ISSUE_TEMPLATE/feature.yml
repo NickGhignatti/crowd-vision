@@ -1,0 +1,33 @@
+name: Feature / Idea
+description: Propose a new feature, enhancement, or architectural change
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is this feature? What problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: goals
+    attributes:
+      label: Goals
+      description: What should be true once this is done? Bullet the concrete outcomes.
+    validations:
+      required: true
+  - type: textarea
+    id: considerations
+    attributes:
+      label: Considerations
+      description: Constraints, tradeoffs, affected services, golden rules to watch (database-per-service, statelessness, Cedar authz, etc.)
+    validations:
+      required: false
+  - type: textarea
+    id: suggestions
+    attributes:
+      label: Suggestions
+      description: Possible approach, or open questions if unsure
+    validations:
+      required: false
