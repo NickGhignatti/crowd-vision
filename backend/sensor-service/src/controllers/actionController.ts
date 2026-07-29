@@ -28,6 +28,12 @@ async function loadActions(): Promise<ActionsConfig> {
   return JSON.parse(raw) as ActionsConfig;
 }
 
+/** Strips CR/LF from user-controlled values before they reach a log line, so a
+ * malicious actionName/sensorId can't forge fake log entries (CWE-117). */
+function sanitizeForLog(value: string): string {
+  return value.replace(/[\r\n]/g, "");
+}
+
 /** Maps positional args to field names: `{"0":"value"}` + `["21"]` -> `{ value: "21" }`. */
 function mapArguments(
   mapping: Record<string, string> | undefined,
@@ -45,7 +51,9 @@ export function createActionHandler(_kernel: SensorKernel) {
     const { actionData } = req.body ?? {};
 
     if (!actionData || typeof actionData !== "object") {
-      res.status(400).json({ error: "Missing or invalid field: `actionData`." });
+      res
+        .status(400)
+        .json({ error: "Missing or invalid field: `actionData`." });
       return;
     }
 
@@ -108,7 +116,7 @@ export function createActionHandler(_kernel: SensorKernel) {
 
       if (!response.ok) {
         console.error(
-          `[actionController] ${endpoint.url} responded ${response.status} ${response.statusText} for action='${actionName}' sensor='${sensorId}'.`,
+          `[actionController] ${endpoint.url} responded ${response.status} ${response.statusText} for action='${sanitizeForLog(actionName)}' sensor='${sanitizeForLog(sensorId)}'.`,
         );
         res
           .status(502)
@@ -119,8 +127,8 @@ export function createActionHandler(_kernel: SensorKernel) {
       console.error(
         "[actionController] Request to %s failed for action='%s' sensor='%s':",
         endpoint.url,
-        actionName,
-        sensorId,
+        sanitizeForLog(actionName),
+        sanitizeForLog(sensorId),
         err,
       );
       res.status(502).json({ error: "Downstream endpoint is unreachable." });
