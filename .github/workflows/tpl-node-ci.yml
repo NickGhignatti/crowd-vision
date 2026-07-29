@@ -21,6 +21,7 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           working_directory: ${{ inputs.working_directory }}
+          needs_shared_eslint: 'true'
 
       - name: Lint
         run: npm run lint
