@@ -952,28 +952,6 @@ details > summary + p,
   color: var(--box-header-foreground-color);
 }
 
-.quarkdown .size-tiny {
-  font-size: 0.5em;
-}
-.quarkdown .size-small {
-  font-size: 0.75em;
-}
-.quarkdown .size-normal {
-  font-size: 1em;
-}
-.quarkdown .size-medium {
-  font-size: 1.25em;
-}
-.quarkdown .size-large {
-  font-size: 1.5em;
-}
-.quarkdown .size-larger {
-  font-size: 2em;
-}
-.quarkdown .size-huge {
-  font-size: 3em;
-}
-
 .quarkdown details summary, .quarkdown .collapsible-text[data-collapsed=true] {
   cursor: pointer;
 }
@@ -996,22 +974,23 @@ details > summary + p,
 .quarkdown .container:not(.fullwidth):not(.clip > .container) :only-child {
   margin: 0;
 }
-.quarkdown .container[style*=margin] > :not([style*=margin]) {
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
-.quarkdown .container[style*=margin] > :not([style*=margin]):first-child {
-  margin-top: 0 !important;
-}
-.quarkdown .container[style*=margin] > :not([style*=margin]):last-child {
-  margin-bottom: 0 !important;
-}
-.quarkdown .container[style*=color] > :not([style*=color]) {
-  color: inherit !important;
-}
 .quarkdown .container > .stack {
   width: 100%;
   height: 100%;
+}
+
+.quarkdown :is([style^="margin:"], [style*="; margin:"]) > :not(:is([style^="margin:"], [style*="; margin:"])) {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+.quarkdown :is([style^="margin:"], [style*="; margin:"]) > :not(:is([style^="margin:"], [style*="; margin:"])):first-child {
+  margin-top: 0 !important;
+}
+.quarkdown :is([style^="margin:"], [style*="; margin:"]) > :not(:is([style^="margin:"], [style*="; margin:"])):last-child {
+  margin-bottom: 0 !important;
+}
+.quarkdown :is([style^="color:"], [style*="; color:"]) > :not(:is([style^="color:"], [style*="; color:"])) {
+  color: inherit !important;
 }
 
 .quarkdown .stack > :is(p, h1, h2, h3, h4, h5, h6, figure) {
@@ -1688,6 +1667,13 @@ body.quarkdown-paged:not(:has(.pagedjs_page)) {
   --qd-main-custom-font: unset;
   --qd-heading-custom-font: unset;
   --qd-code-custom-font: unset;
+  --qd-size-tiny: 0.5em;
+  --qd-size-small: 0.75em;
+  --qd-size-normal: 1em;
+  --qd-size-medium: 1.25em;
+  --qd-size-large: 1.5em;
+  --qd-size-larger: 2em;
+  --qd-size-huge: 3em;
   --qd-block-margin: 2em;
   --qd-paragraph-vertical-margin: var(--qd-block-margin);
   --qd-heading-margin: 40px 0 20px 0;
