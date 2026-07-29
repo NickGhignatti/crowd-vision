@@ -1,0 +1,173 @@
+.docname {Acceptance Criteria}
+.include {docs}
+
+[User Stories](user-stories.qd) carry one-line acceptance criteria — enough to agree on what "done" means, not enough to execute. This page takes the two most load-bearing stories and expresses their criteria in **Gherkin**, the format the criteria are meant to reach eventually: a `.feature` file that is simultaneously the specification, the conversation record, and the test suite once each step is bound to code.
+
+Everything numeric here is the target owned by the matching [Quality Attribute Scenario](quality-attributes.qd) — the Gherkin restates it as an assertion, it does not invent it.
+
+---
+
+## Why these two stories
+
+**BT-1 — provision a digital twin from a building description** is the chosen story. It is the point where CrowdVision stops being a dashboard and becomes a digital twin: it is the entry condition for every other feature (no twin, no rooms, no sensors, no dashboard, no alerts), it is the only place a user hands the platform a structure it must interpret rather than a value it must store, and it is owned end-to-end by the service with the densest business logic — `twin-service`. Its acceptance criteria also span all three shapes worth testing: a functional outcome, a rejection path, and a latency budget.
+
+**LD-4 — live values appear without refreshing** is included as a second feature because it is the only story whose criteria cannot be satisfied inside a single service. A reading has to cross `sensor-service` → broker → `socket-service` → browser to satisfy it, which makes the same file the natural home of the end-to-end test and the observable proof that the ingestion path is event-driven.
+
+---
+
+## Feature: digital twin provisioning (BT-1)
+
+```gherkin
+@twin @building @must @bt-1
+Feature: Provision a digital twin from a building description
+  As a Domain Administrator
+  I want to upload a description of my building and have a digital twin built from it
+  So that the twin mirrors the real structure without developer intervention
+
+  Background:
+    Given I am signed in as a Domain Administrator of organization "acme"
+    And organization "acme" has no building named "Main Campus"
+
+  @happy-path
+  Scenario: A valid description is accepted immediately and becomes a viewable twin
+    When I upload a valid description of "Main Campus" with 3 floors and 42 rooms
+    Then the upload is acknowledged with a tracking handle
+    And the tracking handle reports the upload as accepted
+    And the twin "Main Campus" eventually exists in organization "acme"
+    And it appears in the building list of organization "acme"
+    And each of its 42 rooms carries the position and dimensions declared in the description
+    And the twin can be edited without a further provisioning step
+
+  @validation
+  Scenario: A malformed description is refused before it is ever accepted
+    When I upload a description of "Main Campus" whose room list is malformed
+    Then the upload is refused without a tracking handle
+    And I receive an error naming the part of the description that failed validation
+    And no twin is created
+    But the building list of organization "acme" is unchanged
+
+  @validation
+  Scenario: A room outside its floor's footprint is rejected as a whole
+    When I upload a description of "Main Campus" where room "Lab 7" lies outside the floor outline
+    Then the upload is refused without a tracking handle
+    And the error names room "Lab 7"
+    And no partial twin holding the other rooms is left behind
+
+  @idempotency @qa-8
+  Scenario: A redelivered upload reconciles onto the same twin
+    Given a valid description of "Main Campus" has been accepted with idempotency key "k-1"
+    When the same description is delivered again with idempotency key "k-1"
+    Then organization "acme" holds exactly one building named "Main Campus"
+    And no second twin is created
+
+  @performance @qa-7
+  Scenario Outline: Acceptance is interactive and completion is prompt
+    When 20 Domain Administrators each upload a valid description of a <rooms>-room building
+    Then the 99th percentile of the request-to-acknowledgement time is at most 1 second
+    And every twin eventually becomes available for viewing and editing
+    And the 99th percentile of the acknowledgement-to-available time is at most 10 seconds
+
+    Examples: Building sizes inside the stated envelope
+      | rooms |
+      | 20    |
+      | 200   |
+
+  @peak-load @qa-8
+  Scenario: Under a burst, no accepted upload is ever lost
+    Given the provisioning path is receiving uploads at 10 times its nominal rate
+    When 500 valid building descriptions are uploaded over 5 minutes
+    Then every acknowledged upload eventually produces a complete twin
+    And exactly one building exists per acknowledged upload
+    And no partial twin is persisted
+    And 99.9% of acknowledged uploads become viewable within 30 seconds
+    And any upload refused for lack of durable capacity is answered with "429 Too Many Requests" carrying a "Retry-After" header
+    But no upload is answered with a timeout or a 5xx
+
+  @peak-load @qa-8
+  Scenario: A worker dying mid-provision loses nothing
+    Given 200 uploads have been acknowledged and are still being provisioned
+    When a provisioning worker is killed before it acknowledges the upload it holds
+    Then that upload is redelivered to another worker
+    And it eventually produces exactly one complete twin
+    And the dead-letter queue stays empty
+
+  @peak-load @qa-8
+  Scenario: The provisioning path drains and recovers after the burst
+    Given a 5-minute upload burst at 10 times the nominal rate has just ended
+    When uploads resume at the nominal rate
+    Then the backlog drains to zero within 60 seconds
+    And the 99th percentile of the acknowledgement-to-available time is back to at most 10 seconds
+
+  @tenancy @must
+  Scenario: A twin is visible only to the organizations it is scoped to
+    Given a twin "Main Campus" scoped to organization "acme"
+    And I am signed in as a Standard User of organization "globex" only
+    When I request the building list
+    Then "Main Campus" is not listed
+    And requesting "Main Campus" directly is refused
+```
+
+The `@performance` and `@peak-load` scenarios are deliberately written over a population of uploads, not a single one: a p95 asserted against one request is not a p95, and a step that measures one upload and compares it to 10 seconds would pass on a system that misses the budget one time in three. The step binding runs the uploads concurrently and asserts on the resulting distribution.
+
+The `@peak-load` scenarios encode the choice described under [QA-8](quality-attributes.qd) — under overload the system protects *accepted work* rather than latency, so the burst scenario asserts that every acknowledgement is honoured and only says something weaker (99.9% within 30s) about *when*. The worker-death scenario is the one that actually proves the invariant rather than the target: a specification that only measures the happy path cannot distinguish a system that never loses an upload from one that has simply not crashed yet.
+
+The two boundaries in LD-4's `@performance` scenario are not redundant. The 1s assertion is the one that becomes a production SLO, since every hop it covers is inside the platform; the 5s assertion includes the client's network and render, which production must not promise but a test harness — owning its own client — can legitimately measure. Asserting only the inner boundary would let the suite pass on a system whose users see stale data.
+
+---
+
+## Feature: live dashboard freshness (LD-4)
+
+```gherkin
+@dashboard @realtime @must @ld-4
+Feature: Live values appear without refreshing
+  As a Standard User
+  I want live values to appear without refreshing
+  So that the dashboard always shows now
+
+  Background:
+    Given a twin "Main Campus" exists in organization "acme"
+    And room "Lab 1" has a temperature sensor attached
+    And I am viewing the live dashboard of "Main Campus" as a member of organization "acme"
+
+  @happy-path
+  Scenario: An ingested reading reaches an open dashboard
+    When a temperature reading of 27.4 is ingested for room "Lab 1"
+    Then the temperature shown for "Lab 1" becomes 27.4
+    And no manual refresh was required
+
+  @performance @qa-1
+  Scenario: Readings are never later than the freshness budget
+    When 500 readings are ingested for the rooms of "Main Campus" over 60 seconds
+    Then every one of them is rendered on the open dashboard
+    And the 99th percentile of the time from ingestion-accepted to the update leaving socket-service is at most 1 second
+    And the 99th percentile of the time from ingestion-accepted to the value being rendered is at most 5 seconds
+
+  @resilience @nfr-7
+  Scenario: Updates missed during an outage are reconciled, not lost
+    Given the live update connection to the dashboard is lost
+    When a temperature reading of 31.0 is ingested for room "Lab 1" during the outage
+    And the connection is restored
+    Then the temperature shown for "Lab 1" becomes 31.0
+    But the dashboard never presented the pre-outage value as current while disconnected
+
+  @tenancy @must
+  Scenario: A reading is only delivered to the organizations the building is scoped to
+    Given a second user signed in as a member of organization "globex" only
+    When a temperature reading of 27.4 is ingested for room "Lab 1"
+    Then that user receives no update for "Lab 1"
+```
+
+---
+
+## How these features become tests
+
+The step definitions are not written yet. When they are, each feature is bound in the runtime that already owns the behaviour under test, so that no scenario needs a language or a runner the repository does not already carry:
+
+| Feature | Runner | Scope of the binding |
+|---|---|---|
+| BT-1, all but `@peak-load` | `cucumber-rs`, in `twin-service` | Service-level: drives the HTTP API against a real MongoDB and a real queue, with the provisioning worker in-process |
+| BT-1 `@peak-load` | `cucumber-rs`, integration suite | Needs a worker it can kill and a queue it can inspect, so it runs against a composed stack rather than in-process |
+| LD-4, all but the 5s boundary | `@cucumber/cucumber`, integration suite | Ingests through `sensor-service`, asserts on a `socket-service` subscription standing in for the browser |
+| LD-4, the 5s boundary | `@cucumber/cucumber` + headless browser | The only assertion that needs a real render; everything else stops at the transport |
+
+Splitting on those lines keeps the expensive dependencies confined to the scenarios that genuinely need them: the bulk of BT-1 stays fast enough to run on every change to `twin-service`, while the scenarios that exist specifically to prove behaviour under failure — a killed worker, a drained backlog — accept a composed stack as the price of testing the thing they claim to test. The one browser-backed assertion is isolated for the same reason, so a `@qa-1` regression in the transport does not have to wait on a render to be caught.
