@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Ingest documentation into the agent-service knowledge base: mints a short-lived
- * HS256 token (see server/agent-service/CLAUDE.md) and POSTs each file to {AGENT_URL}/agent/ingest.
+ * HS256 token (see backend/agent-service/CLAUDE.md) and POSTs each file to {AGENT_URL}/agent/ingest.
  */
 const fs = require("node:fs");
 const path = require("node:path");

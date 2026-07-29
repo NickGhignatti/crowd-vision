@@ -1,0 +1,20 @@
+services:
+  sensor-service:
+    cpus: "2"
+    build:
+      context: .
+    environment:
+      - MONGO_URI=mongodb://sensor-db:27017/sensordb
+      - FRONTEND_URL=${DEV_URL}:${FRONTEND_PORT}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - sensor-db
+
+  sensor-db:
+    cpus: "2"
+    image: mongo:latest
+    volumes:
+      - sensor-data:/data/db
+
+volumes:
+  sensor-data:

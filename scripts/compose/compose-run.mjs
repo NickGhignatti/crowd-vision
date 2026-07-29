@@ -68,14 +68,14 @@ const iterate = (parent, { skip = [] } = {}) => {
 };
 
 addInclude("docker-compose.yml");
-iterate("server", { skip: ["tests"] });
+iterate("backend", { skip: ["tests"] });
 iterate("simulators");
 
-if (!isExcluded("client")) {
-  addService("client", isDev);
+if (!isExcluded("frontend")) {
+  addService("frontend", isDev);
 }
 if (isIntegration) {
-  addInclude("server/tests/docker-compose.integration.yml");
+  addInclude("backend/tests/docker-compose.integration.yml");
 }
 
 // ── Write the runtime compose file ───────────────────────────────────────────

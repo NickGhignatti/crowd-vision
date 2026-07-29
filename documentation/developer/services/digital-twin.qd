@@ -27,7 +27,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/infra/claims.rs`
       - `GatewayClaims`, an Axum extractor that decodes the `x-gateway-claims` header — the mesh-injected identity every protected handler requires as an argument (extraction itself 401s on a missing/invalid header, so there's no separate auth middleware layer).
     - - `src/infra/authz.rs`
-      - Cedar authorization (`is_member_of`, `can_edit_domains`, `scope_to_memberships`) against the shared `server/auth-policy` bundle.
+      - Cedar authorization (`is_member_of`, `can_edit_domains`, `scope_to_memberships`) against the shared `backend/auth-policy` bundle.
     - - `src/infra/outbound.rs`
       - Fire-and-forget/best-effort sync calls to sensor-service and contracts-service.
     - - `src/infra/metrics.rs`
@@ -37,7 +37,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `tests/http.rs`
       - Full HTTP-level suite (`tower::ServiceExt::oneshot` against the real `Router`) covering every route.
     - - `tests/cedar_conformance.rs`
-      - Runs `server/auth-policy/fixtures/conformance.json`'s 22 golden cases through the real `cedar-policy` engine.
+      - Runs `backend/auth-policy/fixtures/conformance.json`'s 22 golden cases through the real `cedar-policy` engine.
 
 .mermaid
     graph TD
@@ -50,7 +50,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
         API --> MODELS["models.rs\nBuilding/Room, AppError"]
         LIB --> METRICS["infra/metrics.rs\nPrometheus layer"]
         LIB --> RATE["infra/ratelimit.rs\nper-IP limiter"]
-        AUTHZ -.->|"include_str!, compile time"| POLICY["server/auth-policy\npolicy.cedar + schema"]
+        AUTHZ -.->|"include_str!, compile time"| POLICY["backend/auth-policy\npolicy.cedar + schema"]
 
 ---
 
@@ -199,6 +199,6 @@ A building's structure is mirrored to two services. The two paths have **differe
 
 ## Cedar Authorization
 
-`src/infra/authz.rs` embeds the shared `server/auth-policy` bundle via `include_str!` — resolved at **compile time**, the same way Go's `//go:embed` does. Only Python's binding reads `schema.cedarschema`/`policy.cedar` from disk, at process start, since it has no equivalent embed mechanism. Compile-time embedding here means the production Docker image doesn't need `server/auth-policy` present at all; only the builder stage does, since the bytes are already baked into the compiled binary by the time `cargo build` finishes. See [Auth Policy](../packages/auth-policy.qd) for the full Cedar model (pre-expanded role-tier sets, `.contains()` vs `in`, the golden conformance suite).
+`src/infra/authz.rs` embeds the shared `backend/auth-policy` bundle via `include_str!` — resolved at **compile time**, the same way Go's `//go:embed` does. Only Python's binding reads `schema.cedarschema`/`policy.cedar` from disk, at process start, since it has no equivalent embed mechanism. Compile-time embedding here means the production Docker image doesn't need `backend/auth-policy` present at all; only the builder stage does, since the bytes are already baked into the compiled binary by the time `cargo build` finishes. See [Auth Policy](../packages/auth-policy.qd) for the full Cedar model (pre-expanded role-tier sets, `.contains()` vs `in`, the golden conformance suite).
 
 twin-service uses two of Cedar's five shared actions: `Read` (`is_member_of`/`scope_to_memberships`) and `Edit` (`can_edit_domains`, tried against every one of a building's domains — permits if any qualifies). A third function, `authorize_any`, exists purely so the golden conformance suite can exercise all five actions through this binding too, matching the precedent set by agent-service's `can_override_model`.

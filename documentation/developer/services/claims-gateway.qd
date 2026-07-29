@@ -32,7 +32,7 @@ Implementation reference for `claims-gateway`. For its architectural role, see [
       - The only code in the platform that speaks Keycloak's admin API: password grant, user creation, user lookup/update, admin-token caching.
     - - `internal/oidcverifier/verifier.go`
       - Verifies a Keycloak-issued ID token; handles OIDC discovery separately from the `jwks_uri` fetch (see the gotcha box below).
-    - - `internal/tenancyclient/client.go`
+    - - `internal/tenancyfrontend/client.go`
       - HMAC-signed calls to `tenancy-service`'s `/internal/*` routes: membership lookup and first-login provisioning.
 
 .mermaid
@@ -293,7 +293,7 @@ func (g *Gateway) ChangePassword(ctx context.Context, userID, currentPassword, n
 
 ## Calling tenancy-service
 
-**File:** `internal/tenancyclient/client.go`
+**File:** `internal/tenancyfrontend/client.go`
 
 Every call is HMAC-SHA256 signed with `INTERNAL_SIGNING_SECRET` — the same scheme [`registry-service`](registry-service.qd) and [`provisioner`](provisioner.qd) use for their own internal calls, though claims-gateway's secret is shared specifically with `tenancy-service`, not those two.
 

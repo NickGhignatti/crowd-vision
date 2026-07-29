@@ -7,7 +7,7 @@ This page documents how the Vue client talks to the backend over its **one** Web
 
 ## One Shared Connection, Tied To Authentication
 
-**File:** `client/src/services/socket.ts`
+**File:** `frontend/src/services/socket.ts`
 
 The whole app shares a single Socket.IO client instance, created once at module load:
 
@@ -40,7 +40,7 @@ watch(
 
 ## Telemetry Subscription — One Store, Reference-Counted Buckets
 
-**File:** `client/src/stores/sensorData.ts`
+**File:** `frontend/src/stores/sensorData.ts`
 
 Multiple components routinely want the same building's same metric at once — the 3D model and the room list both read live temperature, for instance. Rather than each opening its own REST fetch, its own `subscribe_building` call, and its own telemetry handler, they all acquire a reference to one shared **bucket**, keyed by `(type, buildingId)`:
 
@@ -139,7 +139,7 @@ The server holds no memory of which rooms a reconnected socket was in — a fres
 
 ## Component-Level Access — `useBuildingSensor`
 
-**File:** `client/src/composables/building/useBuildingSensor.ts`
+**File:** `frontend/src/composables/building/useBuildingSensor.ts`
 
 ```typescript
 export function useBuildingSensor(buildingId: Ref<string | undefined>, type: SensorType) {

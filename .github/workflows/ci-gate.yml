@@ -18,7 +18,7 @@ jobs:
     outputs:
       chat: ${{ steps.filter.outputs.chat }}
       agent: ${{ steps.filter.outputs.agent }}
-      client: ${{ steps.filter.outputs.client }}
+      frontend: ${{ steps.filter.outputs.frontend }}
       contracts: ${{ steps.filter.outputs.contracts }}
       notification: ${{ steps.filter.outputs.notification }}
       sensor: ${{ steps.filter.outputs.sensor }}
@@ -48,36 +48,36 @@ jobs:
         with:
           filters: |
             chat:
-              - 'server/chat-service/**'
+              - 'backend/chat-service/**'
             agent:
-              - 'server/agent-service/**'
-            client:
-              - 'client/**'
-              - '.github/workflows/ci-client.yml'
+              - 'backend/agent-service/**'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci-frontend.yml'
             contracts:
-              - 'server/contracts-service/**'
+              - 'backend/contracts-service/**'
             notification:
-              - 'server/notification-service/**'
+              - 'backend/notification-service/**'
             sensor:
-              - 'server/sensor-service/**'
+              - 'backend/sensor-service/**'
             socket:
-              - 'server/socket-service/**'
+              - 'backend/socket-service/**'
             twin:
-              - 'server/twin-service/**'
+              - 'backend/twin-service/**'
             claims_gateway:
-              - 'server/claims-gateway/**'
+              - 'backend/claims-gateway/**'
             tenancy:
-              - 'server/tenancy-service/**'
+              - 'backend/tenancy-service/**'
             registry:
-              - 'server/registry-service/**'
+              - 'backend/registry-service/**'
             provisioner:
-              - 'server/provisioner/**'
+              - 'backend/provisioner/**'
             auth_policy:
-              - 'server/auth-policy/**'
+              - 'backend/auth-policy/**'
             auth_contracts:
-              - 'server/auth-contracts/**'
+              - 'backend/auth-contracts/**'
             auth_middleware:
-              - 'server/auth-middleware/**'
+              - 'backend/auth-middleware/**'
             k8s:
               - 'k8s/**'
               - '.github/workflows/ci-k8s.yml'
@@ -109,12 +109,6 @@ jobs:
           # whole outputs object through as JSON and look keys up with jq.
           CHANGED: ${{ toJSON(steps.filter.outputs) }}
         run: |
-          # lang tells ci-docker.yml which build strategy to use: go/rust/node
-          # images inject a pre-built artifact from the matching CI job; python
-          # and client have no artifact-injection Dockerfile and build from
-          # their own real Dockerfile instead. Metadata comes from the single
-          # registry in .github/services.json (also used by cd-registry.yml,
-          # cd-coverage.yml, and maint-cleanup.yml).
           MATRIX=$(jq -cn --slurpfile reg .github/services.json --argjson changed "$CHANGED" '
             [ $reg[0][] | select(.image and (.ci != false)) | select($changed[(.filter_key // .key)] == "true") |
               {context: ("./" + .dir), image: .image, lang: .lang} ]
@@ -123,21 +117,18 @@ jobs:
           echo "matrix={\"include\":$MATRIX}" >> "$GITHUB_OUTPUT"
           if [ "$MATRIX" = "[]" ]; then echo "has_images=false" >> "$GITHUB_OUTPUT"; else echo "has_images=true" >> "$GITHUB_OUTPUT"; fi
 
-  client:
+  frontend:
     needs: changes
-    if: needs.changes.outputs.client == 'true'
-    uses: ./.github/workflows/ci-client.yml
+    if: needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/ci-frontend.yml
 
-  # Every service calls its language's CI template directly (rather than
-  # going through an intermediate discovery/matrix workflow) so each one gets
-  # its own PR status check and to avoid stacking reusable-workflow nesting.
   auth-contracts:
     needs: changes
     if: needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-contracts
-      working_directory: server/auth-contracts
+      working_directory: backend/auth-contracts
       builds_binary: false
 
   auth-middleware:
@@ -148,7 +139,7 @@ jobs:
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-middleware
-      working_directory: server/auth-middleware
+      working_directory: backend/auth-middleware
       builds_binary: false
 
   auth-policy:
@@ -157,7 +148,7 @@ jobs:
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-policy
-      working_directory: server/auth-policy
+      working_directory: backend/auth-policy
       builds_binary: false
 
   claims-gateway:
@@ -166,7 +157,7 @@ jobs:
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: claims-gateway
-      working_directory: server/claims-gateway
+      working_directory: backend/claims-gateway
 
   provisioner:
     needs: changes
@@ -174,23 +165,23 @@ jobs:
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: provisioner
-      working_directory: server/provisioner
+      working_directory: backend/provisioner
 
   registry-service:
     needs: changes
     if: needs.changes.outputs.registry == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
-      service_key: registry-service
-      working_directory: server/registry-service
+      service_key: registry
+      working_directory: backend/registry-service
 
   tenancy-service:
     needs: changes
     if: needs.changes.outputs.tenancy == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
-      service_key: tenancy-service
-      working_directory: server/tenancy-service
+      service_key: tenancy
+      working_directory: backend/tenancy-service
 
   chat:
     needs: changes
@@ -198,7 +189,7 @@ jobs:
     uses: ./.github/workflows/tpl-node-ci.yml
     with:
       service_key: chat
-      working_directory: server/chat-service
+      working_directory: backend/chat-service
 
   notification:
     needs: changes
@@ -206,7 +197,7 @@ jobs:
     uses: ./.github/workflows/tpl-node-ci.yml
     with:
       service_key: notification
-      working_directory: server/notification-service
+      working_directory: backend/notification-service
 
   sensor:
     needs: changes
@@ -214,7 +205,7 @@ jobs:
     uses: ./.github/workflows/tpl-node-ci.yml
     with:
       service_key: sensor
-      working_directory: server/sensor-service
+      working_directory: backend/sensor-service
 
   socket:
     needs: changes
@@ -222,7 +213,7 @@ jobs:
     uses: ./.github/workflows/tpl-node-ci.yml
     with:
       service_key: socket
-      working_directory: server/socket-service
+      working_directory: backend/socket-service
 
   twin:
     needs: changes
@@ -230,7 +221,7 @@ jobs:
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: twin
-      working_directory: server/twin-service
+      working_directory: backend/twin-service
       needs_mongo: true
 
   contracts:
@@ -239,7 +230,7 @@ jobs:
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: contracts
-      working_directory: server/contracts-service
+      working_directory: backend/contracts-service
       needs_mongo: false
 
   agent:
@@ -248,12 +239,12 @@ jobs:
     uses: ./.github/workflows/tpl-python-ci.yml
     with:
       service_key: agent
-      working_directory: server/agent-service
+      working_directory: backend/agent-service
 
   docker:
     needs:
       - changes
-      - client
+      - frontend
       - auth-contracts
       - auth-middleware
       - auth-policy
@@ -278,7 +269,6 @@ jobs:
     if: needs.changes.outputs.k8s == 'true'
     uses: ./.github/workflows/ci-k8s.yml
 
-  # Statically validates the workflow files themselves.
   workflows-lint:
     needs: changes
     if: needs.changes.outputs.ci == 'true'
@@ -323,7 +313,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - changes
-      - client
+      - frontend
       - auth-contracts
       - auth-middleware
       - auth-policy
@@ -356,7 +346,6 @@ jobs:
             echo "::error::'changes' ended in '$CHANGES' — CI never actually evaluated this PR"
             exit 1
           fi
-          # Whitelist: success (ran and passed) or skipped.
           read -ra results <<< "$RESULTS"
           for r in "${results[@]}"; do
             case "$r" in

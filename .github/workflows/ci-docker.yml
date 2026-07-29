@@ -24,12 +24,12 @@ jobs:
 
       - name: Extract Service Key
         id: parse
-        run: echo "service_key=$(echo '${MATRIX_IMAGE}' | sed 's/crowdvision-//')" >> "$GITHUB_OUTPUT"
+        run: echo "service_key=${MATRIX_IMAGE#crowdvision-}" >> "$GITHUB_OUTPUT"
         env:
           MATRIX_IMAGE: ${{ matrix.image }}
 
       # go/rust/node CI jobs upload their compiled output as an artifact so
-      # the Docker build doesn't need to recompile. python and client have no
+      # the Docker build doesn't need to recompile. python and frontend have no
       # such artifact — they build straight from their own real Dockerfile.
       - name: Download Build Artifact
         if: matrix.lang == 'go' || matrix.lang == 'rust' || matrix.lang == 'node'
@@ -43,18 +43,21 @@ jobs:
         run: |
           case "${MATRIX_LANG}" in
             go)
+              echo "context=." >> "$GITHUB_OUTPUT"
               echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
               echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/app-binary" >> "$GITHUB_OUTPUT"
               ;;
             rust)
-              # cargo names the binary after the crate (server/twin-service -> "twin-service"),
+              # cargo names the binary after the crate (backend/twin-service -> "twin-service"),
               # which is also the basename of matrix.context.
               bin=$(basename "${MATRIX_CONTEXT}")
+              echo "context=." >> "$GITHUB_OUTPUT"
               echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
               echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/$bin" >> "$GITHUB_OUTPUT"
               ;;
             node)
               {
+                echo "context=."
                 echo "file=.github/docker/Dockerfile.node.ci"
                 echo "args<<ARGSEOF"
                 echo "SERVICE_DIR=${MATRIX_CONTEXT}"
@@ -62,10 +65,19 @@ jobs:
                 echo "ARGSEOF"
               } >> "$GITHUB_OUTPUT"
               ;;
-            python|client)
-              # No pre-built artifact for these — build from the service's own
-              # real Dockerfile, with the repo root as context so it can still
+            python)
+              # No pre-built artifact — build from the service's own real
+              # Dockerfile, with the repo root as context so it can still
               # COPY sibling directories (e.g. agent-service <- auth-policy).
+              echo "context=." >> "$GITHUB_OUTPUT"
+              echo "file=${MATRIX_CONTEXT}/Dockerfile" >> "$GITHUB_OUTPUT"
+              echo "args=" >> "$GITHUB_OUTPUT"
+              ;;
+            frontend)
+              # No pre-built artifact and no sibling-directory dependency —
+              # build with its own directory as context, same as cd-registry.yml,
+              # matching its Dockerfile's plain (non repo-root-relative) COPY paths.
+              echo "context=${MATRIX_CONTEXT}" >> "$GITHUB_OUTPUT"
               echo "file=${MATRIX_CONTEXT}/Dockerfile" >> "$GITHUB_OUTPUT"
               echo "args=" >> "$GITHUB_OUTPUT"
               ;;
@@ -80,7 +92,7 @@ jobs:
       - name: Build ${{ matrix.image }}
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
         with:
-          context: .
+          context: ${{ steps.build.outputs.context }}
           file: ${{ steps.build.outputs.file }}
           build-args: ${{ steps.build.outputs.args }}
           push: false

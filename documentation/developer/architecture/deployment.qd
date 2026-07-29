@@ -64,7 +64,7 @@ data:
   CONTRACTS_SERVICE_URL: "http://contracts-service:3000"
   GATEWAY_URL: "http://crowdvision.local"
   PUBLIC_URL: "http://crowdvision.local"
-  CLIENT_URL: "http://crowdvision.local"
+  FRONTEND_URL: "http://crowdvision.local"
 ```
 
 There is no `GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` here — that was true when each service verified gateway JWTs itself, but [Service Mesh Architecture](service-mesh.qd)'s Phase 2 moved JWT verification to Istio's edge `RequestAuthentication`; migrated services now just decode the `x-gateway-claims` header Istio injects, and no longer fetch JWKS themselves.

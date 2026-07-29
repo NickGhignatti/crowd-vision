@@ -34,9 +34,9 @@ sensor:
 socket:
     mise exec -- moon run socket-service:test
 
-[doc("Unit tests for the client (frontend).")]
-client:
-    mise exec -- moon run client:test
+[doc("Unit tests for the frontend.")]
+frontend:
+    mise exec -- moon run frontend:test
 
 [doc("Unit tests for agent-service.")]
 agent:
@@ -44,7 +44,7 @@ agent:
 
 [doc("Agent Python integration tests (separate suite from the docker-compose one).")]
 agent-integration:
-    mise exec -- uv run --directory server/agent-service pytest tests/integration
+    mise exec -- uv run --directory backend/agent-service pytest tests/integration
 
 [doc("Run the agent golden-dataset evaluation against the local stack (auto-mints JWTs).")]
 eval models="" judge="":
@@ -53,7 +53,7 @@ eval models="" judge="":
     judge='{{judge}}'; judge="${judge#judge=}"
     args=(--report-only --models "$models")
     [ -n "$judge" ] && args+=(--judge-model "$judge")
-    mise exec -- uv run --directory server/agent-service python evals/run_evals.py "${args[@]}"
+    mise exec -- uv run --directory backend/agent-service python evals/run_evals.py "${args[@]}"
 
 [doc("Run backend integration tests against a composed stack (full stack, no exclusion).")]
 integration:

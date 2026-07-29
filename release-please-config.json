@@ -3,17 +3,70 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "prerelease": true,
+      "prerelease-type": "alpha",
+      "bump-minor-pre-major": true
+    },
+    "frontend": {
+      "release-type": "node",
+      "component": "frontend"
+    },
+    "backend/chat-service": {
+      "release-type": "node",
+      "component": "chat-service"
+    },
+    "backend/notification-service": {
+      "release-type": "node",
+      "component": "notification-service"
+    },
+    "backend/sensor-service": {
+      "release-type": "node",
+      "component": "sensor-service"
+    },
+    "backend/socket-service": {
+      "release-type": "node",
+      "component": "socket-service"
+    },
+    "backend/agent-service": {
+      "release-type": "python",
+      "component": "agent-service"
+    },
+    "backend/claims-gateway": {
+      "release-type": "go",
+      "component": "claims-gateway"
+    },
+    "backend/provisioner": {
+      "release-type": "go",
+      "component": "provisioner"
+    },
+    "backend/registry-service": {
+      "release-type": "go",
+      "component": "registry-service"
+    },
+    "backend/tenancy-service": {
+      "release-type": "go",
+      "component": "tenancy-service"
+    },
+    "backend/auth-contracts": {
+      "release-type": "go",
+      "component": "auth-contracts"
+    },
+    "backend/auth-middleware": {
+      "release-type": "go",
+      "component": "auth-middleware"
+    },
+    "backend/auth-policy": {
+      "release-type": "go",
+      "component": "auth-policy"
+    },
+    "backend/twin-service": {
+      "release-type": "rust",
+      "component": "twin-service"
+    },
+    "backend/contracts-service": {
+      "release-type": "rust",
+      "component": "contracts-service"
     }
-  },
-  "extra-files": [
-    { "type": "json", "path": "client/package.json", "jsonpath": "$.version" },
-    { "type": "json", "path": "client/package-lock.json", "jsonpath": "$.version" },
-    { "type": "json", "path": "client/package-lock.json", "jsonpath": "$.packages[''].version" },
-    { "type": "json", "path": "server/*/package.json", "jsonpath": "$.version", "glob": true },
-    { "type": "json", "path": "server/*/package-lock.json", "jsonpath": "$.version", "glob": true },
-    { "type": "json", "path": "server/*/package-lock.json", "jsonpath": "$.packages[''].version", "glob": true },
-    { "type": "toml", "path": "server/*/Cargo.toml", "jsonpath": "$.package.version", "glob": true },
-    { "type": "toml", "path": "server/*/pyproject.toml", "jsonpath": "$.project.version", "glob": true }
-  ]
+  }
 }

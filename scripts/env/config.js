@@ -39,8 +39,8 @@ const askQuestion = (query, defaultVal) => {
 
 // Local-dev defaults written non-interactively. Override by editing .env.
 const DEFAULT_CONFIG = {
-    SERVER_PORT: "80",
-    CLIENT_PORT: "8080",
+    BACKEND_PORT: "80",
+    FRONTEND_PORT: "8080",
     DEV_URL: "http://localhost",
 };
 

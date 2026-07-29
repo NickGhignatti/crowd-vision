@@ -185,7 +185,7 @@ Three layers, lightest first:
 
 - **Args model** — if you put non-trivial validation on the args (regex, ranges, custom
   validators), unit-test it under `tests/unit/`. Skip it for trivial fields.
-- **`run` with a fake backend** — inject a fake client/session and assert on the `ToolResult`.
+- **`run` with a fake backend** — inject a fake frontend/session and assert on the `ToolResult`.
   Mock the *boundary* (httpx, the SQLAlchemy session), not the tool itself.
 - **Through the agent loop** — the integration suite has no reusable scripted `LLMClient` yet,
   so for now test `run` at the backend boundary and smoke-test dispatch through `/ask`. When a

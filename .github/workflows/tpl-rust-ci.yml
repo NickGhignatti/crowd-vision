@@ -10,10 +10,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      CARGO_PROFILE_DEV_DEBUG: "0"
-      CARGO_PROFILE_TEST_DEBUG: "0"
       CARGO_INCREMENTAL: "0"
       RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -34,19 +35,19 @@ jobs:
         run: cargo fmt --check
 
       - name: Run Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --release --all-targets -- -D warnings
 
       - name: Run Standard Tests
-        run: cargo test
+        run: cargo test --release
 
       - name: Build Release Binary
         run: cargo build --release
 
-      # The compiled binary is named after the crate (server/twin-service ->
+      # The compiled binary is named after the crate (backend/twin-service ->
       # "twin-service"), not the short service_key used for the artifact name.
       - name: Locate Release Binary
         id: bin
-        run: echo "name=$(basename '${INPUTS_WORKING_DIRECTORY}')" >> "$GITHUB_OUTPUT"
+        run: echo "name=$(basename "$INPUTS_WORKING_DIRECTORY")" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_WORKING_DIRECTORY: ${{ inputs.working_directory }}
 

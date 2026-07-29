@@ -195,13 +195,13 @@ The internal HMAC-signed contract used for `claims-gateway` → `tenancy-service
 
 ## Client Integration
 
-The Vue client authenticates against Keycloak (authorization code + PKCE) and calls `claims-gateway`'s `/exchange`, `/me`, `/logout` for session lifecycle, and `tenancy-service`'s `/domains`, `/me/memberships`, `/domains/{domain}/subdomains`, join/leave, and invite-code endpoints for all domain-management UI.
+The Vue frontend authenticates against Keycloak (authorization code + PKCE) and calls `claims-gateway`'s `/exchange`, `/me`, `/logout` for session lifecycle, and `tenancy-service`'s `/domains`, `/me/memberships`, `/domains/{domain}/subdomains`, join/leave, and invite-code endpoints for all domain-management UI.
 
 ---
 
 ## Authorization: Cedar in tenancy-service
 
-Membership and role decisions — who can read, edit, or manage a domain — are not baked into the identity layer at all. `tenancy-service` is the only one of the four services that imports `server/auth-policy` and evaluates Cedar locally, in-process. `claims-gateway`, `registry-service`, and `provisioner` have no Cedar dependency: the gateway only authenticates, and the control-plane services (`registry-service`, `provisioner`) operate on organizations, a concept Cedar's tenant/domain model doesn't cover.
+Membership and role decisions — who can read, edit, or manage a domain — are not baked into the identity layer at all. `tenancy-service` is the only one of the four services that imports `backend/auth-policy` and evaluates Cedar locally, in-process. `claims-gateway`, `registry-service`, and `provisioner` have no Cedar dependency: the gateway only authenticates, and the control-plane services (`registry-service`, `provisioner`) operate on organizations, a concept Cedar's tenant/domain model doesn't cover.
 
 **Roles are pre-expanded before Cedar ever runs.** Cedar's `.contains()` checks set membership, but it can't compare role *weights* — there's no way to ask it "does this role outrank that one." So the weight math happens once, in `tenancy-service`, before calling Cedar: every membership `{domain, role}` is expanded into which role tiers it qualifies for in that domain, and the *result* — flat per-tier domain sets — is what the `Account` entity carries:
 
@@ -232,7 +232,7 @@ The role required to override the assistant's model on `/ask` is operator-config
 
 1. **Signup** writes a row to `registry-service`'s `organizations` table with `status = 'provisioning'`, a `tier` (`pooled` / `dedicated` / `on-prem`), and an `identity_mode` (`platform` / `byo-idp`).
 2. **`provisioner`** runs an internal ticker (interval set by `cfg.ReconcileInterval`, no external scheduler) that, on every tick, asks `registry-service` for all organizations still `provisioning` and reconciles each one independently:
-   - If `tier` isn't `pooled`, the organization is immediately marked `failed` with an explanatory detail — `provisioner` **only implements the pooled tier today**; dedicated/on-prem provisioning is real, separately-sized future work (see `server/provisioner/CLAUDE.md`).
+   - If `tier` isn't `pooled`, the organization is immediately marked `failed` with an explanatory detail — `provisioner` **only implements the pooled tier today**; dedicated/on-prem provisioning is real, separately-sized future work (see `backend/provisioner/CLAUDE.md`).
    - Otherwise, it derives a `join_policy` for the new domain — `open-via-idp` if the organization is `byo-idp` (self-service join, since membership can be verified against the org's own IdP), `invite-only` otherwise — and calls `tenancy-service` to create the domain with that policy.
    - On success the organization is marked `ready`; on failure at any step it's marked `failed` with the underlying error, never left silently stuck.
 3. `provisioner` exposes `/health` for its own liveness/readiness probes and nothing else — it has no public API; the reconcile loop is its entire job.

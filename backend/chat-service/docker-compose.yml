@@ -1,0 +1,20 @@
+services:
+  chat-service:
+    cpus: "2"
+    build:
+      context: .
+    environment:
+      - MONGO_URI=mongodb://chat-db:27017/chatdb
+      - AGENT_SERVICE_URL=http://agent-service:3000
+      - HISTORY_MAX_MESSAGES=10
+    depends_on:
+      - chat-db
+
+  chat-db:
+    cpus: "2"
+    image: mongo:latest
+    volumes:
+      - chat-data:/data/db
+
+volumes:
+  chat-data:

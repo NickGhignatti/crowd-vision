@@ -19,7 +19,7 @@ just stack dev
 1. `just stack env` runs first to verify your `.env` and generate any missing keys (see [Setting Up the Environment](setting-up.qd) for the full list of what it generates).
 2. A runtime compose file is generated that includes all service compose files.
 3. Docker Compose launches with `--watch` — saving a file triggers an instant hot-reload inside the running container.
-4. All services start: Caddy proxy, Redis, Keycloak, every service's own database (MongoDB or Postgres, depending on the service), all backend microservices, and the Vue client.
+4. All services start: Caddy proxy, Redis, Keycloak, every service's own database (MongoDB or Postgres, depending on the service), all backend microservices, and the Vue frontend.
 
 ### Excluding Services
 
@@ -30,10 +30,10 @@ Run a lighter stack by excluding services you are not working on:
 just stack dev exclude="simulator"
 
 # Exclude multiple services (space-separated):
-just stack dev exclude="simulator client"
+just stack dev exclude="simulator frontend"
 
-# Exclude the client (useful when running it separately with Vite):
-just stack dev exclude="client"
+# Exclude the frontend (useful when running it separately with Vite):
+just stack dev exclude="frontend"
 ```
 
 .box type:{note}
@@ -115,7 +115,7 @@ just db clear-sensor
 
 ## Bootstrapping (First-Time Provisioning)
 
-Login and registration are Keycloak's hosted UI now — there is no seed script for an admin account. To bootstrap a fresh stack: register through the client's normal sign-in flow (redirects to Keycloak), then create your own domain through the Domains page (`POST /tenancy/domains`); the creator automatically becomes that domain's `business_admin`. The old `scripts/ops/provision.js` (which called auth-service's `/business/register`) has been removed along with `auth-service` — enterprise self-registration has no current equivalent, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+Login and registration are Keycloak's hosted UI now — there is no seed script for an admin account. To bootstrap a fresh stack: register through the frontend's normal sign-in flow (redirects to Keycloak), then create your own domain through the Domains page (`POST /tenancy/domains`); the creator automatically becomes that domain's `business_admin`. The old `scripts/ops/provision.js` (which called auth-service's `/business/register`) has been removed along with `auth-service` — enterprise self-registration has no current equivalent, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 ---
 
@@ -153,7 +153,7 @@ just k8s apply      # apply manifests
 
 ```bash
 # After code changes — rebuild the image, then rolling restart:
-docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f server/twin-service/Dockerfile .
+docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/twin-service/Dockerfile .
 just k8s load
 just k8s restart twin-service
 
@@ -162,7 +162,7 @@ just k8s rollout twin-service
 ```
 
 .box {Six of the twelve images build from the repo root, not their own directory} type:{note}
-    `twin-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` all build with `-f server/<service>/Dockerfile .` from the **repository root**, not `./server/<service>`. Reason differs by language but is the same shape both times: `twin-service`/`agent-service` read the shared Cedar authorization policy bundle at `server/auth-policy` and the role-weight ladder at `server/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat-service`, `contracts-service`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
+    `twin-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` all build with `-f backend/<service>/Dockerfile .` from the **repository root**, not `./backend/<service>`. Reason differs by language but is the same shape both times: `twin-service`/`agent-service` read the shared Cedar authorization policy bundle at `backend/auth-policy` and the role-weight ladder at `backend/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat-service`, `contracts-service`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
 
 ### Managing Cluster Lifecycle
 
@@ -220,7 +220,7 @@ just test twin
 just test sensor
 just test notification
 just test socket
-just test client
+just test frontend
 just test agent
 
 # Agent-only Python integration suite (separate from the backend integration tests below):
@@ -234,7 +234,7 @@ just test integration
     `just test all` and `just lint all` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test affected` / `just lint affected` on a feature branch to only process the services your changes actually touch. There is no `just test <service>` recipe for `contracts-service` or the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`) — they're still covered by `just test all` / `just test affected` (both run `moon run :test`, which includes every registered project regardless of language), just not individually by name.
 
 .box {The agent's golden-dataset evaluation} type:{note}
-    `just test eval [models="..."] [judge="..."]` runs the agent's golden-dataset evaluation against your local stack, auto-minting the JWTs it needs. This isn't a pass/fail test — it scores model responses (optionally with an LLM judge) and is meant to be run manually when tuning prompts or comparing models, not as part of the regular test loop. See `server/agent-service/evals/run_evals.py`.
+    `just test eval [models="..."] [judge="..."]` runs the agent's golden-dataset evaluation against your local stack, auto-minting the JWTs it needs. This isn't a pass/fail test — it scores model responses (optionally with an LLM judge) and is meant to be run manually when tuning prompts or comparing models, not as part of the regular test loop. See `backend/agent-service/evals/run_evals.py`.
 
 ---
 
@@ -285,7 +285,7 @@ mise exec -- moon run :audit --affected
     - - `just test affected`
       - Run unit tests only for services changed on the current branch.
     - - `just test <service>`
-      - Run unit tests for one service (`chat`, `twin`, `sensor`, `notification`, `socket`, `client`, `agent` — not `contracts` or the Go services, see the note above).
+      - Run unit tests for one service (`chat`, `twin`, `sensor`, `notification`, `socket`, `frontend`, `agent` — not `contracts` or the Go services, see the note above).
     - - `just test agent-integration`
       - Agent-only Python integration suite (real Postgres, no full compose stack).
     - - `just test eval [models=...] [judge=...]`
@@ -345,7 +345,7 @@ Exclusion works by matching the **folder name substring**. Examples:
 
 ```bash
 just stack dev exclude="simulator"         # skips aq-simulator and sensor-simulator
-just stack dev exclude="simulator client"  # also skips the Vue client
+just stack dev exclude="simulator frontend"  # also skips the Vue frontend
 ```
 
 If exclusion suddenly stops working after editing the Justfile: verify that `dev` still takes only ONE parameter (`exclude=""`). Adding a second parameter before `exclude` in the recipe definition breaks named-argument resolution in `just`.

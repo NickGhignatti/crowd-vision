@@ -9,7 +9,7 @@
 
 .mermaid
     graph TD
-        subgraph "server/auth-policy — source of truth"
+        subgraph "backend/auth-policy — source of truth"
             SCHEMA["schema.cedarschema"]
             POLICY["policy.cedar"]
             CONF["fixtures/conformance.json\ngolden test cases"]
@@ -189,7 +189,7 @@ func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeig
 
 ```json
 {
-  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds server/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy).",
+  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds backend/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy).",
   "cases": [
     { "name": "read: member of the domain, any role, is allowed",
       "memberships": [{ "domain": "eng", "role": "standard_customer" }],
@@ -230,4 +230,4 @@ This is the guarantee that justifies having one shared policy bundle at all rath
 
 ## 5. Distribution — no package manager, just files
 
-Unlike [Auth Contracts](auth-contracts.qd) and [Auth Middleware](auth-middleware.qd), which are real Go modules with `go.mod` dependency edges, `auth-policy`'s cross-language reach works because Cedar's own inputs — a schema, a policy file, a JSON fixture — are plain text. `twin-service` bakes them into its binary at compile time (`include_str!`, so a missing file is a build failure, not a runtime one); `agent-service` reads them once at process start and keeps `_POLICY`/`_SCHEMA` as module-level constants. Neither needed a real package dependency, a registry, or a build step of its own — the relative path from `server/<service>` back to `server/auth-policy` is stable because both live in the same monorepo.
+Unlike [Auth Contracts](auth-contracts.qd) and [Auth Middleware](auth-middleware.qd), which are real Go modules with `go.mod` dependency edges, `auth-policy`'s cross-language reach works because Cedar's own inputs — a schema, a policy file, a JSON fixture — are plain text. `twin-service` bakes them into its binary at compile time (`include_str!`, so a missing file is a build failure, not a runtime one); `agent-service` reads them once at process start and keeps `_POLICY`/`_SCHEMA` as module-level constants. Neither needed a real package dependency, a registry, or a build step of its own — the relative path from `backend/<service>` back to `backend/auth-policy` is stable because both live in the same monorepo.

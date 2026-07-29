@@ -1,13 +1,14 @@
 FROM node:24-alpine
 
-WORKDIR /app
-
 ARG SERVICE_DIR
 ARG ARTIFACT_PATH
 
-# package.json/lockfile come from source (context is the repo root); the
-# compiled dist/ comes from the CI job's uploaded artifact, not a fresh build.
-COPY ${SERVICE_DIR}/package*.json ./
+WORKDIR /repo
+
+COPY tooling/eslint-config ./tooling/eslint-config
+COPY ${SERVICE_DIR}/package*.json ./${SERVICE_DIR}/
+
+WORKDIR /repo/${SERVICE_DIR}
 RUN npm ci --omit=dev
 
 COPY ${ARTIFACT_PATH} ./dist

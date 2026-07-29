@@ -69,22 +69,22 @@ setup: create gateway-api istio-install
 
 [doc("Build all Docker images locally, tagged for GHCR.")]
 build:
-    docker build -t ghcr.io/nickghignatti/crowdvision-client:latest ./client
-    docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest ./server/chat-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f server/twin-service/Dockerfile .
-    docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./server/notification-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest ./server/sensor-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest ./server/socket-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest -f server/agent-service/Dockerfile .
-    docker build -t ghcr.io/nickghignatti/crowdvision-contracts:latest ./server/contracts-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-claims-gateway:latest -f server/claims-gateway/Dockerfile .
-    docker build -t ghcr.io/nickghignatti/crowdvision-provisioner:latest -f server/provisioner/Dockerfile .
-    docker build -t ghcr.io/nickghignatti/crowdvision-registry:latest -f server/registry-service/Dockerfile .
-    docker build -t ghcr.io/nickghignatti/crowdvision-tenancy:latest -f server/tenancy-service/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-frontend:latest ./frontend
+    docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest ./backend/chat-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/twin-service/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./backend/notification-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest ./backend/sensor-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest ./backend/socket-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest -f backend/agent-service/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-contracts:latest ./backend/contracts-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-claims-gateway:latest -f backend/claims-gateway/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-provisioner:latest -f backend/provisioner/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-registry:latest -f backend/registry-service/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-tenancy:latest -f backend/tenancy-service/Dockerfile .
 
 [doc("Push all built images to GHCR (requires: docker login ghcr.io first).")]
 push:
-    docker push ghcr.io/nickghignatti/crowdvision-client:latest
+    docker push ghcr.io/nickghignatti/crowdvision-frontend:latest
     docker push ghcr.io/nickghignatti/crowdvision-chat:latest
     docker push ghcr.io/nickghignatti/crowdvision-twin:latest
     docker push ghcr.io/nickghignatti/crowdvision-notification:latest
@@ -102,7 +102,7 @@ build-push: build push
 
 [doc("Load locally built images directly into k3d (local dev — skips GHCR).")]
 load cluster="crowdvision":
-    k3d image import ghcr.io/nickghignatti/crowdvision-client:latest ghcr.io/nickghignatti/crowdvision-chat:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest ghcr.io/nickghignatti/crowdvision-claims-gateway:latest ghcr.io/nickghignatti/crowdvision-provisioner:latest ghcr.io/nickghignatti/crowdvision-registry:latest ghcr.io/nickghignatti/crowdvision-tenancy:latest -c {{cluster}}
+    k3d image import ghcr.io/nickghignatti/crowdvision-frontend:latest ghcr.io/nickghignatti/crowdvision-chat:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest ghcr.io/nickghignatti/crowdvision-claims-gateway:latest ghcr.io/nickghignatti/crowdvision-provisioner:latest ghcr.io/nickghignatti/crowdvision-registry:latest ghcr.io/nickghignatti/crowdvision-tenancy:latest -c {{cluster}}
 
 [doc("Show all pods, deployments, services and StatefulSets in the namespace.")]
 status:

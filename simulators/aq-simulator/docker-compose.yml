@@ -1,5 +1,6 @@
 services:
   aq-simulator:
+    cpus: "2"
     build:
       context: .
     ports:

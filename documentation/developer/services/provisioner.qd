@@ -18,9 +18,9 @@ Implementation reference for `provisioner`. For its architectural role, see [Ide
       - Loads config, builds both clients, runs the reconcile loop on a 15-second ticker, serves `/health`.
     - - `internal/reconciler/reconciler.go`
       - The loop itself: list pending organizations, provision each, report status.
-    - - `internal/registryclient/client.go`
+    - - `internal/registryfrontend/client.go`
       - HMAC-signed calls to `registry-service`'s `/internal/*` routes.
-    - - `internal/tenancyclient/client.go`
+    - - `internal/tenancyfrontend/client.go`
       - HMAC-signed calls to `tenancy-service`'s `/internal/domains`.
     - - `internal/config/config.go`
       - Env vars: both services' URLs and the shared HMAC secret.
@@ -82,7 +82,7 @@ Provisioning today does exactly one thing: create a domain. It does not seed def
 
 ## Calling registry-service And tenancy-service
 
-**File:** `internal/registryclient/client.go`, `internal/tenancyclient/client.go`
+**File:** `internal/registryfrontend/client.go`, `internal/tenancyfrontend/client.go`
 
 Both clients sign every request with the same HMAC-SHA256 scheme `registry-service`'s `internalauth.go` and `tenancy-service`'s equivalent check on the other end — but against **two different secrets**, since `provisioner` shares one secret with `registry-service` and (implicitly, via `tenancy-service`'s own `INTERNAL_SIGNING_SECRET`) a potentially different one for domain creation:
 
@@ -111,7 +111,7 @@ func (c *Client) MarkFailed(ctx context.Context, id, detail string) error {
 `tenancy-service`'s `CreateDomain` call treats both `201 Created` and `409 Conflict` as success:
 
 ```go
-// File: internal/tenancyclient/client.go
+// File: internal/tenancyfrontend/client.go
 // 201 or 409 (already exists) are both treated as success — CreateDomain
 // is meant to be idempotent, since a retried reconcile tick must not fail
 // just because a previous tick already created the domain.
