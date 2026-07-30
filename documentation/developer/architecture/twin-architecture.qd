@@ -9,119 +9,114 @@ The twin-service realises the [Building Management](../domain/building-managemen
 
 ## Architectural Style
 
-**Ports & Adapters (Hexagonal)**, matching the four Go control-plane services. The core is split in two so the Clean Architecture distinction stays visible inside the hexagon: `domain/` holds the entities and the rules that are true regardless of delivery or storage, `service/` holds the use cases plus the traits — the ports — they require of everything outside. `api/` and `worker.rs` drive the core; `infra/` is driven by it.
+**Ports & Adapters (Hexagonal)**. The core is split in two so the Clean Architecture distinction stays visible inside the hexagon: `domain/` holds the entities and the rules that are true regardless of delivery or storage, `service/` holds the use cases plus the traits — the ports — they require of everything outside. `adapters/driving/` calls the core; `adapters/driven/` is called by it.
 
 Hexagonal rather than Clean is a deliberate choice, and the two are not far apart here: the work is identical up to the last increment, and that increment (splitting entities from use cases) is cheap enough that it was kept. What was *not* built is the rest of Clean's ceremony — there are no output ports and no presenters, and the inbound side has no port at all: a handler calls the use case's concrete struct directly, because there is exactly one real caller per route. That is the same house rule the Go services follow.
 
-Identity and authorization arrive in-process, never as a call to another service. `GatewayClaims` is a domain type; the Axum `FromRequestParts` extractor that decodes the mesh-injected `x-gateway-claims` header into one lives in `api/claims.rs`, so decoding happens before the handler body runs with no network call to `claims-gateway` or `tenancy-service`. Cedar (`service/authz.rs`) sits **inside** the core rather than in `infra/`: whether a caller may edit a building is a rule, and Cedar is a pure evaluator with no I/O, running against a policy bundle compiled into the binary via `include_str!`.
+Identity and authorization arrive in-process, never as a call to another service. `GatewayClaims` is a domain type; the Axum `FromRequestParts` extractor that decodes the mesh-injected `x-gateway-claims` header into one lives in `adapters/driving/http_api/claims.rs`, so decoding happens before the handler body runs with no network call to `claims-gateway` or `tenancy-service`. Cedar (`service/authz.rs`) sits **inside** the core rather than in `adapters/driven/`: whether a caller may edit a building is a rule, and Cedar is a pure evaluator with no I/O, running against a policy bundle compiled into the binary via `include_str!`.
+
+One diagram trying to show every adapter and every core file at once is what made the previous version unreadable regardless of size: five stacked layers of dependency squeeze mermaid's own auto-fit scaling down hard on a tall diagram. Splitting it in two — the hexagon on its own, then the adapters around it — keeps each one shallow enough to render at full width.
 
 .mermaid
+    %%{init: {'themeVariables': {'fontSize': '28px'}, 'flowchart': {'nodeSpacing': 55, 'rankSpacing': 65, 'padding': 20}}}%%
     graph TB
-        subgraph driving["DRIVING ADAPTERS — call the core"]
-            HTTP["api/buildings.rs\nHTTP handlers"]
-            EXTRACT["api/claims.rs\nx-gateway-claims extractor"]
-            PRESENT["api/error.rs\nDomainError to HTTP"]
-            LOOP["worker.rs\nprovisioning loop"]
+        subgraph pt["Ports — service/ports.rs"]
+            PSTORE{{"service/ports.rs\nBuildingStore"}}:::port
+            PQUEUE{{"service/ports.rs\nUploadQueue"}}:::port
+            PSYNC{{"service/ports.rs\nDownstreamSync"}}:::port
         end
-
-        subgraph hex["THE HEXAGON — no framework, no I/O"]
-            subgraph uc["Use cases — service/"]
-                UCB["buildings.rs\nread · list · count · update · rooms"]
-                UCP["provisioning.rs\naccept · provision_next · status"]
-                UCA["authz.rs\nCedar Read/Edit rules"]
-            end
-            subgraph pt["Ports — service/ports.rs"]
-                PSTORE["BuildingStore"]
-                PQUEUE["UploadQueue"]
-                PSYNC["DownstreamSync"]
-            end
-            subgraph ent["Entities — domain/"]
-                ENT["building · identity\nupload · error"]
-            end
+        subgraph uc["Use cases — service/"]
+            UCB{{"service/buildings.rs\nread · list · count · update · rooms"}}:::usecase
+            UCP{{"service/provisioning.rs\naccept · provision_next · status"}}:::usecase
+            UCA{{"service/authz.rs\nCedar Read/Edit rules"}}:::usecase
         end
-
-        subgraph driven["DRIVEN ADAPTERS — called by the core"]
-            ADB["infra/db.rs\nMongoBuildings"]
-            AJOB["infra/jobs.rs\nMongoUploadQueue"]
-            AOUT["infra/outbound.rs\nOutboundConfig"]
-            AFAKE["service/fakes.rs\nin-memory, cfg(test)"]
+        subgraph ent["Entities — domain/"]
+            ENTB{{"domain/building.rs"}}:::entity
+            ENTI{{"domain/identity.rs"}}:::entity
+            ENTU{{"domain/upload.rs"}}:::entity
+            ENTE{{"domain/error.rs"}}:::entity
         end
-
-        ROOT["main.rs — COMPOSITION ROOT\nthe only file that pairs a port with an adapter"]
-
-        EXTRACT --> HTTP
-        HTTP --> UCB
-        HTTP --> UCP
-        LOOP --> UCP
-        HTTP --> PRESENT
 
         UCB --> UCA
-        UCB --> ENT
-        UCP --> ENT
+        UCB --> ENTB
+        UCB --> ENTE
+        UCP --> ENTU
+        UCP --> ENTE
+        UCA --> ENTI
         UCB --> PSTORE
         UCB --> PSYNC
         UCP --> PSTORE
         UCP --> PQUEUE
         UCP --> PSYNC
 
-        ADB -.->|implements| PSTORE
-        AJOB -.->|implements| PQUEUE
-        AOUT -.->|implements| PSYNC
-        AFAKE -.->|implements all three| pt
+        classDef entity fill:#cfe8ff,stroke:#1b6ec2,stroke-width:2px,color:#003366
+        classDef usecase fill:#d9f2d9,stroke:#2e7d32,stroke-width:2px,color:#1b4d1b
+        classDef port fill:#fff3cd,stroke:#b8860b,stroke-width:2px,color:#5c4400
 
-        ROOT --> uc
-        ROOT --> driven
+The adapters live outside that boundary, in and out through the ports:
 
-Every arrow into the hexagon points **inwards**, and every arrow out of it stops at a port. `main.rs` is the only file that knows a `BuildingStore` is really MongoDB; swapping in `service/fakes.rs` is what lets the whole core suite run with no database and no network.
+.mermaid
+    %%{init: {'themeVariables': {'fontSize': '28px'}, 'flowchart': {'nodeSpacing': 55, 'rankSpacing': 70, 'padding': 20}}}%%
+    graph LR
+        subgraph driving["DRIVING ADAPTERS"]
+            EXTRACT["adapters/driving/http_api/claims.rs\nx-gateway-claims extractor"]:::driving
+            HTTP["adapters/driving/http_api/controllers.rs\nHTTP handlers"]:::driving
+            PRESENT["adapters/driving/http_api/exceptions.rs\nDomainError to HTTP"]:::driving
+            LOOP["adapters/driving/worker.rs\nprovisioning loop"]:::driving
+        end
 
-### Where each module lives
+        HEX{{"THE HEXAGON"}}:::hexref
 
-.var {headers}
-   - Module
-   - Role
-   - Why there
+        subgraph driven["DRIVEN ADAPTERS"]
+            ADB["adapters/driven/persistence/db.rs\nMongoBuildings"]:::driven
+            AJOB["adapters/driven/persistence/jobs.rs\nMongoUploadQueue"]:::driven
+            AOUT["adapters/driven/outbound.rs\nOutboundConfig"]:::driven
+            AFAKE["service/fakes.rs\nin-memory, cfg(test)"]:::driven
+        end
 
-.tablebyrows {.headers}
-    - - `domain/building.rs` · `identity.rs` · `upload.rs` · `error.rs`
-      - **Core — entities**
-      - Things that are true about a building, a caller, and an upload no matter how the service is delivered or stored. Imports `serde` and nothing else.
-    - - `service/buildings.rs` · `provisioning.rs`
-      - **Core — use cases**
-      - One method per thing the system can be asked to do. Orchestrates entities and ports; names no concrete adapter.
-    - - `service/authz.rs`
-      - **Core — use cases**
-      - "May this caller edit this building" is a rule, and Cedar is a pure evaluator with no I/O — so it belongs inside, not in `infra/`\.
-    - - `service/ports.rs`
-      - **Ports**
-      - `BuildingStore`, `UploadQueue`, `DownstreamSync` — declared by the use cases that need them, not by the adapters that satisfy them. This is the direction that makes it hexagonal.
-    - - `api/buildings.rs` · `claims.rs` · `error.rs`
-      - **Driving adapter**
-      - Turns HTTP into domain types, calls a use case, maps the result back. Deliberately has no inbound port: one real caller per route.
-    - - `worker.rs`
-      - **Driving adapter**
-      - A Tokio loop instead of a socket. Proves the use case is not HTTP-shaped — the same `provisioning` module serves both.
-    - - `infra/db.rs` · `jobs.rs` · `outbound.rs`
-      - **Driven adapter**
-      - MongoDB, the durable queue, and the outbound REST calls. Each implements exactly one port.
-    - - `service/fakes.rs`
-      - **Driven adapter** (test only)
-      - In-memory implementations of all three ports. The Rust counterpart of the Go services' `storefake` sibling.
-    - - `infra/metrics.rs` · `ratelimit.rs`
-      - **Neither — cross-cutting**
-      - Axum `Router::layer`s wrapping every request. They observe and throttle traffic without participating in a use case, so forcing them behind a port would buy nothing.
-    - - `state.rs`
-      - **Driving-side wiring**
-      - What Axum hands a handler. Carries use cases only — no `Collection`, no HTTP client.
-    - - `main.rs`
-      - **Composition root**
-      - Reads config, chooses the concrete adapter for each port, starts the worker and the server.
+        EXTRACT --> HTTP
+        HTTP --> HEX
+        LOOP --> HEX
+        HTTP --> PRESENT
+
+        ADB -.->|implements| HEX
+        AJOB -.->|implements| HEX
+        AOUT -.->|implements| HEX
+        AFAKE -.->|implements| HEX
+
+        classDef driving fill:#ffe0cc,stroke:#d2691e,stroke-width:2px,color:#7a3300
+        classDef driven fill:#e0dcf5,stroke:#5b4b8a,stroke-width:2px,color:#2e2560
+        classDef hexref fill:#f5faff,stroke:#333333,stroke-width:3px,color:#000000
+        style driving fill:#fff9f4,stroke:#d2691e,stroke-width:1px
+        style driven fill:#f7f5fc,stroke:#5b4b8a,stroke-width:1px
+
+Driving adapters (orange) call the core; driven adapters (purple) are called by it, each implementing exactly one port from the diagram above.
+Every arrow into the hexagon points **inwards**, and every arrow out of it stops at a port; `main.rs` is the only file that knows a `BuildingStore` is really MongoDB, and swapping in `service/fakes.rs` is what lets the whole core suite run with no database and no network.
+
+### Ports and adapters — who each one is for
+
+A port exists **for the use case that declares it**, not for whoever ends up implementing it. The use case's author writes the trait signature (`service/ports.rs`) to fit their own logic, and everyone downstream must conform to it.
+
+*   **Driving Adapters**: These originate requests for the core.
+    *   `api/claims.rs`: Extracts `x-gateway-claims` from incoming HTTP requests, transforming raw header data into the domain's `GatewayClaims`.
+    *   `api/buildings.rs`: Contains HTTP handlers that translate external `POST /building` requests into calls to the core's use cases.
+    *   `api/error.rs`: Transforms domain-specific errors (`DomainError`) into appropriate HTTP responses.
+    *   `worker.rs`: A provisioning loop that wakes up periodically to process pending uploads, calling the same `service::provisioning` use case as the HTTP handlers.
+
+*   **Driven Adapters**: These implement the capabilities (ports) that the core requires.
+    *   `infra/db.rs`: Implements the `BuildingStore` port, providing persistence for building data using MongoDB.
+    *   `infra/jobs.rs`: Implements the `UploadQueue` port, handling durable queuing of upload tasks with MongoDB.
+    *   `infra/outbound.rs`: Implements the `DownstreamSync` port, managing outbound REST calls to other services.
+    *   `service/fakes.rs`: An in-memory adapter for all three ports (`BuildingStore`, `UploadQueue`, `DownstreamSync`), used exclusively by the test suite to enable testing the core without a database or network.
+
+*   **`main.rs`**: This file acts as the Dependency Injector, solely responsible for wiring each port (`service/ports.rs`) with its concrete implementation (e.g., `BuildingStore` with `MongoBuildings` from `infra/db.rs`).
 
 .box {Three greps hold the boundary} type:{note}
     Cheap enough to run in CI, and concrete enough to be a governance check rather than a convention nobody enforces:
 
     - `domain/` names neither `axum` nor `mongodb` — the entity layer cannot learn about a framework by accident.
-    - `service/` names neither of those nor `crate::infra` — a use case cannot reach past its own ports.
-    - No handler in `api/` names `crate::infra` — the driving adapter cannot skip the core and talk to a database directly.
+    - `service/` names neither of those nor `crate::adapters` — a use case cannot reach past its own ports.
+    - No handler in `adapters/driving` names `crate::adapters::driven` — the driving adapter cannot skip the core and talk to a database directly.
 
     Each one fails loudly the moment the dependency rule is violated, which is the property a written convention does not have.
 

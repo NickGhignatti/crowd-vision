@@ -11,6 +11,7 @@ use async_trait::async_trait;
 
 use crate::domain::{AcceptedUpload, Building, UploadStatus};
 
+/// BuildingStore defines the capability for persisting and retrieving `Building` data
 #[async_trait]
 pub trait BuildingStore: Send + Sync {
     async fn find_by_id(&self, id: &str) -> anyhow::Result<Option<Building>>;
@@ -24,6 +25,7 @@ pub trait BuildingStore: Send + Sync {
     async fn counts_by_domain(&self, domains: &[String]) -> anyhow::Result<HashMap<String, i64>>;
 }
 
+/// UploadQueue defines the capability for enqueueing and claiming `AcceptedUpload` tasks
 #[async_trait]
 pub trait UploadQueue: Send + Sync {
     async fn enqueue(&self, upload: &AcceptedUpload) -> anyhow::Result<()>;
@@ -37,6 +39,7 @@ pub trait UploadQueue: Send + Sync {
     async fn status(&self, id: &str) -> anyhow::Result<Option<UploadStatus>>;
 }
 
+/// DownstreamSync defines the capability for synchronizing the twin's state with downstream services
 #[async_trait]
 pub trait DownstreamSync: Send + Sync {
     /// Mirror the twin's structure to whoever keeps a copy. Failing here fails
@@ -48,8 +51,7 @@ pub trait DownstreamSync: Send + Sync {
         claims: &str,
     ) -> anyhow::Result<()>;
 
-    /// Seed the twin's dashboard preferences. Best effort by design -- a twin
-    /// is still usable without them.
+    /// Seed the twin's dashboard preferences.
     async fn init_preferences(&self, building_id: &str, claims: &str);
 
     /// Seed one room's occupancy thresholds. Best effort: a failure here must

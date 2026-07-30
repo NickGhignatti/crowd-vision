@@ -4,17 +4,16 @@ use serde_json::json;
 use crate::domain::Building;
 use crate::service::ports::DownstreamSync;
 
+/// `OutboundConfig` is itself the `DownstreamSync` adapter -- it already holds
+/// every dependency the calls need, so a separate wrapper type would add nothing.
 #[derive(Clone)]
 pub struct OutboundConfig {
     pub sensor_service_url: String,
     pub contracts_service_url: String,
-    // Mirrors shouldSyncThresholds()/NODE_ENV=test.
     pub sync_enabled: bool,
     pub client: reqwest::Client,
 }
 
-/// `OutboundConfig` is itself the `DownstreamSync` adapter -- it already holds
-/// every dependency the calls need, so a separate wrapper type would add nothing.
 #[async_trait]
 impl DownstreamSync for OutboundConfig {
     async fn clone_thresholds(
@@ -41,6 +40,7 @@ impl DownstreamSync for OutboundConfig {
     }
 }
 
+/// `auth_headers` is a utility function for constructing the authorization headers
 fn auth_headers(claims_header: Option<&str>) -> reqwest::header::HeaderMap {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert("content-type", "application/json".parse().unwrap());

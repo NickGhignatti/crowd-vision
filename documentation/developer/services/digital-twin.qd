@@ -18,36 +18,36 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
       - Builds the `axum::Router` (public infra routes + protected building routes + rate-limit/metrics layers). Reused by both `main.rs` and the integration test suite.
     - - `src/main.rs`
       - Reads env config, connects Mongo, spawns the provisioning worker, starts the Axum server with graceful shutdown.
-    - - `src/api/buildings.rs`
+    - - `src/adapters/driving/http_api/controllers.rs`
       - Every building/room HTTP handler. Each one does the same three things: turn wire input into domain types, call a use case, map the result back to HTTP. No handler reaches a database or a downstream service.
-    - - `src/api/claims.rs`
+    - - `src/adapters/driving/http_api/claims.rs`
       - The Axum `FromRequestParts` extractor that decodes the base64 `x-gateway-claims` header into the core's `GatewayClaims`\. Decoding is delivery-specific; the identity it produces is not.
-    - - `src/api/error.rs`
+    - - `src/adapters/driving/http_api/exceptions.rs`
       - The single `DomainError` → HTTP response mapping. Lives here, not in the core, so `domain/` stays free of Axum.
     - - `src/domain/`
       - `Building`/`Room`/`Coordinates`/`Dimensions`, the lenient `PositionInput`/`DimensionsInput` request types, `AcceptedUpload`/`UploadStatus`, `GatewayClaims`/`ClaimsPayload`/`Membership`, name-normalisation helpers, and `DomainError`\. Imports neither `axum` nor `mongodb`\.
     - - `src/service/ports.rs`
-      - The three traits the use cases require of the outside world: `BuildingStore`, `UploadQueue`, `DownstreamSync`\. Defined by the core, implemented in `infra/`\.
+      - The three traits the use cases require of the outside world: `BuildingStore`, `UploadQueue`, `DownstreamSync`\. Defined by the core, implemented in `adapters/driven/`\.
     - - `src/service/buildings.rs`
       - Every use case that acts on an existing twin — read, list, count, resolve domains, update, and the four room operations. Rooms live here rather than in a module of their own because a room is not an aggregate: it is part of a building, and every room operation is "load the building, change it, save it, tell downstream".
     - - `src/service/authz.rs`
-      - Cedar authorization (`is_member_of`, `can_edit_domains`, `scope_to_memberships`) against the shared `backend/auth-policy` bundle. In the core, not in `infra/`: whether a caller may edit a building is a rule, and Cedar is a pure embedded evaluator with no I/O.
+      - Cedar authorization (`is_member_of`, `can_edit_domains`, `scope_to_memberships`) against the shared `backend/auth-policy` bundle. In the core, not in `adapters/driven/`: whether a caller may edit a building is a rule, and Cedar is a pure embedded evaluator with no I/O.
     - - `src/service/fakes.rs`
       - `#[cfg(test)]` in-memory stand-ins for all three ports, shared by the use-case tests — the Rust counterpart of the Go services' `storefake` sibling.
     - - `src/service/provisioning.rs`
       - The accept-and-provision use case: `accept` (durable enqueue, runs in the request), `provision_next` (claim-and-provision, runs in the worker), `status`\. Depends only on the ports, so its unit tests need neither a database nor a network.
-    - - `src/worker.rs`
+    - - `src/adapters/driving/worker.rs`
       - The second driving adapter: an in-process Tokio loop that calls `provision_next` until told there is nothing to do. Names no queue and no database.
-    - - `src/infra/db.rs`
+    - - `src/adapters/driven/persistence/db.rs`
       - MongoDB access over the `Building` collection, plus `MongoBuildings` — the `BuildingStore` adapter.
-    - - `src/infra/jobs.rs`
+    - - `src/adapters/driven/persistence/jobs.rs`
       - `MongoUploadQueue`, the `UploadQueue` adapter over `pending_uploads`: lease-based `claim`, `mark_ready`/`mark_failed`, status lookup. The lease and attempt counters live in the document, never in the core.
-    - - `src/infra/outbound.rs`
+    - - `src/adapters/driven/outbound.rs`
       - Fire-and-forget/best-effort sync calls to sensor-service and contracts-service. `OutboundConfig` is itself the `DownstreamSync` adapter.
-    - - `src/infra/metrics.rs`
-      - Prometheus registry, the `track_metrics` layer, and the `/health`/`/metrics` handlers.
-    - - `src/infra/ratelimit.rs`
-      - Per-IP fixed-window rate limiter.
+    - - `src/adapters/metrics.rs`
+      - Prometheus registry, the `track_metrics` layer, and the `/health`/`/metrics` handlers. Cross-cutting — neither driving nor driven.
+    - - `src/adapters/ratelimit.rs`
+      - Per-IP fixed-window rate limiter. Cross-cutting, same as `metrics.rs`\.
     - - `tests/http.rs`
       - Full HTTP-level suite (`tower::ServiceExt::oneshot` against the real `Router`) covering every route.
     - - `tests/cucumber.rs` + `tests/features/`
@@ -64,11 +64,11 @@ For the conceptual view — which module is core, which is a port, which is an a
 
         subgraph l1["LAYER 1 — driving adapters"]
             ROUTER["lib.rs\nbuild_router assembles the Router"]
-            MW["infra/metrics.rs · ratelimit.rs\nRouter::layer, cross-cutting"]
-            EXTRACT["api/claims.rs\nFromRequestParts for GatewayClaims"]
-            HANDLERS["api/buildings.rs\n11 handlers"]
-            ERRMAP["api/error.rs\nIntoResponse for DomainError"]
-            WORKER["worker.rs\nspawn: loop over provision_next"]
+            MW["adapters/metrics.rs · ratelimit.rs\nRouter::layer, cross-cutting"]
+            EXTRACT["adapters/driving/http_api/claims.rs\nFromRequestParts for GatewayClaims"]
+            HANDLERS["adapters/driving/http_api/controllers.rs\n11 handlers"]
+            ERRMAP["adapters/driving/http_api/exceptions.rs\nIntoResponse for DomainError"]
+            WORKER["adapters/driving/worker.rs\nspawn: loop over provision_next"]
         end
 
         subgraph l2["LAYER 2 — core, use cases (service/)"]
@@ -87,9 +87,9 @@ For the conceptual view — which module is core, which is a port, which is an a
             ENT["Building · Room · Coordinates · Dimensions\nGatewayClaims · AcceptedUpload · UploadStatus\nDomainError"]
         end
 
-        subgraph l3["LAYER 3 — driven adapters (infra/)"]
-            IDB["db.rs\nMongoBuildings"]
-            IJOB["jobs.rs\nMongoUploadQueue"]
+        subgraph l3["LAYER 3 — driven adapters (adapters/driven/)"]
+            IDB["persistence/db.rs\nMongoBuildings"]
+            IJOB["persistence/jobs.rs\nMongoUploadQueue"]
             IOUT["outbound.rs\nOutboundConfig"]
         end
 
@@ -129,7 +129,7 @@ For the conceptual view — which module is core, which is a port, which is an a
         IOUT --> CONTRACTS
         AUTHZ -.->|"include_str!, compile time"| POLICY
 
-Two things to read off it. First, `api/` and `worker.rs` both stop at layer 2 — neither has an edge into layer 3, which is the `grep` the crate enforces. Second, the only solid arrows crossing from layer 3 into layer 2 are the dashed `impl` ones, pointing at traits: `infra` depends on `service`, never the reverse.
+Two things to read off it. First, `adapters/driving/http_api` and `adapters/driving/worker.rs` both stop at layer 2 — neither has an edge into layer 3, which is the `grep` the crate enforces. Second, the only solid arrows crossing from layer 3 into layer 2 are the dashed `impl` ones, pointing at traits: `adapters/driven` depends on `service`, never the reverse.
 
 .box {The core owns its interfaces} type:{note}
     `service/ports.rs` is defined by the use cases, not by the adapters that satisfy it — which is the whole difference between this and a `db` module everyone imports. Ports return `anyhow::Error` so no port ever has to describe how its adapter failed; `DomainError` absorbs it at the use-case boundary via `From<anyhow::Error>`\. `AppState` carries use cases rather than a `Collection<Building>` and a `reqwest::Client`, so a handler physically cannot reach a database — there is no field to reach it through.
@@ -223,7 +223,7 @@ struct Room {
       - Liveness and Prometheus metrics. **Public.** Registered both with and without a trailing slash — see the gotcha box on [Kubernetes Configuration](../config/kubernetes.qd).
 
 .box {Every building/room route requires the mesh-verified claims header} type:{note}
-    Istio's `RequestAuthentication` verifies the caller's JWT once at the ingress and injects the payload as the base64 `x-gateway-claims` header (`outputPayloadToHeader`) — twin-service never verifies a JWT itself. Every protected handler takes a `GatewayClaims` argument (an Axum extractor, `src/api/claims.rs`); extraction itself 401s the request if the header is missing or malformed, so there's no separate auth middleware layer to wire in — the type signature *is* the auth gate. Geometry-mutating routes additionally require `can_edit_domains` (Cedar `Edit` action) against the target building's own domains, not just any domain membership.
+    Istio's `RequestAuthentication` verifies the caller's JWT once at the ingress and injects the payload as the base64 `x-gateway-claims` header (`outputPayloadToHeader`) — twin-service never verifies a JWT itself. Every protected handler takes a `GatewayClaims` argument (an Axum extractor, `src/adapters/driving/http_api/claims.rs`); extraction itself 401s the request if the header is missing or malformed, so there's no separate auth middleware layer to wire in — the type signature *is* the auth gate. Geometry-mutating routes additionally require `can_edit_domains` (Cedar `Edit` action) against the target building's own domains, not just any domain membership.
 
 .box {Registration validates room geometry} type:{note}
     `/register` validates every room's `position`, `dimensions`, and `capacity` before persisting, the same validation every other geometry-writing route (`createRoom`, `updateRoom`, `replaceRooms`) applies — a malformed room is rejected with a `400 Validation Error`, never silently stored. Validation deliberately stays **synchronous**, ahead of the `202`: a description the service would refuse must never be acknowledged as accepted. Only the work that can't fail on the caller's input moves to the worker.
@@ -268,7 +268,7 @@ A building's structure is mirrored to two services. The two paths have **differe
         C->>T: GET /building/:id/status
         T-->>C: { status: "ready" }
 
-- **Sensor threshold clone** (`sync_building_clone`, `src/infra/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the *provisioning job* (surfacing as `status: "failed"`), not the caller's already-acknowledged request. Forwards the caller's `x-gateway-claims` header verbatim — sensor-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
+- **Sensor threshold clone** (`sync_building_clone`, `src/adapters/driven/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the *provisioning job* (surfacing as `status: "failed"`), not the caller's already-acknowledged request. Forwards the caller's `x-gateway-claims` header verbatim — sensor-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
 - **Contracts preference seeding** (`init_building_preferences`): a `POST`, best-effort — logged and swallowed on any error, never blocks building creation.
 
 .box {Known gap: synchronous coupling} type:{note}
@@ -281,7 +281,7 @@ A building's structure is mirrored to two services. The two paths have **differe
 
 ## Error Handling
 
-`DomainError` (`src/domain/error.rs`) is mapped to HTTP by `src/api/error.rs`'s `IntoResponse` impl, mapping to a stable `{ type, message }` JSON shape and status code: `Validation` → 400, `NotFound` → 404, `Unauthorized` → 401, `Forbidden` → 403. Unexpected errors (a Mongo failure, a Cedar entity-build failure) are logged via `log::error!` and mapped to a generic `500` — every error is logged, and no internal detail leaks past the generic `500` message.
+`DomainError` (`src/domain/error.rs`) is mapped to HTTP by `src/adapters/driving/http_api/exceptions.rs`'s `IntoResponse` impl, mapping to a stable `{ type, message }` JSON shape and status code: `Validation` → 400, `NotFound` → 404, `Unauthorized` → 401, `Forbidden` → 403. Unexpected errors (a Mongo failure, a Cedar entity-build failure) are logged via `log::error!` and mapped to a generic `500` — every error is logged, and no internal detail leaks past the generic `500` message.
 
 ---
 

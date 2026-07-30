@@ -149,11 +149,15 @@ caller. `provisioner`'s driving adapter is a ticker loop, not HTTP.
 `twin-service` follows the same shape in Rust, with the core split so the entity/use-case
 distinction stays visible: `domain/` (entities, rules, identity, errors — imports neither
 `axum` nor `mongodb`), `service/` (use cases, Cedar authz, and the `BuildingStore`/
-`UploadQueue`/`DownstreamSync` ports it defines), `api/` + `worker.rs` driving, `infra/`
-driven, wired in `main.rs`. Ports are `Arc<dyn Trait>`, not generics — generics go viral
-through every signature that touches them. Three greps hold the boundary and belong in any
+`UploadQueue`/`DownstreamSync` ports it defines), `adapters/driving/` (`http_api/` handlers,
+claims extractor, error mapping, plus the provisioning `worker`) and `adapters/driven/`
+(`persistence/` for Mongo, `outbound` for the sensor/contracts sync), wired in `main.rs`.
+`adapters/metrics.rs` and `adapters/ratelimit.rs` are cross-cutting `Router::layer`s, neither
+driving nor driven. Ports are `Arc<dyn Trait>`, not generics — generics go viral through
+every signature that touches them. Three greps hold the boundary and belong in any
 fitness-function work: `domain/` names no `axum`/`mongodb`, `service/` names neither plus no
-`crate::infra`, and no `api/` handler names `crate::infra`. Registration is asynchronous —
+`crate::adapters`, and no `adapters/driving` handler names `crate::adapters::driven`.
+Registration is asynchronous —
 `POST /register` validates then answers `202` with a handle, and an in-process worker
 provisions from a durable Mongo queue (`pending_uploads`), so provisioning is idempotent by
 construction. The other Rust service, `contracts-service`, is still flat.
@@ -206,6 +210,9 @@ accepted regardless of CI status (full detail:
   `go.mod`/`Cargo.toml`/`package.json`) — it's a reminder, not a gate, since "was this
   architectural" needs judgment. graphify itself needs no manual step: the git post-commit
   hook re-extracts on every commit.
+- **Documentation is minimal.** State each concept once, in the fewest words that keep it
+  unambiguous. No restating the same point in a later paragraph, no filler, no hedging. If a
+  sentence can be cut without losing meaning, cut it.
 
 ## Conventions
 

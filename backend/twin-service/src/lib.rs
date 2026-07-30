@@ -1,12 +1,10 @@
 use axum::routing::{get, patch, post, put};
 use axum::{Json, Router};
 
-pub mod api;
+pub mod adapters;
 pub mod domain;
-pub mod infra;
 pub mod service;
 pub mod state;
-pub mod worker;
 
 use state::AppState;
 
@@ -45,17 +43,17 @@ async fn contracts() -> Json<serde_json::Value> {
 // Registered with and without trailing slash -- both k8s (`/health`) and this service's tests (`/health/`) depend on it.
 fn public_routes() -> Router<AppState> {
     Router::new()
-        .route("/health", get(infra::metrics::health))
-        .route("/health/", get(infra::metrics::health))
-        .route("/metrics", get(infra::metrics::metrics_handler))
-        .route("/metrics/", get(infra::metrics::metrics_handler))
+        .route("/health", get(adapters::metrics::health))
+        .route("/health/", get(adapters::metrics::health))
+        .route("/metrics", get(adapters::metrics::metrics_handler))
+        .route("/metrics/", get(adapters::metrics::metrics_handler))
         .route("/contracts", get(contracts))
 }
 
 // Everything below exposes/mutates building data: every handler requires a
 // `GatewayClaims` extractor, which 401s on a missing/invalid x-gateway-claims header.
 fn protected_routes() -> Router<AppState> {
-    use api::buildings::*;
+    use adapters::driving::http_api::controllers::*;
 
     Router::new()
         .route("/register", post(add_building))
@@ -81,8 +79,8 @@ pub fn build_router(state: AppState) -> Router {
         .merge(protected_routes())
         .layer(axum::middleware::from_fn_with_state(
             rate_limiter,
-            infra::ratelimit::rate_limit,
+            adapters::ratelimit::rate_limit,
         ))
-        .layer(axum::middleware::from_fn(infra::metrics::track_metrics))
+        .layer(axum::middleware::from_fn(adapters::metrics::track_metrics))
         .with_state(state)
 }

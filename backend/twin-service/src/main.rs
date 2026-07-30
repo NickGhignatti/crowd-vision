@@ -6,13 +6,14 @@ use tokio::net::TcpListener;
 
 use std::sync::Arc;
 
-use twin_service::infra::db::{self, MongoBuildings};
-use twin_service::infra::jobs::MongoUploadQueue;
-use twin_service::infra::{outbound::OutboundConfig, ratelimit::RateLimiter};
+use twin_service::adapters::driven::persistence::db::{self, MongoBuildings};
+use twin_service::adapters::driven::persistence::jobs::MongoUploadQueue;
+use twin_service::adapters::driving::worker;
+use twin_service::adapters::{driven::outbound::OutboundConfig, ratelimit::RateLimiter};
+use twin_service::build_router;
 use twin_service::service::buildings::Buildings;
 use twin_service::service::provisioning::Provisioning;
 use twin_service::state::AppState;
-use twin_service::{build_router, worker};
 
 async fn shutdown_signal() {
     let ctrl_c = async {

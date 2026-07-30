@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::infra::ratelimit::RateLimiter;
+use crate::adapters::ratelimit::RateLimiter;
 use crate::service::buildings::Buildings;
 use crate::service::provisioning::Provisioning;
 
