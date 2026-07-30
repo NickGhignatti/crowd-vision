@@ -63,6 +63,7 @@ The temperature module publishes to a plain Redis channel (`alerts:temperature`)
 ## Integration
 
 - Owns `sensor-db`; no other service reads it.
-- Publishes every accepted reading to the broker, and temperature breaches specifically to the `alerts:temperature` channel — with no reference to whichever service ends up consuming either one. Receives a threshold baseline from twin-service, and exposes a self-describing metric catalog to contracts-service — see [Communication & Data Flow](data-flow.qd).
+- Publishes every accepted reading to the broker, and temperature breaches specifically to the `alerts:temperature` channel — with no reference to whichever service ends up consuming either one. Receives a threshold baseline from twin-service — over Kafka for a new building's registration, over REST (`PUT /thresholds/buildings/:id`) for every later edit — and exposes a self-describing metric catalog to contracts-service. See [Communication & Data Flow](data-flow.qd).
+- The Kafka registration consumer (`src/consumers/registrationConsumer.ts`) is a second driving adapter for the same `registerBuilding` use case the REST route calls — same shape as twin-service's HTTP/worker pair, just one service over.
 
 For the request lifecycle, the module base-class template, the extension guide, and the API, see the [Sensor Service](../services/sensor.qd) internals page.

@@ -3,7 +3,7 @@
 
 Implementation reference for the `twin-service`\. For its architectural role, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd); for the domain model, see [Building Management](../domain/building-management.qd).
 
-A Rust / Axum service. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services (see *Downstream Synchronisation* below — the two services that receive that clone, and what happens if sending it fails).
+A Rust / Axum service. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services — asynchronously over Kafka for registration, synchronously over REST for later edits (see *Downstream Synchronisation* below).
 
 ---
 
@@ -27,23 +27,27 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/domain/`
       - `Building`/`Room`/`Coordinates`/`Dimensions`, the lenient `PositionInput`/`DimensionsInput` request types, `AcceptedUpload`/`UploadStatus`, `GatewayClaims`/`ClaimsPayload`/`Membership`, name-normalisation helpers, and `DomainError`\. Imports neither `axum` nor `mongodb`\.
     - - `src/service/ports.rs`
-      - The three traits the use cases require of the outside world: `BuildingStore`, `UploadQueue`, `DownstreamSync`\. Defined by the core, implemented in `adapters/driven/`\.
+      - The four traits the use cases require of the outside world: `BuildingStore`, `UploadQueue`, `DownstreamSync`, `RegistrationEvents`\. Defined by the core, implemented in `adapters/driven/`\.
     - - `src/service/buildings.rs`
       - Every use case that acts on an existing twin — read, list, count, resolve domains, update, and the four room operations. Rooms live here rather than in a module of their own because a room is not an aggregate: it is part of a building, and every room operation is "load the building, change it, save it, tell downstream".
     - - `src/service/authz.rs`
       - Cedar authorization (`is_member_of`, `can_edit_domains`, `scope_to_memberships`) against the shared `backend/auth-policy` bundle. In the core, not in `adapters/driven/`: whether a caller may edit a building is a rule, and Cedar is a pure embedded evaluator with no I/O.
     - - `src/service/fakes.rs`
-      - `#[cfg(test)]` in-memory stand-ins for all three ports, shared by the use-case tests — the Rust counterpart of the Go services' `storefake` sibling.
+      - `#[cfg(test)]` in-memory stand-ins for all four ports, shared by the use-case tests — the Rust counterpart of the Go services' `storefake` sibling.
     - - `src/service/provisioning.rs`
-      - The accept-and-provision use case: `accept` (durable enqueue, runs in the request), `provision_next` (claim-and-provision, runs in the worker), `status`\. Depends only on the ports, so its unit tests need neither a database nor a network.
+      - The accept-and-provision use case: `accept` (durable enqueue, runs in the request), `provision_next` (claim-and-publish, runs in the worker), `resolve` (turns sensor-service's own outcome into `ready`/`failed`, runs in the Kafka consumer), `status`\. Depends only on the ports, so its unit tests need neither a database nor a network.
     - - `src/adapters/driving/worker.rs`
-      - The second driving adapter: an in-process Tokio loop that calls `provision_next` until told there is nothing to do. Names no queue and no database.
+      - An in-process Tokio loop that calls `provision_next` until told there is nothing to do. Names no queue and no database.
+    - - `src/adapters/driving/kafka_consumer.rs`
+      - Consumes `building-registration-completed` and calls `provisioning.resolve` — the third driving adapter for the same `provisioning` use case, alongside the HTTP handler and the worker.
     - - `src/adapters/driven/persistence/db.rs`
       - MongoDB access over the `Building` collection, plus `MongoBuildings` — the `BuildingStore` adapter.
     - - `src/adapters/driven/persistence/jobs.rs`
       - `MongoUploadQueue`, the `UploadQueue` adapter over `pending_uploads`: lease-based `claim`, `mark_ready`/`mark_failed`, status lookup. The lease and attempt counters live in the document, never in the core.
     - - `src/adapters/driven/outbound.rs`
-      - Fire-and-forget/best-effort sync calls to sensor-service and contracts-service. `OutboundConfig` is itself the `DownstreamSync` adapter.
+      - Fire-and-forget/best-effort REST calls: default-preference seeding on contracts-service, and the threshold clone on sensor-service for every *later* edit (not registration, which moved to Kafka). `OutboundConfig` is itself the `DownstreamSync` adapter.
+    - - `src/adapters/driven/kafka_producer.rs`
+      - `KafkaEventProducer`, the `RegistrationEvents` adapter: publishes `building-registration-requested`, ensuring both registration topics exist first (auto-created topics are lazy — the first-ever produce/subscribe against one can otherwise race the broker's own creation of it).
     - - `src/adapters/metrics.rs`
       - Prometheus registry, the `track_metrics` layer, and the `/health`/`/metrics` handlers. Cross-cutting — neither driving nor driven.
     - - `src/adapters/ratelimit.rs`
@@ -61,6 +65,7 @@ For the conceptual view — which module is core, which is a port, which is an a
     graph TB
         REQ(["HTTP request"])
         TICK(["Tokio tick"])
+        KAFKAIN(["Kafka message"])
 
         subgraph l1["LAYER 1 — driving adapters"]
             ROUTER["lib.rs\nbuild_router assembles the Router"]
@@ -69,11 +74,12 @@ For the conceptual view — which module is core, which is a port, which is an a
             HANDLERS["adapters/driving/http_api/controllers.rs\n11 handlers"]
             ERRMAP["adapters/driving/http_api/exceptions.rs\nIntoResponse for DomainError"]
             WORKER["adapters/driving/worker.rs\nspawn: loop over provision_next"]
+            KCONS["adapters/driving/kafka_consumer.rs\nspawn: consume, call resolve"]
         end
 
         subgraph l2["LAYER 2 — core, use cases (service/)"]
             UCB["Buildings\nget · list_for_domain · counts · domains_of\nupdate · create_room · update_room\ndelete_room · replace_rooms"]
-            UCP["Provisioning\naccept · provision_next · status"]
+            UCP["Provisioning\naccept · provision_next · resolve · status"]
             AUTHZ["authz.rs\nis_member_of · can_edit_domains\nscope_to_memberships"]
         end
 
@@ -81,6 +87,7 @@ For the conceptual view — which module is core, which is a port, which is an a
             PS["trait BuildingStore"]
             PQ["trait UploadQueue"]
             PD["trait DownstreamSync"]
+            PE["trait RegistrationEvents"]
         end
 
         subgraph l1e["LAYER 1 — core, entities (domain/)"]
@@ -91,22 +98,26 @@ For the conceptual view — which module is core, which is a port, which is an a
             IDB["persistence/db.rs\nMongoBuildings"]
             IJOB["persistence/jobs.rs\nMongoUploadQueue"]
             IOUT["outbound.rs\nOutboundConfig"]
+            IKPROD["kafka_producer.rs\nKafkaEventProducer"]
         end
 
         subgraph l4["LAYER 4 — frameworks and drivers"]
             MONGO[("twin-db\nbuildings · pending_uploads")]
             SENSOR["sensor-service"]
             CONTRACTS["contracts-service"]
+            KAFKA[("Kafka\nbuilding-registration-requested/-completed")]
             POLICY["backend/auth-policy\npolicy.cedar + schema"]
         end
 
         REQ --> ROUTER --> MW --> EXTRACT --> HANDLERS
         HANDLERS --> ERRMAP
         TICK --> WORKER
+        KAFKAIN --> KCONS
 
         HANDLERS --> UCB
         HANDLERS --> UCP
         WORKER --> UCP
+        KCONS --> UCP
 
         UCB --> AUTHZ
         UCB --> PS
@@ -114,6 +125,7 @@ For the conceptual view — which module is core, which is a port, which is an a
         UCP --> PS
         UCP --> PQ
         UCP --> PD
+        UCP --> PE
 
         UCB --> ENT
         UCP --> ENT
@@ -122,14 +134,18 @@ For the conceptual view — which module is core, which is a port, which is an a
         IDB -.->|impl| PS
         IJOB -.->|impl| PQ
         IOUT -.->|impl| PD
+        IKPROD -.->|impl| PE
 
         IDB --> MONGO
         IJOB --> MONGO
         IOUT --> SENSOR
         IOUT --> CONTRACTS
+        IKPROD --> KAFKA
+        KAFKA --> SENSOR
+        SENSOR --> KAFKA
         AUTHZ -.->|"include_str!, compile time"| POLICY
 
-Two things to read off it. First, `adapters/driving/http_api` and `adapters/driving/worker.rs` both stop at layer 2 — neither has an edge into layer 3, which is the `grep` the crate enforces. Second, the only solid arrows crossing from layer 3 into layer 2 are the dashed `impl` ones, pointing at traits: `adapters/driven` depends on `service`, never the reverse.
+Two things to read off it. First, `adapters/driving/http_api`, `adapters/driving/worker.rs`, and `adapters/driving/kafka_consumer.rs` all stop at layer 2 — none has an edge into layer 3, which is the `grep` the crate enforces. Second, the only solid arrows crossing from layer 3 into layer 2 are the dashed `impl` ones, pointing at traits: `adapters/driven` depends on `service`, never the reverse. Note that `Provisioning` is now entered from three directions (`HANDLERS`, `WORKER`, `KCONS`) rather than two — the same use case, three ways in.
 
 .box {The core owns its interfaces} type:{note}
     `service/ports.rs` is defined by the use cases, not by the adapters that satisfy it — which is the whole difference between this and a `db` module everyone imports. Ports return `anyhow::Error` so no port ever has to describe how its adapter failed; `DomainError` absorbs it at the use-case boundary via `From<anyhow::Error>`\. `AppState` carries use cases rather than a `Collection<Building>` and a `reqwest::Client`, so a handler physically cannot reach a database — there is no field to reach it through.
@@ -149,10 +165,13 @@ Two things to read off it. First, `adapters/driving/http_api` and `adapters/driv
       - Connection string; database name is `crowdvision`, collections `buildings` and `pending_uploads` (the provisioning queue, which always lives beside the buildings it provisions).
     - - `SENSOR_SERVICE_URL`
       - `http://localhost:3000`
-      - Target for the threshold clone sync.
+      - Target for the threshold clone sync on later edits (not registration — see *Downstream Synchronisation*).
     - - `CONTRACTS_SERVICE_URL`
       - `http://localhost:3001`
       - Target for default-preference seeding.
+    - - `KAFKA_BROKERS`
+      - `localhost:9092`
+      - Broker list for the `building-registration-requested`/`-completed` topics.
     - - `PORT`
       - `3000`
       - HTTP listen port.
@@ -242,7 +261,7 @@ Free functions in `src/domain/building.rs`\.
 
 ## Downstream Synchronisation
 
-A building's structure is mirrored to two services. The two paths have **different failure semantics**, which matters operationally.
+A building's structure is mirrored to sensor-service and contracts-service, but not the same way: **registration** announces over Kafka and waits on sensor-service's own outcome; **every later edit** (update, create/update/delete room, replace rooms) still calls sensor-service directly over REST, synchronously, in-request. Contracts-service preference seeding is REST and best-effort in both cases.
 
 .mermaid
     sequenceDiagram
@@ -252,30 +271,35 @@ A building's structure is mirrored to two services. The two paths have **differe
         participant Q as pending_uploads
         participant W as twin-service (worker)
         participant DB as twin-db
+        participant K as Kafka
         participant S as sensor-service
-        participant K as contracts-service
+        participant KC as twin-service (kafka_consumer)
+        participant Ctr as contracts-service
         C->>T: POST /register { name, rooms, domains }
         Note over T: normalise names, validate geometry, assign UUID
         T->>Q: enqueue PendingUpload (durable)
         T-->>C: 202 { buildingId }
         W->>Q: claim (lease, atomic)
         W->>DB: upsert
-        W->>S: PUT /thresholds/buildings/:id (clone)
-        Note over W,S: a non-2xx fails the job, not the caller's request
-        W->>K: POST /preferences/init/:id
-        Note over W,K: best-effort — errors logged, swallowed
-        W->>Q: mark ready
+        W->>K: publish building-registration-requested
+        Note over W,K: publish returns immediately -- does not wait on sensor-service
+        W->>Ctr: POST /preferences/init/:id
+        Note over W,Ctr: best-effort — errors logged, swallowed
+        K->>S: building-registration-requested
+        S->>S: write threshold clone (upsert)
+        S->>K: publish building-registration-completed { status: "ready" }
+        K->>KC: building-registration-completed
+        KC->>Q: resolve -- mark ready
         C->>T: GET /building/:id/status
         T-->>C: { status: "ready" }
 
-- **Sensor threshold clone** (`sync_building_clone`, `src/adapters/driven/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the *provisioning job* (surfacing as `status: "failed"`), not the caller's already-acknowledged request. Forwards the caller's `x-gateway-claims` header verbatim — sensor-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
+- **Registration announcement** (`KafkaEventProducer::publish_requested`, `src/adapters/driven/kafka_producer.rs`): publishes `building-registration-requested` keyed by `buildingId`, carrying `{ buildingId, name, rooms: [{ id, name }] }`\. A publish failure fails the *provisioning job* the same way a REST failure used to; a successful publish does **not** — the upload stays `pending` until sensor-service's own completion event resolves it.
+- **Registration resolution** (`adapters/driving/kafka_consumer.rs`): consumes `building-registration-completed`, calling `resolve(buildingId, error)`, which is what actually marks the upload `ready` or `failed`. Idempotent under redelivery — resolving the same id twice sets the same status twice.
+- **Sensor threshold clone on later edits** (`sync_building_clone`, `src/adapters/driven/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the mutating request itself, since these routes are already synchronous. Forwards the caller's `x-gateway-claims` header verbatim — sensor-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
 - **Contracts preference seeding** (`init_building_preferences`): a `POST`, best-effort — logged and swallowed on any error, never blocks building creation.
 
-.box {Known gap: synchronous coupling} type:{note}
-    Registration no longer holds the caller open across these calls — they run in the worker, behind the `202`\. The clone is still an inline, synchronous REST call from the worker, and every *other* mutating route (update building, create/update/delete room, replace rooms) still makes it in-request. The roadmap is to replace it with a published `TWIN_UPDATED` event so sensor-service can update its copy asynchronously, decoupling the two services.
-
 .box {Provisioning is at-least-once, so the work is idempotent} type:{note}
-    A worker holds a job under a 30s lease. If it dies mid-provision the lease expires and another worker claims the same job — so `provision` must converge, not collide. The tracking handle *is* the building id, the Mongo write is an upsert, and the threshold clone is a `PUT`\. Re-running a job produces the same twin rather than a second one. Failure handling today is terminal (`status: "failed"`, no retry budget); a retry policy and dead-letter threshold are still to come.
+    A worker holds a job under a 30s lease. If it dies mid-provision the lease expires and another worker claims the same job — so `provision` must converge, not collide. The tracking handle *is* the building id, the Mongo write is an upsert, and both `mark_ready`/`mark_failed` are unconditional `update_one`s by id. Re-running a job, or redelivering a Kafka message on either side, converges on the same outcome rather than a second one: `publish_requested` might fire twice, sensor-service's threshold write is itself an upsert, and `resolve` sets the same status twice. Failure handling today is terminal (`status: "failed"`, no retry budget); a retry policy and dead-letter threshold are still to come.
 
 ---
 

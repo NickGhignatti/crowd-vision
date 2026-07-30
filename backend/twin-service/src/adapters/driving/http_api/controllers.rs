@@ -1,6 +1,3 @@
-//! The driving adapter. Every handler does the same three things: turn wire
-//! input into domain types, call a use case, map the result back to HTTP.
-//! No handler reaches for a database or a downstream service.
 
 use axum::Json;
 use axum::extract::{Path, State};
@@ -56,8 +53,6 @@ pub struct RegisterBuildingRequest {
     pub domains: Vec<String>,
 }
 
-// Validation stays in the request: a description we would refuse must never be
-// acknowledged, so the 400 has to beat the 202.
 pub async fn add_building(
     State(state): State<AppState>,
     claims: GatewayClaims,
@@ -185,14 +180,9 @@ pub async fn update_room(
     claims: GatewayClaims,
     Json(body): Json<UpdateRoomRequest>,
 ) -> Result<Json<Room>, DomainError> {
-    // Geometry is checked here, before the use case sees it, so a bad update
-    // never gets far enough to leave a room half-written.
     let patch = RoomPatch {
         name: body.name,
         color: body.color,
-        // Unvalidated on purpose: create_room and replace_rooms both run
-        // validate_capacity, this route never has. Kept as-is so this refactor
-        // changes no behaviour; adding the check is a separate, deliberate fix.
         capacity: body.capacity,
         position: body
             .position
@@ -232,8 +222,6 @@ pub async fn create_room(
     claims: GatewayClaims,
     Json(body): Json<CreateRoomRequest>,
 ) -> Result<(StatusCode, Json<Room>), DomainError> {
-    // The id here is a placeholder -- the use case assigns the real one, since
-    // a client must not be able to pick a room id that already exists.
     let room = Room {
         id: String::new(),
         name: body.name.unwrap_or_default(),

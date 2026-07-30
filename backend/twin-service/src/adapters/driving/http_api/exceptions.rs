@@ -1,5 +1,3 @@
-//! The single point where the core's error vocabulary becomes HTTP. Keeping
-//! it here is what lets `domain` stay free of axum.
 
 use axum::Json;
 use axum::http::StatusCode;

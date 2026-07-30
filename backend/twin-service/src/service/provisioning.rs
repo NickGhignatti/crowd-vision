@@ -1,9 +1,3 @@
-//! Provisioning a twin, split at the point the caller stops waiting.
-//!
-//! `accept` runs in the request; `provision_next` runs in the worker. Two
-//! driving adapters, one use case -- which is why this lives here rather than
-//! inline in the handler. It knows only the traits in [`super::ports`], so
-//! everything below is testable without a database or a network.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -33,8 +27,6 @@ impl Provisioning {
         }
     }
 
-    /// Take responsibility for an already well-formed description without
-    /// doing the work yet: make it durable, then return the tracking handle.
     pub async fn accept(&self, building: Building, claims: &str) -> Result<String, DomainError> {
         let upload = AcceptedUpload {
             id: building.id.clone(),
@@ -52,36 +44,34 @@ impl Provisioning {
             .ok_or_else(|| DomainError::NotFound(format!("No upload with handle: \"{handle}\"")))
     }
 
-    /// Provision one accepted upload, if there is one waiting. Reports whether
-    /// there was, so the caller knows whether to back off.
     pub async fn provision_next(&self, lease: Duration) -> Result<bool, DomainError> {
         let Some(upload) = self.queue.claim(lease).await? else {
             return Ok(false);
         };
 
-        match self.provision(&upload).await {
-            Ok(()) => self.queue.mark_ready(&upload.id).await?,
-            Err(e) => {
-                log::error!("provisioning {} failed: {e:?}", upload.id);
-                self.queue
-                    .mark_failed(&upload.id, &format!("{e:?}"))
-                    .await?;
-            }
+        if let Err(e) = self.provision(&upload).await {
+            log::error!("provisioning {} failed: {e:?}", upload.id);
+            self.queue
+                .mark_failed(&upload.id, &format!("{e:?}"))
+                .await?;
         }
         Ok(true)
     }
 
-    /// The work the caller is no longer waiting for.
-    ///
-    /// Runs under a lease, so it must survive running twice -- a worker can
-    /// die after the write and before the ack. Both steps converge on a second
-    /// run rather than duplicating.
     async fn provision(&self, upload: &AcceptedUpload) -> Result<(), DomainError> {
         self.buildings.upsert(&upload.building).await?;
         self.events.publish_requested(&upload.building).await?;
         self.downstream
             .init_preferences(&upload.building.id, &upload.claims)
             .await;
+        Ok(())
+    }
+
+    pub async fn resolve(&self, id: &str, error: Option<&str>) -> Result<(), DomainError> {
+        match error {
+            None => self.queue.mark_ready(id).await?,
+            Some(e) => self.queue.mark_failed(id, e).await?,
+        }
         Ok(())
     }
 }
@@ -163,6 +153,55 @@ mod tests {
         assert_eq!(*h.sync.seeded_preferences.lock().unwrap(), ["b1"]);
         assert_eq!(
             h.provisioning.status("b1").await.unwrap(),
+            UploadStatus::Pending,
+            "a successful publish is not sensor-service's outcome -- \
+             only resolve() may report ready"
+        );
+    }
+
+    #[tokio::test]
+    async fn resolving_ready_is_what_actually_marks_the_upload_ready() {
+        let h = harness();
+        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning.provision_next(LEASE).await.unwrap();
+
+        h.provisioning.resolve("b1", None).await.unwrap();
+
+        assert_eq!(
+            h.provisioning.status("b1").await.unwrap(),
+            UploadStatus::Ready
+        );
+    }
+
+    #[tokio::test]
+    async fn resolving_with_an_error_marks_the_upload_failed() {
+        let h = harness();
+        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning.provision_next(LEASE).await.unwrap();
+
+        h.provisioning
+            .resolve("b1", Some("sensor-service said no"))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            h.provisioning.status("b1").await.unwrap(),
+            UploadStatus::Failed
+        );
+        assert!(h.queue.errors.lock().unwrap()["b1"].contains("sensor-service said no"));
+    }
+
+    #[tokio::test]
+    async fn redelivering_the_same_resolution_is_a_no_op() {
+        let h = harness();
+        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning.provision_next(LEASE).await.unwrap();
+
+        h.provisioning.resolve("b1", None).await.unwrap();
+        h.provisioning.resolve("b1", None).await.unwrap();
+
+        assert_eq!(
+            h.provisioning.status("b1").await.unwrap(),
             UploadStatus::Ready
         );
     }
@@ -182,7 +221,6 @@ mod tests {
         });
         h.provisioning.accept(building("b1"), "tok").await.unwrap();
 
-        // The worker keeps going: a failed job is an outcome, not an error.
         assert!(h.provisioning.provision_next(LEASE).await.unwrap());
 
         assert_eq!(
@@ -203,8 +241,6 @@ mod tests {
             building: building("b1"),
             claims: "tok".to_string(),
         };
-        // Stands in for a worker that died holding the lease: the same upload
-        // is delivered to a second worker.
         h.queue.enqueue(&upload).await.unwrap();
         h.queue.enqueue(&upload).await.unwrap();
 

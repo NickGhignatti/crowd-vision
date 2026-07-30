@@ -103,8 +103,6 @@ pub fn validate_capacity(capacity: Option<f64>) -> Result<f64, DomainError> {
     }
 }
 
-// Same fallback chain as twin-service's names.ts normalizeBuildingName: trimmed
-// name, else the supplied id, else the literal "Building".
 pub fn normalize_building_name(name: Option<&str>, id: Option<&str>) -> String {
     let trimmed = name.map(str::trim).filter(|s| !s.is_empty());
     trimmed.or(id).unwrap_or("Building").to_string()

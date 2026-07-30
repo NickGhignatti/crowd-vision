@@ -115,8 +115,6 @@ impl Buildings {
     ) -> Result<Room, DomainError> {
         let mut building = self.load_for_edit(building_id, claims).await?;
 
-        // The id is assigned here, not by the caller: a client-chosen room id
-        // could collide with one already in the building.
         let room = Room {
             id: Uuid::new_v4().to_string(),
             ..room
@@ -204,8 +202,6 @@ impl Buildings {
         Ok(())
     }
 
-    /// Atomic bulk replace -- every room is checked before any of them is
-    /// written, so a bad room never produces a partial save.
     pub async fn replace_rooms(
         &self,
         building_id: &str,
@@ -248,8 +244,6 @@ impl Buildings {
             .clone_thresholds(&building, None, &claims.raw)
             .await?;
 
-        // Only new rooms need threshold reconciliation, and a failure here must
-        // never undo the geometry save.
         for room in &added {
             self.downstream
                 .init_room_thresholds(building_id, &room.id, room.capacity, &claims.raw)
@@ -280,8 +274,6 @@ impl Buildings {
         Ok(building)
     }
 
-    /// Heals blank names on load and persists the fix, so a bad document gets
-    /// corrected the next time it is touched instead of needing a migration.
     async fn backfill_names(&self, mut building: Building) -> Result<Building, DomainError> {
         let mut changed = false;
 

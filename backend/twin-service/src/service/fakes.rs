@@ -1,8 +1,3 @@
-//! In-memory stand-ins for the driven ports, shared by the use-case tests.
-//!
-//! The Go services in this repo keep a `storefake` sibling next to each store
-//! for the same reason: a use case is only worth testing in isolation if there
-//! is something cheap to isolate it against.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -64,8 +59,6 @@ pub struct FakeStore {
 }
 
 impl FakeStore {
-    /// Put a building in place without counting as a write, so tests can assert
-    /// on what the use case itself did.
     pub fn seed(&self, building: Building) {
         self.written.lock().unwrap().push(building);
     }
@@ -131,7 +124,6 @@ impl BuildingStore for FakeStore {
 
 #[derive(Default)]
 pub struct FakeQueue {
-    // Insertion order matters for claiming, so this is a list, not a map.
     pub pending: Mutex<Vec<AcceptedUpload>>,
     pub statuses: Mutex<HashMap<String, UploadStatus>>,
     pub errors: Mutex<HashMap<String, String>>,
@@ -183,7 +175,6 @@ impl UploadQueue for FakeQueue {
 
 #[derive(Default)]
 pub struct FakeSync {
-    /// Each clone recorded as `(building id, max temperature)`.
     pub cloned: Mutex<Vec<(String, Option<f64>)>>,
     pub seeded_preferences: Mutex<Vec<String>>,
     pub seeded_rooms: Mutex<Vec<String>>,

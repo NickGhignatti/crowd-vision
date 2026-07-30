@@ -9,7 +9,7 @@ use std::sync::Arc;
 use twin_service::adapters::driven::kafka_producer::KafkaEventProducer;
 use twin_service::adapters::driven::persistence::db::{self, MongoBuildings};
 use twin_service::adapters::driven::persistence::jobs::MongoUploadQueue;
-use twin_service::adapters::driving::worker;
+use twin_service::adapters::driving::{kafka_consumer, worker};
 use twin_service::adapters::{driven::outbound::OutboundConfig, ratelimit::RateLimiter};
 use twin_service::build_router;
 use twin_service::service::buildings::Buildings;
@@ -61,11 +61,11 @@ async fn main() {
 
     let kafka_brokers = env::var("KAFKA_BROKERS").unwrap_or_else(|_| "localhost:9092".to_string());
     let events = Arc::new(
-        KafkaEventProducer::new(&kafka_brokers).expect("Failed to configure Kafka producer"),
+        KafkaEventProducer::new(&kafka_brokers)
+            .await
+            .expect("Failed to configure Kafka producer"),
     );
 
-    // The composition root: the only place that decides which adapter satisfies
-    // each port the use cases declare.
     let store = Arc::new(MongoBuildings::new(buildings.clone()));
     let queue = Arc::new(MongoUploadQueue::beside(&buildings));
     let downstream = Arc::new(outbound);
@@ -77,6 +77,7 @@ async fn main() {
         events,
     ));
     worker::spawn(provisioning.clone());
+    kafka_consumer::spawn(&kafka_brokers, provisioning.clone());
 
     let state = AppState {
         buildings: Arc::new(Buildings::new(store, downstream)),

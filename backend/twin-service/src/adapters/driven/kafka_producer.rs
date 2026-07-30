@@ -1,11 +1,9 @@
-//! The `RegistrationEvents` adapter: announces a newly-registered building on
-//! Kafka instead of calling sensor-service directly. Publishing only confirms
-//! the message reached the broker -- it never waits on whoever consumes it.
 
 use std::time::Duration;
 
 use async_trait::async_trait;
 use rdkafka::ClientConfig;
+use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use serde_json::json;
 
@@ -13,18 +11,41 @@ use crate::domain::Building;
 use crate::service::ports::RegistrationEvents;
 
 pub const BUILDING_REGISTRATION_REQUESTED_TOPIC: &str = "building-registration-requested";
+pub const BUILDING_REGISTRATION_COMPLETED_TOPIC: &str = "building-registration-completed";
 
 const PRODUCE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct KafkaEventProducer {
-    // `None` in the disabled/test configuration -- mirrors `OutboundConfig`'s
-    // `sync_enabled` flag, so the HTTP/cucumber suites (which link a lib build
-    // without `service::fakes`) can use the real adapter type as a no-op.
     producer: Option<FutureProducer>,
 }
 
+async fn ensure_topics(brokers: &str) -> anyhow::Result<()> {
+    let admin: AdminClient<_> = ClientConfig::new()
+        .set("bootstrap.servers", brokers)
+        .create()?;
+    let topics = [
+        NewTopic::new(
+            BUILDING_REGISTRATION_REQUESTED_TOPIC,
+            1,
+            TopicReplication::Fixed(1),
+        ),
+        NewTopic::new(
+            BUILDING_REGISTRATION_COMPLETED_TOPIC,
+            1,
+            TopicReplication::Fixed(1),
+        ),
+    ];
+    for result in admin.create_topics(&topics, &AdminOptions::new()).await? {
+        if let Err((topic, code)) = result {
+            log::info!("topic {topic} not created ({code:?}); assumed to already exist");
+        }
+    }
+    Ok(())
+}
+
 impl KafkaEventProducer {
-    pub fn new(brokers: &str) -> anyhow::Result<Self> {
+    pub async fn new(brokers: &str) -> anyhow::Result<Self> {
+        ensure_topics(brokers).await?;
         let producer = ClientConfig::new()
             .set("bootstrap.servers", brokers)
             .create()?;

@@ -10,7 +10,6 @@ use std::time::{Duration, Instant};
 const WINDOW: Duration = Duration::from_secs(60);
 const LIMIT: u32 = 300;
 
-// Per-IP fixed-window limiter.
 #[derive(Clone)]
 pub struct RateLimiter {
     counters: Arc<DashMap<IpAddr, (Instant, u32)>>,
@@ -26,8 +25,6 @@ impl RateLimiter {
     }
 }
 
-// Behind the Caddy/Istio ingress: read the real client IP from
-// X-Forwarded-For, falling back to the raw socket peer.
 fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> IpAddr {
     headers
         .get("x-forwarded-for")

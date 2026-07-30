@@ -1,5 +1,3 @@
-//! The Mongo-backed [`UploadQueue`]. The document carries lease bookkeeping the
-//! core never sees -- `AcceptedUpload` is what crosses the port.
 
 use std::time::Duration;
 
@@ -70,8 +68,6 @@ pub struct MongoUploadQueue {
 }
 
 impl MongoUploadQueue {
-    /// The queue lives in the same database as the buildings it provisions, so
-    /// the worker and the API can never end up pointed at different Mongos.
     pub fn beside(buildings: &Collection<Building>) -> Self {
         Self {
             col: buildings
@@ -89,14 +85,10 @@ impl UploadQueue for MongoUploadQueue {
         Ok(())
     }
 
-    /// add an index on `{status, leased_until}` if a backlog ever grows past a few thousand.
     async fn claim(&self, lease: Duration) -> anyhow::Result<Option<AcceptedUpload>> {
         let now = DateTime::now();
         let expires_at = DateTime::from_millis(now.timestamp_millis() + lease.as_millis() as i64);
 
-        // Claimable == pending and either never leased or leased to a worker
-        // that no longer holds it. The find-and-update is one atomic step, so
-        // two workers racing here cannot both win the same job.
         let filter = doc! {
             "status": "pending",
             "$or": [
@@ -248,7 +240,6 @@ mod tests {
         let queue = test_queue().await;
         let id = enqueued(&queue).await;
 
-        // Stands in for a worker that died holding the upload.
         queue
             .claim(Duration::ZERO)
             .await

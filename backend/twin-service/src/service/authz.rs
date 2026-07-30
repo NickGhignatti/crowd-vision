@@ -32,12 +32,10 @@ fn euid(type_name: &str, id: &str) -> EntityUid {
     )
 }
 
-/// Convert a set of strings into a cedar restricted expression<[fim-middle]>
 fn set_expr(values: HashSet<String>) -> RestrictedExpression {
     RestrictedExpression::new_set(values.into_iter().map(RestrictedExpression::new_string))
 }
 
-/// Convert an identity claim payload into a cedar entity representation.
 fn account_entity(uid: EntityUid, claims: &GatewayClaims) -> Entity {
     let mut standard_customer = HashSet::new();
     let mut business_staff = HashSet::new();
@@ -169,8 +167,6 @@ pub fn scope_to_memberships(requested: &[String], claims: &GatewayClaims) -> Vec
         .collect()
 }
 
-// Exposes the full 5-action policy bundle (routes only need Read/Edit) so the
-// golden conformance suite can check this binding matches the other ports.
 pub fn authorize_any(
     claims: &GatewayClaims,
     action: &str,

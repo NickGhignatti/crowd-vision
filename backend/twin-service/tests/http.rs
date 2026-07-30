@@ -9,16 +9,34 @@ use uuid::Uuid;
 
 use std::sync::Arc;
 
-use twin_service::adapters::driven::kafka_producer::KafkaEventProducer;
 use twin_service::adapters::driven::outbound::OutboundConfig;
 use twin_service::adapters::driven::persistence::db::{self, MongoBuildings};
 use twin_service::adapters::driven::persistence::jobs::MongoUploadQueue;
 use twin_service::adapters::driving::worker;
 use twin_service::adapters::ratelimit::RateLimiter;
 use twin_service::build_router;
+use twin_service::domain::Building;
 use twin_service::service::buildings::Buildings;
+use twin_service::service::ports::RegistrationEvents;
 use twin_service::service::provisioning::Provisioning;
 use twin_service::state::AppState;
+
+// Stands in for the Kafka completion consumer (K4): a real broker isn't
+// available in this suite, so this resolves an upload the instant it's
+// announced, as if sensor-service always answers "ready" immediately. Kept
+// test-local because it fakes an *external service's* outcome, not one of
+// twin-service's own ports the way `service::fakes` fakes its adapters.
+struct InstantlyResolvingEvents {
+    tx: tokio::sync::mpsc::UnboundedSender<String>,
+}
+
+#[async_trait::async_trait]
+impl RegistrationEvents for InstantlyResolvingEvents {
+    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()> {
+        let _ = self.tx.send(building.id.clone());
+        Ok(())
+    }
+}
 
 async fn app() -> Router {
     let uri =
@@ -37,7 +55,8 @@ async fn app() -> Router {
     let store = Arc::new(MongoBuildings::new(buildings.clone()));
     let queue = Arc::new(MongoUploadQueue::beside(&buildings));
     let downstream = Arc::new(outbound);
-    let events = Arc::new(KafkaEventProducer::disabled());
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let events = Arc::new(InstantlyResolvingEvents { tx });
 
     let provisioning = Arc::new(Provisioning::new(
         store.clone(),
@@ -46,6 +65,12 @@ async fn app() -> Router {
         events,
     ));
     worker::spawn(provisioning.clone());
+    let resolver = provisioning.clone();
+    tokio::spawn(async move {
+        while let Some(id) = rx.recv().await {
+            let _ = resolver.resolve(&id, None).await;
+        }
+    });
 
     build_router(AppState {
         buildings: Arc::new(Buildings::new(store, downstream)),

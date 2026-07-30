@@ -8,7 +8,6 @@ pub mod state;
 
 use state::AppState;
 
-// GET /contracts
 async fn contracts() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "service": "digital-twin-service",
@@ -39,8 +38,6 @@ async fn contracts() -> Json<serde_json::Value> {
     }))
 }
 
-// Public infra (no auth): health, Prometheus scrape, metric contract.
-// Registered with and without trailing slash -- both k8s (`/health`) and this service's tests (`/health/`) depend on it.
 fn public_routes() -> Router<AppState> {
     Router::new()
         .route("/health", get(adapters::metrics::health))
@@ -50,8 +47,6 @@ fn public_routes() -> Router<AppState> {
         .route("/contracts", get(contracts))
 }
 
-// Everything below exposes/mutates building data: every handler requires a
-// `GatewayClaims` extractor, which 401s on a missing/invalid x-gateway-claims header.
 fn protected_routes() -> Router<AppState> {
     use adapters::driving::http_api::controllers::*;
 

@@ -24,6 +24,7 @@ One diagram trying to show every adapter and every core file at once is what mad
             PSTORE{{"service/ports.rs\nBuildingStore"}}:::port
             PQUEUE{{"service/ports.rs\nUploadQueue"}}:::port
             PSYNC{{"service/ports.rs\nDownstreamSync"}}:::port
+            PEVENTS{{"service/ports.rs\nRegistrationEvents"}}:::port
         end
         subgraph uc["Use cases — service/"]
             UCB{{"service/buildings.rs\nread · list · count · update · rooms"}}:::usecase
@@ -48,6 +49,7 @@ One diagram trying to show every adapter and every core file at once is what mad
         UCP --> PSTORE
         UCP --> PQUEUE
         UCP --> PSYNC
+        UCP --> PEVENTS
 
         classDef entity fill:#cfe8ff,stroke:#1b6ec2,stroke-width:2px,color:#003366
         classDef usecase fill:#d9f2d9,stroke:#2e7d32,stroke-width:2px,color:#1b4d1b
@@ -63,6 +65,7 @@ The adapters live outside that boundary, in and out through the ports:
             HTTP["adapters/driving/http_api/controllers.rs\nHTTP handlers"]:::driving
             PRESENT["adapters/driving/http_api/exceptions.rs\nDomainError to HTTP"]:::driving
             LOOP["adapters/driving/worker.rs\nprovisioning loop"]:::driving
+            KCONS["adapters/driving/kafka_consumer.rs\nregistration-completed consumer"]:::driving
         end
 
         HEX{{"THE HEXAGON"}}:::hexref
@@ -71,17 +74,20 @@ The adapters live outside that boundary, in and out through the ports:
             ADB["adapters/driven/persistence/db.rs\nMongoBuildings"]:::driven
             AJOB["adapters/driven/persistence/jobs.rs\nMongoUploadQueue"]:::driven
             AOUT["adapters/driven/outbound.rs\nOutboundConfig"]:::driven
+            AKPROD["adapters/driven/kafka_producer.rs\nKafkaEventProducer"]:::driven
             AFAKE["service/fakes.rs\nin-memory, cfg(test)"]:::driven
         end
 
         EXTRACT --> HTTP
         HTTP --> HEX
         LOOP --> HEX
+        KCONS --> HEX
         HTTP --> PRESENT
 
         ADB -.->|implements| HEX
         AJOB -.->|implements| HEX
         AOUT -.->|implements| HEX
+        AKPROD -.->|implements| HEX
         AFAKE -.->|implements| HEX
 
         classDef driving fill:#ffe0cc,stroke:#d2691e,stroke-width:2px,color:#7a3300
@@ -98,16 +104,18 @@ Every arrow into the hexagon points **inwards**, and every arrow out of it stops
 A port exists **for the use case that declares it**, not for whoever ends up implementing it. The use case's author writes the trait signature (`service/ports.rs`) to fit their own logic, and everyone downstream must conform to it.
 
 *   **Driving Adapters**: These originate requests for the core.
-    *   `api/claims.rs`: Extracts `x-gateway-claims` from incoming HTTP requests, transforming raw header data into the domain's `GatewayClaims`.
-    *   `api/buildings.rs`: Contains HTTP handlers that translate external `POST /building` requests into calls to the core's use cases.
-    *   `api/error.rs`: Transforms domain-specific errors (`DomainError`) into appropriate HTTP responses.
-    *   `worker.rs`: A provisioning loop that wakes up periodically to process pending uploads, calling the same `service::provisioning` use case as the HTTP handlers.
+    *   `adapters/driving/http_api/claims.rs`: Extracts `x-gateway-claims` from incoming HTTP requests, transforming raw header data into the domain's `GatewayClaims`.
+    *   `adapters/driving/http_api/controllers.rs`: HTTP handlers that translate external `POST /register` requests into calls to the core's use cases.
+    *   `adapters/driving/http_api/exceptions.rs`: Transforms domain-specific errors (`DomainError`) into appropriate HTTP responses.
+    *   `adapters/driving/worker.rs`: A provisioning loop that wakes up periodically to process pending uploads, calling the same `service::provisioning` use case as the HTTP handlers.
+    *   `adapters/driving/kafka_consumer.rs`: Consumes `building-registration-completed` and resolves the matching upload — the third entry point into `service::provisioning`, alongside the HTTP handler and the worker.
 
 *   **Driven Adapters**: These implement the capabilities (ports) that the core requires.
-    *   `infra/db.rs`: Implements the `BuildingStore` port, providing persistence for building data using MongoDB.
-    *   `infra/jobs.rs`: Implements the `UploadQueue` port, handling durable queuing of upload tasks with MongoDB.
-    *   `infra/outbound.rs`: Implements the `DownstreamSync` port, managing outbound REST calls to other services.
-    *   `service/fakes.rs`: An in-memory adapter for all three ports (`BuildingStore`, `UploadQueue`, `DownstreamSync`), used exclusively by the test suite to enable testing the core without a database or network.
+    *   `adapters/driven/persistence/db.rs`: Implements the `BuildingStore` port, providing persistence for building data using MongoDB.
+    *   `adapters/driven/persistence/jobs.rs`: Implements the `UploadQueue` port, handling durable queuing of upload tasks with MongoDB.
+    *   `adapters/driven/outbound.rs`: Implements the `DownstreamSync` port — outbound REST calls to contracts-service and the seed-only calls to sensor-service; no longer used for registration (see below).
+    *   `adapters/driven/kafka_producer.rs`: Implements the `RegistrationEvents` port, publishing `building-registration-requested` instead of calling sensor-service directly.
+    *   `service/fakes.rs`: An in-memory adapter for all four ports (`BuildingStore`, `UploadQueue`, `DownstreamSync`, `RegistrationEvents`), used exclusively by the test suite to enable testing the core without a database or network.
 
 ---
 
@@ -116,8 +124,9 @@ A port exists **for the use case that declares it**, not for whoever ends up imp
 - **Server-owned identifiers.** Building identities are generated by the service, not accepted from the client, so the public identifier is decoupled from any client- or storage-specific id.
 - **Tenancy from the token.** A building records the domains it belongs to; access is granted by matching those against the principal's memberships in the identity token — no per-request call to claims-gateway or tenancy-service.
 - **Registration accepts, then provisions.** `POST /register` validates synchronously and answers `202` with a tracking handle; the twin itself is built by an in-process worker reading a durable queue. Validation stays ahead of the acknowledgement — a description the service would refuse must never be accepted — while everything that can only fail for reasons the caller cannot fix moves behind it. The caller polls the handle; delivery is at-least-once, so provisioning is written to converge on a second run rather than duplicate.
-- **Two driving adapters, one use case.** The HTTP handler and the worker enter through the same `service::provisioning` module. Neither owns the behaviour, which is what stops the two paths drifting apart.
-- **Best-effort downstream provisioning, with one exception.** Seeding the dependent contexts (default display preferences for distribution, per-room occupancy thresholds) is intentionally non-transactional — a failed seed is logged and swallowed. The sensor threshold clone is the exception: it fails the provisioning *job*, surfacing as `status: "failed"` on the handle rather than as a failed request (see the design note in [Building Management](../domain/building-management.qd)).
+- **Three driving adapters, one use case.** The HTTP handler, the worker, and the Kafka completion consumer all enter through the same `service::provisioning` module. None of them owns the behaviour, which is what stops the three paths drifting apart.
+- **Registration is announced, not called.** Provisioning no longer calls sensor-service directly: it publishes `building-registration-requested` on Kafka and returns. Publishing is correlated, not blocking — sensor-service builds its own model independently and reports back on `building-registration-completed`, which is what actually resolves the upload to `ready` or `failed`. A publish failure still fails the job the same way a REST failure used to; what changed is that a *successful* publish is no longer treated as the outcome, only the completion event is (see [Communication & Data Flow](data-flow.qd) for the sequence).
+- **Best-effort downstream seeding.** Seeding the dependent contexts (default display preferences for distribution, per-room occupancy thresholds via `DownstreamSync`) is intentionally non-transactional — a failed seed is logged and swallowed. This no longer includes the sensor threshold clone, which moved to the Kafka flow above and fails the job instead.
 - **Structure treated as static.** Geometry and topology are modelled as stable; only metadata evolves. This keeps the spatial model dependable while live readings churn elsewhere.
 - **Uniform geometry validation.** Every geometry-writing route — registration included — enforces the same position/dimension/capacity checks, returning `400` on a malformed room rather than storing bad data or surfacing an opaque `500`.
 
@@ -126,7 +135,7 @@ A port exists **for the use case that declares it**, not for whoever ends up imp
 ## Integration
 
 - Owns `twin-db`; no other service reads it.
-- Calls sensor-service and contracts-service to provision a new building — see [Communication & Data Flow](data-flow.qd).
+- Announces a new registration to sensor-service over Kafka (`building-registration-requested`/`-completed`); calls contracts-service directly over REST — see [Communication & Data Flow](data-flow.qd).
 - Exposes read-only building data to the assistant through an anti-corruption layer.
 
 For the registration flow, name-normalisation rules, synchronisation details, and the API, see the [Digital Twin Service](../services/digital-twin.qd) internals page.

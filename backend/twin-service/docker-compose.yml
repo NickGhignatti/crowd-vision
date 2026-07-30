@@ -5,7 +5,7 @@ services:
       # Repo-root context: twin-service needs to see its sibling ../auth-policy
       # dir (shared Cedar policy bundle) during build.
       context: ../..
-      dockerfile: server/twin-service/Dockerfile
+      dockerfile: backend/twin-service/Dockerfile
     environment:
       - MONGO_URI=mongodb://twin-db:27017/twindb
       - SENSOR_SERVICE_URL=http://sensor-service:3000

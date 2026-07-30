@@ -10,8 +10,6 @@ use std::collections::HashMap;
 use crate::domain::Building;
 use crate::service::ports::BuildingStore;
 
-/// The `BuildingStore` adapter -- the only way into this collection now that
-/// every use case lives in `service/`.
 pub struct MongoBuildings {
     col: Collection<Building>,
 }
@@ -84,8 +82,6 @@ pub async fn insert(col: &Collection<Building>, building: &Building) -> anyhow::
     Ok(())
 }
 
-/// Write a building whether or not it is already there. Provisioning retries
-/// land here, so this has to converge rather than collide with the unique id index.
 pub async fn upsert(col: &Collection<Building>, building: &Building) -> anyhow::Result<()> {
     col.replace_one(doc! { "id": &building.id }, building)
         .upsert(true)

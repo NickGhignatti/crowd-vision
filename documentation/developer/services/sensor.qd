@@ -33,7 +33,11 @@ A Node.js / Express service in strict TypeScript. It ingests sensor readings fro
     - - `actions.json`
       - Data-driven routing table for the action path (see *Sensor Registry & Actions*).
     - - `src/config/`
-      - `db.ts` (Mongo), `redis.ts` (broker).
+      - `db.ts` (Mongo), `redis.ts` (broker), `kafka.ts` (the building-registration producer/consumer, plus both topic names).
+    - - `src/services/buildingRegistration.ts`
+      - `registerBuilding(kernel, buildingId, payload)`: seeds every registered module's threshold clone for a building. Called from both `thresholdController`'s REST route and the Kafka consumer below — one use case, two driving adapters.
+    - - `src/consumers/registrationConsumer.ts`
+      - Consumes `building-registration-requested`, calls `registerBuilding`, then publishes `building-registration-completed` with `status: "ready"` or `"failed"`.
 
 .mermaid
     graph TD
@@ -243,7 +247,7 @@ The shape of a dispatched command (`actionSignal.ts`): `{ buildingId, roomId, se
     - - `PATCH /thresholds/...`
       - Update building- or room-level thresholds, served by `thresholdController`. **JWT.**
     - - `PUT /thresholds/buildings/:id`
-      - Receives the building clone (rooms, name) pushed by the twin-service. **JWT** — twin forwards the caller's bearer token; the browser also calls it directly with its cookie.
+      - Receives the building clone (rooms, name) pushed by twin-service for a *later* edit (update, room change) — not for registration, which arrives over Kafka instead (see below). **JWT** — twin forwards the caller's bearer token; the browser also calls it directly with its cookie.
     - - `GET /contracts`
       - The metric catalog (`peopleCount`, `temperature`, `airQuality`). **Public.**
 
@@ -261,6 +265,9 @@ findOneAndUpdate({ buildingId }, { $set: { "temperature.maxTemp": 25 } })
 ```
 
 A room-level bound, when present, overrides the building default for that room during evaluation.
+
+.box {Registration arrives over Kafka, not REST} type:{note}
+    `registrationConsumer.ts` consumes `building-registration-requested`, calls the same `registerBuilding` the REST route calls, then publishes `building-registration-completed` — twin-service resolves the caller's tracking handle from that event, not from this service's HTTP response. See [Digital Twin Service](digital-twin.qd) for the full sequence and the topic schema.
 
 ---
 

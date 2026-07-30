@@ -32,7 +32,64 @@ also stays REST, best-effort, unchanged — out of scope.
   wrote a real `buildingthresholds` document, published `building-registration-completed`
   with `status: "ready"`, consumed and confirmed. Failure path (`status: "failed"`)
   is unit-tested (mocked) but not yet exercised live.
-- **K4**, **K5** not started.
+- **K4** done — `adapters/driving/kafka_consumer.rs` (new driving adapter, consumes
+  `building-registration-completed`), `Provisioning::resolve(id, error)` (replaces the
+  old "mark ready immediately after publish" behavior in `provision_next` -- a
+  successful publish no longer means ready, only `resolve()` does). Also added
+  `ensure_topics()` to `KafkaEventProducer::new` — the producer side turned out to
+  have the same lazy-auto-create race K3 found on the consumer side, caught by
+  building this against a real broker before assuming it was fine.
+  Verified live, twice, no mocks: registered a real building through the real HTTP
+  API with both real services + real Kafka running — resolved to `ready` on the
+  first status poll (well under a second). Then, to exercise the failure path
+  without racing sensor-service's real success, stopped sensor-service and
+  hand-published a synthetic `status: "failed"` completion event straight to the
+  topic — twin-service's actual consumer picked it up and the status endpoint
+  correctly reported `failed`. Both outcomes go through the real `resolve()` code
+  path, not a test double.
+  Also found and fixed, unrelated to Kafka: `backend/twin-service/docker-compose.yml`'s
+  `dockerfile: server/twin-service/Dockerfile` was stale (should be
+  `backend/twin-service/Dockerfile`) — pre-existing bug, confirmed via `git diff`
+  it predates this work, only surfaced because a real image build was needed to
+  verify K4.
+  The `service::provisioning` unit suite's `KafkaEventProducer::disabled()`-based
+  http.rs/cucumber.rs fixture no longer reflects reality on its own: since a
+  successful publish doesn't mark ready anymore, those two suites needed a small
+  test-local stand-in (`InstantlyResolvingEvents`, in each test file) that resolves
+  the upload the instant it's published, playing the role the Kafka consumer plays
+  in production. This isn't a mock of a twin-service port -- it's a stated fake of
+  *sensor-service's own outcome*, needed because those suites have no live sensor-service
+  to actually report one.
+- **K5** done — no code changes; traced every write on both sides of the loop
+  and confirmed each one is naturally safe under redelivery:
+  - `MongoUploadQueue::mark_ready`/`mark_failed` (`update_one` by `id`) and
+    `MongoBuildings::upsert` (`replace_one(...).upsert(true)`) — setting the same
+    field twice is a no-op. Already covered by
+    `redelivering_the_same_resolution_is_a_no_op` (Rust, unit).
+  - Every sensor module's `updateBuildingThresholds` (`TemperatureModuleService`,
+    `PeopleCountModuleService`, `AirQualityModuleService`) —
+    `findOneAndUpdate({buildingId}, {$set: ...}, {upsert: true})`, same pattern.
+  - Consequence: if a worker dies between `buildings.upsert` and
+    `publish_requested` succeeding, the lease expires and a second worker
+    redelivers — sensor-service may see `building-registration-requested` twice
+    for the same id and will just re-run the same idempotent upsert, publishing
+    `completed` twice; twin-service's consumer resolves the same id twice,
+    which is already a no-op. No path produces a duplicate document or a stuck
+    state on either side.
+  Didn't re-verify this live: unlike K4's topic-creation race (a timing/broker
+  behavior no unit test could see), idempotent-upsert-under-redelivery is a
+  property of Mongo semantics already exercised by the existing test suites on
+  both sides — a second live deployment cycle wouldn't have told me anything
+  the code trace + existing tests hadn't already.
+  Fallback question: no REST fallback exists or is needed on the registration
+  path — `provision()` never called `clone_thresholds` even before K2 removed
+  nothing there (that call only ever existed on the five `buildings.rs` update
+  paths, out of scope, confirmed unchanged).
+- **K6** done — every doc listed in Rollout order below, plus one unrelated
+  stale path fixed in `middlewares.qd`. Full doc site rebuilds clean; every
+  mermaid diagram checked for double-escaped labels (none found).
+
+**All six steps done. The Kafka registration flow is fully built, live-verified (success and failure paths), and documented.**
 
 ## The ordering question, answered
 
@@ -148,7 +205,7 @@ regardless of `exclude=`, so the reference always resolves.
 - **K3** (done) — sensor-service: Kafka consumer wired to the existing threshold-update logic (extracted into a shared use case); publishes the completion event.
 - **K4** — twin-service: Kafka consumer (new driving adapter, `adapters/driving/kafka_consumer.rs`) consumes `building-registration-completed` and flips `pending_uploads` status via the existing `mark_ready`/`mark_failed`. Until this lands, `provision_next` still marks a registration `ready` immediately after publish, same as before K2 — the status doesn't yet reflect sensor-service's real outcome.
 - **K5** — Confirm redelivery-safety on both sides now that the full loop is live (see Open Questions), and decide whether the registration path's `clone_thresholds`-shaped REST fallback is still needed anywhere.
-- **K6** — Docs: `twin-architecture.qd`, `digital-twin.qd`, `sensor-architecture.qd`, `data-flow.qd`, `docker-compose.qd`, `CLAUDE.md`.
+- **K6** done — `twin-architecture.qd` (both mermaids gained `RegistrationEvents`/`kafka_producer.rs`/`kafka_consumer.rs`; ports/adapters bullets and Key Architectural Decisions rewritten for the announce-then-resolve flow); `digital-twin.qd` (Source Layout, Configuration, implementation mermaid, and the whole Downstream Synchronisation section — new sequence diagram, dropped the now-resolved "known gap" box); `sensor-architecture.qd` + `sensor.qd` (registration is a second driving adapter for `registerBuilding`, alongside the REST route); `data-flow.qd` (fourth communication style — "asynchronous, durable" — new Kafka topic table, fixed the `PUT /thresholds/buildings/{id}` row, "Why Four Styles"); `CLAUDE.md` (`RegistrationEvents` port, `kafka_producer`/`kafka_consumer` adapters, "asynchronous twice over"). `docker-compose.qd` needed no change — its K1 wording was already accurate. Also fixed one unrelated stale path found while sweeping for leftovers: `middlewares.qd` still pointed at pre-restructure `src/api/claims.rs`. Verified: full doc site rebuilds clean, all 10 mermaid diagrams across the 4 main edited pages checked for double-escaping (none).
 
 Say which step (`K4`, `K5`, ...) to start on.
 

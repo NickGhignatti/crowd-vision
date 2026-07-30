@@ -5,7 +5,8 @@ CrowdVision uses three communication styles, chosen deliberately per relationshi
 
 - **Synchronous, user-driven** — HTTP through the gateway, and the handful of service-to-service calls made on a user's behalf. The caller's identity travels with the request.
 - **Synchronous, control-plane** — HTTP calls between backend-only services that have no end user attached (signup provisioning). Authenticated by a shared secret instead of a user identity, because there is no user identity to carry.
-- **Asynchronous (publish/subscribe)** — over Redis, for the high-frequency telemetry and alert flows, where producers must not be coupled to, or blocked by, consumers.
+- **Asynchronous, fire-and-forget (publish/subscribe)** — over Redis, for the high-frequency telemetry and alert flows, where producers must not be coupled to, or blocked by, consumers, and no message needs to survive a restart.
+- **Asynchronous, durable (event log)** — over Kafka, for the one cross-service outcome that must eventually be known on both sides even if either service restarts mid-flight: a new building's registration.
 
 This page maps all three, then walks five end-to-end flows.
 
@@ -52,7 +53,7 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
     - - twin-service → sensor-service
       - `PUT /thresholds/buildings/{id}`
       - `x-gateway-claims` forwarded
-      - On building creation/update, push a threshold baseline for the building's rooms.
+      - On a *later* building/room edit, push an updated threshold baseline. Not used for registration — that goes over Kafka instead (see *Asynchronous Communication* below).
     - - twin-service → sensor-service
       - `PATCH /thresholds/peopleCount/buildings/{id}/rooms/{id}`
       - `x-gateway-claims` forwarded
@@ -118,7 +119,7 @@ These calls are intentionally few. The design keeps the request path short and a
 
 ## Asynchronous Communication
 
-Redis is the publish/subscribe backbone for everything high-frequency. Four channels and one stream carry the event flow:
+Redis is the publish/subscribe backbone for everything high-frequency and fire-and-forget. Four channels and one stream carry the event flow:
 
 .var {headers}
    - Channel / Stream
@@ -155,6 +156,28 @@ Publishers never know who (if anyone) is listening, and the broker absorbs burst
 
 .box {sensor:latest:temperature:{buildingId} is a cache, not a message} type:{note}
     sensor-service also uses Redis as a 10-second TTL cache for each room's latest temperature reading (`GET`/`SETEX`), independent of the pub/sub channels above. It exists purely to serve fast reads for `agent-service`'s dashboard tool calls without re-querying the primary datastore, not to communicate between services.
+
+### Kafka
+
+Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a message is produced still sees it once it comes back, which is why this is the transport for the one flow where twin-service and sensor-service must eventually agree even if either one restarts mid-registration — not for anything high-frequency.
+
+.var {headers}
+   - Topic
+   - Producer
+   - Consumer
+   - Carries
+
+.tablebyrows {.headers}
+    - - `building-registration-requested`
+      - twin-service
+      - sensor-service
+      - `{ buildingId, name, rooms: [{ id, name }] }`, keyed by `buildingId`, published once the twin's own write has succeeded.
+    - - `building-registration-completed`
+      - sensor-service
+      - twin-service
+      - `{ buildingId, status: "ready" | "failed", error? }`, keyed by `buildingId` — resolves the caller's tracking handle.
+
+Publishing is not blocking on either side: twin-service's worker returns as soon as the first message reaches the broker, and sensor-service's consumer processes it on its own schedule. Both topics carry no `x-gateway-claims` — this is internal transport between two services already inside the trust perimeter, not a client-facing hop. See [Digital Twin Service](../services/digital-twin.qd) for the full sequence and the idempotency argument (every write either side makes is an upsert, so redelivery converges rather than duplicating).
 
 ---
 
@@ -301,7 +324,7 @@ This is the control-plane path: no end user is authenticated mid-flow, so every 
 
 ---
 
-## Why Three Styles
+## Why Four Styles
 
 .var {headers}
    - Concern
@@ -316,5 +339,8 @@ This is the control-plane path: no end user is authenticated mid-flow, so every 
       - Synchronous, HMAC-signed
       - No user identity exists to carry; the calling *service* authenticates itself instead. Failures are tolerated and retried on the next reconcile tick.
     - - Telemetry & alerts
-      - Asynchronous
-      - High volume, many consumers, and producers that must never block on a slow subscriber.
+      - Asynchronous, fire-and-forget
+      - High volume, many consumers, and producers that must never block on a slow subscriber. No message needs to survive a restart — the next reading arrives in seconds regardless.
+    - - Building registration
+      - Asynchronous, durable
+      - Exactly one outcome matters, and it has to be known eventually even if either service restarts mid-flight — a property Redis pub/sub doesn't offer, and the reason this one relationship uses Kafka instead.

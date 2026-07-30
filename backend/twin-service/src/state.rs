@@ -1,5 +1,3 @@
-//! What a handler is handed. Use cases only -- no collection, no HTTP client:
-//! which adapter backs each of them was decided in `main.rs`.
 
 use std::sync::Arc;
 

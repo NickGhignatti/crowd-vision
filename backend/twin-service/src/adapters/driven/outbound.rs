@@ -4,8 +4,6 @@ use serde_json::json;
 use crate::domain::Building;
 use crate::service::ports::DownstreamSync;
 
-/// `OutboundConfig` is itself the `DownstreamSync` adapter -- it already holds
-/// every dependency the calls need, so a separate wrapper type would add nothing.
 #[derive(Clone)]
 pub struct OutboundConfig {
     pub sensor_service_url: String,
@@ -40,7 +38,6 @@ impl DownstreamSync for OutboundConfig {
     }
 }
 
-/// `auth_headers` is a utility function for constructing the authorization headers
 fn auth_headers(claims_header: Option<&str>) -> reqwest::header::HeaderMap {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert("content-type", "application/json".parse().unwrap());
@@ -223,8 +220,6 @@ mod tests {
 
     #[tokio::test]
     async fn skipped_entirely_when_sync_is_disabled() {
-        // No mock mounted at all -- if this made a real request it would fail
-        // to connect and return an error.
         let cfg = OutboundConfig {
             sensor_service_url: "http://127.0.0.1:1".to_string(),
             contracts_service_url: "http://127.0.0.1:1".to_string(),
@@ -260,7 +255,6 @@ mod tests {
             sync_enabled: true,
             client: reqwest::Client::new(),
         };
-        // Would panic if this propagated an error instead of just logging.
         init_room_thresholds(&cfg, "b1", "r1", 10.0, None).await;
     }
 }
