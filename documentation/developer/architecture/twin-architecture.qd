@@ -93,7 +93,7 @@ The adapters live outside that boundary, in and out through the ports:
 Driving adapters (orange) call the core; driven adapters (purple) are called by it, each implementing exactly one port from the diagram above.
 Every arrow into the hexagon points **inwards**, and every arrow out of it stops at a port; `main.rs` is the only file that knows a `BuildingStore` is really MongoDB, and swapping in `service/fakes.rs` is what lets the whole core suite run with no database and no network.
 
-### Ports and adapters — who each one is for
+### Ports and adapters
 
 A port exists **for the use case that declares it**, not for whoever ends up implementing it. The use case's author writes the trait signature (`service/ports.rs`) to fit their own logic, and everyone downstream must conform to it.
 
@@ -108,21 +108,6 @@ A port exists **for the use case that declares it**, not for whoever ends up imp
     *   `infra/jobs.rs`: Implements the `UploadQueue` port, handling durable queuing of upload tasks with MongoDB.
     *   `infra/outbound.rs`: Implements the `DownstreamSync` port, managing outbound REST calls to other services.
     *   `service/fakes.rs`: An in-memory adapter for all three ports (`BuildingStore`, `UploadQueue`, `DownstreamSync`), used exclusively by the test suite to enable testing the core without a database or network.
-
-*   **`main.rs`**: This file acts as the Dependency Injector, solely responsible for wiring each port (`service/ports.rs`) with its concrete implementation (e.g., `BuildingStore` with `MongoBuildings` from `infra/db.rs`).
-
-.box {Three greps hold the boundary} type:{note}
-    Cheap enough to run in CI, and concrete enough to be a governance check rather than a convention nobody enforces:
-
-    - `domain/` names neither `axum` nor `mongodb` — the entity layer cannot learn about a framework by accident.
-    - `service/` names neither of those nor `crate::adapters` — a use case cannot reach past its own ports.
-    - No handler in `adapters/driving` names `crate::adapters::driven` — the driving adapter cannot skip the core and talk to a database directly.
-
-    Each one fails loudly the moment the dependency rule is violated, which is the property a written convention does not have.
-
-The payoff is testability that did not previously exist. The use cases are exercised against in-memory fakes of all three ports (`service/fakes.rs`) — the whole core suite runs with **no MongoDB and no network** — while the HTTP suite still drives the full `Router` via `tower::ServiceExt::oneshot` against a real MongoDB, the same code path a real request takes rather than a swapped-in double. Both matter: the fakes make failure paths (a refused downstream sync, a redelivered upload) reachable at all, and the HTTP suite proves the wiring is real. It also served as the characterization suite for the restructuring itself — every handler was rewritten without a single edit to it.
-
-Metrics are recorded through an Axum `Router::layer`, which wraps the entire request/response cycle regardless of how the inner handler responds — so `http_requests_total`/`http_request_duration_seconds` increment for every route, labeled by `{method, route, status_code}` using the route template rather than the raw URL, so cardinality stays bounded even with real ids in the path. Cedar's policy bundle (`schema.cedarschema`, `policy.cedar`) is compiled into the binary via Rust's `include_str!` rather than read from disk at process startup — the production Docker image doesn't need `backend/auth-policy` present at runtime, only the builder stage does.
 
 ---
 
