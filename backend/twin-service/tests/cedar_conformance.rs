@@ -1,9 +1,6 @@
-// Runs the golden fixture shared with every other language binding
-// (auth-policy/fixtures/conformance.json) to prove identical outcomes across bindings.
-
 use serde::Deserialize;
-use twin_service::infra::authz::authorize_any;
-use twin_service::infra::claims::{ClaimsPayload, GatewayClaims, Membership};
+use twin_service::domain::identity::{ClaimsPayload, GatewayClaims, Membership};
+use twin_service::service::authz::authorize_any;
 
 #[derive(Deserialize)]
 struct ConformanceMembership {

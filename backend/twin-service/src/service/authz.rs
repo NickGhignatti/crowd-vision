@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use crate::infra::claims::GatewayClaims;
+use crate::domain::identity::GatewayClaims;
 
 static ROLE_WEIGHTS: LazyLock<HashMap<String, i64>> = LazyLock::new(|| {
     serde_json::from_str(include_str!("../../../auth-contracts/roles.json"))
@@ -32,10 +32,12 @@ fn euid(type_name: &str, id: &str) -> EntityUid {
     )
 }
 
+/// Convert a set of strings into a cedar restricted expression<[fim-middle]>
 fn set_expr(values: HashSet<String>) -> RestrictedExpression {
     RestrictedExpression::new_set(values.into_iter().map(RestrictedExpression::new_string))
 }
 
+/// Convert an identity claim payload into a cedar entity representation.
 fn account_entity(uid: EntityUid, claims: &GatewayClaims) -> Entity {
     let mut standard_customer = HashSet::new();
     let mut business_staff = HashSet::new();
@@ -181,7 +183,7 @@ pub fn authorize_any(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::claims::{ClaimsPayload, Membership};
+    use crate::domain::identity::{ClaimsPayload, Membership};
 
     fn claims_with(memberships: Vec<(&str, &str)>) -> GatewayClaims {
         GatewayClaims {

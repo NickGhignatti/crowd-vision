@@ -2,9 +2,9 @@ use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
-use serde::Deserialize;
 
-use crate::models::AppError;
+use crate::domain::DomainError;
+use crate::domain::identity::{ClaimsPayload, GatewayClaims};
 
 pub const CLAIMS_HEADER: &str = "x-gateway-claims";
 
@@ -14,42 +14,22 @@ fn decode_claims_header(raw: &str) -> Option<Vec<u8>> {
         .find_map(|engine| engine.decode(raw).ok())
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct Membership {
-    pub domain: String,
-    #[serde(default)]
-    pub role: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ClaimsPayload {
-    pub sub: String,
-    #[serde(default)]
-    pub memberships: Vec<Membership>,
-}
-
-#[derive(Debug, Clone)]
-pub struct GatewayClaims {
-    pub payload: ClaimsPayload,
-    pub raw: String,
-}
-
 impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
-    type Rejection = AppError;
+    type Rejection = DomainError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let header = parts
             .headers
             .get(CLAIMS_HEADER)
-            .ok_or_else(|| AppError::Unauthorized("Missing authentication token".to_string()))?;
+            .ok_or_else(|| DomainError::Unauthorized("Missing authentication token".to_string()))?;
         let raw = header
             .to_str()
-            .map_err(|_| AppError::Unauthorized("Invalid authentication token".to_string()))?
+            .map_err(|_| DomainError::Unauthorized("Invalid authentication token".to_string()))?
             .to_string();
         let decoded = decode_claims_header(&raw)
-            .ok_or_else(|| AppError::Unauthorized("Invalid authentication token".to_string()))?;
+            .ok_or_else(|| DomainError::Unauthorized("Invalid authentication token".to_string()))?;
         let payload: ClaimsPayload = serde_json::from_slice(&decoded)
-            .map_err(|_| AppError::Unauthorized("Invalid authentication token".to_string()))?;
+            .map_err(|_| DomainError::Unauthorized("Invalid authentication token".to_string()))?;
         Ok(GatewayClaims { payload, raw })
     }
 }
@@ -57,6 +37,7 @@ impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::extract::FromRequestParts;
     use axum::http::Request;
 
     fn header_value(payload: &str) -> String {

@@ -43,7 +43,7 @@ The root file holds the pieces every run needs regardless of which services are 
         J["just stack dev / start / down / …"] --> R["compose-run.mjs"]
         R --> W["Walk backend/ and simulators/<br/>apply exclude patterns"]
         W --> G["Write compose.runtime.yml<br/>(an include: list)"]
-        G --> D["docker compose -f compose.runtime.yml &lt;up|down|build&gt;"]
+        G --> D["docker compose -f compose.runtime.yml (up | down | build)"]
 
 ### Why a generated `include:` file, not multiple `-f` flags
 

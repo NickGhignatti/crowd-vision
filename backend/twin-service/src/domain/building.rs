@@ -1,7 +1,6 @@
-use axum::Json;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
+
+use super::error::DomainError;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Coordinates {
@@ -36,8 +35,12 @@ pub struct Building {
     pub domains: Vec<String>,
 }
 
-// Validated by hand, not serde: `JSON.stringify(NaN)` becomes `null` on the wire, so
-// fields stay optional and get checked in the `to_*` conversions to return our 400, not axum's 422.
+impl PartialEq for Building {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct PositionInput {
     pub x: Option<f64>,
@@ -46,12 +49,12 @@ pub struct PositionInput {
 }
 
 impl PositionInput {
-    pub fn to_coordinates(&self) -> Result<Coordinates, AppError> {
+    pub fn to_coordinates(&self) -> Result<Coordinates, DomainError> {
         match (self.x, self.y, self.z) {
             (Some(x), Some(y), Some(z)) if x.is_finite() && y.is_finite() && z.is_finite() => {
                 Ok(Coordinates { x, y, z })
             }
-            _ => Err(AppError::Validation(
+            _ => Err(DomainError::Validation(
                 "position.x, position.y and position.z must be finite numbers".to_string(),
             )),
         }
@@ -66,7 +69,7 @@ pub struct DimensionsInput {
 }
 
 impl DimensionsInput {
-    pub fn to_dimensions(&self) -> Result<Dimensions, AppError> {
+    pub fn to_dimensions(&self) -> Result<Dimensions, DomainError> {
         match (self.width, self.height, self.depth) {
             (Some(width), Some(height), Some(depth))
                 if is_finite_positive(width)
@@ -79,7 +82,7 @@ impl DimensionsInput {
                     depth,
                 })
             }
-            _ => Err(AppError::Validation(
+            _ => Err(DomainError::Validation(
                 "dimensions.width, dimensions.height and dimensions.depth must be positive numbers"
                     .to_string(),
             )),
@@ -91,10 +94,10 @@ fn is_finite_positive(v: f64) -> bool {
     v.is_finite() && v > 0.0
 }
 
-pub fn validate_capacity(capacity: Option<f64>) -> Result<f64, AppError> {
+pub fn validate_capacity(capacity: Option<f64>) -> Result<f64, DomainError> {
     match capacity {
         Some(c) if c.is_finite() && c >= 0.0 => Ok(c),
-        _ => Err(AppError::Validation(
+        _ => Err(DomainError::Validation(
             "capacity must be a non-negative number".to_string(),
         )),
     }
@@ -112,51 +115,6 @@ pub fn normalize_room_name(name: Option<&str>, id: &str) -> String {
         .filter(|s| !s.is_empty())
         .unwrap_or(id)
         .to_string()
-}
-
-#[derive(Debug)]
-pub enum AppError {
-    Validation(String),
-    NotFound(String),
-    Unauthorized(String),
-    Forbidden(String),
-    Internal(anyhow::Error),
-}
-
-impl From<anyhow::Error> for AppError {
-    fn from(e: anyhow::Error) -> Self {
-        AppError::Internal(e)
-    }
-}
-
-impl From<mongodb::error::Error> for AppError {
-    fn from(e: mongodb::error::Error) -> Self {
-        AppError::Internal(e.into())
-    }
-}
-
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        let (status, error_type, message) = match self {
-            AppError::Validation(m) => (StatusCode::BAD_REQUEST, "Validation Error", m),
-            AppError::NotFound(m) => (StatusCode::NOT_FOUND, "Not Found Error", m),
-            AppError::Unauthorized(m) => (StatusCode::UNAUTHORIZED, "Unauthorized Error", m),
-            AppError::Forbidden(m) => (StatusCode::FORBIDDEN, "Forbidden Error", m),
-            AppError::Internal(e) => {
-                log::error!("{e:?}");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal Server Error",
-                    "An unexpected error occurred. Please try again later.".to_string(),
-                )
-            }
-        };
-        (
-            status,
-            Json(serde_json::json!({ "type": error_type, "message": message })),
-        )
-            .into_response()
-    }
 }
 
 #[cfg(test)]

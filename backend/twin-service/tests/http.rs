@@ -1,6 +1,3 @@
-// HTTP-level suite for twin-service. Requires a running MongoDB (MONGO_URI,
-// default localhost:27017) -- see docker-compose.yml's `twin-db` service.
-
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
@@ -10,11 +7,16 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 use uuid::Uuid;
 
-use twin_service::build_router;
-use twin_service::infra::db;
+use std::sync::Arc;
+
+use twin_service::infra::db::{self, MongoBuildings};
+use twin_service::infra::jobs::MongoUploadQueue;
 use twin_service::infra::outbound::OutboundConfig;
 use twin_service::infra::ratelimit::RateLimiter;
+use twin_service::service::buildings::Buildings;
+use twin_service::service::provisioning::Provisioning;
 use twin_service::state::AppState;
+use twin_service::{build_router, worker};
 
 async fn app() -> Router {
     let uri =
@@ -24,17 +26,24 @@ async fn app() -> Router {
         .await
         .expect("connect to test MongoDB");
 
-    let state = AppState {
-        buildings,
-        outbound: OutboundConfig {
-            sensor_service_url: "http://127.0.0.1:1".to_string(),
-            contracts_service_url: "http://127.0.0.1:1".to_string(),
-            sync_enabled: false,
-            client: reqwest::Client::new(),
-        },
-        rate_limiter: RateLimiter::new(false),
+    let outbound = OutboundConfig {
+        sensor_service_url: "http://127.0.0.1:1".to_string(),
+        contracts_service_url: "http://127.0.0.1:1".to_string(),
+        sync_enabled: false,
+        client: reqwest::Client::new(),
     };
-    build_router(state)
+    let store = Arc::new(MongoBuildings::new(buildings.clone()));
+    let queue = Arc::new(MongoUploadQueue::beside(&buildings));
+    let downstream = Arc::new(outbound);
+
+    let provisioning = Arc::new(Provisioning::new(store.clone(), queue, downstream.clone()));
+    worker::spawn(provisioning.clone());
+
+    build_router(AppState {
+        buildings: Arc::new(Buildings::new(store, downstream)),
+        provisioning,
+        rate_limiter: RateLimiter::new(false),
+    })
 }
 
 fn claims_header(payload: Value) -> String {
@@ -112,6 +121,49 @@ async fn request(
     Res { status, body }
 }
 
+// POST /register only accepts an upload now -- the twin appears when the worker
+// gets to it, so anything that reads a building back has to wait on the handle.
+async fn wait_until_ready(app: &Router, handle: &str) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let res = request(
+            app.clone(),
+            "GET",
+            &format!("/building/{handle}/status"),
+            Some(&token()),
+            None,
+        )
+        .await;
+        if res.body["status"] == "ready" {
+            return;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "upload {handle} never became ready, last status was {}",
+            res.body["status"]
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+}
+
+async fn register(app: &Router, payload: Value) -> String {
+    let res = request(
+        app.clone(),
+        "POST",
+        "/register",
+        Some(&token()),
+        Some(payload),
+    )
+    .await;
+    assert_eq!(res.status, StatusCode::ACCEPTED, "body was {}", res.body);
+    let handle = res.body["buildingId"]
+        .as_str()
+        .expect("a tracking handle")
+        .to_string();
+    wait_until_ready(app, &handle).await;
+    handle
+}
+
 // ── authentication ──────────────────────────────────────────────────────────
 
 #[tokio::test]
@@ -177,14 +229,7 @@ async fn denies_get_buildings_domain_for_a_domain_the_caller_does_not_belong_to(
 #[tokio::test]
 async fn drops_domains_the_caller_does_not_belong_to_from_counts() {
     let app = app().await;
-    request(
-        app.clone(),
-        "POST",
-        "/register",
-        Some(&token()),
-        Some(mock_building()),
-    )
-    .await;
+    register(&app, mock_building()).await;
 
     let res = request(
         app,
@@ -203,7 +248,7 @@ async fn drops_domains_the_caller_does_not_belong_to_from_counts() {
 // ── POST /register ──────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn registers_a_new_building_and_returns_an_auto_generated_id() {
+async fn accepts_an_upload_and_returns_a_tracking_handle() {
     let res = request(
         app().await,
         "POST",
@@ -213,10 +258,45 @@ async fn registers_a_new_building_and_returns_an_auto_generated_id() {
     )
     .await;
 
-    assert_eq!(res.status, StatusCode::CREATED);
-    assert!(res.body["id"].as_str().is_some_and(|s| !s.is_empty()));
+    assert_eq!(res.status, StatusCode::ACCEPTED);
+    assert!(
+        res.body["buildingId"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty())
+    );
+}
+
+#[tokio::test]
+async fn an_accepted_upload_becomes_a_viewable_twin() {
+    let app = app().await;
+    let building_id = register(&app, mock_building()).await;
+
+    let res = request(
+        app,
+        "GET",
+        &format!("/building/{building_id}"),
+        Some(&token()),
+        None,
+    )
+    .await;
+
+    assert_eq!(res.status, StatusCode::OK);
     assert_eq!(res.body["name"], "Engineering Block");
     assert_eq!(res.body["rooms"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn reports_an_unknown_handle_as_not_found() {
+    let res = request(
+        app().await,
+        "GET",
+        "/building/no-such-handle/status",
+        Some(&token()),
+        None,
+    )
+    .await;
+
+    assert_eq!(res.status, StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -239,9 +319,9 @@ async fn generates_a_different_id_for_each_registration() {
     )
     .await;
 
-    assert_eq!(r1.status, StatusCode::CREATED);
-    assert_eq!(r2.status, StatusCode::CREATED);
-    assert_ne!(r1.body["id"], r2.body["id"]);
+    assert_eq!(r1.status, StatusCode::ACCEPTED);
+    assert_eq!(r2.status, StatusCode::ACCEPTED);
+    assert_ne!(r1.body["buildingId"], r2.body["buildingId"]);
 }
 
 #[tokio::test]
@@ -249,16 +329,17 @@ async fn falls_back_to_building_as_name_when_name_is_omitted() {
     let mut payload = mock_building();
     payload.as_object_mut().unwrap().remove("name");
 
+    let app = app().await;
+    let building_id = register(&app, payload).await;
+
     let res = request(
-        app().await,
-        "POST",
-        "/register",
+        app,
+        "GET",
+        &format!("/building/{building_id}"),
         Some(&token()),
-        Some(payload),
+        None,
     )
     .await;
-
-    assert_eq!(res.status, StatusCode::CREATED);
     assert_eq!(res.body["name"], "Building");
 }
 
@@ -279,8 +360,8 @@ async fn ignores_any_id_field_sent_by_the_client() {
     )
     .await;
 
-    assert_eq!(res.status, StatusCode::CREATED);
-    assert_ne!(res.body["id"], "client-chosen-id");
+    assert_eq!(res.status, StatusCode::ACCEPTED);
+    assert_ne!(res.body["buildingId"], "client-chosen-id");
 }
 
 // ── GET /building/:id ────────────────────────────────────────────────────────
@@ -288,15 +369,7 @@ async fn ignores_any_id_field_sent_by_the_client() {
 #[tokio::test]
 async fn retrieves_a_building_by_its_auto_generated_id() {
     let app = app().await;
-    let registered = request(
-        app.clone(),
-        "POST",
-        "/register",
-        Some(&token()),
-        Some(mock_building()),
-    )
-    .await;
-    let building_id = registered.body["id"].as_str().unwrap();
+    let building_id = register(&app, mock_building()).await;
 
     let res = request(
         app,
@@ -329,22 +402,8 @@ async fn returns_404_if_building_not_found() {
 #[tokio::test]
 async fn retrieves_buildings_for_a_specific_domain() {
     let app = app().await;
-    request(
-        app.clone(),
-        "POST",
-        "/register",
-        Some(&token()),
-        Some(mock_building()),
-    )
-    .await;
-    request(
-        app.clone(),
-        "POST",
-        "/register",
-        Some(&token()),
-        Some(mock_building()),
-    )
-    .await;
+    register(&app, mock_building()).await;
+    register(&app, mock_building()).await;
 
     let res = request(app, "GET", "/buildings/test-domain", Some(&token()), None).await;
 
@@ -371,22 +430,8 @@ async fn returns_an_empty_list_if_no_buildings_found_for_domain() {
 #[tokio::test]
 async fn returns_building_counts_only_for_the_requested_domains() {
     let app = app().await;
-    request(
-        app.clone(),
-        "POST",
-        "/register",
-        Some(&token()),
-        Some(mock_building()),
-    )
-    .await;
-    request(
-        app.clone(),
-        "POST",
-        "/register",
-        Some(&token()),
-        Some(mock_building()),
-    )
-    .await;
+    register(&app, mock_building()).await;
+    register(&app, mock_building()).await;
 
     let res = request(
         app,
@@ -446,15 +491,7 @@ async fn rejects_an_oversized_domains_payload() {
 // ── PATCH /building/:buildingId/room/:roomId ────────────────────────────────
 
 async fn register_building(app: Router) -> String {
-    let res = request(
-        app,
-        "POST",
-        "/register",
-        Some(&token()),
-        Some(mock_building()),
-    )
-    .await;
-    res.body["id"].as_str().unwrap().to_string()
+    register(&app, mock_building()).await
 }
 
 #[tokio::test]
@@ -601,15 +638,7 @@ async fn room_update_denies_an_editor_whose_role_is_in_a_different_domain() {
         .as_object_mut()
         .unwrap()
         .insert("domains".to_string(), json!(["someone-elses-domain"]));
-    let registered = request(
-        app.clone(),
-        "POST",
-        "/register",
-        Some(&token()),
-        Some(payload),
-    )
-    .await;
-    let building_id = registered.body["id"].as_str().unwrap();
+    let building_id = register(&app, payload).await;
 
     let res = request(
         app,
@@ -711,8 +740,7 @@ async fn register_building_with_two_rooms(app: Router) -> String {
         .as_object_mut()
         .unwrap()
         .insert("rooms".to_string(), json!(rooms));
-    let res = request(app, "POST", "/register", Some(&token()), Some(payload)).await;
-    res.body["id"].as_str().unwrap().to_string()
+    register(&app, payload).await
 }
 
 #[tokio::test]

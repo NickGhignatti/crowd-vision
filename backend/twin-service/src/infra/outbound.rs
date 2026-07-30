@@ -1,6 +1,8 @@
+use async_trait::async_trait;
 use serde_json::json;
 
-use crate::models::Building;
+use crate::domain::Building;
+use crate::service::ports::DownstreamSync;
 
 #[derive(Clone)]
 pub struct OutboundConfig {
@@ -9,6 +11,34 @@ pub struct OutboundConfig {
     // Mirrors shouldSyncThresholds()/NODE_ENV=test.
     pub sync_enabled: bool,
     pub client: reqwest::Client,
+}
+
+/// `OutboundConfig` is itself the `DownstreamSync` adapter -- it already holds
+/// every dependency the calls need, so a separate wrapper type would add nothing.
+#[async_trait]
+impl DownstreamSync for OutboundConfig {
+    async fn clone_thresholds(
+        &self,
+        building: &Building,
+        max_temperature: Option<f64>,
+        claims: &str,
+    ) -> anyhow::Result<()> {
+        sync_building_clone(self, building, max_temperature, Some(claims)).await
+    }
+
+    async fn init_preferences(&self, building_id: &str, claims: &str) {
+        init_building_preferences(self, building_id, Some(claims)).await
+    }
+
+    async fn init_room_thresholds(
+        &self,
+        building_id: &str,
+        room_id: &str,
+        capacity: f64,
+        claims: &str,
+    ) {
+        init_room_thresholds(self, building_id, room_id, capacity, Some(claims)).await
+    }
 }
 
 fn auth_headers(claims_header: Option<&str>) -> reqwest::header::HeaderMap {
@@ -123,7 +153,7 @@ pub async fn init_building_preferences(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Coordinates, Dimensions, Room};
+    use crate::domain::{Coordinates, Dimensions, Room};
     use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 

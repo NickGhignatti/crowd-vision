@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use futures::TryStreamExt;
 use mongodb::{
     Client, Collection, IndexModel,
@@ -6,7 +7,43 @@ use mongodb::{
 };
 use std::collections::HashMap;
 
-use crate::models::Building;
+use crate::domain::Building;
+use crate::service::ports::BuildingStore;
+
+/// The `BuildingStore` adapter -- the only way into this collection now that
+/// every use case lives in `service/`.
+pub struct MongoBuildings {
+    col: Collection<Building>,
+}
+
+impl MongoBuildings {
+    pub fn new(col: Collection<Building>) -> Self {
+        Self { col }
+    }
+}
+
+#[async_trait]
+impl BuildingStore for MongoBuildings {
+    async fn find_by_id(&self, id: &str) -> anyhow::Result<Option<Building>> {
+        find_by_id(&self.col, id).await
+    }
+
+    async fn find_by_domain(&self, domain: &str) -> anyhow::Result<Vec<Building>> {
+        find_by_domain(&self.col, domain).await
+    }
+
+    async fn find_by_name(&self, name: &str) -> anyhow::Result<Vec<Building>> {
+        find_by_name(&self.col, name).await
+    }
+
+    async fn upsert(&self, building: &Building) -> anyhow::Result<()> {
+        upsert(&self.col, building).await
+    }
+
+    async fn counts_by_domain(&self, domains: &[String]) -> anyhow::Result<HashMap<String, i64>> {
+        counts_by_domain(&self.col, domains).await
+    }
+}
 
 pub async fn connect(uri: &str, db_name: &str) -> anyhow::Result<Collection<Building>> {
     let opts = ClientOptions::parse(uri).await?;
@@ -47,6 +84,15 @@ pub async fn insert(col: &Collection<Building>, building: &Building) -> anyhow::
     Ok(())
 }
 
+/// Write a building whether or not it is already there. Provisioning retries
+/// land here, so this has to converge rather than collide with the unique id index.
+pub async fn upsert(col: &Collection<Building>, building: &Building) -> anyhow::Result<()> {
+    col.replace_one(doc! { "id": &building.id }, building)
+        .upsert(true)
+        .await?;
+    Ok(())
+}
+
 pub async fn replace(col: &Collection<Building>, building: &Building) -> anyhow::Result<()> {
     col.find_one_and_replace(doc! { "id": &building.id }, building)
         .await?;
@@ -81,7 +127,7 @@ pub async fn counts_by_domain(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Coordinates, Dimensions, Room};
+    use crate::domain::{Coordinates, Dimensions, Room};
     use uuid::Uuid;
 
     fn dummy_room(id: &str) -> Room {

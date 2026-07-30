@@ -1,19 +1,20 @@
+//! The driving adapter. Every handler does the same three things: turn wire
+//! input into domain types, call a use case, map the result back to HTTP.
+//! No handler reaches for a database or a downstream service.
+
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use serde::Deserialize;
-use std::collections::HashSet;
 use uuid::Uuid;
 
-use crate::infra::claims::GatewayClaims;
-use crate::infra::{authz, db, outbound};
-use crate::models::{
-    AppError, Building, DimensionsInput, PositionInput, Room, normalize_building_name,
+use crate::domain::identity::GatewayClaims;
+use crate::domain::{
+    Building, DimensionsInput, DomainError, PositionInput, Room, normalize_building_name,
     normalize_room_name, validate_capacity,
 };
+use crate::service::buildings::{BuildingPatch, RoomPatch};
 use crate::state::AppState;
-
-const MAX_DOMAIN_NAMES: usize = 500;
 
 #[derive(Deserialize)]
 pub struct RoomWireInput {
@@ -29,7 +30,7 @@ pub struct RoomWireInput {
 }
 
 impl RoomWireInput {
-    fn into_room(self) -> Result<Room, AppError> {
+    fn into_room(self) -> Result<Room, DomainError> {
         let position = self.position.to_coordinates()?;
         let dimensions = self.dimensions.to_dimensions()?;
         let capacity = validate_capacity(self.capacity)?;
@@ -55,51 +56,13 @@ pub struct RegisterBuildingRequest {
     pub domains: Vec<String>,
 }
 
-// Loads a building by app-level id (not Mongo's _id), backfilling blank
-// names as a side effect so every route self-heals them on load.
-async fn load_building(state: &AppState, id: &str) -> Result<Building, AppError> {
-    let building = db::find_by_id(&state.buildings, id)
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("Building with id: \"{id}\" not found")))?;
-    backfill_names(state, building).await
-}
-
-async fn backfill_names(state: &AppState, mut building: Building) -> Result<Building, AppError> {
-    let mut changed = false;
-
-    let normalized_name = normalize_building_name(Some(&building.name), Some(&building.id));
-    if normalized_name != building.name {
-        building.name = normalized_name;
-        changed = true;
-    }
-    for room in &mut building.rooms {
-        let normalized_room_name = normalize_room_name(Some(&room.name), &room.id);
-        if normalized_room_name != room.name {
-            room.name = normalized_room_name;
-            changed = true;
-        }
-    }
-
-    if changed {
-        db::replace(&state.buildings, &building).await?;
-    }
-    Ok(building)
-}
-
-fn assert_can_edit(claims: &GatewayClaims, building: &Building) -> Result<(), AppError> {
-    if !authz::can_edit_domains(claims, &building.domains) {
-        return Err(AppError::Forbidden(
-            "Requires an editing role in one of this building's domains".to_string(),
-        ));
-    }
-    Ok(())
-}
-
+// Validation stays in the request: a description we would refuse must never be
+// acknowledged, so the 400 has to beat the 202.
 pub async fn add_building(
     State(state): State<AppState>,
     claims: GatewayClaims,
     Json(body): Json<RegisterBuildingRequest>,
-) -> Result<(StatusCode, Json<Building>), AppError> {
+) -> Result<(StatusCode, Json<serde_json::Value>), DomainError> {
     let rooms = body
         .rooms
         .into_iter()
@@ -112,38 +75,39 @@ pub async fn add_building(
         rooms,
         domains: body.domains,
     };
-    db::insert(&state.buildings, &building).await?;
+    let handle = state.provisioning.accept(building, &claims.raw).await?;
 
-    outbound::sync_building_clone(&state.outbound, &building, None, Some(&claims.raw)).await?;
-    outbound::init_building_preferences(&state.outbound, &building.id, Some(&claims.raw)).await;
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(serde_json::json!({ "buildingId": handle })),
+    ))
+}
 
-    Ok((StatusCode::CREATED, Json(building)))
+pub async fn get_upload_status(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    _claims: GatewayClaims,
+) -> Result<Json<serde_json::Value>, DomainError> {
+    let status = state.provisioning.status(&id).await?;
+    Ok(Json(serde_json::json!({ "status": status })))
 }
 
 pub async fn get_building_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
     _claims: GatewayClaims,
-) -> Result<Json<Building>, AppError> {
-    Ok(Json(load_building(&state, &id).await?))
+) -> Result<Json<Building>, DomainError> {
+    Ok(Json(state.buildings.get(&id).await?))
 }
 
 pub async fn get_building_by_domain(
     State(state): State<AppState>,
     Path(domain): Path<String>,
     claims: GatewayClaims,
-) -> Result<Json<Vec<Building>>, AppError> {
-    if !authz::is_member_of(&claims, &domain) {
-        return Err(AppError::Forbidden(
-            "Not a member of this domain".to_string(),
-        ));
-    }
-    let buildings = db::find_by_domain(&state.buildings, &domain).await?;
-    let mut backfilled = Vec::with_capacity(buildings.len());
-    for building in buildings {
-        backfilled.push(backfill_names(&state, building).await?);
-    }
-    Ok(Json(backfilled))
+) -> Result<Json<Vec<Building>>, DomainError> {
+    Ok(Json(
+        state.buildings.list_for_domain(&domain, &claims).await?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -155,44 +119,24 @@ pub async fn get_building_counts(
     State(state): State<AppState>,
     claims: GatewayClaims,
     Json(body): Json<GetCountsRequest>,
-) -> Result<Json<serde_json::Value>, AppError> {
-    let bad_shape = || AppError::Validation("'domains' must be an array of strings".to_string());
+) -> Result<Json<serde_json::Value>, DomainError> {
+    let bad_shape = || DomainError::Validation("'domains' must be an array of strings".to_string());
     let items = body.domains.as_array().ok_or_else(bad_shape)?;
     let mut domains = Vec::with_capacity(items.len());
     for item in items {
         domains.push(item.as_str().ok_or_else(bad_shape)?.to_string());
     }
 
-    if domains.len() > MAX_DOMAIN_NAMES {
-        return Err(AppError::Validation(format!(
-            "Too many domains requested (max {MAX_DOMAIN_NAMES})"
-        )));
-    }
-
-    let scoped = authz::scope_to_memberships(&domains, &claims);
-    let counts = db::counts_by_domain(&state.buildings, &scoped).await?;
+    let counts = state.buildings.counts(&domains, &claims).await?;
     Ok(Json(serde_json::json!({ "counts": counts })))
 }
 
-// Callers reach this with either a building id or a building name: the Redis
-// sensor-alert path (notification-service eventListener) only knows the id,
-// while the authenticated manual-alert path passes a name. Resolve by id first,
-// then fall back to name, so both get the building's domains instead of an empty
-// list (which would silently drop domain-scoped push delivery).
 pub async fn get_domains_by_building(
     State(state): State<AppState>,
     Path(building): Path<String>,
     _claims: GatewayClaims,
-) -> Result<Json<Vec<String>>, AppError> {
-    let domains = match db::find_by_id(&state.buildings, &building).await? {
-        Some(found) => found.domains,
-        None => db::find_by_name(&state.buildings, &building)
-            .await?
-            .into_iter()
-            .flat_map(|b| b.domains)
-            .collect(),
-    };
-    Ok(Json(domains))
+) -> Result<Json<Vec<String>>, DomainError> {
+    Ok(Json(state.buildings.domains_of(&building).await?))
 }
 
 #[derive(Deserialize)]
@@ -210,27 +154,15 @@ pub async fn update_building(
     Path(building_id): Path<String>,
     claims: GatewayClaims,
     Json(body): Json<UpdateBuildingRequest>,
-) -> Result<Json<Building>, AppError> {
-    let mut building = load_building(&state, &building_id).await?;
-    assert_can_edit(&claims, &building)?;
-
-    if let Some(name) = body.name {
-        building.name = name;
-    }
-    if let Some(domains) = body.domains {
-        building.domains = domains;
-    }
-    db::replace(&state.buildings, &building).await?;
-
-    outbound::sync_building_clone(
-        &state.outbound,
-        &building,
-        body.max_temperature,
-        Some(&claims.raw),
-    )
-    .await?;
-
-    Ok(Json(building))
+) -> Result<Json<Building>, DomainError> {
+    let patch = BuildingPatch {
+        name: body.name,
+        domains: body.domains,
+        max_temperature: body.max_temperature,
+    };
+    Ok(Json(
+        state.buildings.update(&building_id, patch, &claims).await?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -252,54 +184,34 @@ pub async fn update_room(
     Path((building_id, room_id)): Path<(String, String)>,
     claims: GatewayClaims,
     Json(body): Json<UpdateRoomRequest>,
-) -> Result<Json<Room>, AppError> {
-    let mut building = load_building(&state, &building_id).await?;
-    assert_can_edit(&claims, &building)?;
+) -> Result<Json<Room>, DomainError> {
+    // Geometry is checked here, before the use case sees it, so a bad update
+    // never gets far enough to leave a room half-written.
+    let patch = RoomPatch {
+        name: body.name,
+        color: body.color,
+        // Unvalidated on purpose: create_room and replace_rooms both run
+        // validate_capacity, this route never has. Kept as-is so this refactor
+        // changes no behaviour; adding the check is a separate, deliberate fix.
+        capacity: body.capacity,
+        position: body
+            .position
+            .as_ref()
+            .map(PositionInput::to_coordinates)
+            .transpose()?,
+        dimensions: body
+            .dimensions
+            .as_ref()
+            .map(DimensionsInput::to_dimensions)
+            .transpose()?,
+    };
 
-    // Validate before mutating, so a bad update never leaves the room
-    // half-written.
-    let position = body
-        .position
-        .as_ref()
-        .map(PositionInput::to_coordinates)
-        .transpose()?;
-    let dimensions = body
-        .dimensions
-        .as_ref()
-        .map(DimensionsInput::to_dimensions)
-        .transpose()?;
-
-    let room = building
-        .rooms
-        .iter_mut()
-        .find(|r| r.id == room_id)
-        .ok_or_else(|| {
-            AppError::NotFound(format!(
-                "Room with id \"{room_id}\" in the building \"{building_id}\" not found"
-            ))
-        })?;
-
-    if let Some(name) = body.name {
-        room.name = name;
-    }
-    if let Some(color) = body.color {
-        room.color = Some(color);
-    }
-    if let Some(capacity) = body.capacity {
-        room.capacity = capacity;
-    }
-    if let Some(position) = position {
-        room.position = position;
-    }
-    if let Some(dimensions) = dimensions {
-        room.dimensions = dimensions;
-    }
-    let updated_room = room.clone();
-
-    db::replace(&state.buildings, &building).await?;
-    outbound::sync_building_clone(&state.outbound, &building, None, Some(&claims.raw)).await?;
-
-    Ok(Json(updated_room))
+    Ok(Json(
+        state
+            .buildings
+            .update_room(&building_id, &room_id, patch, &claims)
+            .await?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -319,61 +231,34 @@ pub async fn create_room(
     Path(building_id): Path<String>,
     claims: GatewayClaims,
     Json(body): Json<CreateRoomRequest>,
-) -> Result<(StatusCode, Json<Room>), AppError> {
-    let mut building = load_building(&state, &building_id).await?;
-    assert_can_edit(&claims, &building)?;
-
-    let position = body.position.to_coordinates()?;
-    let dimensions = body.dimensions.to_dimensions()?;
-    let capacity = validate_capacity(body.capacity)?;
-
-    let id = Uuid::new_v4().to_string();
+) -> Result<(StatusCode, Json<Room>), DomainError> {
+    // The id here is a placeholder -- the use case assigns the real one, since
+    // a client must not be able to pick a room id that already exists.
     let room = Room {
-        name: normalize_room_name(body.name.as_deref(), &id),
-        id,
-        capacity,
-        position,
-        dimensions,
+        id: String::new(),
+        name: body.name.unwrap_or_default(),
+        capacity: validate_capacity(body.capacity)?,
+        position: body.position.to_coordinates()?,
+        dimensions: body.dimensions.to_dimensions()?,
         color: body.color,
     };
-    building.rooms.push(room.clone());
-    db::replace(&state.buildings, &building).await?;
-    outbound::sync_building_clone(&state.outbound, &building, None, Some(&claims.raw)).await?;
-    outbound::init_room_thresholds(
-        &state.outbound,
-        &building_id,
-        &room.id,
-        room.capacity,
-        Some(&claims.raw),
-    )
-    .await;
 
-    Ok((StatusCode::CREATED, Json(room)))
+    let created = state
+        .buildings
+        .create_room(&building_id, room, &claims)
+        .await?;
+    Ok((StatusCode::CREATED, Json(created)))
 }
 
 pub async fn delete_room(
     State(state): State<AppState>,
     Path((building_id, room_id)): Path<(String, String)>,
     claims: GatewayClaims,
-) -> Result<StatusCode, AppError> {
-    let mut building = load_building(&state, &building_id).await?;
-    assert_can_edit(&claims, &building)?;
-
-    if !building.rooms.iter().any(|r| r.id == room_id) {
-        return Err(AppError::NotFound(format!(
-            "Room with id \"{room_id}\" in the building \"{building_id}\" not found"
-        )));
-    }
-    if building.rooms.len() == 1 {
-        return Err(AppError::Validation(
-            "Cannot delete the last room in a building".to_string(),
-        ));
-    }
-
-    building.rooms.retain(|r| r.id != room_id);
-    db::replace(&state.buildings, &building).await?;
-    outbound::sync_building_clone(&state.outbound, &building, None, Some(&claims.raw)).await?;
-
+) -> Result<StatusCode, DomainError> {
+    state
+        .buildings
+        .delete_room(&building_id, &room_id, &claims)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -383,61 +268,22 @@ pub struct ReplaceRoomsRequest {
     pub rooms: Vec<RoomWireInput>,
 }
 
-// Atomic bulk replace -- validates every room before writing any of them so
-// a bad room never produces a partial write.
 pub async fn replace_rooms(
     State(state): State<AppState>,
     Path(building_id): Path<String>,
     claims: GatewayClaims,
     Json(body): Json<ReplaceRoomsRequest>,
-) -> Result<Json<Building>, AppError> {
-    let mut building = load_building(&state, &building_id).await?;
-    assert_can_edit(&claims, &building)?;
+) -> Result<Json<Building>, DomainError> {
+    let rooms = body
+        .rooms
+        .into_iter()
+        .map(RoomWireInput::into_room)
+        .collect::<Result<Vec<_>, _>>()?;
 
-    if body.rooms.is_empty() {
-        return Err(AppError::Validation(
-            "'rooms' must be a non-empty array".to_string(),
-        ));
-    }
-
-    let mut seen_ids = HashSet::new();
-    let mut normalized = Vec::with_capacity(body.rooms.len());
-    for raw in body.rooms {
-        let id = raw.id.trim();
-        if id.is_empty() {
-            return Err(AppError::Validation(
-                "Every room must have a non-empty 'id'".to_string(),
-            ));
-        }
-        if !seen_ids.insert(id.to_string()) {
-            return Err(AppError::Validation(format!("Duplicate room id \"{id}\"")));
-        }
-        normalized.push(raw.into_room()?);
-    }
-
-    let previous_ids: HashSet<String> = building.rooms.iter().map(|r| r.id.clone()).collect();
-    let added_rooms: Vec<Room> = normalized
-        .iter()
-        .filter(|r| !previous_ids.contains(&r.id))
-        .cloned()
-        .collect();
-
-    building.rooms = normalized;
-    db::replace(&state.buildings, &building).await?;
-    outbound::sync_building_clone(&state.outbound, &building, None, Some(&claims.raw)).await?;
-
-    // Best-effort: only new rooms need threshold reconciliation, and a
-    // failure here must never undo the geometry save.
-    for room in &added_rooms {
-        outbound::init_room_thresholds(
-            &state.outbound,
-            &building_id,
-            &room.id,
-            room.capacity,
-            Some(&claims.raw),
-        )
-        .await;
-    }
-
-    Ok(Json(building))
+    Ok(Json(
+        state
+            .buildings
+            .replace_rooms(&building_id, rooms, &claims)
+            .await?,
+    ))
 }

@@ -9,35 +9,125 @@ The twin-service realises the [Building Management](../domain/building-managemen
 
 ## Architectural Style
 
-A flat, three-layer architecture — HTTP handlers, domain models, and infrastructure — wired directly through a shared `AppState`, with no interface layer between a handler and what it depends on. Handlers (`api/buildings.rs`) combine HTTP adaptation and business logic in one place, matching `contracts-service`'s established Rust convention: the language's own module system and `Result`-based error handling already do the job a thin controller layer would.
+**Ports & Adapters (Hexagonal)**, matching the four Go control-plane services. The core is split in two so the Clean Architecture distinction stays visible inside the hexagon: `domain/` holds the entities and the rules that are true regardless of delivery or storage, `service/` holds the use cases plus the traits — the ports — they require of everything outside. `api/` and `worker.rs` drive the core; `infra/` is driven by it.
 
-Identity and authorization arrive as **Axum extractors**, not as calls to another service. `GatewayClaims` (`infra/claims.rs`) implements `FromRequestParts`, so any handler that needs the caller's identity just declares it as an argument — decoding and validating the mesh-injected `x-gateway-claims` header happens before the handler body runs, with no network call to `claims-gateway` or `tenancy-service`. Authorization is the same shape: Cedar (`infra/authz.rs`) evaluates the request in-process against a policy bundle compiled into the binary via `include_str!`.
+Hexagonal rather than Clean is a deliberate choice, and the two are not far apart here: the work is identical up to the last increment, and that increment (splitting entities from use cases) is cheap enough that it was kept. What was *not* built is the rest of Clean's ceremony — there are no output ports and no presenters, and the inbound side has no port at all: a handler calls the use case's concrete struct directly, because there is exactly one real caller per route. That is the same house rule the Go services follow.
+
+Identity and authorization arrive in-process, never as a call to another service. `GatewayClaims` is a domain type; the Axum `FromRequestParts` extractor that decodes the mesh-injected `x-gateway-claims` header into one lives in `api/claims.rs`, so decoding happens before the handler body runs with no network call to `claims-gateway` or `tenancy-service`. Cedar (`service/authz.rs`) sits **inside** the core rather than in `infra/`: whether a caller may edit a building is a rule, and Cedar is a pure evaluator with no I/O, running against a policy bundle compiled into the binary via `include_str!`.
 
 .mermaid
-    graph LR
-        subgraph Entry
-            R["lib.rs (Router)"]
-            CL["GatewayClaims extractor\ninfra/claims.rs"]
+    graph TB
+        subgraph driving["DRIVING ADAPTERS — call the core"]
+            HTTP["api/buildings.rs\nHTTP handlers"]
+            EXTRACT["api/claims.rs\nx-gateway-claims extractor"]
+            PRESENT["api/error.rs\nDomainError to HTTP"]
+            LOOP["worker.rs\nprovisioning loop"]
         end
-        subgraph Handlers
-            H["api/buildings.rs"]
-        end
-        subgraph Infrastructure
-            DB["infra/db.rs\nMongoDB Collection (Building)"]
-            AZ["infra/authz.rs\nCedar, compiled-in policy"]
-            OUT["infra/outbound.rs\nsensor-service · contracts-service"]
-            MET["infra/metrics.rs"]
-            RL["infra/ratelimit.rs"]
-        end
-        R --> H
-        CL --> H
-        H --> DB
-        H --> AZ
-        H --> OUT
-        H --> MET
-        H --> RL
 
-The integration test suite runs against a real MongoDB instance, exercised through the full `Router` via `tower::ServiceExt::oneshot` — the same code path a real request takes, not a swapped-in double. Metrics are recorded through an Axum `Router::layer`, which wraps the entire request/response cycle regardless of how the inner handler responds — so `http_requests_total`/`http_request_duration_seconds` increment for every route, labeled by `{method, route, status_code}` using the route template rather than the raw URL, so cardinality stays bounded even with real ids in the path. Cedar's policy bundle (`schema.cedarschema`, `policy.cedar`) is compiled into the binary via Rust's `include_str!` rather than read from disk at process startup — the production Docker image doesn't need `backend/auth-policy` present at runtime, only the builder stage does.
+        subgraph hex["THE HEXAGON — no framework, no I/O"]
+            subgraph uc["Use cases — service/"]
+                UCB["buildings.rs\nread · list · count · update · rooms"]
+                UCP["provisioning.rs\naccept · provision_next · status"]
+                UCA["authz.rs\nCedar Read/Edit rules"]
+            end
+            subgraph pt["Ports — service/ports.rs"]
+                PSTORE["BuildingStore"]
+                PQUEUE["UploadQueue"]
+                PSYNC["DownstreamSync"]
+            end
+            subgraph ent["Entities — domain/"]
+                ENT["building · identity\nupload · error"]
+            end
+        end
+
+        subgraph driven["DRIVEN ADAPTERS — called by the core"]
+            ADB["infra/db.rs\nMongoBuildings"]
+            AJOB["infra/jobs.rs\nMongoUploadQueue"]
+            AOUT["infra/outbound.rs\nOutboundConfig"]
+            AFAKE["service/fakes.rs\nin-memory, cfg(test)"]
+        end
+
+        ROOT["main.rs — COMPOSITION ROOT\nthe only file that pairs a port with an adapter"]
+
+        EXTRACT --> HTTP
+        HTTP --> UCB
+        HTTP --> UCP
+        LOOP --> UCP
+        HTTP --> PRESENT
+
+        UCB --> UCA
+        UCB --> ENT
+        UCP --> ENT
+        UCB --> PSTORE
+        UCB --> PSYNC
+        UCP --> PSTORE
+        UCP --> PQUEUE
+        UCP --> PSYNC
+
+        ADB -.->|implements| PSTORE
+        AJOB -.->|implements| PQUEUE
+        AOUT -.->|implements| PSYNC
+        AFAKE -.->|implements all three| pt
+
+        ROOT --> uc
+        ROOT --> driven
+
+Every arrow into the hexagon points **inwards**, and every arrow out of it stops at a port. `main.rs` is the only file that knows a `BuildingStore` is really MongoDB; swapping in `service/fakes.rs` is what lets the whole core suite run with no database and no network.
+
+### Where each module lives
+
+.var {headers}
+   - Module
+   - Role
+   - Why there
+
+.tablebyrows {.headers}
+    - - `domain/building.rs` · `identity.rs` · `upload.rs` · `error.rs`
+      - **Core — entities**
+      - Things that are true about a building, a caller, and an upload no matter how the service is delivered or stored. Imports `serde` and nothing else.
+    - - `service/buildings.rs` · `provisioning.rs`
+      - **Core — use cases**
+      - One method per thing the system can be asked to do. Orchestrates entities and ports; names no concrete adapter.
+    - - `service/authz.rs`
+      - **Core — use cases**
+      - "May this caller edit this building" is a rule, and Cedar is a pure evaluator with no I/O — so it belongs inside, not in `infra/`\.
+    - - `service/ports.rs`
+      - **Ports**
+      - `BuildingStore`, `UploadQueue`, `DownstreamSync` — declared by the use cases that need them, not by the adapters that satisfy them. This is the direction that makes it hexagonal.
+    - - `api/buildings.rs` · `claims.rs` · `error.rs`
+      - **Driving adapter**
+      - Turns HTTP into domain types, calls a use case, maps the result back. Deliberately has no inbound port: one real caller per route.
+    - - `worker.rs`
+      - **Driving adapter**
+      - A Tokio loop instead of a socket. Proves the use case is not HTTP-shaped — the same `provisioning` module serves both.
+    - - `infra/db.rs` · `jobs.rs` · `outbound.rs`
+      - **Driven adapter**
+      - MongoDB, the durable queue, and the outbound REST calls. Each implements exactly one port.
+    - - `service/fakes.rs`
+      - **Driven adapter** (test only)
+      - In-memory implementations of all three ports. The Rust counterpart of the Go services' `storefake` sibling.
+    - - `infra/metrics.rs` · `ratelimit.rs`
+      - **Neither — cross-cutting**
+      - Axum `Router::layer`s wrapping every request. They observe and throttle traffic without participating in a use case, so forcing them behind a port would buy nothing.
+    - - `state.rs`
+      - **Driving-side wiring**
+      - What Axum hands a handler. Carries use cases only — no `Collection`, no HTTP client.
+    - - `main.rs`
+      - **Composition root**
+      - Reads config, chooses the concrete adapter for each port, starts the worker and the server.
+
+.box {Three greps hold the boundary} type:{note}
+    Cheap enough to run in CI, and concrete enough to be a governance check rather than a convention nobody enforces:
+
+    - `domain/` names neither `axum` nor `mongodb` — the entity layer cannot learn about a framework by accident.
+    - `service/` names neither of those nor `crate::infra` — a use case cannot reach past its own ports.
+    - No handler in `api/` names `crate::infra` — the driving adapter cannot skip the core and talk to a database directly.
+
+    Each one fails loudly the moment the dependency rule is violated, which is the property a written convention does not have.
+
+The payoff is testability that did not previously exist. The use cases are exercised against in-memory fakes of all three ports (`service/fakes.rs`) — the whole core suite runs with **no MongoDB and no network** — while the HTTP suite still drives the full `Router` via `tower::ServiceExt::oneshot` against a real MongoDB, the same code path a real request takes rather than a swapped-in double. Both matter: the fakes make failure paths (a refused downstream sync, a redelivered upload) reachable at all, and the HTTP suite proves the wiring is real. It also served as the characterization suite for the restructuring itself — every handler was rewritten without a single edit to it.
+
+Metrics are recorded through an Axum `Router::layer`, which wraps the entire request/response cycle regardless of how the inner handler responds — so `http_requests_total`/`http_request_duration_seconds` increment for every route, labeled by `{method, route, status_code}` using the route template rather than the raw URL, so cardinality stays bounded even with real ids in the path. Cedar's policy bundle (`schema.cedarschema`, `policy.cedar`) is compiled into the binary via Rust's `include_str!` rather than read from disk at process startup — the production Docker image doesn't need `backend/auth-policy` present at runtime, only the builder stage does.
 
 ---
 
@@ -45,7 +135,9 @@ The integration test suite runs against a real MongoDB instance, exercised throu
 
 - **Server-owned identifiers.** Building identities are generated by the service, not accepted from the client, so the public identifier is decoupled from any client- or storage-specific id.
 - **Tenancy from the token.** A building records the domains it belongs to; access is granted by matching those against the principal's memberships in the identity token — no per-request call to claims-gateway or tenancy-service.
-- **Best-effort downstream provisioning.** When a building is created, the service seeds the dependent contexts (a threshold baseline for ingestion, default display preferences for distribution). This is intentionally non-transactional: a failed seed does not fail the building creation (see the design note in [Building Management](../domain/building-management.qd)).
+- **Registration accepts, then provisions.** `POST /register` validates synchronously and answers `202` with a tracking handle; the twin itself is built by an in-process worker reading a durable queue. Validation stays ahead of the acknowledgement — a description the service would refuse must never be accepted — while everything that can only fail for reasons the caller cannot fix moves behind it. The caller polls the handle; delivery is at-least-once, so provisioning is written to converge on a second run rather than duplicate.
+- **Two driving adapters, one use case.** The HTTP handler and the worker enter through the same `service::provisioning` module. Neither owns the behaviour, which is what stops the two paths drifting apart.
+- **Best-effort downstream provisioning, with one exception.** Seeding the dependent contexts (default display preferences for distribution, per-room occupancy thresholds) is intentionally non-transactional — a failed seed is logged and swallowed. The sensor threshold clone is the exception: it fails the provisioning *job*, surfacing as `status: "failed"` on the handle rather than as a failed request (see the design note in [Building Management](../domain/building-management.qd)).
 - **Structure treated as static.** Geometry and topology are modelled as stable; only metadata evolves. This keeps the spatial model dependable while live readings churn elsewhere.
 - **Uniform geometry validation.** Every geometry-writing route — registration included — enforces the same position/dimension/capacity checks, returning `400` on a malformed room rather than storing bad data or surfacing an opaque `500`.
 

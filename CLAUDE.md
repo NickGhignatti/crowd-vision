@@ -146,6 +146,18 @@ Only the outbound side has a real port/adapter split in this codebase — the in
 (`internal/api`) calls the core's concrete struct directly, since there's normally one real
 caller. `provisioner`'s driving adapter is a ticker loop, not HTTP.
 
+`twin-service` follows the same shape in Rust, with the core split so the entity/use-case
+distinction stays visible: `domain/` (entities, rules, identity, errors — imports neither
+`axum` nor `mongodb`), `service/` (use cases, Cedar authz, and the `BuildingStore`/
+`UploadQueue`/`DownstreamSync` ports it defines), `api/` + `worker.rs` driving, `infra/`
+driven, wired in `main.rs`. Ports are `Arc<dyn Trait>`, not generics — generics go viral
+through every signature that touches them. Three greps hold the boundary and belong in any
+fitness-function work: `domain/` names no `axum`/`mongodb`, `service/` names neither plus no
+`crate::infra`, and no `api/` handler names `crate::infra`. Registration is asynchronous —
+`POST /register` validates then answers `202` with a handle, and an in-process worker
+provisions from a durable Mongo queue (`pending_uploads`), so provisioning is idempotent by
+construction. The other Rust service, `contracts-service`, is still flat.
+
 **Service mesh**: production/staging runs **Istio in ambient mode** (`ztunnel` DaemonSet =
 L4 mTLS + workload identity for all traffic, no sidecars; an optional `waypoint` handles L7
 only where policy enforcement is needed) — chosen over Linkerd because Linkerd lacks

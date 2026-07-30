@@ -23,7 +23,7 @@ Underneath, two small Node scripts (`scripts/install.mjs`, `scripts/clean.mjs`) 
 
 .mermaid
     flowchart TD
-      dev([Developer]) --> just["just &lt;recipe&gt;"]
+      dev([Developer]) --> just["just (recipe)"]
       just --> mise["mise exec — injects pinned tools onto PATH"]
       mise --> moon["moon — task graph, caching, affected"]
       mise --> scripts["scripts/install.mjs, clean.mjs"]

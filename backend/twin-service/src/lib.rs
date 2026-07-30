@@ -2,9 +2,11 @@ use axum::routing::{get, patch, post, put};
 use axum::{Json, Router};
 
 pub mod api;
+pub mod domain;
 pub mod infra;
-pub mod models;
+pub mod service;
 pub mod state;
+pub mod worker;
 
 use state::AppState;
 
@@ -61,6 +63,7 @@ fn protected_routes() -> Router<AppState> {
             "/building/{id}",
             get(get_building_by_id).patch(update_building),
         )
+        .route("/building/{id}/status", get(get_upload_status))
         .route("/buildings/counts", post(get_building_counts))
         .route("/buildings/{domain}", get(get_building_by_domain))
         .route("/domain/{building}", get(get_domains_by_building))

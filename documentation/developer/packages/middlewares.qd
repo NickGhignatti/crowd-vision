@@ -3,7 +3,7 @@
 
 Implementation reference for the cross-cutting Express middleware shared by the Node services (`notification-service`, `sensor-service`, `chat-service`; `socket-service` carries the equivalent logic in `src/auth.ts`, since a WebSocket handshake isn't an Express request/response pipeline). Controllers and services hold business logic; **request authentication and error shaping** are delegated to the middleware documented here.
 
-This is one of three same-shaped implementations of the same trust boundary, one per backend language: `twin-service`'s Rust/Axum equivalent is the `GatewayClaims` extractor (`src/infra/claims.rs` — see [Digital Twin Service](../services/digital-twin.qd)), and the four Go identity-tier services use the dedicated [Auth Middleware](auth-middleware.qd) package. All three decode the same header; none of them verify a JWT signature themselves. For the design rationale behind that split, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) and [Service Mesh Architecture](../architecture/service-mesh.qd).
+This is one of three same-shaped implementations of the same trust boundary, one per backend language: `twin-service`'s Rust/Axum equivalent is the `GatewayClaims` extractor (`src/api/claims.rs` — see [Digital Twin Service](../services/digital-twin.qd)), and the four Go identity-tier services use the dedicated [Auth Middleware](auth-middleware.qd) package. All three decode the same header; none of them verify a JWT signature themselves. For the design rationale behind that split, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) and [Service Mesh Architecture](../architecture/service-mesh.qd).
 
 ---
 
