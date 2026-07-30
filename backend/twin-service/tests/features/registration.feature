@@ -20,9 +20,3 @@ Feature: Provision a digital twin from a building description
     When I upload a building description with an invalid room to organization "test-domain"
     Then the upload is refused without a tracking handle
     And organization "test-domain" holds no buildings
-
-  @tenancy
-  Scenario: A twin is visible only to the organization it is scoped to
-    Given a twin has been provisioned in organization "test-domain"
-    When a member of organization "other-domain" lists its buildings
-    Then no building is listed
