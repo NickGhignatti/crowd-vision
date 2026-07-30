@@ -7,8 +7,12 @@ services:
       - MONGO_URI=mongodb://sensor-db:27017/sensordb
       - FRONTEND_URL=${DEV_URL}:${FRONTEND_PORT}
       - REDIS_URL=redis://redis:6379
+      - KAFKA_BROKERS=kafka:9092
     depends_on:
-      - sensor-db
+      sensor-db:
+        condition: service_started
+      kafka:
+        condition: service_healthy
 
   sensor-db:
     cpus: "2"

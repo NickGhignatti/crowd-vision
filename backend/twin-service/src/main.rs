@@ -6,6 +6,7 @@ use tokio::net::TcpListener;
 
 use std::sync::Arc;
 
+use twin_service::adapters::driven::kafka_producer::KafkaEventProducer;
 use twin_service::adapters::driven::persistence::db::{self, MongoBuildings};
 use twin_service::adapters::driven::persistence::jobs::MongoUploadQueue;
 use twin_service::adapters::driving::worker;
@@ -58,13 +59,23 @@ async fn main() {
         client: reqwest::Client::new(),
     };
 
+    let kafka_brokers = env::var("KAFKA_BROKERS").unwrap_or_else(|_| "localhost:9092".to_string());
+    let events = Arc::new(
+        KafkaEventProducer::new(&kafka_brokers).expect("Failed to configure Kafka producer"),
+    );
+
     // The composition root: the only place that decides which adapter satisfies
     // each port the use cases declare.
     let store = Arc::new(MongoBuildings::new(buildings.clone()));
     let queue = Arc::new(MongoUploadQueue::beside(&buildings));
     let downstream = Arc::new(outbound);
 
-    let provisioning = Arc::new(Provisioning::new(store.clone(), queue, downstream.clone()));
+    let provisioning = Arc::new(Provisioning::new(
+        store.clone(),
+        queue,
+        downstream.clone(),
+        events,
+    ));
     worker::spawn(provisioning.clone());
 
     let state = AppState {

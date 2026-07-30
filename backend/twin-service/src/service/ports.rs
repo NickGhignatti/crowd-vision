@@ -39,6 +39,15 @@ pub trait UploadQueue: Send + Sync {
     async fn status(&self, id: &str) -> anyhow::Result<Option<UploadStatus>>;
 }
 
+/// RegistrationEvents defines the capability for announcing a newly-registered
+/// building to whoever wants to build their own model of it.
+#[async_trait]
+pub trait RegistrationEvents: Send + Sync {
+    /// Announce that `building` has just been durably written. Only ever
+    /// called after the write it announces has already succeeded.
+    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()>;
+}
+
 /// DownstreamSync defines the capability for synchronizing the twin's state with downstream services
 #[async_trait]
 pub trait DownstreamSync: Send + Sync {

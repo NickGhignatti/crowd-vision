@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use std::sync::Arc;
 
+use twin_service::adapters::driven::kafka_producer::KafkaEventProducer;
 use twin_service::adapters::driven::outbound::OutboundConfig;
 use twin_service::adapters::driven::persistence::db::{self, MongoBuildings};
 use twin_service::adapters::driven::persistence::jobs::MongoUploadQueue;
@@ -36,8 +37,14 @@ async fn app() -> Router {
     let store = Arc::new(MongoBuildings::new(buildings.clone()));
     let queue = Arc::new(MongoUploadQueue::beside(&buildings));
     let downstream = Arc::new(outbound);
+    let events = Arc::new(KafkaEventProducer::disabled());
 
-    let provisioning = Arc::new(Provisioning::new(store.clone(), queue, downstream.clone()));
+    let provisioning = Arc::new(Provisioning::new(
+        store.clone(),
+        queue,
+        downstream.clone(),
+        events,
+    ));
     worker::spawn(provisioning.clone());
 
     build_router(AppState {

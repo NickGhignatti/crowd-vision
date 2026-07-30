@@ -9,12 +9,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::domain::{AcceptedUpload, Building, DomainError, UploadStatus};
-use crate::service::ports::{BuildingStore, DownstreamSync, UploadQueue};
+use crate::service::ports::{BuildingStore, DownstreamSync, RegistrationEvents, UploadQueue};
 
 pub struct Provisioning {
     buildings: Arc<dyn BuildingStore>,
     queue: Arc<dyn UploadQueue>,
     downstream: Arc<dyn DownstreamSync>,
+    events: Arc<dyn RegistrationEvents>,
 }
 
 impl Provisioning {
@@ -22,11 +23,13 @@ impl Provisioning {
         buildings: Arc<dyn BuildingStore>,
         queue: Arc<dyn UploadQueue>,
         downstream: Arc<dyn DownstreamSync>,
+        events: Arc<dyn RegistrationEvents>,
     ) -> Self {
         Self {
             buildings,
             queue,
             downstream,
+            events,
         }
     }
 
@@ -75,9 +78,7 @@ impl Provisioning {
     /// run rather than duplicating.
     async fn provision(&self, upload: &AcceptedUpload) -> Result<(), DomainError> {
         self.buildings.upsert(&upload.building).await?;
-        self.downstream
-            .clone_thresholds(&upload.building, None, &upload.claims)
-            .await?;
+        self.events.publish_requested(&upload.building).await?;
         self.downstream
             .init_preferences(&upload.building.id, &upload.claims)
             .await;
@@ -88,7 +89,7 @@ impl Provisioning {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::fakes::{FakeQueue, FakeStore, FakeSync, building};
+    use crate::service::fakes::{FakeEvents, FakeQueue, FakeStore, FakeSync, building};
 
     const LEASE: Duration = Duration::from_secs(30);
 
@@ -97,22 +98,30 @@ mod tests {
         store: Arc<FakeStore>,
         queue: Arc<FakeQueue>,
         sync: Arc<FakeSync>,
+        events: Arc<FakeEvents>,
     }
 
-    fn harness_with(sync: FakeSync) -> Harness {
+    fn harness_with_events(events: FakeEvents) -> Harness {
         let store = Arc::new(FakeStore::default());
         let queue = Arc::new(FakeQueue::default());
-        let sync = Arc::new(sync);
+        let sync = Arc::new(FakeSync::default());
+        let events = Arc::new(events);
         Harness {
-            provisioning: Provisioning::new(store.clone(), queue.clone(), sync.clone()),
+            provisioning: Provisioning::new(
+                store.clone(),
+                queue.clone(),
+                sync.clone(),
+                events.clone(),
+            ),
             store,
             queue,
             sync,
+            events,
         }
     }
 
     fn harness() -> Harness {
-        harness_with(FakeSync::default())
+        harness_with_events(FakeEvents::default())
     }
 
     #[tokio::test]
@@ -141,9 +150,15 @@ mod tests {
 
         assert_eq!(h.store.written.lock().unwrap().len(), 1);
         assert_eq!(
-            *h.sync.cloned.lock().unwrap(),
-            [("b1".to_string(), None)],
-            "provisioning never sets a temperature ceiling of its own"
+            h.events
+                .published
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|b| b.id.clone())
+                .collect::<Vec<_>>(),
+            ["b1"],
+            "provisioning announces the building once it is durably written"
         );
         assert_eq!(*h.sync.seeded_preferences.lock().unwrap(), ["b1"]);
         assert_eq!(
@@ -160,10 +175,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_refused_clone_fails_the_upload_rather_than_the_caller() {
-        let h = harness_with(FakeSync {
+    async fn a_refused_publish_fails_the_upload_rather_than_the_caller() {
+        let h = harness_with_events(FakeEvents {
             refuse: true,
-            ..FakeSync::default()
+            ..FakeEvents::default()
         });
         h.provisioning.accept(building("b1"), "tok").await.unwrap();
 
@@ -175,7 +190,7 @@ mod tests {
             UploadStatus::Failed
         );
         assert!(
-            h.queue.errors.lock().unwrap()["b1"].contains("sensor-service said no"),
+            h.queue.errors.lock().unwrap()["b1"].contains("kafka said no"),
             "the reason has to survive for whoever polls the handle"
         );
     }

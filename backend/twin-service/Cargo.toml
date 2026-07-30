@@ -21,6 +21,7 @@ prometheus = "0.14"
 uuid = { version = "1", features = ["v4"] }
 urlencoding = "2"
 async-trait = "0.1.91"
+rdkafka = "0.39.0"
 
 [dev-dependencies]
 cucumber = "0.23.0"

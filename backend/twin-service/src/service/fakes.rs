@@ -12,7 +12,7 @@ use async_trait::async_trait;
 
 use crate::domain::identity::{ClaimsPayload, GatewayClaims, Membership};
 use crate::domain::{AcceptedUpload, Building, Coordinates, Dimensions, Room, UploadStatus};
-use crate::service::ports::{BuildingStore, DownstreamSync, UploadQueue};
+use crate::service::ports::{BuildingStore, DownstreamSync, RegistrationEvents, UploadQueue};
 
 pub fn claims_with(memberships: Vec<(&str, &str)>) -> GatewayClaims {
     GatewayClaims {
@@ -223,5 +223,22 @@ impl DownstreamSync for FakeSync {
         _claims: &str,
     ) {
         self.seeded_rooms.lock().unwrap().push(room_id.to_string());
+    }
+}
+
+#[derive(Default)]
+pub struct FakeEvents {
+    pub published: Mutex<Vec<Building>>,
+    pub refuse: bool,
+}
+
+#[async_trait]
+impl RegistrationEvents for FakeEvents {
+    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()> {
+        if self.refuse {
+            anyhow::bail!("kafka said no");
+        }
+        self.published.lock().unwrap().push(building.clone());
+        Ok(())
     }
 }
