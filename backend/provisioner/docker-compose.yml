@@ -1,9 +1,9 @@
 services:
   provisioner:
-    cpus: "2"
+    cpus: "3"
     build:
       context: ../..
-      dockerfile: server/provisioner/Dockerfile
+      dockerfile: backend/provisioner/Dockerfile
     environment:
       - REGISTRY_URL=http://registry-service:3000
       - TENANCY_URL=http://tenancy-service:3000

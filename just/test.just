@@ -55,7 +55,7 @@ eval models="" judge="":
     [ -n "$judge" ] && args+=(--judge-model "$judge")
     mise exec -- uv run --directory backend/agent-service python evals/run_evals.py "${args[@]}"
 
-[doc("Run backend integration tests against a composed stack (full stack, no exclusion).")]
+[doc("Run backend integration tests — only the services backend/tests actually exercises, not the full stack.")]
 integration:
-    mise exec -- node scripts/compose/compose-run.mjs integration
+    bash backend/tests/run-integration-tests.sh
     mise exec -- node scripts/compose/compose-run.mjs down

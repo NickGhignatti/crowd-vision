@@ -1,9 +1,9 @@
 services:
   claims-gateway:
-    cpus: "2"
+    cpus: "3"
     build:
       context: ../..
-      dockerfile: server/claims-gateway/Dockerfile
+      dockerfile: backend/claims-gateway/Dockerfile
     environment:
       - ADDR=:3000
       - OIDC_DISCOVERY_URL=http://keycloak:8080/realms/crowdvision

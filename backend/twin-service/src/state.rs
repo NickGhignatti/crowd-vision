@@ -1,12 +1,12 @@
-use mongodb::Collection;
+use std::sync::Arc;
 
-use crate::infra::outbound::OutboundConfig;
-use crate::infra::ratelimit::RateLimiter;
-use crate::models::Building;
+use crate::adapters::ratelimit::RateLimiter;
+use crate::service::buildings::Buildings;
+use crate::service::provisioning::Provisioning;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub buildings: Collection<Building>,
-    pub outbound: OutboundConfig,
+    pub buildings: Arc<Buildings>,
+    pub provisioning: Arc<Provisioning>,
     pub rate_limiter: RateLimiter,
 }

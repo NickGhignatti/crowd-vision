@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { SensorKernel } from "../kernel/sensorKernel.js";
 import { BuildingThresholdModel } from "../models/buildingThreshold.js";
+import { registerBuilding } from "../services/buildingRegistration.js";
 
 export function createThresholdHandlers(kernel: SensorKernel) {
   const resolveModule = (sensorType: string, res: Response) => {
@@ -16,13 +17,10 @@ export function createThresholdHandlers(kernel: SensorKernel) {
     // PUT /thresholds/buildings/:buildingId.
     registerBuilding: async (req: Request, res: Response): Promise<void> => {
       try {
-        const buildingId = req.params.buildingId as string;
-        const payload = req.body;
-        await Promise.all(
-          kernel.getRegisteredTypes().map((type) => {
-            const module = kernel.resolve(type);
-            return module?.updateBuildingThreshold(buildingId, payload);
-          }),
+        await registerBuilding(
+          kernel,
+          req.params.buildingId as string,
+          req.body,
         );
         res.status(200).json({ message: "Building registered" });
       } catch (error: any) {

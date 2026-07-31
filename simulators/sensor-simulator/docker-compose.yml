@@ -1,6 +1,6 @@
 services:
   sensor-simulator:
-    cpus: "2"
+    cpus: "3"
     build:
       context: .
     ports:

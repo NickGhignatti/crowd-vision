@@ -1,6 +1,6 @@
 services:
   notification-service:
-    cpus: "2"
+    cpus: "3"
     build:
       context: .
     environment:
@@ -15,7 +15,7 @@ services:
       - notification-db
 
   notification-db:
-    cpus: "2"
+    cpus: "3"
     image: mongo:latest
     volumes:
       - notification-data:/data/db

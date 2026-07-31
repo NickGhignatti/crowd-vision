@@ -1,9 +1,9 @@
 services:
   registry-service:
-    cpus: "2"
+    cpus: "3"
     build:
       context: ../..
-      dockerfile: server/registry-service/Dockerfile
+      dockerfile: backend/registry-service/Dockerfile
     environment:
       - ADDR=:3000
       - DATABASE_URL=postgres://registry:${REGISTRY_DB_PASSWORD}@registry-db:5432/registry?sslmode=disable
@@ -13,7 +13,7 @@ services:
         condition: service_healthy
 
   registry-db:
-    cpus: "2"
+    cpus: "3"
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: registry

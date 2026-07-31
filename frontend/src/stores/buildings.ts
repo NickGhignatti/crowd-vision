@@ -3,6 +3,30 @@ import { makeRequest } from '@/composables/core/useApi.ts'
 import type { Building, Room } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
 
+const PROVISIONING_POLL_MS = 500
+const PROVISIONING_TIMEOUT_MS = 30_000
+
+// Waits for an accepted upload to become a twin. `ready` also means the sensor
+// threshold clone landed -- twin-service fails the upload if that call is
+// refused -- so there is nothing left for the browser to initialise afterwards.
+async function awaitProvisioned(buildingId: string): Promise<void> {
+  const deadline = Date.now() + PROVISIONING_TIMEOUT_MS
+
+  for (;;) {
+    const res = await makeRequest(`/twin/building/${buildingId}/status`)
+    const status = res.ok ? (await res.json()).status : null
+
+    if (status === 'ready') return
+    if (status === 'failed') {
+      throw new Error('Failed to build the twin model')
+    }
+    if (Date.now() > deadline) {
+      throw new Error('Timed out waiting for the twin model to be built')
+    }
+    await new Promise((resolve) => setTimeout(resolve, PROVISIONING_POLL_MS))
+  }
+}
+
 export const useBuildingsStore = defineStore('buildings', {
   state: () => ({
     byDomain: {} as Record<string, Building[]>,
@@ -71,30 +95,15 @@ export const useBuildingsStore = defineStore('buildings', {
         body: JSON.stringify(payload),
       })
 
+      // A malformed description is refused here, synchronously. Anything else
+      // comes back as 202: accepted for provisioning, not yet built.
       if (!response.ok) {
         throw new Error('Failed to register twin model')
       }
 
-      const createdBuilding = await response.json()
-
-      const thresholdResponse = await makeRequest(
-        `/sensor/thresholds/buildings/${createdBuilding.id}`,
-        'PUT',
-        {
-          body: JSON.stringify({
-            buildingId: createdBuilding.id,
-            rooms: Array.isArray(createdBuilding.rooms)
-              ? createdBuilding.rooms.map((room: any) => ({ id: room.id }))
-              : [],
-          }),
-        },
-      )
-
-      if (!thresholdResponse.ok) {
-        throw new Error('Failed to initialize temperature thresholds')
-      }
-
-      return createdBuilding.id
+      const { buildingId } = await response.json()
+      await awaitProvisioned(buildingId)
+      return buildingId
     },
 
     async updateRoomConfig(buildingId: string, roomId: string, updates: any) {

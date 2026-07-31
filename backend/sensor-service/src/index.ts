@@ -12,6 +12,8 @@ import { AirQualityModule } from "./modules/AirQualityModule.js";
 import { createIngestionHandler } from "./controllers/ingestionController.js";
 import { createRouter } from "./router.js";
 import { connectRedis } from "./config/redis.js";
+import { connectKafka } from "./config/kafka.js";
+import { startRegistrationConsumer } from "./consumers/registrationConsumer.js";
 
 export const app = express();
 // Behind the Caddy/ingress proxy: trust one hop so express-rate-limit reads the real client IP.
@@ -36,7 +38,8 @@ const swaggerDocument = YAML.load("./openapi.yaml") as object;
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 if (process.env.NODE_ENV !== "test") {
-  Promise.all([connectMongo(), connectRedis()])
+  Promise.all([connectMongo(), connectRedis(), connectKafka()])
+    .then(() => startRegistrationConsumer(kernel))
     .then(() => {
       const server = app.listen(PORT, () => {
         console.info(`[sensor-service] Listening on port ${String(PORT)}`);

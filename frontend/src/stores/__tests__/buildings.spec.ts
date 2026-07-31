@@ -163,9 +163,7 @@ describe('useBuildingsStore', () => {
 
     it('stores the returned buildings under the correct domain key', async () => {
       const buildings = [makeBuilding('hq')]
-      vi.mocked(makeRequest).mockResolvedValue(
-        makeResponse(true, buildings) as unknown as Response,
-      )
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true, buildings) as unknown as Response)
 
       const store = useBuildingsStore()
       await store.fetch([makeMembership('acme')])
@@ -258,12 +256,15 @@ describe('useBuildingsStore', () => {
       rooms: [makeRoom('room-1')],
     })
 
-    it('returns the id from the created building', async () => {
+    // POST /twin/register answers 202 with a tracking handle -- the twin is
+    // built out of band, so registering means accepting, then waiting.
+    const accepted = (buildingId: string) => makeResponse(true, { buildingId })
+    const reports = (status: string) => makeResponse(true, { status })
+
+    it('returns the tracking handle once the twin is ready', async () => {
       vi.mocked(makeRequest)
-        .mockResolvedValueOnce(
-          makeResponse(true, { id: 'generated-uuid', name: 'Test Building', rooms: [] }) as unknown as Response,
-        )
-        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(accepted('generated-uuid') as unknown as Response)
+        .mockResolvedValueOnce(reports('ready') as unknown as Response)
 
       const store = useBuildingsStore()
       const id = await store.register(makeDraftPayload(), 'acme')
@@ -271,30 +272,37 @@ describe('useBuildingsStore', () => {
       expect(id).toBe('generated-uuid')
     })
 
-    it('calls PUT /sensor/thresholds/buildings/:id to initialise threshold doc', async () => {
-      const buildingId = 'auto-uuid-123'
+    it('keeps polling the status endpoint while the upload is pending', async () => {
       vi.mocked(makeRequest)
-        .mockResolvedValueOnce(
-          makeResponse(true, { id: buildingId, name: 'Test Building', rooms: [] }) as unknown as Response,
-        )
-        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(accepted('auto-uuid-123') as unknown as Response)
+        .mockResolvedValueOnce(reports('pending') as unknown as Response)
+        .mockResolvedValueOnce(reports('ready') as unknown as Response)
 
-      const store = useBuildingsStore()
-      await store.register(makeDraftPayload(), 'acme')
+      await useBuildingsStore().register(makeDraftPayload(), 'acme')
 
-      const calls = vi.mocked(makeRequest).mock.calls
-      const thresholdCall = calls.find(
-        (c) => c[0] === `/sensor/thresholds/buildings/${buildingId}` && c[1] === 'PUT',
-      )
-      expect(thresholdCall).toBeDefined()
+      const statusCalls = vi
+        .mocked(makeRequest)
+        .mock.calls.filter((c) => c[0] === '/twin/building/auto-uuid-123/status')
+      expect(statusCalls).toHaveLength(2)
+    })
+
+    it('does not send its own threshold request -- twin-service owns that sync', async () => {
+      vi.mocked(makeRequest)
+        .mockResolvedValueOnce(accepted('auto-uuid-123') as unknown as Response)
+        .mockResolvedValueOnce(reports('ready') as unknown as Response)
+
+      await useBuildingsStore().register(makeDraftPayload(), 'acme')
+
+      const thresholdCall = vi
+        .mocked(makeRequest)
+        .mock.calls.find((c) => String(c[0]).startsWith('/sensor/thresholds/'))
+      expect(thresholdCall).toBeUndefined()
     })
 
     it('injects the domain into the payload', async () => {
       vi.mocked(makeRequest)
-        .mockResolvedValueOnce(
-          makeResponse(true, { id: 'x', name: 'Test Building', rooms: [] }) as unknown as Response,
-        )
-        .mockResolvedValueOnce(makeResponse(true) as unknown as Response)
+        .mockResolvedValueOnce(accepted('x') as unknown as Response)
+        .mockResolvedValueOnce(reports('ready') as unknown as Response)
 
       const store = useBuildingsStore()
       await store.register(makeDraftPayload(), 'my-domain')
@@ -304,26 +312,22 @@ describe('useBuildingsStore', () => {
       expect(body.domains).toEqual(['my-domain'])
     })
 
-    it('throws when the twin registration fails', async () => {
-      vi.mocked(makeRequest).mockResolvedValueOnce(
-        makeResponse(false) as unknown as Response,
-      )
+    it('throws when the upload is refused outright', async () => {
+      vi.mocked(makeRequest).mockResolvedValueOnce(makeResponse(false) as unknown as Response)
 
-      await expect(
-        useBuildingsStore().register(makeDraftPayload(), 'acme'),
-      ).rejects.toThrow('Failed to register twin model')
+      await expect(useBuildingsStore().register(makeDraftPayload(), 'acme')).rejects.toThrow(
+        'Failed to register twin model',
+      )
     })
 
-    it('throws when threshold initialisation fails', async () => {
+    it('throws when provisioning the accepted upload fails', async () => {
       vi.mocked(makeRequest)
-        .mockResolvedValueOnce(
-          makeResponse(true, { id: 'x', rooms: [] }) as unknown as Response,
-        )
-        .mockResolvedValueOnce(makeResponse(false) as unknown as Response)
+        .mockResolvedValueOnce(accepted('x') as unknown as Response)
+        .mockResolvedValueOnce(reports('failed') as unknown as Response)
 
-      await expect(
-        useBuildingsStore().register(makeDraftPayload(), 'acme'),
-      ).rejects.toThrow('Failed to initialize temperature thresholds')
+      await expect(useBuildingsStore().register(makeDraftPayload(), 'acme')).rejects.toThrow(
+        'Failed to build the twin model',
+      )
     })
   })
 

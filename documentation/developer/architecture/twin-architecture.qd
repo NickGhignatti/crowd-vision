@@ -9,35 +9,113 @@ The twin-service realises the [Building Management](../domain/building-managemen
 
 ## Architectural Style
 
-A flat, three-layer architecture — HTTP handlers, domain models, and infrastructure — wired directly through a shared `AppState`, with no interface layer between a handler and what it depends on. Handlers (`api/buildings.rs`) combine HTTP adaptation and business logic in one place, matching `contracts-service`'s established Rust convention: the language's own module system and `Result`-based error handling already do the job a thin controller layer would.
+**Ports & Adapters (Hexagonal)**. The core is split in two so the Clean Architecture distinction stays visible inside the hexagon: `domain/` holds the entities and the rules that are true regardless of delivery or storage, `service/` holds the use cases plus the traits — the ports — they require of everything outside. `adapters/driving/` calls the core; `adapters/driven/` is called by it.
 
-Identity and authorization arrive as **Axum extractors**, not as calls to another service. `GatewayClaims` (`infra/claims.rs`) implements `FromRequestParts`, so any handler that needs the caller's identity just declares it as an argument — decoding and validating the mesh-injected `x-gateway-claims` header happens before the handler body runs, with no network call to `claims-gateway` or `tenancy-service`. Authorization is the same shape: Cedar (`infra/authz.rs`) evaluates the request in-process against a policy bundle compiled into the binary via `include_str!`.
+Hexagonal rather than Clean is a deliberate choice, and the two are not far apart here: the work is identical up to the last increment, and that increment (splitting entities from use cases) is cheap enough that it was kept. What was *not* built is the rest of Clean's ceremony — there are no output ports and no presenters, and the inbound side has no port at all: a handler calls the use case's concrete struct directly, because there is exactly one real caller per route. That is the same house rule the Go services follow.
+
+Identity and authorization arrive in-process, never as a call to another service. `GatewayClaims` is a domain type; the Axum `FromRequestParts` extractor that decodes the mesh-injected `x-gateway-claims` header into one lives in `adapters/driving/http_api/claims.rs`, so decoding happens before the handler body runs with no network call to `claims-gateway` or `tenancy-service`. Cedar (`service/authz.rs`) sits **inside** the core rather than in `adapters/driven/`: whether a caller may edit a building is a rule, and Cedar is a pure evaluator with no I/O, running against a policy bundle compiled into the binary via `include_str!`.
+
+One diagram trying to show every adapter and every core file at once is what made the previous version unreadable regardless of size: five stacked layers of dependency squeeze mermaid's own auto-fit scaling down hard on a tall diagram. Splitting it in two — the hexagon on its own, then the adapters around it — keeps each one shallow enough to render at full width.
 
 .mermaid
-    graph LR
-        subgraph Entry
-            R["lib.rs (Router)"]
-            CL["GatewayClaims extractor\ninfra/claims.rs"]
+    %%{init: {'themeVariables': {'fontSize': '28px'}, 'flowchart': {'nodeSpacing': 55, 'rankSpacing': 65, 'padding': 20}}}%%
+    graph TB
+        subgraph pt["Ports — service/ports.rs"]
+            PSTORE{{"service/ports.rs\nBuildingStore"}}:::port
+            PQUEUE{{"service/ports.rs\nUploadQueue"}}:::port
+            PSYNC{{"service/ports.rs\nDownstreamSync"}}:::port
+            PEVENTS{{"service/ports.rs\nRegistrationEvents"}}:::port
         end
-        subgraph Handlers
-            H["api/buildings.rs"]
+        subgraph uc["Use cases — service/"]
+            UCB{{"service/buildings.rs\nread · list · count · update · rooms"}}:::usecase
+            UCP{{"service/provisioning.rs\naccept · provision_next · status"}}:::usecase
+            UCA{{"service/authz.rs\nCedar Read/Edit rules"}}:::usecase
         end
-        subgraph Infrastructure
-            DB["infra/db.rs\nMongoDB Collection (Building)"]
-            AZ["infra/authz.rs\nCedar, compiled-in policy"]
-            OUT["infra/outbound.rs\nsensor-service · contracts-service"]
-            MET["infra/metrics.rs"]
-            RL["infra/ratelimit.rs"]
+        subgraph ent["Entities — domain/"]
+            ENTB{{"domain/building.rs"}}:::entity
+            ENTI{{"domain/identity.rs"}}:::entity
+            ENTU{{"domain/upload.rs"}}:::entity
+            ENTE{{"domain/error.rs"}}:::entity
         end
-        R --> H
-        CL --> H
-        H --> DB
-        H --> AZ
-        H --> OUT
-        H --> MET
-        H --> RL
 
-The integration test suite runs against a real MongoDB instance, exercised through the full `Router` via `tower::ServiceExt::oneshot` — the same code path a real request takes, not a swapped-in double. Metrics are recorded through an Axum `Router::layer`, which wraps the entire request/response cycle regardless of how the inner handler responds — so `http_requests_total`/`http_request_duration_seconds` increment for every route, labeled by `{method, route, status_code}` using the route template rather than the raw URL, so cardinality stays bounded even with real ids in the path. Cedar's policy bundle (`schema.cedarschema`, `policy.cedar`) is compiled into the binary via Rust's `include_str!` rather than read from disk at process startup — the production Docker image doesn't need `backend/auth-policy` present at runtime, only the builder stage does.
+        UCB --> UCA
+        UCB --> ENTB
+        UCB --> ENTE
+        UCP --> ENTU
+        UCP --> ENTE
+        UCA --> ENTI
+        UCB --> PSTORE
+        UCB --> PSYNC
+        UCP --> PSTORE
+        UCP --> PQUEUE
+        UCP --> PSYNC
+        UCP --> PEVENTS
+
+        classDef entity fill:#cfe8ff,stroke:#1b6ec2,stroke-width:2px,color:#003366
+        classDef usecase fill:#d9f2d9,stroke:#2e7d32,stroke-width:2px,color:#1b4d1b
+        classDef port fill:#fff3cd,stroke:#b8860b,stroke-width:2px,color:#5c4400
+
+The adapters live outside that boundary, in and out through the ports:
+
+.mermaid
+    %%{init: {'themeVariables': {'fontSize': '28px'}, 'flowchart': {'nodeSpacing': 55, 'rankSpacing': 70, 'padding': 20}}}%%
+    graph LR
+        subgraph driving["DRIVING ADAPTERS"]
+            EXTRACT["adapters/driving/http_api/claims.rs\nx-gateway-claims extractor"]:::driving
+            HTTP["adapters/driving/http_api/controllers.rs\nHTTP handlers"]:::driving
+            PRESENT["adapters/driving/http_api/exceptions.rs\nDomainError to HTTP"]:::driving
+            LOOP["adapters/driving/worker.rs\nprovisioning loop"]:::driving
+            KCONS["adapters/driving/kafka_consumer.rs\nregistration-completed consumer"]:::driving
+        end
+
+        HEX{{"THE HEXAGON"}}:::hexref
+
+        subgraph driven["DRIVEN ADAPTERS"]
+            ADB["adapters/driven/persistence/db.rs\nMongoBuildings"]:::driven
+            AJOB["adapters/driven/persistence/jobs.rs\nMongoUploadQueue"]:::driven
+            AOUT["adapters/driven/outbound.rs\nOutboundConfig"]:::driven
+            AKPROD["adapters/driven/kafka_producer.rs\nKafkaEventProducer"]:::driven
+            AFAKE["service/fakes.rs\nin-memory, cfg(test)"]:::driven
+        end
+
+        EXTRACT --> HTTP
+        HTTP --> HEX
+        LOOP --> HEX
+        KCONS --> HEX
+        HTTP --> PRESENT
+
+        ADB -.->|implements| HEX
+        AJOB -.->|implements| HEX
+        AOUT -.->|implements| HEX
+        AKPROD -.->|implements| HEX
+        AFAKE -.->|implements| HEX
+
+        classDef driving fill:#ffe0cc,stroke:#d2691e,stroke-width:2px,color:#7a3300
+        classDef driven fill:#e0dcf5,stroke:#5b4b8a,stroke-width:2px,color:#2e2560
+        classDef hexref fill:#f5faff,stroke:#333333,stroke-width:3px,color:#000000
+        style driving fill:#fff9f4,stroke:#d2691e,stroke-width:1px
+        style driven fill:#f7f5fc,stroke:#5b4b8a,stroke-width:1px
+
+Driving adapters (orange) call the core; driven adapters (purple) are called by it, each implementing exactly one port from the diagram above.
+Every arrow into the hexagon points **inwards**, and every arrow out of it stops at a port; `main.rs` is the only file that knows a `BuildingStore` is really MongoDB, and swapping in `service/fakes.rs` is what lets the whole core suite run with no database and no network.
+
+### Ports and adapters
+
+A port exists **for the use case that declares it**, not for whoever ends up implementing it. The use case's author writes the trait signature (`service/ports.rs`) to fit their own logic, and everyone downstream must conform to it.
+
+*   **Driving Adapters**: These originate requests for the core.
+    *   `adapters/driving/http_api/claims.rs`: Extracts `x-gateway-claims` from incoming HTTP requests, transforming raw header data into the domain's `GatewayClaims`.
+    *   `adapters/driving/http_api/controllers.rs`: HTTP handlers that translate external `POST /register` requests into calls to the core's use cases.
+    *   `adapters/driving/http_api/exceptions.rs`: Transforms domain-specific errors (`DomainError`) into appropriate HTTP responses.
+    *   `adapters/driving/worker.rs`: A provisioning loop that wakes up periodically to process pending uploads, calling the same `service::provisioning` use case as the HTTP handlers.
+    *   `adapters/driving/kafka_consumer.rs`: Consumes `building-registration-completed` and resolves the matching upload — the third entry point into `service::provisioning`, alongside the HTTP handler and the worker.
+
+*   **Driven Adapters**: These implement the capabilities (ports) that the core requires.
+    *   `adapters/driven/persistence/db.rs`: Implements the `BuildingStore` port, providing persistence for building data using MongoDB.
+    *   `adapters/driven/persistence/jobs.rs`: Implements the `UploadQueue` port, handling durable queuing of upload tasks with MongoDB.
+    *   `adapters/driven/outbound.rs`: Implements the `DownstreamSync` port — outbound REST calls to contracts-service and the seed-only calls to sensor-service; no longer used for registration (see below).
+    *   `adapters/driven/kafka_producer.rs`: Implements the `RegistrationEvents` port, publishing `building-registration-requested` instead of calling sensor-service directly.
+    *   `service/fakes.rs`: An in-memory adapter for all four ports (`BuildingStore`, `UploadQueue`, `DownstreamSync`, `RegistrationEvents`), used exclusively by the test suite to enable testing the core without a database or network.
 
 ---
 
@@ -45,7 +123,10 @@ The integration test suite runs against a real MongoDB instance, exercised throu
 
 - **Server-owned identifiers.** Building identities are generated by the service, not accepted from the client, so the public identifier is decoupled from any client- or storage-specific id.
 - **Tenancy from the token.** A building records the domains it belongs to; access is granted by matching those against the principal's memberships in the identity token — no per-request call to claims-gateway or tenancy-service.
-- **Best-effort downstream provisioning.** When a building is created, the service seeds the dependent contexts (a threshold baseline for ingestion, default display preferences for distribution). This is intentionally non-transactional: a failed seed does not fail the building creation (see the design note in [Building Management](../domain/building-management.qd)).
+- **Registration accepts, then provisions.** `POST /register` validates synchronously and answers `202` with a tracking handle; the twin itself is built by an in-process worker reading a durable queue. Validation stays ahead of the acknowledgement — a description the service would refuse must never be accepted — while everything that can only fail for reasons the caller cannot fix moves behind it. The caller polls the handle; delivery is at-least-once, so provisioning is written to converge on a second run rather than duplicate.
+- **Three driving adapters, one use case.** The HTTP handler, the worker, and the Kafka completion consumer all enter through the same `service::provisioning` module. None of them owns the behaviour, which is what stops the three paths drifting apart.
+- **Registration is announced, not called.** Provisioning no longer calls sensor-service directly: it publishes `building-registration-requested` on Kafka and returns. Publishing is correlated, not blocking — sensor-service builds its own model independently and reports back on `building-registration-completed`, which is what actually resolves the upload to `ready` or `failed`. A publish failure still fails the job the same way a REST failure used to; what changed is that a *successful* publish is no longer treated as the outcome, only the completion event is (see [Communication & Data Flow](data-flow.qd) for the sequence).
+- **Best-effort downstream seeding.** Seeding the dependent contexts (default display preferences for distribution, per-room occupancy thresholds via `DownstreamSync`) is intentionally non-transactional — a failed seed is logged and swallowed. This no longer includes the sensor threshold clone, which moved to the Kafka flow above and fails the job instead.
 - **Structure treated as static.** Geometry and topology are modelled as stable; only metadata evolves. This keeps the spatial model dependable while live readings churn elsewhere.
 - **Uniform geometry validation.** Every geometry-writing route — registration included — enforces the same position/dimension/capacity checks, returning `400` on a malformed room rather than storing bad data or surfacing an opaque `500`.
 
@@ -54,7 +135,7 @@ The integration test suite runs against a real MongoDB instance, exercised throu
 ## Integration
 
 - Owns `twin-db`; no other service reads it.
-- Calls sensor-service and contracts-service to provision a new building — see [Communication & Data Flow](data-flow.qd).
+- Announces a new registration to sensor-service over Kafka (`building-registration-requested`/`-completed`); calls contracts-service directly over REST — see [Communication & Data Flow](data-flow.qd).
 - Exposes read-only building data to the assistant through an anti-corruption layer.
 
 For the registration flow, name-normalisation rules, synchronisation details, and the API, see the [Digital Twin Service](../services/digital-twin.qd) internals page.
