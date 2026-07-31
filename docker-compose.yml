@@ -37,22 +37,6 @@ services:
       timeout: 3s
       retries: 5
 
-  redis-langfuse:
-    cpus: "3"
-    image: redis:alpine
-    container_name: langfuse-broker
-    restart: always
-    profiles: ["agent"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # Event bus for twin-service <-> sensor-service building registration. Only
-  # those two depend on it today, but it's shared infra (like redis above),
-  # not something owned by one service -- single-node KRaft mode, no
-  # Zookeeper needed for local dev.
   kafka:
     cpus: "3"
     image: apache/kafka:3.9.0
@@ -70,7 +54,11 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -102,7 +90,11 @@ services:
       keycloak-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '\"UP\"' <&3"]
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '\"UP\"' <&3",
+        ]
       interval: 10s
       timeout: 5s
       retries: 15
@@ -150,140 +142,8 @@ services:
     depends_on:
       - prometheus
 
-  langfuse-web:
-    cpus: "3"
-    image: docker.io/langfuse/langfuse:3
-    container_name: crowd-vision-langfuse
-    restart: always
-    profiles: ["agent"]
-    depends_on: &langfuse-depends-on
-      langfuse-db:
-        condition: service_healthy
-      clickhouse:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    ports:
-      - "3030:3000"
-    environment: &langfuse-env
-      DATABASE_URL: postgresql://postgres:postgres@langfuse-db:5432/postgres
-      NEXTAUTH_URL: ${DEV_URL:-http://localhost}:3030
-      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
-      SALT: ${LANGFUSE_SALT}
-      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
-      TELEMETRY_ENABLED: "false"
-      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
-      CLICKHOUSE_URL: http://clickhouse:8123
-      CLICKHOUSE_USER: clickhouse
-      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD}
-      CLICKHOUSE_CLUSTER_ENABLED: "false"
-      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
-      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
-      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
-      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
-      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
-      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
-      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
-      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
-      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
-      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
-      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
-      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
-      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
-      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
-      REDIS_HOST: redis-langfuse
-      REDIS_PORT: "6379"
-      REDIS_AUTH: ""
-      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-crowd-vision}
-      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Crowd-Vision}
-      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-agent-service}
-      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-agent-service}
-      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
-      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
-      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@crowd-vision.local}
-      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-Admin}
-      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-langfuse-admin}
-
-  langfuse-worker:
-    cpus: "3"
-    image: docker.io/langfuse/langfuse-worker:3
-    container_name: crowd-vision-langfuse-worker
-    restart: always
-    profiles: ["agent"]
-    depends_on: *langfuse-depends-on
-    environment:
-      <<: *langfuse-env
-
-  langfuse-db:
-    cpus: "3"
-    image: pgvector/pgvector:pg17
-    container_name: crowd-vision-langfuse-db
-    restart: always
-    profiles: ["agent"]
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-      TZ: UTC
-      PGTZ: UTC
-    volumes:
-      - langfuse_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 3s
-      timeout: 3s
-      retries: 10
-      start_period: 60s
-
-  clickhouse:
-    cpus: "3"
-    image: docker.io/clickhouse/clickhouse-server
-    container_name: crowd-vision-clickhouse
-    restart: always
-    profiles: ["agent"]
-    user: "101:101"
-    environment:
-      CLICKHOUSE_DB: default
-      CLICKHOUSE_USER: clickhouse
-      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD}
-    volumes:
-      - langfuse_clickhouse_data:/var/lib/clickhouse
-      - langfuse_clickhouse_logs:/var/log/clickhouse-server
-    healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
-
-  minio:
-    cpus: "3"
-    image: cgr.dev/chainguard/minio
-    container_name: crowd-vision-minio
-    restart: always
-    profiles: ["agent"]
-    entrypoint: sh
-    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
-    environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_ROOT_PASSWORD}
-    volumes:
-      - langfuse_minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 2s
-
 volumes:
   caddy_data:
   caddy_config:
   grafana_data:
-  langfuse_postgres_data:
-  langfuse_clickhouse_data:
-  langfuse_clickhouse_logs:
-  langfuse_minio_data:
   keycloak_postgres_data:
