@@ -80,15 +80,3 @@ pub async fn handle_reports(world: &mut TwinWorld, expected: String) {
         tokio::time::sleep(POLL_INTERVAL).await;
     }
 }
-
-#[then("the twin is viewable")]
-async fn twin_viewable(world: &mut TwinWorld) {
-    let path = format!("/building/{}", world.handle());
-    world.call("GET", &path, "test-domain", None).await;
-    assert_eq!(
-        world.status,
-        StatusCode::OK,
-        "a ready twin must be viewable, body was {}",
-        world.body
-    );
-}

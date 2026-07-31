@@ -1,4 +1,3 @@
-
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -89,6 +88,7 @@ impl UploadQueue for MongoUploadQueue {
         let now = DateTime::now();
         let expires_at = DateTime::from_millis(now.timestamp_millis() + lease.as_millis() as i64);
 
+        // Looks for a single document to claim, assigning it to the current lease.
         let filter = doc! {
             "status": "pending",
             "$or": [

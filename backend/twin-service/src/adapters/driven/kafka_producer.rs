@@ -1,4 +1,3 @@
-
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -13,12 +12,14 @@ use crate::service::ports::RegistrationEvents;
 pub const BUILDING_REGISTRATION_REQUESTED_TOPIC: &str = "building-registration-requested";
 pub const BUILDING_REGISTRATION_COMPLETED_TOPIC: &str = "building-registration-completed";
 
+/// How long call wait in producer's local queue before giving up (not broker ack timeout or delivery timeout).
 const PRODUCE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct KafkaEventProducer {
     producer: Option<FutureProducer>,
 }
 
+/// Topic initialization: creates the required topics if they do not exist.
 async fn ensure_topics(brokers: &str) -> anyhow::Result<()> {
     let admin: AdminClient<_> = ClientConfig::new()
         .set("bootstrap.servers", brokers)

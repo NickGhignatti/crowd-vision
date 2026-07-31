@@ -12,7 +12,14 @@ use crate::support::world::{LoadRun, TwinWorld};
 const AVAILABILITY_TIMEOUT: Duration = Duration::from_secs(15);
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
+const MIN_SAMPLES_FOR_P99: usize = 100;
+
 fn p99(mut samples: Vec<Duration>) -> Duration {
+    assert!(
+        samples.len() >= MIN_SAMPLES_FOR_P99,
+        "p99 over {} samples is just the max, not a percentile — need at least {MIN_SAMPLES_FOR_P99}",
+        samples.len()
+    );
     samples.sort();
     let idx = ((samples.len() as f64) * 0.99).ceil() as usize;
     samples[idx.saturating_sub(1).min(samples.len() - 1)]

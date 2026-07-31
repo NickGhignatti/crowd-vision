@@ -13,6 +13,29 @@ pub fn admin_of(domain: &str) -> String {
     )
 }
 
+pub fn member_of(domain: &str) -> String {
+    BASE64.encode(
+        json!({
+            "sub": "u1",
+            "accountName": "tester",
+            "memberships": [{ "domain": domain, "role": "standard_customer" }]
+        })
+        .to_string(),
+    )
+}
+
+pub fn token() -> String {
+    member_of("test-domain")
+}
+
+pub fn editor_token() -> String {
+    admin_of("test-domain")
+}
+
+pub fn mock_building() -> Value {
+    building_with(json!({ "width": 10, "height": 10, "depth": 10 }))
+}
+
 pub fn building_with(dimensions: Value) -> Value {
     json!({
         "name": "Engineering Block",

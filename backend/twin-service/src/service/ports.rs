@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -11,18 +10,14 @@ pub trait BuildingStore: Send + Sync {
     async fn find_by_id(&self, id: &str) -> anyhow::Result<Option<Building>>;
     async fn find_by_domain(&self, domain: &str) -> anyhow::Result<Vec<Building>>;
     async fn find_by_name(&self, name: &str) -> anyhow::Result<Vec<Building>>;
-
     async fn upsert(&self, building: &Building) -> anyhow::Result<()>;
-
     async fn counts_by_domain(&self, domains: &[String]) -> anyhow::Result<HashMap<String, i64>>;
 }
 
 #[async_trait]
 pub trait UploadQueue: Send + Sync {
     async fn enqueue(&self, upload: &AcceptedUpload) -> anyhow::Result<()>;
-
     async fn claim(&self, lease: Duration) -> anyhow::Result<Option<AcceptedUpload>>;
-
     async fn mark_ready(&self, id: &str) -> anyhow::Result<()>;
     async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<()>;
     async fn status(&self, id: &str) -> anyhow::Result<Option<UploadStatus>>;
