@@ -31,7 +31,7 @@ Non-functional requirements here are **constraints**: rules the system has to sa
 
 ### 7. Graceful Degradation
 * `Should` **The Requirement:** The system shall degrade gracefully when non-critical services fail: show stale or partial data with a warning rather than crashing the critical path.
-* **Why this is required:** Sensor service outage should not make the dashboard unusable; it should show last-known values and indicate staleness. Improves resilience and user trust in partial failures.
+* **Why this is required:** Sensor service outage should not make the dashboard unusable; it should show last-known values and indicate staleness. Improves resilience and user trust in partial failures. Grounded in **LD-4**'s outage criterion — a dashboard that goes silently stale while disconnected is exactly the crash-the-critical-path failure this rules out.
 
 ### 8. Internationalization
 * `Could` **The Requirement:** The system shall support English and Italian at minimum in the UI; no user-facing text shall be hardcoded without localization keys.
@@ -39,6 +39,6 @@ Non-functional requirements here are **constraints**: rules the system has to sa
 
 ---
 
-**Traceability:** NFRs 1–2, 4 trace to specific User Stories. NFRs 3, 5, 6 derive from Business Requirements (GDPR compliance, EU data strategy, SaaS security table-stakes). NFRs 7–8 are operational/strategic priorities (resilience, market expansion).
+**Traceability:** NFRs 1–2, 4, 7 trace to specific User Stories. NFRs 3, 5, 6 derive from Business Requirements (GDPR compliance, EU data strategy, SaaS security table-stakes). NFR 8 is an operational/strategic priority (market expansion).
 
 The measurable *how well* counterpart to these constraints — performance, scalability, availability — is covered separately in [Quality Attributes](quality-attributes.qd).

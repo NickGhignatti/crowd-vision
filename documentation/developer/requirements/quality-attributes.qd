@@ -3,7 +3,7 @@
 
 Quality Attributes are the measurable *how well* — as opposed to the [Non-Functional Requirements](non-functional-requirements.qd), which are binary must/must-not constraints. Each is written as a **Quality Attribute Scenario**: a six-part structure — Source of stimulus, Stimulus, Artifact, Environment, Response, Response Measure — that turns a vague "-ility" into something testable.
 
-**The Response Measure is where every number lives.** A scenario whose measure reads "perceived as instantaneous" is not testable, and a target duplicated onto the [User Stories](user-stories.qd) it grounds is a target that drifts on one of the two pages. So the stories state what must be true, this page states how well and under which envelope, and the stories link back here. Each measure below is written so a load or integration test can decide it without further interpretation.
+**The Response Measure is where every number lives.** A scenario whose measure reads "perceived as instantaneous" is not testable, and a target duplicated onto the [User Stories](user-stories.qd) it grounds is a target that drifts on one of the two pages. Quality Attributes are architecture characteristics, developed downstream to satisfy an expectation a story already states in plain language — so the stories say what must be true and how it should feel ("quickly", "instantly"), this page turns that feeling into a number and cites the stories it answers, never the reverse. Each measure below is written so a load or integration test can decide it without further interpretation.
 
 Where a scenario measures how well an [NFR](non-functional-requirements.qd) constraint is satisfied, that relationship is called out rather than restated.
 
@@ -11,7 +11,7 @@ Where a scenario measures how well an [NFR](non-functional-requirements.qd) cons
 
 ## Performance
 
-### QA-1: Live Data Freshness
+### QA-P-01: Live Data Freshness
 * **Source of stimulus:** A sensor.
 * **Stimulus:** A new reading is ingested for a room currently shown on a building's dashboard or 3D view.
 * **Artifact:** The Live Dashboard / 3D twin view.
@@ -23,7 +23,7 @@ Where a scenario measures how well an [NFR](non-functional-requirements.qd) cons
 
 The split is deliberate. The 1s boundary is the one that becomes a production **SLO**: it is measured entirely from server-side signals, and every hop inside it is a hop CrowdVision controls. The 5s boundary covers the last hop — the client's network and render — which the platform cannot control and therefore must not promise in production; it is asserted in the end-to-end acceptance test instead, where the client is part of the harness and its network is a known quantity. Reporting only the inner boundary would let the dashboard stay green while a user on a degraded connection reads stale values, so both are stated, each measured where it is honest to measure it.
 
-### QA-2: Tenancy Check Latency
+### QA-P-02: Tenancy Check Latency
 * **Source of stimulus:** A user with memberships in multiple organizations.
 * **Stimulus:** The user switches organization, or opens any organization-scoped screen.
 * **Artifact:** The tenancy check performed on every request.
@@ -33,11 +33,11 @@ The split is deliberate. The 1s boundary is the one that becomes a production **
 
 *Grounded in **AA-5**, **BT-4**, **AI-4**. This is the measurable counterpart of [NFR-1](non-functional-requirements.qd#_1-decentralized-authorization-evaluation), Decentralized Authorization Evaluation — that constraint is what makes this response measure achievable.*
 
-### QA-7: Building Upload
+### QA-P-03: Building Upload
 * **Source of stimulus:** A Domain Administrator.
 * **Stimulus:** Uploads a building description to provision its digital twin.
 * **Artifact:** The twin-provisioning path — validation, durable acceptance, and the worker that builds the twin.
-* **Environment:** Normal operation, 20 concurrent uploads, buildings of **≤ 200 rooms**.
+* **Environment:** Normal operation, 100 concurrent uploads, buildings of **≤ 200 rooms**.
 * **Response:** A well-formed upload is durably accepted and acknowledged straight away, with a handle the administrator can watch; the twin follows shortly after and becomes available for viewing and editing. A malformed upload is refused outright, before it is ever accepted.
 * **Response Measure:** Two stages, measured separately. **Acceptance — p99 ≤ 1s** from the upload request to a durable acknowledgement carrying a tracking handle. **Completion — p99 ≤ 10s** from acknowledgement to the twin being viewable and editable. A description that fails validation is **rejected whole and synchronously** — never acknowledged, never queued — with **0 partial twins persisted** and a rejection naming the failing element.
 
@@ -45,11 +45,11 @@ The split is deliberate. The 1s boundary is the one that becomes a production **
 
 Validation staying **synchronous, ahead of acceptance**, is the load-bearing part of this scenario rather than an implementation detail. Once an upload has been acknowledged it is the system's responsibility to complete, so anything that can be known to be impossible must be discovered before the acknowledgement is issued — otherwise a malformed description is accepted, fails in a worker minutes later, and BT-1's edge case (the administrator learns *what* failed, at the moment they upload) becomes unimplementable. Structural validation is cheap and local; provisioning is neither. The boundary belongs exactly between them.
 
-### QA-8: Upload Burst
+### QA-P-04: Upload Burst
 * **Source of stimulus:** Many Domain Administrators at once — an onboarding wave, a semester rollover, a customer migrating a whole portfolio in an afternoon.
 * **Stimulus:** Building uploads arrive at roughly **10× the nominal rate**, sustained for **5 minutes**.
 * **Artifact:** The twin-provisioning path and the admission control in front of it.
-* **Environment:** Peak load — beyond the envelope QA-7 is measured in.
+* **Environment:** Peak load — beyond the envelope QA-P-03 is measured in.
 * **Response:** Every accepted upload is eventually provisioned — exactly once, completely, however long the burst lasts. Only load beyond *durable* capacity is refused, and it is refused explicitly rather than dropped.
 * **Response Measure:** Split into an invariant and a target, because they are different kinds of promise.
     * **Invariant — 100%.** Every upload the system acknowledged is eventually provisioned: **0 models lost**, **0 partial twins**, **0 duplicate buildings**. This has no error budget; a single violation is a defect, not a spent allowance.
@@ -67,7 +67,7 @@ Note also what this scenario does *not* promise. Unbounded acceptance is not ach
 
 ## Availability
 
-### QA-9: Instance Loss
+### QA-A-01: Instance Loss
 * **Source of stimulus:** Infrastructure — a node failure, an OOM kill, or a rolling deploy draining a pod.
 * **Stimulus:** One instance of a service disappears, with requests in flight.
 * **Artifact:** The affected service and every request routed to it.
@@ -75,7 +75,7 @@ Note also what this scenario does *not* promise. Unbounded acceptance is not ach
 * **Response:** Remaining instances keep serving; the mesh stops routing to the lost instance once it fails its readiness probe; the instance is rescheduled without an operator touching anything.
 * **Response Measure:** **≥ 99.5% successful-request ratio per service, measured monthly** (≈ 3h 39m of budget), **0 requests lost during a rolling restart**, and **≤ 30s** from instance loss to traffic being served entirely by healthy instances, with **0 manual operator actions**.
 
-*No user story grounds this: it is an operational quality owned by the Platform Administrator persona. It is the availability counterpart of [NFR-7](non-functional-requirements.qd#_7-graceful-degradation), which governs what a caller sees when a dependency is the thing that failed.*
+*No user story grounds this: it is an operational quality owned by the Platform Administrator persona — the platform's own resilience to infrastructure churn, not a constraint tied to any single NFR.*
 
 **Not currently met, by construction.** Nothing in `k8s/` sets a replica count or an autoscaler, so every service runs a single instance and losing it is an outage, not a degradation. Satisfying this scenario needs `replicas ≥ 2` plus a `PodDisruptionBudget` per service — and, for `twin-service` specifically, moving the rate limiter's counters out of per-instance memory, since a limiter backed by an in-process `DashMap` multiplies its effective limit by the replica count.
 
@@ -83,7 +83,7 @@ Note also what this scenario does *not* promise. Unbounded acceptance is not ach
 
 ## Scalability
 
-### QA-3: Organization Growth
+### QA-S-01: Organization Growth
 * **Source of stimulus:** A prospective customer.
 * **Stimulus:** A new organization self-registers a domain.
 * **Artifact:** The platform as a whole.
@@ -97,7 +97,7 @@ Note also what this scenario does *not* promise. Unbounded acceptance is not ach
 
 ## Recoverability
 
-### QA-4: Deployment Rollback
+### QA-R-01: Deployment Rollback
 * **Source of stimulus:** The Platform Administrator.
 * **Stimulus:** A newly deployed release is found to be faulty.
 * **Artifact:** The running system.
@@ -105,13 +105,13 @@ Note also what this scenario does *not* promise. Unbounded acceptance is not ach
 * **Response:** The previous known-good version is restored.
 * **Response Measure:** **≤ 5 minutes** from the decision to roll back to the previous version serving all traffic, **0 manual data repair steps**, and **0 requests lost** during the rollback itself — the old and new versions overlap rather than cut over.
 
-*No user story grounds this: it is an operational quality owned by the Platform Administrator persona. It is the measurable counterpart of [NFR-7](non-functional-requirements.qd#_7-graceful-degradation), Graceful Degradation.*
+*No user story grounds this: it is an operational quality owned by the Platform Administrator persona — recovering from a bad release, not a constraint tied to any single NFR.*
 
 ---
 
 ## Observability
 
-### QA-5: Incident Detection & Diagnosis
+### QA-O-01: Incident Detection & Diagnosis
 * **Source of stimulus:** A fault anywhere in the system.
 * **Stimulus:** A request fails, or a component becomes unhealthy.
 * **Artifact:** The affected component and every component the failing request passed through.
@@ -125,7 +125,7 @@ Note also what this scenario does *not* promise. Unbounded acceptance is not ach
 
 ## Usability
 
-### QA-6: Trustworthy Uncertainty
+### QA-U-01: Trustworthy Uncertainty
 * **Source of stimulus:** A user.
 * **Stimulus:** Asks the AI assistant a question the platform's recorded knowledge and live data cannot answer.
 * **Artifact:** The AI Assistant.
