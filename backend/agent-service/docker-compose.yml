@@ -1,11 +1,11 @@
 services:
   agent-service:
-    cpus: "2"
+    cpus: "3"
     build:
       # Repo-root context: agent-service reads the shared Cedar policy bundle at
       # ../auth-policy (see app/cedar_authz.py and the Dockerfile's own header).
       context: ../..
-      dockerfile: server/agent-service/Dockerfile
+      dockerfile: backend/agent-service/Dockerfile
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-${DEEPSEEK_API_KEY:-${GOOGLE_API_KEY:-}}}
       - LLM_BASE_URL=${LLM_BASE_URL:-https://openrouter.ai/api/v1}
@@ -42,7 +42,7 @@ services:
       start_period: 15s
 
   agent-db:
-    cpus: "2"
+    cpus: "3"
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: agent
@@ -52,7 +52,7 @@ services:
       - agent-data:/var/lib/postgresql/data
 
   agent-ingester:
-    cpus: "2"
+    cpus: "3"
     image: node:20-alpine
     working_dir: /workspace
     environment:

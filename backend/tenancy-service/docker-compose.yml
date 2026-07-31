@@ -1,9 +1,9 @@
 services:
   tenancy-service:
-    cpus: "2"
+    cpus: "3"
     build:
       context: ../..
-      dockerfile: server/tenancy-service/Dockerfile
+      dockerfile: backend/tenancy-service/Dockerfile
     environment:
       - ADDR=:3000
       - DATABASE_URL=postgres://tenancy:${TENANCY_DB_PASSWORD}@tenancy-db:5432/tenancy?sslmode=disable
@@ -15,7 +15,7 @@ services:
         condition: service_healthy
 
   tenancy-db:
-    cpus: "2"
+    cpus: "3"
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: tenancy

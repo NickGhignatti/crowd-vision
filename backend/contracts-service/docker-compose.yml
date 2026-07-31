@@ -1,6 +1,6 @@
 services:
   contracts-service:
-    cpus: "2"
+    cpus: "3"
     build:
       context: .
     environment:
@@ -14,7 +14,7 @@ services:
       - contracts-service-db
 
   contracts-service-db:
-    cpus: "2"
+    cpus: "3"
     image: mongo:latest
     volumes:
       - contracts-data:/data/db

@@ -1,6 +1,6 @@
 services:
   client:
-    cpus: "2"
+    cpus: "3"
     container_name: vue-client
     build:
       context: .

@@ -1,6 +1,6 @@
 services:
   gateway:
-    cpus: "2"
+    cpus: "3"
     image: caddy:latest
     ports:
       - "${BACKEND_PORT}:80"
@@ -26,7 +26,7 @@ services:
         required: false
 
   redis:
-    cpus: "2"
+    cpus: "3"
     image: redis:alpine
     container_name: services-broker
     restart: always
@@ -38,7 +38,7 @@ services:
       retries: 5
 
   redis-langfuse:
-    cpus: "2"
+    cpus: "3"
     image: redis:alpine
     container_name: langfuse-broker
     restart: always
@@ -54,7 +54,7 @@ services:
   # not something owned by one service -- single-node KRaft mode, no
   # Zookeeper needed for local dev.
   kafka:
-    cpus: "2"
+    cpus: "3"
     image: apache/kafka:3.9.0
     container_name: services-kafka
     restart: always
@@ -76,7 +76,7 @@ services:
       retries: 10
 
   keycloak:
-    cpus: "2"
+    cpus: "3"
     image: quay.io/keycloak/keycloak:26.0
     container_name: crowd-vision-keycloak
     command: ["start-dev", "--features=organization", "--import-realm"]
@@ -109,7 +109,7 @@ services:
       start_period: 30s
 
   keycloak-db:
-    cpus: "2"
+    cpus: "3"
     image: postgres:17-alpine
     container_name: crowd-vision-keycloak-db
     restart: always
@@ -127,7 +127,7 @@ services:
       start_period: 60s
 
   prometheus:
-    cpus: "2"
+    cpus: "3"
     image: prom/prometheus:latest
     container_name: crowd-vision-prometheus
     command:
@@ -139,7 +139,7 @@ services:
       - ./prometheus.rules.yml:/etc/prometheus/prometheus.rules.yml:ro,z
 
   grafana:
-    cpus: "2"
+    cpus: "3"
     image: grafana/grafana:latest
     container_name: crowd-vision-grafana
     environment:
@@ -151,7 +151,7 @@ services:
       - prometheus
 
   langfuse-web:
-    cpus: "2"
+    cpus: "3"
     image: docker.io/langfuse/langfuse:3
     container_name: crowd-vision-langfuse
     restart: always
@@ -207,7 +207,7 @@ services:
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-langfuse-admin}
 
   langfuse-worker:
-    cpus: "2"
+    cpus: "3"
     image: docker.io/langfuse/langfuse-worker:3
     container_name: crowd-vision-langfuse-worker
     restart: always
@@ -217,7 +217,7 @@ services:
       <<: *langfuse-env
 
   langfuse-db:
-    cpus: "2"
+    cpus: "3"
     image: pgvector/pgvector:pg17
     container_name: crowd-vision-langfuse-db
     restart: always
@@ -238,7 +238,7 @@ services:
       start_period: 60s
 
   clickhouse:
-    cpus: "2"
+    cpus: "3"
     image: docker.io/clickhouse/clickhouse-server
     container_name: crowd-vision-clickhouse
     restart: always
@@ -259,7 +259,7 @@ services:
       start_period: 60s
 
   minio:
-    cpus: "2"
+    cpus: "3"
     image: cgr.dev/chainguard/minio
     container_name: crowd-vision-minio
     restart: always

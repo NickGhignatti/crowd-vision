@@ -1,6 +1,6 @@
 services:
   sensor-service:
-    cpus: "2"
+    cpus: "3"
     build:
       context: .
     environment:
@@ -15,7 +15,7 @@ services:
         condition: service_healthy
 
   sensor-db:
-    cpus: "2"
+    cpus: "3"
     image: mongo:latest
     volumes:
       - sensor-data:/data/db
