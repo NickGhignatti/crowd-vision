@@ -1,4 +1,4 @@
-@twin @building @must @bt-1 @performance @qa-7
+@twin @building @must @bt-1 @performance @qa-p-03
 Feature: Acceptance is interactive and completion is prompt
   As a Domain Administrator
   I want my upload acknowledged quickly and my twin available soon after

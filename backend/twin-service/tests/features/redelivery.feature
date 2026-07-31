@@ -1,4 +1,4 @@
-@twin @building @must @bt-1 @idempotency @qa-8
+@twin @building @must @bt-1 @idempotency @qa-p-04
 Feature: A redelivered completion event does not create a duplicate twin
   As the platform
   I want a redelivered "building-registration-completed" event to be a no-op
