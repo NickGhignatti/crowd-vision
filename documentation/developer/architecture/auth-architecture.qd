@@ -76,6 +76,9 @@ The **Authentication Gateway**. Its one job is exchanging an external IdP token 
         P3 -.->|implements| SIG
         P4 -.->|implements| TC
 
+
+![Claims Gateway C&C diagram](images/cc-claims-gateway.svg)
+
 #### tenancy-service
 
 **Code-level walkthrough:** [Tenancy Service](../services/tenancy-service.qd)
@@ -106,6 +109,8 @@ Owns authorization: Cedar (`auth-policy`) is called directly from `internal/api`
         PORT -.->|implements| PG
         PORT -.->|implements| FAKE
 
+![Tenancy Service C&C diagram](images/cc-tenancy-service.svg)
+
 #### registry-service
 
 **Code-level walkthrough:** [Registry Service](../services/registry-service.qd)
@@ -131,6 +136,8 @@ The plainest of the four: a `Store`-backed core behind an HTTP driving adapter, 
         SVC --> PORT
         PORT -.->|implements| PG
         PORT -.->|implements| FAKE
+
+![Registry Service C&C diagram](images/cc-registry-service.svg)
 
 #### provisioner
 
@@ -158,6 +165,8 @@ A **reconciler / control loop**, the same converge-toward-desired-state shape Ku
         REC --> P1 & P2
         P1 -.->|implements| RC
         P2 -.->|implements| TC
+
+![Provisioner C&C diagram](images/cc-provisioner.svg)
 
 ---
 

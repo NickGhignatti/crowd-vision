@@ -33,6 +33,10 @@ A **layered architecture** — Router → Controller → Service → Model — w
         M -.-> DB[(chat-db)]
         ASV -->|"POST /ask, x-gateway-claims forwarded"| AGENT[agent-service]
 
+### Components & Connectors diagram
+
+![Chat Service C&C diagram](images/cc-chat-service.svg)
+
 ---
 
 ## Key Architectural Decisions

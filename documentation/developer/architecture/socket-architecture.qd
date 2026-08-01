@@ -39,6 +39,10 @@ Deliberately the simplest service in the system: **no persistence and no domain 
         TEL -->|room-scoped| CL[Connected clients]
         NOTIF -->|room-scoped / broadcast| CL
 
+### Components & Connectors diagram
+
+![Socket Service C&C diagram](images/cc-socket-service.svg)
+
 ---
 
 ## Key Architectural Decisions
