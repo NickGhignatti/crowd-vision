@@ -69,7 +69,7 @@ pub struct MongoUploadQueue {
 }
 
 impl MongoUploadQueue {
-    pub fn beside(buildings: &Collection<Building>) -> Self {
+    pub fn from_building_collection(buildings: &Collection<Building>) -> Self {
         Self {
             col: buildings
                 .client()

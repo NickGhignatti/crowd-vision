@@ -36,6 +36,7 @@ fn set_expr(values: HashSet<String>) -> RestrictedExpression {
     RestrictedExpression::new_set(values.into_iter().map(RestrictedExpression::new_string))
 }
 
+/// Returns a new [`Entity`] representing an account with the given [`EntityUid`] and [`GatewayClaims`].
 fn account_entity(uid: EntityUid, claims: &GatewayClaims) -> Entity {
     let mut standard_customer = HashSet::new();
     let mut business_staff = HashSet::new();
@@ -89,6 +90,7 @@ fn account_entity(uid: EntityUid, claims: &GatewayClaims) -> Entity {
     Entity::new(uid, attrs, HashSet::new()).expect("account entity attrs match schema")
 }
 
+/// Returns a new [`Entity`] representing a resource with the given [`EntityUid`] and domain.
 fn resource_entity(uid: EntityUid, domain: &str) -> Entity {
     let mut attrs = HashMap::new();
     attrs.insert(
@@ -159,7 +161,10 @@ pub fn can_edit_domains(claims: &GatewayClaims, building_domains: &[String]) -> 
         .any(|domain| authorize(claims, "Edit", domain, None))
 }
 
-pub fn scope_to_memberships(requested: &[String], claims: &GatewayClaims) -> Vec<String> {
+pub fn filter_readable_domains_from_memberships(
+    requested: &[String],
+    claims: &GatewayClaims,
+) -> Vec<String> {
     requested
         .iter()
         .filter(|domain| authorize(claims, "Read", domain, None))
@@ -225,7 +230,10 @@ mod tests {
     #[test]
     fn scope_to_memberships_drops_domains_the_caller_cannot_read() {
         let claims = claims_with(vec![("eng", "standard_customer")]);
-        let scoped = scope_to_memberships(&["eng".to_string(), "other".to_string()], &claims);
+        let scoped = filter_readable_domains_from_memberships(
+            &["eng".to_string(), "other".to_string()],
+            &claims,
+        );
         assert_eq!(scoped, vec!["eng".to_string()]);
     }
 

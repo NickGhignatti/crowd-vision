@@ -121,7 +121,7 @@ pub async fn get_building_counts(
         domains.push(item.as_str().ok_or_else(bad_shape)?.to_string());
     }
 
-    let counts = state.buildings.counts(&domains, &claims).await?;
+    let counts = state.buildings.counts_per_domain(&domains, &claims).await?;
     Ok(Json(serde_json::json!({ "counts": counts })))
 }
 

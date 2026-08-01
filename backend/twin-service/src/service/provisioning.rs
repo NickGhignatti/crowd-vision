@@ -59,7 +59,9 @@ impl Provisioning {
 
     async fn provision(&self, upload: &AcceptedUpload) -> Result<(), DomainError> {
         self.buildings.upsert(&upload.building).await?;
-        self.events.publish_requested(&upload.building).await?;
+        self.events
+            .publish_building_registration_request(&upload.building)
+            .await?;
         self.downstream
             .init_preferences(&upload.building.id, &upload.claims)
             .await;

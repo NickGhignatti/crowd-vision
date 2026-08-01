@@ -237,7 +237,10 @@ pub struct FakeEvents {
 
 #[async_trait]
 impl RegistrationEvents for FakeEvents {
-    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()> {
+    async fn publish_building_registration_request(
+        &self,
+        building: &Building,
+    ) -> anyhow::Result<()> {
         if self.refuse {
             anyhow::bail!("kafka said no");
         }

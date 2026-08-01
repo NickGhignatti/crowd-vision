@@ -62,6 +62,8 @@ pub fn add_provision_duration(outcome: &str, duration: Duration) {
         .observe(duration.as_secs_f64());
 }
 
+/// Returns true if the path is an infrastructure path (metrics, health, etc.)
+/// in order to avoid tracking provisioning duration for these paths.
 fn is_infra_path(path: &str) -> bool {
     matches!(path, "/metrics" | "/metrics/" | "/health" | "/health/")
 }
@@ -95,6 +97,7 @@ pub async fn track_metrics(request: Request, next: Next) -> Response {
     response
 }
 
+/// Returns the metrics exposed by the application.
 pub async fn metrics_handler() -> impl IntoResponse {
     let encoder = TextEncoder::new();
     let mut buffer = Vec::new();

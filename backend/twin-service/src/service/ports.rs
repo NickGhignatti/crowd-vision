@@ -25,7 +25,10 @@ pub trait UploadQueue: Send + Sync {
 
 #[async_trait]
 pub trait RegistrationEvents: Send + Sync {
-    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()>;
+    async fn publish_building_registration_request(
+        &self,
+        building: &Building,
+    ) -> anyhow::Result<()>;
 }
 
 #[async_trait]

@@ -37,7 +37,7 @@ impl Buildings {
     }
 
     pub async fn get(&self, id: &str) -> Result<Building, DomainError> {
-        self.load(id).await
+        self.get_building_by_id(id).await
     }
 
     pub async fn list_for_domain(
@@ -53,12 +53,12 @@ impl Buildings {
         let buildings = self.store.find_by_domain(domain).await?;
         let mut backfilled = Vec::with_capacity(buildings.len());
         for building in buildings {
-            backfilled.push(self.backfill_names(building).await?);
+            backfilled.push(self.normalize(building).await?);
         }
         Ok(backfilled)
     }
 
-    pub async fn counts(
+    pub async fn counts_per_domain(
         &self,
         requested: &[String],
         claims: &GatewayClaims,
@@ -68,7 +68,7 @@ impl Buildings {
                 "Too many domains requested (max {MAX_DOMAIN_NAMES})"
             )));
         }
-        let scoped = authz::scope_to_memberships(requested, claims);
+        let scoped = authz::filter_readable_domains_from_memberships(requested, claims);
         Ok(self.store.counts_by_domain(&scoped).await?)
     }
 
@@ -91,7 +91,7 @@ impl Buildings {
         patch: BuildingPatch,
         claims: &GatewayClaims,
     ) -> Result<Building, DomainError> {
-        let mut building = self.load_for_edit(id, claims).await?;
+        let mut building = self.get_building_by_id_for_edit(id, claims).await?;
 
         if let Some(name) = patch.name {
             building.name = name;
@@ -113,7 +113,9 @@ impl Buildings {
         room: Room,
         claims: &GatewayClaims,
     ) -> Result<Room, DomainError> {
-        let mut building = self.load_for_edit(building_id, claims).await?;
+        let mut building = self
+            .get_building_by_id_for_edit(building_id, claims)
+            .await?;
 
         let room = Room {
             id: Uuid::new_v4().to_string(),
@@ -143,7 +145,9 @@ impl Buildings {
         patch: RoomPatch,
         claims: &GatewayClaims,
     ) -> Result<Room, DomainError> {
-        let mut building = self.load_for_edit(building_id, claims).await?;
+        let mut building = self
+            .get_building_by_id_for_edit(building_id, claims)
+            .await?;
 
         let room = building
             .rooms
@@ -182,7 +186,9 @@ impl Buildings {
         room_id: &str,
         claims: &GatewayClaims,
     ) -> Result<(), DomainError> {
-        let mut building = self.load_for_edit(building_id, claims).await?;
+        let mut building = self
+            .get_building_by_id_for_edit(building_id, claims)
+            .await?;
 
         if !building.rooms.iter().any(|r| r.id == room_id) {
             return Err(missing_room(building_id, room_id));
@@ -208,7 +214,9 @@ impl Buildings {
         rooms: Vec<Room>,
         claims: &GatewayClaims,
     ) -> Result<Building, DomainError> {
-        let mut building = self.load_for_edit(building_id, claims).await?;
+        let mut building = self
+            .get_building_by_id_for_edit(building_id, claims)
+            .await?;
 
         if rooms.is_empty() {
             return Err(DomainError::Validation(
@@ -253,19 +261,19 @@ impl Buildings {
         Ok(building)
     }
 
-    async fn load(&self, id: &str) -> Result<Building, DomainError> {
+    async fn get_building_by_id(&self, id: &str) -> Result<Building, DomainError> {
         let building = self.store.find_by_id(id).await?.ok_or_else(|| {
             DomainError::NotFound(format!("Building with id: \"{id}\" not found"))
         })?;
-        self.backfill_names(building).await
+        self.normalize(building).await
     }
 
-    async fn load_for_edit(
+    async fn get_building_by_id_for_edit(
         &self,
         id: &str,
         claims: &GatewayClaims,
     ) -> Result<Building, DomainError> {
-        let building = self.load(id).await?;
+        let building = self.get_building_by_id(id).await?;
         if !authz::can_edit_domains(claims, &building.domains) {
             return Err(DomainError::Forbidden(
                 "Requires an editing role in one of this building's domains".to_string(),
@@ -274,7 +282,7 @@ impl Buildings {
         Ok(building)
     }
 
-    async fn backfill_names(&self, mut building: Building) -> Result<Building, DomainError> {
+    async fn normalize(&self, mut building: Building) -> Result<Building, DomainError> {
         let mut changed = false;
 
         let normalized = normalize_building_name(Some(&building.name), Some(&building.id));
@@ -375,7 +383,7 @@ mod tests {
         let claims = claims_with(vec![("eng", "standard_customer")]);
 
         let counts = buildings
-            .counts(&["eng".to_string(), "secret".to_string()], &claims)
+            .counts_per_domain(&["eng".to_string(), "secret".to_string()], &claims)
             .await
             .unwrap();
 
@@ -390,7 +398,7 @@ mod tests {
         let many: Vec<String> = (0..=MAX_DOMAIN_NAMES).map(|i| format!("d-{i}")).collect();
 
         assert!(matches!(
-            buildings.counts(&many, &claims).await,
+            buildings.counts_per_domain(&many, &claims).await,
             Err(DomainError::Validation(_))
         ));
     }

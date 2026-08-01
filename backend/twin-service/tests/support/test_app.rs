@@ -21,7 +21,10 @@ struct InstantlyResolvingEvents {
 
 #[async_trait::async_trait]
 impl RegistrationEvents for InstantlyResolvingEvents {
-    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()> {
+    async fn publish_building_registration_request(
+        &self,
+        building: &Building,
+    ) -> anyhow::Result<()> {
         let _ = self.tx.send(building.id.clone());
         Ok(())
     }
@@ -52,7 +55,7 @@ pub async fn build(label: &str) -> TestApp {
         client: reqwest::Client::new(),
     };
     let store = Arc::new(MongoBuildings::new(buildings.clone()));
-    let queue = Arc::new(MongoUploadQueue::beside(&buildings));
+    let queue = Arc::new(MongoUploadQueue::from_building_collection(&buildings));
     let downstream = Arc::new(outbound);
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let events = Arc::new(InstantlyResolvingEvents { tx });

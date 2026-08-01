@@ -62,7 +62,10 @@ impl KafkaEventProducer {
 
 #[async_trait]
 impl RegistrationEvents for KafkaEventProducer {
-    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()> {
+    async fn publish_building_registration_request(
+        &self,
+        building: &Building,
+    ) -> anyhow::Result<()> {
         let Some(producer) = &self.producer else {
             return Ok(());
         };
