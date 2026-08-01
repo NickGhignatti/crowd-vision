@@ -26,7 +26,7 @@ pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
 pub static HTTP_REQUESTS_ERROR: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
         "http_error_requests_total",
-        "Total number of errors on the HTTP requests",
+        "Total number of HTTP requests that failed with a server (5xx) error",
         LABELS,
         REGISTRY
     )
@@ -70,7 +70,7 @@ pub async fn track_metrics(request: Request, next: Next) -> Response {
     HTTP_REQUEST_DURATION
         .with_label_values(&labels)
         .observe(start.elapsed().as_secs_f64());
-    if response.status().is_client_error() || response.status().is_server_error() {
+    if response.status().is_server_error() {
         HTTP_REQUESTS_ERROR.with_label_values(&labels).inc();
     }
 
@@ -126,5 +126,45 @@ mod tests {
     #[tokio::test]
     async fn health_returns_200() {
         assert_eq!(health().await, StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn only_server_errors_count_toward_the_error_metric() {
+        use axum::Router;
+        use axum::body::Body;
+        use axum::routing::get;
+        use tower::ServiceExt;
+
+        async fn not_found() -> StatusCode {
+            StatusCode::NOT_FOUND
+        }
+        async fn server_error() -> StatusCode {
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+
+        let app = Router::new()
+            .route("/only-server-errors-test-404", get(not_found))
+            .route("/only-server-errors-test-500", get(server_error))
+            .layer(axum::middleware::from_fn(track_metrics));
+
+        for path in [
+            "/only-server-errors-test-404",
+            "/only-server-errors-test-500",
+        ] {
+            app.clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+        }
+
+        let client_error_count = HTTP_REQUESTS_ERROR
+            .with_label_values(&["GET", "/only-server-errors-test-404", "404"])
+            .get();
+        let server_error_count = HTTP_REQUESTS_ERROR
+            .with_label_values(&["GET", "/only-server-errors-test-500", "500"])
+            .get();
+
+        assert_eq!(client_error_count, 0);
+        assert_eq!(server_error_count, 1);
     }
 }
