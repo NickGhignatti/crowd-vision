@@ -59,6 +59,10 @@ Retrieval is a separate pipeline the loop calls into through the `search_docs` t
 
 Vector and keyword search both take the caller's permissions as an argument and filter at the query level — an inaccessible chunk never reaches the merge step, let alone the reranker or the model. Authorization here is enforced twice, independently: once at retrieval (which chunks the model is even allowed to see) and once at the tool level (which live platform data a tool call is allowed to return).
 
+### Components & Connectors diagram
+
+![Agent C&C diagram](images/cc-agent-service.svg)
+
 ---
 
 ## Key Architectural Decisions

@@ -48,6 +48,10 @@ A **microkernel with Strategy modules**, layered on a **fast-path / slow-path** 
 
 The temperature module publishes to a plain Redis channel (`alerts:temperature`); it holds no reference to notification-service and has no idea whether anything is subscribed. That decoupling is what makes the module addable and removable without touching another service.
 
+### Components & Connectors diagram
+
+![Sensor Service C&C diagram](images/cc-sensor-service.svg)
+
 ---
 
 ## Key Architectural Decisions

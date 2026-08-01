@@ -38,6 +38,10 @@ There isn't a named pattern here worth reaching for — it's two Tokio tasks in 
         BR1[(broker: raw readings)] --> TUNNEL
         TUNNEL --> BR2[(broker: per-building feeds)]
 
+### Components & Connectors diagram
+
+![Contracts Service C&C diagram](images/cc-contracts-service.svg)
+
 ---
 
 ## Key Architectural Decisions

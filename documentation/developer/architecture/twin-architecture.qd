@@ -117,6 +117,10 @@ A port exists **for the use case that declares it**, not for whoever ends up imp
     *   `adapters/driven/kafka_producer.rs`: Implements the `RegistrationEvents` port, publishing `building-registration-requested` instead of calling sensor-service directly.
     *   `service/fakes.rs`: An in-memory adapter for all four ports (`BuildingStore`, `UploadQueue`, `DownstreamSync`, `RegistrationEvents`), used exclusively by the test suite to enable testing the core without a database or network.
 
+### Components & Connectors diagram
+
+![Digital Twin Service C&C diagram](images/cc-twin-service.svg)
+
 ---
 
 ## Key Architectural Decisions
