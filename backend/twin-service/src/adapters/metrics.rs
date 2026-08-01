@@ -7,11 +7,12 @@ use prometheus::{
     register_histogram_vec_with_registry, register_int_counter_vec_with_registry,
 };
 use std::sync::LazyLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub static REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 
 const LABELS: &[&str] = &["method", "route", "status_code"];
+const OUTCOME_LABELS: &[&str] = &["outcome"];
 
 pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
@@ -43,6 +44,23 @@ pub static HTTP_REQUEST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     )
     .expect("metric can be created")
 });
+
+pub static PROVISIONING_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec_with_registry!(
+        "twin_provisioning_duration_seconds",
+        "Time from registration accepted to resolved ready/failed",
+        OUTCOME_LABELS,
+        vec![0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub fn add_provision_duration(outcome: &str, duration: Duration) {
+    PROVISIONING_DURATION
+        .with_label_values(&[outcome])
+        .observe(duration.as_secs_f64());
+}
 
 fn is_infra_path(path: &str) -> bool {
     matches!(path, "/metrics" | "/metrics/" | "/health" | "/health/")
@@ -109,6 +127,18 @@ mod tests {
             .inc();
         let text = rendered_body().await;
         assert!(text.contains("http_requests_total"));
+    }
+
+    #[tokio::test]
+    async fn exposes_provisioning_duration_by_outcome() {
+        add_provision_duration("ready", Duration::from_secs(3));
+        add_provision_duration("failed", Duration::from_secs(7));
+
+        let text = rendered_body().await;
+
+        assert!(text.contains("twin_provisioning_duration_seconds"));
+        assert!(text.contains("outcome=\"ready\""));
+        assert!(text.contains("outcome=\"failed\""));
     }
 
     #[tokio::test]
