@@ -81,7 +81,7 @@ jobs:
           CHANGED: ${{ steps.filter.outputs.changes }}
         run: |
           MATRIX=$(jq -cn --slurpfile reg .github/services.json --argjson changed "$CHANGED" '
-            [ $reg[0][] | select(.image and (.ci != false)) | select($changed | any(. == .key)) |
+            [ $reg[0][] | select(.image and (.ci != false)) | select(.key as $k | $changed | any(. == $k)) |
               {context: ("./" + .dir), image: .image, lang: .lang} ]
           ')
 
