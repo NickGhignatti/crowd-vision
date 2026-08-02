@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use mongodb::Collection;
-use mongodb::bson::{DateTime, doc};
+use mongodb::bson::{DateTime, Document, doc};
 use mongodb::options::ReturnDocument;
 use serde::{Deserialize, Serialize};
 
@@ -70,21 +70,21 @@ pub struct MongoUploadQueue {
 
 impl MongoUploadQueue {
     pub fn from_building_collection(buildings: &Collection<Building>) -> Self {
+        Self::with_collection_name(buildings, "pending_uploads")
+    }
+
+    pub fn with_collection_name(buildings: &Collection<Building>, name: &str) -> Self {
         Self {
             col: buildings
                 .client()
                 .database(&buildings.namespace().db)
-                .collection("pending_uploads"),
+                .collection(name),
         }
     }
 
-    async fn resolve(
-        &self,
-        id: &str,
-        set: mongodb::bson::Document,
-    ) -> anyhow::Result<Option<Duration>> {
-        let filter = doc! { "id": { "$eq": id }, "status": "pending" };
-        let update = doc! { "$set": set };
+    async fn resolve(&self, id: &str, set: Document) -> anyhow::Result<Option<Duration>> {
+        let filter = resolve_filter(id);
+        let update = resolve_update(set);
 
         Ok(self
             .col
@@ -109,19 +109,8 @@ impl UploadQueue for MongoUploadQueue {
     async fn claim(&self, lease: Duration) -> anyhow::Result<Option<AcceptedUpload>> {
         let now = DateTime::now();
         let expires_at = DateTime::from_millis(now.timestamp_millis() + lease.as_millis() as i64);
-
-        // Looks for a single document to claim, assigning it to the current lease.
-        let filter = doc! {
-            "status": "pending",
-            "$or": [
-                { "leased_until": null },
-                { "leased_until": { "$lte": now } },
-            ],
-        };
-        let update = doc! {
-            "$set": { "leased_until": expires_at },
-            "$inc": { "attempts": 1 },
-        };
+        let filter = claimable_filter(now);
+        let update = claim_update(expires_at);
 
         Ok(self
             .col
@@ -153,13 +142,35 @@ impl UploadQueue for MongoUploadQueue {
     }
 }
 
+fn claimable_filter(now: DateTime) -> Document {
+    doc! {
+        "status": "pending",
+        "$or": [
+            { "leased_until": null },
+            { "leased_until": { "$lte": now } },
+        ],
+    }
+}
+
+fn claim_update(expires_at: DateTime) -> Document {
+    doc! {
+        "$set": { "leased_until": expires_at },
+        "$inc": { "attempts": 1 },
+    }
+}
+
+fn resolve_filter(id: &str) -> Document {
+    doc! { "id": { "$eq": id }, "status": "pending" }
+}
+
+fn resolve_update(set: Document) -> Document {
+    doc! { "$set": set }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::{Coordinates, Dimensions, Room};
-    use mongodb::Client;
-    use mongodb::options::ClientOptions;
-    use uuid::Uuid;
 
     fn dummy_building(id: &str) -> Building {
         Building {
@@ -185,138 +196,91 @@ mod tests {
         }
     }
 
-    async fn test_queue() -> MongoUploadQueue {
-        let uri =
-            std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
-        let opts = ClientOptions::parse(&uri).await.unwrap();
-        let client = Client::with_options(opts).unwrap();
-        MongoUploadQueue {
-            col: client
-                .database("twin_service_test")
-                .collection(&format!("pending_uploads_{}", Uuid::new_v4())),
-        }
+    #[test]
+    fn job_status_maps_onto_upload_status_one_to_one() {
+        assert_eq!(
+            UploadStatus::from(JobStatus::Pending),
+            UploadStatus::Pending
+        );
+        assert_eq!(UploadStatus::from(JobStatus::Ready), UploadStatus::Ready);
+        assert_eq!(UploadStatus::from(JobStatus::Failed), UploadStatus::Failed);
     }
 
-    async fn enqueued(queue: &MongoUploadQueue) -> String {
-        let id = Uuid::new_v4().to_string();
+    #[test]
+    fn a_freshly_accepted_upload_starts_pending_with_no_attempts_or_lease() {
         let upload = AcceptedUpload {
-            id: id.clone(),
-            building: dummy_building(&id),
+            id: "u1".to_string(),
+            building: dummy_building("b1"),
             claims: "tok".to_string(),
         };
-        queue.enqueue(&upload).await.unwrap();
-        id
+
+        let job = PendingUpload::accepted(&upload);
+
+        assert_eq!(job.id, "u1");
+        assert_eq!(job.status, JobStatus::Pending);
+        assert_eq!(job.attempts, 0);
+        assert_eq!(job.leased_until, None);
+        assert_eq!(job.error, None);
     }
 
-    const LEASE: Duration = Duration::from_secs(30);
+    #[test]
+    fn converting_a_job_back_to_an_accepted_upload_drops_queue_only_fields() {
+        let upload = AcceptedUpload {
+            id: "u1".to_string(),
+            building: dummy_building("b1"),
+            claims: "tok".to_string(),
+        };
+        let job = PendingUpload::accepted(&upload);
 
-    #[tokio::test]
-    async fn an_enqueued_upload_is_pending() {
-        let queue = test_queue().await;
-        let id = enqueued(&queue).await;
+        let round_tripped = AcceptedUpload::from(job);
+
+        assert_eq!(round_tripped.id, "u1");
+        assert_eq!(round_tripped.claims, "tok");
+        assert_eq!(round_tripped.building.id, "b1");
+    }
+
+    #[test]
+    fn claimable_filter_only_matches_pending_jobs_with_no_or_expired_lease() {
+        let now = DateTime::now();
+        let filter = claimable_filter(now);
 
         assert_eq!(
-            queue.status(&id).await.unwrap(),
-            Some(UploadStatus::Pending)
+            filter,
+            doc! {
+                "status": "pending",
+                "$or": [
+                    { "leased_until": null },
+                    { "leased_until": { "$lte": now } },
+                ],
+            }
         );
     }
 
-    #[tokio::test]
-    async fn claiming_returns_the_enqueued_upload_with_its_payload() {
-        let queue = test_queue().await;
-        let id = enqueued(&queue).await;
+    #[test]
+    fn claim_update_sets_the_lease_and_increments_attempts() {
+        let expires_at = DateTime::now();
+        let update = claim_update(expires_at);
 
-        let claimed = queue
-            .claim(LEASE)
-            .await
-            .unwrap()
-            .expect("a claimable upload");
-        assert_eq!(claimed.id, id);
-        assert_eq!(claimed.building.id, id);
-        assert_eq!(claimed.claims, "tok");
-    }
-
-    #[tokio::test]
-    async fn a_leased_upload_is_not_handed_to_a_second_worker() {
-        let queue = test_queue().await;
-        enqueued(&queue).await;
-
-        queue.claim(LEASE).await.unwrap().expect("first worker");
-        let second = queue.claim(LEASE).await.unwrap();
-
-        assert!(
-            second.is_none(),
-            "a held upload must not be delivered twice"
+        assert_eq!(
+            update,
+            doc! {
+                "$set": { "leased_until": expires_at },
+                "$inc": { "attempts": 1 },
+            }
         );
     }
 
-    #[tokio::test]
-    async fn an_upload_whose_lease_expired_is_redelivered() {
-        let queue = test_queue().await;
-        let id = enqueued(&queue).await;
-
-        queue
-            .claim(Duration::ZERO)
-            .await
-            .unwrap()
-            .expect("first worker");
-        tokio::time::sleep(Duration::from_millis(20)).await;
-
-        let redelivered = queue.claim(LEASE).await.unwrap().expect("redelivery");
-        assert_eq!(redelivered.id, id);
+    #[test]
+    fn resolve_filter_only_matches_the_given_id_while_still_pending() {
+        assert_eq!(
+            resolve_filter("u1"),
+            doc! { "id": { "$eq": "u1" }, "status": "pending" }
+        );
     }
 
-    #[tokio::test]
-    async fn every_delivery_is_counted() {
-        let queue = test_queue().await;
-        let id = enqueued(&queue).await;
-
-        queue.claim(Duration::ZERO).await.unwrap().unwrap();
-        queue.claim(Duration::ZERO).await.unwrap().unwrap();
-
-        let doc = queue
-            .col
-            .find_one(doc! { "id": { "$eq": &id } })
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(doc.attempts, 2, "the retry budget depends on this count");
-    }
-
-    #[tokio::test]
-    async fn a_provisioned_upload_is_ready_and_no_longer_claimable() {
-        let queue = test_queue().await;
-        let id = enqueued(&queue).await;
-        queue.claim(LEASE).await.unwrap().expect("claimable");
-
-        queue.mark_ready(&id).await.unwrap();
-
-        assert_eq!(queue.status(&id).await.unwrap(), Some(UploadStatus::Ready));
-        assert!(queue.claim(Duration::ZERO).await.unwrap().is_none());
-    }
-
-    #[tokio::test]
-    async fn a_dead_lettered_upload_is_failed_and_no_longer_claimable() {
-        let queue = test_queue().await;
-        let id = enqueued(&queue).await;
-
-        queue.mark_failed(&id, "downstream refused").await.unwrap();
-
-        assert_eq!(queue.status(&id).await.unwrap(), Some(UploadStatus::Failed));
-        assert!(queue.claim(Duration::ZERO).await.unwrap().is_none());
-    }
-
-    #[tokio::test]
-    async fn an_empty_queue_yields_nothing() {
-        let queue = test_queue().await;
-
-        assert!(queue.claim(LEASE).await.unwrap().is_none());
-    }
-
-    #[tokio::test]
-    async fn an_unknown_handle_has_no_status() {
-        let queue = test_queue().await;
-
-        assert_eq!(queue.status("nope").await.unwrap(), None);
+    #[test]
+    fn resolve_update_wraps_the_given_fields_in_a_set() {
+        let set = doc! { "status": "ready" };
+        assert_eq!(resolve_update(set.clone()), doc! { "$set": set });
     }
 }

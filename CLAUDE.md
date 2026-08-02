@@ -51,6 +51,7 @@ just test all              # full suite
 just test <chat|twin|notification|sensor|socket|frontend|agent>
 just test agent-integration
 just test integration           # full backend integration, composed stack
+just test twin-integration       # twin-service tests/*.rs against a real Mongo, composed
 just setup deps-check      # lockfile-in-sync gate
 just setup audit             # npm/uv/cargo audit
 
@@ -100,13 +101,18 @@ inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = 
 **twin-service** (Rust), same shape: `domain/` (entities, no axum/mongodb), `service/` (use
 cases + `BuildingStore`/`UploadQueue`/`DownstreamSync`/`RegistrationEvents` ports),
 `adapters/driving/` (http_api, worker, kafka_consumer), `adapters/driven/` (persistence,
-outbound, kafka_producer), wired in `main.rs`. `adapters/metrics.rs`/`ratelimit.rs` =
-cross-cutting. Ports = `Arc<dyn Trait>`, not generics. Grep-enforced: `domain/` no
-axum/mongodb; `service/` same + no `crate::adapters`; `adapters/driving` no
-`crate::adapters::driven`. Registration: `POST /register` → `202`+handle, worker provisions
-from Mongo queue (`pending_uploads`), publishes Kafka event, resolves `ready`/`failed` on
-sensor-service's completion event. All writes upsert — redelivery-safe. `contracts-service`
-(Rust) stays flat, no restructure.
+outbound, kafka_producer), wired in `main.rs`. `adapters/metrics.rs`/`ratelimit.rs`/`topics.rs`
+= cross-cutting. Ports = `Arc<dyn Trait>`, not generics. Test-enforced
+(`tests/architecture_fitness.rs`): `domain/` no axum/mongodb/`crate::service`; `service/` no
+axum/mongodb/`crate::adapters`; `adapters/driving` no `crate::adapters::driven`. Registration:
+`POST /register` → `202`+handle, worker provisions from Mongo queue (`pending_uploads`),
+publishes Kafka event, resolves `ready`/`failed` on sensor-service's completion event. All
+writes upsert — redelivery-safe. `contracts-service` (Rust) stays flat, no restructure.
+
+Twin-service tests: `src/` = unit only, no real infra (`cargo test --lib` /
+`just test twin`); `tests/*.rs` = integration, real Mongo, no mocks at the boundary
+(`just test twin-integration`, composed via `docker-compose.test.yml` — test process and
+Mongo share one Docker network, never a host-published port).
 
 **Service mesh**: prod/staging = Istio ambient (`ztunnel` L4 mTLS, no sidecars; optional
 `waypoint` for L7). Trust: hard perimeter, guarded interior — edge authenticates once, every

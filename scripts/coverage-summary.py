@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
-"""Aggregate per-service coverage reports into two files for GitHub-native reporting.
+"""Aggregate per-service coverage reports into files for GitHub-native reporting.
 
 Reads the coverage report each stack produces and emits:
-  - badge.json   shields.io endpoint schema (overall weighted line coverage)
-  - summary.json {service: {lines, branches}} percentages, the PR-delta baseline
+  - badge.json          shields.io endpoint schema (overall weighted line coverage)
+  - summary.json         {service: {lines, branches}} percentages, the PR-delta baseline
+  - coverage-counts.json {service: {lines_covered, lines_total, branches_covered,
+                          branches_total}} raw counts — internal only, not for display.
+
+cd-coverage.yml only re-runs coverage for services whose files changed in this
+push, so ARTIFACTS_ROOT may hold a subset of services. coverage-counts.json
+from the previous run (BASELINE_COUNTS) is merged with the fresh subset before
+recomputing badge.json/summary.json, so unchanged services keep their last
+known numbers instead of dropping out of the report, and the overall badge
+stays a true weighted average instead of one computed over only what ran.
 
 Three input formats are supported:
   - istanbul   coverage-summary.json   (Jest + Vitest)                  .total.<metric>.{covered,total}
@@ -11,11 +20,13 @@ Three input formats are supported:
   - llvmcov    coverage-summary.json   (cargo llvm-cov --json)          .data[0].totals.<metric>.{covered,count}
 
 Usage:
-    python scripts/coverage-summary.py [ARTIFACTS_ROOT] [OUT_DIR]
+    python scripts/coverage-summary.py [ARTIFACTS_ROOT] [OUT_DIR] [BASELINE_COUNTS]
 
 ARTIFACTS_ROOT defaults to "coverage-artifacts" and is expected to contain one
 sub-directory per service (named by its "key" in .github/services.json), each
 holding that service's report file. OUT_DIR defaults to the current directory.
+BASELINE_COUNTS optionally points at a previous run's coverage-counts.json;
+omit it (or pass a non-existent path) on a full/first run.
 
 The service list itself is read from .github/services.json — the same
 registry cd-coverage.yml uses to build its per-language matrices — so this
@@ -103,21 +114,39 @@ def _color(pct: float) -> str:
     return "red"
 
 
-def aggregate(root: Path, services: dict[str, tuple[str, str]]) -> tuple[dict, dict]:
-    """Return (badge, summary) dicts. Missing reports are warned and skipped."""
-    summary: dict[str, dict[str, float]] = {}
-    lines_covered = lines_total = 0
+CountsBySvc = dict[str, dict[str, int]]
 
+
+def collect_counts(root: Path, services: dict[str, tuple[str, str]]) -> CountsBySvc:
+    """Raw (covered, total) counts per service. Missing reports are warned and skipped."""
+    fresh: CountsBySvc = {}
     for service, (fmt, rel) in services.items():
         report = root / service / rel
         if not report.exists():
             print(f"warning: no coverage report for {service} at {report}", file=sys.stderr)
             continue
         counts = PARSERS[fmt](report)
-        summary[service] = {metric: _pct(c, t) for metric, (c, t) in counts.items()}
-        c, t = counts["lines"]
-        lines_covered += c
-        lines_total += t
+        fresh[service] = {
+            "lines_covered": counts["lines"][0],
+            "lines_total": counts["lines"][1],
+            "branches_covered": counts["branches"][0],
+            "branches_total": counts["branches"][1],
+        }
+    return fresh
+
+
+def render(merged_counts: CountsBySvc) -> tuple[dict, dict]:
+    """Turn merged raw counts into (badge, summary) display dicts."""
+    summary: dict[str, dict[str, float]] = {}
+    lines_covered = lines_total = 0
+
+    for service, c in merged_counts.items():
+        summary[service] = {
+            "lines": _pct(c["lines_covered"], c["lines_total"]),
+            "branches": _pct(c["branches_covered"], c["branches_total"]),
+        }
+        lines_covered += c["lines_covered"]
+        lines_total += c["lines_total"]
 
     overall = _pct(lines_covered, lines_total)
     badge = {
@@ -132,17 +161,29 @@ def aggregate(root: Path, services: dict[str, tuple[str, str]]) -> tuple[dict, d
 def main(argv: list[str]) -> int:
     root = Path(argv[1]) if len(argv) > 1 else Path("coverage-artifacts")
     out_dir = Path(argv[2]) if len(argv) > 2 else Path(".")
+    baseline_path = Path(argv[3]) if len(argv) > 3 else None
     out_dir.mkdir(parents=True, exist_ok=True)
 
     services = _load_services(REPO_ROOT / ".github" / "services.json")
-    badge, summary = aggregate(root, services)
-    if not summary:
+    fresh = collect_counts(root, services)
+
+    merged: CountsBySvc = {}
+    if baseline_path and baseline_path.exists():
+        merged.update(json.loads(baseline_path.read_text()))
+    merged.update(fresh)
+
+    if not merged:
         print("error: no coverage reports found, refusing to write empty output", file=sys.stderr)
         return 1
 
+    badge, summary = render(merged)
     (out_dir / "badge.json").write_text(json.dumps(badge))
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
-    print(f"wrote badge.json ({badge['message']}) and summary.json for {len(summary)} services")
+    (out_dir / "coverage-counts.json").write_text(json.dumps(merged, indent=2) + "\n")
+    print(
+        f"wrote badge.json ({badge['message']}) — {len(fresh)} services rerun, "
+        f"{len(merged)} total in summary.json"
+    )
     return 0
 
 

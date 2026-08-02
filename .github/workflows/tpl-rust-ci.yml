@@ -37,8 +37,19 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --release --all-targets -- -D warnings
 
-      - name: Run Standard Tests
-        run: cargo test --release
+      # `--lib` errors outright on a bin-only crate (no lib.rs, e.g.
+      # contracts-service) instead of skipping, so pick the target kind that
+      # actually exists.
+      - name: Run Unit Tests
+        run: |
+          if [ -f src/lib.rs ]; then
+            cargo test --release --lib
+          else
+            cargo test --release --bins
+          fi
+
+      - name: Run Integration Tests
+        run: bash "$GITHUB_WORKSPACE/scripts/rust-integration-tests.sh" --release
 
       - name: Build Release Binary
         run: cargo build --release

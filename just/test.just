@@ -22,6 +22,10 @@ chat:
 twin:
     mise exec -- moon run twin-service:test
 
+[doc("Integration tests for twin-service — starts a throwaway MongoDB, runs tests/*.rs, tears it down.")]
+twin-integration:
+    mise exec -- moon run twin-service:test-integration
+
 [doc("Unit tests for notification-service.")]
 notification:
     mise exec -- moon run notification-service:test

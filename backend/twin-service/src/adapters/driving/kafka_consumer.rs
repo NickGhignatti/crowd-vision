@@ -6,8 +6,8 @@ use rdkafka::Message;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use serde::Deserialize;
 
-use crate::adapters::driven::kafka_producer::BUILDING_REGISTRATION_COMPLETED_TOPIC;
 use crate::adapters::metrics::add_provision_duration;
+use crate::adapters::topics::BUILDING_REGISTRATION_COMPLETED_TOPIC;
 use crate::service::provisioning::Provisioning;
 
 #[derive(Deserialize)]
