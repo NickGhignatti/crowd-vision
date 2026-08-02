@@ -12,8 +12,58 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # PR-only, and scoped to what actually changed — schedule/workflow_dispatch
+  # runs (full audit, not a diff) always analyze every language regardless.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      javascript_typescript: ${{ steps.filter.outputs.javascript_typescript }}
+      python: ${{ steps.filter.outputs.python }}
+      rust: ${{ steps.filter.outputs.rust }}
+      go: ${{ steps.filter.outputs.go }}
+      workflow: ${{ steps.filter.outputs.workflow }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Detect changed languages
+        if: github.event_name == 'pull_request'
+        id: filter
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
+        with:
+          filters: |
+            javascript_typescript:
+              - 'frontend/**'
+              - 'backend/chat-service/**'
+              - 'backend/notification-service/**'
+              - 'backend/sensor-service/**'
+              - 'backend/socket-service/**'
+              - 'tooling/eslint-config/**'
+              - 'simulators/sensor-simulator/**'
+            python:
+              - 'backend/agent-service/**'
+              - 'simulators/aq-simulator/**'
+            rust:
+              - 'backend/twin-service/**'
+              - 'backend/contracts-service/**'
+            go:
+              - 'backend/claims-gateway/**'
+              - 'backend/provisioner/**'
+              - 'backend/registry-service/**'
+              - 'backend/tenancy-service/**'
+              - 'backend/auth-contracts/**'
+              - 'backend/auth-middleware/**'
+              - 'backend/auth-policy/**'
+            workflow:
+              - '.github/workflows/ci-codeql.yml'
+
   analyze:
     name: Analyze (${{ matrix.language }})
+    needs: changes
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -40,7 +90,33 @@ jobs:
         with:
           persist-credentials: false
 
+      # matrix isn't available in a job-level `if:`, so the skip decision is
+      # made here per matrix combination instead. schedule/workflow_dispatch
+      # runs (full audit, not a diff) always analyze every language.
+      - name: Check if this language changed
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          WORKFLOW_CHANGED: ${{ needs.changes.outputs.workflow }}
+          JS_CHANGED: ${{ needs.changes.outputs.javascript_typescript }}
+          PY_CHANGED: ${{ needs.changes.outputs.python }}
+          RUST_CHANGED: ${{ needs.changes.outputs.rust }}
+          GO_CHANGED: ${{ needs.changes.outputs.go }}
+          LANG: ${{ matrix.language }}
+        run: |
+          RUN=false
+          if [ "$EVENT" != "pull_request" ]; then RUN=true; fi
+          if [ "$WORKFLOW_CHANGED" = "true" ]; then RUN=true; fi
+          case "$LANG" in
+            javascript-typescript) [ "$JS_CHANGED" = "true" ] && RUN=true ;;
+            python) [ "$PY_CHANGED" = "true" ] && RUN=true ;;
+            rust) [ "$RUST_CHANGED" = "true" ] && RUN=true ;;
+            go) [ "$GO_CHANGED" = "true" ] && RUN=true ;;
+          esac
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+
       - name: Initialize CodeQL
+        if: steps.check.outputs.run == 'true'
         uses: github/codeql-action/init@dd903d2e4f5405488e5ef1422510ee31c8b32357
         with:
           languages: ${{ matrix.language }}
@@ -48,6 +124,7 @@ jobs:
           queries: security-extended
 
       - name: Perform CodeQL Analysis
+        if: steps.check.outputs.run == 'true'
         uses: github/codeql-action/analyze@dd903d2e4f5405488e5ef1422510ee31c8b32357
         with:
           category: "/language:${{ matrix.language }}"
