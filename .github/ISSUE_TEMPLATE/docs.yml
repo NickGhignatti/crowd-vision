@@ -1,0 +1,26 @@
+name: Documentation
+description: Missing, outdated, or unclear docs
+title: "[docs]: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What's missing, wrong, or unclear?
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      description: Page/section in documentation/, or file (e.g. CLAUDE.md, a .qd page)
+    validations:
+      required: false
+  - type: textarea
+    id: suggestions
+    attributes:
+      label: Suggestions
+      description: Possible wording/structure, or open questions if unsure
+    validations:
+      required: false
