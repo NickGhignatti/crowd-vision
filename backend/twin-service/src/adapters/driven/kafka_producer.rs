@@ -1,16 +1,15 @@
 use std::time::Duration;
 
+use crate::adapters::topics::{
+    BUILDING_REGISTRATION_COMPLETED_TOPIC, BUILDING_REGISTRATION_REQUESTED_TOPIC,
+};
+use crate::domain::Building;
+use crate::service::ports::RegistrationEvents;
 use async_trait::async_trait;
 use rdkafka::ClientConfig;
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use serde_json::json;
-
-use crate::domain::Building;
-use crate::service::ports::RegistrationEvents;
-
-pub const BUILDING_REGISTRATION_REQUESTED_TOPIC: &str = "building-registration-requested";
-pub const BUILDING_REGISTRATION_COMPLETED_TOPIC: &str = "building-registration-completed";
 
 /// How long call wait in producer's local queue before giving up (not broker ack timeout or delivery timeout).
 const PRODUCE_TIMEOUT: Duration = Duration::from_secs(5);
