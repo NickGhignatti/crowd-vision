@@ -15,7 +15,8 @@ concurrency:
 jobs:
   # Reads .github/services.json — the single source of truth for the service
   # list also used by ci-gate.yml, cd-registry.yml, and maint-cleanup.yml —
-  # and splits it into one matrix per language.
+  # and splits it into one matrix per language, limited to services that
+  # actually changed (mirrors cd-registry.yml's own change-detection).
   load-registry:
     runs-on: ubuntu-latest
     outputs:
@@ -29,11 +30,46 @@ jobs:
         with:
           persist-credentials: false
 
+      # Filters are generated from services.json itself (key -> dir/**), not
+      # a second hand-maintained path list that could drift out of sync with it.
+      - name: Build change filters from services.json
+        run: |
+          {
+            jq -r '.[] | "\(.key):\n  - \"\(.dir)/**\""' .github/services.json
+            printf '%s\n' \
+              'workflow:' \
+              "  - '.github/services.json'" \
+              "  - '.github/workflows/cd-coverage.yml'" \
+              "  - '.github/workflows/tpl-rust-coverage.yml'" \
+              "  - '.github/workflows/tpl-go-coverage.yml'" \
+              "  - '.github/workflows/tpl-node-coverage.yml'" \
+              "  - '.github/workflows/tpl-python-coverage.yml'"
+          } > coverage-filters.yml
+
+      - name: Detect changed services
+        if: github.event_name == 'push'
+        id: filter
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
+        with:
+          filters: coverage-filters.yml
+
       - name: Split registry by language
         id: split
+        env:
+          EVENT: ${{ github.event_name }}
+          CHANGED: ${{ steps.filter.outputs.changes || '[]' }}
         run: |
+          # workflow_dispatch, or services.json/the coverage templates
+          # themselves changed -> recompute every service, same convention
+          # cd-registry.yml uses for its own "workflow" filter.
+          ALL=false
+          if [ "$EVENT" = "workflow_dispatch" ]; then ALL=true; fi
+          if echo "$CHANGED" | jq -e 'index("workflow")' >/dev/null 2>&1; then ALL=true; fi
+
           for lang in node python rust go; do
-            matrix=$(jq -c --arg l "$lang" '[.[] | select(.lang == $l and .ci != false) | {key, dir, needs_mongo: (.needs_mongo // false)}]' .github/services.json)
+            matrix=$(jq -c --arg l "$lang" --argjson changed "$CHANGED" --argjson all "$ALL" \
+              '[.[] | select(.lang == $l and .ci != false and (.key as $k | $all or ($changed | any(. == $k)))) | {key, dir, needs_mongo: (.needs_mongo // false)}]' \
+              .github/services.json)
             echo "$lang=$matrix" >> "$GITHUB_OUTPUT"
           done
 
@@ -111,11 +147,26 @@ jobs:
         with:
           path: coverage-artifacts
 
-      - name: Aggregate into badge.json + summary.json
-        run: python scripts/coverage-summary.py coverage-artifacts .
+      # Services that didn't change this run produced no artifact above — this
+      # pulls their last known counts so the aggregator can merge instead of
+      # dropping them from the report. No prior branch (first-ever run) or no
+      # push access -> falls back to an empty baseline.
+      - name: Fetch previous coverage-counts.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          git fetch "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" coverage-data 2>/dev/null \
+            && git show FETCH_HEAD:coverage-counts.json > baseline-counts.json 2>/dev/null \
+            || echo '{}' > baseline-counts.json
 
-      # Build a single-commit orphan branch holding only the two generated files.
+      - name: Aggregate into badge.json + summary.json
+        run: python scripts/coverage-summary.py coverage-artifacts . baseline-counts.json
+
+      # Build a single-commit orphan branch holding the generated files.
       # History lives in nothing — each run force-replaces the branch wholesale.
+      # coverage-counts.json is the raw-count baseline the next run's partial
+      # (changed-services-only) run merges onto — not meant for display.
       - name: Publish to coverage-data branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,6 +177,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan coverage-data-tmp
           git rm -rf --cached . > /dev/null 2>&1 || true
-          git add -f badge.json summary.json
+          git add -f badge.json summary.json coverage-counts.json
           git commit -m "coverage: ${SHA:0:7}"
           git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" coverage-data-tmp:coverage-data
