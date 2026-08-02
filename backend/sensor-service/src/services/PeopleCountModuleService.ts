@@ -109,7 +109,7 @@ export class PeopleCountService {
     const updated = await BuildingThresholdModel.findOneAndUpdate(
       { buildingId },
       { $set: { "peopleCount.maxPeople": maxPeople } },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     ).exec();
     return updated.peopleCount;
   }
@@ -122,7 +122,7 @@ export class PeopleCountService {
     const updated = await BuildingThresholdModel.findOneAndUpdate(
       { buildingId },
       { $set: { [`peopleCount.rooms.${roomId}`]: { maxPeople } } },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     ).exec();
     return updated.peopleCount;
   }

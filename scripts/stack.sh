@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")"  # repo root
+cd "$(dirname "../${BASH_SOURCE[0]}")"  # repo root
 
 export COMPOSE_BAKE=true
 RUNTIME_FILE="compose.runtime.yml"
