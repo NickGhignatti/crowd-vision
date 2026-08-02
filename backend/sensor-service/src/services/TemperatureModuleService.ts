@@ -115,7 +115,7 @@ export class TemperatureService {
           "temperature.minTemp": minTemp,
         },
       },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     ).exec();
     return updated.temperature;
   }
@@ -129,7 +129,7 @@ export class TemperatureService {
     const updated = await BuildingThresholdModel.findOneAndUpdate(
       { buildingId },
       { $set: { [`temperature.rooms.${roomId}`]: { maxTemp, minTemp } } },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     ).exec();
     return updated.temperature;
   }

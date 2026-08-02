@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")"  # repo root
+cd "$(dirname "../${BASH_SOURCE[0]}")"  # repo root
 
 export COMPOSE_BAKE=true
 RUNTIME_FILE="compose.runtime.yml"
@@ -14,6 +14,7 @@ RUNTIME_FILE="compose.runtime.yml"
 declare -A EXCLUDE_GROUPS=(
   [agent]="agent-service agent-db agent-ingester redis-langfuse langfuse-web langfuse-worker langfuse-db clickhouse minio"
   [metrics]="prometheus grafana"
+  [simulators]="aq-simulator sensor-simulator"
 )
 
 excluded=()
@@ -22,6 +23,7 @@ for arg in "$@"; do
   case "$arg" in
     --no-agent) excluded+=(${EXCLUDE_GROUPS[agent]}) ;;
     --no-metrics) excluded+=(${EXCLUDE_GROUPS[metrics]}) ;;
+    --no-simulators) excluded+=(${EXCLUDE_GROUPS[simulators]}) ;;
     --dry-run) dry_run=true ;;
     *)
       echo "Unknown flag: $arg" >&2

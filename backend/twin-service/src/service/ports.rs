@@ -18,14 +18,17 @@ pub trait BuildingStore: Send + Sync {
 pub trait UploadQueue: Send + Sync {
     async fn enqueue(&self, upload: &AcceptedUpload) -> anyhow::Result<()>;
     async fn claim(&self, lease: Duration) -> anyhow::Result<Option<AcceptedUpload>>;
-    async fn mark_ready(&self, id: &str) -> anyhow::Result<()>;
-    async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<()>;
+    async fn mark_ready(&self, id: &str) -> anyhow::Result<Option<Duration>>;
+    async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<Option<Duration>>;
     async fn status(&self, id: &str) -> anyhow::Result<Option<UploadStatus>>;
 }
 
 #[async_trait]
 pub trait RegistrationEvents: Send + Sync {
-    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()>;
+    async fn publish_building_registration_request(
+        &self,
+        building: &Building,
+    ) -> anyhow::Result<()>;
 }
 
 #[async_trait]

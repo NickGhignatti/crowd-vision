@@ -7,11 +7,12 @@ use prometheus::{
     register_histogram_vec_with_registry, register_int_counter_vec_with_registry,
 };
 use std::sync::LazyLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub static REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 
 const LABELS: &[&str] = &["method", "route", "status_code"];
+const OUTCOME_LABELS: &[&str] = &["outcome"];
 
 pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
@@ -26,7 +27,7 @@ pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
 pub static HTTP_REQUESTS_ERROR: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
         "http_error_requests_total",
-        "Total number of errors on the HTTP requests",
+        "Total number of HTTP requests that failed with a server (5xx) error",
         LABELS,
         REGISTRY
     )
@@ -44,6 +45,25 @@ pub static HTTP_REQUEST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     .expect("metric can be created")
 });
 
+pub static PROVISIONING_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec_with_registry!(
+        "twin_provisioning_duration_seconds",
+        "Time from registration accepted to resolved ready/failed",
+        OUTCOME_LABELS,
+        vec![0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub fn add_provision_duration(outcome: &str, duration: Duration) {
+    PROVISIONING_DURATION
+        .with_label_values(&[outcome])
+        .observe(duration.as_secs_f64());
+}
+
+/// Returns true if the path is an infrastructure path (metrics, health, etc.)
+/// in order to avoid tracking provisioning duration for these paths.
 fn is_infra_path(path: &str) -> bool {
     matches!(path, "/metrics" | "/metrics/" | "/health" | "/health/")
 }
@@ -70,13 +90,14 @@ pub async fn track_metrics(request: Request, next: Next) -> Response {
     HTTP_REQUEST_DURATION
         .with_label_values(&labels)
         .observe(start.elapsed().as_secs_f64());
-    if response.status().is_client_error() || response.status().is_server_error() {
+    if response.status().is_server_error() {
         HTTP_REQUESTS_ERROR.with_label_values(&labels).inc();
     }
 
     response
 }
 
+/// Returns the metrics exposed by the application.
 pub async fn metrics_handler() -> impl IntoResponse {
     let encoder = TextEncoder::new();
     let mut buffer = Vec::new();
@@ -112,6 +133,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn exposes_provisioning_duration_by_outcome() {
+        add_provision_duration("ready", Duration::from_secs(3));
+        add_provision_duration("failed", Duration::from_secs(7));
+
+        let text = rendered_body().await;
+
+        assert!(text.contains("twin_provisioning_duration_seconds"));
+        assert!(text.contains("outcome=\"ready\""));
+        assert!(text.contains("outcome=\"failed\""));
+    }
+
+    #[tokio::test]
     async fn serves_prometheus_text_content_type() {
         let response = metrics_handler().await.into_response();
         let content_type = response
@@ -126,5 +159,45 @@ mod tests {
     #[tokio::test]
     async fn health_returns_200() {
         assert_eq!(health().await, StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn only_server_errors_count_toward_the_error_metric() {
+        use axum::Router;
+        use axum::body::Body;
+        use axum::routing::get;
+        use tower::ServiceExt;
+
+        async fn not_found() -> StatusCode {
+            StatusCode::NOT_FOUND
+        }
+        async fn server_error() -> StatusCode {
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+
+        let app = Router::new()
+            .route("/only-server-errors-test-404", get(not_found))
+            .route("/only-server-errors-test-500", get(server_error))
+            .layer(axum::middleware::from_fn(track_metrics));
+
+        for path in [
+            "/only-server-errors-test-404",
+            "/only-server-errors-test-500",
+        ] {
+            app.clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+        }
+
+        let client_error_count = HTTP_REQUESTS_ERROR
+            .with_label_values(&["GET", "/only-server-errors-test-404", "404"])
+            .get();
+        let server_error_count = HTTP_REQUESTS_ERROR
+            .with_label_values(&["GET", "/only-server-errors-test-500", "500"])
+            .get();
+
+        assert_eq!(client_error_count, 0);
+        assert_eq!(server_error_count, 1);
     }
 }

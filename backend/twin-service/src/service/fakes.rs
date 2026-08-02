@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 
@@ -126,6 +126,22 @@ pub struct FakeQueue {
     pub pending: Mutex<Vec<AcceptedUpload>>,
     pub statuses: Mutex<HashMap<String, UploadStatus>>,
     pub errors: Mutex<HashMap<String, String>>,
+    pub accepted_at: Mutex<HashMap<String, Instant>>,
+}
+
+impl FakeQueue {
+    fn resolve(&self, id: &str, status: UploadStatus) -> Option<Duration> {
+        let mut statuses = self.statuses.lock().unwrap();
+        if statuses.get(id) != Some(&UploadStatus::Pending) {
+            return None;
+        }
+        statuses.insert(id.to_string(), status);
+        self.accepted_at
+            .lock()
+            .unwrap()
+            .get(id)
+            .map(|at| at.elapsed())
+    }
 }
 
 #[async_trait]
@@ -136,6 +152,10 @@ impl UploadQueue for FakeQueue {
             .lock()
             .unwrap()
             .insert(upload.id.clone(), UploadStatus::Pending);
+        self.accepted_at
+            .lock()
+            .unwrap()
+            .insert(upload.id.clone(), Instant::now());
         Ok(())
     }
 
@@ -147,24 +167,17 @@ impl UploadQueue for FakeQueue {
         Ok(Some(pending.remove(0)))
     }
 
-    async fn mark_ready(&self, id: &str) -> anyhow::Result<()> {
-        self.statuses
-            .lock()
-            .unwrap()
-            .insert(id.to_string(), UploadStatus::Ready);
-        Ok(())
+    async fn mark_ready(&self, id: &str) -> anyhow::Result<Option<Duration>> {
+        Ok(self.resolve(id, UploadStatus::Ready))
     }
 
-    async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<()> {
-        self.statuses
-            .lock()
-            .unwrap()
-            .insert(id.to_string(), UploadStatus::Failed);
+    async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<Option<Duration>> {
+        let elapsed = self.resolve(id, UploadStatus::Failed);
         self.errors
             .lock()
             .unwrap()
             .insert(id.to_string(), error.to_string());
-        Ok(())
+        Ok(elapsed)
     }
 
     async fn status(&self, id: &str) -> anyhow::Result<Option<UploadStatus>> {
@@ -224,7 +237,10 @@ pub struct FakeEvents {
 
 #[async_trait]
 impl RegistrationEvents for FakeEvents {
-    async fn publish_requested(&self, building: &Building) -> anyhow::Result<()> {
+    async fn publish_building_registration_request(
+        &self,
+        building: &Building,
+    ) -> anyhow::Result<()> {
         if self.refuse {
             anyhow::bail!("kafka said no");
         }

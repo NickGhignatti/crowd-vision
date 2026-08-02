@@ -59,19 +59,24 @@ impl Provisioning {
 
     async fn provision(&self, upload: &AcceptedUpload) -> Result<(), DomainError> {
         self.buildings.upsert(&upload.building).await?;
-        self.events.publish_requested(&upload.building).await?;
+        self.events
+            .publish_building_registration_request(&upload.building)
+            .await?;
         self.downstream
             .init_preferences(&upload.building.id, &upload.claims)
             .await;
         Ok(())
     }
 
-    pub async fn resolve(&self, id: &str, error: Option<&str>) -> Result<(), DomainError> {
-        match error {
+    pub async fn resolve(
+        &self,
+        id: &str,
+        error: Option<&str>,
+    ) -> Result<Option<Duration>, DomainError> {
+        Ok(match error {
             None => self.queue.mark_ready(id).await?,
             Some(e) => self.queue.mark_failed(id, e).await?,
-        }
-        Ok(())
+        })
     }
 }
 
@@ -202,6 +207,25 @@ mod tests {
         assert_eq!(
             h.provisioning.status("b1").await.unwrap(),
             UploadStatus::Ready
+        );
+    }
+
+    #[tokio::test]
+    async fn resolving_reports_elapsed_time_only_on_the_first_resolution() {
+        let h = harness();
+        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning.provision_next(LEASE).await.unwrap();
+
+        let first = h.provisioning.resolve("b1", None).await.unwrap();
+        let redelivery = h.provisioning.resolve("b1", None).await.unwrap();
+
+        assert!(
+            first.is_some(),
+            "the first resolution must report how long provisioning took"
+        );
+        assert!(
+            redelivery.is_none(),
+            "a redelivered resolution must not be counted again"
         );
     }
 

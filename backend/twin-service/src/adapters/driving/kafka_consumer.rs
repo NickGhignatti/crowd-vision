@@ -7,6 +7,7 @@ use rdkafka::consumer::{Consumer, StreamConsumer};
 use serde::Deserialize;
 
 use crate::adapters::driven::kafka_producer::BUILDING_REGISTRATION_COMPLETED_TOPIC;
+use crate::adapters::metrics::add_provision_duration;
 use crate::service::provisioning::Provisioning;
 
 #[derive(Deserialize)]
@@ -61,14 +62,19 @@ pub fn spawn(brokers: &str, provisioning: Arc<Provisioning>) -> tokio::task::Joi
                 "ready" => None,
                 _ => Some(event.error.unwrap_or_else(|| event.status.clone())),
             };
-            if let Err(e) = provisioning
+            match provisioning
                 .resolve(&event.building_id, error.as_deref())
                 .await
             {
-                log::error!(
+                Ok(Some(elapsed)) => {
+                    let outcome = if error.is_some() { "failed" } else { "ready" };
+                    add_provision_duration(outcome, elapsed);
+                }
+                Ok(None) => {}
+                Err(e) => log::error!(
                     "failed to resolve upload {} after registration completed: {e:?}",
                     event.building_id
-                );
+                ),
             }
         }
     })

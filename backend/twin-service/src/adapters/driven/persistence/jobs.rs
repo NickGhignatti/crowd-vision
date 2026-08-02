@@ -36,6 +36,7 @@ struct PendingUpload {
     attempts: i32,
     leased_until: Option<DateTime>,
     error: Option<String>,
+    accepted_at: DateTime,
 }
 
 impl PendingUpload {
@@ -48,6 +49,7 @@ impl PendingUpload {
             attempts: 0,
             leased_until: None,
             error: None,
+            accepted_at: DateTime::now(),
         }
     }
 }
@@ -67,13 +69,33 @@ pub struct MongoUploadQueue {
 }
 
 impl MongoUploadQueue {
-    pub fn beside(buildings: &Collection<Building>) -> Self {
+    pub fn from_building_collection(buildings: &Collection<Building>) -> Self {
         Self {
             col: buildings
                 .client()
                 .database(&buildings.namespace().db)
                 .collection("pending_uploads"),
         }
+    }
+
+    async fn resolve(
+        &self,
+        id: &str,
+        set: mongodb::bson::Document,
+    ) -> anyhow::Result<Option<Duration>> {
+        let filter = doc! { "id": { "$eq": id }, "status": "pending" };
+        let update = doc! { "$set": set };
+
+        Ok(self
+            .col
+            .find_one_and_update(filter, update)
+            .return_document(ReturnDocument::Before)
+            .await?
+            .map(|job| {
+                let elapsed_ms =
+                    DateTime::now().timestamp_millis() - job.accepted_at.timestamp_millis();
+                Duration::from_millis(elapsed_ms.max(0) as u64)
+            }))
     }
 }
 
@@ -109,24 +131,17 @@ impl UploadQueue for MongoUploadQueue {
             .map(AcceptedUpload::from))
     }
 
-    async fn mark_ready(&self, id: &str) -> anyhow::Result<()> {
-        self.col
-            .update_one(
-                doc! { "id": { "$eq": id } },
-                doc! { "$set": { "status": "ready", "leased_until": null } },
-            )
-            .await?;
-        Ok(())
+    async fn mark_ready(&self, id: &str) -> anyhow::Result<Option<Duration>> {
+        self.resolve(id, doc! { "status": "ready", "leased_until": null })
+            .await
     }
 
-    async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<()> {
-        self.col
-            .update_one(
-                doc! { "id": { "$eq": id } },
-                doc! { "$set": { "status": "failed", "leased_until": null, "error": error } },
-            )
-            .await?;
-        Ok(())
+    async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<Option<Duration>> {
+        self.resolve(
+            id,
+            doc! { "status": "failed", "leased_until": null, "error": error },
+        )
+        .await
     }
 
     async fn status(&self, id: &str) -> anyhow::Result<Option<UploadStatus>> {

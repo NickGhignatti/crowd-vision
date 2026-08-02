@@ -127,7 +127,7 @@ export class AirQualityService {
     const updated = await BuildingThresholdModel.findOneAndUpdate(
       { buildingId },
       { $set: { "airQuality.maxCo2": maxCo2, "airQuality.maxAqi": maxAqi } },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     ).exec();
     return updated.airQuality;
   }
@@ -141,7 +141,7 @@ export class AirQualityService {
     const updated = await BuildingThresholdModel.findOneAndUpdate(
       { buildingId },
       { $set: { [`airQuality.rooms.${roomId}`]: { maxCo2, maxAqi } } },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     ).exec();
     return updated.airQuality;
   }

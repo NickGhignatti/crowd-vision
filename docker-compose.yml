@@ -129,6 +129,7 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
       - ./prometheus.rules.yml:/etc/prometheus/prometheus.rules.yml:ro,z
+      - prometheus_data:/prometheus
 
   grafana:
     cpus: "3"
@@ -147,3 +148,4 @@ volumes:
   caddy_config:
   grafana_data:
   keycloak_postgres_data:
+  prometheus_data:
