@@ -1,0 +1,14 @@
+services:
+  twin-db:
+    image: mongo:7
+
+  twin-service-test:
+    build:
+      context: ../..
+      dockerfile: backend/twin-service/Dockerfile
+      target: dev
+    command: ["bash", "/app/scripts/rust-integration-tests.sh"]
+    environment:
+      - MONGO_URI=mongodb://twin-db:27017
+    depends_on:
+      - twin-db

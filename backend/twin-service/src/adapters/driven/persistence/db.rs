@@ -61,19 +61,19 @@ pub async fn connect(uri: &str, db_name: &str) -> anyhow::Result<Collection<Buil
 }
 
 pub async fn find_by_id(col: &Collection<Building>, id: &str) -> anyhow::Result<Option<Building>> {
-    Ok(col.find_one(doc! { "id": { "$eq": id } }).await?)
+    Ok(col.find_one(by_id_filter(id)).await?)
 }
 
 pub async fn find_by_domain(
     col: &Collection<Building>,
     domain: &str,
 ) -> anyhow::Result<Vec<Building>> {
-    let cursor = col.find(doc! { "domains": { "$eq": domain } }).await?;
+    let cursor = col.find(by_domain_filter(domain)).await?;
     Ok(cursor.try_collect().await?)
 }
 
 pub async fn find_by_name(col: &Collection<Building>, name: &str) -> anyhow::Result<Vec<Building>> {
-    let cursor = col.find(doc! { "name": { "$eq": name } }).await?;
+    let cursor = col.find(by_name_filter(name)).await?;
     Ok(cursor.try_collect().await?)
 }
 
@@ -83,14 +83,14 @@ pub async fn insert(col: &Collection<Building>, building: &Building) -> anyhow::
 }
 
 pub async fn upsert(col: &Collection<Building>, building: &Building) -> anyhow::Result<()> {
-    col.replace_one(doc! { "id": &building.id }, building)
+    col.replace_one(id_match_filter(&building.id), building)
         .upsert(true)
         .await?;
     Ok(())
 }
 
 pub async fn replace(col: &Collection<Building>, building: &Building) -> anyhow::Result<()> {
-    col.find_one_and_replace(doc! { "id": &building.id }, building)
+    col.find_one_and_replace(id_match_filter(&building.id), building)
         .await?;
     Ok(())
 }
@@ -103,125 +103,110 @@ pub async fn counts_by_domain(
         return Ok(HashMap::new());
     }
 
-    let pipeline = vec![
+    let mut cursor: mongodb::Cursor<Document> = col.aggregate(counts_pipeline(domains)).await?;
+    let mut docs = Vec::new();
+    while let Some(doc) = cursor.try_next().await? {
+        docs.push(doc);
+    }
+    Ok(parse_domain_counts(&docs))
+}
+
+fn by_id_filter(id: &str) -> Document {
+    doc! { "id": { "$eq": id } }
+}
+
+fn by_domain_filter(domain: &str) -> Document {
+    doc! { "domains": { "$eq": domain } }
+}
+
+fn by_name_filter(name: &str) -> Document {
+    doc! { "name": { "$eq": name } }
+}
+
+fn id_match_filter(id: &str) -> Document {
+    doc! { "id": id }
+}
+
+fn counts_pipeline(domains: &[String]) -> Vec<Document> {
+    vec![
         doc! { "$unwind": "$domains" },
         doc! { "$match": { "domains": { "$in": domains } } },
         doc! { "$group": { "_id": "$domains", "count": { "$sum": 1 } } },
-    ];
-    let mut cursor: mongodb::Cursor<Document> = col.aggregate(pipeline).await?;
+    ]
+}
+
+fn parse_domain_counts(docs: &[Document]) -> HashMap<String, i64> {
     let mut result = HashMap::new();
-    while let Some(doc) = cursor.try_next().await? {
+    for doc in docs {
         let Ok(domain) = doc.get_str("_id") else {
             continue;
         };
         let count = doc.get_i32("count").unwrap_or(0);
         result.insert(domain.to_string(), count as i64);
     }
-    Ok(result)
+    result
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{Coordinates, Dimensions, Room};
-    use uuid::Uuid;
 
-    fn dummy_room(id: &str) -> Room {
-        Room {
-            id: id.to_string(),
-            name: id.to_string(),
-            capacity: 10.0,
-            position: Coordinates {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            dimensions: Dimensions {
-                width: 1.0,
-                height: 1.0,
-                depth: 1.0,
-            },
-            color: None,
-        }
+    #[test]
+    fn by_id_filter_matches_exact_id() {
+        assert_eq!(by_id_filter("b1"), doc! { "id": { "$eq": "b1" } });
     }
 
-    fn dummy_building(domains: Vec<&str>) -> Building {
-        Building {
-            id: Uuid::new_v4().to_string(),
-            name: "Test Building".to_string(),
-            rooms: vec![dummy_room("r1")],
-            domains: domains.into_iter().map(str::to_string).collect(),
-        }
+    #[test]
+    fn by_domain_filter_matches_exact_domain() {
+        assert_eq!(
+            by_domain_filter("eng"),
+            doc! { "domains": { "$eq": "eng" } }
+        );
     }
 
-    async fn test_col() -> Collection<Building> {
-        let uri =
-            std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
-        let opts = ClientOptions::parse(&uri).await.unwrap();
-        let client = Client::with_options(opts).unwrap();
-        client
-            .database("twin_service_test")
-            .collection::<Building>(&format!("buildings_{}", Uuid::new_v4()))
+    #[test]
+    fn by_name_filter_matches_exact_name() {
+        assert_eq!(by_name_filter("HQ"), doc! { "name": { "$eq": "HQ" } });
     }
 
-    #[tokio::test]
-    async fn insert_and_find_by_id_round_trips() {
-        let col = test_col().await;
-        let building = dummy_building(vec!["eng"]);
-        insert(&col, &building).await.unwrap();
-
-        let found = find_by_id(&col, &building.id).await.unwrap();
-        assert_eq!(found.unwrap().id, building.id);
+    #[test]
+    fn id_match_filter_matches_exact_id() {
+        assert_eq!(id_match_filter("b1"), doc! { "id": "b1" });
     }
 
-    #[tokio::test]
-    async fn find_by_id_returns_none_for_unknown_id() {
-        let col = test_col().await;
-        assert!(find_by_id(&col, "missing").await.unwrap().is_none());
+    #[test]
+    fn counts_pipeline_unwinds_matches_and_groups_by_domain() {
+        let domains = vec!["eng".to_string(), "ops".to_string()];
+        assert_eq!(
+            counts_pipeline(&domains),
+            vec![
+                doc! { "$unwind": "$domains" },
+                doc! { "$match": { "domains": { "$in": &domains } } },
+                doc! { "$group": { "_id": "$domains", "count": { "$sum": 1 } } },
+            ]
+        );
     }
 
-    #[tokio::test]
-    async fn find_by_domain_returns_only_matching_buildings() {
-        let col = test_col().await;
-        insert(&col, &dummy_building(vec!["eng"])).await.unwrap();
-        insert(&col, &dummy_building(vec!["other"])).await.unwrap();
-
-        let found = find_by_domain(&col, "eng").await.unwrap();
-        assert_eq!(found.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn replace_persists_mutations() {
-        let col = test_col().await;
-        let mut building = dummy_building(vec!["eng"]);
-        insert(&col, &building).await.unwrap();
-
-        building.name = "Renamed".to_string();
-        replace(&col, &building).await.unwrap();
-
-        let found = find_by_id(&col, &building.id).await.unwrap().unwrap();
-        assert_eq!(found.name, "Renamed");
-    }
-
-    #[tokio::test]
-    async fn counts_by_domain_only_counts_requested_domains() {
-        let col = test_col().await;
-        insert(&col, &dummy_building(vec!["eng"])).await.unwrap();
-        insert(&col, &dummy_building(vec!["eng"])).await.unwrap();
-        insert(&col, &dummy_building(vec!["other"])).await.unwrap();
-
-        let counts = counts_by_domain(&col, &["eng".to_string(), "unknown".to_string()])
-            .await
-            .unwrap();
+    #[test]
+    fn parse_domain_counts_reads_id_and_count_per_document() {
+        let docs = vec![
+            doc! { "_id": "eng", "count": 2 },
+            doc! { "_id": "other", "count": 1 },
+        ];
+        let counts = parse_domain_counts(&docs);
         assert_eq!(counts.get("eng"), Some(&2));
-        assert_eq!(counts.get("other"), None);
-        assert_eq!(counts.get("unknown"), None);
+        assert_eq!(counts.get("other"), Some(&1));
     }
 
-    #[tokio::test]
-    async fn counts_by_domain_returns_empty_map_for_empty_request() {
-        let col = test_col().await;
-        let counts = counts_by_domain(&col, &[]).await.unwrap();
-        assert!(counts.is_empty());
+    #[test]
+    fn parse_domain_counts_defaults_missing_count_to_zero() {
+        let docs = vec![doc! { "_id": "eng" }];
+        assert_eq!(parse_domain_counts(&docs).get("eng"), Some(&0));
+    }
+
+    #[test]
+    fn parse_domain_counts_skips_documents_without_an_id() {
+        let docs = vec![doc! { "count": 5 }];
+        assert!(parse_domain_counts(&docs).is_empty());
     }
 }
