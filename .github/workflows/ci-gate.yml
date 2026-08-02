@@ -16,68 +16,41 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      chat: ${{ steps.filter.outputs.chat }}
-      agent: ${{ steps.filter.outputs.agent }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-      contracts: ${{ steps.filter.outputs.contracts }}
-      notification: ${{ steps.filter.outputs.notification }}
-      sensor: ${{ steps.filter.outputs.sensor }}
-      socket: ${{ steps.filter.outputs.socket }}
-      twin: ${{ steps.filter.outputs.twin }}
-      claims_gateway: ${{ steps.filter.outputs.claims_gateway }}
-      tenancy: ${{ steps.filter.outputs.tenancy }}
-      registry: ${{ steps.filter.outputs.registry }}
-      provisioner: ${{ steps.filter.outputs.provisioner }}
-      auth_policy: ${{ steps.filter.outputs.auth_policy }}
-      auth_contracts: ${{ steps.filter.outputs.auth_contracts }}
-      auth_middleware: ${{ steps.filter.outputs.auth_middleware }}
-      k8s: ${{ steps.filter.outputs.k8s }}
-      shared: ${{ steps.filter.outputs.shared }}
-      ci: ${{ steps.filter.outputs.ci }}
-      infra: ${{ steps.filter.outputs.infra }}
-      simulators: ${{ steps.filter.outputs.simulators }}
-      deps: ${{ steps.filter.outputs.deps }}
+      chat: ${{ contains(fromJSON(steps.filter.outputs.changes), 'chat') }}
+      agent: ${{ contains(fromJSON(steps.filter.outputs.changes), 'agent') }}
+      frontend: ${{ contains(fromJSON(steps.filter.outputs.changes), 'frontend') || contains(fromJSON(steps.filter.outputs.changes), 'frontend_ci_workflow') }}
+      contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'contracts') }}
+      notification: ${{ contains(fromJSON(steps.filter.outputs.changes), 'notification') }}
+      sensor: ${{ contains(fromJSON(steps.filter.outputs.changes), 'sensor') }}
+      socket: ${{ contains(fromJSON(steps.filter.outputs.changes), 'socket') }}
+      twin: ${{ contains(fromJSON(steps.filter.outputs.changes), 'twin') }}
+      claims_gateway: ${{ contains(fromJSON(steps.filter.outputs.changes), 'claims-gateway') }}
+      tenancy: ${{ contains(fromJSON(steps.filter.outputs.changes), 'tenancy-service') }}
+      registry: ${{ contains(fromJSON(steps.filter.outputs.changes), 'registry-service') }}
+      provisioner: ${{ contains(fromJSON(steps.filter.outputs.changes), 'provisioner') }}
+      auth_policy: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-policy') }}
+      auth_contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-contracts') }}
+      auth_middleware: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-middleware') }}
+      k8s: ${{ contains(fromJSON(steps.filter.outputs.changes), 'k8s') }}
+      shared: ${{ contains(fromJSON(steps.filter.outputs.changes), 'shared') }}
+      ci: ${{ contains(fromJSON(steps.filter.outputs.changes), 'ci') }}
+      infra: ${{ contains(fromJSON(steps.filter.outputs.changes), 'infra') }}
+      simulators: ${{ contains(fromJSON(steps.filter.outputs.changes), 'simulators') }}
+      deps: ${{ contains(fromJSON(steps.filter.outputs.changes), 'deps') }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
-      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
+
+      - name: Detect changed services
         id: filter
+        uses: ./.github/actions/filter-services
         with:
-          filters: |
-            chat:
-              - 'backend/chat-service/**'
-            agent:
-              - 'backend/agent-service/**'
-            frontend:
-              - 'frontend/**'
+          extra_filters: |
+            frontend_ci_workflow:
               - '.github/workflows/ci-frontend.yml'
-            contracts:
-              - 'backend/contracts-service/**'
-            notification:
-              - 'backend/notification-service/**'
-            sensor:
-              - 'backend/sensor-service/**'
-            socket:
-              - 'backend/socket-service/**'
-            twin:
-              - 'backend/twin-service/**'
-            claims_gateway:
-              - 'backend/claims-gateway/**'
-            tenancy:
-              - 'backend/tenancy-service/**'
-            registry:
-              - 'backend/registry-service/**'
-            provisioner:
-              - 'backend/provisioner/**'
-            auth_policy:
-              - 'backend/auth-policy/**'
-            auth_contracts:
-              - 'backend/auth-contracts/**'
-            auth_middleware:
-              - 'backend/auth-middleware/**'
             k8s:
               - 'k8s/**'
               - '.github/workflows/ci-k8s.yml'
@@ -105,12 +78,10 @@ jobs:
       - name: Compute changed Docker images
         id: docker
         env:
-          # steps.filter.outputs isn't directly indexable in bash, so pass the
-          # whole outputs object through as JSON and look keys up with jq.
-          CHANGED: ${{ toJSON(steps.filter.outputs) }}
+          CHANGED: ${{ steps.filter.outputs.changes }}
         run: |
           MATRIX=$(jq -cn --slurpfile reg .github/services.json --argjson changed "$CHANGED" '
-            [ $reg[0][] | select(.image and (.ci != false)) | select($changed[(.filter_key // .key)] == "true") |
+            [ $reg[0][] | select(.image and (.ci != false)) | select($changed | any(. == .key)) |
               {context: ("./" + .dir), image: .image, lang: .lang} ]
           ')
 

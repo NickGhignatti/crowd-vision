@@ -21,7 +21,6 @@
     "key": "claims-gateway",
     "dir": "backend/claims-gateway",
     "lang": "go",
-    "filter_key": "claims_gateway",
     "image": "crowdvision-claims-gateway",
     "cd_context": ".",
     "dockerfile": "backend/claims-gateway/Dockerfile"
@@ -38,7 +37,6 @@
     "key": "registry-service",
     "dir": "backend/registry-service",
     "lang": "go",
-    "filter_key": "registry",
     "image": "crowdvision-registry",
     "cd_context": ".",
     "dockerfile": "backend/registry-service/Dockerfile"
@@ -47,7 +45,6 @@
     "key": "tenancy-service",
     "dir": "backend/tenancy-service",
     "lang": "go",
-    "filter_key": "tenancy",
     "image": "crowdvision-tenancy",
     "cd_context": ".",
     "dockerfile": "backend/tenancy-service/Dockerfile"
