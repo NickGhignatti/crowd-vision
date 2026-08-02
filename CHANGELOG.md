@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0-alpha](https://github.com/NickGhignatti/crowd-vision/compare/v0.2.0-alpha...v0.3.0-alpha) (2026-08-02)
+
+
+### Features
+
+* **digital-twin:** add supports for SLOs and SLIs ([#327](https://github.com/NickGhignatti/crowd-vision/issues/327)) ([d67c21e](https://github.com/NickGhignatti/crowd-vision/commit/d67c21ea400b977a9679561b597c84a1a33abb6c))
+
 ## [0.2.0-alpha](https://github.com/NickGhignatti/crowd-vision/compare/v0.1.0-alpha...v0.2.0-alpha) (2026-07-29)
 
 
