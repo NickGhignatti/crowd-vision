@@ -260,6 +260,9 @@ jobs:
       - contracts
       - agent
     if: needs.changes.outputs.has_images == 'true'
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/ci-docker.yml
     with:
       images: ${{ needs.changes.outputs.docker_matrix }}

@@ -109,6 +109,7 @@ jobs:
       packages: write
       actions: read
       security-events: write
+      pull-requests: read
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
@@ -134,13 +135,44 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # PR CI (ci-docker.yml) already built + Trivy-scanned + pushed this exact
+      # tree under a pr-<head-sha> tag before it landed on master. Squash-merge
+      # gives github.sha a new commit, so the PR's head SHA has to be resolved
+      # via the API rather than read off the push event.
+      - name: Resolve merged PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          PR_SHA=$(gh api "repos/${REPO}/commits/${SHA}/pulls" \
+            --jq '[.[] | select(.merged_at)][0].head.sha // empty')
+          echo "pr_sha=$PR_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Check for PR-cached image
+        id: cache
+        if: steps.pr.outputs.pr_sha != ''
+        env:
+          IMAGE: ${{ matrix.image }}
+          PR_SHA: ${{ steps.pr.outputs.pr_sha }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE_PREFIX/$IMAGE:pr-$PR_SHA" >/dev/null 2>&1; then
+            echo "cached=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cached=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set Frontend Build Args
-        if: matrix.image == 'crowdvision-frontend'
+        if: matrix.image == 'crowdvision-frontend' && steps.cache.outputs.cached != 'true'
         run: echo "BUILD_ARGS=VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}" >> $GITHUB_ENV
 
-      # Build into the local daemon only (push: false + load: true) — publishing
-      # happens below, after the Trivy gate passes, so a vulnerable image never reaches GHCR. Revisit if `platforms:` (multi-arch) is added.
+      # Skipped entirely when a PR-cached image is promoted below. Build into the
+      # local daemon only (push: false + load: true) — publishing happens after
+      # the Trivy gate passes, so a vulnerable image never reaches GHCR. Revisit
+      # if `platforms:` (multi-arch) is added.
       - name: Build ${{ matrix.image }} (local, pre-scan)
+        if: steps.cache.outputs.cached != 'true'
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
         with:
           context: ${{ matrix.context }}
@@ -152,11 +184,25 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Gates the push below (finding = job fails before publish). OS packages only — app deps are already gated pre-merge by per-service audits.
+      - name: Resolve scan target
+        env:
+          CACHED: ${{ steps.cache.outputs.cached }}
+          IMAGE: ${{ matrix.image }}
+          PR_SHA: ${{ steps.pr.outputs.pr_sha }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$CACHED" = "true" ]; then
+            echo "SCAN_REF=$IMAGE_PREFIX/$IMAGE:pr-$PR_SHA" >> "$GITHUB_ENV"
+          else
+            echo "SCAN_REF=$IMAGE_PREFIX/$IMAGE:$SHA" >> "$GITHUB_ENV"
+          fi
+
+      # Gates the promote/push below (finding = job fails before publish). OS
+      # packages only — app deps are already gated pre-merge by per-service audits.
       - name: Scan image for vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
-          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
+          image-ref: ${{ env.SCAN_REF }}
           format: sarif
           output: trivy-results-${{ matrix.image }}.sarif
           severity: HIGH,CRITICAL
@@ -173,9 +219,41 @@ jobs:
           sarif_file: trivy-results-${{ matrix.image }}.sarif
           category: trivy-${{ matrix.image }}
 
+      # Registry-side manifest copy — no rebuild. The image already passed this
+      # exact Trivy gate once (above) before it was allowed onto master.
+      - name: Promote PR-cached image (scan passed)
+        if: steps.cache.outputs.cached == 'true'
+        env:
+          IMAGE: ${{ matrix.image }}
+          SHA: ${{ github.sha }}
+        run: |
+          docker buildx imagetools create \
+            --tag "$IMAGE_PREFIX/$IMAGE:latest" \
+            --tag "$IMAGE_PREFIX/$IMAGE:$SHA" \
+            "$SCAN_REF"
+
+      # Best-effort — maint-cleanup.yml sweeps orphaned tags weekly regardless,
+      # so a failure here (GH Packages API is finicky for user-owned packages)
+      # isn't load-bearing.
+      - name: Delete temp PR tag
+        if: steps.cache.outputs.cached == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          IMAGE: ${{ matrix.image }}
+          TAG_NAME: pr-${{ steps.pr.outputs.pr_sha }}
+        run: |
+          VERSION_ID=$(gh api "/users/$OWNER/packages/container/$IMAGE/versions" \
+            --jq ".[] | select(.metadata.container.tags[]? == \"$TAG_NAME\") | .id" | head -n1)
+          if [ -n "$VERSION_ID" ]; then
+            gh api -X DELETE "/users/$OWNER/packages/container/$IMAGE/versions/$VERSION_ID"
+          fi
+
       # Same context/build-args/cache as the pre-scan build, so this resolves from
       # the warm gha cache (no recompile) and pushes the exact scanned layers, now also tagged :latest.
       - name: Push ${{ matrix.image }} (scan passed)
+        if: steps.cache.outputs.cached != 'true'
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
         with:
           context: ${{ matrix.context }}
