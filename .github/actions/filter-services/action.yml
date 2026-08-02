@@ -1,0 +1,30 @@
+name: 'Filter Changed Services'
+description: 'Path-filter services.json entries (key -> dir) against the diff, merged with any extra named filters'
+inputs:
+  extra_filters:
+    description: 'Extra dorny/paths-filter YAML rules to merge in alongside the per-service ones'
+    required: false
+    default: ''
+outputs:
+  changes:
+    description: 'JSON array of matched filter names (service keys + extra_filters names)'
+    value: ${{ steps.filter.outputs.changes || '[]' }}
+runs:
+  using: "composite"
+  steps:
+    - name: Build filters from services.json
+      shell: bash
+      env:
+        EXTRA_FILTERS: ${{ inputs.extra_filters }}
+      run: |
+        {
+          jq -r '.[] | "\(.key):\n  - \"\(.dir)/**\""' .github/services.json
+          printf '%s\n' "$EXTRA_FILTERS"
+        } > filter-services.yml
+
+    - name: Detect changed services
+      id: filter
+      if: github.event_name == 'push' || github.event_name == 'pull_request'
+      uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
+      with:
+        filters: filter-services.yml

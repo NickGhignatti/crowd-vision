@@ -42,3 +42,10 @@ body:
       render: shell
     validations:
       required: false
+  - type: textarea
+    id: suggestions
+    attributes:
+      label: Suggestions
+      description: Possible fix, or open questions if unsure
+    validations:
+      required: false

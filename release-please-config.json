@@ -11,63 +11,78 @@
     },
     "frontend": {
       "release-type": "node",
-      "component": "frontend"
+      "component": "frontend",
+      "skip-github-release": true
     },
     "backend/chat-service": {
       "release-type": "node",
-      "component": "chat-service"
+      "component": "chat-service",
+      "skip-github-release": true
     },
     "backend/notification-service": {
       "release-type": "node",
-      "component": "notification-service"
+      "component": "notification-service",
+      "skip-github-release": true
     },
     "backend/sensor-service": {
       "release-type": "node",
-      "component": "sensor-service"
+      "component": "sensor-service",
+      "skip-github-release": true
     },
     "backend/socket-service": {
       "release-type": "node",
-      "component": "socket-service"
+      "component": "socket-service",
+      "skip-github-release": true
     },
     "backend/agent-service": {
       "release-type": "python",
-      "component": "agent-service"
+      "component": "agent-service",
+      "skip-github-release": true
     },
     "backend/claims-gateway": {
       "release-type": "go",
-      "component": "claims-gateway"
+      "component": "claims-gateway",
+      "skip-github-release": true
     },
     "backend/provisioner": {
       "release-type": "go",
-      "component": "provisioner"
+      "component": "provisioner",
+      "skip-github-release": true
     },
     "backend/registry-service": {
       "release-type": "go",
-      "component": "registry-service"
+      "component": "registry-service",
+      "skip-github-release": true
     },
     "backend/tenancy-service": {
       "release-type": "go",
-      "component": "tenancy-service"
+      "component": "tenancy-service",
+      "skip-github-release": true
     },
     "backend/auth-contracts": {
       "release-type": "go",
-      "component": "auth-contracts"
+      "component": "auth-contracts",
+      "skip-github-release": true
     },
     "backend/auth-middleware": {
       "release-type": "go",
-      "component": "auth-middleware"
+      "component": "auth-middleware",
+      "skip-github-release": true
     },
     "backend/auth-policy": {
       "release-type": "go",
-      "component": "auth-policy"
+      "component": "auth-policy",
+      "skip-github-release": true
     },
     "backend/twin-service": {
       "release-type": "rust",
-      "component": "twin-service"
+      "component": "twin-service",
+      "skip-github-release": true
     },
     "backend/contracts-service": {
       "release-type": "rust",
-      "component": "contracts-service"
+      "component": "contracts-service",
+      "skip-github-release": true
     }
   }
 }

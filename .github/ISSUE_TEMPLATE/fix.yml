@@ -1,0 +1,19 @@
+name: Fix / Improvement
+description: Something that could be better or adjusted, but isn't broken
+title: "[fix]: "
+labels: ["fix"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What's suboptimal? What would "better" look like?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestions
+    attributes:
+      label: Suggestions
+      description: Possible approach, or open questions if unsure
+    validations:
+      required: false

@@ -1,0 +1,38 @@
+name: 'Filter Changed Languages'
+description: 'Path-filter services.json entries grouped by language (CodeQL language ids) against the diff, merged with any extra named filters'
+inputs:
+  extra_filters:
+    description: 'Extra dorny/paths-filter YAML rules to merge in alongside the per-language ones'
+    required: false
+    default: ''
+outputs:
+  changes:
+    description: 'JSON array of matched language ids (javascript-typescript/python/rust/go) + extra_filters names'
+    value: ${{ steps.filter.outputs.changes || '[]' }}
+runs:
+  using: "composite"
+  steps:
+    # tooling/eslint-config is a synthetic entry, not a services.json service
+    # — it's JS/TS tooling, so it belongs in the javascript-typescript group
+    # as a language-level fact, not something every caller re-adds itself.
+    - name: Build filters from services.json, grouped by language
+      shell: bash
+      env:
+        EXTRA_FILTERS: ${{ inputs.extra_filters }}
+      run: |
+        {
+          jq -r '
+            def maplang: if . == "node" or . == "frontend" then "javascript-typescript" else . end;
+            (. + [{"lang":"node","dir":"tooling/eslint-config"}]) |
+            group_by(.lang | maplang) | .[] |
+            "\(.[0].lang | maplang):\n" + (map("  - \"\(.dir)/**\"") | join("\n"))
+          ' .github/services.json
+          printf '%s\n' "$EXTRA_FILTERS"
+        } > filter-languages.yml
+
+    - name: Detect changed languages
+      id: filter
+      if: github.event_name == 'push' || github.event_name == 'pull_request'
+      uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
+      with:
+        filters: filter-languages.yml

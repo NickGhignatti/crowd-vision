@@ -89,6 +89,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
 
+      - name: Set lowercase image prefix
+        run: |
+          OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_PREFIX=ghcr.io/$OWNER_LOWERCASE" >> "$GITHUB_ENV"
+
       - name: Build ${{ matrix.image }}
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
         with:
@@ -96,5 +101,36 @@ jobs:
           file: ${{ steps.build.outputs.file }}
           build-args: ${{ steps.build.outputs.args }}
           push: false
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:pr-${{ github.event.pull_request.head.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      # Same gate cd-registry.yml applies at merge time, run here instead so the
+      # image below is already vetted before it ever reaches GHCR — cd-registry.yml
+      # then only has to promote (not rebuild) it once this PR lands on master.
+      - name: Scan image for vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:pr-${{ github.event.pull_request.head.sha }}
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          vuln-type: os
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pushed under a pr-<head-sha> tag only — never :latest. cd-registry.yml
+      # promotes this exact image on merge instead of rebuilding it from scratch.
+      - name: Push pr-tagged image (scan passed)
+        env:
+          IMAGE: ${{ matrix.image }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        run: docker push "$IMAGE_PREFIX/$IMAGE:pr-$PR_SHA"

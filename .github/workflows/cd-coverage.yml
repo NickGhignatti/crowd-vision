@@ -30,34 +30,24 @@ jobs:
         with:
           persist-credentials: false
 
-      # Filters are generated from services.json itself (key -> dir/**), not
-      # a second hand-maintained path list that could drift out of sync with it.
-      - name: Build change filters from services.json
-        run: |
-          {
-            jq -r '.[] | "\(.key):\n  - \"\(.dir)/**\""' .github/services.json
-            printf '%s\n' \
-              'workflow:' \
-              "  - '.github/services.json'" \
-              "  - '.github/workflows/cd-coverage.yml'" \
-              "  - '.github/workflows/tpl-rust-coverage.yml'" \
-              "  - '.github/workflows/tpl-go-coverage.yml'" \
-              "  - '.github/workflows/tpl-node-coverage.yml'" \
-              "  - '.github/workflows/tpl-python-coverage.yml'"
-          } > coverage-filters.yml
-
       - name: Detect changed services
-        if: github.event_name == 'push'
         id: filter
-        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
+        uses: ./.github/actions/filter-services
         with:
-          filters: coverage-filters.yml
+          extra_filters: |
+            workflow:
+              - '.github/services.json'
+              - '.github/workflows/cd-coverage.yml'
+              - '.github/workflows/tpl-rust-coverage.yml'
+              - '.github/workflows/tpl-go-coverage.yml'
+              - '.github/workflows/tpl-node-coverage.yml'
+              - '.github/workflows/tpl-python-coverage.yml'
 
       - name: Split registry by language
         id: split
         env:
           EVENT: ${{ github.event_name }}
-          CHANGED: ${{ steps.filter.outputs.changes || '[]' }}
+          CHANGED: ${{ steps.filter.outputs.changes }}
         run: |
           # workflow_dispatch, or services.json/the coverage templates
           # themselves changed -> recompute every service, same convention

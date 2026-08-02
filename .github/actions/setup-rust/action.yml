@@ -18,6 +18,7 @@ runs:
       with:
         toolchain: stable
         components: rustfmt, clippy, llvm-tools-preview
+        cache: false
 
     - name: Cache cargo registry + build artifacts
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
