@@ -39,7 +39,7 @@ services:
 
   kafka:
     cpus: "3"
-    image: apache/kafka:3.9.0
+    image: apache/kafka:3.9.2
     container_name: services-kafka
     restart: always
     ports: ["9092:9092"]
