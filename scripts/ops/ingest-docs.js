@@ -77,6 +77,9 @@ async function waitForReady() {
 async function ingest(file, token) {
   const content = stripQdDirectives(fs.readFileSync(file, "utf8"));
   const source = path.relative(ROOT, file);
+  // codeql[js/file-access-to-http] Intentional: this CLI's entire purpose is
+  // uploading documentation/{user,developer} files to agent-service's ingest
+  // API. AGENT_URL is operator-controlled (env var, not file/network input).
   const res = await fetch(`${AGENT_URL}/ingest`, {
     method: "POST",
     headers: {
