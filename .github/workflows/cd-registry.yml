@@ -57,6 +57,7 @@ jobs:
           # single source of truth also used by ci-gate.yml, cd-coverage.yml, and
           # maint-cleanup.yml — see that file before editing this logic.
           REGISTRY=$(jq -c '[.[] | select(.image) | {
+            key: .key,
             image: .image,
             context: (.cd_context // ("./" + .dir)),
             dockerfile: (.dockerfile // ((.cd_context // ("./" + .dir)) + "/Dockerfile"))
