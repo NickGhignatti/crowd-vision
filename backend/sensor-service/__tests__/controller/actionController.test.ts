@@ -60,4 +60,28 @@ describe("Action Controller", () => {
       }
     }
   });
+
+  it("rejects a non-http(s) endpoint URL without calling fetch", async () => {
+    const { readFile } = await import("node:fs/promises");
+    (readFile as any).mockResolvedValue(
+      JSON.stringify({
+        burn: { sensor1: { url: "file:///etc/passwd" } },
+      }),
+    );
+
+    req = {
+      body: {
+        actionData: {
+          actionName: "burn",
+          sensorId: "sensor1",
+          actionArguments: [],
+        },
+      },
+    };
+
+    await createActionHandler({} as any)(req as Request, res as Response);
+
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(statusMock).toHaveBeenCalledWith(500);
+  });
 });
