@@ -195,6 +195,7 @@ pub struct FakeSync {
     pub cloned: Mutex<Vec<(String, Option<f64>)>>,
     pub seeded_preferences: Mutex<Vec<String>>,
     pub seeded_rooms: Mutex<Vec<String>>,
+    pub failure_notifications: Mutex<Vec<(String, String)>>,
     pub refuse: bool,
 }
 
@@ -231,6 +232,13 @@ impl DownstreamSync for FakeSync {
         _claims: &str,
     ) {
         self.seeded_rooms.lock().unwrap().push(room_id.to_string());
+    }
+
+    async fn notify_provisioning_failed(&self, building_id: &str, error: &str) {
+        self.failure_notifications
+            .lock()
+            .unwrap()
+            .push((building_id.to_string(), error.to_string()));
     }
 }
 

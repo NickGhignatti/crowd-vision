@@ -79,8 +79,11 @@ impl Provisioning {
 
     // A failed upload must not leave an orphaned twin behind -- whether provisioning
     // failed before sensor-service ever heard about it, or sensor-service rejected it later.
+    // Notify before deleting: notification-service resolves the building's domains by
+    // calling back into twin-service, so the twin must still exist when it does.
     async fn fail(&self, id: &str, error: &str) -> Result<Option<Duration>, DomainError> {
         let elapsed = self.queue.mark_failed(id, error).await?;
+        self.downstream.notify_provisioning_failed(id, error).await;
         self.buildings.delete(id).await?;
         Ok(elapsed)
     }
@@ -203,6 +206,10 @@ mod tests {
             h.store.get("b1").is_none(),
             "a building sensor-service rejects must not linger in the store"
         );
+        assert_eq!(
+            h.sync.failure_notifications.lock().unwrap()[0],
+            ("b1".to_string(), "sensor-service said no".to_string())
+        );
     }
 
     #[tokio::test]
@@ -268,6 +275,7 @@ mod tests {
             h.store.get("b1").is_none(),
             "the twin written before the refused publish must not survive the failure"
         );
+        assert_eq!(h.sync.failure_notifications.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]

@@ -106,8 +106,13 @@ outbound, kafka_producer), wired in `main.rs`. `adapters/metrics.rs`/`ratelimit.
 (`tests/architecture_fitness.rs`): `domain/` no axum/mongodb/`crate::service`; `service/` no
 axum/mongodb/`crate::adapters`; `adapters/driving` no `crate::adapters::driven`. Registration:
 `POST /register` → `202`+handle, worker provisions from Mongo queue (`pending_uploads`),
-publishes Kafka event, resolves `ready`/`failed` on sensor-service's completion event. All
-writes upsert — redelivery-safe. `contracts-service` (Rust) stays flat, no restructure.
+publishes Kafka event, resolves `ready`/`failed` on sensor-service's completion event. A
+`failed` outcome (publish refused, or sensor-service's own callback) deletes the twin
+(`BuildingStore::delete`) and calls notification-service's `POST /trigger` as a system
+caller (`OutboundConfig::notify_provisioning_failed`, `NOTIFICATION_SERVICE_URL`) — notify
+before delete, since `/trigger` resolves the building's domains by calling back into
+twin-service. All writes upsert — redelivery-safe. `contracts-service` (Rust) stays flat, no
+restructure.
 
 Twin-service tests: `src/` = unit only, no real infra (`cargo test --lib` /
 `just test twin`); `tests/*.rs` = integration, real Mongo, no mocks at the boundary

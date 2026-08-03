@@ -50,4 +50,6 @@ pub trait DownstreamSync: Send + Sync {
         capacity: f64,
         claims: &str,
     );
+
+    async fn notify_provisioning_failed(&self, building_id: &str, error: &str);
 }

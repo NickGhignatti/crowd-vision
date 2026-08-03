@@ -55,6 +55,8 @@ async fn main() {
             .unwrap_or_else(|_| "http://localhost:3000".to_string()),
         contracts_service_url: env::var("CONTRACTS_SERVICE_URL")
             .unwrap_or_else(|_| "http://localhost:3001".to_string()),
+        notification_service_url: env::var("NOTIFICATION_SERVICE_URL")
+            .unwrap_or_else(|_| "http://localhost:3004".to_string()),
         sync_enabled,
         client: reqwest::Client::new(),
     };
