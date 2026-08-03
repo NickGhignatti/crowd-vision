@@ -97,67 +97,31 @@ The agent-service runs as part of the system but sits outside this guide's micro
 
 ---
 
+## Module View
+
+Build-time dependency graph — what needs what to compile. Not the same as
+request-time calls between services, see [Communication & Data Flow](data-flow.qd).
+
+- `crowdvision` root splits into `frontend` and `backend` — the two top-level
+  trees in the monorepo (`frontend/`, `backend/*`).
+- `auth-contracts` — Shared Kernel, dependency floor for every backend module.
+- `auth-middleware`, `auth-policy` depend on it, nothing else.
+- `claims-gateway`, `tenancy-service` pull in the Go auth libs. `twin-service`,
+  `agent-service` embed only `auth-policy`'s Cedar bundle (`include_str!` /
+  `cedarpy`, not a package import).
+- `registry-service`, `provisioner`, `sensor-service`, `contracts-service`,
+  `notification-service`, `socket-service`, `chat-service` — no shared-lib
+  dependency, hang directly off `backend`.
+
+![Module view diagram](images/module-view.png)
+
+---
+
 ## Deployment Model: Docker Compose (Local Development)
 
 All incoming external traffic enters the system through a single **Caddy** reverse-proxy gateway exposed on port `80`. Caddy strips the service prefixes from the URLs and proxies the requests to the appropriate target containers on the internal Docker bridge network. For protected routes, Caddy's `forward_auth` calls claims-gateway's `/verify` and copies the resulting `X-Gateway-Claims` header onto the request — the docker-compose equivalent of Istio's `RequestAuthentication` + `outputPayloadToHeader` in the Kubernetes model below.
 
-.mermaid
-    graph TD
-        Browser["Browser / Vue Client"] -->|HTTP + WS| Caddy["Caddy Gateway :80"]
-        IoT["IoT Sensors (Simulated)"] -->|HTTP POST| Caddy
-
-        subgraph gateway-net [Shared Gateway Network]
-            Caddy -->|/gateway/*| CG["claims-gateway :3000"]
-            Caddy -->|"/tenancy/* (forward_auth)"| TS["tenancy-service :3000"]
-            Caddy -->|"/twin/* (forward_auth)"| Twin["twin-service :3000"]
-            Caddy -->|"/notification/* (forward_auth)"| Notif["notification-service :3000"]
-            Caddy -->|"/socket.io/* (forward_auth)"| Socket["socket-server :3000"]
-            Caddy -->|"/sensor/* (forward_auth, ingest exempt)"| Sensor["sensor-service :3000"]
-            Caddy -->|"/chat/* (forward_auth)"| Chat["chat-service :3000"]
-            Caddy -->|/agent/* - no gate| Agent["agent-service :3000"]
-            Caddy -->|/contracts, /contracts/*| Contracts["contracts-service :3000"]
-
-            Notif -->|PUBLISH| Redis[("Redis Broker")]
-            Socket -->|SUBSCRIBE| Redis
-            Contracts --- Redis
-        end
-
-        RegSvc["registry-service :3000"]
-        ProvSvc["provisioner<br/>(no inbound route)"]
-        ProvSvc -->|"HMAC-signed, internal"| RegSvc
-        ProvSvc -->|"HMAC-signed, internal"| TS
-
-        subgraph tenancy-net [Tenancy Private Network]
-            TS --- TenancyDB[("tenancy-db PostgreSQL")]
-        end
-
-        subgraph registry-net [Registry Private Network]
-            RegSvc --- RegistryDB[("registry-db PostgreSQL")]
-        end
-
-        subgraph twin-net [Twin Private Network]
-            Twin --- TwinDB[("twin-db MongoDB")]
-        end
-
-        subgraph notification-net [Notification Private Network]
-            Notif --- NotifDB[("notification-db MongoDB")]
-        end
-
-        subgraph sensor-net [Sensor Private Network]
-            Sensor --- SensorDB[("sensor-db MongoDB")]
-        end
-
-        subgraph chat-net [Chat Private Network]
-            Chat --- ChatDB[("chat-db MongoDB")]
-        end
-
-        subgraph contracts-net [Contracts Private Network]
-            Contracts --- ContractsDB[("contracts-service-db MongoDB")]
-        end
-
-        subgraph agent-net [Agent Private Network]
-            Agent --- AgentDB[("agent-db PostgreSQL / pgvector")]
-        end
+![Docker Compose deployment diagram](images/compose-view.png)
 
 ### Network Segregation & Database Isolation
 Each stateful microservice is attached to two networks:
@@ -172,44 +136,7 @@ This is the intended database-per-service boundary: no service is meant to reach
 
 In Kubernetes mode, Caddy is replaced by an **Istio Gateway** (Gateway API, `gatewayClassName: istio`) fronting an **Istio ambient mesh**: a per-node `ztunnel` DaemonSet gives every pod L4 mTLS and workload identity with no sidecar and no pod restarts, `PeerAuthentication` enforces `STRICT` mTLS across the `crowdvision` namespace, and a `RequestAuthentication` on the gateway verifies the claims-gateway-issued JWT exactly once — the validated payload is injected as a single `x-gateway-claims` header via `outputPayloadToHeader`, and every downstream service decodes that header instead of re-verifying the JWT itself. The full phased migration is documented in [Service Mesh Architecture](service-mesh.qd).
 
-.mermaid
-    graph TD
-        Browser["Browser / Vue Client"] -->|HTTP port 80| LB["k3d LoadBalancer"]
-        Simulator["Sensor Simulator (external Docker)"] -->|HTTP POST| LB
-
-        LB --> IGW["Istio Gateway (Envoy)<br/>auto-provisioned: crowdvision-gateway-istio"]
-
-        subgraph crowdvision ["Namespace: crowdvision — Istio ambient, ztunnel mTLS STRICT on every pod"]
-            IGW -->|"RequestAuthentication: JWT verified once<br/>outputPayloadToHeader to x-gateway-claims"| HR{{"Gateway API HTTPRoutes"}}
-
-            HR -->|/gateway| CGSvc["claims-gateway"]
-            HR -->|/tenancy| TSSvc["tenancy-service"]
-            HR -->|/twin| TwinSvc["twin-service"]
-            HR -->|/sensor| SensorSvc["sensor-service"]
-            HR -->|/notification| NotifSvc["notification-service"]
-            HR -->|/chat| ChatSvc["chat-service"]
-            HR -->|/socket.io| SocketSvc["socket-service"]
-            HR -->|"/agent (excluded from JWT gate)"| AgentSvc["agent-service"]
-            HR -->|/contracts| ContractsSvc["contracts-service"]
-            HR -->|"/ catch-all"| ClientSvc["client"]
-
-            RegSvc["registry-service"]
-            ProvSvc["provisioner<br/>(no Gateway route)"]
-            ProvSvc -->|"HMAC-signed, in-mesh"| RegSvc
-            ProvSvc -->|"HMAC-signed, in-mesh"| TSSvc
-
-            TSSvc --- TenancyDB[("tenancy-db StatefulSet")]
-            RegSvc --- RegistryDB[("registry-db StatefulSet")]
-            TwinSvc --- TwinDB[("twin-db StatefulSet")]
-            NotifSvc --- NotifDB[("notification-db StatefulSet")]
-            SensorSvc --- SensorDB[("sensor-db StatefulSet")]
-            ChatSvc --- ChatDB[("chat-db StatefulSet")]
-            ContractsSvc --- ContractsDB[("contracts-service-db StatefulSet")]
-
-            SocketSvc -->|SUBSCRIBE| RedisPod[("Redis Deployment")]
-            NotifSvc -->|PUBLISH| RedisPod
-            ContractsSvc --- RedisPod
-        end
+![Kubernetes deployment diagram](images/k8s-view.png)
 
 A key difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it reaches the cluster through the load balancer's public port, just like a browser. See the [External Sensor Simulator](../config/sensor-simulator.qd) page. The cluster internals — StatefulSets, Secrets, Gateway API routes — are detailed in [Deployment & Kubernetes](deployment.qd); the mesh internals (ztunnel, `RequestAuthentication`, `AuthorizationPolicy`, Cedar) in [Service Mesh Architecture](service-mesh.qd).
 
