@@ -11,6 +11,7 @@ pub trait BuildingStore: Send + Sync {
     async fn find_by_domain(&self, domain: &str) -> anyhow::Result<Vec<Building>>;
     async fn find_by_name(&self, name: &str) -> anyhow::Result<Vec<Building>>;
     async fn upsert(&self, building: &Building) -> anyhow::Result<()>;
+    async fn delete(&self, id: &str) -> anyhow::Result<()>;
     async fn counts_by_domain(&self, domains: &[String]) -> anyhow::Result<HashMap<String, i64>>;
 }
 

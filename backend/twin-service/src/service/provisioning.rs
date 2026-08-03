@@ -50,9 +50,7 @@ impl Provisioning {
 
         if let Err(e) = self.provision(&upload).await {
             log::error!("provisioning {} failed: {e:?}", upload.id);
-            self.queue
-                .mark_failed(&upload.id, &format!("{e:?}"))
-                .await?;
+            self.fail(&upload.id, &format!("{e:?}")).await?;
         }
         Ok(true)
     }
@@ -73,10 +71,18 @@ impl Provisioning {
         id: &str,
         error: Option<&str>,
     ) -> Result<Option<Duration>, DomainError> {
-        Ok(match error {
-            None => self.queue.mark_ready(id).await?,
-            Some(e) => self.queue.mark_failed(id, e).await?,
-        })
+        match error {
+            None => Ok(self.queue.mark_ready(id).await?),
+            Some(e) => self.fail(id, e).await,
+        }
+    }
+
+    // A failed upload must not leave an orphaned twin behind -- whether provisioning
+    // failed before sensor-service ever heard about it, or sensor-service rejected it later.
+    async fn fail(&self, id: &str, error: &str) -> Result<Option<Duration>, DomainError> {
+        let elapsed = self.queue.mark_failed(id, error).await?;
+        self.buildings.delete(id).await?;
+        Ok(elapsed)
     }
 }
 
@@ -193,6 +199,10 @@ mod tests {
             UploadStatus::Failed
         );
         assert!(h.queue.errors.lock().unwrap()["b1"].contains("sensor-service said no"));
+        assert!(
+            h.store.get("b1").is_none(),
+            "a building sensor-service rejects must not linger in the store"
+        );
     }
 
     #[tokio::test]
@@ -253,6 +263,10 @@ mod tests {
         assert!(
             h.queue.errors.lock().unwrap()["b1"].contains("kafka said no"),
             "the reason has to survive for whoever polls the handle"
+        );
+        assert!(
+            h.store.get("b1").is_none(),
+            "the twin written before the refused publish must not survive the failure"
         );
     }
 

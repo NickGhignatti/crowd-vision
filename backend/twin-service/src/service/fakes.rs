@@ -107,6 +107,11 @@ impl BuildingStore for FakeStore {
         Ok(())
     }
 
+    async fn delete(&self, id: &str) -> anyhow::Result<()> {
+        self.written.lock().unwrap().retain(|b| b.id != id);
+        Ok(())
+    }
+
     async fn counts_by_domain(&self, domains: &[String]) -> anyhow::Result<HashMap<String, i64>> {
         let written = self.written.lock().unwrap();
         let mut counts = HashMap::new();
