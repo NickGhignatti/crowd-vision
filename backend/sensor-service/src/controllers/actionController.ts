@@ -34,6 +34,15 @@ function sanitizeForLog(value: string): string {
   return value.replace(/[\r\n]/g, "");
 }
 
+/** Rejects non-http(s) endpoint URLs, e.g. `file:`/`unix:`, before they reach `fetch`. */
+function isHttpUrl(value: string): boolean {
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
 /** Maps positional args to field names: `{"0":"value"}` + `["21"]` -> `{ value: "21" }`. */
 function mapArguments(
   mapping: Record<string, string> | undefined,
@@ -99,6 +108,14 @@ export function createActionHandler(_kernel: SensorKernel) {
       res.status(404).json({
         error: `No endpoint configured for sensor '${sensorId}' on action '${actionName}'.`,
       });
+      return;
+    }
+
+    if (!isHttpUrl(endpoint.url)) {
+      console.error(
+        `[actionController] Refusing non-http(s) endpoint URL for action='${sanitizeForLog(actionName)}' sensor='${sanitizeForLog(sensorId)}'.`,
+      );
+      res.status(500).json({ error: "Action configuration is unavailable." });
       return;
     }
 
