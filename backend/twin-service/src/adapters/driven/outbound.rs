@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use serde_json::json;
 
 use crate::domain::Building;
@@ -8,6 +10,7 @@ use crate::service::ports::DownstreamSync;
 pub struct OutboundConfig {
     pub sensor_service_url: String,
     pub contracts_service_url: String,
+    pub notification_service_url: String,
     pub sync_enabled: bool,
     pub client: reqwest::Client,
 }
@@ -35,6 +38,10 @@ impl DownstreamSync for OutboundConfig {
         claims: &str,
     ) {
         init_room_thresholds(self, building_id, room_id, capacity, Some(claims)).await
+    }
+
+    async fn notify_provisioning_failed(&self, building_id: &str, error: &str) {
+        notify_provisioning_failed(self, building_id, error).await
     }
 }
 
@@ -147,6 +154,40 @@ pub async fn init_building_preferences(
     }
 }
 
+// The failure notification fires from the provisioning worker (sensor-service's own
+// callback, or a refused Kafka publish) -- there is no end-user request to forward
+// claims from, so it authenticates as a system caller (mirrors notification-service's
+// own SYSTEM_CLAIMS_HEADER for its Redis-triggered alerts).
+fn system_claims_header() -> String {
+    STANDARD.encode(
+        r#"{"sub":"system:twin-service","accountName":"system:twin-service","memberships":[]}"#,
+    )
+}
+
+pub async fn notify_provisioning_failed(config: &OutboundConfig, building_id: &str, error: &str) {
+    if !config.sync_enabled {
+        return;
+    }
+    let url = format!("{}/trigger", config.notification_service_url);
+    let payload = json!({
+        "buildingName": building_id,
+        "message": format!("Provisioning failed for building {building_id}: {error}"),
+        "type": "danger",
+    });
+    if let Err(err) = config
+        .client
+        .post(&url)
+        .headers(auth_headers(Some(&system_claims_header())))
+        .json(&payload)
+        .send()
+        .await
+    {
+        log::error!(
+            "[notification] failed to notify provisioning failure for {building_id}: {err}"
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,6 +223,7 @@ mod tests {
         OutboundConfig {
             sensor_service_url: server.uri(),
             contracts_service_url: server.uri(),
+            notification_service_url: server.uri(),
             sync_enabled: true,
             client: reqwest::Client::new(),
         }
@@ -223,6 +265,7 @@ mod tests {
         let cfg = OutboundConfig {
             sensor_service_url: "http://127.0.0.1:1".to_string(),
             contracts_service_url: "http://127.0.0.1:1".to_string(),
+            notification_service_url: "http://127.0.0.1:1".to_string(),
             sync_enabled: false,
             client: reqwest::Client::new(),
         };
@@ -231,6 +274,7 @@ mod tests {
             .unwrap();
         init_room_thresholds(&cfg, "b1", "r1", 10.0, None).await;
         init_building_preferences(&cfg, "b1", None).await;
+        notify_provisioning_failed(&cfg, "b1", "boom").await;
     }
 
     #[tokio::test]
@@ -252,9 +296,35 @@ mod tests {
         let cfg = OutboundConfig {
             sensor_service_url: "http://127.0.0.1:1".to_string(),
             contracts_service_url: "http://127.0.0.1:1".to_string(),
+            notification_service_url: "http://127.0.0.1:1".to_string(),
             sync_enabled: true,
             client: reqwest::Client::new(),
         };
         init_room_thresholds(&cfg, "b1", "r1", 10.0, None).await;
+    }
+
+    #[tokio::test]
+    async fn notify_provisioning_failed_never_fails_the_caller_on_transport_error() {
+        let cfg = OutboundConfig {
+            sensor_service_url: "http://127.0.0.1:1".to_string(),
+            contracts_service_url: "http://127.0.0.1:1".to_string(),
+            notification_service_url: "http://127.0.0.1:1".to_string(),
+            sync_enabled: true,
+            client: reqwest::Client::new(),
+        };
+        notify_provisioning_failed(&cfg, "b1", "boom").await;
+    }
+
+    #[tokio::test]
+    async fn notify_provisioning_failed_posts_to_the_trigger_endpoint_as_a_system_caller() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/trigger"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        let cfg = config(&server).await;
+        notify_provisioning_failed(&cfg, "b1", "sensor-service said no").await;
     }
 }

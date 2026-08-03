@@ -51,6 +51,7 @@ pub async fn build(label: &str) -> TestApp {
     let outbound = OutboundConfig {
         sensor_service_url: "http://127.0.0.1:1".to_string(),
         contracts_service_url: "http://127.0.0.1:1".to_string(),
+        notification_service_url: "http://127.0.0.1:1".to_string(),
         sync_enabled: false,
         client: reqwest::Client::new(),
     };

@@ -38,6 +38,10 @@ impl BuildingStore for MongoBuildings {
         upsert(&self.col, building).await
     }
 
+    async fn delete(&self, id: &str) -> anyhow::Result<()> {
+        delete(&self.col, id).await
+    }
+
     async fn counts_by_domain(&self, domains: &[String]) -> anyhow::Result<HashMap<String, i64>> {
         counts_by_domain(&self.col, domains).await
     }
@@ -86,6 +90,11 @@ pub async fn upsert(col: &Collection<Building>, building: &Building) -> anyhow::
     col.replace_one(id_match_filter(&building.id), building)
         .upsert(true)
         .await?;
+    Ok(())
+}
+
+pub async fn delete(col: &Collection<Building>, id: &str) -> anyhow::Result<()> {
+    col.delete_one(id_match_filter(id)).await?;
     Ok(())
 }
 

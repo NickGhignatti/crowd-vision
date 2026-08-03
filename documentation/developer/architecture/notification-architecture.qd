@@ -47,6 +47,8 @@ The service has **two entry points into the same service layer**, not just one. 
 
 `POST /trigger`, `POST /push/temperature`, and the `alerts:temperature` Redis subscription — the path that actually fires for every automatic sensor-driven threshold breach (see [Communication & Data Flow](data-flow.qd)'s Threshold Alert flow) — all resolve recipients via twin-service, debounce, and dispatch on both channels. The two HTTP routes forward the calling user's own `x-gateway-claims` header to twin-service's building→domain lookup; the event-listener path has no HTTP caller to forward a token from, so it presents a fixed system identity instead (`getDomainsForBuilding`'s default `claimsHeader`, in `notificationService.ts`) — safe only because that specific twin-service route (`GET /domain/:building_name`) doesn't perform any per-identity authorization, it just requires *a* structurally valid claims header to exist.
 
+`POST /trigger` has a third caller besides the browser: twin-service itself, on a failed building provisioning (`Provisioning::fail`, see [Digital Twin Service](../services/digital-twin.qd)). Same shape as the event-listener path — no end user in the loop, so it authenticates as a fixed system identity too — but it's an in-mesh service-to-service call, not a Redis event.
+
 .box {The event-listener path degrades gracefully instead of failing loudly} type:{note}
     `pushTemperatureAlert` throws a `ValidationError` (400) if no domain can be determined — reasonable for a synchronous HTTP call, where silence would be bad UX. The event-listener path can't do that (there's no HTTP response to fail), so if the twin-service lookup errors or resolves to zero domains, it falls back to the old unscoped broadcast (`sendTemperatureAlert` straight to the `notifications` channel) rather than dropping the alert entirely. The 5-minute cooldown still applies either way, so a building that can't be resolved doesn't flood the channel.
 
@@ -71,5 +73,6 @@ The service has **two entry points into the same service layer**, not just one. 
 - Owns `notification-db`; no other service reads it.
 - Receives temperature events from sensor-service via the `alerts:temperature` Redis channel; publishes to the `notifications` channel for socket-service to relay — see [Communication & Data Flow](data-flow.qd).
 - Calls twin-service to resolve a building's domains — from the authenticated HTTP alert routes (`triggerAlert`, `pushTemperatureAlert`, forwarding the caller's own claims) and from the `alerts:temperature` event listener (using a fixed system identity, since there's no caller to forward).
+- Called by twin-service on a failed building provisioning (`POST /trigger`, system identity, in-mesh) — see [Digital Twin Service](../services/digital-twin.qd).
 
 For the throttle mechanics, VAPID delivery, the cleanup behaviour, and the API, see the [Notification Service](../services/notification.qd) internals page.
