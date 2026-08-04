@@ -1,4 +1,15 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(graphify query *)",
+      "Bash(graphify explain *)",
+      "Bash(graphify path *)",
+      "Bash(mise exec -- cargo test *)",
+      "Bash(mise exec -- cargo check *)",
+      "Bash(mise exec -- cargo clippy *)",
+      "Bash(mise exec -- npx jest *)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -20,15 +31,6 @@
           {
             "type": "command",
             "command": "/home/nick/.local/bin/graphify hook-guard search"
-          }
-        ]
-      },
-      {
-        "matcher": "Read|Glob",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/nick/.local/bin/graphify hook-guard read"
           }
         ]
       }
