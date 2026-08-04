@@ -44,8 +44,6 @@ just stack env          # generate .env, prompts once
 just stack dev           # full compose stack, hot-reload
 just stack dev-light     # same, minus agent-service + tracing stack
 
-just lint fix            # format + autofix everywhere
-just lint affected        # mirrors ci-lint
 just test affected        # mirrors per-service CI legs
 just test all              # full suite
 just test <chat|twin|notification|sensor|socket|frontend|agent>
@@ -87,37 +85,17 @@ once, injects `x-gateway-claims` header. Downstream services decode header, trus
 re-verify. `claims-gateway` = only signature verifier. `agent-service` excluded from edge gate
 (own HS256 dev token) — both edges strip client-supplied `x-gateway-claims` on `/agent/*`.
 
-**Cedar authz**: local, no remote PDP — `tenancy-service` (cedar-go), `twin-service`
-(cedar-policy, compile-time `include_str!`). Shared bundle `backend/auth-policy`, copied into
-each build. Role weights pre-expanded to flat domain sets before Cedar runs (Cedar does set
-membership, not rank). **`in` = entity-hierarchy, `.contains()` = set membership — using `in`
-for the latter silently denies everything.**
+**Cedar authz**: local, no remote PDP. Shared bundle `backend/auth-policy` (see its
+`CLAUDE.md`). **`in` = entity-hierarchy, `.contains()` = set membership — using `in` for the
+latter silently denies everything.**
 
 **Go control-plane** (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`):
 Ports & Adapters. Core in `internal/service`/`internal/reconciler`, depends only on its own
 interfaces, wired in `cmd/<service>/main.go`. Only outbound side has real port/adapter split —
 inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = ticker loop.
 
-**twin-service** (Rust), same shape: `domain/` (entities, no axum/mongodb), `service/` (use
-cases + `BuildingStore`/`UploadQueue`/`DownstreamSync`/`RegistrationEvents` ports),
-`adapters/driving/` (http_api, worker, kafka_consumer), `adapters/driven/` (persistence,
-outbound, kafka_producer), wired in `main.rs`. `adapters/metrics.rs`/`ratelimit.rs`/`topics.rs`
-= cross-cutting. Ports = `Arc<dyn Trait>`, not generics. Test-enforced
-(`tests/architecture_fitness.rs`): `domain/` no axum/mongodb/`crate::service`; `service/` no
-axum/mongodb/`crate::adapters`; `adapters/driving` no `crate::adapters::driven`. Registration:
-`POST /register` → `202`+handle, worker provisions from Mongo queue (`pending_uploads`),
-publishes Kafka event, resolves `ready`/`failed` on sensor-service's completion event. A
-`failed` outcome (publish refused, or sensor-service's own callback) deletes the twin
-(`BuildingStore::delete`) and calls notification-service's `POST /trigger` as a system
-caller (`OutboundConfig::notify_provisioning_failed`, `NOTIFICATION_SERVICE_URL`) — notify
-before delete, since `/trigger` resolves the building's domains by calling back into
-twin-service. All writes upsert — redelivery-safe. `contracts-service` (Rust) stays flat, no
-restructure.
-
-Twin-service tests: `src/` = unit only, no real infra (`cargo test --lib` /
-`just test twin`); `tests/*.rs` = integration, real Mongo, no mocks at the boundary
-(`just test twin-integration`, composed via `docker-compose.test.yml` — test process and
-Mongo share one Docker network, never a host-published port).
+**twin-service** (Rust): same Ports & Adapters shape, test-enforced. Detail in
+`backend/twin-service/CLAUDE.md`. `contracts-service` (Rust) stays flat, no restructure.
 
 **Service mesh**: prod/staging = Istio ambient (`ztunnel` L4 mTLS, no sidecars; optional
 `waypoint` for L7). Trust: hard perimeter, guarded interior — edge authenticates once, every
@@ -173,7 +151,6 @@ Violating one won't be accepted regardless of CI status (full detail:
 - **Less code wins.** Delete over add. Cheaper algorithm over naive one.
 - **Know your deps** before writing something that exists in stdlib/`go.mod`/`Cargo.toml`/
   `package.json`/`pyproject.toml`.
-- **Loop per change**: format (auto) → test → lint (`just lint affected`) → simplify pass.
 
 ## Token & Performance Optimization
 
@@ -181,15 +158,14 @@ Claude Code only. Enforcement lives in `.claude/` (hooks + one command) — poin
 rules to remember.
 
 - **RTK** — every `Bash` call auto-rewritten compact. Hook: `PreToolUse[Bash]` →
-  `rtk hook claude`. Nothing to do.
+  `rtk hook claude`. For big dumps call it directly: `rtk test <cmd>` (failures only),
+  `rtk err <cmd>`, `rtk log`, `rtk diff`, `rtk grep`.
 - **Caveman** — every response terse. Plugin-enforced (own session hook). Code/commits/
   PRs/security stay full prose. `/caveman lite|full|ultra` to change level.
-- **Format-on-save** — every `Write`/`Edit` auto-formatted. Hook: `PostToolUse[Write|Edit]`
-  → `format-on-save.sh`.
 - **Scout** — read-only lookups (file reads, grep, log output) go through `/scout`:
   `Agent` + `subagent_type: "Explore"` + `model: "haiku"`.
-- **Graphify** — rules in auto-managed `## graphify` section below, don't hand-edit. Git
-  post-commit hook re-extracts on every human commit.
+- **Graphify** — query rules in auto-managed `## graphify` section below, don't hand-edit.
+  Git post-commit hook re-extracts; never run `graphify update` by hand.
 
 ## graphify
 
@@ -199,4 +175,3 @@ Rules:
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
