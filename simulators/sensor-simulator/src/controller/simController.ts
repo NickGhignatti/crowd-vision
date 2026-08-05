@@ -70,10 +70,7 @@ export const isRunning = async (
   }
 };
 
-export const isReceivingAction = async (
-  req: Request,
-  res: Response,
-) => {
+export const isReceivingAction = async (req: Request, res: Response) => {
   console.log(sanitizeForLog(req.body));
-  res.status(202);
+  res.sendStatus(202);
 };

@@ -29,9 +29,10 @@ export class Simulator {
     if (building.targetUrl) {
       let parsedUrl = building.targetUrl.replace(/\/$/, "");
       if (parsedUrl.includes("localhost") || parsedUrl.includes("127.0.0.1")) {
-        parsedUrl = parsedUrl
-          .replace(/localhost/g, "gateway")
-          .replace(/127\.0\.0\.1/g, "gateway");
+        const url = new URL(parsedUrl);
+        url.hostname = "gateway";
+        url.port = "80";
+        parsedUrl = url.toString().replace(/\/$/, "");
       }
 
       building.targetUrl = parsedUrl;

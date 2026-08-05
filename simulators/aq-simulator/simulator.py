@@ -18,6 +18,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -111,9 +112,9 @@ class SimulationBuilding:
     @property
     def target_url(self) -> str:
         url = self.config.targetUrl.rstrip("/")
-        # Docker-internal host remapping (mirrors the TypeScript behaviour)
-        url = url.replace("localhost", "gateway")
-        url = url.replace("127.0.0.1", "gateway")
+        parsed = urlsplit(url)
+        if parsed.hostname in ("localhost", "127.0.0.1"):
+            url = urlunsplit(parsed._replace(netloc="gateway:80")).rstrip("/")
         return url
 
     @property
