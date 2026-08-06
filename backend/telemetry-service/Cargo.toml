@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-
-[[test]]
-name = "cucumber"
-harness = false
+anyhow = "1.0.104"
+serde = { version = "1.0.229", features = ["derive"] }
 
 [profile.release]
 overflow-checks = true
