@@ -38,10 +38,6 @@ twin-integration:
 notification:
     mise exec -- moon run notification-service:test
 
-[doc("Unit tests for sensor-service.")]
-sensor:
-    mise exec -- moon run sensor-service:test
-
 [doc("Unit tests for socket-service.")]
 socket:
     mise exec -- moon run socket-service:test
