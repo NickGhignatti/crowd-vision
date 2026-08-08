@@ -50,8 +50,18 @@ fn test_kernel_imports() {
 fn test_plugins_not_depends_on_plugins() {
     let mut plugins = list_dir("src/plugins");
     plugins.retain(|value| value.file_name().and_then(|n| n.to_str()).unwrap() != "common");
-    for plugin in plugins {
-        assert_forbidden_imports(plugin.to_str().unwrap(), &["crate::plugins"]);
+    for plugin in plugins.iter() {
+        let me = plugin.file_name().and_then(|n| n.to_str()).unwrap();
+        let siblings: Vec<String> = plugins
+            .iter()
+            .map(|p| p.file_name().and_then(|n| n.to_str()).unwrap())
+            .filter(|n| *n != me)
+            .map(|n| format!("crate::plugins::{n}"))
+            .collect();
+        assert_forbidden_imports(
+            me,
+            &(siblings.iter().map(|s| s.as_str()).collect::<Vec<_>>()),
+        );
     }
 }
 
