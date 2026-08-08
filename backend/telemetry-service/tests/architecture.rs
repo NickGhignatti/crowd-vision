@@ -1,5 +1,14 @@
 use std::path::Path;
 
+const IO_CRATES: &[&str] = &[
+    "use sqlx",
+    "use redis",
+    "use rdkafka",
+    "use axum",
+    "use reqwest",
+    "use prometheus",
+];
+
 fn file_is_rust(path: &Path) -> bool {
     path.extension().is_some_and(|e| e == "rs")
 }
@@ -24,7 +33,7 @@ fn list_dir(dir: &str) -> Vec<std::path::PathBuf> {
         .collect()
 }
 
-fn assert_forbidden_imports(dir: &str, forbidden: &[&str]) {
+fn assert_forbidden_imports<S: AsRef<str>>(dir: &str, forbidden: &[S]) {
     let mut files = Vec::new();
     file_under_dir(Path::new(dir), &mut files);
     assert!(!files.is_empty(), "no rust files under {dir}");
@@ -32,10 +41,10 @@ fn assert_forbidden_imports(dir: &str, forbidden: &[&str]) {
         let content = std::fs::read_to_string(&file).unwrap();
         for forbidden in forbidden {
             assert!(
-                !content.contains(forbidden),
+                !content.contains(forbidden.as_ref()),
                 "file {} ({dir}) contains forbidden import {}",
                 file.display(),
-                forbidden
+                forbidden.as_ref()
             );
         }
     }
@@ -43,7 +52,8 @@ fn assert_forbidden_imports(dir: &str, forbidden: &[&str]) {
 
 #[test]
 fn test_kernel_imports() {
-    assert_forbidden_imports("src/kernel", &["crate::plugins"]);
+    assert_forbidden_imports("src/kernel", &["crate::plugins", "crate::adapters"]);
+    assert_forbidden_imports("src/kernel", IO_CRATES);
 }
 
 #[test]
@@ -58,18 +68,20 @@ fn test_plugins_not_depends_on_plugins() {
             .filter(|n| *n != me)
             .map(|n| format!("crate::plugins::{n}"))
             .collect();
-        assert_forbidden_imports(
-            me,
-            &(siblings.iter().map(|s| s.as_str()).collect::<Vec<_>>()),
-        );
+        assert_forbidden_imports(plugin.to_str().unwrap(), &siblings);
     }
+}
+
+#[test]
+fn test_plugins_imports() {
+    assert_forbidden_imports("src/plugins", &["crate::kernel", "crate::adapters"]);
+    assert_forbidden_imports("src/plugins", IO_CRATES);
 }
 
 #[test]
 fn test_core_not_depends_on_adapters() {
     assert_forbidden_imports("src/kernel", &["crate::adapters"]);
     assert_forbidden_imports("src/plugins", &["crate::adapters"]);
-    assert_forbidden_imports("src/contracts", &["crate::adapters"]);
 }
 
 #[test]
@@ -78,4 +90,5 @@ fn test_contracts_not_depends_on_anything() {
         "src/contracts",
         &["crate::adapters", "crate::plugins", "crate::kernel"],
     );
+    assert_forbidden_imports("src/contracts", IO_CRATES);
 }
