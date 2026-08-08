@@ -27,6 +27,7 @@ fn list_dir(dir: &str) -> Vec<std::path::PathBuf> {
 fn assert_forbidden_imports(dir: &str, forbidden: &[&str]) {
     let mut files = Vec::new();
     file_under_dir(Path::new(dir), &mut files);
+    assert!(!files.is_empty(), "no rust files under {dir}");
     for file in files {
         let content = std::fs::read_to_string(&file).unwrap();
         for forbidden in forbidden {
