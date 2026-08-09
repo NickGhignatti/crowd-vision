@@ -1,5 +1,5 @@
-use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+use base64::Engine;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -21,6 +21,7 @@ struct GatewayClaims {
     memberships: Option<Vec<Value>>,
 }
 
+/// Decodes a base64-encoded JWT header with 4 different versions of the engine.
 fn decode(header: &str) -> Option<Vec<u8>> {
     [STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD]
         .iter()
