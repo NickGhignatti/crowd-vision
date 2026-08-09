@@ -4,7 +4,7 @@ use socketioxide::SocketIo;
 use socketioxide::extract::{Data, Extension, SocketRef};
 
 use crate::auth::{CLAIMS_HEADER, Identity, authenticate_claims_header};
-use crate::metrics::CONNECTED_CLIENTS;
+use crate::metrics::{CONNECTED_CLIENTS, CONNECTIONS_REJECTED_TOTAL};
 use crate::relay::{Delivery, Target};
 use crate::rooms::{room_for_building, room_for_domain};
 
@@ -24,7 +24,11 @@ pub async fn authenticate(s: SocketRef) -> Result<(), Unauthorized> {
         .get(CLAIMS_HEADER)
         .and_then(|value| value.to_str().ok());
 
-    let identity = authenticate_claims_header(header).ok_or(Unauthorized)?;
+    let Some(identity) = authenticate_claims_header(header) else {
+        CONNECTIONS_REJECTED_TOTAL.inc();
+        return Err(Unauthorized);
+    };
+
     s.extensions.insert(identity);
     Ok(())
 }

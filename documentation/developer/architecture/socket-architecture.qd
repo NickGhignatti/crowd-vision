@@ -37,6 +37,30 @@ The connect middleware decodes the mesh-injected `x-gateway-claims` header on th
         SRV -->|room-scoped| CL[Connected clients]
         SRV -->|room-scoped / broadcast| CL
 
+### Fitness functions
+
+The core/shell split is **test-enforced**, not a convention — `tests/architecture.rs` fails the build on:
+
+.var {headers}
+   - Rule
+   - Why it matters
+
+.tablebyrows {.headers}
+    - - The core (`auth.rs`, `relay.rs`, `rooms.rs`) imports no I/O crate — no `axum`, `redis`, `socketioxide`, `tokio`, `tower_http`, `prometheus`.
+      - The moment a socket type reaches the core, its logic stops being testable without infrastructure.
+    - - The core never names `crate::handlers`, `crate::server`, or `crate::metrics`.
+      - Dependencies point inward. The shell calls the core, never the reverse.
+    - - No `async fn` or `.await` in the core.
+      - A pure function has nothing to await; async there is proof that I/O leaked in.
+    - - The literals `"building:` and `"domain:` appear only in `rooms.rs`.
+      - Room names are a wire contract with the browser. One source, or they drift.
+    - - The literal `x-gateway-claims` appears only in `auth.rs`.
+      - The header name is the trust boundary; it is referenced elsewhere through `CLAIMS_HEADER`.
+    - - `main.rs` does not reach into `auth`, `relay`, `rooms`, or `handlers`.
+      - It binds a port and installs signal handlers; wiring is `server.rs`'s job.
+
+Each rule was verified by injecting a violation and confirming the corresponding test fails — a fitness function that has never gone red is an assertion about nothing.
+
 ### Components & Connectors diagram
 
 ![Socket Service C&C diagram](images/cc-socket-service.svg)

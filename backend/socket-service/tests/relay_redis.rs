@@ -7,7 +7,10 @@ use redis::AsyncCommands;
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::{Event, Payload};
 use serde_json::Value;
-use socket_service::metrics::TELEMETRY_RELAYED_TOTAL;
+use socket_service::metrics::{
+    CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, RELAY_MESSAGES_SKIPPED_TOTAL,
+    RELAY_PAYLOAD_BYTES_TOTAL, TELEMETRY_RELAYED_TOTAL,
+};
 use socket_service::server::{redis_url, serve};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, UnboundedReceiver};
@@ -72,6 +75,12 @@ async fn connect(
     (client, receiver)
 }
 
+fn telemetry_bytes() -> u64 {
+    RELAY_PAYLOAD_BYTES_TOTAL
+        .with_label_values(&[CHANNEL_TELEMETRY])
+        .get()
+}
+
 async fn publish(channel: &str, message: &str) {
     let client = redis::Client::open(redis_url()).unwrap();
     let mut connection = client.get_multiplexed_async_connection().await.unwrap();
@@ -95,7 +104,7 @@ async fn assert_silent(receiver: &mut UnboundedReceiver<Value>) {
 }
 
 #[tokio::test]
-async fn both_metrics_are_exposed_before_any_traffic() {
+async fn every_metric_series_is_exposed_before_any_traffic() {
     let _guard = SERIALIZE.lock().await;
     let url = start_server().await;
 
@@ -106,8 +115,19 @@ async fn both_metrics_are_exposed_before_any_traffic() {
         .await
         .unwrap();
 
-    assert!(body.contains("telemetry_relayed_total"));
-    assert!(body.contains("socket_connected_clients"));
+    for series in [
+        "telemetry_relayed_total",
+        "socket_connected_clients",
+        "socket_connections_rejected_total",
+        r#"notifications_relayed_total{scope="domain"}"#,
+        r#"notifications_relayed_total{scope="broadcast"}"#,
+        r#"relay_payload_bytes_total{channel="telemetry"}"#,
+        r#"relay_payload_bytes_total{channel="notifications"}"#,
+        r#"relay_messages_skipped_total{channel="telemetry"}"#,
+        r#"relay_messages_skipped_total{channel="notifications"}"#,
+    ] {
+        assert!(body.contains(series), "missing series: {series}");
+    }
 }
 
 #[tokio::test]
@@ -160,12 +180,15 @@ async fn telemetry_reaches_only_subscribers_of_that_building() {
     subscriber.emit("subscribe_building", "b1").await.unwrap();
     tokio::time::sleep(SETTLE).await;
 
-    let before = TELEMETRY_RELAYED_TOTAL.get();
-    publish("telemetry:filtered:b1", r#"{"value":21}"#).await;
+    let payload = r#"{"value":21}"#;
+    let relayed_before = TELEMETRY_RELAYED_TOTAL.get();
+    let bytes_before = telemetry_bytes();
+    publish("telemetry:filtered:b1", payload).await;
 
     assert_eq!(next_delivery(&mut subscribed).await["value"], 21);
     assert_silent(&mut unsubscribed).await;
-    assert_eq!(TELEMETRY_RELAYED_TOTAL.get(), before + 1);
+    assert_eq!(TELEMETRY_RELAYED_TOTAL.get(), relayed_before + 1);
+    assert_eq!(telemetry_bytes(), bytes_before + payload.len() as u64);
 
     subscriber.disconnect().await.unwrap();
     bystander.disconnect().await.unwrap();
@@ -235,9 +258,21 @@ async fn a_malformed_message_does_not_stop_the_relay() {
 
     let (client, mut events) = connect(&url, &claims_header(&["acme"]), "notification").await;
 
+    let skipped_before = RELAY_MESSAGES_SKIPPED_TOTAL
+        .with_label_values(&[CHANNEL_NOTIFICATIONS])
+        .get();
+
     publish("notifications", "{not json").await;
     publish("notifications", r#"{"message":"still alive"}"#).await;
 
     assert_eq!(next_delivery(&mut events).await["message"], "still alive");
+    assert_eq!(
+        RELAY_MESSAGES_SKIPPED_TOTAL
+            .with_label_values(&[CHANNEL_NOTIFICATIONS])
+            .get(),
+        skipped_before + 1,
+        "the dropped message must be visible in metrics, not just the log"
+    );
+
     client.disconnect().await.unwrap();
 }

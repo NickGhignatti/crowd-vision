@@ -41,7 +41,7 @@ mod tests {
     #[test]
     fn telemetry_goes_to_the_room_of_the_channels_building() {
         let delivery = telemetry_delivery("telemetry:filtered:b1", r#"{"value":21}"#).unwrap();
-        assert_eq!(delivery.target, Target::Room("building:b1".to_string()));
+        assert_eq!(delivery.target, Target::Room(room_for_building("b1")));
         assert_eq!(delivery.payload, json!({"value": 21}));
     }
 
@@ -53,7 +53,7 @@ mod tests {
     #[test]
     fn a_scoped_notification_goes_to_its_domain_room() {
         let delivery = notification_delivery(r#"{"message":"hi","domainName":"acme"}"#).unwrap();
-        assert_eq!(delivery.target, Target::Room("domain:acme".to_string()));
+        assert_eq!(delivery.target, Target::Room(room_for_domain("acme")));
         assert_eq!(
             delivery.payload,
             json!({"message": "hi", "domainName": "acme"})

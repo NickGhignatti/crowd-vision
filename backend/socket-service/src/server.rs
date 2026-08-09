@@ -8,8 +8,11 @@ use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
 use crate::handlers::{authenticate, deliver, on_connect};
-use crate::metrics::{self, TELEMETRY_RELAYED_TOTAL, gather};
-use crate::relay::{notification_delivery, telemetry_delivery};
+use crate::metrics::{
+    self, NOTIFICATIONS_RELAYED_TOTAL, RELAY_MESSAGES_SKIPPED_TOTAL, RELAY_PAYLOAD_BYTES_TOTAL,
+    TELEMETRY_RELAYED_TOTAL, gather,
+};
+use crate::relay::{Target, notification_delivery, telemetry_delivery};
 
 pub const PORT: u16 = 3000;
 const NOTIFICATIONS_CHANNEL: &str = "notifications";
@@ -78,14 +81,43 @@ async fn subscribe_to_redis(io: SocketIo, url: String) {
         };
 
         if channel == NOTIFICATIONS_CHANNEL {
-            if let Some(delivery) = notification_delivery(&payload) {
-                deliver(&io, "notification", delivery).await;
+            match notification_delivery(&payload) {
+                Some(delivery) => {
+                    let scope = match delivery.target {
+                        Target::Room(_) => metrics::SCOPE_DOMAIN,
+                        Target::Broadcast => metrics::SCOPE_BROADCAST,
+                    };
+                    deliver(&io, "notification", delivery).await;
+                    NOTIFICATIONS_RELAYED_TOTAL
+                        .with_label_values(&[scope])
+                        .inc();
+                    record_payload(metrics::CHANNEL_NOTIFICATIONS, payload.len());
+                }
+                None => skip(metrics::CHANNEL_NOTIFICATIONS),
             }
-        } else if let Some(delivery) = telemetry_delivery(&channel, &payload) {
-            deliver(&io, "telemetry", delivery).await;
-            TELEMETRY_RELAYED_TOTAL.inc();
+        } else {
+            match telemetry_delivery(&channel, &payload) {
+                Some(delivery) => {
+                    deliver(&io, "telemetry", delivery).await;
+                    TELEMETRY_RELAYED_TOTAL.inc();
+                    record_payload(metrics::CHANNEL_TELEMETRY, payload.len());
+                }
+                None => skip(metrics::CHANNEL_TELEMETRY),
+            }
         }
     }
+}
+
+fn record_payload(channel: &str, bytes: usize) {
+    RELAY_PAYLOAD_BYTES_TOTAL
+        .with_label_values(&[channel])
+        .inc_by(bytes as u64);
+}
+
+fn skip(channel: &str) {
+    RELAY_MESSAGES_SKIPPED_TOTAL
+        .with_label_values(&[channel])
+        .inc();
 }
 
 async fn connect_pubsub(url: &str) -> redis::RedisResult<redis::aio::PubSub> {

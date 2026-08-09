@@ -38,6 +38,40 @@ The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs
 
 ---
 
+## Metrics
+
+`GET /metrics` exposes the Prometheus text format. Every series is registered at startup (`metrics::init()`, called from `serve`), so a freshly started pod reports each one at `0` rather than omitting it — a counter that only appears after its first increment leaves gaps in `rate()` and makes "no traffic" indistinguishable from "not scraped".
+
+.var {headers}
+   - Metric
+   - Type
+   - What it answers
+
+.tablebyrows {.headers}
+    - - `socket_connected_clients`
+      - gauge
+      - How many browsers are attached right now. The capacity signal for this tier.
+    - - `telemetry_relayed_total`
+      - counter
+      - Is the telemetry path alive? Flat while sensors publish means the relay is broken.
+    - - `notifications_relayed_total{scope}`
+      - counter
+      - Alert volume, split `domain` (tenant-scoped) vs `broadcast` (system-wide). A jump in `broadcast` is worth noticing — those reach every connected client.
+    - - `relay_payload_bytes_total{channel}`
+      - counter
+      - Volume of data pushed through the relay, split `telemetry` vs `notifications`. Measured on the broker payload **before** fan-out, so it is not egress — multiply by room occupancy for that.
+    - - `relay_messages_skipped_total{channel}`
+      - counter
+      - Messages dropped because the payload was not valid JSON. Non-zero means a publisher is emitting garbage and readings are silently not reaching browsers.
+    - - `socket_connections_rejected_total`
+      - counter
+      - Handshakes refused for a missing or malformed claims header. Spikes if the mesh stops injecting `x-gateway-claims`.
+
+.box {Fan-out amplification is deliberately not measured} type:{note}
+    The genuinely interesting number for a fan-out tier is recipients per message. Getting it requires enumerating a room's sockets on every relayed message, which allocates on the hot path. `relay_payload_bytes_total` × room occupancy is the cheap approximation; a real histogram should wait until there is a reason to pay for it.
+
+---
+
 ## Authentication
 
 A socketioxide connect middleware (`on_connect.with(authenticate)`) runs once per connection, before any event handler:
