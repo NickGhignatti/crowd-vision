@@ -7,11 +7,11 @@ use redis::AsyncCommands;
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::{Event, Payload};
 use serde_json::Value;
-use socket_service::metrics::{
+use socket_service::shell::metrics::{
     CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, RELAY_MESSAGES_SKIPPED_TOTAL,
     RELAY_PAYLOAD_BYTES_TOTAL, TELEMETRY_RELAYED_TOTAL,
 };
-use socket_service::server::{redis_url, serve};
+use socket_service::shell::server::{redis_url, serve};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 

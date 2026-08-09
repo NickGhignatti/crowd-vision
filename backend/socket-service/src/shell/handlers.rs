@@ -3,10 +3,10 @@ use std::fmt;
 use socketioxide::SocketIo;
 use socketioxide::extract::{Data, Extension, SocketRef};
 
-use crate::auth::{CLAIMS_HEADER, Identity, authenticate_claims_header};
-use crate::metrics::{CONNECTED_CLIENTS, CONNECTIONS_REJECTED_TOTAL};
-use crate::relay::{Delivery, Target};
-use crate::rooms::{room_for_building, room_for_domain};
+use crate::core::auth::{CLAIMS_HEADER, Identity, authenticate_claims_header};
+use crate::core::relay::{Delivery, Target};
+use crate::core::rooms::{room_for_building, room_for_domain};
+use crate::shell::metrics::{CONNECTED_CLIENTS, CONNECTIONS_REJECTED_TOTAL};
 
 #[derive(Debug)]
 pub struct Unauthorized;

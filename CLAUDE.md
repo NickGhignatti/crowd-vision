@@ -96,11 +96,12 @@ interfaces, wired in `cmd/<service>/main.go`. Only outbound side has real port/a
 inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = ticker loop.
 
 **twin-service** (Rust): same Ports & Adapters shape, test-enforced. Detail in
-`backend/twin-service/CLAUDE.md`. `socket-service` (Rust) is flat — functional core
-(`auth`/`rooms`/`relay`, pure + unit-tested) with an imperative shell (`handlers`/`server`/
-`main`), test-enforced by `tests/architecture.rs`: core imports no I/O crate, no `async fn`,
-never names the shell; room-name literals only in `rooms.rs`, `x-gateway-claims` only in
-`auth.rs`. `contracts-service` (Rust) stays flat, no restructure.
+`backend/twin-service/CLAUDE.md`. `socket-service` (Rust) = functional core / imperative shell,
+split as directories: `src/core/` (`auth`/`rooms`/`relay`, pure + unit-tested), `src/shell/`
+(`handlers`/`server`/`metrics`), `src/main.rs` binds only. Test-enforced by
+`tests/architecture.rs`: every `src/*.rs` must live in `core/` or `shell/`; core imports no I/O
+crate, no `async fn`, never names `crate::shell`; room-name literals only in `core/rooms.rs`,
+`x-gateway-claims` only in `core/auth.rs`. `contracts-service` (Rust) stays flat, no restructure.
 
 **Service mesh**: prod/staging = Istio ambient (`ztunnel` L4 mTLS, no sidecars; optional
 `waypoint` for L7). Trust: hard perimeter, guarded interior — edge authenticates once, every

@@ -1,7 +1,7 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-const CORE: &[&str] = &["src/auth.rs", "src/relay.rs", "src/rooms.rs"];
-const SHELL: &[&str] = &["src/handlers.rs", "src/server.rs", "src/main.rs"];
+const CORE: &str = "src/core";
+const SHELL: &str = "src/shell";
 
 const IO_CRATES: &[&str] = &[
     "use axum",
@@ -12,94 +12,122 @@ const IO_CRATES: &[&str] = &[
     "use prometheus",
 ];
 
-const SHELL_MODULES: &[&str] = &[
-    "crate::handlers",
-    "crate::server",
-    "crate::metrics",
-    "socket_service::",
-];
+fn rust_files_under(dir: &str) -> Vec<PathBuf> {
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                out.push(path);
+            }
+        }
+    }
 
-fn read(file: &str) -> String {
-    assert!(Path::new(file).exists(), "{file} is missing");
-    std::fs::read_to_string(file).unwrap()
+    let mut files = Vec::new();
+    walk(Path::new(dir), &mut files);
+    assert!(
+        !files.is_empty(),
+        "no rust files under {dir} — a rename would otherwise make every rule below vacuously true"
+    );
+    files
 }
 
-fn assert_absent(file: &str, needles: &[&str], reason: &str) {
-    let contents = read(file);
-    for needle in needles {
+fn assert_absent(files: &[PathBuf], needles: &[&str], reason: &str) {
+    for file in files {
+        let contents = std::fs::read_to_string(file).unwrap();
+        for needle in needles {
+            assert!(
+                !contents.contains(needle),
+                "{} contains `{needle}` — {reason}",
+                file.display()
+            );
+        }
+    }
+}
+
+#[test]
+fn every_source_file_is_classified_as_core_or_shell() {
+    let classified: Vec<PathBuf> = rust_files_under(CORE)
+        .into_iter()
+        .chain(rust_files_under(SHELL))
+        .collect();
+
+    for file in rust_files_under("src") {
+        let name = file.file_name().unwrap();
+        if name == "lib.rs" || name == "main.rs" {
+            continue;
+        }
         assert!(
-            !contents.contains(needle),
-            "{file} contains `{needle}` — {reason}"
+            classified.contains(&file),
+            "{} lives outside src/core and src/shell, so no architecture rule applies to it",
+            file.display()
         );
     }
 }
 
 #[test]
 fn the_functional_core_touches_no_io_crate() {
-    for file in CORE {
-        assert_absent(
-            file,
-            IO_CRATES,
-            "the functional core must stay free of sockets, HTTP, and the broker",
-        );
-    }
+    assert_absent(
+        &rust_files_under(CORE),
+        IO_CRATES,
+        "the functional core must stay free of sockets, HTTP, and the broker",
+    );
 }
 
 #[test]
 fn the_functional_core_does_not_reach_into_the_shell() {
-    for file in CORE {
-        assert_absent(
-            file,
-            SHELL_MODULES,
-            "dependencies point inward: the shell calls the core, never the reverse",
-        );
-    }
+    assert_absent(
+        &rust_files_under(CORE),
+        &["crate::shell", "socket_service::shell"],
+        "dependencies point inward: the shell calls the core, never the reverse",
+    );
 }
 
 #[test]
 fn the_functional_core_is_synchronous() {
-    for file in CORE {
-        assert_absent(
-            file,
-            &["async fn", ".await"],
-            "a pure function has nothing to await; async here means I/O leaked in",
-        );
-    }
+    assert_absent(
+        &rust_files_under(CORE),
+        &["async fn", ".await"],
+        "a pure function has nothing to await; async here means I/O leaked in",
+    );
 }
 
 #[test]
 fn room_names_are_built_only_in_rooms() {
-    for file in CORE.iter().chain(SHELL).filter(|f| **f != "src/rooms.rs") {
-        assert_absent(
-            file,
-            &["\"building:", "\"domain:"],
-            "room names are a wire contract with the browser — build them via rooms.rs",
-        );
-    }
+    let files: Vec<PathBuf> = rust_files_under(CORE)
+        .into_iter()
+        .chain(rust_files_under(SHELL))
+        .filter(|f| f.file_name().unwrap() != "rooms.rs")
+        .collect();
+
+    assert_absent(
+        &files,
+        &["\"building:", "\"domain:"],
+        "room names are a wire contract with the browser — build them via core::rooms",
+    );
 }
 
 #[test]
 fn the_claims_header_is_named_only_in_auth() {
-    for file in CORE.iter().chain(SHELL).filter(|f| **f != "src/auth.rs") {
-        assert_absent(
-            file,
-            &["x-gateway-claims"],
-            "the claims header name belongs to auth.rs, via its CLAIMS_HEADER const",
-        );
-    }
+    let files: Vec<PathBuf> = rust_files_under(CORE)
+        .into_iter()
+        .chain(rust_files_under(SHELL))
+        .filter(|f| f.file_name().unwrap() != "auth.rs")
+        .collect();
+
+    assert_absent(
+        &files,
+        &["x-gateway-claims"],
+        "the claims header name belongs to core::auth, via its CLAIMS_HEADER const",
+    );
 }
 
 #[test]
 fn main_only_composes_and_delegates_to_the_server() {
     assert_absent(
-        "src/main.rs",
-        &[
-            "crate::auth",
-            "::auth::",
-            "::relay::",
-            "::rooms::",
-            "::handlers::",
-        ],
-        "main.rs binds a port and installs signals; wiring belongs to server.rs",
+        &[PathBuf::from("src/main.rs")],
+        &["::core::", "shell::handlers", "shell::metrics"],
+        "main.rs binds a port and installs signals; wiring belongs to shell::server",
     );
 }

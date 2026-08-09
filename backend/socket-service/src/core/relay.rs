@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use crate::rooms::{building_id_from_channel, room_for_building, room_for_domain};
+use crate::core::rooms::{building_id_from_channel, room_for_building, room_for_domain};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Target {

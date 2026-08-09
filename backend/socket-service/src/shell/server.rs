@@ -9,12 +9,12 @@ use socketioxide::handler::ConnectHandler;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
-use crate::handlers::{authenticate, deliver, on_connect};
-use crate::metrics::{
+use crate::core::relay::{Target, notification_delivery, telemetry_delivery};
+use crate::shell::handlers::{authenticate, deliver, on_connect};
+use crate::shell::metrics::{
     self, NOTIFICATIONS_RELAYED_TOTAL, RELAY_MESSAGES_SKIPPED_TOTAL, RELAY_PAYLOAD_BYTES_TOTAL,
     TELEMETRY_RELAYED_TOTAL, gather,
 };
-use crate::relay::{Target, notification_delivery, telemetry_delivery};
 
 pub const PORT: u16 = 3000;
 const NOTIFICATIONS_CHANNEL: &str = "notifications";

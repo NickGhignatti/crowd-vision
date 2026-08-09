@@ -3,19 +3,19 @@
 
 Implementation reference for the `socket-service`. For its architectural role, see [Socket Service Architecture](../architecture/socket-architecture.qd).
 
-A small Rust service built on **Axum**, **socketioxide**, and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split: `rooms.rs`, `auth.rs`, and `relay.rs` are pure and carry every unit test; `handlers.rs`, `server.rs`, and `main.rs` are the shell that touches sockets, Redis, and the process.
+A small Rust service built on **Axum**, **socketioxide**, and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split, expressed as the directory layout: `src/core/` (`rooms.rs`, `auth.rs`, `relay.rs`) is pure and carries every unit test; `src/shell/` (`handlers.rs`, `server.rs`, `metrics.rs`) touches sockets, Redis, and process state; `src/main.rs` only binds the port. The split is enforced by `tests/architecture.rs` — see [Socket Service Architecture](../architecture/socket-architecture.qd).
 
 Connections are **authenticated**: a socketioxide connect middleware decodes the mesh-verified claims header before the namespace connection is accepted, so the service knows which account and domains each socket belongs to.
 
 .mermaid
     graph TD
-        MAIN["main.rs\nbind + shutdown signal"] --> SRV["server.rs\nrouter, CORS, Redis loop"]
-        SRV --> HND["handlers.rs\nconnect middleware, room joins, emits"]
-        SRV --> REL["relay.rs\npure: telemetry_delivery, notification_delivery"]
-        HND --> AUTH["auth.rs\npure: authenticate_claims_header"]
-        HND --> ROOMS["rooms.rs\npure: room_for_building, room_for_domain, building_id_from_channel"]
+        MAIN["main.rs\nbind + shutdown signal"] --> SRV["shell/server.rs\nrouter, CORS, Redis loop"]
+        SRV --> HND["shell/handlers.rs\nconnect middleware, room joins, emits"]
+        SRV --> REL["core/relay.rs\npure: telemetry_delivery, notification_delivery"]
+        HND --> AUTH["core/auth.rs\npure: authenticate_claims_header"]
+        HND --> ROOMS["core/rooms.rs\npure: room_for_building, room_for_domain, building_id_from_channel"]
         REL --> ROOMS
-        SRV --> METRICS["metrics.rs\nregistry + counters"]
+        SRV --> METRICS["shell/metrics.rs\nregistry + counters"]
 
 ---
 

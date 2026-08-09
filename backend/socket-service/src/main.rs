@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use socket_service::server::{PORT, redis_url, serve};
+use socket_service::shell::server::{PORT, redis_url, serve};
 use tokio::signal::unix::{SignalKind, signal};
 
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(10);
