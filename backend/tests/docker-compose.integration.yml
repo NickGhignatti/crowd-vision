@@ -46,13 +46,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://localhost:3000').then(()=>process.exit(0)).catch(()=>process.exit(1))",
-        ]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 20

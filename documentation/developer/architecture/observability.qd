@@ -58,14 +58,14 @@ Both stacks load the same seven alerting rules — see **Alerting rules** below.
       - p95 `telemetry_fanout_latency_ms` (sensor-ingestion-to-fan-out) exceeds 500ms.
       - 5m
     - - `NodeEventLoopLagHigh`
-      - `nodejs_eventloop_lag_seconds` (from `collectDefaultMetrics`) exceeds 100ms — fires for chat-service or socket-service, whichever instance is lagging.
+      - `nodejs_eventloop_lag_seconds` (from `collectDefaultMetrics`) exceeds 100ms — chat-service is the only remaining emitter.
       - 5m
 
 .box {No Alertmanager — these only populate Prometheus's own Alerts page} type:{warning}
     Neither stack deploys Alertmanager, so a firing alert is visible in Prometheus's `/alerts` UI and exposed as the `ALERTS` metric, but nothing routes it anywhere — no email, Slack, or PagerDuty notification is sent. Someone still has to be looking at the page. Wiring up Alertmanager (and a receiver) is a separate piece of work from defining the rules themselves.
 
 .box {socket-service and contracts-service have no error-rate/latency alert of their own} type:{note}
-    `contracts-service` has no HTTP-shaped error counter to alert on (only the fan-out latency histogram above); `socket-service` is a WebSocket relay with no request/response HTTP metrics at all — `ServiceDown` and `NodeEventLoopLagHigh` are its only coverage today. Both would need new instrumentation (an error counter, a request-duration histogram) before a matching alert could be written.
+    `contracts-service` has no HTTP-shaped error counter to alert on (only the fan-out latency histogram above); `socket-service` is a WebSocket relay with no request/response HTTP metrics at all — `ServiceDown` is its only coverage today. Both would need new instrumentation (an error counter, a request-duration histogram) before a matching alert could be written.
 
 ---
 
@@ -85,9 +85,9 @@ Of the 11 backend services, only 4 expose a `/metrics` endpoint:
     - - contracts-service (Rust)
       - `prometheus` crate
       - `telemetry_fanout_latency_ms`, `telemetry_events_received_total`, `telemetry_events_published_total` — business metrics specific to its sensor-data fan-out role, not generic HTTP counters
-    - - socket-service (Node)
-      - `prom-client` + `collectDefaultMetrics`
-      - `telemetry_relayed_total`, `socket_connected_clients`, plus default Node process metrics (event loop lag, heap, etc.)
+    - - socket-service (Rust)
+      - `prometheus` crate
+      - `telemetry_relayed_total`, `socket_connected_clients` — no default process metrics; the `nodejs_*` series ended with the Rust rewrite
     - - chat-service (Node)
       - `prom-client` + `collectDefaultMetrics`
       - `chat_http_requests_total`, `chat_http_error_requests_total`, `chat_http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service

@@ -29,7 +29,7 @@ independently.
 | `backend/contracts-service` | Rust / Axum / MongoDB | Per-building telemetry-dashboard filtering |
 | `backend/sensor-service` | Node / Express / MongoDB / Kafka | Telemetry ingestion (readings, thresholds) |
 | `backend/notification-service` | Node / Express / MongoDB | Alerting, Web Push |
-| `backend/socket-service` | Node / Socket.IO | Real-time transport to browser |
+| `backend/socket-service` | Rust / Axum / socketioxide / Redis | Real-time transport to browser |
 | `backend/chat-service` | Node / MongoDB | Chat sessions, orchestrates `agent-service` |
 | `backend/agent-service` | Python / FastAPI / PostgreSQL+pgvector | RAG assistant, maintained separately |
 | `backend/auth-contracts`, `auth-middleware`, `auth-policy` | Go modules (+Rust/Python Cedar bindings) | Shared libs, embedded not deployed |
@@ -50,6 +50,7 @@ just test <chat|twin|notification|sensor|socket|frontend|agent>
 just test agent-integration
 just test integration           # full backend integration, composed stack
 just test twin-integration       # twin-service tests/*.rs against a real Mongo, composed
+just test socket-integration      # socket-service tests/*.rs against a real Redis, composed
 just setup deps-check      # lockfile-in-sync gate
 just setup audit             # npm/uv/cargo audit
 
@@ -95,7 +96,9 @@ interfaces, wired in `cmd/<service>/main.go`. Only outbound side has real port/a
 inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = ticker loop.
 
 **twin-service** (Rust): same Ports & Adapters shape, test-enforced. Detail in
-`backend/twin-service/CLAUDE.md`. `contracts-service` (Rust) stays flat, no restructure.
+`backend/twin-service/CLAUDE.md`. `contracts-service` and `socket-service` (Rust) stay flat —
+functional core (`auth`/`rooms`/`relay`, pure + unit-tested) with an imperative shell
+(`handlers`/`server`/`main`). No restructure.
 
 **Service mesh**: prod/staging = Istio ambient (`ztunnel` L4 mTLS, no sidecars; optional
 `waypoint` for L7). Trust: hard perimeter, guarded interior — edge authenticates once, every

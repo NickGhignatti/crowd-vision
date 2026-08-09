@@ -1,1 +1,16 @@
-language: "typescript"
+language: "rust"
+
+# build / test / lint / deps / audit are inherited from .moon/tasks/rust.yml. `test` is
+# overridden below: src/ holds only unit tests (no real infra), tests/*.rs holds integration
+# tests that need a real Redis (see test-integration.sh).
+tasks:
+  test:
+    command: "cargo test --lib"
+  test-integration:
+    command: "bash test-integration.sh"
+    inputs:
+      - "src/**/*"
+      - "tests/**/*"
+      - "Cargo.toml"
+    options:
+      cache: false

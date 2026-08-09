@@ -38,6 +38,10 @@ sensor:
 socket:
     mise exec -- moon run socket-service:test
 
+[doc("Integration tests for socket-service — starts a throwaway Redis, runs tests/*.rs, tears it down.")]
+socket-integration:
+    mise exec -- moon run socket-service:test-integration
+
 [doc("Unit tests for the frontend.")]
 frontend:
     mise exec -- moon run frontend:test

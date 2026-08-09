@@ -70,7 +70,7 @@ Independently deployable, each with its own container image.
       - Node.js / Express / MongoDB
     - - socket-service
       - Real-time transport to the browser
-      - Node.js / Socket.IO
+      - Rust / Axum / socketioxide
     - - chat-service
       - Persists multi-turn chat sessions and orchestrates calls to agent-service
       - Node.js / MongoDB

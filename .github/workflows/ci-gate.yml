@@ -180,11 +180,13 @@ jobs:
 
   socket:
     needs: changes
-    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/tpl-node-ci.yml
+    if: needs.changes.outputs.socket == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: socket
       working_directory: backend/socket-service
+      needs_mongo: false
+      needs_redis: true
 
   twin:
     needs: changes

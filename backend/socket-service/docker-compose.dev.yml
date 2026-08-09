@@ -1,8 +1,25 @@
 services:
   socket-server:
+    build:
+      target: dev
+    command: cargo watch -x run
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: ./Cargo.toml
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(()=>process.exit(0)).catch(()=>process.exit(1))"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 60s
+    volumes:
+      - socket-target:/app/target
+      - cargo-registry:/usr/local/cargo/registry
+
+volumes:
+  socket-target:
+  cargo-registry:
