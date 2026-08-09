@@ -101,6 +101,11 @@ At startup the service connects a Redis subscriber and binds two channels to two
 
 For the pattern subscription, the building id is recovered from the channel name (stripping the `telemetry:filtered:` prefix) and used to target the room. Each incoming message is JSON-parsed before emission; a message that fails to parse is logged and skipped, so one bad publish cannot take the relay down.
 
+The subscriber runs in a **reconnect loop**: if the initial connection fails (Redis not up yet at pod start) or the subscription later drops (Redis restart, connection killed), it logs, waits one second, and reconnects — indefinitely. This is not optional polish. The Node implementation got it for free from `node-redis`, which auto-reconnects by default; a single-shot connect is a silent black hole, because `/health` keeps returning 200 while no telemetry reaches any browser.
+
+.box {`/health` does not reflect subscriber state} type:{note}
+    `GET /health` answers "is the HTTP server up", not "is the relay actually receiving". A pod whose Redis subscription is down still reports ready. This matches the Node service's behaviour and is tolerable because the reconnect loop closes the gap in seconds — but a readiness probe that gated on subscriber health would be strictly better, and is the obvious next improvement if this ever bites.
+
 Notifications are **domain-scoped**: if the payload carries a `domainName`, only that domain's room receives it, so members of one tenant never see another's alerts. A payload without a `domainName` (a system-wide message) is broadcast to every client.
 
 ---

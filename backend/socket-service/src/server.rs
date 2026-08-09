@@ -1,7 +1,9 @@
+use std::time::Duration;
+
 use axum::Router;
 use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::routing::get;
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
 use socketioxide::SocketIo;
 use socketioxide::handler::ConnectHandler;
 use tokio::net::TcpListener;
@@ -18,6 +20,7 @@ pub const PORT: u16 = 3000;
 const NOTIFICATIONS_CHANNEL: &str = "notifications";
 const TELEMETRY_PATTERN: &str = "telemetry:filtered:*";
 const DEFAULT_FRONTEND_URL: &str = "http://localhost:5173";
+const RECONNECT_DELAY: Duration = Duration::from_secs(1);
 
 pub fn redis_url() -> String {
     std::env::var("REDIS_URL").unwrap_or_default()
@@ -65,15 +68,20 @@ fn cors() -> CorsLayer {
 }
 
 async fn subscribe_to_redis(io: SocketIo, url: String) {
-    let mut pubsub = match connect_pubsub(&url).await {
-        Ok(pubsub) => pubsub,
-        Err(error) => {
-            log::error!("Redis Client Error {error}");
-            return;
+    loop {
+        match connect_pubsub(&url).await {
+            Ok(mut pubsub) => {
+                consume(&io, pubsub.on_message()).await;
+                log::warn!("Redis subscription ended, reconnecting");
+            }
+            Err(error) => log::error!("Redis Client Error {error}"),
         }
-    };
 
-    let mut messages = pubsub.on_message();
+        tokio::time::sleep(RECONNECT_DELAY).await;
+    }
+}
+
+async fn consume(io: &SocketIo, mut messages: impl Stream<Item = redis::Msg> + Unpin) {
     while let Some(message) = messages.next().await {
         let channel = message.get_channel_name().to_string();
         let Ok(payload) = message.get_payload::<String>() else {
@@ -87,7 +95,7 @@ async fn subscribe_to_redis(io: SocketIo, url: String) {
                         Target::Room(_) => metrics::SCOPE_DOMAIN,
                         Target::Broadcast => metrics::SCOPE_BROADCAST,
                     };
-                    deliver(&io, "notification", delivery).await;
+                    deliver(io, "notification", delivery).await;
                     NOTIFICATIONS_RELAYED_TOTAL
                         .with_label_values(&[scope])
                         .inc();
@@ -98,7 +106,7 @@ async fn subscribe_to_redis(io: SocketIo, url: String) {
         } else {
             match telemetry_delivery(&channel, &payload) {
                 Some(delivery) => {
-                    deliver(&io, "telemetry", delivery).await;
+                    deliver(io, "telemetry", delivery).await;
                     TELEMETRY_RELAYED_TOTAL.inc();
                     record_payload(metrics::CHANNEL_TELEMETRY, payload.len());
                 }

@@ -20,6 +20,7 @@ static SERIALIZE: Mutex<()> = Mutex::const_new(());
 const SETTLE: Duration = Duration::from_millis(300);
 const DELIVERY_TIMEOUT: Duration = Duration::from_secs(5);
 const SILENCE_TIMEOUT: Duration = Duration::from_millis(800);
+const RECONNECT_SETTLE: Duration = Duration::from_secs(3);
 
 async fn start_server() -> String {
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
@@ -81,6 +82,18 @@ fn telemetry_bytes() -> u64 {
         .get()
 }
 
+async fn kill_pubsub_connections() {
+    let client = redis::Client::open(redis_url()).unwrap();
+    let mut connection = client.get_multiplexed_async_connection().await.unwrap();
+    let _: redis::Value = redis::cmd("CLIENT")
+        .arg("KILL")
+        .arg("TYPE")
+        .arg("pubsub")
+        .query_async(&mut connection)
+        .await
+        .unwrap();
+}
+
 async fn publish(channel: &str, message: &str) {
     let client = redis::Client::open(redis_url()).unwrap();
     let mut connection = client.get_multiplexed_async_connection().await.unwrap();
@@ -128,6 +141,27 @@ async fn every_metric_series_is_exposed_before_any_traffic() {
     ] {
         assert!(body.contains(series), "missing series: {series}");
     }
+}
+
+#[tokio::test]
+async fn the_relay_recovers_when_redis_drops_the_subscription() {
+    let _guard = SERIALIZE.lock().await;
+    let url = start_server().await;
+
+    let (client, mut events) = connect(&url, &claims_header(&["acme"]), "notification").await;
+
+    kill_pubsub_connections().await;
+    tokio::time::sleep(RECONNECT_SETTLE).await;
+
+    publish("notifications", r#"{"message":"after reconnect"}"#).await;
+
+    assert_eq!(
+        next_delivery(&mut events).await["message"],
+        "after reconnect",
+        "the subscriber must reconnect instead of dying on the first Redis failure"
+    );
+
+    client.disconnect().await.unwrap();
 }
 
 #[tokio::test]
