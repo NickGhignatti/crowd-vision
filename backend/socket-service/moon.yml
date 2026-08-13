@@ -10,6 +10,7 @@ tasks:
       - "src/**/*"
       - "tests/architecture.rs"
       - "Cargo.toml"
+      - "Cargo.lock"
     options:
       mergeArgs: "replace"
   test-integration:
@@ -18,5 +19,6 @@ tasks:
       - "src/**/*"
       - "tests/**/*"
       - "Cargo.toml"
+      - "Cargo.lock"
     options:
       cache: false

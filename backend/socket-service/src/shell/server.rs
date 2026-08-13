@@ -3,7 +3,7 @@ use std::time::Duration;
 use axum::Router;
 use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::routing::get;
-use futures::{Stream, StreamExt};
+use futures_util::{Stream, StreamExt};
 use socketioxide::SocketIo;
 use socketioxide::handler::ConnectHandler;
 use tokio::net::TcpListener;

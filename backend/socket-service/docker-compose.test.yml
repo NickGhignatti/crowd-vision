@@ -5,7 +5,7 @@ services:
   socket-service-test:
     build:
       context: .
-      target: dev
+      target: test
     command: ["bash", "/app/scripts/rust-integration-tests.sh"]
     environment:
       - REDIS_URL=redis://redis:6379

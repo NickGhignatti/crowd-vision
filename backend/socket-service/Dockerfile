@@ -13,10 +13,19 @@ FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef AS dev
-RUN cargo install cargo-watch --locked
+# Debug-profile dependencies, shared by the `test` and `dev` stages below.
+FROM chef AS debug-deps
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --recipe-path recipe.json
+
+# Integration-test stage: deliberately does NOT install cargo-watch. It runs
+# tests/*.rs once and exits, so compiling cargo-watch from source here is
+# ~2 minutes of pure waste on every cold build.
+FROM debug-deps AS test
+COPY . .
+
+FROM debug-deps AS dev
+RUN cargo install cargo-watch --locked
 COPY . .
 CMD ["cargo", "watch", "-x", "run"]
 

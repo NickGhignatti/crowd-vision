@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use futures::FutureExt;
+use futures_util::FutureExt;
 use redis::AsyncCommands;
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::{Event, Payload};
