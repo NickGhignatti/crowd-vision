@@ -14,7 +14,7 @@ pub struct Delivery {
     pub payload: Value,
 }
 
-pub fn telemetry_delivery(channel: &str, message: &str) -> Option<Delivery> {
+pub fn get_telemetry_delivery_plan(channel: &str, message: &str) -> Option<Delivery> {
     let payload = serde_json::from_str(message).ok()?;
 
     Some(Delivery {
@@ -23,7 +23,7 @@ pub fn telemetry_delivery(channel: &str, message: &str) -> Option<Delivery> {
     })
 }
 
-pub fn notification_delivery(message: &str) -> Option<Delivery> {
+pub fn get_notification_delivery_plan(message: &str) -> Option<Delivery> {
     let payload: Value = serde_json::from_str(message).ok()?;
     let target = match payload.get("domainName").and_then(Value::as_str) {
         Some(name) if !name.is_empty() => Target::Room(room_for_domain(name)),
@@ -40,19 +40,24 @@ mod tests {
 
     #[test]
     fn telemetry_goes_to_the_room_of_the_channels_building() {
-        let delivery = telemetry_delivery("telemetry:filtered:b1", r#"{"value":21}"#).unwrap();
+        let delivery =
+            get_telemetry_delivery_plan("telemetry:filtered:b1", r#"{"value":21}"#).unwrap();
         assert_eq!(delivery.target, Target::Room(room_for_building("b1")));
         assert_eq!(delivery.payload, json!({"value": 21}));
     }
 
     #[test]
     fn malformed_telemetry_is_skipped() {
-        assert_eq!(telemetry_delivery("telemetry:filtered:b1", "{oops"), None);
+        assert_eq!(
+            get_telemetry_delivery_plan("telemetry:filtered:b1", "{oops"),
+            None
+        );
     }
 
     #[test]
     fn a_scoped_notification_goes_to_its_domain_room() {
-        let delivery = notification_delivery(r#"{"message":"hi","domainName":"acme"}"#).unwrap();
+        let delivery =
+            get_notification_delivery_plan(r#"{"message":"hi","domainName":"acme"}"#).unwrap();
         assert_eq!(delivery.target, Target::Room(room_for_domain("acme")));
         assert_eq!(
             delivery.payload,
@@ -62,24 +67,26 @@ mod tests {
 
     #[test]
     fn an_unscoped_notification_is_broadcast() {
-        let delivery = notification_delivery(r#"{"message":"hi"}"#).unwrap();
+        let delivery = get_notification_delivery_plan(r#"{"message":"hi"}"#).unwrap();
         assert_eq!(delivery.target, Target::Broadcast);
     }
 
     #[test]
     fn a_null_domain_name_is_broadcast() {
-        let delivery = notification_delivery(r#"{"message":"hi","domainName":null}"#).unwrap();
+        let delivery =
+            get_notification_delivery_plan(r#"{"message":"hi","domainName":null}"#).unwrap();
         assert_eq!(delivery.target, Target::Broadcast);
     }
 
     #[test]
     fn an_empty_domain_name_is_broadcast() {
-        let delivery = notification_delivery(r#"{"message":"hi","domainName":""}"#).unwrap();
+        let delivery =
+            get_notification_delivery_plan(r#"{"message":"hi","domainName":""}"#).unwrap();
         assert_eq!(delivery.target, Target::Broadcast);
     }
 
     #[test]
     fn malformed_notification_is_skipped() {
-        assert_eq!(notification_delivery("{oops"), None);
+        assert_eq!(get_notification_delivery_plan("{oops"), None);
     }
 }

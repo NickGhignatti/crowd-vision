@@ -9,7 +9,7 @@ use socketioxide::handler::ConnectHandler;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
-use crate::core::relay::{Target, notification_delivery, telemetry_delivery};
+use crate::core::relay::{Target, get_notification_delivery_plan, get_telemetry_delivery_plan};
 use crate::shell::handlers::{authenticate, deliver, on_connect};
 use crate::shell::metrics::{
     self, NOTIFICATIONS_RELAYED_TOTAL, RELAY_MESSAGES_SKIPPED_TOTAL, RELAY_PAYLOAD_BYTES_TOTAL,
@@ -23,7 +23,7 @@ const DEFAULT_FRONTEND_URL: &str = "http://localhost:5173";
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
 
 pub fn redis_url() -> String {
-    std::env::var("REDIS_URL").unwrap_or_default()
+    std::env::var("REDIS_URL").expect("REDIS_URL is set")
 }
 
 fn frontend_url() -> String {
@@ -89,7 +89,7 @@ async fn consume(io: &SocketIo, mut messages: impl Stream<Item = redis::Msg> + U
         };
 
         if channel == NOTIFICATIONS_CHANNEL {
-            match notification_delivery(&payload) {
+            match get_notification_delivery_plan(&payload) {
                 Some(delivery) => {
                     let scope = match delivery.target {
                         Target::Room(_) => metrics::SCOPE_DOMAIN,
@@ -104,7 +104,7 @@ async fn consume(io: &SocketIo, mut messages: impl Stream<Item = redis::Msg> + U
                 None => skip(metrics::CHANNEL_NOTIFICATIONS),
             }
         } else {
-            match telemetry_delivery(&channel, &payload) {
+            match get_telemetry_delivery_plan(&channel, &payload) {
                 Some(delivery) => {
                     deliver(io, "telemetry", delivery).await;
                     TELEMETRY_RELAYED_TOTAL.inc();
