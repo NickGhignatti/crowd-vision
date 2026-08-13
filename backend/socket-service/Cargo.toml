@@ -1,0 +1,34 @@
+[package]
+name = "socket-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.9"
+base64 = "0.22"
+env_logger = { version = "0.11.10", default-features = false, features = [
+    "humantime",
+] }
+futures-util = { version = "0.3.32", default-features = false, features = ["std"] }
+log = "0.4.32"
+prometheus = { version = "0.14", default-features = false }
+redis = { version = "1.2.3", default-features = false, features = ["tokio-comp"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+socketioxide = { version = "=0.18.6", features = ["extensions"] }
+tokio = { version = "1.52.3", features = [
+    "macros",
+    "net",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+] }
+tower-http = { version = "0.6", features = ["cors"] }
+
+[dev-dependencies]
+reqwest = "0.12"
+rust_socketio = { version = "0.6", features = ["async"] }
+
+[profile.release]
+overflow-checks = true

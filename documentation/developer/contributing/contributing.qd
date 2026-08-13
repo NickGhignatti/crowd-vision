@@ -7,7 +7,7 @@ This page is the contract for working in the CrowdVision repository: how the mon
 
 ## The polyglot monorepo
 
-CrowdVision is a polyglot monorepo: a Vue frontend, four Node services in TypeScript (`chat`, `notification`, `sensor`, `socket`), two Rust services (`contracts-service`, `twin-service`), a Python `agent-service`, and four Go services forming the identity/tenancy control plane (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) — orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`\. See [Naming Conventions](naming-conventions.qd) for the per-language style each of these follows.
+CrowdVision is a polyglot monorepo: a Vue frontend, three Node services in TypeScript (`chat`, `notification`, `sensor`), three Rust services (`contracts-service`, `socket-service`, `twin-service`), a Python `agent-service`, and four Go services forming the identity/tenancy control plane (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) — orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`\. See [Naming Conventions](naming-conventions.qd) for the per-language style each of these follows.
 
 Two structural facts shape everything you do:
 

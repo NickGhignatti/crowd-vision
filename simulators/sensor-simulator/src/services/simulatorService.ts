@@ -31,7 +31,8 @@ export class Simulator {
       if (parsedUrl.includes("localhost") || parsedUrl.includes("127.0.0.1")) {
         parsedUrl = parsedUrl
           .replace(/localhost/g, "gateway")
-          .replace(/127\.0\.0\.1/g, "gateway");
+          .replace(/127\.0\.0\.1/g, "gateway")
+          .replace(/gateway:\d+/g, "gateway");
       }
 
       building.targetUrl = parsedUrl;

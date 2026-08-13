@@ -58,7 +58,7 @@ jobs:
 
           for lang in node python rust go; do
             matrix=$(jq -c --arg l "$lang" --argjson changed "$CHANGED" --argjson all "$ALL" \
-              '[.[] | select(.lang == $l and .ci != false and (.key as $k | $all or ($changed | any(. == $k)))) | {key, dir, needs_mongo: (.needs_mongo // false)}]' \
+              '[.[] | select(.lang == $l and .ci != false and (.key as $k | $all or ($changed | any(. == $k)))) | {key, dir, needs_mongo: (.needs_mongo // false), needs_redis: (.needs_redis // false)}]' \
               .github/services.json)
             echo "$lang=$matrix" >> "$GITHUB_OUTPUT"
           done
@@ -101,6 +101,7 @@ jobs:
       service_key: ${{ matrix.key }}
       working_directory: ${{ matrix.dir }}
       needs_mongo: ${{ matrix.needs_mongo }}
+      needs_redis: ${{ matrix.needs_redis }}
 
   go:
     name: coverage (go)

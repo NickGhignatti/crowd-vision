@@ -1,7 +1,7 @@
 .docname {Socket Service Architecture}
 .include {docs}
 
-**Bounded context:** real-time transport (generic) · **Stack:** Node.js / Socket.IO · **Code-level walkthrough:** [Socket Service](../services/socket.qd)
+**Bounded context:** real-time transport (generic) · **Stack:** Rust / Axum / socketioxide · **Code-level walkthrough:** [Socket Service](../services/socket.qd)
 
 The socket-service is the bridge between the broker and the browser. It carries per-building telemetry and alerts to connected clients over WebSockets. It is classified as a **generic subdomain** (see [Telemetry Distribution](../domain/telemetry-distribution.qd)): pure transport, with no domain model and no database.
 
@@ -9,35 +9,62 @@ The socket-service is the bridge between the broker and the browser. It carries 
 
 ## Architectural Style
 
-Deliberately the simplest service in the system: **no persistence and no domain model**. Everything the service does splits cleanly into two kinds of code, and `index.ts` says so in its own header comment: *"Composition root (imperative shell): build dependencies, wire the pure handlers to them, and start listening. No logic lives here — that's in `core/` and `handlers/`, which is why this file is excluded from coverage."*
+Deliberately the simplest service in the system: **no persistence and no domain model**. No ports-and-adapters layering, because there is no domain logic to isolate. Instead the split is the directory structure itself — `src/core/` and `src/shell/` — so the architecture is visible in the file tree and mechanically checkable.
 
-- **The functional core** (`core/relay.ts`) is three pure functions — `roomForBuilding`, `roomForDomain`, `buildingIdFromChannel` — string manipulation only, no I/O, no dependencies.
-- **The imperative shell** is everything that touches the outside world: `auth.ts` decodes the mesh-injected `x-gateway-claims` header on the WebSocket handshake (Istio's `RequestAuthentication` already verified it once, upstream — the same trust model every other migrated service uses); `handlers/connection.ts`, `handlers/telemetry.ts`, and `handlers/notification.ts` do the actual work of joining rooms and emitting to sockets.
-- **`index.ts`** is the composition root: it registers the auth check as Socket.IO handshake middleware, wires each Redis channel to its handler, and starts listening — nothing else.
+- **`src/core/`** is pure and carries every unit test: `rooms.rs` (`room_for_building`, `room_for_domain`, `building_id_from_channel`), `auth.rs` (`authenticate_claims_header`: claims header → `Identity`), and `relay.rs` (`telemetry_delivery`, `notification_delivery`: a Redis message → the room it belongs in). String and JSON manipulation only, no I/O, no socket types.
+- **`src/shell/`** is everything that touches the outside world: `handlers.rs` runs the connect middleware, joins and leaves rooms, and emits; `server.rs` builds the Axum router, the CORS layer, and the Redis subscriber loop; `metrics.rs` owns the Prometheus registry.
+- **`src/main.rs`** binds the port and installs the shutdown signal — nothing else.
+
+The connect middleware decodes the mesh-injected `x-gateway-claims` header on the WebSocket handshake (Istio's `RequestAuthentication` already verified it once, upstream — the same trust model every other migrated service uses) and stores the resulting `Identity` in the socket's extensions, server-side.
 
 .mermaid
     graph LR
-        subgraph "Imperative Shell"
-            IDX["index.ts\ncomposition root"]
-            AUTH["auth.ts\nauthenticateClaimsHeader"]
-            CONN["handlers/connection.ts"]
-            TEL["handlers/telemetry.ts"]
-            NOTIF["handlers/notification.ts"]
+        subgraph "src/shell — Imperative Shell"
+            SRV["server.rs\ncomposition root + Redis loop"]
+            HND["handlers.rs\nconnect · subscribe · emit"]
         end
-        subgraph "Functional Core — core/relay.ts"
-            REL["roomForBuilding · roomForDomain\nbuildingIdFromChannel"]
+        subgraph "src/core — Functional Core"
+            AUTH["auth.rs\nauthenticate_claims_header"]
+            REL["relay.rs\ntelemetry_delivery · notification_delivery"]
+            ROOMS["rooms.rs\nroom_for_building · room_for_domain\nbuilding_id_from_channel"]
         end
-        BR1[(broker: notifications)] --> IDX
-        BR2[(broker: telemetry:filtered:*)] --> IDX
-        IDX -->|"io.use() — handshake middleware"| AUTH
-        IDX -->|"io.on('connection')"| CONN
-        IDX --> TEL
-        IDX --> NOTIF
-        TEL --> REL
-        NOTIF --> REL
-        CONN --> REL
-        TEL -->|room-scoped| CL[Connected clients]
-        NOTIF -->|room-scoped / broadcast| CL
+        BR1[(broker: notifications)] --> SRV
+        BR2[(broker: telemetry:filtered:*)] --> SRV
+        SRV --> REL
+        SRV -->|"io.ns('/', on_connect.with(authenticate))"| HND
+        HND --> AUTH
+        HND --> ROOMS
+        REL --> ROOMS
+        SRV -->|room-scoped| CL[Connected clients]
+        SRV -->|room-scoped / broadcast| CL
+
+### Fitness functions
+
+The core/shell split is **test-enforced**, not a convention — `tests/architecture.rs` walks `src/core/` and `src/shell/` and fails the build on:
+
+.var {headers}
+   - Rule
+   - Why it matters
+
+.tablebyrows {.headers}
+    - - Every `.rs` under `src/` lives in `src/core/` or `src/shell/` (only `lib.rs` and `main.rs` are exempt).
+      - Without this, a new file added at `src/` level is silently exempt from every rule below. This is the rule that keeps the others honest as the service grows.
+    - - Nothing under `src/core/` imports an I/O crate — no `axum`, `redis`, `socketioxide`, `tokio`, `tower_http`, `prometheus`.
+      - The moment a socket type reaches the core, its logic stops being testable without infrastructure.
+    - - Nothing under `src/core/` names `crate::shell`.
+      - Dependencies point inward. The shell calls the core, never the reverse.
+    - - No `async fn` or `.await` under `src/core/`.
+      - A pure function has nothing to await; async there is proof that I/O leaked in.
+    - - The literals `"building:` and `"domain:` appear only in `core/rooms.rs`.
+      - Room names are a wire contract with the browser. One source, or they drift.
+    - - The literal `x-gateway-claims` appears only in `core/auth.rs`.
+      - The header name is the trust boundary; it is referenced elsewhere through `CLAIMS_HEADER`.
+    - - `main.rs` reaches only `shell::server`.
+      - It binds a port and installs signal handlers; wiring is `server.rs`'s job.
+
+Both directory scans assert they found files at all, so a rename can't quietly make every rule vacuously true.
+
+Each rule was verified by injecting a violation and confirming the corresponding test fails — a fitness function that has never gone red is an assertion about nothing.
 
 ### Components & Connectors diagram
 

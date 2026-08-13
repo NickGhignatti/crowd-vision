@@ -3,20 +3,19 @@
 
 Implementation reference for the `socket-service`. For its architectural role, see [Socket Service Architecture](../architecture/socket-architecture.qd).
 
-A small Node.js service built on **Socket.IO** and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split: pure relay helpers and token verification in `core/` and `auth.ts`, the broker- and socket-event handlers in `handlers/`, the metrics registry in `config/`, and a thin composition root in `index.ts` that wires them together.
+A small Rust service built on **Axum**, **socketioxide**, and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split, expressed as the directory layout: `src/core/` (`rooms.rs`, `auth.rs`, `relay.rs`) is pure and carries every unit test; `src/shell/` (`handlers.rs`, `server.rs`, `metrics.rs`) touches sockets, Redis, and process state; `src/main.rs` only binds the port. The split is enforced by `tests/architecture.rs` — see [Socket Service Architecture](../architecture/socket-architecture.qd).
 
-Connections are **authenticated**: a Socket.IO handshake middleware decodes the mesh-verified claims header before any event is processed, so the service knows which account and domains each socket belongs to.
+Connections are **authenticated**: a socketioxide connect middleware decodes the mesh-verified claims header before the namespace connection is accepted, so the service knows which account and domains each socket belongs to.
 
 .mermaid
     graph TD
-        IDX["index.ts\ncomposition root"] --> AUTH["auth.ts\nauthenticateClaimsHeader"]
-        IDX --> CONN["handlers/connection.ts"]
-        IDX --> TEL["handlers/telemetry.ts"]
-        IDX --> NOTIF["handlers/notification.ts"]
-        CONN --> REL["core/relay.ts\npure: roomForBuilding, roomForDomain, buildingIdFromChannel"]
-        TEL --> REL
-        NOTIF --> REL
-        IDX --> METRICS["config/metrics.ts"]
+        MAIN["main.rs\nbind + shutdown signal"] --> SRV["shell/server.rs\nrouter, CORS, Redis loop"]
+        SRV --> HND["shell/handlers.rs\nconnect middleware, room joins, emits"]
+        SRV --> REL["core/relay.rs\npure: telemetry_delivery, notification_delivery"]
+        HND --> AUTH["core/auth.rs\npure: authenticate_claims_header"]
+        HND --> ROOMS["core/rooms.rs\npure: room_for_building, room_for_domain, building_id_from_channel"]
+        REL --> ROOMS
+        SRV --> METRICS["shell/metrics.rs\nregistry + counters"]
 
 ---
 
@@ -39,13 +38,47 @@ The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs
 
 ---
 
+## Metrics
+
+`GET /metrics` exposes the Prometheus text format. Every series is registered at startup (`metrics::init()`, called from `serve`), so a freshly started pod reports each one at `0` rather than omitting it — a counter that only appears after its first increment leaves gaps in `rate()` and makes "no traffic" indistinguishable from "not scraped".
+
+.var {headers}
+   - Metric
+   - Type
+   - What it answers
+
+.tablebyrows {.headers}
+    - - `socket_connected_clients`
+      - gauge
+      - How many browsers are attached right now. The capacity signal for this tier.
+    - - `telemetry_relayed_total`
+      - counter
+      - Is the telemetry path alive? Flat while sensors publish means the relay is broken.
+    - - `notifications_relayed_total{scope}`
+      - counter
+      - Alert volume, split `domain` (tenant-scoped) vs `broadcast` (system-wide). A jump in `broadcast` is worth noticing — those reach every connected client.
+    - - `relay_payload_bytes_total{channel}`
+      - counter
+      - Volume of data pushed through the relay, split `telemetry` vs `notifications`. Measured on the broker payload **before** fan-out, so it is not egress — multiply by room occupancy for that.
+    - - `relay_messages_skipped_total{channel}`
+      - counter
+      - Messages dropped because the payload was not valid JSON. Non-zero means a publisher is emitting garbage and readings are silently not reaching browsers.
+    - - `socket_connections_rejected_total`
+      - counter
+      - Handshakes refused for a missing or malformed claims header. Spikes if the mesh stops injecting `x-gateway-claims`.
+
+.box {Fan-out amplification is deliberately not measured} type:{note}
+    The genuinely interesting number for a fan-out tier is recipients per message. Getting it requires enumerating a room's sockets on every relayed message, which allocates on the hot path. `relay_payload_bytes_total` × room occupancy is the cheap approximation; a real histogram should wait until there is a reason to pay for it.
+
+---
+
 ## Authentication
 
-A Socket.IO handshake middleware (`io.use`) runs once per connection, before any event handler:
+A socketioxide connect middleware (`on_connect.with(authenticate)`) runs once per connection, before any event handler:
 
 - It reads the `x-gateway-claims` header from the handshake request. Istio's `RequestAuthentication` verifies the gateway JWT exactly once, at the mesh ingress — the browser authenticates via its `authentication_token` cookie on the handshake's initial HTTP request, and Istio extracts the JWT from that cookie before injecting the verified payload as this header.
-- `authenticateClaimsHeader` (in `auth.ts`, pure and unit-tested) base64-decodes the header and extracts a `SocketIdentity`: `accountId`, `accountName`, and the `domains` the account is a member of (from the payload's `memberships`). There is no signature check here — socket-service trusts the header rather than re-verifying a JWT itself, the same trust model as every other migrated service (see [Node Auth & Error Middleware](../packages/middlewares.qd)).
-- A missing or malformed header rejects the connection with `unauthorized`. On success the identity is attached to `socket.data` so the connection is **server-authoritative** — the client cannot claim rooms it has no right to.
+- `authenticate_claims_header` (in `auth.rs`, pure and unit-tested) base64-decodes the header and extracts an `Identity`: `account_id`, `account_name`, and the `domains` the account is a member of (from the payload's `memberships`). There is no signature check here — socket-service trusts the header rather than re-verifying a JWT itself, the same trust model as every other migrated service (see [Node Auth & Error Middleware](../packages/middlewares.qd)).
+- A missing or malformed header rejects the namespace connection with `unauthorized`; the client sees a `connect_error`. On success the identity is stored in the socket's extensions so the connection is **server-authoritative** — the client cannot claim rooms it has no right to.
 
 ---
 
@@ -66,7 +99,12 @@ At startup the service connects a Redis subscriber and binds two channels to two
       - emit `telemetry` to room `building:{id}`
       - Only clients in that building's room.
 
-For the pattern subscription, the building id is recovered from the channel name (stripping the `telemetry:filtered:` prefix) and used to target the room. Each incoming message is JSON-parsed before emission.
+For the pattern subscription, the building id is recovered from the channel name (stripping the `telemetry:filtered:` prefix) and used to target the room. Each incoming message is JSON-parsed before emission; a message that fails to parse is logged and skipped, so one bad publish cannot take the relay down.
+
+The subscriber runs in a **reconnect loop**: if the initial connection fails (Redis not up yet at pod start) or the subscription later drops (Redis restart, connection killed), it logs, waits one second, and reconnects — indefinitely. This is not optional polish. The Node implementation got it for free from `node-redis`, which auto-reconnects by default; a single-shot connect is a silent black hole, because `/health` keeps returning 200 while no telemetry reaches any browser.
+
+.box {`/health` does not reflect subscriber state} type:{note}
+    `GET /health` answers "is the HTTP server up", not "is the relay actually receiving". A pod whose Redis subscription is down still reports ready. This matches the Node service's behaviour and is tolerable because the reconnect loop closes the gap in seconds — but a readiness probe that gated on subscriber health would be strictly better, and is the obvious next improvement if this ever bites.
 
 Notifications are **domain-scoped**: if the payload carries a `domainName`, only that domain's room receives it, so members of one tenant never see another's alerts. A payload without a `domainName` (a system-wide message) is broadcast to every client.
 

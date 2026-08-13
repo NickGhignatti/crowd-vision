@@ -70,7 +70,9 @@
   {
     "key": "socket",
     "dir": "backend/socket-service",
-    "lang": "node",
+    "lang": "rust",
+    "needs_mongo": false,
+    "needs_redis": true,
     "image": "crowdvision-socket"
   },
   {

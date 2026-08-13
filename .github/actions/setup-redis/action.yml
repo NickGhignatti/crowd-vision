@@ -1,0 +1,11 @@
+name: 'Setup Redis'
+description: 'Start Redis in Docker and wait for it to be ready'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Start Redis
+      shell: bash
+      run: |
+        docker run -d -p 6379:6379 --name redis redis:alpine
+        until docker exec redis redis-cli ping; do sleep 1; done

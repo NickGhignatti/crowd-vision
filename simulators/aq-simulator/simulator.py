@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -114,6 +115,7 @@ class SimulationBuilding:
         # Docker-internal host remapping (mirrors the TypeScript behaviour)
         url = url.replace("localhost", "gateway")
         url = url.replace("127.0.0.1", "gateway")
+        url = re.sub(r"gateway:\d+", "gateway", url)
         return url
 
     @property
