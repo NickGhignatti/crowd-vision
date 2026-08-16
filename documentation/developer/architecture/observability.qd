@@ -90,13 +90,16 @@ Of the 11 backend services, only 4 expose a `/metrics` endpoint:
     - - socket-service (Rust)
       - `prometheus` crate
       - `telemetry_relayed_total`, `notifications_relayed_total{scope}`, `relay_payload_bytes_total{channel}`, `relay_messages_skipped_total{channel}`, `socket_connections_rejected_total`, `socket_connected_clients` — no default process metrics; the `nodejs_*` series ended with the Rust rewrite
+    - - notification-service (Rust)
+      - `prometheus` crate
+      - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service
     - - chat-service (Node)
       - `prom-client` + `collectDefaultMetrics`
       - `chat_http_requests_total`, `chat_http_error_requests_total`, `chat_http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service
 
-`sensor-service`, `notification-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` have no metrics instrumentation at all — no `prom-client`, `prometheus_client`, or `promhttp`, no `/metrics` route.
+`sensor-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` have no metrics instrumentation at all — no `prom-client`, `prometheus_client`, or `promhttp`, no `/metrics` route.
 
-`twin-service`, `contracts-service`, `socket-service`, and `chat-service` carry `prometheus.io/scrape: "true"` / `prometheus.io/port: "3000"` pod annotations in their `Deployment` manifests, so Kubernetes' `kubernetes-pods` autodiscovery job (below) picks them up automatically — no per-service Prometheus config needed. The other 7 services stay unscraped in Kubernetes until they gain a `/metrics` endpoint and the matching annotations.
+`twin-service`, `contracts-service`, `socket-service`, `notification-service`, and `chat-service` carry `prometheus.io/scrape: "true"` / `prometheus.io/port: "3000"` pod annotations in their `Deployment` manifests, so Kubernetes' `kubernetes-pods` autodiscovery job (below) picks them up automatically — no per-service Prometheus config needed. The other 6 services stay unscraped in Kubernetes until they gain a `/metrics` endpoint and the matching annotations.
 
 ---
 

@@ -84,7 +84,7 @@ Each service has a dedicated reusable workflow that the gate calls when that ser
       - Rust stable / cargo llvm-cov
     - - `ci-notification.yml`
       - `backend/notification-service`
-      - Node.js 24 / Jest
+      - Rust stable / cargo llvm-cov
     - - `ci-contracts.yml`
       - `backend/contracts-service`
       - Rust stable / cargo llvm-cov

@@ -1,0 +1,20 @@
+services:
+  redis:
+    image: redis:alpine
+
+  notification-db:
+    image: mongo:7
+
+  notification-service-test:
+    build:
+      context: .
+      target: test
+    command: ["bash", "/app/scripts/rust-integration-tests.sh"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb://notification-db:27017
+    volumes:
+      - ../../scripts/rust-integration-tests.sh:/app/scripts/rust-integration-tests.sh:ro
+    depends_on:
+      - redis
+      - notification-db

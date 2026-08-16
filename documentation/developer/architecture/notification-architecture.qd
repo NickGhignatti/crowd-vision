@@ -1,7 +1,7 @@
 .docname {Notification Service Architecture}
 .include {docs}
 
-**Bounded context:** [Alerting](../domain/alerting.qd) · **Stack:** Node.js / Express · **Code-level walkthrough:** [Notification Service](../services/notification.qd)
+**Bounded context:** [Alerting](../domain/alerting.qd) · **Stack:** Rust / Axum · **Code-level walkthrough:** [Notification Service](../services/notification.qd)
 
 The notification-service realises the [Alerting](../domain/alerting.qd) context. Architecturally it is a **rule engine and dispatcher**: it decides whether an event warrants an alert and fans it out to the right people across more than one channel.
 

@@ -1,15 +1,24 @@
 services:
   notification-service:
     build:
-      target: builder
-    command: npm run dev
+      target: dev
+    command: cargo watch -x run
     develop:
       watch:
         - action: sync
           path: ./src
           target: /app/src
         - action: rebuild
-          path: ./package.json
+          path: ./Cargo.toml
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - notification-target:/app/target
+      - cargo-registry:/usr/local/cargo/registry
 
   notification-db:
     ports:
@@ -25,3 +34,7 @@ services:
       - ME_CONFIG_SITE_BASEURL=/notification-db-gui/
     depends_on:
       - notification-db
+
+volumes:
+  notification-target:
+  cargo-registry:
