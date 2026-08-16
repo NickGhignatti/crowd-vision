@@ -58,7 +58,9 @@
   {
     "key": "notification",
     "dir": "backend/notification-service",
-    "lang": "node",
+    "lang": "rust",
+    "needs_mongo": true,
+    "needs_redis": true,
     "image": "crowdvision-notification"
   },
   {

@@ -3,7 +3,7 @@
 
 Implementation reference for the `notification-service`. For its architectural role, see [Notification Service Architecture](../architecture/notification-architecture.qd); for the domain model, see [Alerting](../domain/alerting.qd).
 
-A Node.js / Express service. It receives candidate alert events, debounces them, resolves recipients, and delivers through two channels: an in-app event over the Redis broker and a Web Push to registered devices.
+A Rust / Axum service in Ports & Adapters shape. It receives candidate alert events, debounces them, resolves recipients, and delivers through two channels: an in-app event over the Redis broker and a Web Push to registered devices.
 
 ---
 
@@ -14,30 +14,36 @@ A Node.js / Express service. It receives candidate alert events, debounces them,
    - Responsibility
 
 .tablebyrows {.headers}
-    - - `src/router.ts`
-      - Routes for VAPID key, subscription, preferences, manual trigger, and the automated temperature push.
-    - - `src/controller/notificationController.ts`
-      - HTTP adapters; owns the temperature-alert throttle and request normalisation.
-    - - `src/services/notificationService.ts`
-      - Redis publishing to the `notifications` channel.
-    - - `src/services/pushService.ts`
-      - VAPID Web Push delivery, preference resolution, and stale-subscription cleanup.
-    - - `src/models/webSubscription.ts`
-      - `WebPushSubscription` schema (device endpoint + keys).
-    - - `src/models/notificationSubscription.ts`
-      - `NotificationSubscription` schema (per-domain opt-in preferences).
-    - - `src/config/redis.ts`
-      - Shared Redis client.
+    - - `src/domain/`
+      - Pure types and message formats: `notification` (payloads, cooldown key, ISO timestamp), `preference`, `subscription`, `identity` (`x-gateway-claims`, `belongs_to`/`domains`), `error`.
+    - - `src/service/ports.rs`
+      - Outbound port traits: `SubscriptionStore`, `PreferenceStore`, `PushSender`, `NotificationBus`, `Cooldown`, `DomainDirectory`, `Clock`.
+    - - `src/service/alerts.rs`
+      - Alert use cases: broker breach, manual `/trigger`, `/push/temperature`. Owns the throttle.
+    - - `src/service/push.rs`
+      - Recipient resolution and fan-out; deletes gone subscriptions.
+    - - `src/service/preferences.rs`
+      - Device registration and per-domain opt-in writes.
+    - - `src/adapters/driving/http_api/`
+      - Axum handlers, `GatewayClaims` extractor, `DomainError` responses.
+    - - `src/adapters/driving/alert_listener.rs`
+      - Redis subscriber on `alerts:temperature`.
+    - - `src/adapters/driven/`
+      - Mongo stores, Redis bus + cooldown, `web-push` sender, twin-service domain lookup.
 
 .mermaid
     graph TD
-        ROUTER["router.ts"] --> CTRL["controller/notificationController.ts\nthrottle, request normalisation"]
-        CTRL --> NSV["services/notificationService.ts\nRedis publish"]
-        CTRL --> PSV["services/pushService.ts\nWeb Push, preferences, cleanup"]
-        PSV --> M1["models/webSubscription.ts"]
-        PSV --> M2["models/notificationSubscription.ts"]
-        NSV --> REDIS["config/redis.ts"]
-        PSV --> REDIS
+        HTTP["adapters/driving/http_api"] --> ALERTS["service/alerts.rs"]
+        HTTP --> PREFS["service/preferences.rs"]
+        LISTEN["adapters/driving/alert_listener.rs"] --> ALERTS
+        ALERTS --> PUSH["service/push.rs"]
+        ALERTS --> PORTS["service/ports.rs"]
+        PREFS --> PORTS
+        PUSH --> PORTS
+        PORTS --> MONGO["adapters/driven/persistence"]
+        PORTS --> REDIS["adapters/driven/redis_bus.rs"]
+        PORTS --> WEBPUSH["adapters/driven/push.rs"]
+        PORTS --> TWIN["adapters/driven/twin.rs"]
 
 ---
 
@@ -51,16 +57,19 @@ A Node.js / Express service. It receives candidate alert events, debounces them,
 .tablebyrows {.headers}
     - - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`
       - empty
-      - VAPID key pair; when both are set, `web-push` is configured for delivery.
-    - - `GATEWAY_URL`
+      - VAPID key pair. Both must be set or every push fails and is logged.
+    - - `TWIN_SERVICE_URL`
       - `http://localhost:3000`
-      - Internal gateway base; used to resolve a building's domains via the twin-service.
+      - twin-service base; resolves a building's domains.
+    - - `MONGO_URI`
+      - `mongodb://localhost:27017/notificationdb`
+      - Database; the name is taken from the URI path.
     - - `REDIS_URL`
-      - —
-      - Broker connection for publishing `notifications`.
-    - - `DEMO_NOTIFICATION_DOMAIN_ID`
-      - —
-      - When set, the optional demo loop pushes a periodic test alert to that domain.
+      - `redis://localhost:6379`
+      - Broker for publishing `notifications`, subscribing to `alerts:temperature`, and the cooldown keys.
+    - - `PORT`
+      - `3000`
+      - HTTP listen port.
 
 ---
 
@@ -68,28 +77,28 @@ A Node.js / Express service. It receives candidate alert events, debounces them,
 
 Two collections, kept separate by design (see [Alerting](../domain/alerting.qd)).
 
-```typescript
-// webSubscription.ts — "where can I reach this account?"
-interface IWebPushSubscription {
-  accountName: string;          // indexed
-  endpoint: string;             // unique
-  keys: { p256dh: string; auth: string };
+```rust
+// webpushsubscriptions — "where can I reach this account?"
+struct WebPushSubscription {
+    account_name: String,   // indexed
+    endpoint: String,       // unique
+    keys: SubscriptionKeys, // p256dh, auth
 }
 // compound unique index { accountName, endpoint }
 
-// notificationSubscription.ts — "what does this account want?"
-interface INotificationSubscription {
-  accountName: string;
-  domainName: string;
-  preferences: { notificationType: NotificationType; isSubscribed: boolean }[];
-  createdAt: Date;
+// notificationsubscriptions — "what does this account want?"
+struct AccountPreferences {
+    account_name: String,
+    domain_name: String,
+    preferences: Vec<Preference>, // notificationType, isSubscribed
+    created_at: String,
 }
 // compound unique index { accountName, domainName }
-
-enum NotificationType { TEMPERATURE = "temperature" }
 ```
 
-A single account may own several `WebPushSubscription` records (one per device) but exactly one `NotificationSubscription` per domain.
+Collection names and field names are the mongoose ones — the store is shared with the pre-Rust data. Notification type is the string `"temperature"`.
+
+A single account may own several `WebPushSubscription` records (one per device) but exactly one preferences document per domain.
 
 ---
 
@@ -120,16 +129,52 @@ A single account may own several `WebPushSubscription` records (one per device) 
       - JWT
       - Automated threshold alert; subject to the per-room cooldown below. `200`.
 
-Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified JWT, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array.
+Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified claims, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array.
 
 .box {Auth boundary} type:{note}
-    Only `/health` and `/public-key` (the non-secret VAPID key) stay public; `requireAuthentication` guards everything else. `/trigger` and `/push/temperature` fan out push notifications to a whole domain, so leaving them open was an abuse vector — they now require a valid token like the rest.
+    Only `/health`, `/metrics`, and `/public-key` (the non-secret VAPID key) stay public; the `GatewayClaims` extractor guards everything else and rejects claims without an `accountName`. `/trigger` and `/push/temperature` fan out push notifications to a whole domain, so leaving them open was an abuse vector — they require valid claims like the rest.
+
+### Domain membership
+
+Authentication is not enough: every route that names a domain also checks that the caller is a **member** of it, from `memberships` in the claims. Without this, any authenticated user of any tenant could subscribe themselves to another tenant's alert feed, or push arbitrary text to every opted-in user of a domain they have nothing to do with.
+
+`Audience::of` decides what a caller may reach: `Unrestricted` for a `system:` subject or a **global admin**, `Domains(...)` for everyone else. That mirrors `policy.cedar`'s `ReadWithAdminBypass` — domain membership **or** `maxRoleWeight >= 100` — so alerting is never narrower than twin-service's own read rule, where an admin may read any building.
+
+.var {headers}
+   - Route
+   - Rule
+   - On failure
+
+.tablebyrows {.headers}
+    - - `POST /subscribe`
+      - `claims.belongs_to(domainName)` — only when a domain is supplied
+      - `403`; the device subscription is still stored
+    - - `POST /preferences`
+      - `claims.belongs_to(domainName)`
+      - `403`
+    - - `POST /push/temperature`
+      - Resolved targets intersected with `claims.domains()`
+      - `403` when the intersection is empty
+    - - `POST /trigger`
+      - Twin's domains for the building intersected with `claims.domains()`
+      - Fans out to the intersection; `403` only when the building has domains and none are the caller's
+
+`GET /preferences` needs no check — it reads by authenticated account and cannot name a domain at all.
+
+.box {Why the intersection, not a plain check} type:{note}
+    twin-service's `GET /domain/:building` authenticates the caller but does not scope the result (`_claims: GatewayClaims`, deliberately unused). Forwarding the caller's header therefore buys no authorization, so notification-service filters twin's answer itself rather than trusting it. A building spanning two tenants fans out only to the caller's own.
+
+.box {The admin bypass is a role check, not Cedar} type:{note}
+    Unlike twin-service, this service does not embed the Cedar bundle — its Docker build context is its own directory, so `include_str!` cannot reach `auth-policy/`. `ReadWithAdminBypass`'s gate is `maxRoleWeight >= 100`, and `admin` tops `auth-contracts/roles.json` at exactly 100, so holding the `admin` role anywhere is equivalent. `the_admin_role_is_the_top_of_the_shared_ladder` reads `roles.json` at compile time and fails if a heavier role is ever added — that is the drift alarm. If one is, switch this service to Cedar rather than bumping a constant.
+
+.box {The broker path is exempt} type:{note}
+    `on_temperature_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger`/`push_temperature` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
 
 ---
 
 ## The Temperature-Alert Throttle
 
-The sensor-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, `pushTemperatureAlert` debounces per room using a Redis key with a fixed TTL.
+The sensor-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts:temperature` broker channel.
 
 .mermaid
     sequenceDiagram
@@ -159,25 +204,22 @@ The key is `temp_alert:{buildingId}:{roomId}`; the cooldown is **300 seconds**. 
 
 ## Recipient Resolution and Delivery
 
-`pushService` separates *who to notify* from *how to reach them*.
+`service/push.rs` separates *who to notify* from *how to reach them*.
 
-- `sendPushToDomain(payload, domainName, type)` queries `NotificationSubscription` for records in the domain whose `preferences` contain an enabled entry for `type` (`$elemMatch`), reduces to a unique set of account names, and delegates to `sendPushToUsers`.
-- `sendPushToUsers(payload, accountNames)` loads every `WebPushSubscription` for those accounts and sends the encrypted payload to each endpoint via `web-push`.
-- The in-app channel is independent: `publishNotification` posts `{ id, message, type, timestamp, domainName? }` to the Redis `notifications` channel, which the socket-service relays to browsers.
+- `to_domain(payload, domain_name, type)` queries the preferences collection for records in the domain whose `preferences` contain an enabled entry for `type` (`$elemMatch`), reduces to a unique set of account names, and delegates to `to_accounts`. An absent `type` matches every subscriber of the domain.
+- `to_accounts(payload, account_names)` loads every `WebPushSubscription` for those accounts and sends the encrypted payload to each endpoint concurrently — one dead endpoint never aborts the batch.
+- The in-app channel is independent: `NotificationBus::publish` posts `{ id, message, type, timestamp, domainName? }` to the Redis `notifications` channel, which the socket-service relays to browsers.
 
 ### Preference upserts
 
-`setUserNotificationPreference` is idempotent per type: it first `$pull`s any existing entry for that `notificationType`, then `$push`es the new `{ notificationType, isSubscribed }`, using `$setOnInsert` to create the document on first write.
+`PreferenceStore::set` is idempotent per type: it first `$pull`s any existing entry for that `notificationType`, then `$push`es the new `{ notificationType, isSubscribed }`, using `$setOnInsert` to create the document on first write. Two writes, not one.
 
 ### Stale-subscription cleanup
 
-When `web-push` returns `410 Gone` or `403 Forbidden`, the endpoint is permanently invalid and the subscription is deleted automatically (`Subscription.deleteOne({ endpoint })`). All other errors (network, 5xx) are logged but leave the subscription intact, as they may be transient.
-
-.box {Demo loop} type:{note}
-    `startNotificationLoop` publishes a periodic "System Status Check" (and, if `DEMO_NOTIFICATION_DOMAIN_ID` is set, a demo push) every 10 seconds. It is a development aid and should be disabled in production.
+When the push endpoint answers `410 Gone` or `403 Forbidden`, it is permanently invalid and the subscription is deleted automatically. All other errors (network, 5xx) are logged but leave the subscription intact, as they may be transient.
 
 ---
 
 ## Error Handling
 
-The service uses the shared `BaseError` hierarchy and global error middleware (see [Node Auth & Error Middleware](../packages/middlewares.qd)). Missing `accountName`/`domainName` and malformed push payloads raise `ValidationError` (400); a failed twin lookup surfaces as a `500`.
+`DomainError` maps to the same `{ type, message }` body the Node service returned. Missing `accountName`/`domainName` and malformed push payloads are `Validation Error` (400); a failed twin lookup surfaces as `Internal Server Error` (500). The broker path never returns an error — a malformed alert or a failed lookup is logged and the cooldown is still armed.

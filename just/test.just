@@ -30,6 +30,10 @@ twin-integration:
 notification:
     mise exec -- moon run notification-service:test
 
+[doc("Integration tests for notification-service — starts a throwaway MongoDB and Redis, runs tests/*.rs, tears them down.")]
+notification-integration:
+    mise exec -- moon run notification-service:test-integration
+
 [doc("Unit tests for sensor-service.")]
 sensor:
     mise exec -- moon run sensor-service:test

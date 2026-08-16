@@ -1,0 +1,102 @@
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
+use base64::Engine;
+use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+
+use crate::domain::{CLAIMS_HEADER, ClaimsPayload, DomainError, GatewayClaims};
+
+fn decode_claims_header(raw: &str) -> Option<Vec<u8>> {
+    [STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD]
+        .iter()
+        .find_map(|engine| engine.decode(raw).ok())
+}
+
+fn unauthorized(message: &str) -> DomainError {
+    DomainError::Unauthorized(message.to_string())
+}
+
+impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
+    type Rejection = DomainError;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let raw = parts
+            .headers
+            .get(CLAIMS_HEADER)
+            .and_then(|header| header.to_str().ok())
+            .filter(|raw| !raw.is_empty())
+            .ok_or_else(|| unauthorized("Missing authentication token"))?
+            .to_string();
+
+        let decoded = decode_claims_header(&raw)
+            .ok_or_else(|| unauthorized("Invalid authentication token"))?;
+        let payload: ClaimsPayload = serde_json::from_slice(&decoded)
+            .map_err(|_| unauthorized("Invalid authentication token"))?;
+
+        match payload.account_name.as_deref() {
+            Some(account) if !account.trim().is_empty() => Ok(GatewayClaims { payload, raw }),
+            _ => Err(unauthorized("Authentication token is missing an account")),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::Request;
+
+    async fn extract(header: Option<&str>) -> Result<GatewayClaims, DomainError> {
+        let mut builder = Request::builder();
+        if let Some(header) = header {
+            builder = builder.header(CLAIMS_HEADER, header);
+        }
+        let (mut parts, _) = builder.body(()).unwrap().into_parts();
+        GatewayClaims::from_request_parts(&mut parts, &()).await
+    }
+
+    fn encoded(payload: &str) -> String {
+        STANDARD.encode(payload)
+    }
+
+    #[tokio::test]
+    async fn a_valid_header_yields_the_account_and_the_raw_token() {
+        let header = encoded(r#"{"sub":"u1","accountName":"ada","memberships":[]}"#);
+        let claims = extract(Some(&header)).await.unwrap();
+
+        assert_eq!(claims.account_name(), "ada");
+        assert_eq!(claims.raw, header);
+    }
+
+    #[tokio::test]
+    async fn a_missing_header_is_unauthorized() {
+        assert!(matches!(
+            extract(None).await,
+            Err(DomainError::Unauthorized(m)) if m == "Missing authentication token"
+        ));
+    }
+
+    #[tokio::test]
+    async fn an_undecodable_header_is_unauthorized() {
+        assert!(matches!(
+            extract(Some("not base64 json!!")).await,
+            Err(DomainError::Unauthorized(m)) if m == "Invalid authentication token"
+        ));
+    }
+
+    #[tokio::test]
+    async fn claims_without_an_account_name_are_unauthorized() {
+        let header = encoded(r#"{"sub":"u1","memberships":[]}"#);
+        assert!(matches!(
+            extract(Some(&header)).await,
+            Err(DomainError::Unauthorized(m)) if m == "Authentication token is missing an account"
+        ));
+    }
+
+    #[tokio::test]
+    async fn a_blank_account_name_is_unauthorized() {
+        let header = encoded(r#"{"accountName":"   "}"#);
+        assert!(matches!(
+            extract(Some(&header)).await,
+            Err(DomainError::Unauthorized(_))
+        ));
+    }
+}

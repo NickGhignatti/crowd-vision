@@ -165,10 +165,12 @@ jobs:
   notification:
     needs: changes
     if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/tpl-node-ci.yml
+    uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: notification
       working_directory: backend/notification-service
+      needs_mongo: true
+      needs_redis: true
 
   sensor:
     needs: changes

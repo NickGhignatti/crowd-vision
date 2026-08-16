@@ -12,6 +12,9 @@ spec:
     metadata:
       labels:
         app: notification-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret

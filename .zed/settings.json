@@ -48,7 +48,15 @@
           "backend/contracts-service/Cargo.toml",
           "backend/twin-service/Cargo.toml",
           "backend/socket-service/Cargo.toml",
+          "backend/notification-service/Cargo.toml",
         ],
+        "cargo": {
+          "allFeatures": false,
+          "autoreload": false,
+        },
+        "cachePriming": {
+          "enable": false,
+        },
       },
     },
 

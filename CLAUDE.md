@@ -28,7 +28,7 @@ independently.
 | `backend/twin-service` | Rust / Axum / MongoDB / Kafka | Building spatial model |
 | `backend/contracts-service` | Rust / Axum / MongoDB | Per-building telemetry-dashboard filtering |
 | `backend/sensor-service` | Node / Express / MongoDB / Kafka | Telemetry ingestion (readings, thresholds) |
-| `backend/notification-service` | Node / Express / MongoDB | Alerting, Web Push |
+| `backend/notification-service` | Rust / Axum / MongoDB / Redis | Alerting, Web Push |
 | `backend/socket-service` | Rust / Axum / socketioxide / Redis | Real-time transport to browser |
 | `backend/chat-service` | Node / MongoDB | Chat sessions, orchestrates `agent-service` |
 | `backend/agent-service` | Python / FastAPI / PostgreSQL+pgvector | RAG assistant, maintained separately |
@@ -51,6 +51,7 @@ just test agent-integration
 just test integration           # full backend integration, composed stack
 just test twin-integration       # twin-service tests/*.rs against a real Mongo, composed
 just test socket-integration      # socket-service tests/*.rs against a real Redis, composed
+just test notification-integration # notification-service tests/*.rs against real Mongo+Redis, composed
 just setup deps-check      # lockfile-in-sync gate
 just setup audit             # npm/uv/cargo audit
 
@@ -96,7 +97,12 @@ interfaces, wired in `cmd/<service>/main.go`. Only outbound side has real port/a
 inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = ticker loop.
 
 **twin-service** (Rust): same Ports & Adapters shape, test-enforced. Detail in
-`backend/twin-service/CLAUDE.md`. `socket-service` (Rust) = functional core / imperative shell,
+`backend/twin-service/CLAUDE.md`. **notification-service** (Rust): same shape —
+`src/domain/` (pure), `src/service/` (use cases + `Arc<dyn Port>`), `src/adapters/driving/`
+(HTTP + Redis `alerts:temperature` subscriber), `src/adapters/driven/` (Mongo, Redis bus +
+cooldown, web-push, twin lookup), wired in `main.rs`. Test-enforced by
+`tests/architecture_fitness.rs`; `x-gateway-claims` literal only in `domain/identity.rs`.
+`socket-service` (Rust) = functional core / imperative shell,
 split as directories: `src/core/` (`auth`/`rooms`/`relay`, pure + unit-tested), `src/shell/`
 (`handlers`/`server`/`metrics`), `src/main.rs` binds only. Test-enforced by
 `tests/architecture.rs`: every `src/*.rs` must live in `core/` or `shell/`; core imports no I/O

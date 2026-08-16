@@ -36,7 +36,7 @@ FROM debian:bookworm-slim AS production
 # hadolint ignore=DL3005
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends ca-certificates=20230311+deb12u1 \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
