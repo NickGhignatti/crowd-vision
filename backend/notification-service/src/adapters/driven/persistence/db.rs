@@ -5,9 +5,6 @@ use mongodb::{Client, Database, IndexModel};
 pub const WEB_PUSH_SUBSCRIPTIONS: &str = "webpushsubscriptions";
 pub const NOTIFICATION_SUBSCRIPTIONS: &str = "notificationsubscriptions";
 
-/// Connects and reproduces the indexes mongoose declared on the two collections —
-/// notably the unique `endpoint`, which is what makes a re-subscribe an upsert
-/// rather than a duplicate row.
 pub async fn connect(uri: &str) -> anyhow::Result<Database> {
     let options = ClientOptions::parse(uri).await?;
     let db_name = options

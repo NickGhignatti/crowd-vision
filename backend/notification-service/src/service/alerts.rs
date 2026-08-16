@@ -32,8 +32,6 @@ impl Alerts {
         }
     }
 
-    /// The `alerts:temperature` path. No authenticated caller, so it debounces,
-    /// resolves the building's domains itself, and never propagates an error.
     pub async fn on_temperature_breach(&self, raw: &str) {
         let alert: TemperatureAlert = match serde_json::from_str(raw) {
             Ok(alert) => alert,
@@ -79,9 +77,6 @@ impl Alerts {
         }
     }
 
-    /// `POST /trigger`. The caller's own claims header is forwarded to twin-service,
-    /// and `audience` narrows the fan-out to the tenants they belong to — twin
-    /// authenticates the lookup but does not scope it.
     pub async fn trigger(
         &self,
         message: Option<&str>,
@@ -129,8 +124,6 @@ impl Alerts {
         Ok(())
     }
 
-    /// `POST /push/temperature`. Same debounce as the broker path, but a caller-supplied
-    /// domain short-circuits the building lookup and an unresolvable one is a 400.
     pub async fn push_temperature(
         &self,
         alert: &ManualTemperatureAlert,

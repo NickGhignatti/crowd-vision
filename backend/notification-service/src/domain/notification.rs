@@ -108,8 +108,6 @@ impl TemperatureAlert {
     }
 }
 
-/// The `POST /push/temperature` body: same breach, but with a caller-supplied
-/// domain that short-circuits the building lookup.
 #[derive(Debug, Clone, Default)]
 pub struct ManualTemperatureAlert {
     pub building_id: Option<String>,

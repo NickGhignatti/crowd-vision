@@ -18,9 +18,6 @@ pub trait SubscriptionStore: Send + Sync {
 pub trait PreferenceStore: Send + Sync {
     async fn find_by_account(&self, account_name: &str) -> anyhow::Result<Vec<AccountPreferences>>;
     async fn set(&self, update: &PreferenceUpdate) -> anyhow::Result<()>;
-    /// `notification_type: None` matches any type — the Node service dropped an
-    /// `undefined` type out of the query, so `POST /trigger` without one fans out
-    /// to every subscriber of the domain.
     async fn accounts_subscribed_to(
         &self,
         domain_name: &str,

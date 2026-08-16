@@ -4,19 +4,10 @@ use serde::Deserialize;
 
 pub const CLAIMS_HEADER: &str = "x-gateway-claims";
 
-/// In-mesh callers with no end user behind them — twin-service's provisioning-failure
-/// alert, and this service's own broker path. They carry no memberships, so a domain
-/// filter would silently drop everything they send.
 const SYSTEM_SUBJECT_PREFIX: &str = "system:";
 
-/// The top of `auth-contracts/roles.json`. Holding it anywhere is equivalent to
-/// `policy.cedar`'s `maxRoleWeight >= 100` bypass on `ReadWithAdminBypass`, which
-/// is the rule this service mirrors — twin-service lets a global admin read any
-/// building, so alerting must not be narrower.
 const ADMIN_ROLE: &str = "admin";
 
-/// Every field defaults: a membership the gateway shaped differently must be
-/// ignored, never turn the whole request into a 401.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Membership {
     #[serde(default)]
@@ -79,8 +70,6 @@ impl GatewayClaims {
     }
 }
 
-/// Which domains a caller may fan out to. A named type rather than an empty slice
-/// so "no restriction" can never be confused with "member of nothing".
 #[derive(Debug, Clone)]
 pub enum Audience {
     Unrestricted,
@@ -117,6 +106,16 @@ mod tests {
             payload: serde_json::from_str(payload).unwrap(),
             raw: String::new(),
         }
+    }
+
+    #[test]
+    fn membership_does_not_cascade_down_the_domain_hierarchy() {
+        let claims = claims(
+            r#"{"sub":"3f2b","accountName":"ada","memberships":[{"domain":"unibo","role":"business_admin"}]}"#,
+        );
+
+        assert!(!claims.belongs_to("eng.unibo"));
+        assert!(!Audience::of(&claims).permits("eng.unibo"));
     }
 
     #[test]

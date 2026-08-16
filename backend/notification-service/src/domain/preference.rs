@@ -107,7 +107,6 @@ impl PreferenceRequest {
         self.types.as_ref().filter(|t| !t.is_empty())
     }
 
-    /// `POST /subscribe` — `enabled` is optional and anything but an explicit `false` means on.
     pub fn resolve_lenient(
         &self,
         account_name: &str,
@@ -131,7 +130,6 @@ impl PreferenceRequest {
         }
     }
 
-    /// `POST /preferences` — `enabled` must be an explicit boolean outside the `preferences` form.
     pub fn resolve_strict(
         &self,
         account_name: &str,

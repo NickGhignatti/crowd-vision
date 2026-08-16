@@ -67,8 +67,6 @@ impl PreferenceStore for MongoPreferences {
             .collect())
     }
 
-    /// Two writes, not one: `$pull` then `$push` is what makes a repeated write
-    /// for the same type idempotent instead of appending a duplicate entry.
     async fn set(&self, update: &PreferenceUpdate) -> anyhow::Result<()> {
         let owner = owner(&update.account_name, &update.domain_name);
 

@@ -15,8 +15,6 @@ pub struct WebPushSender {
 }
 
 impl WebPushSender {
-    /// Mirrors the Node service's guard: without both keys the service still starts,
-    /// and every send fails loudly instead of the process refusing to boot.
     pub fn new(public_key: &str, private_key: &str) -> Self {
         let signer = (!public_key.is_empty() && !private_key.is_empty())
             .then(|| VapidSignatureBuilder::from_base64_no_sub(private_key))
