@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::domain::{
-    COOLDOWN_SECONDS, DomainError, ManualTemperatureAlert, Notification, PushPayload, TEMPERATURE,
-    TemperatureAlert, system_claims_header,
+    Audience, COOLDOWN_SECONDS, DomainError, ManualTemperatureAlert, Notification, PushPayload,
+    TEMPERATURE, TemperatureAlert, system_claims_header,
 };
 use crate::service::ports::{Clock, Cooldown, DomainDirectory, NotificationBus};
 use crate::service::push::Push;
@@ -79,7 +79,9 @@ impl Alerts {
         }
     }
 
-    /// `POST /trigger`. The caller's own claims header is forwarded to twin-service.
+    /// `POST /trigger`. The caller's own claims header is forwarded to twin-service,
+    /// and `audience` narrows the fan-out to the tenants they belong to — twin
+    /// authenticates the lookup but does not scope it.
     pub async fn trigger(
         &self,
         message: Option<&str>,
@@ -87,6 +89,7 @@ impl Alerts {
         building_name: Option<&str>,
         notification_type: Option<&str>,
         claims_header: &str,
+        audience: &Audience,
     ) -> Result<(), DomainError> {
         let message = message
             .filter(|m| !m.is_empty())
@@ -102,7 +105,14 @@ impl Alerts {
             .await
             .map_err(DomainError::Internal)?;
 
-        for domain_name in &domains {
+        let permitted = permitted_by(&domains, audience);
+        if permitted.is_empty() && !domains.is_empty() {
+            return Err(DomainError::Forbidden(
+                "Not a member of any domain for this building".to_string(),
+            ));
+        }
+
+        for domain_name in &permitted {
             let now = self.clock.now_millis();
             self.publish(message, kind, Some(domain_name.clone()), now)
                 .await;
@@ -125,6 +135,7 @@ impl Alerts {
         &self,
         alert: &ManualTemperatureAlert,
         claims_header: &str,
+        audience: &Audience,
     ) -> Result<(), DomainError> {
         let key = alert.cooldown_key();
         if self
@@ -152,6 +163,13 @@ impl Alerts {
         if targets.is_empty() {
             return Err(DomainError::Validation(
                 "domainName/domainId (or buildingId fallback) is required".to_string(),
+            ));
+        }
+
+        let targets = permitted_by(&targets, audience);
+        if targets.is_empty() {
+            return Err(DomainError::Forbidden(
+                "Not a member of the requested domain".to_string(),
             ));
         }
 
@@ -197,6 +215,14 @@ impl Alerts {
             log::error!("Failed to publish a notification: {e:?}");
         }
     }
+}
+
+fn permitted_by(domains: &[String], audience: &Audience) -> Vec<String> {
+    domains
+        .iter()
+        .filter(|domain| audience.permits(domain))
+        .cloned()
+        .collect()
 }
 
 fn unique_non_empty(domains: &[String]) -> Vec<String> {
@@ -287,6 +313,14 @@ mod tests {
 
     fn published(fixture: &Fixture) -> Vec<Notification> {
         fixture.bus.published.lock().unwrap().clone()
+    }
+
+    fn member_of(domains: &[&str]) -> Audience {
+        Audience::Domains(domains.iter().map(|d| d.to_string()).collect())
+    }
+
+    fn every_domain() -> Audience {
+        member_of(&["domain-a", "domain-b"])
     }
 
     #[tokio::test]
@@ -414,7 +448,7 @@ mod tests {
 
         let result = fixture
             .alerts
-            .trigger(None, None, None, None, "claims")
+            .trigger(None, None, None, None, "claims", &every_domain())
             .await;
 
         assert!(matches!(
@@ -429,7 +463,7 @@ mod tests {
 
         fixture
             .alerts
-            .trigger(None, None, Some("b1"), None, "claims")
+            .trigger(None, None, Some("b1"), None, "claims", &every_domain())
             .await
             .unwrap();
 
@@ -444,7 +478,14 @@ mod tests {
 
         fixture
             .alerts
-            .trigger(Some("hi"), None, Some("b1"), None, "caller-claims")
+            .trigger(
+                Some("hi"),
+                None,
+                Some("b1"),
+                None,
+                "caller-claims",
+                &every_domain(),
+            )
             .await
             .unwrap();
 
@@ -460,10 +501,99 @@ mod tests {
 
         let result = fixture
             .alerts
-            .trigger(Some("hi"), None, Some("b1"), None, "claims")
+            .trigger(
+                Some("hi"),
+                None,
+                Some("b1"),
+                None,
+                "claims",
+                &every_domain(),
+            )
             .await;
 
         assert!(matches!(result, Err(DomainError::Internal(_))));
+    }
+
+    #[tokio::test]
+    async fn triggering_skips_the_buildings_domains_the_caller_is_not_a_member_of() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a", "domain-b"]));
+
+        fixture
+            .alerts
+            .trigger(
+                Some("hi"),
+                None,
+                Some("b1"),
+                None,
+                "claims",
+                &member_of(&["domain-b"]),
+            )
+            .await
+            .unwrap();
+
+        let published = published(&fixture);
+        assert_eq!(published.len(), 1);
+        assert_eq!(published[0].domain_name.as_deref(), Some("domain-b"));
+    }
+
+    #[tokio::test]
+    async fn triggering_for_a_building_sharing_no_domain_with_the_caller_is_forbidden() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+
+        let result = fixture
+            .alerts
+            .trigger(
+                Some("hi"),
+                None,
+                Some("b1"),
+                None,
+                "claims",
+                &member_of(&["domain-z"]),
+            )
+            .await;
+
+        assert!(matches!(result, Err(DomainError::Forbidden(_))));
+        assert!(published(&fixture).is_empty());
+    }
+
+    #[tokio::test]
+    async fn triggering_for_a_building_with_no_domains_at_all_still_succeeds() {
+        let fixture = fixture(StubDirectory::returning("b1", &[]));
+
+        fixture
+            .alerts
+            .trigger(
+                Some("hi"),
+                None,
+                Some("b1"),
+                None,
+                "claims",
+                &Audience::Unrestricted,
+            )
+            .await
+            .unwrap();
+
+        assert!(published(&fixture).is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_manual_push_to_a_domain_the_caller_is_not_a_member_of_is_forbidden() {
+        let fixture = fixture(StubDirectory::empty());
+        let alert = ManualTemperatureAlert {
+            building_id: Some("b1".into()),
+            room_id: Some("r1".into()),
+            domain_name: Some("domain-z".into()),
+            ..Default::default()
+        };
+
+        let result = fixture
+            .alerts
+            .push_temperature(&alert, "claims", &member_of(&["domain-a"]))
+            .await;
+
+        assert!(matches!(result, Err(DomainError::Forbidden(_))));
+        assert!(published(&fixture).is_empty());
+        assert!(fixture.cooldown.started.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -479,7 +609,7 @@ mod tests {
 
         fixture
             .alerts
-            .push_temperature(&alert, "claims")
+            .push_temperature(&alert, "claims", &every_domain())
             .await
             .unwrap();
 
@@ -499,7 +629,7 @@ mod tests {
 
         fixture
             .alerts
-            .push_temperature(&alert, "claims")
+            .push_temperature(&alert, "claims", &every_domain())
             .await
             .unwrap();
 
@@ -515,7 +645,11 @@ mod tests {
 
         let result = fixture
             .alerts
-            .push_temperature(&ManualTemperatureAlert::default(), "claims")
+            .push_temperature(
+                &ManualTemperatureAlert::default(),
+                "claims",
+                &every_domain(),
+            )
             .await;
 
         assert!(matches!(
@@ -543,7 +677,7 @@ mod tests {
 
         fixture
             .alerts
-            .push_temperature(&alert, "claims")
+            .push_temperature(&alert, "claims", &every_domain())
             .await
             .unwrap();
 
@@ -563,7 +697,7 @@ mod tests {
 
         fixture
             .alerts
-            .push_temperature(&alert, "claims")
+            .push_temperature(&alert, "claims", &every_domain())
             .await
             .unwrap();
 

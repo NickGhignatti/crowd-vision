@@ -1,9 +1,23 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use serde::Deserialize;
-use serde_json::Value;
 
 pub const CLAIMS_HEADER: &str = "x-gateway-claims";
+
+/// In-mesh callers with no end user behind them — twin-service's provisioning-failure
+/// alert, and this service's own broker path. They carry no memberships, so a domain
+/// filter would silently drop everything they send.
+const SYSTEM_SUBJECT_PREFIX: &str = "system:";
+
+/// Every field defaults: a membership the gateway shaped differently must be
+/// ignored, never turn the whole request into a 401.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Membership {
+    #[serde(default)]
+    pub domain: String,
+    #[serde(default)]
+    pub role: String,
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ClaimsPayload {
@@ -12,7 +26,7 @@ pub struct ClaimsPayload {
     #[serde(rename = "accountName", default)]
     pub account_name: Option<String>,
     #[serde(default)]
-    pub memberships: Option<Vec<Value>>,
+    pub memberships: Option<Vec<Membership>>,
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +42,55 @@ impl GatewayClaims {
             .as_deref()
             .expect("claims are only constructed with a non-empty accountName")
     }
+
+    fn memberships(&self) -> &[Membership] {
+        self.payload.memberships.as_deref().unwrap_or_default()
+    }
+
+    pub fn is_system(&self) -> bool {
+        self.payload
+            .sub
+            .as_deref()
+            .is_some_and(|sub| sub.starts_with(SYSTEM_SUBJECT_PREFIX))
+    }
+
+    pub fn belongs_to(&self, domain: &str) -> bool {
+        !domain.is_empty() && self.memberships().iter().any(|m| m.domain == domain)
+    }
+
+    pub fn domains(&self) -> Vec<String> {
+        let mut domains: Vec<String> = Vec::new();
+        for membership in self.memberships() {
+            if !membership.domain.is_empty() && !domains.contains(&membership.domain) {
+                domains.push(membership.domain.clone());
+            }
+        }
+        domains
+    }
+}
+
+/// Which domains a caller may fan out to. A named type rather than an empty slice
+/// so "no restriction" can never be confused with "member of nothing".
+#[derive(Debug, Clone)]
+pub enum Audience {
+    Unrestricted,
+    Domains(Vec<String>),
+}
+
+impl Audience {
+    pub fn of(claims: &GatewayClaims) -> Self {
+        if claims.is_system() {
+            return Audience::Unrestricted;
+        }
+        Audience::Domains(claims.domains())
+    }
+
+    pub fn permits(&self, domain: &str) -> bool {
+        match self {
+            Audience::Unrestricted => true,
+            Audience::Domains(domains) => domains.iter().any(|d| d == domain),
+        }
+    }
 }
 
 pub fn system_claims_header() -> String {
@@ -37,6 +100,114 @@ pub fn system_claims_header() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
+
+    fn claims(payload: &str) -> GatewayClaims {
+        GatewayClaims {
+            payload: serde_json::from_str(payload).unwrap(),
+            raw: String::new(),
+        }
+    }
+
+    #[test]
+    fn an_in_mesh_system_caller_is_unrestricted() {
+        let claims = claims(
+            r#"{"sub":"system:twin-service","accountName":"system:twin-service","memberships":[]}"#,
+        );
+        assert!(claims.is_system());
+        assert!(matches!(Audience::of(&claims), Audience::Unrestricted));
+        assert!(Audience::of(&claims).permits("any-domain"));
+    }
+
+    #[test]
+    fn our_own_system_identity_is_unrestricted_too() {
+        let decoded = STANDARD.decode(system_claims_header()).unwrap();
+        let claims = GatewayClaims {
+            payload: serde_json::from_slice(&decoded).unwrap(),
+            raw: String::new(),
+        };
+        assert!(claims.is_system());
+    }
+
+    #[test]
+    fn an_ordinary_account_is_restricted_to_its_memberships() {
+        let claims = claims(
+            r#"{"sub":"3f2b","accountName":"ada","memberships":[{"domain":"eng","role":"a"}]}"#,
+        );
+        assert!(!claims.is_system());
+        let audience = Audience::of(&claims);
+        assert!(audience.permits("eng"));
+        assert!(!audience.permits("finance"));
+    }
+
+    #[test]
+    fn an_account_named_like_a_system_caller_is_not_one() {
+        let claims =
+            claims(r#"{"sub":"3f2b","accountName":"system:twin-service","memberships":[]}"#);
+        assert!(!claims.is_system());
+        assert!(!Audience::of(&claims).permits("eng"));
+    }
+
+    #[test]
+    fn a_member_of_the_domain_is_recognised() {
+        let claims = claims(
+            r#"{"accountName":"ada","memberships":[{"domain":"eng","role":"business_admin"}]}"#,
+        );
+        assert!(claims.belongs_to("eng"));
+    }
+
+    #[test]
+    fn a_domain_the_account_is_not_a_member_of_is_rejected() {
+        let claims = claims(
+            r#"{"accountName":"ada","memberships":[{"domain":"eng","role":"business_admin"}]}"#,
+        );
+        assert!(!claims.belongs_to("ops"));
+    }
+
+    #[test]
+    fn an_account_with_no_memberships_belongs_nowhere() {
+        assert!(!claims(r#"{"accountName":"ada"}"#).belongs_to("eng"));
+        assert!(!claims(r#"{"accountName":"ada","memberships":[]}"#).belongs_to("eng"));
+    }
+
+    #[test]
+    fn an_empty_domain_never_matches() {
+        let claims = claims(r#"{"accountName":"ada","memberships":[{"domain":"","role":"x"}]}"#);
+        assert!(!claims.belongs_to(""));
+    }
+
+    #[test]
+    fn every_joined_domain_is_listed_once_without_the_blanks() {
+        let claims = claims(
+            r#"{"accountName":"ada","memberships":[
+                {"domain":"eng","role":"a"},
+                {"domain":"","role":"b"},
+                {"domain":"ops","role":"c"},
+                {"domain":"eng","role":"d"}
+            ]}"#,
+        );
+        assert_eq!(claims.domains(), vec!["eng".to_string(), "ops".to_string()]);
+    }
+
+    #[test]
+    fn a_membership_missing_its_fields_is_ignored_rather_than_failing_the_request() {
+        let claims = claims(
+            r#"{"accountName":"ada","memberships":[{"role":"a"},{"domain":"eng","externalId":"x"}]}"#,
+        );
+        assert!(claims.belongs_to("eng"));
+        assert_eq!(claims.domains(), vec!["eng".to_string()]);
+    }
+
+    #[test]
+    fn the_system_identity_belongs_to_no_domain() {
+        let decoded = STANDARD.decode(system_claims_header()).unwrap();
+        let payload: ClaimsPayload = serde_json::from_slice(&decoded).unwrap();
+        let claims = GatewayClaims {
+            payload,
+            raw: String::new(),
+        };
+        assert!(claims.domains().is_empty());
+    }
 
     #[test]
     fn system_header_matches_the_node_service_byte_for_byte() {

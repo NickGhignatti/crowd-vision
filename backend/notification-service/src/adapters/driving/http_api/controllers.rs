@@ -6,7 +6,8 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::domain::{
-    DomainError, GatewayClaims, ManualTemperatureAlert, PreferenceRequest, WebPushSubscription,
+    Audience, DomainError, GatewayClaims, ManualTemperatureAlert, PreferenceRequest,
+    WebPushSubscription,
 };
 use crate::state::AppState;
 
@@ -83,6 +84,15 @@ fn domain_of(domain_name: Option<String>, domain_id: Option<String>) -> Option<S
     domain_name.or(domain_id).filter(|d| !d.is_empty())
 }
 
+fn require_membership(claims: &GatewayClaims, domain_name: &str) -> Result<(), DomainError> {
+    if Audience::of(claims).permits(domain_name) {
+        return Ok(());
+    }
+    Err(DomainError::Forbidden(format!(
+        "Not a member of domain {domain_name}"
+    )))
+}
+
 pub async fn public_key(State(state): State<AppState>) -> impl IntoResponse {
     Json(json!({ "publicVapidKey": state.vapid_public_key }))
 }
@@ -111,6 +121,7 @@ pub async fn subscribe(
     state.preferences.register_device(&subscription).await?;
 
     if let Some(domain_name) = domain_of(body.domain_name, body.domain_id) {
+        require_membership(&claims, &domain_name)?;
         let updates = body
             .preferences
             .resolve_lenient(account_name, &domain_name)?;
@@ -138,6 +149,7 @@ pub async fn update_preference(
     let account_name = claims.account_name();
     let domain_name = domain_of(body.domain_name, body.domain_id)
         .ok_or_else(|| DomainError::Validation("domainName is required".to_string()))?;
+    require_membership(&claims, &domain_name)?;
 
     let updates = body
         .preferences
@@ -160,6 +172,7 @@ pub async fn trigger_alert(
             body.building_name.as_deref(),
             body.notification_type.as_deref(),
             &claims.raw,
+            &Audience::of(&claims),
         )
         .await?;
 
@@ -180,7 +193,10 @@ pub async fn push_temperature_alert(
         domain_name: domain_of(body.domain_name, body.domain_id),
         notification_type: body.notification_type,
     };
-    state.alerts.push_temperature(&alert, &claims.raw).await?;
+    state
+        .alerts
+        .push_temperature(&alert, &claims.raw, &Audience::of(&claims))
+        .await?;
 
     Ok(Json(json!({ "success": true })))
 }
@@ -284,7 +300,28 @@ mod tests {
     }
 
     fn claims_header(account: &str) -> String {
-        STANDARD.encode(format!(r#"{{"sub":"u1","accountName":"{account}"}}"#))
+        claims_header_for(account, &["eng", "ops"])
+    }
+
+    fn claims_header_for(account: &str, domains: &[&str]) -> String {
+        let memberships: Vec<String> = domains
+            .iter()
+            .map(|d| format!(r#"{{"domain":"{d}","role":"business_admin"}}"#))
+            .collect();
+        STANDARD.encode(format!(
+            r#"{{"sub":"u1","accountName":"{account}","memberships":[{}]}}"#,
+            memberships.join(",")
+        ))
+    }
+
+    fn post_as(uri: &str, header: &str, body: Value) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header("content-type", "application/json")
+            .header(CLAIMS_HEADER, header)
+            .body(Body::from(body.to_string()))
+            .unwrap()
     }
 
     async fn call(state: &AppState, request: Request<Body>) -> (StatusCode, Value) {
@@ -629,6 +666,147 @@ mod tests {
 
         assert_eq!(status, StatusCode::OK);
         assert!(harness.published().is_empty());
+    }
+
+    #[tokio::test]
+    async fn subscribing_to_a_domain_the_caller_is_not_a_member_of_is_forbidden() {
+        let harness = harness(Arc::new(StubDirectory::empty()));
+        let mut body = valid_subscription();
+        body["domainName"] = serde_json::json!("finance");
+
+        let (status, response) = call(
+            &harness.state,
+            post_as("/subscribe", &claims_header_for("ada", &["eng"]), body),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(response["type"], "Forbidden Error");
+        assert!(harness.accounts("finance", None).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_forbidden_domain_still_leaves_the_device_registered() {
+        let harness = harness(Arc::new(StubDirectory::empty()));
+        let mut body = valid_subscription();
+        body["domainName"] = serde_json::json!("finance");
+
+        call(
+            &harness.state,
+            post_as("/subscribe", &claims_header_for("ada", &["eng"]), body),
+        )
+        .await;
+
+        assert_eq!(harness.endpoints_of("ada").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn updating_a_preference_for_a_foreign_domain_is_forbidden() {
+        let harness = harness(Arc::new(StubDirectory::empty()));
+
+        let (status, _) = call(
+            &harness.state,
+            post_as(
+                "/preferences",
+                &claims_header_for("ada", &["eng"]),
+                serde_json::json!({ "domainName": "finance", "enabled": true }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(harness.accounts("finance", None).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_manual_push_to_a_foreign_domain_is_forbidden() {
+        let harness = harness(Arc::new(StubDirectory::empty()));
+
+        let (status, _) = call(
+            &harness.state,
+            post_as(
+                "/push/temperature",
+                &claims_header_for("ada", &["eng"]),
+                serde_json::json!({ "domainName": "finance", "roomId": "r1", "temperature": 31.5 }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(harness.published().is_empty());
+        assert!(harness.sender.endpoints().is_empty());
+    }
+
+    #[tokio::test]
+    async fn triggering_only_reaches_the_buildings_domains_the_caller_belongs_to() {
+        let directory = Arc::new(StubDirectory::returning("b1", &["eng", "finance"]));
+        let harness = harness(directory);
+
+        let (status, _) = call(
+            &harness.state,
+            post_as(
+                "/trigger",
+                &claims_header_for("ada", &["eng"]),
+                serde_json::json!({ "buildingName": "b1" }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        let published = harness.published();
+        assert_eq!(published.len(), 1);
+        assert_eq!(published[0].domain_name.as_deref(), Some("eng"));
+    }
+
+    #[tokio::test]
+    async fn triggering_for_a_building_in_no_shared_domain_is_forbidden() {
+        let directory = Arc::new(StubDirectory::returning("b1", &["finance"]));
+        let harness = harness(directory);
+
+        let (status, _) = call(
+            &harness.state,
+            post_as(
+                "/trigger",
+                &claims_header_for("ada", &["eng"]),
+                serde_json::json!({ "buildingName": "b1" }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert!(harness.published().is_empty());
+    }
+
+    #[tokio::test]
+    async fn twin_services_provisioning_failure_alert_still_reaches_every_domain() {
+        let directory = Arc::new(StubDirectory::returning("b1", &["eng", "finance"]));
+        let harness = harness(directory);
+        let system = STANDARD.encode(
+            r#"{"sub":"system:twin-service","accountName":"system:twin-service","memberships":[]}"#,
+        );
+
+        let (status, _) = call(
+            &harness.state,
+            post_as(
+                "/trigger",
+                &system,
+                serde_json::json!({
+                    "buildingName": "b1",
+                    "message": "Provisioning failed for building b1: boom",
+                    "type": "danger",
+                }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        let published = harness.published();
+        assert_eq!(published.len(), 2);
+        assert_eq!(
+            published[0].message,
+            "Provisioning failed for building b1: boom"
+        );
+        assert_eq!(published[0].kind, "danger");
     }
 
     #[tokio::test]

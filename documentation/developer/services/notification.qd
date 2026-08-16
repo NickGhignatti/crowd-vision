@@ -15,7 +15,7 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
 
 .tablebyrows {.headers}
     - - `src/domain/`
-      - Pure types and message formats: `notification` (payloads, cooldown key, ISO timestamp), `preference`, `subscription`, `identity` (`x-gateway-claims`), `error`.
+      - Pure types and message formats: `notification` (payloads, cooldown key, ISO timestamp), `preference`, `subscription`, `identity` (`x-gateway-claims`, `belongs_to`/`domains`), `error`.
     - - `src/service/ports.rs`
       - Outbound port traits: `SubscriptionStore`, `PreferenceStore`, `PushSender`, `NotificationBus`, `Cooldown`, `DomainDirectory`, `Clock`.
     - - `src/service/alerts.rs`
@@ -133,6 +133,37 @@ Request bodies accept the canonical `domainName` field and the deprecated alias 
 
 .box {Auth boundary} type:{note}
     Only `/health`, `/metrics`, and `/public-key` (the non-secret VAPID key) stay public; the `GatewayClaims` extractor guards everything else and rejects claims without an `accountName`. `/trigger` and `/push/temperature` fan out push notifications to a whole domain, so leaving them open was an abuse vector — they require valid claims like the rest.
+
+### Domain membership
+
+Authentication is not enough: every route that names a domain also checks that the caller is a **member** of it, from `memberships` in the claims. Without this, any authenticated user of any tenant could subscribe themselves to another tenant's alert feed, or push arbitrary text to every opted-in user of a domain they have nothing to do with.
+
+.var {headers}
+   - Route
+   - Rule
+   - On failure
+
+.tablebyrows {.headers}
+    - - `POST /subscribe`
+      - `claims.belongs_to(domainName)` — only when a domain is supplied
+      - `403`; the device subscription is still stored
+    - - `POST /preferences`
+      - `claims.belongs_to(domainName)`
+      - `403`
+    - - `POST /push/temperature`
+      - Resolved targets intersected with `claims.domains()`
+      - `403` when the intersection is empty
+    - - `POST /trigger`
+      - Twin's domains for the building intersected with `claims.domains()`
+      - Fans out to the intersection; `403` only when the building has domains and none are the caller's
+
+`GET /preferences` needs no check — it reads by authenticated account and cannot name a domain at all.
+
+.box {Why the intersection, not a plain check} type:{note}
+    twin-service's `GET /domain/:building` authenticates the caller but does not scope the result (`_claims: GatewayClaims`, deliberately unused). Forwarding the caller's header therefore buys no authorization, so notification-service filters twin's answer itself rather than trusting it. A building spanning two tenants fans out only to the caller's own.
+
+.box {The broker path is exempt} type:{note}
+    `on_temperature_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger`/`push_temperature` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
 
 ---
 

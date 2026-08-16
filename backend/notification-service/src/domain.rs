@@ -5,7 +5,9 @@ pub mod preference;
 pub mod subscription;
 
 pub use error::DomainError;
-pub use identity::{CLAIMS_HEADER, ClaimsPayload, GatewayClaims, system_claims_header};
+pub use identity::{
+    Audience, CLAIMS_HEADER, ClaimsPayload, GatewayClaims, Membership, system_claims_header,
+};
 pub use notification::{
     ALERTS_TEMPERATURE_CHANNEL, COOLDOWN_SECONDS, ManualTemperatureAlert, NOTIFICATIONS_CHANNEL,
     Notification, PushPayload, TemperatureAlert, iso8601, manual_push_title,
