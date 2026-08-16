@@ -777,6 +777,55 @@ mod tests {
         assert!(harness.published().is_empty());
     }
 
+    fn admin_header(account: &str) -> String {
+        STANDARD.encode(format!(
+            r#"{{"sub":"3f2b","accountName":"{account}","memberships":[{{"domain":"eng","role":"admin"}}]}}"#
+        ))
+    }
+
+    #[tokio::test]
+    async fn a_global_admin_can_trigger_for_a_building_outside_their_own_domains() {
+        let directory = Arc::new(StubDirectory::returning("b1", &["finance"]));
+        let harness = harness(directory);
+
+        let (status, _) = call(
+            &harness.state,
+            post_as(
+                "/trigger",
+                &admin_header("root"),
+                serde_json::json!({ "buildingName": "b1" }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            harness.published()[0].domain_name.as_deref(),
+            Some("finance")
+        );
+    }
+
+    #[tokio::test]
+    async fn a_global_admin_may_set_preferences_for_any_domain() {
+        let harness = harness(Arc::new(StubDirectory::empty()));
+
+        let (status, _) = call(
+            &harness.state,
+            post_as(
+                "/preferences",
+                &admin_header("root"),
+                serde_json::json!({ "domainName": "finance", "enabled": true }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            harness.accounts("finance", Some("temperature")).await,
+            vec!["root".to_string()]
+        );
+    }
+
     #[tokio::test]
     async fn twin_services_provisioning_failure_alert_still_reaches_every_domain() {
         let directory = Arc::new(StubDirectory::returning("b1", &["eng", "finance"]));

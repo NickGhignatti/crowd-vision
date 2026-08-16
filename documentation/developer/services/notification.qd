@@ -138,6 +138,8 @@ Request bodies accept the canonical `domainName` field and the deprecated alias 
 
 Authentication is not enough: every route that names a domain also checks that the caller is a **member** of it, from `memberships` in the claims. Without this, any authenticated user of any tenant could subscribe themselves to another tenant's alert feed, or push arbitrary text to every opted-in user of a domain they have nothing to do with.
 
+`Audience::of` decides what a caller may reach: `Unrestricted` for a `system:` subject or a **global admin**, `Domains(...)` for everyone else. That mirrors `policy.cedar`'s `ReadWithAdminBypass` — domain membership **or** `maxRoleWeight >= 100` — so alerting is never narrower than twin-service's own read rule, where an admin may read any building.
+
 .var {headers}
    - Route
    - Rule
@@ -161,6 +163,9 @@ Authentication is not enough: every route that names a domain also checks that t
 
 .box {Why the intersection, not a plain check} type:{note}
     twin-service's `GET /domain/:building` authenticates the caller but does not scope the result (`_claims: GatewayClaims`, deliberately unused). Forwarding the caller's header therefore buys no authorization, so notification-service filters twin's answer itself rather than trusting it. A building spanning two tenants fans out only to the caller's own.
+
+.box {The admin bypass is a role check, not Cedar} type:{note}
+    Unlike twin-service, this service does not embed the Cedar bundle — its Docker build context is its own directory, so `include_str!` cannot reach `auth-policy/`. `ReadWithAdminBypass`'s gate is `maxRoleWeight >= 100`, and `admin` tops `auth-contracts/roles.json` at exactly 100, so holding the `admin` role anywhere is equivalent. `the_admin_role_is_the_top_of_the_shared_ladder` reads `roles.json` at compile time and fails if a heavier role is ever added — that is the drift alarm. If one is, switch this service to Cedar rather than bumping a constant.
 
 .box {The broker path is exempt} type:{note}
     `on_temperature_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger`/`push_temperature` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.

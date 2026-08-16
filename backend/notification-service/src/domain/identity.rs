@@ -9,6 +9,12 @@ pub const CLAIMS_HEADER: &str = "x-gateway-claims";
 /// filter would silently drop everything they send.
 const SYSTEM_SUBJECT_PREFIX: &str = "system:";
 
+/// The top of `auth-contracts/roles.json`. Holding it anywhere is equivalent to
+/// `policy.cedar`'s `maxRoleWeight >= 100` bypass on `ReadWithAdminBypass`, which
+/// is the rule this service mirrors — twin-service lets a global admin read any
+/// building, so alerting must not be narrower.
+const ADMIN_ROLE: &str = "admin";
+
 /// Every field defaults: a membership the gateway shaped differently must be
 /// ignored, never turn the whole request into a 401.
 #[derive(Debug, Clone, Deserialize)]
@@ -54,6 +60,10 @@ impl GatewayClaims {
             .is_some_and(|sub| sub.starts_with(SYSTEM_SUBJECT_PREFIX))
     }
 
+    pub fn is_global_admin(&self) -> bool {
+        self.memberships().iter().any(|m| m.role == ADMIN_ROLE)
+    }
+
     pub fn belongs_to(&self, domain: &str) -> bool {
         !domain.is_empty() && self.memberships().iter().any(|m| m.domain == domain)
     }
@@ -79,7 +89,7 @@ pub enum Audience {
 
 impl Audience {
     pub fn of(claims: &GatewayClaims) -> Self {
-        if claims.is_system() {
+        if claims.is_system() || claims.is_global_admin() {
             return Audience::Unrestricted;
         }
         Audience::Domains(claims.domains())
@@ -107,6 +117,43 @@ mod tests {
             payload: serde_json::from_str(payload).unwrap(),
             raw: String::new(),
         }
+    }
+
+    #[test]
+    fn a_global_admin_may_reach_any_domain() {
+        let claims = claims(
+            r#"{"sub":"3f2b","accountName":"root","memberships":[{"domain":"eng","role":"admin"}]}"#,
+        );
+        let audience = Audience::of(&claims);
+
+        assert!(claims.is_global_admin());
+        assert!(audience.permits("eng"));
+        assert!(audience.permits("finance"));
+    }
+
+    #[test]
+    fn a_business_admin_is_not_a_global_admin() {
+        let claims = claims(
+            r#"{"sub":"3f2b","accountName":"ada","memberships":[{"domain":"eng","role":"business_admin"}]}"#,
+        );
+        let audience = Audience::of(&claims);
+
+        assert!(!claims.is_global_admin());
+        assert!(audience.permits("eng"));
+        assert!(!audience.permits("finance"));
+    }
+
+    #[test]
+    fn the_admin_role_is_the_top_of_the_shared_ladder() {
+        let ladder: serde_json::Map<String, Value> =
+            serde_json::from_str(include_str!("../../../auth-contracts/roles.json")).unwrap();
+        let admin = ladder["admin"].as_i64().unwrap();
+
+        assert!(
+            ladder.values().all(|w| w.as_i64().unwrap() <= admin),
+            "policy.cedar's ReadWithAdminBypass gate is `maxRoleWeight >= 100`; \
+             holding the admin role is only equivalent while admin tops the ladder"
+        );
     }
 
     #[test]
