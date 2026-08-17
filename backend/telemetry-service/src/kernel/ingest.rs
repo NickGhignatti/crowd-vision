@@ -83,11 +83,11 @@ mod tests {
             Arc::new(PluginRegistry::new(vec![Box::new(FakePlugin::default())]).unwrap());
         let ingest = Ingest {
             registry,
-            readings: readings.clone(),
-            thresholds: Arc::new(thresholds),
-            fanout: fanout.clone(),
-            alerts: alerts.clone(),
-            clock: Arc::new(FixedClock::default()),
+            readings: readings.clone() as Arc<dyn ReadingStore>,
+            thresholds: Arc::new(thresholds) as Arc<dyn ThresholdStore>,
+            fanout: fanout.clone() as Arc<dyn Fanout>,
+            alerts: alerts.clone() as Arc<dyn Alerts>,
+            clock: Arc::new(FixedClock::default()) as Arc<dyn Clock>,
         };
         Harness {
             readings,
