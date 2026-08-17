@@ -41,12 +41,12 @@ fn assert_forbidden_imports(dir: &str, forbidden: &[&str]) {
 }
 
 #[test]
-fn check_kernel_imports() {
+fn test_kernel_imports() {
     assert_forbidden_imports("src/kernel", &["crate::plugins"]);
 }
 
 #[test]
-fn check_plugins_not_depends_on_plugins() {
+fn test_plugins_not_depends_on_plugins() {
     let mut plugins = list_dir("src/plugins");
     plugins.retain(|value| value.file_name().and_then(|n| n.to_str()).unwrap() != "common");
     for plugin in plugins {
@@ -55,14 +55,14 @@ fn check_plugins_not_depends_on_plugins() {
 }
 
 #[test]
-fn check_core_not_depends_on_adapters() {
+fn test_core_not_depends_on_adapters() {
     assert_forbidden_imports("src/kernel", &["crate::adapters"]);
     assert_forbidden_imports("src/plugins", &["crate::adapters"]);
     assert_forbidden_imports("src/contracts", &["crate::adapters"]);
 }
 
 #[test]
-fn check_contracts_not_depends_on_anything() {
+fn test_contracts_not_depends_on_anything() {
     assert_forbidden_imports(
         "src/contracts",
         &["crate::adapters", "crate::plugins", "crate::kernel"],
