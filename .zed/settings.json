@@ -57,46 +57,47 @@
         },
         "cachePriming": {
           "enable": false,
-        // cargo check reports errors but almost no suggestions; clippy is where
-        // the actionable lints and their quick-fixes come from. targetDir keeps
-        // it out of ./target so a check-on-save never blocks a `cargo test`.
-        // --all-targets is already passed by default, do not add it here.
-        "check": {
-          "command": "clippy",
-          "targetDir": true,
-        },
-        "diagnostics": {
-          "experimental": { "enable": true },
-        },
-        "inlayHints": {
-          "typeHints": { "enable": true },
-          "parameterHints": { "enable": true },
-          "chainingHints": { "enable": true },
-          "closureReturnTypeHints": { "enable": "with_block" },
-        },
-      },
-    },
-
-    "gopls": {
-      "initialization_options": {
-        "hints": {
-          "assignVariableTypes": true,
-          "compositeLiteralFields": true,
-          "compositeLiteralTypes": true,
-          "constantValues": true,
-          "functionTypeParameters": true,
-          "parameterNames": true,
-          "rangeVariableTypes": true,
+          // cargo check reports errors but almost no suggestions; clippy is where
+          // the actionable lints and their quick-fixes come from. targetDir keeps
+          // it out of ./target so a check-on-save never blocks a `cargo test`.
+          // --all-targets is already passed by default, do not add it here.
+          "check": {
+            "command": "clippy",
+            "targetDir": true,
+          },
+          "diagnostics": {
+            "experimental": { "enable": true },
+          },
+          "inlayHints": {
+            "typeHints": { "enable": true },
+            "parameterHints": { "enable": true },
+            "chainingHints": { "enable": true },
+            "closureReturnTypeHints": { "enable": "with_block" },
+          },
         },
       },
-    },
 
-    // All JS/TS packages (frontend, backend/*-service, sensor-simulator, tests)
-    // use flat eslint.config.* + eslint 10, each with its own nearest config.
-    "eslint": {
-      "settings": {
-        "experimental": {
-          "useFlatConfig": true,
+      "gopls": {
+        "initialization_options": {
+          "hints": {
+            "assignVariableTypes": true,
+            "compositeLiteralFields": true,
+            "compositeLiteralTypes": true,
+            "constantValues": true,
+            "functionTypeParameters": true,
+            "parameterNames": true,
+            "rangeVariableTypes": true,
+          },
+        },
+      },
+
+      // All JS/TS packages (frontend, backend/*-service, sensor-simulator, tests)
+      // use flat eslint.config.* + eslint 10, each with its own nearest config.
+      "eslint": {
+        "settings": {
+          "experimental": {
+            "useFlatConfig": true,
+          },
         },
       },
     },
