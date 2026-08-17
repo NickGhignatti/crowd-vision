@@ -1,11 +1,16 @@
+use crate::contracts::building::RegisteredBuilding;
 use crate::contracts::event::{AlertPayload, TelemetryEvent};
 use crate::contracts::plugin::{
     BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin,
 };
 use crate::contracts::query::Bucket;
 use crate::contracts::reading::Reading;
-use crate::contracts::threshold::Bounds;
-use crate::kernel::ports::{Alerts, Clock, Fanout, ReadingStore, ThresholdStore};
+use crate::contracts::sensor::{ActionEndpoint, Sensor};
+use crate::contracts::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
+use crate::kernel::ports::{
+    ActionDispatch, Alerts, BuildingStore, Clock, DispatchError, Fanout, ReadingStore,
+    RegisterError, RegistrationEvents, SensorStore, ThresholdStore,
+};
 use async_trait::async_trait;
 use serde_json::{Map, Value};
 use std::sync::Mutex;
@@ -200,24 +205,276 @@ impl ReadingStore for FakeReadings {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ThresholdRow {
+    pub building_id: String,
+    pub room_id: Option<String>,
+    pub metric: String,
+    pub bounds: Bounds,
+}
+
+pub fn row(building_id: &str, room_id: Option<&str>, metric: &str, bounds: Value) -> ThresholdRow {
+    ThresholdRow {
+        building_id: building_id.to_owned(),
+        room_id: room_id.map(str::to_owned),
+        metric: metric.to_owned(),
+        bounds: bounds.as_object().cloned().unwrap_or_default(),
+    }
+}
+
 #[derive(Default)]
 pub struct FakeThresholds {
-    pub bounds: Option<Bounds>,
+    pub rows: Mutex<Vec<ThresholdRow>>,
+    pub rooms: Vec<String>,
     pub refuse: bool,
+}
+
+impl FakeThresholds {
+    pub fn with(rows: Vec<ThresholdRow>) -> Self {
+        Self {
+            rows: Mutex::new(rows),
+            ..Default::default()
+        }
+    }
+
+    fn find(&self, building_id: &str, room_id: Option<&str>, metric: &str) -> Option<Bounds> {
+        self.rows
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|r| {
+                r.building_id == building_id
+                    && r.room_id.as_deref() == room_id
+                    && r.metric == metric
+            })
+            .map(|r| r.bounds.clone())
+    }
 }
 
 #[async_trait]
 impl ThresholdStore for FakeThresholds {
     async fn resolve(
         &self,
-        _building_id: &str,
-        _metric: &str,
-        _room_id: &str,
+        building_id: &str,
+        metric: &str,
+        room_id: &str,
     ) -> anyhow::Result<Option<Bounds>> {
         if self.refuse {
             anyhow::bail!("thresholds refused");
         }
-        Ok(self.bounds.clone())
+        Ok(self
+            .find(building_id, Some(room_id), metric)
+            .or_else(|| self.find(building_id, None, metric)))
+    }
+
+    async fn building_bounds(
+        &self,
+        building_id: &str,
+        metric: &str,
+    ) -> anyhow::Result<Option<Bounds>> {
+        if self.refuse {
+            anyhow::bail!("thresholds refused");
+        }
+        Ok(self.find(building_id, None, metric))
+    }
+
+    async fn upsert(
+        &self,
+        building_id: &str,
+        room_id: Option<&str>,
+        metric: &str,
+        patch: &Bounds,
+    ) -> anyhow::Result<Bounds> {
+        if self.refuse {
+            anyhow::bail!("thresholds refused");
+        }
+        let mut rows = self.rows.lock().unwrap();
+        let existing = rows.iter_mut().find(|r| {
+            r.building_id == building_id && r.room_id.as_deref() == room_id && r.metric == metric
+        });
+        match existing {
+            Some(existing) => {
+                existing.bounds.extend(patch.clone());
+                Ok(existing.bounds.clone())
+            }
+            None => {
+                rows.push(ThresholdRow {
+                    building_id: building_id.to_owned(),
+                    room_id: room_id.map(str::to_owned),
+                    metric: metric.to_owned(),
+                    bounds: patch.clone(),
+                });
+                Ok(patch.clone())
+            }
+        }
+    }
+
+    async fn temperature_limits(
+        &self,
+        building_id: &str,
+    ) -> anyhow::Result<Option<TemperatureLimits>> {
+        if self.refuse {
+            anyhow::bail!("thresholds refused");
+        }
+        if self.rooms.is_empty() && self.find(building_id, None, "temperature").is_none() {
+            return Ok(None);
+        }
+        let max_of = |bounds: Option<Bounds>| bounds.and_then(|b| b.get("maxTemp")?.as_f64());
+        Ok(Some(TemperatureLimits {
+            building_id: building_id.to_owned(),
+            max_temperature: max_of(self.find(building_id, None, "temperature")),
+            rooms: self
+                .rooms
+                .iter()
+                .map(|room_id| RoomTemperatureLimit {
+                    room_id: room_id.clone(),
+                    max_temperature: max_of(self.find(building_id, Some(room_id), "temperature")),
+                })
+                .collect(),
+        }))
+    }
+}
+
+#[derive(Default)]
+pub struct FakeSensors {
+    pub registered: Mutex<Vec<Sensor>>,
+    pub refuse: bool,
+}
+
+#[async_trait]
+impl SensorStore for FakeSensors {
+    async fn register(&self, sensor: &Sensor) -> Result<(), RegisterError> {
+        if self.refuse {
+            return Err(RegisterError::Other(anyhow::anyhow!("sensors refused")));
+        }
+        let mut registered = self.registered.lock().unwrap();
+        if registered.iter().any(|s| {
+            s.building_id == sensor.building_id
+                && s.room_id == sensor.room_id
+                && s.sensor_id == sensor.sensor_id
+        }) {
+            return Err(RegisterError::AlreadyExists);
+        }
+        registered.push(sensor.clone());
+        Ok(())
+    }
+
+    async fn by_building(&self, building_id: &str) -> anyhow::Result<Vec<Sensor>> {
+        if self.refuse {
+            anyhow::bail!("sensors refused");
+        }
+        Ok(self
+            .registered
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|s| s.building_id == building_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn by_room(&self, building_id: &str, room_id: &str) -> anyhow::Result<Vec<Sensor>> {
+        if self.refuse {
+            anyhow::bail!("sensors refused");
+        }
+        Ok(self
+            .registered
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|s| s.building_id == building_id && s.room_id == room_id)
+            .cloned()
+            .collect())
+    }
+}
+
+pub fn endpoint(url: &str, method: &str, arguments: Value) -> ActionEndpoint {
+    ActionEndpoint {
+        url: url.to_owned(),
+        method: method.to_owned(),
+        arguments: arguments.as_object().cloned().unwrap_or_default(),
+    }
+}
+
+#[derive(Default)]
+pub struct FakeDispatch {
+    pub endpoints: Vec<(String, String, ActionEndpoint)>,
+    pub sent: Mutex<Vec<(ActionEndpoint, Map<String, Value>)>>,
+    pub status: Option<u16>,
+    pub unreachable: bool,
+}
+
+#[async_trait]
+impl ActionDispatch for FakeDispatch {
+    async fn endpoint(
+        &self,
+        action_name: &str,
+        sensor_id: &str,
+    ) -> anyhow::Result<Option<ActionEndpoint>> {
+        Ok(self
+            .endpoints
+            .iter()
+            .find(|(action, sensor, _)| action == action_name && sensor == sensor_id)
+            .map(|(_, _, endpoint)| endpoint.clone()))
+    }
+
+    async fn dispatch(
+        &self,
+        endpoint: &ActionEndpoint,
+        body: &Map<String, Value>,
+    ) -> Result<(), DispatchError> {
+        if self.unreachable {
+            return Err(DispatchError::Unreachable("connection refused".to_owned()));
+        }
+        if let Some(status) = self.status {
+            return Err(DispatchError::Status(status));
+        }
+        self.sent
+            .lock()
+            .unwrap()
+            .push((endpoint.clone(), body.clone()));
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct FakeBuildings {
+    pub upserted: Mutex<Vec<RegisteredBuilding>>,
+    pub refuse: bool,
+}
+
+#[async_trait]
+impl BuildingStore for FakeBuildings {
+    async fn upsert(&self, building: &RegisteredBuilding) -> anyhow::Result<()> {
+        if self.refuse {
+            anyhow::bail!("buildings refused");
+        }
+        let mut upserted = self.upserted.lock().unwrap();
+        match upserted.iter_mut().find(|b| b.id == building.id) {
+            Some(existing) => *existing = building.clone(),
+            None => upserted.push(building.clone()),
+        }
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct FakeEvents {
+    pub completed: Mutex<Vec<(String, Result<(), String>)>>,
+}
+
+#[async_trait]
+impl RegistrationEvents for FakeEvents {
+    async fn publish_completed(
+        &self,
+        building_id: &str,
+        outcome: Result<(), String>,
+    ) -> anyhow::Result<()> {
+        self.completed
+            .lock()
+            .unwrap()
+            .push((building_id.to_owned(), outcome));
+        Ok(())
     }
 }
 

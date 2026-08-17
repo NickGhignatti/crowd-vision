@@ -12,6 +12,13 @@ impl PartialEq for Room {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct RegisteredBuilding {
+    pub id: String,
+    pub name: String,
+    pub rooms: Vec<Room>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Building {
     pub id: String,

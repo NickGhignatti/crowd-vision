@@ -9,6 +9,19 @@ pub struct Breach {
     pub threshold: f64,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoomTemperatureLimit {
+    pub room_id: String,
+    pub max_temperature: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TemperatureLimits {
+    pub building_id: String,
+    pub max_temperature: Option<f64>,
+    pub rooms: Vec<RoomTemperatureLimit>,
+}
+
 pub fn resolve<'a>(room: Option<&'a Bounds>, building: Option<&'a Bounds>) -> Option<&'a Bounds> {
     room.or(building)
 }

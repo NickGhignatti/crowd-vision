@@ -102,10 +102,7 @@ mod tests {
     }
 
     fn bounds(value: Value) -> FakeThresholds {
-        FakeThresholds {
-            bounds: Some(value.as_object().unwrap().clone()),
-            refuse: false,
-        }
+        FakeThresholds::with(vec![crate::kernel::fakes::row("b1", None, "fake", value)])
     }
 
     fn payload(value: f64) -> Value {
@@ -201,8 +198,8 @@ mod tests {
         let h = harness(
             FakeReadings::default(),
             FakeThresholds {
-                bounds: None,
                 refuse: true,
+                ..Default::default()
             },
         );
         h.ingest.accept("fake", &payload(21.5)).await.unwrap();
