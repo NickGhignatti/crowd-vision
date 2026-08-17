@@ -3,6 +3,7 @@
 pub mod fakes;
 pub mod test_app;
 
+use sqlx::postgres::PgPoolOptions;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::env;
 
@@ -27,7 +28,9 @@ pub async fn fresh_db(label: &str) -> PgPool {
         None => panic!("DATABASE_URL has no database segment"),
     };
 
-    let pool = PgPool::connect(&url)
+    let pool = PgPoolOptions::new()
+        .max_connections(2)
+        .connect(&url)
         .await
         .expect("connect to fresh database");
     sqlx::migrate!("./migrations")
