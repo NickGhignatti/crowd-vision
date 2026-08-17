@@ -69,8 +69,8 @@ impl SensorPlugin for TemperaturePlugin {
         BOUNDS
     }
 
-    fn alert_channel(&self) -> Option<&'static str> {
-        Some("alerts:temperature")
+    fn alert_channel(&self) -> &'static str {
+        "alerts:temperature"
     }
 }
 
@@ -140,9 +140,6 @@ mod tests {
 
     #[test]
     fn breaches_are_published_to_the_temperature_alert_channel() {
-        assert_eq!(
-            TemperaturePlugin.alert_channel(),
-            Some("alerts:temperature")
-        );
+        assert_eq!(TemperaturePlugin.alert_channel(), "alerts:temperature");
     }
 }

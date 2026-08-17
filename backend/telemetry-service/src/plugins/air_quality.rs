@@ -109,8 +109,8 @@ impl SensorPlugin for AirQualityPlugin {
         BOUNDS
     }
 
-    fn alert_channel(&self) -> Option<&'static str> {
-        None
+    fn alert_channel(&self) -> &'static str {
+        "alerts:airQuality"
     }
 }
 
@@ -212,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn no_alerts_are_published_for_air_quality() {
-        assert_eq!(AirQualityPlugin.alert_channel(), None);
+    fn breaches_are_published_to_the_air_quality_alert_channel() {
+        assert_eq!(AirQualityPlugin.alert_channel(), "alerts:airQuality");
     }
 }

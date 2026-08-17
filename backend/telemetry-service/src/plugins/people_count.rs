@@ -63,8 +63,8 @@ impl SensorPlugin for PeopleCountPlugin {
         BOUNDS
     }
 
-    fn alert_channel(&self) -> Option<&'static str> {
-        None
+    fn alert_channel(&self) -> &'static str {
+        "alerts:peopleCount"
     }
 }
 
@@ -129,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn no_alerts_are_published_for_occupancy() {
-        assert_eq!(PeopleCountPlugin.alert_channel(), None);
+    fn breaches_are_published_to_the_people_count_alert_channel() {
+        assert_eq!(PeopleCountPlugin.alert_channel(), "alerts:peopleCount");
     }
 }
