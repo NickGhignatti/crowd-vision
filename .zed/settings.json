@@ -76,28 +76,28 @@
           },
         },
       },
+    },
 
-      "gopls": {
-        "initialization_options": {
-          "hints": {
-            "assignVariableTypes": true,
-            "compositeLiteralFields": true,
-            "compositeLiteralTypes": true,
-            "constantValues": true,
-            "functionTypeParameters": true,
-            "parameterNames": true,
-            "rangeVariableTypes": true,
-          },
+    "gopls": {
+      "initialization_options": {
+        "hints": {
+          "assignVariableTypes": true,
+          "compositeLiteralFields": true,
+          "compositeLiteralTypes": true,
+          "constantValues": true,
+          "functionTypeParameters": true,
+          "parameterNames": true,
+          "rangeVariableTypes": true,
         },
       },
+    },
 
-      // All JS/TS packages (frontend, backend/*-service, sensor-simulator, tests)
-      // use flat eslint.config.* + eslint 10, each with its own nearest config.
-      "eslint": {
-        "settings": {
-          "experimental": {
-            "useFlatConfig": true,
-          },
+    // All JS/TS packages (frontend, backend/*-service, sensor-simulator, tests)
+    // use flat eslint.config.* + eslint 10, each with its own nearest config.
+    "eslint": {
+      "settings": {
+        "experimental": {
+          "useFlatConfig": true,
         },
       },
     },
