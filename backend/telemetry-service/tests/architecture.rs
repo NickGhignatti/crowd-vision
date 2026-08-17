@@ -25,14 +25,6 @@ fn file_under_dir(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
     }
 }
 
-fn list_dir(dir: &str) -> Vec<std::path::PathBuf> {
-    std::fs::read_dir(dir)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .filter(|entry| entry.is_dir())
-        .collect()
-}
-
 fn assert_forbidden_imports<S: AsRef<str>>(dir: &str, forbidden: &[S]) {
     let mut files = Vec::new();
     file_under_dir(Path::new(dir), &mut files);
@@ -56,19 +48,36 @@ fn test_kernel_imports() {
     assert_forbidden_imports("src/kernel", IO_CRATES);
 }
 
+fn plugin_names() -> Vec<String> {
+    let mut files = Vec::new();
+    file_under_dir(Path::new("src/plugins"), &mut files);
+    let mut names: Vec<String> = files
+        .iter()
+        .map(|p| p.file_stem().and_then(|n| n.to_str()).unwrap().to_owned())
+        .filter(|n| n != "common")
+        .collect();
+    names.sort();
+    names
+}
+
 #[test]
 fn test_plugins_not_depends_on_plugins() {
-    let mut plugins = list_dir("src/plugins");
-    plugins.retain(|value| value.file_name().and_then(|n| n.to_str()).unwrap() != "common");
-    for plugin in plugins.iter() {
-        let me = plugin.file_name().and_then(|n| n.to_str()).unwrap();
+    let plugins = plugin_names();
+    assert!(!plugins.is_empty(), "no plugins found under src/plugins");
+    for me in &plugins {
         let siblings: Vec<String> = plugins
             .iter()
-            .map(|p| p.file_name().and_then(|n| n.to_str()).unwrap())
             .filter(|n| *n != me)
             .map(|n| format!("crate::plugins::{n}"))
             .collect();
-        assert_forbidden_imports(plugin.to_str().unwrap(), &siblings);
+        let path = format!("src/plugins/{me}.rs");
+        let content = std::fs::read_to_string(&path).unwrap();
+        for sibling in &siblings {
+            assert!(
+                !content.contains(sibling),
+                "plugin {me} imports sibling {sibling}"
+            );
+        }
     }
 }
 

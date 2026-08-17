@@ -27,7 +27,7 @@ impl SensorPlugin for FakePlugin {
     fn bounds(&self) -> &'static [BoundSpec] {
         &[]
     }
-    fn alert_channel(&self) -> &'static str {
-        "alerts:fake"
+    fn alert_channel(&self) -> Option<&'static str> {
+        None
     }
 }
