@@ -1,6 +1,6 @@
 -- no-transaction
 create materialized view readings_hourly
-with (timescaledb.continuous) as
+with (timescaledb.continuous, timescaledb.materialized_only = false) as
 select time_bucket('1 hour', ts) as bucket,
        building_id, room_id, metric,
        avg(value) as avg, min(value) as min, max(value) as max,

@@ -22,6 +22,8 @@ impl Sensors {
             room_id: field(data, "roomId")?,
             sensor_id: field(data, "sensorId")?,
             sensor_type: field(data, "sensorType")?,
+            driver: optional(data, "driver"),
+            endpoint: optional(data, "endpoint"),
         };
 
         if self.registry.get(&sensor.sensor_type).is_none() {
@@ -52,6 +54,14 @@ impl Sensors {
     ) -> Result<Vec<Sensor>, DomainError> {
         Ok(self.store.by_room(building_id, room_id).await?)
     }
+}
+
+fn optional(data: &Value, name: &str) -> Option<String> {
+    data[name]
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
 }
 
 fn field(data: &Value, name: &str) -> Result<String, DomainError> {

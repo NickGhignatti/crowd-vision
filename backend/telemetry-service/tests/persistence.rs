@@ -377,6 +377,8 @@ async fn registering_a_duplicate_sensor_violates_the_primary_key() {
         room_id: "r1".to_owned(),
         sensor_id: "s1".to_owned(),
         sensor_type: "temperature".to_owned(),
+        driver: Some("tp-simulator".to_owned()),
+        endpoint: Some("http://gateway/simulator/tp".to_owned()),
     };
     sensors.register(&sensor).await.unwrap();
 

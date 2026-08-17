@@ -89,6 +89,11 @@ pub trait ActionDispatch: Send + Sync {
 }
 
 #[async_trait]
+pub trait BuildingDirectory: Send + Sync {
+    async fn domains_of(&self, building_id: &str, claims: &str) -> anyhow::Result<Vec<String>>;
+}
+
+#[async_trait]
 pub trait BuildingStore: Send + Sync {
     async fn upsert(&self, building: &RegisteredBuilding) -> anyhow::Result<()>;
 }

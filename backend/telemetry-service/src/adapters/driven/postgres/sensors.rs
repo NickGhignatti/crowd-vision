@@ -19,6 +19,8 @@ fn as_sensor(row: &sqlx::postgres::PgRow) -> Sensor {
         room_id: row.get("room_id"),
         sensor_id: row.get("sensor_id"),
         sensor_type: row.get("sensor_type"),
+        driver: row.get("driver"),
+        endpoint: row.get("endpoint"),
     }
 }
 
@@ -26,14 +28,16 @@ fn as_sensor(row: &sqlx::postgres::PgRow) -> Sensor {
 impl SensorStore for PgSensors {
     async fn register(&self, sensor: &Sensor) -> Result<(), RegisterError> {
         let result = sqlx::query(
-            "insert into sensors (building_id, room_id, sensor_id, sensor_type)
-             values ($1, $2, $3, $4)
+            "insert into sensors (building_id, room_id, sensor_id, sensor_type, driver, endpoint)
+             values ($1, $2, $3, $4, $5, $6)
              on conflict (building_id, room_id, sensor_id) do nothing",
         )
         .bind(&sensor.building_id)
         .bind(&sensor.room_id)
         .bind(&sensor.sensor_id)
         .bind(&sensor.sensor_type)
+        .bind(&sensor.driver)
+        .bind(&sensor.endpoint)
         .execute(&self.pool)
         .await
         .map_err(|error| RegisterError::Other(error.into()))?;
@@ -46,7 +50,7 @@ impl SensorStore for PgSensors {
 
     async fn by_building(&self, building_id: &str) -> anyhow::Result<Vec<Sensor>> {
         let rows = sqlx::query(
-            "select building_id, room_id, sensor_id, sensor_type from sensors
+            "select building_id, room_id, sensor_id, sensor_type, driver, endpoint from sensors
              where building_id = $1 order by room_id, sensor_id",
         )
         .bind(building_id)
@@ -57,7 +61,7 @@ impl SensorStore for PgSensors {
 
     async fn by_room(&self, building_id: &str, room_id: &str) -> anyhow::Result<Vec<Sensor>> {
         let rows = sqlx::query(
-            "select building_id, room_id, sensor_id, sensor_type from sensors
+            "select building_id, room_id, sensor_id, sensor_type, driver, endpoint from sensors
              where building_id = $1 and room_id = $2 order by sensor_id",
         )
         .bind(building_id)

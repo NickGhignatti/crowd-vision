@@ -8,7 +8,8 @@ use crate::contracts::reading::Reading;
 use crate::contracts::sensor::{Command, Sensor};
 use crate::contracts::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use crate::kernel::ports::{
-    ActionDispatch, Alerts, BuildingStore, Clock, DispatchError, Fanout, ReadingStore,
+    ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DispatchError, Fanout,
+    ReadingStore,
     RegisterError, RegistrationEvents, SensorStore, ThresholdStore,
 };
 use async_trait::async_trait;
@@ -480,6 +481,22 @@ impl RegistrationEvents for FakeEvents {
             .unwrap()
             .push((building_id.to_owned(), outcome));
         Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct FakeDirectory {
+    pub domains: Vec<String>,
+    pub refuse: bool,
+}
+
+#[async_trait]
+impl BuildingDirectory for FakeDirectory {
+    async fn domains_of(&self, _building_id: &str, _claims: &str) -> anyhow::Result<Vec<String>> {
+        if self.refuse {
+            anyhow::bail!("directory refused");
+        }
+        Ok(self.domains.clone())
     }
 }
 

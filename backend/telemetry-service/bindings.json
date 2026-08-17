@@ -1,0 +1,19 @@
+{
+  "tp-simulator": {
+    "increase": {
+      "path": "/control/receive",
+      "method": "POST",
+      "fields": { "step": "value" }
+    },
+    "decrease": {
+      "path": "/control/receive",
+      "method": "POST",
+      "fields": { "step": "value" }
+    },
+    "setTarget": {
+      "path": "/control/receive",
+      "method": "POST",
+      "fields": { "target": "value" }
+    }
+  }
+}

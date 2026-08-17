@@ -1,3 +1,8 @@
+#![allow(dead_code)]
+
+pub mod fakes;
+pub mod test_app;
+
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::env;
 

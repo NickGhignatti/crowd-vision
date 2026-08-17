@@ -37,7 +37,7 @@ impl PgReadings {
             .collect()
     }
 
-    fn inflate(&self, row: &sqlx::postgres::PgRow) -> Reading {
+    fn construct(&self, row: &sqlx::postgres::PgRow) -> Reading {
         let building_id: String = row.get("building_id");
         let room_id: String = row.get("room_id");
         let metric: String = row.get("metric");
@@ -102,7 +102,7 @@ impl ReadingStore for PgReadings {
         .bind(room_id)
         .fetch_optional(&self.pool)
         .await?;
-        Ok(row.map(|row| self.inflate(&row)))
+        Ok(row.map(|row| self.construct(&row)))
     }
 
     async fn latest_per_room(
@@ -121,7 +121,7 @@ impl ReadingStore for PgReadings {
         .bind(metric)
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows.iter().map(|row| self.inflate(row)).collect())
+        Ok(rows.iter().map(|row| self.construct(row)).collect())
     }
 
     async fn series(
