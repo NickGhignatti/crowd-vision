@@ -1,0 +1,13 @@
+[package]
+name = "telemetry-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[[test]]
+name = "cucumber"
+harness = false
+
+[profile.release]
+overflow-checks = true
