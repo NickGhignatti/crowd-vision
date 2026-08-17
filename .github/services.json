@@ -65,9 +65,12 @@
   },
   {
     "key": "sensor",
-    "dir": "backend/sensor-service",
-    "lang": "node",
-    "image": "crowdvision-sensor"
+    "dir": "backend/telemetry-service",
+    "lang": "rust",
+    "image": "crowdvision-sensor",
+    "needs_postgres": true,
+    "cd_context": ".",
+    "dockerfile": "backend/telemetry-service/Dockerfile"
   },
   {
     "key": "socket",

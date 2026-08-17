@@ -15,4 +15,4 @@ clear:
 
 [doc("Clear sensor database only.")]
 clear-sensor:
-    docker compose -f docker-compose.yml -f backend/sensor-service/docker-compose.yml exec sensor-db mongosh sensordb --eval "db.dropDatabase()"
+    docker compose -f docker-compose.yml -f backend/telemetry-service/docker-compose.yml exec telemetry-db psql -U telemetry -d telemetrydb -c "truncate readings, thresholds, sensors, building_rooms, buildings cascade;"

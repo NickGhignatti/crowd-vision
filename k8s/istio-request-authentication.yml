@@ -52,7 +52,7 @@ spec:
               - /tenancy/*
               - /contracts
               - /contracts/*
-    # Device/simulator telemetry carries no user token — sensor-service leaves
+    # Device/simulator telemetry carries no user token — telemetry-service leaves
     # POST /ingest unauthenticated, so allow this exact path with no principal.
     - to:
         - operation:

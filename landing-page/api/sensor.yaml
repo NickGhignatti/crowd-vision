@@ -9,17 +9,18 @@ info:
   version: 1.0.0
 servers:
   - url: http://localhost/sensor
-    description: Gateway endpoint for the Sensor Service
+    description: Gateway endpoint for the Telemetry Service
 
 components:
   securitySchemes:
-    cookieAuth:
+    gatewayClaims:
       type: apiKey
-      in: cookie
-      name: authentication_token
+      in: header
+      name: x-gateway-claims
       description: >
-        JWT issued at login. The twin-service may instead forward the caller's
-        `Authorization: Bearer` token; both are accepted.
+        Base64-encoded Stable Claims Contract injected by the edge after it
+        verifies the internal RS256 JWT. Clients never set this header —
+        the edge strips any client-supplied value and re-injects its own.
 
   parameters:
     SensorType:
@@ -160,7 +161,7 @@ components:
 # twin-service) except the device-facing ingest hot path and the public
 # discovery endpoints, which override this with `security: []`.
 security:
-  - cookieAuth: []
+  - gatewayClaims: []
 
 paths:
   /ingest:
@@ -207,8 +208,8 @@ paths:
     post:
       summary: Register a physical sensor
       description: >
-        Resolves the module by `sensorType` and records the sensor in the
-        registry. Returns `202` without waiting on the write.
+        Resolves the plugin by `sensorType` and records the sensor. The write
+        is synchronous; a duplicate sensor in the same room is a `409`.
       tags: [Registry]
       requestBody:
         required: true
@@ -221,17 +222,21 @@ paths:
                 sensorData:
                   $ref: "#/components/schemas/SensorRegistration"
       responses:
-        "202":
-          description: Accepted for registration
+        "201":
+          description: Sensor registered
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  accepted: { type: boolean, example: true }
+                  created: { type: boolean, example: true }
                   type: { type: string, example: "temperature" }
         "400":
-          description: Missing or invalid `sensorType`
+          description: Missing `sensorData`, or a blank required field
+        "409":
+          description: A sensor with this id is already registered in this room
+        "500":
+          description: Unexpected server error
         "404":
           description: No module registered for the given sensor type
 
@@ -377,7 +382,7 @@ paths:
         - in: query
           name: timeRange
           required: true
-          schema: { type: string, example: "24h" }
+          schema: { type: string, example: "1D", enum: ["1D", "1W", "1M", "custom"] }
         - in: query
           name: roomId
           required: false

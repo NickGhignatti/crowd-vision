@@ -9,8 +9,7 @@ use crate::contracts::sensor::{Command, Sensor};
 use crate::contracts::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use crate::kernel::ports::{
     ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DispatchError, Fanout,
-    ReadingStore,
-    RegisterError, RegistrationEvents, SensorStore, ThresholdStore,
+    ReadingStore, RegisterError, RegistrationEvents, SensorStore, ThresholdStore,
 };
 use async_trait::async_trait;
 use serde_json::{Map, Value};

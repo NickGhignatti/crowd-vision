@@ -1,17 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sensor-service
+  name: telemetry-service
   namespace: crowdvision
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sensor-service
+      app: telemetry-service
   template:
     metadata:
       labels:
-        app: sensor-service
+        app: telemetry-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
@@ -26,8 +29,8 @@ spec:
             - sh
             - -c
             - |
-              until nc -z sensor-db 27017; do
-                echo "waiting for sensor-db..."
+              until nc -z telemetry-db 5432; do
+                echo "waiting for telemetry-db..."
                 sleep 2
               done
           resources:
@@ -40,7 +43,7 @@ spec:
               memory: "32Mi"
               ephemeral-storage: "50Mi"
       containers:
-        - name: sensor-service
+        - name: telemetry-service
           image: ghcr.io/nickghignatti/crowdvision-sensor:latest
           imagePullPolicy: IfNotPresent
           securityContext:
@@ -50,7 +53,7 @@ spec:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: sensor-service-secret
+                name: telemetry-service-secret
             - configMapRef:
                 name: common-config
           volumeMounts:
@@ -87,11 +90,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: sensor-service
+  name: telemetry-service
   namespace: crowdvision
 spec:
   selector:
-    app: sensor-service
+    app: telemetry-service
   ports:
     - port: 3000
       targetPort: 3000

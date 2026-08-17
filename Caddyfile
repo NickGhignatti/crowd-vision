@@ -93,11 +93,11 @@
     # ── Signal sensor service ─────────────────────────────────────────────────
     handle /sensor/ingest {
         uri strip_prefix /sensor
-        reverse_proxy sensor-service:3000
+        reverse_proxy telemetry-service:3000
     }
     handle_path /sensor/* {
         import require_gateway_auth
-        reverse_proxy sensor-service:3000
+        reverse_proxy telemetry-service:3000
     }
 
     # ── Mongo Express GUIs ────────────────────────────────────────────────────
@@ -105,8 +105,8 @@
         reverse_proxy twin-db-express:8081
     }
 
-    handle /sensor-db-gui/* {
-        reverse_proxy sensor-db-express:8081
+    handle /telemetry-db-gui/* {
+        reverse_proxy telemetry-db-gui:8081
     }
 
     handle /notification-db-gui/* {

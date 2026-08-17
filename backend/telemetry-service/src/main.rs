@@ -46,12 +46,14 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
-    let registry = Arc::new(PluginRegistry::new(vec![
-        Box::new(TemperaturePlugin),
-        Box::new(PeopleCountPlugin),
-        Box::new(AirQualityPlugin),
-    ])
-    .map_err(|error| anyhow::anyhow!(error))?);
+    let registry = Arc::new(
+        PluginRegistry::new(vec![
+            Box::new(TemperaturePlugin),
+            Box::new(PeopleCountPlugin),
+            Box::new(AirQualityPlugin),
+        ])
+        .map_err(|error| anyhow::anyhow!(error))?,
+    );
 
     let readings_store = Arc::new(PgReadings::new(pool.clone(), registry.clone()));
     let thresholds_store = Arc::new(PgThresholds::new(pool.clone()));

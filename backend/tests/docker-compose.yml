@@ -8,7 +8,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # sensor-service depends on Kafka at boot (its building-registration
+  # telemetry-service depends on Kafka at boot (its building-registration
   # consumer) regardless of whether this suite's tests exercise that flow —
   # same single-node KRaft config as the root stack's own kafka service.
   kafka:

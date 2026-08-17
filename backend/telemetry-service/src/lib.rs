@@ -19,10 +19,13 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/metrics/", get(c::metrics))
         .route("/contracts", get(c::contracts))
         .route("/contracts/", get(c::contracts))
-        .route("/ingest/{sensorType}", post(c::ingest));
+        .route("/ingest", post(c::ingest));
 
     let protected = Router::new()
-        .route("/thresholds/buildings/{buildingId}", get(c::building_limits))
+        .route(
+            "/thresholds/buildings/{buildingId}",
+            get(c::building_limits),
+        )
         .route(
             "/thresholds/buildings/{buildingId}",
             put(c::register_building),

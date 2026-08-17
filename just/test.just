@@ -42,10 +42,6 @@ notification:
 notification-integration:
     mise exec -- moon run notification-service:test-integration
 
-[doc("Unit tests for sensor-service.")]
-sensor:
-    mise exec -- moon run sensor-service:test
-
 [doc("Unit tests for socket-service.")]
 socket:
     mise exec -- moon run socket-service:test

@@ -131,8 +131,14 @@ applySecret('twin-service-secret', {
   MONGO_URI: 'mongodb://twin-db:27017/twindb',
 })
 
-applySecret('sensor-service-secret', {
-  MONGO_URI: 'mongodb://sensor-db:27017/sensordb',
+applySecret('telemetry-service-secret', {
+  DATABASE_URL: `postgres://telemetry:${need('TELEMETRY_DB_PASSWORD')}@telemetry-db:5432/telemetrydb`,
+})
+
+applySecret('telemetry-db-secret', {
+  POSTGRES_USER: 'telemetry',
+  POSTGRES_PASSWORD: need('TELEMETRY_DB_PASSWORD'),
+  POSTGRES_DB: 'telemetrydb',
 })
 
 applySecret('notification-service-secret', {

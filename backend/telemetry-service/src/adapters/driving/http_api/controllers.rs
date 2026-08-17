@@ -10,6 +10,7 @@ use crate::state::AppState;
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
@@ -145,9 +146,23 @@ pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<Value> {
 
 pub async fn ingest(
     State(state): State<Arc<AppState>>,
-    Path(sensor_type): Path<String>,
-    Json(body): Json<Value>,
-) -> Result<StatusCode, DomainError> {
+    Json(mut body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), Response> {
+    let sensor_type = body
+        .as_object_mut()
+        .and_then(|payload| payload.remove("type"))
+        .and_then(|value| {
+            value
+                .as_str()
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(str::to_owned)
+        })
+        .ok_or_else(|| {
+            metrics::record_ingest("unknown", "invalid");
+            DomainError::Validation("type: must be a non-empty string.".to_owned()).into_response()
+        })?;
+
     let accepted = state.ingest.accept(&sensor_type, &body).await;
     metrics::record_ingest(
         &sensor_type,
@@ -157,8 +172,19 @@ pub async fn ingest(
             Err(_) => "invalid",
         },
     );
-    accepted?;
-    Ok(StatusCode::ACCEPTED)
+
+    match accepted {
+        Ok(()) => Ok((
+            StatusCode::ACCEPTED,
+            Json(json!({ "accepted": true, "type": sensor_type })),
+        )),
+        Err(DomainError::Validation(message)) => Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "Payload validation failed.", "details": [message] })),
+        )
+            .into_response()),
+        Err(error) => Err(error.into_response()),
+    }
 }
 
 pub async fn latest(

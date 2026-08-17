@@ -27,7 +27,7 @@ independently.
 | `backend/provisioner` | Go | Reconcile: pending orgs → running tenancy (pooled tier only) |
 | `backend/twin-service` | Rust / Axum / MongoDB / Kafka | Building spatial model |
 | `backend/contracts-service` | Rust / Axum / MongoDB | Per-building telemetry-dashboard filtering |
-| `backend/sensor-service` | Node / Express / MongoDB / Kafka | Telemetry ingestion (readings, thresholds) |
+| `backend/telemetry-service` | Rust / Axum / Postgres+Timescale / Kafka / Redis | Telemetry ingestion (readings, thresholds, device actions) |
 | `backend/notification-service` | Rust / Axum / MongoDB / Redis | Alerting, Web Push |
 | `backend/socket-service` | Rust / Axum / socketioxide / Redis | Real-time transport to browser |
 | `backend/chat-service` | Node / MongoDB | Chat sessions, orchestrates `agent-service` |
@@ -102,6 +102,13 @@ inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = 
 (HTTP + Redis `alerts:temperature` subscriber), `src/adapters/driven/` (Mongo, Redis bus +
 cooldown, web-push, twin lookup), wired in `main.rs`. Test-enforced by
 `tests/architecture_fitness.rs`; `x-gateway-claims` literal only in `domain/identity.rs`.
+**telemetry-service** (Rust) = hexagon + microkernel on orthogonal axes: `src/contracts/`
+(pure types + `SensorPlugin`/`ActionSpec` traits, depends on nothing), `src/kernel/` (use cases
++ `Arc<dyn Port>`, the microkernel — never names a plugin), `src/plugins/` (one file per metric,
+never import each other or the kernel), `src/adapters/driven|driving/`, wired in `main.rs`.
+Test-enforced by `tests/architecture.rs`. Device vocabulary lives **only** in
+`adapters/driven/dispatch.rs` — see `design/sensor-actions.qd`. Storage levers in
+`design/telemetry-storage.qd`.
 `socket-service` (Rust) = functional core / imperative shell,
 split as directories: `src/core/` (`auth`/`rooms`/`relay`, pure + unit-tested), `src/shell/`
 (`handlers`/`server`/`metrics`), `src/main.rs` binds only. Test-enforced by
@@ -116,7 +123,7 @@ connection, not payload). Accepted except `agent-service`, restricted by `Author
 (untrusted LLM tool-calling input). Revisit if a cluster ever serves >1 tenant.
 
 **Routing** (same table both envs): `/gateway`→claims-gateway, `/tenancy`→tenancy-service,
-`/twin`→twin-service, `/sensor`→sensor-service (`/sensor/ingest` ungated), `/notification`,
+`/twin`→twin-service, `/sensor`→telemetry-service (`/sensor/ingest` ungated), `/notification`,
 `/chat`, `/agent` (ungated), `/contracts` (own auth), `/socket.io`, `/`→frontend.
 `registry-service`/`provisioner`: no external route, HMAC-only internal calls.
 

@@ -1,6 +1,6 @@
+use crate::adapters::metrics;
 use crate::contracts::event::{AlertPayload, TelemetryEvent};
 use crate::contracts::plugin::{BoundDirection, ENVELOPE_FIELDS};
-use crate::adapters::metrics;
 use crate::kernel::ports::{Alerts, Fanout};
 use async_trait::async_trait;
 use redis::AsyncCommands;

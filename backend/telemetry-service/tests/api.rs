@@ -21,7 +21,8 @@ fn outsider() -> String {
 }
 
 fn temperature(room: &str, ts_ms: i64, value: f64) -> serde_json::Value {
-    json!({ "buildingId": "b1", "roomId": room, "timestamp": ts_ms, "temperature": value })
+    json!({ "type": "temperature", "buildingId": "b1", "roomId": room,
+            "timestamp": ts_ms, "temperature": value })
 }
 
 #[tokio::test]
@@ -85,15 +86,12 @@ async fn a_reader_cannot_edit() {
 #[tokio::test]
 async fn ingest_needs_no_credentials() {
     let app = test_app(fresh_db("ingest_open").await, vec!["eng"]).await;
-    let (status, _) = app
-        .send_json(
-            "POST",
-            "/ingest/temperature",
-            None,
-            temperature("r1", BASE_MS, 21.5),
-        )
+    let (status, body) = app
+        .send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
         .await;
     assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(body["accepted"], true);
+    assert_eq!(body["type"], "temperature");
     assert_eq!(app.fanout.published.lock().unwrap().len(), 1);
 }
 
@@ -103,9 +101,10 @@ async fn ingesting_an_unknown_sensor_type_is_not_found() {
     let (status, body) = app
         .send_json(
             "POST",
-            "/ingest/humidity",
+            "/ingest",
             None,
-            temperature("r1", BASE_MS, 21.5),
+            json!({ "type": "humidity", "buildingId": "b1", "roomId": "r1",
+                    "timestamp": BASE_MS, "temperature": 21.5 }),
         )
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -118,15 +117,16 @@ async fn ingesting_an_invalid_payload_is_rejected_with_the_offending_fields() {
     let (status, body) = app
         .send_json(
             "POST",
-            "/ingest/temperature",
+            "/ingest",
             None,
-            json!({ "buildingId": "b1", "roomId": "r1" }),
+            json!({ "type": "temperature", "buildingId": "b1", "roomId": "r1" }),
         )
         .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    let message = body["message"].as_str().unwrap();
-    assert!(message.contains("timestamp"));
-    assert!(message.contains("temperature"));
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"], "Payload validation failed.");
+    let details = body["details"][0].as_str().unwrap();
+    assert!(details.contains("timestamp"));
+    assert!(details.contains("temperature"));
 }
 
 #[tokio::test]
@@ -145,13 +145,8 @@ async fn latest_with_no_data_is_not_found() {
 #[tokio::test]
 async fn a_reading_is_ingested_then_read_back() {
     let app = test_app(fresh_db("readback").await, vec!["eng"]).await;
-    app.send_json(
-        "POST",
-        "/ingest/temperature",
-        None,
-        temperature("r1", BASE_MS, 21.5),
-    )
-    .await;
+    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
+        .await;
 
     let (status, body) = app
         .get(
@@ -169,13 +164,8 @@ async fn a_reading_is_ingested_then_read_back() {
 async fn entire_building_returns_one_row_per_room() {
     let app = test_app(fresh_db("entire").await, vec!["eng"]).await;
     for (room, value) in [("r1", 21.0), ("r2", 19.0)] {
-        app.send_json(
-            "POST",
-            "/ingest/temperature",
-            None,
-            temperature(room, BASE_MS, value),
-        )
-        .await;
+        app.send_json("POST", "/ingest", None, temperature(room, BASE_MS, value))
+            .await;
     }
 
     let (status, body) = app
@@ -201,13 +191,8 @@ async fn a_custom_range_without_a_start_is_rejected() {
 #[tokio::test]
 async fn a_custom_range_with_an_explicit_start_and_end_works() {
     let app = test_app(fresh_db("w8_works").await, vec!["eng"]).await;
-    app.send_json(
-        "POST",
-        "/ingest/temperature",
-        None,
-        temperature("r1", BASE_MS, 21.5),
-    )
-    .await;
+    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
+        .await;
 
     let uri = format!(
         "/temperature/dashboard?building=b1&timeRange=custom&start={}&end={}",
@@ -276,9 +261,10 @@ async fn a_people_count_room_threshold_is_readable_back() {
 
     app.send_json(
         "POST",
-        "/ingest/peopleCount",
+        "/ingest",
         None,
-        json!({ "buildingId": "b1", "roomId": "r1", "timestamp": BASE_MS, "peopleCount": 20 }),
+        json!({ "type": "peopleCount", "buildingId": "b1", "roomId": "r1",
+                "timestamp": BASE_MS, "peopleCount": 20 }),
     )
     .await;
 
@@ -406,13 +392,8 @@ async fn health_answers_without_credentials() {
 #[tokio::test]
 async fn metrics_are_exposed_and_count_a_matched_route() {
     let app = test_app(fresh_db("metrics").await, vec!["eng"]).await;
-    app.send_json(
-        "POST",
-        "/ingest/temperature",
-        None,
-        temperature("r1", BASE_MS, 21.5),
-    )
-    .await;
+    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
+        .await;
 
     let response = app
         .send(
@@ -428,8 +409,35 @@ async fn metrics_are_exposed_and_count_a_matched_route() {
         .await
         .unwrap();
     let text = String::from_utf8(bytes.to_vec()).unwrap();
-    assert!(text.contains(r#"sensor_http_requests_total{method="POST",route="/ingest/{sensorType}""#));
+    assert!(text.contains(r#"sensor_http_requests_total{method="POST",route="/ingest""#));
     assert!(text.contains(r#"sensor_ingest_total{metric="temperature",outcome="accepted"}"#));
     assert!(text.contains("sensor_db_pool_connections"));
     assert!(!text.contains(r#"route="/metrics""#));
+}
+
+#[tokio::test]
+async fn ingest_without_a_type_is_rejected() {
+    let app = test_app(fresh_db("ingest_notype").await, vec!["eng"]).await;
+    let (status, _) = app
+        .send_json(
+            "POST",
+            "/ingest",
+            None,
+            json!({ "buildingId": "b1", "roomId": "r1", "timestamp": BASE_MS }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn the_type_field_is_not_stored_as_a_payload_extra() {
+    let app = test_app(fresh_db("ingest_typestrip").await, vec!["eng"]).await;
+    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
+        .await;
+
+    let payload: serde_json::Value = sqlx::query_scalar("select payload from readings")
+        .fetch_one(&app.pool)
+        .await
+        .unwrap();
+    assert_eq!(payload, json!({}));
 }

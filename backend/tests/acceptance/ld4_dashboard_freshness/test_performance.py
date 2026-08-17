@@ -9,7 +9,7 @@ percentile end-to-end to the value being rendered is at most 5 seconds.
 Measurement note: socket-service has no server-side timing or
 correlation-id instrumentation on this path today (checked
 handlers/telemetry.ts and config/registry.ts — only a bare relay counter
-exists; it never reads the `ingestedAt` field sensor-service already stamps
+exists; it never reads the `ingestedAt` field telemetry-service already stamps
 onto every event). Both checkpoints below are therefore measured the same
 way: wall-clock time between this test's own ingest call returning 202 and
 its own socket client receiving the `telemetry` event. That's a reasonable

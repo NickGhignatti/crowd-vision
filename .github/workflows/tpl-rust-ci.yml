@@ -6,6 +6,7 @@ on:
       working_directory: { required: true, type: string }
       needs_mongo: { required: false, type: boolean, default: false }
       needs_redis: { required: false, type: boolean, default: false }
+      needs_postgres: { required: false, type: boolean, default: false }
 
 jobs:
   test:
@@ -29,6 +30,10 @@ jobs:
       - name: Start Redis
         if: ${{ inputs.needs_redis }}
         uses: ./.github/actions/setup-redis
+
+      - name: Start TimescaleDB
+        if: ${{ inputs.needs_postgres }}
+        uses: ./.github/actions/setup-postgres
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust

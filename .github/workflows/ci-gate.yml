@@ -174,11 +174,13 @@ jobs:
 
   sensor:
     needs: changes
-    if: needs.changes.outputs.sensor == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/tpl-node-ci.yml
+    if: needs.changes.outputs.sensor == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: sensor
-      working_directory: backend/sensor-service
+      working_directory: backend/telemetry-service
+      needs_postgres: true
+      needs_redis: true
 
   socket:
     needs: changes

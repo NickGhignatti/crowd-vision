@@ -1,350 +1,146 @@
-.docname {Sensor Service}
+.docname {Telemetry Service}
 .include {docs}
 
-Implementation reference for the `sensor-service`. For its architectural role, see [Sensor Service Architecture](../architecture/sensor-architecture.qd); for the domain model, see [Telemetry Ingestion](../domain/telemetry-ingestion.qd).
+Implementation reference for `backend/telemetry-service`. For its architectural role, see [Telemetry Service Architecture](../architecture/sensor-architecture.qd); for the domain model, see [Telemetry Ingestion](../domain/telemetry-ingestion.qd).
 
-A Node.js / Express service in strict TypeScript. It ingests sensor readings from constrained hardware, persists them, publishes them for live distribution, and manages per-building thresholds. Its design answers two pressures: never make a sensor wait, and never edit the core to add a sensor type.
+A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings from constrained hardware, persists them, publishes them for live distribution, manages per-building and per-room thresholds, and forwards commands to physical devices. Its design answers two pressures: adding a metric must not touch the core, and no I/O technology may reach the logic that decides what a reading means.
 
 ---
 
 ## Source Layout
 
-.var {headers}
+.var {layout}
    - Path
-   - Responsibility
+   - Holds
 
-.tablebyrows {.headers}
-    - - `src/kernel/sensorKernel.ts`
-      - The microkernel: a startup-populated registry that resolves a module by its `type`.
-    - - `src/modules/ISensorModule.ts`
-      - The module contract and the immutable `ValidationResult` value object.
-    - - `src/modules/BaseSensorModule.ts`
-      - Abstract base implementing the sealed ingestion pipeline (Template Method).
-    - - `src/modules/*Module.ts`
-      - Concrete strategies: `TemperatureModule`, `PeopleCountModule`, `AirQualityModule`.
-    - - `src/services/*ModuleService.ts`
-      - Per-metric persistence, aggregation, and threshold logic.
-    - - `src/services/ActionService.ts`
-      - Resolves a registered `sensorId` from its `{ roomId, buildingId }` location.
-    - - `src/controllers/`
-      - `ingestionController.ts`, `readController.ts`, `thresholdController.ts`, `writerController.ts` (sensor registration), `actionController.ts` (command dispatch).
-    - - `src/models/`
-      - Signal schemas, `buildingThreshold.ts`, `sensor.ts` (the registry), `actionSignal.ts`, and the metric catalog.
-    - - `actions.json`
-      - Data-driven routing table for the action path (see *Sensor Registry & Actions*).
-    - - `src/config/`
-      - `db.ts` (Mongo), `redis.ts` (broker), `kafka.ts` (the building-registration producer/consumer, plus both topic names).
-    - - `src/services/buildingRegistration.ts`
-      - `registerBuilding(kernel, buildingId, payload)`: seeds every registered module's threshold clone for a building. Called from both `thresholdController`'s REST route and the Kafka consumer below — one use case, two driving adapters.
-    - - `src/consumers/registrationConsumer.ts`
-      - Consumes `building-registration-requested`, calls `registerBuilding`, then publishes `building-registration-completed` with `status: "ready"` or `"failed"`.
-
-.mermaid
-    graph TD
-        subgraph Controllers
-            IC["ingestionController.ts"]
-            RC["readController.ts"]
-            TC["thresholdController.ts"]
-            WC["writerController.ts"]
-            AC["actionController.ts"]
-        end
-        subgraph "Kernel — Microkernel"
-            K["sensorKernel.ts\nregistry: type to module"]
-        end
-        subgraph "Strategy Modules"
-            BASE["BaseSensorModule.ts\nTemplate Method"]
-            TM["TemperatureModule.ts"]
-            PM["PeopleCountModule.ts"]
-            AM["AirQualityModule.ts"]
-        end
-        subgraph Services
-            MS["*ModuleService.ts\nper-metric persistence"]
-            AS["ActionService.ts"]
-        end
-        IC --> K
-        RC --> K
-        WC --> K
-        TC --> MS
-        AC --> AS
-        K --> BASE
-        BASE --> TM
-        BASE --> PM
-        BASE --> AM
-        TM --> MS
-        PM --> MS
-        AM --> MS
-        AC --> AJ["actions.json\ndata-driven routing"]
+.tablebyrows {.layout}
+    - - `src/contracts/`
+      - Pure types and traits: `SensorPlugin`, `MetricDescriptor`, `ActionSpec`, `Reading`, `Command`, threshold resolution, query/bucketing rules. Imports nothing from the rest of the crate.
+    - - `src/kernel/`
+      - Use cases — `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration` — plus `ports.rs`, `registry.rs`, `authz.rs`. Depends only on `contracts` and its own port traits.
+    - - `src/plugins/`
+      - One file per metric: `temperature.rs`, `people_count.rs`, `air_quality.rs`, plus `common.rs`. No plugin imports another.
+    - - `src/adapters/driven/`
+      - `postgres/`, `redis_fanout.rs`, `kafka_producer.rs`, `twin_directory.rs`, `dispatch.rs`.
+    - - `src/adapters/driving/`
+      - `http_api/` (claims, controllers, error mapping), `kafka_consumer.rs`.
+    - - `src/state.rs`, `src/main.rs`
+      - Shared handler state; composition root.
+    - - `migrations/`
+      - `0001_init`, `0002_timescale`, `0003_rollup`. Embedded with `sqlx::migrate!` and applied at startup.
+    - - `tests/`
+      - `architecture.rs` (fitness), `persistence.rs`, `api.rs`, `fanout.rs`, `registration.rs`.
 
 ---
 
 ## Configuration
 
-.var {headers}
+.var {config}
    - Variable
    - Default
    - Purpose
 
-.tablebyrows {.headers}
+.tablebyrows {.config}
+    - - `DATABASE_URL`
+      - *(required)*
+      - Postgres + TimescaleDB connection string. Migrations run at startup.
     - - `REDIS_URL`
-      - `redis://localhost:6379`
-      - Broker for `telemetry:raw` publishing and the read-path cache.
-    - - `MONGO_URI` / DB URL
+      - `redis://redis:6379`
+      - Telemetry fan-out and breach alerts.
+    - - `KAFKA_BROKERS`
+      - `kafka:9092`
+      - Building-registration topics. Unreachable at boot degrades to a disabled producer rather than failing.
+    - - `TWIN_SERVICE_URL`
+      - `http://twin-service:3000`
+      - Building-to-domain lookups for authorization.
+    - - `PORT`
+      - `3000`
+      - HTTP listener.
+    - - `RUST_LOG`
       - —
-      - Time-series storage for signals and thresholds.
-
-The temperature module additionally calls the notification-service push endpoint when a reading breaches its bound.
+      - `env_logger` filter.
 
 ---
 
-## The Microkernel
+## Adding a Metric
 
-`SensorKernel` is a pure dispatch registry. Modules are registered once at startup; request handling is then a lookup with no branching on sensor type in the core.
+Three steps, none of which touch the kernel.
 
-```typescript
-class SensorKernel {
-  register(module: ISensorModule): this  // throws on duplicate type
-  resolve(type: string): ISensorModule | undefined
-  getRegisteredTypes(): readonly string[]
-}
+**1. Declare it.** A new file in `src/plugins/`:
+
+```rust
+static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    key: "humidity",
+    value_field: "humidity",
+    label: "Humidity",
+    interface_name: "IHumidity",
+    unit: Some("%"),
+    fields: &[
+        FieldSpec { name: "buildingId", kind: FieldKind::NonEmptyString, required: true },
+        FieldSpec { name: "roomId",     kind: FieldKind::NonEmptyString, required: true },
+        FieldSpec { name: "timestamp",  kind: FieldKind::Finite,         required: true },
+        FieldSpec { name: "humidity",   kind: FieldKind::Finite,         required: true },
+    ],
+};
+
+static BOUNDS: &[BoundSpec] = &[
+    BoundSpec { key: "maxHumidity", direction: BoundDirection::Above },
+];
 ```
 
-Duplicate registration throws synchronously — it is a configuration bug and should crash at boot, not silently overwrite.
+**2. Implement `SensorPlugin`.** `validate` is `check_fields` plus reading the value; `actions()` defaults to `&[]` and is only overridden for metrics with an actuator.
+
+**3. Register it** in `main.rs`'s `PluginRegistry::new(vec![…])`.
+
+`GET /contracts`, `POST /ingest`, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.
+
+.box {The declaration is the single source of truth} type:{note}
+    In the Node predecessor the served catalog and the per-module `validate()` were two independent lists. They drifted: `airQuality` advertised eight required fields and checked two, and the catalog said `building` while every validator required `buildingId`. `MetricDescriptor.fields` now drives both, which makes that class of drift inexpressible.
 
 ---
 
-## Ingestion: Fast Path / Slow Path
+## Request Lifecycle
 
-The critical constraint is that hardware clients are released immediately. The controller validates synchronously, flushes the response, and only then processes.
+**Ingestion** — `POST /ingest`, unauthenticated by design (device-facing, exempted at the edge):
 
-.mermaid
-    sequenceDiagram
-        autonumber
-        participant HW as Sensor
-        participant IC as IngestionController
-        participant K as SensorKernel
-        participant M as Module
-        participant DB as MongoDB
-        participant R as Redis
-        HW->>IC: POST /ingest { type, ...data }
-        IC->>K: resolve(type)
-        alt unknown type
-            IC-->>HW: 404
-        else known
-            IC->>M: validate(data)   (pure, synchronous)
-            alt invalid
-                IC-->>HW: 422 + errors
-            else valid
-                IC-->>HW: 202 Accepted
-                Note over IC: setImmediate — response is flushed first
-                IC->>M: process(data)
-                M->>DB: persist
-                M->>R: PUBLISH telemetry:raw
-            end
-        end
+1. `type` is taken from the body and removed; the remainder is the payload.
+2. `PluginRegistry` resolves the plugin — unknown metric is `404`.
+3. `plugin.validate` runs `check_fields` — failures are `422` with a `details` array.
+4. The reading is written to Postgres.
+5. Thresholds resolve room-first, then building; a breach publishes to `alerts:<metric>`.
+6. The event is published to `telemetry:raw`.
+7. `202 {accepted, type}`.
 
-- A missing/blank `type` is `400`; an unregistered `type` is `404`; a failed validation is `422` with structured `details`.
-- `setImmediate` defers `module.process()` until after the `202` is on the wire, so persistence and broker latency never affect the sensor's round-trip.
-- Background failures are caught and logged; they never reach the (already closed) connection.
+A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `sensor_ingest_persist_failures_total`.
+
+**Reads** — `GET /{sensorType}/latest`, `/entireBuilding`, `/dashboard`. Each resolves the building's domains through twin-service and evaluates Cedar before touching data. `latest` on an empty room is `404`.
+
+**Actions** — `POST /executeAction`. The kernel validates the command against the plugin's `ActionSpec`; the dispatch adapter translates it into the device's own vocabulary. See [Sensor Actions & the Device ACL](../design/sensor-actions.qd).
 
 ---
 
-## The Module Contract
+## Data Model
 
-### `ISensorModule` and `ValidationResult`
+Five tables. Full retention and compression design in [Telemetry Storage & Retention](../design/telemetry-storage.qd).
 
-`validate()` is **pure and synchronous** (no I/O) and returns an immutable `ValidationResult` rather than throwing, so the controller can return machine-readable errors before processing. `process()` is impure and runs only after a successful `validate()`.
+.var {tables}
+   - Table
+   - Holds
 
-### `BaseSensorModule` — Template Method
-
-Concrete modules extend `BaseSensorModule<T>` rather than implementing `ISensorModule` directly. The base **seals** the ingestion pipeline:
-
-```typescript
-async process(payload: unknown): Promise<void> {
-  await this.persist(payload);                         // child-specific
-  this.publishTelemetry(this.buildTelemetryEvent(payload)); // base-owned
-}
-```
-
-- The order is fixed — persist, then publish — so a module can never publish a `telemetry:raw` event before the reading is queryable from the read path, nor forget the publish.
-- `publishTelemetry` writes to `telemetry:raw` fire-and-forget (failures logged), keeping ingestion latency independent of Redis.
-- `getLatest` is shared (most-recent document per room); the threshold methods default to no-ops and are overridden only by modules that support thresholds.
-
-A child therefore implements only what is unique: `type`, `model`, `validate`, `persist`, `buildTelemetryEvent`, `getAllLatest`, `getDashboardData`.
-
-### Lifecycle methods: `create` and `apply`
-
-Two contract methods extend a module beyond pure ingestion:
-
-- `create(buildingId, roomId, sensorType, sensorId)` — registers a physical sensor. The base class supplies the default: it inserts a `Sensors` document, so no module needs to reimplement it.
-- `apply()` — the hook a module overrides to actuate a received command against its hardware. It defaults to a no-op in the base class and is currently still a stub in `TemperatureModule`; the action path (below) presently dispatches through `actions.json` rather than through `apply()`.
+.tablebyrows {.tables}
+    - - `readings`
+      - Hypertable. `building_id, room_id, metric, ts, value, payload`. Compressed after 7 days, dropped after 14 — `readings_hourly` keeps the summaries.
+    - - `thresholds`
+      - `building_id, room_id, metric, bounds jsonb`. `room_id NULL` = building-level; room-level wins.
+    - - `sensors`
+      - `building_id, room_id, sensor_id, sensor_type, driver, endpoint`.
+    - - `buildings` / `building_rooms`
+      - Registration output. `building_rooms` is what lets the threshold clone view report rooms that have no bounds.
 
 ---
 
-## Data Models
+## Testing
 
-### Signals
+`just test telemetry` runs the unit and fitness suites — the whole kernel proven against in-memory fakes, with no database. `just test telemetry-integration` stands up TimescaleDB, Redis and Kafka in a throwaway compose project and runs `tests/*.rs` against them, each test on its own freshly created database.
 
-Each metric is its own **MongoDB time-series collection**. The engine groups readings from the same building into compressed buckets internally; Mongoose reads and writes plain documents — the bucketing is transparent.
-
-All three schemas share the following time-series options:
-
-- `timeField: "createdAt"` — the `Date` axis; stamped automatically on insert via `default: Date.now`.
-- `metaField: "building"` — the series identifier; readings from the same building are co-located in the same bucket.
-- `granularity: "seconds"` — bucket windows sized to the sensor polling rate.
-- `expireAfterSeconds: 7 776 000` (90 days) — retention enforced by the collection, no separate TTL index needed.
-
-Two secondary indexes support dashboard queries that filter on the measurement `timestamp` (Unix epoch from the hardware) rather than the `createdAt` time axis:
-
-- `{ building: 1, timestamp: -1 }` — building-wide range scans.
-- `{ building: 1, roomId: 1, timestamp: -1 }` — per-room point and range queries.
-
-.var {headers}
-   - Collection
-   - Metric-specific fields
-
-.tablebyrows {.headers}
-    - - `Temperature`
-      - `temperature`
-    - - `PeopleCount`
-      - `peopleCount`
-    - - `AirQuality`
-      - `pm25`, `pm10`, `co2`, `voc`, `temperature`, `humidity`, `aqi`, `indoor_aqi`, optional `scenario`
-
-### `BuildingThreshold`
-
-One document per building (`buildingId` unique). It holds building-level default bounds and an array of per-room overrides, each with optional `temperature { minTemp, maxTemp }`, `peopleCount { maxPeople }`, and `airQuality { maxAqi, maxCo2 }`.
-
-### `Sensor`
-
-The registry of physical sensors, written by the module `create()` path: `{ buildingId, roomId, sensorId, sensorType }`. A plain (non-time-series) collection. `sensorId` is unique.
-
-.box {One sensor per building} type:{note}
-    The schema currently also marks `buildingId` as `unique`, which limits registration to a single sensor per building. This is a known constraint to revisit — the intended key is `sensorId`.
-
-### `Action`
-
-The shape of a dispatched command (`actionSignal.ts`): `{ buildingId, roomId, sensorId, sensorType, timestamp, actionName, actionArguments }`, available for persisting/auditing actions sent to a sensor.
-
----
-
-## HTTP API
-
-.var {headers}
-   - Method · Path
-   - Description
-
-.tablebyrows {.headers}
-    - - `POST /ingest`
-      - Ingest a reading. `202` on accept, `422` on validation failure, `404` on unknown type. **Public** (device-facing hot path).
-    - - `GET` read endpoints
-      - Latest-per-room, all-latest-per-building, and bucketed dashboard time-series, served by `readController`. **JWT.**
-    - - `POST /sensor`
-      - Register a physical sensor (`writerController` → `module.create`). `202` on accept, `404` on unknown type. **JWT.**
-    - - `GET /sensors/buildings/:buildingId[/rooms/:roomId]`
-      - List the sensors registered for a building, optionally scoped to a room. **JWT.**
-    - - `POST /executeAction`
-      - Dispatch a command to a sensor's actuator API, routed via `actions.json`. `200` on success, `502` on downstream failure, `404` when no route matches. **JWT.**
-    - - `PATCH /thresholds/...`
-      - Update building- or room-level thresholds, served by `thresholdController`. **JWT.**
-    - - `PUT /thresholds/buildings/:id`
-      - Receives the building clone (rooms, name) pushed by twin-service for a *later* edit (update, room change) — not for registration, which arrives over Kafka instead (see below). **JWT** — twin forwards the caller's bearer token; the browser also calls it directly with its cookie.
-    - - `GET /contracts`
-      - The metric catalog (`peopleCount`, `temperature`, `airQuality`). **Public.**
-
-.box {Auth boundary} type:{note}
-    `requireAuthentication` (`src/middlewares/authentication.ts`) is mounted after the rate limiter, so everything below `/ingest`, `/contracts`, and `/health` requires a verified JWT (cookie **or** forwarded bearer). The middleware responds `401` directly rather than throwing, because sensor-service has no global error handler. `/ingest` stays open as the device-facing hot path — moving it to device-token auth is tracked separately.
-
----
-
-## Thresholds
-
-Thresholds are static, human-defined configuration. They live in a single shared `BuildingThreshold` document with nested slices per metric. When a domain service updates its slice it uses **scoped dot-notation** so it cannot corrupt a neighbour's configuration:
-
-```javascript
-findOneAndUpdate({ buildingId }, { $set: { "temperature.maxTemp": 25 } })
-```
-
-A room-level bound, when present, overrides the building default for that room during evaluation.
-
-.box {Registration arrives over Kafka, not REST} type:{note}
-    `registrationConsumer.ts` consumes `building-registration-requested`, calls the same `registerBuilding` the REST route calls, then publishes `building-registration-completed` — twin-service resolves the caller's tracking handle from that event, not from this service's HTTP response. See [Digital Twin Service](digital-twin.qd) for the full sequence and the topic schema.
-
----
-
-## Read-Path Caching
-
-`getAllLatest(buildingId)` — which drives the initial dashboard load — runs a MongoDB aggregation. To collapse duplicate work when many users open the same building, results are cached in Redis under `sensor:latest:{type}:{buildingId}` with a **10-second TTL**. The live telemetry path bypasses the cache entirely: every write publishes to `telemetry:raw`, so the frontend receives real-time updates via the socket without waiting for cache expiry.
-
----
-
-## Sensor Registry & Actions
-
-Beyond ingesting readings, the service now tracks *which* sensors exist and can dispatch *commands* back to them. These are the write and command counterparts to the read/ingest paths.
-
-### Registration
-
-`POST /sensor` registers a physical sensor. `writerController` resolves the module by `sensorType` and calls `module.create()`, which the base class implements by inserting a `Sensor` document. As with ingestion, the handler validates the type synchronously and returns `202 Accepted` without waiting on the write. Registered sensors are then listable via the `GET /sensors/...` endpoints and are what the frontend's room-sensor panel renders.
-
-### Actions: a data-driven command path
-
-`POST /executeAction` sends a command — e.g. `increase`, `decrease` — to the actuator API that fronts a sensor. Unlike ingestion, this path is **synchronous**: it `await`s the downstream call and reports the real outcome (`200` on success, `502` when the endpoint errors or is unreachable, `404` when no route matches). The frontend supplies `{ sensorId, actionName, actionArguments }`.
-
-Routing is entirely driven by `actions.json`, so onboarding a new sensor or action is a config edit, never a code change. The table is keyed **`actionName → sensorId → endpoint`**:
-
-```json
-{
-  "increase": {
-    "123": {
-      "url": "http://gateway/simulator/tp/control/receive",
-      "method": "POST",
-      "arguments": { "0": "value" }
-    }
-  }
-}
-```
-
-- `url` / `method` — the downstream API to call for that (action, sensor) pair.
-- `arguments` maps each **positional index** of the frontend's `actionArguments` array to the **field name** the target API expects. `{ "0": "value" }` with `actionArguments: ["1"]` produces the request body `{ "value": "1" }`. This lets different sensors name the same positional argument differently.
-
-The file is resolved relative to the compiled module (the package root, independent of the working directory) and re-read on every request, so edits take effect without a restart. `ActionService.getSensorId(roomId, buildingId)` is available to resolve a sensor id from its location when a caller does not pass one directly.
-
-.mermaid
-    sequenceDiagram
-        autonumber
-        participant UI as Frontend
-        participant AC as actionController
-        participant J as actions.json
-        participant API as Actuator API
-        UI->>AC: POST /executeAction { sensorId, actionName, actionArguments }
-        AC->>J: lookup actionName → sensorId
-        alt no route
-            AC-->>UI: 404
-        else route found
-            AC->>AC: map positional args to named fields
-            AC->>API: method url { ...mappedArgs }
-            alt ok
-                API-->>AC: 2xx
-                AC-->>UI: 200 accepted
-            else error / unreachable
-                AC-->>UI: 502
-            end
-        end
-
----
-
-## Extension Guide
-
-Adding a sensor type requires **no change to the controller or kernel**:
-
-1. Create a module extending `BaseSensorModule<T>` and implement the unique members (`type`, `model`, `validate`, `persist`, `buildTelemetryEvent`, read methods).
-2. Register it during boot:
-
-```typescript
-const kernel = new SensorKernel()
-  .register(new TemperatureModule())
-  .register(new PeopleCountModule())
-  .register(new AirQualityModule())
-  .register(new LightLevelModule()); // new type
-```
-
-The base class supplies the `telemetry:raw` publish and the shared `getLatest`, so a new module only writes what is genuinely specific to it.
+`tests/architecture.rs` is a gate, not a formality: it fails if the kernel gains an I/O import, if a plugin imports a sibling, or if `contracts` grows a dependency.

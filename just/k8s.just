@@ -73,7 +73,7 @@ build:
     docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest ./backend/chat-service
     docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/twin-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./backend/notification-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest ./backend/sensor-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest -f backend/telemetry-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest ./backend/socket-service
     docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest -f backend/agent-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-contracts:latest ./backend/contracts-service

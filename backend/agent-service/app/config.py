@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     # Networking
     twin_service_url: str = Field(default="http://twin-service:3000", alias="TWIN_SERVICE_URL")
     sensor_service_url: str = Field(
-        default="http://sensor-service:3000", alias="SENSOR_SERVICE_URL"
+        default="http://telemetry-service:3000", alias="SENSOR_SERVICE_URL"
     )
     cors_origins: str = Field(
         default="http://localhost,http://localhost:80,http://localhost:8080,http://localhost:5173",

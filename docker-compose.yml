@@ -15,7 +15,7 @@ services:
       twin-service:
         condition: service_started
         required: false
-      sensor-service:
+      telemetry-service:
         condition: service_started
         required: false
       socket-server:
