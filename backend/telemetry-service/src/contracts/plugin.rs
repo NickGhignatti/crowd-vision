@@ -27,9 +27,12 @@ pub struct BoundSpec {
     pub direction: BoundDirection,
 }
 
+pub const ENVELOPE_FIELDS: &[&str] = &["buildingId", "roomId", "timestamp"];
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MetricDescriptor {
     pub key: &'static str,
+    pub value_field: &'static str,
     pub label: &'static str,
     pub interface_name: &'static str,
     pub unit: Option<&'static str>,

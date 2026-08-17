@@ -7,6 +7,7 @@ use crate::plugins::common::reading;
 use serde_json::Value;
 
 static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    value_field: "temperature",
     key: "temperature",
     label: "Temperature",
     interface_name: "ITemperature",
@@ -92,7 +93,7 @@ impl SensorPlugin for TemperaturePlugin {
         if !errors.is_empty() {
             return Err(errors);
         }
-        let value = payload["temperature"].as_f64().unwrap_or_default();
+        let value = payload[DESCRIPTOR.value_field].as_f64().unwrap_or_default();
         Ok(reading(payload, DESCRIPTOR.key, value))
     }
 

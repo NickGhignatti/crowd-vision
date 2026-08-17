@@ -17,6 +17,7 @@ use std::sync::Mutex;
 
 static FAKE_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
     key: "fake",
+    value_field: "fake",
     label: "Fake",
     interface_name: "IFake",
     unit: None,

@@ -6,6 +6,7 @@ use crate::plugins::common::reading;
 use serde_json::Value;
 
 static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    value_field: "indoor_aqi",
     key: "airQuality",
     label: "Air Quality",
     interface_name: "IAirQuality",
@@ -101,7 +102,7 @@ impl SensorPlugin for AirQualityPlugin {
         if !errors.is_empty() {
             return Err(errors);
         }
-        let value = payload["indoor_aqi"].as_f64().unwrap_or_default();
+        let value = payload[DESCRIPTOR.value_field].as_f64().unwrap_or_default();
         Ok(reading(payload, DESCRIPTOR.key, value))
     }
 

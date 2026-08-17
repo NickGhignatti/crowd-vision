@@ -6,6 +6,7 @@ use crate::plugins::common::reading;
 use serde_json::Value;
 
 static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    value_field: "peopleCount",
     key: "peopleCount",
     label: "People Count",
     interface_name: "IPeopleCount",

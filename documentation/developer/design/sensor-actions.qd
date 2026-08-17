@@ -92,17 +92,35 @@ Keyed by **driver**, not by sensor:
 ```json
 {
   "tp-simulator": {
-    "setTarget": { "url": ".../control/receive", "method": "POST", "fields": { "target": "value" } },
-    "increase":  { "url": ".../control/step",    "method": "POST", "fields": { "step": "delta" } }
+    "setTarget": { "path": "/control/receive", "method": "POST", "fields": { "target": "value" } },
+    "increase":  { "path": "/control/step",    "method": "POST", "fields": { "step": "delta" } }
   },
   "acme-basic": {
-    "increase": { "url": "http://acme/dev/42/up",   "method": "POST", "fields": {} },
-    "decrease": { "url": "http://acme/dev/42/down", "method": "POST", "fields": {} }
+    "increase": { "path": "/dev/up",   "method": "POST", "fields": {} },
+    "decrease": { "path": "/dev/down", "method": "POST", "fields": {} }
   }
 }
 ```
 
-`sensors.driver` says which dialect a given sensor speaks. Five hundred identical boilers share one binding entry.
+A driver is a **device model, not a customer**. Two businesses running the same boiler share `acme-basic`; five hundred identical units share one binding entry.
+
+The binding holds the *path*, never the host — a device model is deployed at a different address in every building. The URL is composed, not templated:
+
+```
+sensors.endpoint  +  binding.path   →   http://b-gw.local/control/receive
+```
+
+Two columns on `sensors` carry the per-unit facts:
+
+.var {sensorcols}
+   - Column
+   - Answers
+
+.tablebyrows {.sensorcols}
+    - - `driver`
+      - which dialect this unit speaks
+    - - `endpoint`
+      - where this unit is reachable
 
 `acme-basic` shows the +/- only case: it lists no `setTarget`, and its actions carry no fields. Empty `parameters` and empty `fields` are the ordinary path — `check_fields(&[], {})` yields no errors and the request body is `{}`. No special case anywhere.
 
@@ -189,6 +207,83 @@ The device's own status is never forwarded verbatim — its `503` becomes our `5
 
 .box {`200 accepted` means delivered, not applied} type:{note}
     The response confirms the command reached the device, not that the room is 21 °C. Confirmation arrives seconds later through the ordinary read path: the boiler heats, the sensor reports 21.4, `POST /ingest` stores it, `telemetry:raw` reaches the browser, the chart moves. If the new value breaches `maxTemp`, the same ingest fires `alerts:temperature` and the user is notified about the change they just made — no action-specific plumbing.
+
+---
+
+## Adding a Device Family
+
+Two cases hide behind "this business's sensors communicate differently", and they land in different places.
+
+### Tier 1 — same protocol, different vocabulary
+
+The device speaks HTTP but names the field `setpoint_c` and exposes a different path. **Config only, no code:**
+
+```json
+"acme-basic": {
+  "setTarget": { "path": "/thermo/set", "method": "PUT", "fields": { "target": "setpoint_c" } }
+}
+```
+
+New device model, new key. Nothing recompiles.
+
+### Tier 2 — different protocol
+
+MQTT, Modbus, CoAP, or HTTP behind an auth scheme the device dictates. This needs code, but only inside the dispatch adapter:
+
+```
+src/adapters/driven/dispatch/
+  mod.rs        Dispatcher — sensor → driver → binding, selects transport
+  bindings.rs   catalog loading
+  http.rs       impl Transport for Http
+  mqtt.rs       impl Transport for Mqtt      ← the new device family adds this
+```
+
+The binding names its transport:
+
+```json
+"acme-mqtt": {
+  "transport": "mqtt",
+  "increase": { "topic": "dev/42/cmd", "fields": { "step": "delta" } }
+}
+```
+
+`ActionDispatch` still has one method. `Transport` is internal to the adapter. **For both tiers the kernel, the plugins, `contracts/` and every kernel test are untouched** — that is what the boundary buys.
+
+### Where the catalog lives
+
+.var {catalog}
+   - Stage
+   - Storage
+   - Adding a model means
+
+.tablebyrows {.catalog}
+    - - today
+      - `bindings.json` embedded in the image
+      - a PR and a deploy
+    - - when a tenant needs a model we do not ship
+      - `action_bindings` table
+      - an insert
+
+```sql
+create table action_bindings (
+  driver    text not null,
+  action    text not null,
+  transport text not null default 'http',
+  path      text not null,
+  method    text not null default 'POST',
+  fields    jsonb not null default '{}'::jsonb,
+  primary key (driver, action)
+);
+```
+
+Note what is **not** in that table: a tenant, a domain, or a building. It is a global device catalog. Per-business behaviour comes entirely from which `driver` and `endpoint` a business's `sensors` rows carry — the same mechanism whether a tenant has one device family or five.
+
+The file comes first deliberately. Tier 2 needs a deploy regardless, and tier 1 changes are rare enough that a PR is the right amount of ceremony.
+
+.box {A tenant-editable endpoint is an SSRF primitive} type:{warning}
+    `/executeAction` makes telemetry-service fetch a URL with its own network identity. While the catalog is ops-owned, the `http(s)` scheme check is sufficient. The moment a binding or `sensors.endpoint` becomes editable through the API, a tenant can aim it at `http://169.254.169.254/` or any internal service and read the response path's behaviour. That case needs a **host allowlist per domain**, not a scheme check. Keep the catalog ops-owned until there is a concrete reason not to.
+
+These are egress calls into a customer's network. Under Istio ambient each reachable host needs a `ServiceEntry` — pair that list with the allowlist above, since it is the same list. See [Service Mesh Architecture](../architecture/service-mesh.qd).
 
 ---
 
