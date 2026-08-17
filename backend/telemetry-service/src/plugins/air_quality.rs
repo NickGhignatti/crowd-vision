@@ -1,8 +1,8 @@
 use crate::contracts::plugin::{
-    BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin,
+    BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin, check_fields,
 };
 use crate::contracts::reading::Reading;
-use crate::plugins::common::{check_fields, reading};
+use crate::plugins::common::reading;
 use serde_json::Value;
 
 static DESCRIPTOR: MetricDescriptor = MetricDescriptor {

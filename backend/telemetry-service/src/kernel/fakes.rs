@@ -1,11 +1,11 @@
 use crate::contracts::building::RegisteredBuilding;
 use crate::contracts::event::{AlertPayload, TelemetryEvent};
 use crate::contracts::plugin::{
-    BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin,
+    ActionSpec, BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin,
 };
 use crate::contracts::query::Bucket;
 use crate::contracts::reading::Reading;
-use crate::contracts::sensor::{ActionEndpoint, Sensor};
+use crate::contracts::sensor::{Command, Sensor};
 use crate::contracts::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use crate::kernel::ports::{
     ActionDispatch, Alerts, BuildingStore, Clock, DispatchError, Fanout, ReadingStore,
@@ -97,6 +97,10 @@ impl SensorPlugin for FakePlugin {
 
     fn alert_channel(&self) -> &'static str {
         "alerts:fake"
+    }
+
+    fn actions(&self) -> &'static [ActionSpec] {
+        FAKE_ACTIONS
     }
 }
 
@@ -388,51 +392,51 @@ impl SensorStore for FakeSensors {
     }
 }
 
-pub fn endpoint(url: &str, method: &str, arguments: Value) -> ActionEndpoint {
-    ActionEndpoint {
-        url: url.to_owned(),
-        method: method.to_owned(),
-        arguments: arguments.as_object().cloned().unwrap_or_default(),
-    }
-}
+static FAKE_ACTIONS: &[ActionSpec] = &[
+    ActionSpec {
+        name: "setTarget",
+        label: "Set target",
+        parameters: &[FieldSpec {
+            name: "target",
+            kind: FieldKind::Finite,
+            required: true,
+        }],
+    },
+    ActionSpec {
+        name: "increase",
+        label: "Increase",
+        parameters: &[FieldSpec {
+            name: "step",
+            kind: FieldKind::Finite,
+            required: false,
+        }],
+    },
+];
 
 #[derive(Default)]
 pub struct FakeDispatch {
-    pub endpoints: Vec<(String, String, ActionEndpoint)>,
-    pub sent: Mutex<Vec<(ActionEndpoint, Map<String, Value>)>>,
+    pub sent: Mutex<Vec<Command>>,
+    pub unconfigured: bool,
     pub status: Option<u16>,
     pub unreachable: bool,
 }
 
 #[async_trait]
 impl ActionDispatch for FakeDispatch {
-    async fn endpoint(
-        &self,
-        action_name: &str,
-        sensor_id: &str,
-    ) -> anyhow::Result<Option<ActionEndpoint>> {
-        Ok(self
-            .endpoints
-            .iter()
-            .find(|(action, sensor, _)| action == action_name && sensor == sensor_id)
-            .map(|(_, _, endpoint)| endpoint.clone()))
-    }
-
-    async fn dispatch(
-        &self,
-        endpoint: &ActionEndpoint,
-        body: &Map<String, Value>,
-    ) -> Result<(), DispatchError> {
+    async fn dispatch(&self, command: &Command) -> Result<(), DispatchError> {
+        if self.unconfigured {
+            return Err(DispatchError::Unconfigured(format!(
+                "no binding for sensor {}.",
+                command.sensor_id
+            )));
+        }
         if self.unreachable {
             return Err(DispatchError::Unreachable("connection refused".to_owned()));
         }
         if let Some(status) = self.status {
             return Err(DispatchError::Status(status));
         }
-        self.sent
-            .lock()
-            .unwrap()
-            .push((endpoint.clone(), body.clone()));
+        self.sent.lock().unwrap().push(command.clone());
         Ok(())
     }
 }

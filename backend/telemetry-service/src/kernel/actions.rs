@@ -1,45 +1,47 @@
 use crate::contracts::error::DomainError;
-use crate::contracts::sensor::ActionEndpoint;
+use crate::contracts::plugin::{ActionSpec, check_fields};
+use crate::contracts::sensor::Command;
 use crate::kernel::ports::{ActionDispatch, DispatchError};
-use serde_json::{Map, Value};
+use crate::kernel::registry::PluginRegistry;
+use serde_json::Value;
 use std::sync::Arc;
 
 pub struct Actions {
+    pub registry: Arc<PluginRegistry>,
     pub dispatch: Arc<dyn ActionDispatch>,
 }
 
 impl Actions {
-    pub async fn execute(&self, payload: &Value) -> Result<(), DomainError> {
-        let data = payload
-            .get("actionData")
-            .filter(|data| data.is_object())
-            .ok_or_else(|| DomainError::Validation("actionData: must be an object.".to_owned()))?;
+    pub fn catalog(&self, metric: &str) -> Result<&'static [ActionSpec], DomainError> {
+        self.registry
+            .get(metric)
+            .map(|plugin| plugin.actions())
+            .ok_or_else(|| DomainError::NotFound(format!("unknown sensor type: {metric}")))
+    }
 
-        let action_name = field(data, "actionName")?;
-        let sensor_id = field(data, "sensorId")?;
-
-        let endpoint = self
-            .dispatch
-            .endpoint(&action_name, &sensor_id)
-            .await?
+    pub async fn execute(&self, command: &Command) -> Result<(), DomainError> {
+        let spec = self
+            .catalog(&command.metric)?
+            .iter()
+            .find(|spec| spec.name == command.action)
             .ok_or_else(|| {
                 DomainError::NotFound(format!(
-                    "no endpoint configured for sensor {sensor_id} on action {action_name}."
+                    "{} does not support the action {}.",
+                    command.metric, command.action
                 ))
             })?;
 
-        if !is_http(&endpoint.url) {
-            return Err(DomainError::Internal(anyhow::anyhow!(
-                "action configuration is unavailable."
-            )));
+        let arguments = Value::Object(command.arguments.clone());
+        let errors = check_fields(spec.parameters, &arguments);
+        if !errors.is_empty() {
+            return Err(DomainError::Validation(errors.join(" ")));
         }
 
-        let body = map_arguments(&endpoint, data["actionArguments"].as_array());
-
         self.dispatch
-            .dispatch(&endpoint, &body)
+            .dispatch(command)
             .await
             .map_err(|error| match error {
+                DispatchError::Unconfigured(message) => DomainError::NotFound(message),
                 DispatchError::Status(status) => {
                     DomainError::BadGateway(format!("downstream endpoint returned {status}."))
                 }
@@ -50,41 +52,10 @@ impl Actions {
     }
 }
 
-fn field(data: &Value, name: &str) -> Result<String, DomainError> {
-    data[name]
-        .as_str()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_owned)
-        .ok_or_else(|| DomainError::Validation(format!("{name}: must be a non-empty string.")))
-}
-
-fn is_http(url: &str) -> bool {
-    let url = url.to_ascii_lowercase();
-    url.starts_with("http://") || url.starts_with("https://")
-}
-
-fn map_arguments(endpoint: &ActionEndpoint, args: Option<&Vec<Value>>) -> Map<String, Value> {
-    let empty = Vec::new();
-    let args = args.unwrap_or(&empty);
-    endpoint
-        .arguments
-        .iter()
-        .filter_map(|(index, name)| {
-            let index: usize = index.parse().ok()?;
-            let name = name.as_str()?;
-            Some((
-                name.to_owned(),
-                args.get(index).cloned().unwrap_or(Value::Null),
-            ))
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::kernel::fakes::{FakeDispatch, endpoint};
+    use crate::kernel::fakes::{FakeDispatch, FakePlugin};
     use serde_json::json;
 
     struct Harness {
@@ -94,7 +65,10 @@ mod tests {
 
     fn harness(dispatcher: FakeDispatch) -> Harness {
         let dispatcher = Arc::new(dispatcher);
+        let registry =
+            Arc::new(PluginRegistry::new(vec![Box::new(FakePlugin::default())]).unwrap());
         let actions = Actions {
+            registry,
             dispatch: dispatcher.clone() as Arc<dyn ActionDispatch>,
         };
         Harness {
@@ -103,66 +77,57 @@ mod tests {
         }
     }
 
-    fn configured(url: &str) -> FakeDispatch {
-        FakeDispatch {
-            endpoints: vec![(
-                "setTemp".to_owned(),
-                "s1".to_owned(),
-                endpoint(url, "POST", json!({ "0": "value" })),
-            )],
-            ..Default::default()
+    fn plain() -> Harness {
+        harness(FakeDispatch::default())
+    }
+
+    fn command(action: &str, arguments: Value) -> Command {
+        Command {
+            metric: "fake".to_owned(),
+            building_id: "b1".to_owned(),
+            room_id: "r1".to_owned(),
+            sensor_id: "s1".to_owned(),
+            action: action.to_owned(),
+            arguments: arguments.as_object().cloned().unwrap_or_default(),
         }
     }
 
-    fn payload(args: Value) -> Value {
-        json!({ "actionData": {
-            "actionName": "setTemp", "sensorId": "s1", "actionArguments": args
-        }})
-    }
-
     #[tokio::test]
-    async fn a_configured_action_is_dispatched_with_named_arguments() {
-        let h = harness(configured("http://boiler.local/set"));
-        h.actions.execute(&payload(json!(["21"]))).await.unwrap();
+    async fn a_declared_action_reaches_the_dispatcher_unchanged() {
+        let h = plain();
+        let command = command("setTarget", json!({ "target": 21 }));
+        h.actions.execute(&command).await.unwrap();
         let sent = h.dispatcher.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
-        assert_eq!(sent[0].0.url, "http://boiler.local/set");
-        assert_eq!(sent[0].1["value"], "21");
+        assert_eq!(sent[0], command);
     }
 
     #[tokio::test]
-    async fn a_missing_argument_maps_to_null() {
-        let h = harness(configured("http://boiler.local/set"));
-        h.actions.execute(&payload(json!([]))).await.unwrap();
-        let sent = h.dispatcher.sent.lock().unwrap();
-        assert_eq!(sent[0].1["value"], Value::Null);
+    async fn an_action_without_parameters_needs_no_arguments() {
+        let h = plain();
+        h.actions
+            .execute(&command("increase", json!({})))
+            .await
+            .unwrap();
+        assert_eq!(h.dispatcher.sent.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]
-    async fn a_missing_action_data_is_a_validation_error() {
-        let h = harness(configured("http://boiler.local/set"));
-        let error = h.actions.execute(&json!({})).await.unwrap_err();
-        assert!(matches!(error, DomainError::Validation(_)));
+    async fn an_unknown_metric_is_not_found() {
+        let h = plain();
+        let mut command = command("setTarget", json!({ "target": 21 }));
+        command.metric = "humidity".to_owned();
+        let error = h.actions.execute(&command).await.unwrap_err();
+        assert!(matches!(error, DomainError::NotFound(_)));
         assert!(h.dispatcher.sent.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
-    async fn a_blank_action_name_is_a_validation_error() {
-        let h = harness(configured("http://boiler.local/set"));
+    async fn an_action_the_metric_does_not_declare_is_not_found() {
+        let h = plain();
         let error = h
             .actions
-            .execute(&json!({ "actionData": { "actionName": " ", "sensorId": "s1" } }))
-            .await
-            .unwrap_err();
-        assert!(matches!(error, DomainError::Validation(_)));
-    }
-
-    #[tokio::test]
-    async fn an_unconfigured_action_is_not_found() {
-        let h = harness(FakeDispatch::default());
-        let error = h
-            .actions
-            .execute(&payload(json!(["21"])))
+            .execute(&command("selfDestruct", json!({})))
             .await
             .unwrap_err();
         assert!(matches!(error, DomainError::NotFound(_)));
@@ -170,32 +135,66 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_non_http_endpoint_url_is_refused_before_dispatch() {
-        let h = harness(configured("file:///etc/passwd"));
+    async fn a_missing_required_parameter_is_a_validation_error() {
+        let h = plain();
         let error = h
             .actions
-            .execute(&payload(json!(["21"])))
+            .execute(&command("setTarget", json!({})))
             .await
             .unwrap_err();
-        assert!(matches!(error, DomainError::Internal(_)));
+        assert!(matches!(error, DomainError::Validation(_)));
         assert!(h.dispatcher.sent.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
-    async fn an_https_endpoint_url_is_accepted() {
-        let h = harness(configured("HTTPS://boiler.local/set"));
-        h.actions.execute(&payload(json!(["21"]))).await.unwrap();
-        assert_eq!(h.dispatcher.sent.lock().unwrap().len(), 1);
+    async fn a_parameter_of_the_wrong_kind_is_a_validation_error() {
+        let h = plain();
+        let error = h
+            .actions
+            .execute(&command("setTarget", json!({ "target": "hot" })))
+            .await
+            .unwrap_err();
+        assert!(matches!(error, DomainError::Validation(_)));
+        assert!(h.dispatcher.sent.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_optional_parameter_may_be_omitted() {
+        let h = plain();
+        h.actions
+            .execute(&command("increase", json!({ "step": 2 })))
+            .await
+            .unwrap();
+        h.actions
+            .execute(&command("increase", json!({})))
+            .await
+            .unwrap();
+        assert_eq!(h.dispatcher.sent.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_sensor_with_no_binding_is_not_found() {
+        let h = harness(FakeDispatch {
+            unconfigured: true,
+            ..Default::default()
+        });
+        let error = h
+            .actions
+            .execute(&command("setTarget", json!({ "target": 21 })))
+            .await
+            .unwrap_err();
+        assert!(matches!(error, DomainError::NotFound(_)));
     }
 
     #[tokio::test]
     async fn a_downstream_error_status_is_a_bad_gateway() {
-        let mut dispatcher = configured("http://boiler.local/set");
-        dispatcher.status = Some(503);
-        let h = harness(dispatcher);
+        let h = harness(FakeDispatch {
+            status: Some(503),
+            ..Default::default()
+        });
         let error = h
             .actions
-            .execute(&payload(json!(["21"])))
+            .execute(&command("setTarget", json!({ "target": 21 })))
             .await
             .unwrap_err();
         assert!(matches!(error, DomainError::BadGateway(_)));
@@ -203,14 +202,29 @@ mod tests {
 
     #[tokio::test]
     async fn an_unreachable_downstream_is_a_bad_gateway() {
-        let mut dispatcher = configured("http://boiler.local/set");
-        dispatcher.unreachable = true;
-        let h = harness(dispatcher);
+        let h = harness(FakeDispatch {
+            unreachable: true,
+            ..Default::default()
+        });
         let error = h
             .actions
-            .execute(&payload(json!(["21"])))
+            .execute(&command("setTarget", json!({ "target": 21 })))
             .await
             .unwrap_err();
         assert!(matches!(error, DomainError::BadGateway(_)));
+    }
+
+    #[tokio::test]
+    async fn the_catalog_lists_what_a_metric_can_do() {
+        let h = plain();
+        let names: Vec<&str> = h
+            .actions
+            .catalog("fake")
+            .unwrap()
+            .iter()
+            .map(|spec| spec.name)
+            .collect();
+        assert_eq!(names, vec!["setTarget", "increase"]);
+        assert!(h.actions.catalog("humidity").is_err());
     }
 }

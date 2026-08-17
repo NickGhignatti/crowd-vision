@@ -1,8 +1,9 @@
 use crate::contracts::plugin::{
-    BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin,
+    ActionSpec, BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin,
+    check_fields,
 };
 use crate::contracts::reading::Reading;
-use crate::plugins::common::{check_fields, reading};
+use crate::plugins::common::reading;
 use serde_json::Value;
 
 static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
@@ -45,6 +46,36 @@ static BOUNDS: &[BoundSpec] = &[
     },
 ];
 
+static ACTIONS: &[ActionSpec] = &[
+    ActionSpec {
+        name: "setTarget",
+        label: "Set target temperature",
+        parameters: &[FieldSpec {
+            name: "target",
+            kind: FieldKind::Finite,
+            required: true,
+        }],
+    },
+    ActionSpec {
+        name: "increase",
+        label: "Increase temperature",
+        parameters: &[FieldSpec {
+            name: "step",
+            kind: FieldKind::Finite,
+            required: false,
+        }],
+    },
+    ActionSpec {
+        name: "decrease",
+        label: "Decrease temperature",
+        parameters: &[FieldSpec {
+            name: "step",
+            kind: FieldKind::Finite,
+            required: false,
+        }],
+    },
+];
+
 pub struct TemperaturePlugin;
 
 impl SensorPlugin for TemperaturePlugin {
@@ -72,12 +103,28 @@ impl SensorPlugin for TemperaturePlugin {
     fn alert_channel(&self) -> &'static str {
         "alerts:temperature"
     }
+
+    fn actions(&self) -> &'static [ActionSpec] {
+        ACTIONS
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn temperature_declares_an_absolute_and_two_relative_actions() {
+        let names: Vec<&str> = ACTIONS.iter().map(|spec| spec.name).collect();
+        assert_eq!(names, vec!["setTarget", "increase", "decrease"]);
+    }
+
+    #[test]
+    fn set_target_requires_its_target_but_a_step_is_optional() {
+        assert!(ACTIONS[0].parameters[0].required);
+        assert!(!ACTIONS[1].parameters[0].required);
+    }
 
     fn payload() -> Value {
         json!({

@@ -2,10 +2,9 @@ use crate::contracts::building::RegisteredBuilding;
 use crate::contracts::event::{AlertPayload, TelemetryEvent};
 use crate::contracts::query::Bucket;
 use crate::contracts::reading::Reading;
-use crate::contracts::sensor::{ActionEndpoint, Sensor};
+use crate::contracts::sensor::{Command, Sensor};
 use crate::contracts::threshold::{Bounds, TemperatureLimits};
 use async_trait::async_trait;
-use serde_json::{Map, Value};
 
 #[async_trait]
 pub trait ReadingStore: Send + Sync {
@@ -72,6 +71,7 @@ pub enum RegisterError {
 
 #[derive(Debug)]
 pub enum DispatchError {
+    Unconfigured(String),
     Status(u16),
     Unreachable(String),
 }
@@ -85,17 +85,7 @@ pub trait SensorStore: Send + Sync {
 
 #[async_trait]
 pub trait ActionDispatch: Send + Sync {
-    async fn endpoint(
-        &self,
-        action_name: &str,
-        sensor_id: &str,
-    ) -> anyhow::Result<Option<ActionEndpoint>>;
-
-    async fn dispatch(
-        &self,
-        endpoint: &ActionEndpoint,
-        body: &Map<String, Value>,
-    ) -> Result<(), DispatchError>;
+    async fn dispatch(&self, command: &Command) -> Result<(), DispatchError>;
 }
 
 #[async_trait]
