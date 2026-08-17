@@ -51,12 +51,14 @@ impl Registration {
         &self,
         building_id: &str,
         payload: &Value,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<bool> {
         let outcome = self
             .register(building_id, payload)
             .await
             .map_err(|error| error.to_string());
-        self.events.publish_completed(building_id, outcome).await
+        let registered = outcome.is_ok();
+        self.events.publish_completed(building_id, outcome).await?;
+        Ok(registered)
     }
 }
 
@@ -209,10 +211,12 @@ mod tests {
     #[tokio::test]
     async fn a_registration_from_an_event_reports_ready() {
         let h = plain();
-        h.registration
-            .register_from_event("b1", &payload())
-            .await
-            .unwrap();
+        assert!(
+            h.registration
+                .register_from_event("b1", &payload())
+                .await
+                .unwrap()
+        );
         let completed = h.events.completed.lock().unwrap();
         assert_eq!(completed.len(), 1);
         assert_eq!(completed[0].0, "b1");
@@ -225,10 +229,12 @@ mod tests {
             refuse: true,
             ..Default::default()
         });
-        h.registration
-            .register_from_event("b1", &payload())
-            .await
-            .unwrap();
+        assert!(
+            !h.registration
+                .register_from_event("b1", &payload())
+                .await
+                .unwrap()
+        );
         let completed = h.events.completed.lock().unwrap();
         assert_eq!(
             completed[0].1.clone().unwrap_err(),

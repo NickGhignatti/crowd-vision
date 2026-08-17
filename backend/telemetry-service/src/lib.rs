@@ -5,6 +5,7 @@ pub mod plugins;
 pub mod state;
 
 use adapters::driving::http_api::controllers as c;
+use adapters::metrics;
 use axum::Router;
 use axum::routing::{get, patch, post, put};
 use state::AppState;
@@ -14,6 +15,8 @@ pub fn router(state: Arc<AppState>) -> Router {
     let public = Router::new()
         .route("/health", get(c::health))
         .route("/health/", get(c::health))
+        .route("/metrics", get(c::metrics))
+        .route("/metrics/", get(c::metrics))
         .route("/contracts", get(c::contracts))
         .route("/contracts/", get(c::contracts))
         .route("/ingest/{sensorType}", post(c::ingest));
@@ -43,5 +46,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/{sensorType}/entireBuilding", get(c::entire_building))
         .route("/{sensorType}/dashboard", get(c::dashboard));
 
-    public.merge(protected).with_state(state)
+    public
+        .merge(protected)
+        .with_state(state)
+        .layer(axum::middleware::from_fn(metrics::track_metrics))
 }

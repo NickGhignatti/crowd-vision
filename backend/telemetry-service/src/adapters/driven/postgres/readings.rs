@@ -1,4 +1,5 @@
 use super::{to_millis, to_timestamp};
+use crate::adapters::metrics;
 use crate::contracts::plugin::ENVELOPE_FIELDS;
 use crate::contracts::query::Bucket;
 use crate::contracts::reading::Reading;
@@ -9,6 +10,7 @@ use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 use sqlx::{PgPool, Row};
 use std::sync::Arc;
+use std::time::Instant;
 
 pub struct PgReadings {
     pool: PgPool,
@@ -71,7 +73,8 @@ impl PgReadings {
 #[async_trait]
 impl ReadingStore for PgReadings {
     async fn insert(&self, reading: &Reading) -> anyhow::Result<()> {
-        sqlx::query(
+        let started = Instant::now();
+        let inserted = sqlx::query(
             "insert into readings (building_id, room_id, metric, ts, value, payload)
              values ($1, $2, $3, $4, $5, $6)",
         )
@@ -82,7 +85,13 @@ impl ReadingStore for PgReadings {
         .bind(reading.value)
         .bind(Value::Object(self.trim(reading)))
         .execute(&self.pool)
-        .await?;
+        .await;
+
+        metrics::record_persist_duration(&reading.metric, started.elapsed());
+        if inserted.is_err() {
+            metrics::record_persist_failure(&reading.metric);
+        }
+        inserted?;
         Ok(())
     }
 

@@ -22,3 +22,7 @@ scrape_configs:
     static_configs:
       - targets: ["socket-server:3000"]
     metrics_path: /metrics
+  - job_name: "telemetry-service"
+    static_configs:
+      - targets: ["telemetry-service:3000"]
+    metrics_path: /metrics

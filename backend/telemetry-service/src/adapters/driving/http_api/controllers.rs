@@ -1,3 +1,4 @@
+use crate::adapters::metrics;
 use crate::contracts::error::DomainError;
 use crate::contracts::identity::GatewayClaims;
 use crate::contracts::reading::Reading;
@@ -12,6 +13,7 @@ use axum::http::StatusCode;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
+use std::time::Instant;
 
 #[derive(Deserialize)]
 pub struct BuildingQuery {
@@ -44,9 +46,12 @@ async fn read(state: &AppState, claims: &GatewayClaims, building: &str) -> Resul
         })?;
     match domains.iter().any(|d| authz::is_member_of(claims, d)) {
         true => Ok(()),
-        false => Err(DomainError::Forbidden(
-            "Not authorized for this building".to_owned(),
-        )),
+        false => {
+            metrics::record_authz_denial("read");
+            Err(DomainError::Forbidden(
+                "Not authorized for this building".to_owned(),
+            ))
+        }
     }
 }
 
@@ -61,9 +66,12 @@ async fn edit(state: &AppState, claims: &GatewayClaims, building: &str) -> Resul
         })?;
     match authz::can_edit_domains(claims, &domains) {
         true => Ok(()),
-        false => Err(DomainError::Forbidden(
-            "Not authorized for this building".to_owned(),
-        )),
+        false => {
+            metrics::record_authz_denial("edit");
+            Err(DomainError::Forbidden(
+                "Not authorized for this building".to_owned(),
+            ))
+        }
     }
 }
 
@@ -96,6 +104,11 @@ fn object(body: Value) -> Result<Map<String, Value>, DomainError> {
 
 pub async fn health() -> StatusCode {
     StatusCode::OK
+}
+
+pub async fn metrics(State(state): State<Arc<AppState>>) -> impl axum::response::IntoResponse {
+    metrics::set_pool_gauges(state.pool.size(), state.pool.num_idle());
+    metrics::metrics_handler().await
 }
 
 pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<Value> {
@@ -135,7 +148,16 @@ pub async fn ingest(
     Path(sensor_type): Path<String>,
     Json(body): Json<Value>,
 ) -> Result<StatusCode, DomainError> {
-    state.ingest.accept(&sensor_type, &body).await?;
+    let accepted = state.ingest.accept(&sensor_type, &body).await;
+    metrics::record_ingest(
+        &sensor_type,
+        match &accepted {
+            Ok(()) => "accepted",
+            Err(DomainError::NotFound(_)) => "unknown_type",
+            Err(_) => "invalid",
+        },
+    );
+    accepted?;
     Ok(StatusCode::ACCEPTED)
 }
 
@@ -149,10 +171,13 @@ pub async fn latest(
     let room_id = query
         .room_id
         .ok_or_else(|| DomainError::Validation("roomId: must be a non-empty string.".to_owned()))?;
+    let started = Instant::now();
     let reading = state
         .readings
         .latest(&sensor_type, &query.building, &room_id)
-        .await?;
+        .await;
+    metrics::record_query("latest", started.elapsed());
+    let reading = reading?;
     Ok(Json(json!({ "data": reading_json(&reading) })))
 }
 
@@ -163,10 +188,13 @@ pub async fn entire_building(
     claims: GatewayClaims,
 ) -> Result<Json<Value>, DomainError> {
     read(&state, &claims, &query.building).await?;
+    let started = Instant::now();
     let rows = state
         .readings
         .entire_building(&sensor_type, &query.building)
-        .await?;
+        .await;
+    metrics::record_query("entire_building", started.elapsed());
+    let rows = rows?;
     let data: Vec<Value> = rows.iter().map(reading_json).collect();
     Ok(Json(json!({ "data": data })))
 }
@@ -178,6 +206,7 @@ pub async fn dashboard(
     claims: GatewayClaims,
 ) -> Result<Json<Value>, DomainError> {
     read(&state, &claims, &params.building).await?;
+    let started = Instant::now();
     let buckets = state
         .readings
         .dashboard(DashboardQuery {
@@ -189,7 +218,9 @@ pub async fn dashboard(
             end_ms: params.end,
             agg: params.agg_mode.as_deref(),
         })
-        .await?;
+        .await;
+    metrics::record_query("dashboard", started.elapsed());
+    let buckets = buckets?;
     let data: Vec<Value> = buckets
         .iter()
         .map(|bucket| json!({ "timestamp": bucket.ts_ms, "value": bucket.value }))

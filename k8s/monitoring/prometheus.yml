@@ -206,6 +206,46 @@ data:
             annotations:
               summary: "Node.js event loop lag above 100ms ({{ $labels.job }})"
               description: "{{ $labels.job }}'s Node.js event loop has been lagging by more than 100ms for 5 minutes, indicating the process is struggling to keep up."
+          - alert: SensorIngestPersistFailures
+            expr: sum(rate(sensor_ingest_persist_failures_total[5m])) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: telemetry-service is losing readings behind a 202
+              description: Readings are being accepted and then failing to persist. Clients already received 202 and will not retry, so this is silent data loss.
+          - alert: SensorIngestStalled
+            expr: sum(rate(sensor_ingest_total{outcome="accepted"}[10m])) == 0
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: telemetry-service has accepted no readings for 15 minutes
+              description: No telemetry has been accepted for 15 minutes. Simulators or devices have stopped, or the ingest route is unreachable.
+          - alert: SensorTelemetryFanoutFailing
+            expr: sum(rate(sensor_telemetry_published_total{outcome="error"}[5m])) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: telemetry-service cannot publish to Redis
+              description: Telemetry events are failing to reach telemetry:raw. Live dashboards are dark even though ingestion is succeeding.
+          - alert: SensorServiceHighErrorRate
+            expr: (sum(rate(sensor_http_error_requests_total[5m])) / sum(rate(sensor_http_requests_total[5m]))) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: telemetry-service HTTP error rate above 5%
+              description: '{{ $value | humanizePercentage }} of telemetry-service requests have errored over the last 5 minutes.'
+          - alert: SensorServiceHighLatency
+            expr: histogram_quantile(0.95, sum(rate(sensor_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: telemetry-service p95 latency above 1s
+              description: telemetry-service's 95th percentile request duration has been above 1 second for 5 minutes.
 ---
 apiVersion: apps/v1
 kind: Deployment

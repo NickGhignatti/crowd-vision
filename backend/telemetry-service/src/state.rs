@@ -2,7 +2,7 @@ use crate::adapters::driven::dispatch::HttpDispatch;
 use crate::contracts::sensor::Sensor;
 use crate::kernel::actions::Actions;
 use crate::kernel::ingest::Ingest;
-use crate::kernel::ports::BuildingDirectory;
+use crate::kernel::ports::{BuildingDirectory, Clock};
 use crate::kernel::readings::Readings;
 use crate::kernel::registration::Registration;
 use crate::kernel::registry::PluginRegistry;
@@ -11,8 +11,17 @@ use crate::kernel::thresholds::Thresholds;
 use serde_json::Value;
 use std::sync::Arc;
 
+pub struct SystemClock;
+
+impl Clock for SystemClock {
+    fn now_ms(&self) -> i64 {
+        chrono::Utc::now().timestamp_millis()
+    }
+}
+
 pub struct AppState {
     pub registry: Arc<PluginRegistry>,
+    pub pool: sqlx::PgPool,
     pub directory: Arc<dyn BuildingDirectory>,
     pub dispatch: Arc<HttpDispatch>,
     pub ingest: Ingest,

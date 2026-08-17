@@ -402,3 +402,34 @@ async fn health_answers_without_credentials() {
         .await;
     assert_eq!(response.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn metrics_are_exposed_and_count_a_matched_route() {
+    let app = test_app(fresh_db("metrics").await, vec!["eng"]).await;
+    app.send_json(
+        "POST",
+        "/ingest/temperature",
+        None,
+        temperature("r1", BASE_MS, 21.5),
+    )
+    .await;
+
+    let response = app
+        .send(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(text.contains(r#"sensor_http_requests_total{method="POST",route="/ingest/{sensorType}""#));
+    assert!(text.contains(r#"sensor_ingest_total{metric="temperature",outcome="accepted"}"#));
+    assert!(text.contains("sensor_db_pool_connections"));
+    assert!(!text.contains(r#"route="/metrics""#));
+}

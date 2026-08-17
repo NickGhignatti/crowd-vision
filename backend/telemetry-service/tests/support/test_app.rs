@@ -69,6 +69,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
 
     let state = Arc::new(AppState {
         registry: registry.clone(),
+        pool: pool.clone(),
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
         ingest: Ingest {

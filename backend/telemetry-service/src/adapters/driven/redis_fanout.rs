@@ -1,5 +1,6 @@
 use crate::contracts::event::{AlertPayload, TelemetryEvent};
 use crate::contracts::plugin::{BoundDirection, ENVELOPE_FIELDS};
+use crate::adapters::metrics;
 use crate::kernel::ports::{Alerts, Fanout};
 use async_trait::async_trait;
 use redis::AsyncCommands;
@@ -22,12 +23,16 @@ impl RedisFanout {
         })
     }
 
-    async fn publish(&self, channel: &str, payload: &Value) {
+    async fn publish(&self, channel: &str, payload: &Value) -> &'static str {
         let mut connection = self.connection.lock().await;
         let published: redis::RedisResult<()> =
             connection.publish(channel, payload.to_string()).await;
-        if let Err(error) = published {
-            log::error!("failed to publish on {channel}: {error}");
+        match published {
+            Ok(()) => "ok",
+            Err(error) => {
+                log::error!("failed to publish on {channel}: {error}");
+                "error"
+            }
         }
     }
 }
@@ -66,14 +71,23 @@ fn alert_json(alert: &AlertPayload) -> Value {
 #[async_trait]
 impl Fanout for RedisFanout {
     async fn publish_telemetry(&self, event: &TelemetryEvent) {
-        self.publish(RAW_CHANNEL, &telemetry_json(event)).await;
+        let outcome = self.publish(RAW_CHANNEL, &telemetry_json(event)).await;
+        metrics::record_telemetry_published(outcome);
     }
 }
 
 #[async_trait]
 impl Alerts for RedisFanout {
     async fn publish_breach(&self, channel: &str, alert: &AlertPayload) {
-        self.publish(channel, &alert_json(alert)).await;
+        metrics::record_breach(
+            &alert.metric,
+            match alert.direction {
+                BoundDirection::Above => "high",
+                BoundDirection::Below => "low",
+            },
+        );
+        let outcome = self.publish(channel, &alert_json(alert)).await;
+        metrics::record_alert_published(channel, outcome);
     }
 }
 

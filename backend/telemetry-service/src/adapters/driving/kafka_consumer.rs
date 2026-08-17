@@ -1,3 +1,4 @@
+use crate::adapters::metrics;
 use crate::adapters::topics::BUILDING_REGISTRATION_REQUESTED_TOPIC;
 use crate::kernel::registration::Registration;
 use futures::StreamExt;
@@ -6,6 +7,7 @@ use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::message::Message;
 use serde_json::Value;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::task::JoinHandle;
 
 pub const GROUP_ID: &str = "sensor-service-registration";
@@ -58,10 +60,17 @@ async fn run(brokers: &str, group_id: &str, registration: Arc<Registration>) {
             continue;
         };
 
-        if let Err(error) = registration
-            .register_from_event(&building_id, &value)
-            .await
-        {
+        let started = Instant::now();
+        let outcome = registration.register_from_event(&building_id, &value).await;
+        metrics::record_registration(
+            match &outcome {
+                Ok(true) => "ready",
+                Ok(false) => "failed",
+                Err(_) => "unacknowledged",
+            },
+            started.elapsed(),
+        );
+        if let Err(error) = outcome {
             log::error!("failed to acknowledge registration of {building_id}: {error}");
         }
     }
