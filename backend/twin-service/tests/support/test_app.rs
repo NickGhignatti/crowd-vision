@@ -41,8 +41,10 @@ pub struct TestApp {
 /// a real broker. `label` only affects the db name, so a stuck test run is
 /// easy to trace back to whichever suite left it behind.
 pub async fn build(label: &str) -> TestApp {
-    let uri =
-        std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+    let uri = std::env::var("MONGO_URI").expect(
+        "MONGO_URI must be set — refusing to guess localhost and write into a dev database",
+    );
+    sweep_stale_test_databases(&uri).await;
     let db_name = format!("twin_service_{label}_{}", Uuid::new_v4().simple());
     let buildings = db::connect(&uri, &db_name)
         .await
@@ -91,4 +93,39 @@ pub async fn build(label: &str) -> TestApp {
 /// over HTTP and has no need for the `Provisioning` handle directly.
 pub async fn app() -> Router {
     build("api").await.router
+}
+
+static SWEEP: std::sync::Once = std::sync::Once::new();
+
+/// Drops the randomly-named databases left behind by previous runs, once per
+/// test binary and before this run creates its own. Each test needs an isolated
+/// database and cannot drop it on the way out — the `Router` outlives the
+/// handle that made it — so the cleanup is deferred to the next run instead of
+/// growing without bound.
+async fn sweep_stale_test_databases(uri: &str) {
+    let mut run = false;
+    SWEEP.call_once(|| run = true);
+    if !run {
+        return;
+    }
+
+    let Ok(client) = mongodb::Client::with_uri_str(uri).await else {
+        return;
+    };
+    let Ok(names) = client.list_database_names().await else {
+        return;
+    };
+    for name in names.into_iter().filter(|name| is_test_database(name)) {
+        let _ = client.database(&name).drop().await;
+    }
+}
+
+fn is_test_database(name: &str) -> bool {
+    let Some(suffix) = name
+        .strip_prefix("twin_service_api_")
+        .or_else(|| name.strip_prefix("twin_service_cucumber_"))
+    else {
+        return false;
+    };
+    suffix.len() == 32 && suffix.chars().all(|c| c.is_ascii_hexdigit())
 }
