@@ -1,5 +1,11 @@
 const DAY_MS: i64 = 86_400_000;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Bucket {
+    pub ts_ms: i64,
+    pub value: f64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AggMode {
     Avg,
