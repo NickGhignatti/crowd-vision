@@ -196,8 +196,14 @@ async fn a_read_carries_the_same_flat_metric_fields_the_socket_event_does() {
 
     assert_eq!(status, StatusCode::OK);
     let data = &body["data"];
-    assert_eq!(data["indoor_aqi"], 42.5, "the value field must be readable under its own name, not only as `value`");
-    assert_eq!(data["pm25"], 8.0, "every other measurement must survive the round trip at the top level");
+    assert_eq!(
+        data["indoor_aqi"], 42.5,
+        "the value field must be readable under its own name, not only as `value`"
+    );
+    assert_eq!(
+        data["pm25"], 8.0,
+        "every other measurement must survive the round trip at the top level"
+    );
     assert_eq!(data["co2"], 700.0);
     assert_eq!(data["building"], "b1");
     assert_eq!(data["roomId"], "r1");
