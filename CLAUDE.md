@@ -111,10 +111,14 @@ Test-enforced by `tests/architecture.rs`. Device vocabulary lives **only** in
 `design/telemetry-storage.qd`.
 `socket-service` (Rust) = functional core / imperative shell,
 split as directories: `src/core/` (`auth`/`rooms`/`relay`, pure + unit-tested), `src/shell/`
-(`handlers`/`server`/`metrics`), `src/main.rs` binds only. Test-enforced by
+(`handlers`/`server`/`metrics`/`twin`), `src/main.rs` binds only. Test-enforced by
 `tests/architecture.rs`: every `src/*.rs` must live in `core/` or `shell/`; core imports no I/O
 crate, no `async fn`, never names `crate::shell`; room-name literals only in `core/rooms.rs`,
-`x-gateway-claims` only in `core/auth.rs`. `contracts-service` (Rust) stays flat, no restructure.
+`x-gateway-claims` only in `core/auth.rs`. `subscribe_building` authorizes per building:
+`shell/twin.rs` resolves building → domains from twin-service (`TWIN_SERVICE_URL`, caller's
+claims forwarded, 60s cache — authoritative answers cached incl. empty, failures not),
+`core::auth::may_read_building` requires a shared domain. Emit path unchanged, no per-message
+check. `contracts-service` (Rust) stays flat, no restructure.
 
 **Service mesh**: prod/staging = Istio ambient (`ztunnel` L4 mTLS, no sidecars; optional
 `waypoint` for L7). Trust: hard perimeter, guarded interior — edge authenticates once, every

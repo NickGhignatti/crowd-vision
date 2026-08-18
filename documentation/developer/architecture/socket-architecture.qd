@@ -11,17 +11,27 @@ The socket-service is the bridge between the broker and the browser. It carries 
 
 Deliberately the simplest service in the system: **no persistence and no domain model**. No ports-and-adapters layering, because there is no domain logic to isolate. Instead the split is the directory structure itself — `src/core/` and `src/shell/` — so the architecture is visible in the file tree and mechanically checkable.
 
-- **`src/core/`** is pure and carries every unit test: `rooms.rs` (`room_for_building`, `room_for_domain`, `building_id_from_channel`), `auth.rs` (`authenticate_claims_header`: claims header → `Identity`), and `relay.rs` (`telemetry_delivery`, `notification_delivery`: a Redis message → the room it belongs in). String and JSON manipulation only, no I/O, no socket types.
-- **`src/shell/`** is everything that touches the outside world: `handlers.rs` runs the connect middleware, joins and leaves rooms, and emits; `server.rs` builds the Axum router, the CORS layer, and the Redis subscriber loop; `metrics.rs` owns the Prometheus registry.
+- **`src/core/`** is pure and carries every unit test: `rooms.rs` (`room_for_building`, `room_for_domain`, `building_id_from_channel`), `auth.rs` (`authenticate_claims_header`: claims header → `Identity`; `may_read_building`: caller domains ∩ building domains), and `relay.rs` (`telemetry_delivery`, `notification_delivery`: a Redis message → the room it belongs in). String and JSON manipulation only, no I/O, no socket types.
+- **`src/shell/`** is everything that touches the outside world: `handlers.rs` runs the connect middleware, joins and leaves rooms, and emits; `server.rs` builds the Axum router, the CORS layer, and the Redis subscriber loop; `twin.rs` resolves a building's domains from `twin-service` behind a 60s cache; `metrics.rs` owns the Prometheus registry.
 - **`src/main.rs`** binds the port and installs the shutdown signal — nothing else.
 
 The connect middleware decodes the mesh-injected `x-gateway-claims` header on the WebSocket handshake (Istio's `RequestAuthentication` already verified it once, upstream — the same trust model every other migrated service uses) and stores the resulting `Identity` in the socket's extensions, server-side.
+
+`subscribe_building` authorises per building, not per session: `shell/twin.rs` asks `twin-service` for `GET /domain/{buildingId}`, forwarding the caller's own claims header, and `core::auth::may_read_building` requires a shared domain before the socket joins the room. The emit path is untouched — room membership is the authorisation, so relaying stays a single `io.to(room)` with no per-message check.
+
+- The lookup is cached 60s per building, so N clients opening the same building cost one call, not N.
+- An **authoritative** answer is cached, empty list included — an unknown building id returns `200 []`, which denies via the same predicate and stops a client probing arbitrary ids from amplifying into `twin-service`.
+- A **failed** lookup (timeout, 5xx, refused) denies but is *not* cached, so a brief `twin-service` blip cannot blank dashboards for the whole TTL.
+- `socket_subscriptions_rejected_total{reason}` separates `forbidden` from `lookup_failed`: a cross-tenant attempt and a `twin-service` outage must not read the same on a dashboard.
+
+Authorisation is point-in-time, evaluated at subscribe. A socket keeps its rooms for its lifetime — the same window every other claims-header consumer accepts, tracked separately as re-authentication over time.
 
 .mermaid
     graph LR
         subgraph "src/shell — Imperative Shell"
             SRV["server.rs\ncomposition root + Redis loop"]
             HND["handlers.rs\nconnect · subscribe · emit"]
+            TWIN["twin.rs\nbuilding → domains, cached"]
         end
         subgraph "src/core — Functional Core"
             AUTH["auth.rs\nauthenticate_claims_header"]
@@ -33,6 +43,8 @@ The connect middleware decodes the mesh-injected `x-gateway-claims` header on th
         SRV --> REL
         SRV -->|"io.ns('/', on_connect.with(authenticate))"| HND
         HND --> AUTH
+        HND --> TWIN
+        TWIN -->|"GET /domain/{id}"| TS[twin-service]
         HND --> ROOMS
         REL --> ROOMS
         SRV -->|room-scoped| CL[Connected clients]

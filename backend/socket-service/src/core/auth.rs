@@ -47,6 +47,12 @@ pub fn authenticate_claims_header(header: Option<&str>) -> Option<Identity> {
     })
 }
 
+pub fn may_read_building(identity: &Identity, building_domains: &[String]) -> bool {
+    building_domains
+        .iter()
+        .any(|domain| identity.domains.contains(domain))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,5 +141,59 @@ mod tests {
                 domains: vec!["acme".to_string(), "beta".to_string()],
             }
         );
+    }
+
+    fn identity_with(domains: &[&str]) -> Identity {
+        Identity {
+            account_id: "u1".to_string(),
+            account_name: "Ada".to_string(),
+            domains: domains.iter().map(|d| d.to_string()).collect(),
+        }
+    }
+
+    fn owned(domains: &[&str]) -> Vec<String> {
+        domains.iter().map(|d| d.to_string()).collect()
+    }
+
+    #[test]
+    fn a_shared_domain_permits_the_read() {
+        assert!(may_read_building(
+            &identity_with(&["acme"]),
+            &owned(&["acme"])
+        ));
+    }
+
+    #[test]
+    fn a_disjoint_domain_denies_the_read() {
+        assert!(!may_read_building(
+            &identity_with(&["beta"]),
+            &owned(&["acme"])
+        ));
+    }
+
+    #[test]
+    fn one_shared_domain_is_enough_when_the_building_has_several() {
+        assert!(may_read_building(
+            &identity_with(&["beta"]),
+            &owned(&["acme", "beta"])
+        ));
+    }
+
+    #[test]
+    fn one_shared_domain_is_enough_when_the_caller_has_several() {
+        assert!(may_read_building(
+            &identity_with(&["beta", "acme"]),
+            &owned(&["acme"])
+        ));
+    }
+
+    #[test]
+    fn a_building_with_no_domains_is_denied_to_everyone() {
+        assert!(!may_read_building(&identity_with(&["acme"]), &[]));
+    }
+
+    #[test]
+    fn a_caller_with_no_memberships_is_denied() {
+        assert!(!may_read_building(&identity_with(&[]), &owned(&["acme"])));
     }
 }

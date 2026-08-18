@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use socket_service::shell::server::{PORT, redis_url, serve};
+use socket_service::shell::server::{PORT, redis_url, serve, twin_url};
 use tokio::signal::unix::{SignalKind, signal};
 
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(10);
@@ -10,7 +10,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", PORT)).await?;
-    serve(listener, redis_url(), shutdown_signal()).await?;
+    serve(listener, redis_url(), twin_url(), shutdown_signal()).await?;
 
     Ok(())
 }

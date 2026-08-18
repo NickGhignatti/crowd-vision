@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
@@ -15,28 +16,41 @@ use crate::shell::metrics::{
     self, NOTIFICATIONS_RELAYED_TOTAL, RELAY_MESSAGES_SKIPPED_TOTAL, RELAY_PAYLOAD_BYTES_TOTAL,
     TELEMETRY_RELAYED_TOTAL, gather,
 };
+use crate::shell::twin::BuildingDomains;
 
 pub const PORT: u16 = 3000;
 const NOTIFICATIONS_CHANNEL: &str = "notifications";
 const TELEMETRY_PATTERN: &str = "telemetry:filtered:*";
 const DEFAULT_FRONTEND_URL: &str = "http://localhost:5173";
+const DEFAULT_TWIN_URL: &str = "http://twin-service:3000";
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
 
 pub fn redis_url() -> String {
     std::env::var("REDIS_URL").expect("REDIS_URL is set")
 }
 
+pub fn twin_url() -> String {
+    std::env::var("TWIN_SERVICE_URL").unwrap_or_else(|_| DEFAULT_TWIN_URL.to_string())
+}
+
 fn frontend_url() -> String {
     std::env::var("FRONTEND_URL").unwrap_or_else(|_| DEFAULT_FRONTEND_URL.to_string())
 }
 
-pub async fn serve<F>(listener: TcpListener, redis_url: String, shutdown: F) -> std::io::Result<()>
+pub async fn serve<F>(
+    listener: TcpListener,
+    redis_url: String,
+    twin_url: String,
+    shutdown: F,
+) -> std::io::Result<()>
 where
     F: Future<Output = ()> + Send + 'static,
 {
     metrics::init();
 
-    let (layer, io) = SocketIo::builder().build_layer();
+    let (layer, io) = SocketIo::builder()
+        .with_state(Arc::new(BuildingDomains::new(twin_url)))
+        .build_layer();
     io.ns("/", on_connect.with(authenticate));
 
     tokio::spawn(subscribe_to_redis(io, redis_url));
