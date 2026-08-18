@@ -36,6 +36,9 @@ Connections are **authenticated**: a socketioxide connect middleware decodes the
     - - `TWIN_SERVICE_URL`
       - `http://twin-service:3000`
       - Building → domains lookup backing `subscribe_building` authorisation.
+    - - `SOCKET_MAX_LIFETIME_SECS`
+      - `900`
+      - How long a socket may stay open before it is dropped and forced to re-handshake.
 
 The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs the Kubernetes probes.
 
@@ -144,7 +147,7 @@ Domain rooms are **not** client-controlled: on connection the service reads the 
         R-->>WS: notifications message (domainName=D)
         WS->>UI: emit "notification" (room domain:D only)
 
-A building room is only ever joined after the caller's memberships are checked against the building's owning domains, so a client cannot follow another tenant's building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Only a system-wide notification with no `domainName` is broadcast to everyone.
+A socket is dropped once it has been open longer than `SOCKET_MAX_LIFETIME_SECS`, counted as `socket_sessions_expired_total`; the client reconnects on its own and its rooms are rejoined by the `connect` handler, so the re-handshake re-reads the session cookie without any user interaction. A building room is only ever joined after the caller's memberships are checked against the building's owning domains, so a client cannot follow another tenant's building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Only a system-wide notification with no `domainName` is broadcast to everyone.
 
 > ⚠️ Per-building authorization (verifying the account's domain actually owns the requested building) needs a twin-service lookup and is deferred; today the guard is domain-membership presence.
 

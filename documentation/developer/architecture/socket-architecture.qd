@@ -24,7 +24,18 @@ The connect middleware decodes the mesh-injected `x-gateway-claims` header on th
 - A **failed** lookup (timeout, 5xx, refused) denies but is *not* cached, so a brief `twin-service` blip cannot blank dashboards for the whole TTL.
 - `socket_subscriptions_rejected_total{reason}` separates `forbidden` from `lookup_failed`: a cross-tenant attempt and a `twin-service` outage must not read the same on a dashboard.
 
-Authorisation is point-in-time, evaluated at subscribe. A socket keeps its rooms for its lifetime — the same window every other claims-header consumer accepts, tracked separately as re-authentication over time.
+Authorisation is point-in-time, evaluated at subscribe. A socket keeps its rooms until it is dropped, so that window is bounded by the socket lifetime below rather than by network stability.
+
+### Socket lifetime
+
+A socket is disconnected once it has been open longer than `SOCKET_MAX_LIFETIME_SECS` (default 15 min, matching `claims-gateway`'s `TokenTTL`). A sweep task in `shell/server.rs` walks `io.sockets()` every `core::session::sweep_interval` (a tenth of the lifetime, capped at 30s) and drops whatever has aged out, counting `socket_sessions_expired_total`.
+
+Reconnection re-runs the whole handshake, so the claims header is rebuilt from the cookie the browser sends — that is the re-validation. It needs no client cooperation: socket.io reconnects on its own, and `sensorData`'s `connect` handler rejoins the building rooms and refetches to close the gap.
+
+`core::session::lifetime_for` subtracts a per-socket jitter of up to an eighth of the lifetime, derived by hashing the socket id. Without it every client connected by the same deploy would expire in lockstep and re-handshake in one burst, forever.
+
+.box {A fixed lifetime bounds the socket, not the gap past token expiry} type:{warning}
+    Total socket life is capped at the configured lifetime (plus at most one sweep interval), but a socket opened just before its token dies can still outlive that token by nearly the full window. Closing that exactly needs an `exp` in the Stable Claims Contract, which `{sub, accountName, sid, memberships}` does not carry. Accepted: with the frontend keep-alive renewing every 10 min, an active client's token is continuously fresh, so the residual case is a client that stops renewing — and that one is bounded by the lifetime.
 
 .mermaid
     graph LR
@@ -32,6 +43,7 @@ Authorisation is point-in-time, evaluated at subscribe. A socket keeps its rooms
             SRV["server.rs\ncomposition root + Redis loop"]
             HND["handlers.rs\nconnect · subscribe · emit"]
             TWIN["twin.rs\nbuilding → domains, cached"]
+            SWEEP["server.rs\nlifetime sweep"]
         end
         subgraph "src/core — Functional Core"
             AUTH["auth.rs\nauthenticate_claims_header"]
@@ -44,6 +56,7 @@ Authorisation is point-in-time, evaluated at subscribe. A socket keeps its rooms
         SRV -->|"io.ns('/', on_connect.with(authenticate))"| HND
         HND --> AUTH
         HND --> TWIN
+        SWEEP --> SESS["session.rs\nlifetime_for · sweep_interval"]
         TWIN -->|"GET /domain/{id}"| TS[twin-service]
         HND --> ROOMS
         REL --> ROOMS

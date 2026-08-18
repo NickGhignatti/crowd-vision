@@ -118,7 +118,9 @@ crate, no `async fn`, never names `crate::shell`; room-name literals only in `co
 `shell/twin.rs` resolves building → domains from twin-service (`TWIN_SERVICE_URL`, caller's
 claims forwarded, 60s cache — authoritative answers cached incl. empty, failures not),
 `core::auth::may_read_building` requires a shared domain. Emit path unchanged, no per-message
-check. `contracts-service` (Rust) stays flat, no restructure.
+check. Sockets dropped after `SOCKET_MAX_LIFETIME_SECS` (default 900, = gateway `TokenTTL`) by a
+sweep in `server.rs`; `core/session.rs` jitters per socket so a deploy's clients don't re-expire
+in lockstep. Reconnect re-reads the cookie — that is the re-validation. `contracts-service` (Rust) stays flat, no restructure.
 
 **Service mesh**: prod/staging = Istio ambient (`ztunnel` L4 mTLS, no sidecars; optional
 `waypoint` for L7). Trust: hard perimeter, guarded interior — edge authenticates once, every

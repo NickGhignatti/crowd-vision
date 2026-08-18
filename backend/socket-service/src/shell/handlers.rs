@@ -1,5 +1,6 @@
 use std::fmt;
 use std::sync::Arc;
+use std::time::Instant;
 
 use socketioxide::SocketIo;
 use socketioxide::extract::{Data, Extension, SocketRef, State};
@@ -14,6 +15,9 @@ use crate::shell::twin::BuildingDomains;
 
 #[derive(Debug, Clone)]
 pub struct ClaimsHeader(pub String);
+
+#[derive(Debug, Clone, Copy)]
+pub struct ConnectedAt(pub Instant);
 
 #[derive(Debug)]
 pub struct Unauthorized;
@@ -43,6 +47,7 @@ pub async fn authenticate(s: SocketRef) -> Result<(), Unauthorized> {
 
 pub async fn on_connect(s: SocketRef, Extension(identity): Extension<Identity>) {
     CONNECTED_CLIENTS.inc();
+    s.extensions.insert(ConnectedAt(Instant::now()));
 
     for domain in &identity.domains {
         s.join(room_for_domain(domain));

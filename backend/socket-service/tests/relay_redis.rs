@@ -9,7 +9,8 @@ use rust_socketio::{Event, Payload};
 use serde_json::Value;
 use socket_service::shell::metrics::{
     CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, REASON_FORBIDDEN, RELAY_MESSAGES_SKIPPED_TOTAL,
-    RELAY_PAYLOAD_BYTES_TOTAL, SUBSCRIPTIONS_REJECTED_TOTAL, TELEMETRY_RELAYED_TOTAL,
+    RELAY_PAYLOAD_BYTES_TOTAL, SOCKETS_EXPIRED_TOTAL, SUBSCRIPTIONS_REJECTED_TOTAL,
+    TELEMETRY_RELAYED_TOTAL,
 };
 use socket_service::shell::server::{redis_url, serve};
 use tokio::sync::Mutex;
@@ -46,6 +47,10 @@ async fn start_twin_stub() -> String {
 }
 
 async fn start_server() -> String {
+    start_server_with_lifetime(Duration::from_secs(3600)).await
+}
+
+async fn start_server_with_lifetime(max_lifetime: Duration) -> String {
     let twin_url = start_twin_stub().await;
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
@@ -57,6 +62,7 @@ async fn start_server() -> String {
         listener,
         redis_url(),
         twin_url,
+        max_lifetime,
         std::future::pending(),
     ));
     tokio::time::sleep(SETTLE).await;
@@ -373,4 +379,32 @@ async fn telemetry_is_denied_for_a_building_outside_the_callers_domains() {
 
     member.disconnect().await.unwrap();
     outsider.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_socket_is_dropped_once_its_authorised_lifetime_elapses() {
+    let _guard = SERIALIZE.lock().await;
+    let url = start_server_with_lifetime(Duration::from_millis(800)).await;
+
+    let (client, mut events) = connect(&url, &claims_header(&["acme"]), "telemetry").await;
+    client.emit("subscribe_building", "b1").await.unwrap();
+    tokio::time::sleep(SETTLE).await;
+
+    let expired_before = SOCKETS_EXPIRED_TOTAL.get();
+    publish("telemetry:filtered:b1", r#"{"value":21}"#).await;
+    assert_eq!(
+        next_delivery(&mut events).await["value"],
+        21,
+        "the socket must work normally before its lifetime elapses"
+    );
+
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    assert!(
+        SOCKETS_EXPIRED_TOTAL.get() > expired_before,
+        "the expiry must be observable in metrics"
+    );
+
+    publish("telemetry:filtered:b1", r#"{"value":22}"#).await;
+    assert_silent(&mut events).await;
 }

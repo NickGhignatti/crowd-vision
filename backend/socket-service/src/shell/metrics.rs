@@ -65,6 +65,13 @@ pub static SUBSCRIPTIONS_REJECTED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new
     ))
 });
 
+pub static SOCKETS_EXPIRED_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {
+    register(IntCounter::new(
+        "socket_sessions_expired_total",
+        "Sockets disconnected because their authorised lifetime elapsed",
+    ))
+});
+
 pub static CONNECTED_CLIENTS: LazyLock<Gauge> = LazyLock::new(|| {
     register(Gauge::new(
         "socket_connected_clients",
@@ -87,6 +94,7 @@ pub fn init() {
     LazyLock::force(&TELEMETRY_RELAYED_TOTAL);
     LazyLock::force(&CONNECTIONS_REJECTED_TOTAL);
     LazyLock::force(&CONNECTED_CLIENTS);
+    LazyLock::force(&SOCKETS_EXPIRED_TOTAL);
 
     for channel in [CHANNEL_TELEMETRY, CHANNEL_NOTIFICATIONS] {
         RELAY_PAYLOAD_BYTES_TOTAL.with_label_values(&[channel]);
@@ -123,6 +131,7 @@ mod tests {
             "telemetry_relayed_total 0",
             "socket_connected_clients 0",
             "socket_connections_rejected_total 0",
+            "socket_sessions_expired_total 0",
             r#"notifications_relayed_total{scope="domain"} 0"#,
             r#"notifications_relayed_total{scope="broadcast"} 0"#,
             r#"relay_payload_bytes_total{channel="telemetry"} 0"#,
