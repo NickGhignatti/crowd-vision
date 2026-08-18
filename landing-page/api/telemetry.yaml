@@ -115,17 +115,25 @@ components:
     ReadingView:
       description: >
         A stored reading as served back. The envelope is reconstructed from the
-        row's own columns; `payload` carries whatever metric-specific fields
-        were sent beyond the envelope and the aggregated value.
+        row's own columns, and every metric-specific field sits at the top level
+        under its own name — the same flat shape the `telemetry` socket event
+        uses, so a client can read a REST snapshot and a live event the same way.
+        `value` repeats the metric's own value field for convenience.
       type: object
       properties:
         building: { type: string, example: "hq-01" }
         roomId: { type: string, example: "room-03" }
         timestamp: { type: integer, description: "Unix timestamp in milliseconds" }
-        value: { type: number, example: 22.4 }
-        payload:
-          type: object
-          additionalProperties: true
+        value: { type: number, example: 42.5 }
+      additionalProperties: true
+      example:
+        building: "hq-01"
+        roomId: "room-03"
+        timestamp: 1718000000000
+        value: 42.5
+        indoor_aqi: 42.5
+        pm25: 8.0
+        co2: 700.0
 
     Sensor:
       description: >

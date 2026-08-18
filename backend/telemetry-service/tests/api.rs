@@ -176,6 +176,45 @@ async fn entire_building_returns_one_row_per_room() {
 }
 
 #[tokio::test]
+async fn a_read_carries_the_same_flat_metric_fields_the_socket_event_does() {
+    let app = test_app(fresh_db("read_shape").await, vec!["eng"]).await;
+    app.send_json(
+        "POST",
+        "/ingest",
+        None,
+        json!({ "type": "airQuality", "buildingId": "b1", "roomId": "r1",
+                "timestamp": BASE_MS, "pm25": 8.0, "co2": 700.0, "indoor_aqi": 42.5 }),
+    )
+    .await;
+
+    let (status, body) = app
+        .get(
+            "/airQuality/latest?building=b1&roomId=r1",
+            Some(&customer()),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK);
+    let data = &body["data"];
+    assert_eq!(data["indoor_aqi"], 42.5, "the value field must be readable under its own name, not only as `value`");
+    assert_eq!(data["pm25"], 8.0, "every other measurement must survive the round trip at the top level");
+    assert_eq!(data["co2"], 700.0);
+    assert_eq!(data["building"], "b1");
+    assert_eq!(data["roomId"], "r1");
+    assert_eq!(data["timestamp"], BASE_MS);
+    assert_eq!(data["value"], 42.5);
+    assert!(
+        data.get("payload").is_none(),
+        "a nested payload is the shape the dashboard cannot read"
+    );
+
+    let (_, body) = app
+        .get("/airQuality/entireBuilding?building=b1", Some(&customer()))
+        .await;
+    assert_eq!(body["data"][0]["indoor_aqi"], 42.5);
+}
+
+#[tokio::test]
 async fn a_custom_range_without_a_start_is_rejected() {
     let app = test_app(fresh_db("w8_missing").await, vec!["eng"]).await;
     let (status, body) = app

@@ -115,6 +115,8 @@ A threshold-evaluation failure is logged and does **not** fail the ingest; a per
 
 **Reads** — `GET /{sensorType}/latest`, `/entireBuilding`, `/dashboard`. Each resolves the building's domains through twin-service and evaluates Cedar before touching data. `latest` on an empty room is `404`.
 
+A read is served in the **same flat shape as the `telemetry` socket event**: envelope plus every metric field at the top level under its own name. The trimmed `payload` column is a storage detail — it is re-inflated on the way out and never appears in a response. A client that reads a REST snapshot and then live events must not have to handle two shapes; when it did, a dashboard column stayed blank until the first socket tick overwrote the row.
+
 **Actions** — `POST /executeAction`. The kernel validates the command against the plugin's `ActionSpec`; the dispatch adapter translates it into the device's own vocabulary. See [Sensor Actions & the Device ACL](../design/sensor-actions.qd).
 
 ---

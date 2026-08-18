@@ -1,6 +1,7 @@
 use crate::adapters::metrics;
 use crate::contracts::error::DomainError;
 use crate::contracts::identity::GatewayClaims;
+use crate::contracts::plugin::ENVELOPE_FIELDS;
 use crate::contracts::reading::Reading;
 use crate::contracts::sensor::Command;
 use crate::contracts::threshold::{Bounds, TemperatureLimits};
@@ -77,13 +78,17 @@ async fn edit(state: &AppState, claims: &GatewayClaims, building: &str) -> Resul
 }
 
 fn reading_json(reading: &Reading) -> Value {
-    json!({
-        "building": reading.building_id,
-        "roomId": reading.room_id,
-        "timestamp": reading.ts_ms,
-        "value": reading.value,
-        "payload": reading.payload,
-    })
+    let mut body = Map::new();
+    body.insert("building".to_owned(), json!(reading.building_id));
+    body.insert("roomId".to_owned(), json!(reading.room_id));
+    body.insert("timestamp".to_owned(), json!(reading.ts_ms));
+    body.insert("value".to_owned(), json!(reading.value));
+    for (key, value) in &reading.payload {
+        if !ENVELOPE_FIELDS.contains(&key.as_str()) {
+            body.insert(key.clone(), value.clone());
+        }
+    }
+    Value::Object(body)
 }
 
 fn limits_json(limits: &TemperatureLimits) -> Value {
