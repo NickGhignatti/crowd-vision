@@ -79,14 +79,14 @@ export function useBuildingDraft() {
 
       const buildingId = await buildingsStore.register(twinPayload, domainName)
 
-      await makeRequestWithRetry(`/sensor/thresholds/temperature/buildings/${buildingId}`, 'PATCH', {
+      await makeRequestWithRetry(`/telemetry/thresholds/temperature/buildings/${buildingId}`, 'PATCH', {
         body: JSON.stringify({
           maxTemp: draft.value.thresholds.maxTemp,
           minTemp: draft.value.thresholds.minTemp,
         }),
       })
 
-      await makeRequestWithRetry(`/sensor/thresholds/airQuality/buildings/${buildingId}`, 'PATCH', {
+      await makeRequestWithRetry(`/telemetry/thresholds/airQuality/buildings/${buildingId}`, 'PATCH', {
         body: JSON.stringify({
           maxAqi: draft.value.thresholds.maxAqi,
           maxCo2: draft.value.thresholds.maxCo2,
@@ -97,14 +97,14 @@ export function useBuildingDraft() {
       // the local proxy handles, resetting connections instead of queuing them.
       await mapWithConcurrency(draft.value.rooms, ROOM_REQUEST_CONCURRENCY, (room) =>
         makeRequestWithRetry(
-          `/sensor/thresholds/peopleCount/buildings/${buildingId}/rooms/${room.id}`,
+          `/telemetry/thresholds/peopleCount/buildings/${buildingId}/rooms/${room.id}`,
           'PATCH',
           { body: JSON.stringify({ maxPeople: room.thresholds.maxPeople }) },
         ),
       )
 
       await mapWithConcurrency(sensorsToRegister, ROOM_REQUEST_CONCURRENCY, async (sensor) => {
-        const registerResponse = await makeRequestWithRetry('/sensor/sensor', 'POST', {
+        const registerResponse = await makeRequestWithRetry('/telemetry/sensor', 'POST', {
           body: JSON.stringify({
             sensorData: {
               buildingId,
@@ -117,22 +117,6 @@ export function useBuildingDraft() {
 
         if (!registerResponse.ok) {
           throw new Error('Failed to register sensor')
-        }
-
-        const actionPayload = {
-          sensorType: sensor.sensorType,
-          buildingId,
-          roomId: sensor.roomId,
-          timestamp: Date.now(),
-          temperature: draft.value?.thresholds.minTemp ?? 0,
-        }
-
-        const actionResponse = await makeRequestWithRetry('/sensor/executeAction', 'POST', {
-          body: JSON.stringify({ actionData: actionPayload }),
-        })
-
-        if (!actionResponse.ok) {
-          throw new Error('Failed to execute sensor action')
         }
       })
     } finally {

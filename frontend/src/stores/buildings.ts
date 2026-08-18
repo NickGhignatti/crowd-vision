@@ -123,7 +123,7 @@ export const useBuildingsStore = defineStore('buildings', {
 
       if (typeof maxTemperature === 'number') {
         const thresholdResponse = await makeRequest(
-          `/sensor/thresholds/buildings/${buildingId}/rooms/${roomId}`,
+          `/telemetry/thresholds/buildings/${buildingId}/rooms/${roomId}`,
           'PATCH',
           { body: JSON.stringify({ maxTemperature }) },
         )

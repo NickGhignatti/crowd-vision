@@ -55,10 +55,10 @@
       "addLabels": ["dependencies", "notification-service"]
     },
     {
-      "matchFileNames": ["backend/sensor-service/**"],
+      "matchFileNames": ["backend/telemetry-service/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "sensor-service",
-      "addLabels": ["dependencies", "sensor-service"]
+      "groupName": "telemetry-service",
+      "addLabels": ["dependencies", "telemetry-service"]
     },
     {
       "matchFileNames": ["backend/socket-service/**"],

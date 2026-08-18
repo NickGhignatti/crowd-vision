@@ -1,0 +1,13 @@
+language: "rust"
+
+tasks:
+  test:
+    command: "cargo test --lib --test architecture"
+    inputs: ["src/**/*", "tests/architecture.rs", "Cargo.toml"]
+    options:
+      mergeArgs: "replace"
+  test-integration:
+    command: "bash test-integration.sh"
+    inputs: ["src/**/*", "tests/**/*", "migrations/**/*", "Cargo.toml"]
+    options:
+      cache: false

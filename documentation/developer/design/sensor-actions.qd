@@ -1,0 +1,319 @@
+.docname {Sensor Actions & the Device ACL}
+.include {docs}
+
+Telemetry flows **in**: sensors push readings, the service stores and republishes them. Actions are the one path that flows **out** — the user turns the boiler up, and telemetry-service has to speak to a physical device.
+
+Devices do not agree on anything: field names, verbs, protocols, or even which operations exist. This page describes the three-layer split that keeps that disagreement out of the domain model.
+
+**Applies to:** `telemetry-service` — `POST /executeAction`.
+
+---
+
+## The Problem
+
+The Node `sensor-service` had no domain model for actions at all. `actions.json` mapped an arbitrary string to a URL:
+
+```json
+{ "increase": { "123": { "url": "http://gateway/simulator/tp/control/receive",
+                         "method": "POST", "arguments": { "0": "value" } } } }
+```
+
+- `actionName` was free text typed in the UI. Nothing declared which actions exist.
+- Arguments were **positional** — `["21"]` — with no types and no validation.
+- The table was keyed by individual `sensorId`. 500 boilers meant 500 near-identical entries.
+- `url` and `method` were visible to the request handler, so HTTP was baked into the flow.
+
+Compare with the read path, in the same service: metrics declare their fields in `MetricDescriptor`, get validated by `check_fields`, and are advertised through `GET /contracts`. The write path had none of it.
+
+---
+
+## Three Layers
+
+.var {layers}
+   - Layer
+   - Scope
+   - Declares
+   - Translated?
+
+.tablebyrows {.layers}
+    - - **Catalog** — `ActionSpec`
+      - per metric
+      - which actions can exist, and their parameter types
+      - never
+    - - **Command**
+      - per request
+      - the actual instruction
+      - **yes — this is what the ACL rewrites**
+    - - **Binding**
+      - per device driver
+      - how to say one action to one device family
+      - is the translation
+
+The distinction that matters: the catalog is a static declaration and is never translated. The `Command` is the runtime message, and it is the only thing that crosses the anti-corruption boundary.
+
+### Layer 1 — the catalog
+
+Declared by the plugin, next to the metric's fields, reusing the same `FieldSpec` type:
+
+```rust
+static ACTIONS: &[ActionSpec] = &[
+    ActionSpec { name: "setTarget", label: "Set target temperature",
+                 parameters: &[FieldSpec { name: "target", kind: Finite, required: true }] },
+    ActionSpec { name: "increase", label: "Increase temperature",
+                 parameters: &[FieldSpec { name: "step", kind: Finite, required: false }] },
+    ActionSpec { name: "decrease", label: "Decrease temperature",
+                 parameters: &[FieldSpec { name: "step", kind: Finite, required: false }] },
+];
+```
+
+Absolute (`setTarget`) and relative (`increase`/`decrease`) are **separate first-class actions**, not variants of one another. A device offering only +/- buttons is not a degraded `setTarget` — it is a device that implements two of the three.
+
+`SensorPlugin::actions()` defaults to `&[]`, so a metric with no actuator (peopleCount, airQuality) declares nothing and needs no code.
+
+### Layer 2 — the command
+
+```rust
+pub struct Command {
+    pub metric: String,       // "temperature"
+    pub building_id: String,
+    pub room_id: String,
+    pub sensor_id: String,
+    pub action: String,       // "setTarget"
+    pub arguments: Map<String, Value>,   // { "target": 21 }
+}
+```
+
+Arguments are **named**, matching the catalog's parameter names. The kernel validates them with `check_fields` — the same function `POST /ingest` uses for readings. One validator, both directions.
+
+### Layer 3 — the binding (the ACL)
+
+Keyed by **driver**, not by sensor:
+
+```json
+{
+  "tp-simulator": {
+    "setTarget": { "path": "/control/receive", "method": "POST", "fields": { "target": "value" } },
+    "increase":  { "path": "/control/step",    "method": "POST", "fields": { "step": "delta" } }
+  },
+  "acme-basic": {
+    "increase": { "path": "/dev/up",   "method": "POST", "fields": {} },
+    "decrease": { "path": "/dev/down", "method": "POST", "fields": {} }
+  }
+}
+```
+
+A driver is a **device model, not a customer**. Two businesses running the same boiler share `acme-basic`; five hundred identical units share one binding entry.
+
+The binding holds the *path*, never the host — a device model is deployed at a different address in every building. The URL is composed, not templated:
+
+```
+sensors.endpoint  +  binding.path   →   http://b-gw.local/control/receive
+```
+
+Two columns on `sensors` carry the per-unit facts:
+
+.var {sensorcols}
+   - Column
+   - Answers
+
+.tablebyrows {.sensorcols}
+    - - `driver`
+      - which dialect this unit speaks
+    - - `endpoint`
+      - where this unit is reachable
+
+`acme-basic` shows the +/- only case: it lists no `setTarget`, and its actions carry no fields. Empty `parameters` and empty `fields` are the ordinary path — `check_fields(&[], {})` yields no errors and the request body is `{}`. No special case anywhere.
+
+---
+
+## Capability Is Per Sensor, Not Per Metric
+
+`GET /contracts` is per metric. It can say *"temperature sensors can, in principle, do these three things"*. It cannot say *"sensor 123 supports `setTarget`, sensor 456 only does +/-"*.
+
+What a specific sensor can do is the intersection:
+
+```
+plugin.actions()  ∩  bindings[sensor.driver].keys()
+```
+
+served on the sensor listing (`GET /sensors/buildings/{b}/rooms/{r}`). The UI renders a slider when `setTarget` is present, +/- buttons when it is not, and no controls at all when the list is empty.
+
+---
+
+## A Command's Journey
+
+User sets sensor `123` in room `r1`, building `b1` to 21 °C.
+
+.mermaid
+    sequenceDiagram
+        participant B as Browser
+        participant E as Edge
+        participant H as HTTP adapter
+        participant K as Kernel (Actions)
+        participant A as ACL (dispatch adapter)
+        participant D as Device
+        B->>E: POST /executeAction { setTarget, target: 21 }
+        E->>H: verified x-gateway-claims
+        H->>H: Cedar can_edit_domains → 403 if not
+        H->>K: Command { metric, sensorId, action, arguments }
+        K->>K: plugin lookup → ActionSpec → check_fields
+        K->>A: dispatch(&Command)
+        A->>A: sensor 123 → driver tp-simulator → binding
+        A->>D: POST .../control/receive { "value": 21 }
+        D-->>A: 200
+        A-->>K: Ok(())
+        K-->>B: 200 { accepted: true }
+
+Step by step:
+
+1. **Browser** posts named arguments — `{ "target": 21 }` — because `GET /contracts` told it the parameter is called `target`.
+2. **Edge** strips any client-supplied `x-gateway-claims`, verifies the JWT once, re-injects verified claims.
+3. **HTTP adapter** resolves the building's domains and calls `authz::can_edit_domains`. Actions are **edit**: a `standard_customer` who can watch the chart cannot move the boiler.
+4. **Kernel** resolves the plugin, finds the `ActionSpec`, validates the arguments. Never sees a URL.
+5. **ACL** resolves sensor → driver → binding, renames `target` to `value`, checks the URL scheme, sends it.
+6. **Device** replies. Non-2xx and unreachable both become `502`.
+
+### Error mapping
+
+.var {errors}
+   - Condition
+   - Where
+   - Response
+
+.tablebyrows {.errors}
+    - - unknown metric
+      - kernel
+      - `404`
+    - - metric does not declare that action
+      - kernel
+      - `404`
+    - - missing or wrong-typed parameter
+      - kernel
+      - `400`
+    - - no binding for this sensor
+      - ACL
+      - `404`
+    - - non-`http(s)` URL in the binding
+      - ACL
+      - `500`, message deliberately vague
+    - - device returned non-2xx
+      - ACL
+      - `502`
+    - - device unreachable
+      - ACL
+      - `502`
+
+The device's own status is never forwarded verbatim — its `503` becomes our `502`, because the failure is ours-talking-to-them, not the caller's request.
+
+.box {`200 accepted` means delivered, not applied} type:{note}
+    The response confirms the command reached the device, not that the room is 21 °C. Confirmation arrives seconds later through the ordinary read path: the boiler heats, the sensor reports 21.4, `POST /ingest` stores it, `telemetry:raw` reaches the browser, the chart moves. If the new value breaches `maxTemp`, the same ingest fires `alerts:temperature` and the user is notified about the change they just made — no action-specific plumbing.
+
+---
+
+## Adding a Device Family
+
+Two cases hide behind "this business's sensors communicate differently", and they land in different places.
+
+### Tier 1 — same protocol, different vocabulary
+
+The device speaks HTTP but names the field `setpoint_c` and exposes a different path. **Config only, no code:**
+
+```json
+"acme-basic": {
+  "setTarget": { "path": "/thermo/set", "method": "PUT", "fields": { "target": "setpoint_c" } }
+}
+```
+
+New device model, new key. Nothing recompiles.
+
+### Tier 2 — different protocol
+
+MQTT, Modbus, CoAP, or HTTP behind an auth scheme the device dictates. This needs code, but only inside the dispatch adapter:
+
+```
+src/adapters/driven/dispatch/
+  mod.rs        Dispatcher — sensor → driver → binding, selects transport
+  bindings.rs   catalog loading
+  http.rs       impl Transport for Http
+  mqtt.rs       impl Transport for Mqtt      ← the new device family adds this
+```
+
+The binding names its transport:
+
+```json
+"acme-mqtt": {
+  "transport": "mqtt",
+  "increase": { "topic": "dev/42/cmd", "fields": { "step": "delta" } }
+}
+```
+
+`ActionDispatch` still has one method. `Transport` is internal to the adapter. **For both tiers the kernel, the plugins, `contracts/` and every kernel test are untouched** — that is what the boundary buys.
+
+### Where the catalog lives
+
+.var {catalog}
+   - Stage
+   - Storage
+   - Adding a model means
+
+.tablebyrows {.catalog}
+    - - today
+      - `bindings.json` embedded in the image
+      - a PR and a deploy
+    - - when a tenant needs a model we do not ship
+      - `action_bindings` table
+      - an insert
+
+```sql
+create table action_bindings (
+  driver    text not null,
+  action    text not null,
+  transport text not null default 'http',
+  path      text not null,
+  method    text not null default 'POST',
+  fields    jsonb not null default '{}'::jsonb,
+  primary key (driver, action)
+);
+```
+
+Note what is **not** in that table: a tenant, a domain, or a building. It is a global device catalog. Per-business behaviour comes entirely from which `driver` and `endpoint` a business's `sensors` rows carry — the same mechanism whether a tenant has one device family or five.
+
+The file comes first deliberately. Tier 2 needs a deploy regardless, and tier 1 changes are rare enough that a PR is the right amount of ceremony.
+
+.box {A tenant-editable endpoint is an SSRF primitive} type:{warning}
+    `/executeAction` makes telemetry-service fetch a URL with its own network identity. While the catalog is ops-owned, the `http(s)` scheme check is sufficient. The moment a binding or `sensors.endpoint` becomes editable through the API, a tenant can aim it at `http://169.254.169.254/` or any internal service and read the response path's behaviour. That case needs a **host allowlist per domain**, not a scheme check. Keep the catalog ops-owned until there is a concrete reason not to.
+
+These are egress calls into a customer's network. Under Istio ambient each reachable host needs a `ServiceEntry` — pair that list with the allowlist above, since it is the same list. See [Service Mesh Architecture](../architecture/service-mesh.qd).
+
+---
+
+## Deliberate Omissions
+
+- **No emulating `setTarget` on a +/- device.** Reading the current value, computing a delta and firing N `increase` calls is a control loop: it needs current state, is not atomic, overshoots when the sensor lags, and two concurrent requests fight each other. Control loops belong in the device or a dedicated controller, never in a translation layer. A device without an absolute setpoint honestly reports that it has none.
+- **No URL templating or per-sensor overrides.** One binding per device family covers every sensor of that family. Add when a second family disagrees.
+- **No sensor-existence check in `execute`.** "Do we know how to talk to sensor 123" is the ACL's question, answered by `DispatchError::Unconfigured` → `404`. A second lookup against the `sensors` table would answer the same question twice.
+- **No queued or asynchronous actions.** Fire, wait, report.
+
+---
+
+## Where This Lives
+
+.var {files}
+   - Concern
+   - File
+
+.tablebyrows {.files}
+    - - `ActionSpec`, `check_fields`
+      - `src/contracts/plugin.rs`
+    - - `Command`
+      - `src/contracts/sensor.rs`
+    - - per-metric action catalog
+      - `src/plugins/temperature.rs`
+    - - validation and error mapping
+      - `src/kernel/actions.rs`
+    - - port — one method, protocol-free
+      - `src/kernel/ports.rs` (`ActionDispatch`)
+    - - driver lookup, field renaming, transport
+      - `src/adapters/driven/dispatch.rs`
+
+The kernel imports nothing that names a URL, a method, or a protocol. That is the anti-corruption boundary, and `tests/architecture.rs` keeps it that way.

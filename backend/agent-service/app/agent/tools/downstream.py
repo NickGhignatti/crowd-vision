@@ -41,8 +41,8 @@ def get_sensor_client() -> httpx.AsyncClient:
     if _sensor_client is None or _sensor_client.is_closed:
         settings = get_settings()
         _sensor_client = httpx.AsyncClient(
-            base_url=settings.sensor_service_url,
-            timeout=settings.sensor_timeout_seconds,
+            base_url=settings.telemetry_service_url,
+            timeout=settings.telemetry_timeout_seconds,
         )
     return _sensor_client
 

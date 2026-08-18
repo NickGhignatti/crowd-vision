@@ -113,8 +113,8 @@ A port exists **for the use case that declares it**, not for whoever ends up imp
 *   **Driven Adapters**: These implement the capabilities (ports) that the core requires.
     *   `adapters/driven/persistence/db.rs`: Implements the `BuildingStore` port, providing persistence for building data using MongoDB.
     *   `adapters/driven/persistence/jobs.rs`: Implements the `UploadQueue` port, handling durable queuing of upload tasks with MongoDB.
-    *   `adapters/driven/outbound.rs`: Implements the `DownstreamSync` port — outbound REST calls to contracts-service and the seed-only calls to sensor-service; no longer used for registration (see below).
-    *   `adapters/driven/kafka_producer.rs`: Implements the `RegistrationEvents` port, publishing `building-registration-requested` instead of calling sensor-service directly.
+    *   `adapters/driven/outbound.rs`: Implements the `DownstreamSync` port — outbound REST calls to contracts-service and the seed-only calls to telemetry-service; no longer used for registration (see below).
+    *   `adapters/driven/kafka_producer.rs`: Implements the `RegistrationEvents` port, publishing `building-registration-requested` instead of calling telemetry-service directly.
     *   `service/fakes.rs`: An in-memory adapter for all four ports (`BuildingStore`, `UploadQueue`, `DownstreamSync`, `RegistrationEvents`), used exclusively by the test suite to enable testing the core without a database or network.
 
 The layering rules above are test-enforced, not just described: `tests/architecture_fitness.rs` fails the build if `domain/` or `service/` import a framework/adapter/each other's wrong direction, or if `adapters/driving` reaches into `adapters/driven`.
@@ -131,7 +131,7 @@ The layering rules above are test-enforced, not just described: `tests/architect
 - **Tenancy from the token.** A building records the domains it belongs to; access is granted by matching those against the principal's memberships in the identity token — no per-request call to claims-gateway or tenancy-service.
 - **Registration accepts, then provisions.** `POST /register` validates synchronously and answers `202` with a tracking handle; the twin itself is built by an in-process worker reading a durable queue. Validation stays ahead of the acknowledgement — a description the service would refuse must never be accepted — while everything that can only fail for reasons the caller cannot fix moves behind it. The caller polls the handle; delivery is at-least-once, so provisioning is written to converge on a second run rather than duplicate.
 - **Three driving adapters, one use case.** The HTTP handler, the worker, and the Kafka completion consumer all enter through the same `service::provisioning` module. None of them owns the behaviour, which is what stops the three paths drifting apart.
-- **Registration is announced, not called.** Provisioning no longer calls sensor-service directly: it publishes `building-registration-requested` on Kafka and returns. Publishing is correlated, not blocking — sensor-service builds its own model independently and reports back on `building-registration-completed`, which is what actually resolves the upload to `ready` or `failed`. A publish failure still fails the job the same way a REST failure used to; what changed is that a *successful* publish is no longer treated as the outcome, only the completion event is (see [Communication & Data Flow](data-flow.qd) for the sequence).
+- **Registration is announced, not called.** Provisioning no longer calls telemetry-service directly: it publishes `building-registration-requested` on Kafka and returns. Publishing is correlated, not blocking — telemetry-service builds its own model independently and reports back on `building-registration-completed`, which is what actually resolves the upload to `ready` or `failed`. A publish failure still fails the job the same way a REST failure used to; what changed is that a *successful* publish is no longer treated as the outcome, only the completion event is (see [Communication & Data Flow](data-flow.qd) for the sequence).
 - **Best-effort downstream seeding.** Seeding the dependent contexts (default display preferences for distribution, per-room occupancy thresholds via `DownstreamSync`) is intentionally non-transactional — a failed seed is logged and swallowed. This no longer includes the sensor threshold clone, which moved to the Kafka flow above and fails the job instead.
 - **Structure treated as static.** Geometry and topology are modelled as stable; only metadata evolves. This keeps the spatial model dependable while live readings churn elsewhere.
 - **Uniform geometry validation.** Every geometry-writing route — registration included — enforces the same position/dimension/capacity checks, returning `400` on a malformed room rather than storing bad data or surfacing an opaque `500`.
@@ -146,7 +146,7 @@ The layering rules above are test-enforced, not just described: `tests/architect
 ## Integration
 
 - Owns `twin-db`; no other service reads it.
-- Announces a new registration to sensor-service over Kafka (`building-registration-requested`/`-completed`); calls contracts-service directly over REST — see [Communication & Data Flow](data-flow.qd).
+- Announces a new registration to telemetry-service over Kafka (`building-registration-requested`/`-completed`); calls contracts-service directly over REST — see [Communication & Data Flow](data-flow.qd).
 - Exposes read-only building data to the assistant through an anti-corruption layer.
 
 For the registration flow, name-normalisation rules, synchronisation details, and the API, see the [Digital Twin Service](../services/digital-twin.qd) internals page.

@@ -51,7 +51,7 @@ async fn main() {
 
     let sync_enabled = env::var("NODE_ENV").map(|v| v != "test").unwrap_or(true);
     let outbound = OutboundConfig {
-        sensor_service_url: env::var("SENSOR_SERVICE_URL")
+        telemetry_service_url: env::var("TELEMETRY_SERVICE_URL")
             .unwrap_or_else(|_| "http://localhost:3000".to_string()),
         contracts_service_url: env::var("CONTRACTS_SERVICE_URL")
             .unwrap_or_else(|_| "http://localhost:3001".to_string()),

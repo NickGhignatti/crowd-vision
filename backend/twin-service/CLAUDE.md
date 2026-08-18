@@ -21,9 +21,9 @@ Test-enforced (`tests/architecture_fitness.rs`): `domain/` no axum/mongodb/`crat
 ## Registration flow
 
 `POST /register` → `202`+handle, worker provisions from Mongo queue (`pending_uploads`),
-publishes Kafka event, resolves `ready`/`failed` on sensor-service's completion event.
+publishes Kafka event, resolves `ready`/`failed` on telemetry-service's completion event.
 
-`failed` (publish refused, or sensor-service's own callback) deletes the twin
+`failed` (publish refused, or telemetry-service's own callback) deletes the twin
 (`BuildingStore::delete`) and calls notification-service's `POST /trigger` as a system caller
 (`OutboundConfig::notify_provisioning_failed`, `NOTIFICATION_SERVICE_URL`) — notify **before**
 delete, since `/trigger` resolves the building's domains by calling back into twin-service.

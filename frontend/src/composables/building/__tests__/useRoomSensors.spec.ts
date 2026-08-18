@@ -22,7 +22,7 @@ describe('useRoomSensors', () => {
     const { sensors, refresh } = useBuildingSensors(ref('bldg-1'))
     await refresh()
 
-    expect(makeRequest).toHaveBeenCalledWith('/sensor/sensors/buildings/bldg-1')
+    expect(makeRequest).toHaveBeenCalledWith('/telemetry/sensors/buildings/bldg-1')
     expect(sensors.value).toEqual([{ sensorId: 's-1' }])
   })
 
@@ -34,7 +34,7 @@ describe('useRoomSensors', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(makeRequest).toHaveBeenCalledWith('/sensor/sensors/buildings/bldg-1')
+    expect(makeRequest).toHaveBeenCalledWith('/telemetry/sensors/buildings/bldg-1')
     expect(sensors.value).toEqual([{ sensorId: 's-1' }])
   })
 
@@ -49,7 +49,53 @@ describe('useRoomSensors', () => {
     await registerSensor({ roomId: 'room-1', sensorId: 's-2', sensorType: 'temperature' })
     await flushPromises()
 
-    expect(makeRequest).toHaveBeenCalledWith('/sensor/sensor', 'POST', expect.any(Object))
+    expect(makeRequest).toHaveBeenCalledWith('/telemetry/sensor', 'POST', expect.any(Object))
     expect(sensors.value).toEqual([{ sensorId: 's-1' }, { sensorId: 's-2' }])
+  })
+
+  it('sends a command in the telemetry-service action shape', async () => {
+    vi.mocked(makeRequest)
+      .mockResolvedValueOnce(makeResponse(true, [{ sensorId: 's-1' }]) as never)
+      .mockResolvedValueOnce(makeResponse(true) as never)
+
+    const { sendAction } = useBuildingSensors(ref('bldg-1'))
+    await flushPromises()
+    await sendAction({
+      roomId: 'room-1',
+      sensorId: 's-1',
+      metric: 'temperature',
+      action: 'increase',
+      arguments: { step: 1 },
+    })
+
+    const call = vi
+      .mocked(makeRequest)
+      .mock.calls.find((c) => c[0] === '/telemetry/executeAction')
+    expect(call).toBeDefined()
+    expect(JSON.parse((call![2] as { body: string }).body)).toEqual({
+      actionData: {
+        metric: 'temperature',
+        buildingId: 'bldg-1',
+        roomId: 'room-1',
+        sensorId: 's-1',
+        action: 'increase',
+        arguments: { step: 1 },
+      },
+    })
+  })
+
+  it('defaults to no arguments when the action takes none', async () => {
+    vi.mocked(makeRequest)
+      .mockResolvedValueOnce(makeResponse(true, []) as never)
+      .mockResolvedValueOnce(makeResponse(true) as never)
+
+    const { sendAction } = useBuildingSensors(ref('bldg-1'))
+    await flushPromises()
+    await sendAction({ roomId: 'room-1', sensorId: 's-1', metric: 'temperature', action: 'reset' })
+
+    const call = vi
+      .mocked(makeRequest)
+      .mock.calls.find((c) => c[0] === '/telemetry/executeAction')
+    expect(JSON.parse((call![2] as { body: string }).body).actionData.arguments).toEqual({})
   })
 })

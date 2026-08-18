@@ -26,7 +26,7 @@ CrowdVision ships two simulators that exist **outside the main application clust
 
 Running simulators outside Kubernetes enforces that boundary at the architecture level:
 - The K8s manifests describe only the real system — no test tooling bleeds into production configs.
-- Each simulator connects to the cluster the same way real hardware would: via the public-facing Ingress URL (`http://crowdvision.local/sensor/`).
+- Each simulator connects to the cluster the same way real hardware would: via the public-facing Ingress URL (`http://crowdvision.local/telemetry/`).
 - Deploying to production requires zero changes — the simulators simply point at a different URL.
 
 This is the same reasoning behind not running load-test tooling inside a production cluster: the test tool is not the system under test.
@@ -62,10 +62,10 @@ docker stop <container-id>
 
 ## How Connections Work
 
-The simulator sends data to CrowdVision's `/sensor/` endpoints via HTTP POST. When the user starts the simulator from the dashboard UI, the Vue client:
+The simulator sends data to CrowdVision's `/telemetry/ingest` endpoint via HTTP POST. When the user starts the simulator from the dashboard UI, the Vue client:
 
 1. Reads `window.location.origin` to determine the current application's base URL (e.g., `http://localhost`).
-2. Appends `/sensor/` to form the **target URL** (e.g., `http://localhost/sensor/`).
+2. Appends `/telemetry/` to form the **target URL** (e.g., `http://localhost/telemetry/`).
 3. POSTs this target URL to the simulator's `/control/start` endpoint, along with the building ID and room IDs.
 4. The simulator stores this URL and begins firing data at it every 10 seconds.
 
@@ -74,16 +74,15 @@ The simulator sends data to CrowdVision's `/sensor/` endpoints via HTTP POST. Wh
         participant UI as Vue Dashboard (Browser)
         participant Sim as Simulator Container (Docker)
         participant K8s as K8s Cluster (Istio ingress :80)
-        participant SS as sensor-service Pod
+        participant SS as telemetry-service Pod
 
-        UI->>Sim: POST http://localhost:3001/control/start\n{targetUrl: "http://localhost/sensor", buildingId, roomIds}
+        UI->>Sim: POST http://localhost:3001/control/start\n{targetUrl: "http://localhost/telemetry", buildingId, roomIds}
         Sim->>Sim: Stores targetUrl, starts tick loop
         
         loop Every 10 seconds
-            Sim->>K8s: POST http://host.docker.internal/sensor/temperature
-            Sim->>K8s: POST http://host.docker.internal/sensor/peopleCount
-            K8s->>SS: Forwards request (prefix /sensor stripped by Ingress)
-            SS->>SS: Saves to sensor-db MongoDB
+            Sim->>K8s: POST http://host.docker.internal/telemetry/ingest
+            K8s->>SS: Forwards request (prefix /telemetry stripped by Ingress)
+            SS->>SS: Saves to telemetry-db (Postgres + TimescaleDB)
         end
 
 ---
@@ -113,7 +112,7 @@ The rewrite is transparent to the user — they type `http://localhost:3001` as 
     `docker run --add-host host.docker.internal:host-gateway -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest`
 
 .box type:{note}
-    **Remote VPS deployment:** When the application is deployed on a VPS, the target URL the frontend sends will be `https://yourdomain.com/sensor` — a fully qualified hostname with no `localhost` in it. The rewrite block never runs, and the simulator sends directly to the public URL. No configuration changes are required.
+    **Remote VPS deployment:** When the application is deployed on a VPS, the target URL the frontend sends will be `https://yourdomain.com/telemetry` — a fully qualified hostname with no `localhost` in it. The rewrite block never runs, and the simulator sends directly to the public URL. No configuration changes are required.
 
 ---
 

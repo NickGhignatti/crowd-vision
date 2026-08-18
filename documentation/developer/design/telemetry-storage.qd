@@ -1,0 +1,203 @@
+.docname {Telemetry Storage & Retention}
+.include {docs}
+
+This page explains how telemetry-service keeps years of sensor readings without the database growing without bound. It is written to be readable without knowing Timescale — every mechanism is shown on a concrete row first.
+
+**Applies to:** `telemetry-service` (Rust / Postgres + TimescaleDB). Supersedes the MongoDB time-series collections used by the Node `sensor-service`.
+
+---
+
+## The Problem, In Numbers
+
+One building, 100 sensors, one reading every 30 seconds:
+
+| | rows |
+|---|---|
+| per sensor per day | 2 880 |
+| per building per day | 288 000 |
+| per building per year | 105 million |
+| 10 buildings per year | **1.05 billion** |
+
+At ~170 bytes a row that is roughly 180 GB a year, before indexes. Telemetry is written once and almost never read individually, so paying full price for every row is waste.
+
+Three mechanisms cut it. They are independent — each helps on its own, and they multiply.
+
+---
+
+## Lever 1 — Store Each Fact Once
+
+A temperature reading arrives at `POST /ingest`:
+
+```json
+{
+  "buildingId": "b1",
+  "roomId": "r1",
+  "timestamp": 1700000000000,
+  "temperature": 21.5
+}
+```
+
+The naive row stores all of it twice — once in typed columns, once again in the `payload` JSON blob:
+
+| building_id | room_id | metric | ts | value | payload |
+|---|---|---|---|---|---|
+| b1 | r1 | temperature | 2023-11-14 22:13:20+00 | 21.5 | `{"buildingId":"b1","roomId":"r1","timestamp":1700000000000,"temperature":21.5}` |
+
+JSON stores **key names as text on every row**. `"buildingId"` is 12 bytes, repeated 288 000 times a day, for a value that is already in the column next to it.
+
+**Rule:** `payload` holds only what no column holds.
+
+| metric | payload before | payload after |
+|---|---|---|
+| `temperature` | 4 keys | `{}` |
+| `peopleCount` | 4 keys | `{}` |
+| `airQuality` | 12 keys | 8 keys — `pm25`, `pm10`, `co2`, `voc`, `temperature`, `humidity`, `aqi`, `scenario` |
+
+The stored row becomes:
+
+| building_id | room_id | metric | ts | value | payload |
+|---|---|---|---|---|---|
+| b1 | r1 | temperature | 2023-11-14 22:13:20+00 | 21.5 | `{}` |
+
+Nothing is lost. `building_id`, `room_id` and `ts` are the columns; `value` is the measurement the plugin designated. `GET /{metric}/latest` reassembles the original envelope from the columns before answering.
+
+The list is not hand-maintained: `MetricDescriptor.fields` names every field a metric declares, and the plugin names the one that became `value`. Everything else is what gets kept.
+
+.box {The trim affects storage only, not the wire} type:{note}
+    The Redis `telemetry:raw` event still carries the **full** payload. This changes what is written to disk, not what is published — `contracts-service` and the browser see no difference.
+
+---
+
+## Lever 2 — Squeeze Rows That Repeat Each Other
+
+Room `r1` writes 2 880 rows a day. Look at what they have in common:
+
+```
+b1 | r1 | temperature | 22:13:20 | 21.5 | {}
+b1 | r1 | temperature | 22:13:50 | 21.6 | {}
+b1 | r1 | temperature | 22:14:20 | 21.6 | {}
+...2877 more, all starting the same way
+```
+
+`b1`, `r1` and `temperature` are identical on every line. The timestamps rise by exactly 30 000 ms. The values barely move.
+
+Timescale can rewrite a batch of up to 1 000 such rows into **one** compressed row:
+
+```sql
+alter table readings set (
+  timescaledb.compress,
+  timescaledb.compress_segmentby = 'building_id, room_id, metric',
+  timescaledb.compress_orderby   = 'ts desc'
+);
+select add_compression_policy('readings', interval '7 days');
+```
+
+- `compress_segmentby` — these columns are stored **once** per batch instead of 1 000 times.
+- `compress_orderby` — timestamps are stored as first-value-plus-differences (`+30s, +30s, …`) rather than 1 000 full timestamps.
+- Floating-point values are stored as differences between neighbours, which are tiny when a room's temperature drifts slowly.
+
+Typical result on telemetry: **10–20× smaller**.
+
+**Only data older than 7 days is compressed.** Recent data stays in ordinary row form, so ingest stays fast and `GET /{metric}/latest` is unaffected. Compression runs in the background as chunks age past the threshold.
+
+---
+
+## Lever 3 — Keep Summaries, Not Every Reading
+
+Nobody asks what a room measured at 03:41:30 last November. They ask for a chart.
+
+After **14 days**, individual readings are deleted and replaced by one row per hour:
+
+```sql
+create materialized view readings_hourly
+with (timescaledb.continuous) as
+select time_bucket('1 hour', ts) as bucket,
+       building_id, room_id, metric,
+       avg(value) as avg, min(value) as min, max(value) as max,
+       sum(value) as sum, count(*) as samples
+from readings
+group by 1, 2, 3, 4;
+```
+
+120 raw readings per hour collapse to a single row carrying average, minimum, maximum, sum and sample count. That is **120× fewer rows**, kept indefinitely.
+
+`readings` itself is dropped after 14 days:
+
+```sql
+select add_retention_policy('readings', interval '14 days');
+```
+
+The view refreshes incrementally on a schedule and tolerates late-arriving readings within a 3-day window, so a sensor that reconnects after an outage still lands in the right bucket.
+
+### Which table a query reads
+
+Decided entirely by the requested time range, in the adapter:
+
+| range | bucket size | source |
+|---|---|---|
+| `1D` | 1 hour | `readings` |
+| `1W` | 1 day | `readings_hourly` |
+| `1M` | 1 day | `readings_hourly` |
+| `custom` | 1 day | `readings_hourly` |
+
+`TimeRange::bucket_interval()` in the kernel already returns `"1 hour"` for `1D` and `"1 day"` otherwise, so the routing is one branch in the persistence adapter. **No kernel code knows either table exists.**
+
+.box {`avg` past 14 days is an average of averages} type:{warning}
+    `min` and `max` stay exact — the extreme of hourly extremes is the true extreme. `avg` is not: averaging hourly averages differs from a true average whenever hours hold unequal sample counts, so a sensor offline for 40 minutes weighs the same as a full hour. `samples` is stored for exactly this reason — weight by it if a use case ever needs the precise figure.
+
+---
+
+## Combined Effect
+
+10 buildings, 100 sensors each, one reading every 30 seconds:
+
+| | one year of data |
+|---|---|
+| nothing applied | ~180 GB |
+| lever 1 — no duplicated payload | ~110 GB |
+| \+ lever 2 — compression after 7 days | ~8 GB |
+| \+ lever 3 — 14-day raw, hourly rollup | **~2 GB** |
+
+Estimates, not measurements. `payload` width dominates and depends on the real airQuality mix. Verify with:
+
+```sql
+select pg_size_pretty(hypertable_size('readings'));
+select * from hypertable_compression_stats('readings');
+```
+
+A compression ratio below ~8× means `payload` is carrying more than it should.
+
+---
+
+## Compared With MongoDB Time-Series
+
+The Node `sensor-service` used Mongo time-series collections. The underlying idea is the same — batch measurements, store repeated identifiers once, delta-encode time — so this is not a change of strategy, but the details differ.
+
+| | Mongo time-series | Timescale |
+|---|---|---|
+| batching unit | bucket: same `metaField`, 1 h span, ≤1 000 measurements | compressed row: ≤1 000 rows per segment |
+| identifiers stored once | `metaField` only — was `building` | every `segmentby` column — `building_id`, `room_id`, `metric` |
+| when it compresses | on bucket close, always | after 7 days, by policy |
+| recent data | already compressed | plain rows, fully mutable |
+| rollups | not built in | continuous aggregate |
+
+Three practical differences:
+
+- **`roomId` was not part of `metaField`.** Only `building` was. Every measurement therefore carried its own copy of the room name. Under `segmentby` it is stored once per batch.
+- **Buckets were keyed on the wrong clock.** `timeField` was `createdAt` (ingest time) while every query filtered and sorted on `timestamp` (sensor event time), so Mongo could not skip buckets by time. Postgres has one `ts` column serving as both the partition key and the query key, so chunk exclusion works.
+- **No rollup equivalent.** Mongo deleted everything at 90 days via `expireAfterSeconds`. Here data older than 14 days survives as hourly summaries, indefinitely.
+
+Where Mongo was better: compression was immediate and unconditional, and typed schema fields meant no JSON key repetition — which is precisely the gap lever 1 closes.
+
+---
+
+## Where This Lives
+
+| concern | file |
+|---|---|
+| tables, hypertable, compression, retention | `backend/telemetry-service/migrations/0002_timescale.up.sql` |
+| hourly rollup | `backend/telemetry-service/migrations/0003_rollup.up.sql` |
+| payload trim on write, envelope re-inflation on read | `backend/telemetry-service/src/adapters/driven/postgres/readings.rs` |
+| bucket size per range | `backend/telemetry-service/src/contracts/query.rs` |
+
+See also [Communication & Data Flow](../architecture/data-flow.qd).

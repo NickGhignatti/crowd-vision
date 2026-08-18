@@ -4,7 +4,7 @@
 
 ## Scope
 
-<!-- Services/areas touched: gateway, tenancy, registry, provisioner, twin, sensor, notification, socket, contracts, frontend, agent, ci, docs, k8s -->
+<!-- Services/areas touched: gateway, tenancy, registry, provisioner, twin, telemetry, notification, socket, contracts, frontend, agent, ci, docs, k8s -->
 
 ## Other notes
 

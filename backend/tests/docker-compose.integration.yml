@@ -1,46 +1,4 @@
 services:
-  sensor-db:
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--quiet",
-          "--eval",
-          "quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-
-  sensor-service:
-    depends_on:
-      sensor-db:
-        condition: service_healthy
-      # Not declared in sensor-service's own docker-compose.yml (it only
-      # gates on sensor-db/kafka there) even though it needs Redis at
-      # runtime — usually masked in the full dev stack by there being
-      # enough other slow-starting services for redis to be ready well
-      # before it matters. This suite's smaller, faster-starting stack
-      # exposes the race directly.
-      redis:
-        condition: service_healthy
-    healthcheck:
-      # sensor-service has no /metrics route (that's /contracts — a metrics
-      # catalog, a different thing) — was always checking a 404.
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 20s
-
   socket-server:
     depends_on:
       redis:
@@ -56,7 +14,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      sensor-service:
+      telemetry-service:
         condition: service_healthy
 
   integration-tests:
@@ -64,7 +22,7 @@ services:
     working_dir: /workspace
     command: ["uv", "run", "pytest", "-v"]
     environment:
-      - SENSOR_SERVICE_URL=http://sensor-service:3000
+      - TELEMETRY_SERVICE_URL=http://telemetry-service:3000
       - SOCKET_SERVICE_URL=http://socket-server:3000
       - CONTRACTS_SERVICE_URL=http://contracts-service:3000
     volumes:
@@ -73,7 +31,7 @@ services:
       # — without it the container can't read anything under /workspace.
       - ./:/workspace:z
     depends_on:
-      sensor-service:
+      telemetry-service:
         condition: service_healthy
       socket-server:
         condition: service_healthy

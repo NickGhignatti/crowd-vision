@@ -49,6 +49,7 @@
           "backend/twin-service/Cargo.toml",
           "backend/socket-service/Cargo.toml",
           "backend/notification-service/Cargo.toml",
+          "backend/telemetry-service/Cargo.toml",
         ],
         "cargo": {
           "allFeatures": false,
@@ -56,6 +57,23 @@
         },
         "cachePriming": {
           "enable": false,
+          // cargo check reports errors but almost no suggestions; clippy is where
+          // the actionable lints and their quick-fixes come from. targetDir keeps
+          // it out of ./target so a check-on-save never blocks a `cargo test`.
+          // --all-targets is already passed by default, do not add it here.
+          "check": {
+            "command": "clippy",
+            "targetDir": true,
+          },
+          "diagnostics": {
+            "experimental": { "enable": true },
+          },
+          "inlayHints": {
+            "typeHints": { "enable": true },
+            "parameterHints": { "enable": true },
+            "chainingHints": { "enable": true },
+            "closureReturnTypeHints": { "enable": "with_block" },
+          },
         },
       },
     },

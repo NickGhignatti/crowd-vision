@@ -24,9 +24,9 @@
       "component": "notification-service",
       "skip-github-release": true
     },
-    "backend/sensor-service": {
-      "release-type": "node",
-      "component": "sensor-service",
+    "backend/telemetry-service": {
+      "release-type": "rust",
+      "component": "telemetry-service",
       "skip-github-release": true
     },
     "backend/socket-service": {

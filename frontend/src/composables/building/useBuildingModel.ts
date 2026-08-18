@@ -62,7 +62,7 @@ const hydrateBuildingThresholds = async (buildings: Building[]) => {
 
       try {
         const response = await makeRequest(
-          `/sensor/thresholds/buildings/${encodeURIComponent(candidate.id)}`,
+          `/telemetry/thresholds/buildings/${encodeURIComponent(candidate.id)}`,
         )
 
         if (!response.ok) {

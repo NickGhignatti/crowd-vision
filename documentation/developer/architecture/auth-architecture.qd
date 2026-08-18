@@ -21,7 +21,7 @@ Keycloak owns authentication for every tier; `claims-gateway`, `tenancy-service`
 
         Browser -->|"5: request, cookie attached"| EDGE["Edge: Caddy forward_auth (compose)\nIstio RequestAuthentication (k8s)"]
         EDGE -->|"/verify — the only per-request JWKS check"| GW
-        EDGE -->|"6: inject x-gateway-claims header"| SVC["twin · sensor · notification\nsocket · chat · tenancy-service"]
+        EDGE -->|"6: inject x-gateway-claims header"| SVC["twin · telemetry · notification\nsocket · chat · tenancy-service"]
         SVC -->|"Cedar, evaluated locally — tenancy-service only"| Cedar["auth-policy (Cedar)"]
 
         REG["registry-service"] -->|"organizations: tier, status"| PRV["provisioner"]

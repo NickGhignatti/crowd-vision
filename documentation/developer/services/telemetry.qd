@@ -1,0 +1,148 @@
+.docname {Telemetry Service}
+.include {docs}
+
+Implementation reference for `backend/telemetry-service`. For its architectural role, see [Telemetry Service Architecture](../architecture/telemetry-architecture.qd); for the domain model, see [Telemetry Ingestion](../domain/telemetry-ingestion.qd).
+
+A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings from constrained hardware, persists them, publishes them for live distribution, manages per-building and per-room thresholds, and forwards commands to physical devices. Its design answers two pressures: adding a metric must not touch the core, and no I/O technology may reach the logic that decides what a reading means.
+
+---
+
+## Source Layout
+
+.var {layout}
+   - Path
+   - Holds
+
+.tablebyrows {.layout}
+    - - `src/contracts/`
+      - Pure types and traits: `SensorPlugin`, `MetricDescriptor`, `ActionSpec`, `Reading`, `Command`, threshold resolution, query/bucketing rules. Imports nothing from the rest of the crate.
+    - - `src/kernel/`
+      - Use cases — `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration` — plus `ports.rs`, `registry.rs`, `authz.rs`. Depends only on `contracts` and its own port traits.
+    - - `src/plugins/`
+      - One file per metric: `temperature.rs`, `people_count.rs`, `air_quality.rs`, plus `common.rs`. No plugin imports another.
+    - - `src/adapters/driven/`
+      - `postgres/`, `redis_fanout.rs`, `kafka_producer.rs`, `twin_directory.rs`, `dispatch.rs`.
+    - - `src/adapters/driving/`
+      - `http_api/` (claims, controllers, error mapping), `kafka_consumer.rs`.
+    - - `src/state.rs`, `src/main.rs`
+      - Shared handler state; composition root.
+    - - `migrations/`
+      - `0001_init`, `0002_timescale`, `0003_rollup`. Embedded with `sqlx::migrate!` and applied at startup.
+    - - `tests/`
+      - `architecture.rs` (fitness), `persistence.rs`, `api.rs`, `fanout.rs`, `registration.rs`.
+
+---
+
+## Configuration
+
+.var {config}
+   - Variable
+   - Default
+   - Purpose
+
+.tablebyrows {.config}
+    - - `DATABASE_URL`
+      - *(required)*
+      - Postgres + TimescaleDB connection string. Migrations run at startup.
+    - - `REDIS_URL`
+      - `redis://redis:6379`
+      - Telemetry fan-out and breach alerts.
+    - - `KAFKA_BROKERS`
+      - `kafka:9092`
+      - Building-registration topics. Unreachable at boot degrades to a disabled producer rather than failing.
+    - - `TWIN_SERVICE_URL`
+      - `http://twin-service:3000`
+      - Building-to-domain lookups for authorization.
+    - - `PORT`
+      - `3000`
+      - HTTP listener.
+    - - `RUST_LOG`
+      - —
+      - `env_logger` filter.
+
+---
+
+## Adding a Metric
+
+Three steps, none of which touch the kernel.
+
+**1. Declare it.** A new file in `src/plugins/`:
+
+```rust
+static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    key: "humidity",
+    value_field: "humidity",
+    label: "Humidity",
+    interface_name: "IHumidity",
+    unit: Some("%"),
+    fields: &[
+        FieldSpec { name: "buildingId", kind: FieldKind::NonEmptyString, required: true },
+        FieldSpec { name: "roomId",     kind: FieldKind::NonEmptyString, required: true },
+        FieldSpec { name: "timestamp",  kind: FieldKind::Finite,         required: true },
+        FieldSpec { name: "humidity",   kind: FieldKind::Finite,         required: true },
+    ],
+};
+
+static BOUNDS: &[BoundSpec] = &[
+    BoundSpec { key: "maxHumidity", direction: BoundDirection::Above },
+];
+```
+
+**2. Implement `SensorPlugin`.** `validate` is `check_fields` plus reading the value; `actions()` defaults to `&[]` and is only overridden for metrics with an actuator.
+
+**3. Register it** in `main.rs`'s `PluginRegistry::new(vec![…])`.
+
+`GET /contracts`, `POST /ingest`, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.
+
+.box {The declaration is the single source of truth} type:{note}
+    In the Node predecessor the served catalog and the per-module `validate()` were two independent lists. They drifted: `airQuality` advertised eight required fields and checked two, and the catalog said `building` while every validator required `buildingId`. `MetricDescriptor.fields` now drives both, which makes that class of drift inexpressible.
+
+---
+
+## Request Lifecycle
+
+**Ingestion** — `POST /ingest`, unauthenticated by design (device-facing, exempted at the edge):
+
+1. `type` is taken from the body and removed; the remainder is the payload.
+2. `PluginRegistry` resolves the plugin — unknown metric is `404`.
+3. `plugin.validate` runs `check_fields` — failures are `422` with a `details` array.
+4. The reading is written to Postgres.
+5. Thresholds resolve room-first, then building; a breach publishes to `alerts:<metric>`.
+6. The event is published to `telemetry:raw`.
+7. `202 {accepted, type}`.
+
+A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `telemetry_ingest_persist_failures_total`.
+
+**Reads** — `GET /{sensorType}/latest`, `/entireBuilding`, `/dashboard`. Each resolves the building's domains through twin-service and evaluates Cedar before touching data. `latest` on an empty room is `404`.
+
+A read is served in the **same flat shape as the `telemetry` socket event**: envelope plus every metric field at the top level under its own name. The trimmed `payload` column is a storage detail — it is re-inflated on the way out and never appears in a response. A client that reads a REST snapshot and then live events must not have to handle two shapes; when it did, a dashboard column stayed blank until the first socket tick overwrote the row.
+
+**Actions** — `POST /executeAction`. The kernel validates the command against the plugin's `ActionSpec`; the dispatch adapter translates it into the device's own vocabulary. See [Sensor Actions & the Device ACL](../design/sensor-actions.qd).
+
+---
+
+## Data Model
+
+Five tables. Full retention and compression design in [Telemetry Storage & Retention](../design/telemetry-storage.qd).
+
+.var {tables}
+   - Table
+   - Holds
+
+.tablebyrows {.tables}
+    - - `readings`
+      - Hypertable. `building_id, room_id, metric, ts, value, payload`. Compressed after 7 days, dropped after 14 — `readings_hourly` keeps the summaries.
+    - - `thresholds`
+      - `building_id, room_id, metric, bounds jsonb`. `room_id NULL` = building-level; room-level wins.
+    - - `sensors`
+      - `building_id, room_id, sensor_id, sensor_type, driver, endpoint`.
+    - - `buildings` / `building_rooms`
+      - Registration output. `building_rooms` is what lets the threshold clone view report rooms that have no bounds.
+
+---
+
+## Testing
+
+`just test telemetry` runs the unit and fitness suites — the whole kernel proven against in-memory fakes, with no database. `just test telemetry-integration` stands up TimescaleDB, Redis and Kafka in a throwaway compose project and runs `tests/*.rs` against them, each test on its own freshly created database.
+
+`tests/architecture.rs` is a gate, not a formality: it fails if the kernel gains an I/O import, if a plugin imports a sibling, or if `contracts` grows a dependency.

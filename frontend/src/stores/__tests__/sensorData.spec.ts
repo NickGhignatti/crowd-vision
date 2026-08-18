@@ -62,7 +62,7 @@ describe('useSensorDataStore', () => {
       // Must NOT omit credentials: the auth cookie has to ride along or the
       // now-authenticated sensor endpoints answer 401.
       expect(makeRequest).toHaveBeenCalledWith(
-        '/sensor/temperature/entireBuilding?building=b1',
+        '/telemetry/temperature/entireBuilding?building=b1',
         'GET',
         expect.not.objectContaining({ credentials: 'omit' }),
       )

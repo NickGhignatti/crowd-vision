@@ -63,7 +63,7 @@ just stack dev exclude="frontend"
       - `http://localhost/twin-db-gui/`
       - Mongo Express for the twin database. Dev mode only.
     - - Sensor DB GUI
-      - `http://localhost/sensor-db-gui/`
+      - `http://localhost/telemetry-db-gui/`
       - Mongo Express for the sensor database. Dev mode only.
     - - Notification DB GUI
       - `http://localhost/notification-db-gui/`
@@ -105,7 +105,7 @@ just stack logs twin-service
 just db clear
 
 # Wipe only the sensor database:
-just db clear-sensor
+just db clear-telemetry
 ```
 
 .box type:{warning}
@@ -217,7 +217,7 @@ just test affected
 # Per-service unit tests:
 just test chat
 just test twin
-just test sensor
+just test telemetry
 just test notification
 just test socket
 just test frontend
@@ -278,14 +278,14 @@ mise exec -- moon run :audit --affected
       - Follow logs. Omit service to tail all.
     - - `just db clear`
       - Drop all databases (destructive).
-    - - `just db clear-sensor`
+    - - `just db clear-telemetry`
       - Drop only the sensor database.
     - - `just test all`
       - Run all unit tests (moon-cached; unchanged services are instant).
     - - `just test affected`
       - Run unit tests only for services changed on the current branch.
     - - `just test <service>`
-      - Run unit tests for one service (`chat`, `twin`, `sensor`, `notification`, `socket`, `frontend`, `agent` — not `contracts` or the Go services, see the note above).
+      - Run unit tests for one service (`chat`, `twin`, `telemetry`, `notification`, `socket`, `frontend`, `agent` — not `contracts` or the Go services, see the note above).
     - - `just test agent-integration`
       - Agent-only Python integration suite (real Postgres, no full compose stack).
     - - `just test eval [models=...] [judge=...]`

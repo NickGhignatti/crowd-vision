@@ -18,6 +18,14 @@ affected:
 chat:
     mise exec -- moon run chat-service:test
 
+[doc("Unit tests for telemetry-service.")]
+telemetry:
+    mise exec -- moon run telemetry-service:test
+
+[doc("Integration tests for telemetry-service — throwaway TimescaleDB, runs tests/*.rs, tears it down.")]
+telemetry-integration:
+    mise exec -- moon run telemetry-service:test-integration
+
 [doc("Unit tests for twin-service.")]
 twin:
     mise exec -- moon run twin-service:test
@@ -33,10 +41,6 @@ notification:
 [doc("Integration tests for notification-service — starts a throwaway MongoDB and Redis, runs tests/*.rs, tears them down.")]
 notification-integration:
     mise exec -- moon run notification-service:test-integration
-
-[doc("Unit tests for sensor-service.")]
-sensor:
-    mise exec -- moon run sensor-service:test
 
 [doc("Unit tests for socket-service.")]
 socket:

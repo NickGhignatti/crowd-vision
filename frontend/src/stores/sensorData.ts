@@ -79,7 +79,7 @@ export const useSensorDataStore = defineStore('sensorData', () => {
     bucket.error.value = null
     try {
       const res = await makeRequest(
-        `/sensor/${type}/entireBuilding?building=${buildingId}`,
+        `/telemetry/${type}/entireBuilding?building=${buildingId}`,
         'GET',
         { signal: bucket.abort.signal },
       )

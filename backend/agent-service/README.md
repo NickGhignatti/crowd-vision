@@ -5,7 +5,7 @@ Tool-calling RAG agent for CrowdVision. It answers questions using:
 - `search_docs`: permission-filtered hybrid search over ingested documentation.
 - `list_buildings`, `get_building`, `list_rooms`, `get_room`: structural data from `twin-service`.
 - `get_latest_sensor_data`, `get_sensor_history`: current and historical measurements from
-  `sensor-service`.
+  `telemetry-service`.
 - `list_sensors`: the sensor devices (id and type) registered in a room or building.
 - An OpenAI-compatible provider for chat, tool calling, and embeddings.
 - Inline citations, token/cost usage, tool-call traces, and OpenTelemetry spans.
@@ -292,7 +292,7 @@ an `xfail` row.
 | `JWT_COOKIE_NAME` | `authentication_token` | JWT cookie read by protected routes |
 | `REQUIRE_AUTH` | `true` | Protect `/ask` and `/ingest` |
 | `TWIN_SERVICE_URL` / `TWIN_TIMEOUT_SECONDS` | `http://twin-service:3000` / `10` | Structural building backend and request timeout |
-| `SENSOR_SERVICE_URL` / `SENSOR_TIMEOUT_SECONDS` | `http://sensor-service:3000` / `10` | Sensor-data backend and request timeout |
+| `TELEMETRY_SERVICE_URL` / `TELEMETRY_TIMEOUT_SECONDS` | `http://telemetry-service:3000` / `10` | Sensor-data backend and request timeout |
 | `TOP_K_VECTOR` / `TOP_K_KEYWORD` / `TOP_K_FINAL` | `20` / `20` / `6` | Retrieval depths |
 | `RERANKER` | `noop` | Retrieval reranker implementation |
 | `MAX_TOOL_HOPS` | `6` | Maximum agent loop iterations |
@@ -373,8 +373,8 @@ the dimension requires a schema migration and re-ingestion, not only an environm
 Confirm `twin-service` is running and `TWIN_SERVICE_URL` is reachable from where the agent
 runs. The Docker default `http://twin-service:3000` does not resolve from a host process;
 override it with the host-accessible twin-service URL when debugging outside Docker.
-For occupancy, temperature, air quality, or trend questions, also confirm `sensor-service`
-is reachable through `SENSOR_SERVICE_URL`. A `429` tool result means the downstream read
+For occupancy, temperature, air quality, or trend questions, also confirm `telemetry-service`
+is reachable through `TELEMETRY_SERVICE_URL`. A `429` tool result means the downstream read
 rate limit was reached.
 
 ### Model Override Returns `400` Or `403`

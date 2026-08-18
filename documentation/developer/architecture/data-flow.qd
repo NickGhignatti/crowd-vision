@@ -50,11 +50,11 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
    - Purpose
 
 .tablebyrows {.headers}
-    - - twin-service → sensor-service
+    - - twin-service → telemetry-service
       - `PUT /thresholds/buildings/{id}`
       - `x-gateway-claims` forwarded
       - On a *later* building/room edit, push an updated threshold baseline. Not used for registration — that goes over Kafka instead (see *Asynchronous Communication* below).
-    - - twin-service → sensor-service
+    - - twin-service → telemetry-service
       - `PATCH /thresholds/peopleCount/buildings/{id}/rooms/{id}`
       - `x-gateway-claims` forwarded
       - Seed a new room's people-count threshold.
@@ -66,7 +66,7 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
       - `GET /domain/{buildingName}`
       - `x-gateway-claims` forwarded if present
       - Resolve which domain(s) a building belongs to, to select alert recipients.
-    - - contracts-service → sensor-service / twin-service
+    - - contracts-service → telemetry-service / twin-service
       - `GET /contracts` (target from `*_METRICS_URL` env, not hardcoded)
       - **None**
       - Discover each service's self-describing metric catalog.
@@ -78,7 +78,7 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
       - `GET /buildings/{domain}`
       - `x-gateway-claims` forwarded
       - Tool call: read live building data to answer a question.
-    - - agent-service → sensor-service
+    - - agent-service → telemetry-service
       - `GET /{metric}/latest`, `/{metric}/entireBuilding`, `/{metric}/dashboard`, `/sensors/buildings/{id}[/rooms/{id}]`
       - `x-gateway-claims` forwarded
       - Tool calls: read live sensor readings to answer a question.
@@ -106,14 +106,14 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
 These calls are intentionally few. The design keeps the request path short and avoids synchronous chains on the hot path; anything high-frequency goes over the broker instead.
 
 .box {One outbound call carries no auth — by design, not by omission} type:{note}
-    `contracts-service`'s own outbound discovery calls send no header of any kind: they only *read* a metric catalog from `twin-service` and `sensor-service`'s public `/contracts` endpoints, with no sensitive side effect for an unauthenticated caller to exploit. Every call that reads or writes something a specific user's authorization should gate carries `x-gateway-claims` — including the `twin-service → contracts-service` preferences-init call, which forwards the building creator's claims verbatim, the same as twin's other outbound calls. `contracts-service` now requires that header on all of its own inbound user-facing routes (dashboard schema and preferences), so those are no longer reachable anonymously.
+    `contracts-service`'s own outbound discovery calls send no header of any kind: they only *read* a metric catalog from `twin-service` and `telemetry-service`'s public `/contracts` endpoints, with no sensitive side effect for an unauthenticated caller to exploit. Every call that reads or writes something a specific user's authorization should gate carries `x-gateway-claims` — including the `twin-service → contracts-service` preferences-init call, which forwards the building creator's claims verbatim, the same as twin's other outbound calls. `contracts-service` now requires that header on all of its own inbound user-facing routes (dashboard schema and preferences), so those are no longer reachable anonymously.
 
 .box {registry-service and tenancy-service never call out} type:{tip}
     Both are pure receivers of the calls above — neither has an outbound HTTP client for any peer service. Only `claims-gateway` talks to Keycloak (Admin API for user management, OIDC endpoints for token exchange/verification); no other service holds Keycloak credentials or configuration.
 
 ### Device Ingestion
 
-`POST /ingest` on `sensor-service` — no authentication (a physical sensor or simulator has no user token to present), and exempt from the gateway's auth gate for the same reason. The endpoint responds `202 Accepted` immediately and validates/persists/evaluates thresholds in the background (`setImmediate`), so a slow downstream step never makes an IoT device wait or retry.
+`POST /ingest` on `telemetry-service` — no authentication (a physical sensor or simulator has no user token to present), and exempt from the gateway's auth gate for the same reason. The endpoint responds `202 Accepted` immediately and validates/persists/evaluates thresholds in the background (`setImmediate`), so a slow downstream step never makes an IoT device wait or retry.
 
 ---
 
@@ -129,7 +129,7 @@ Redis is the publish/subscribe backbone for everything high-frequency and fire-a
 
 .tablebyrows {.headers}
     - - `telemetry:raw` (pub/sub)
-      - sensor-service
+      - telemetry-service
       - contracts-service
       - Every accepted reading, as a normalized event.
     - - `telemetry:filtered:{buildingId}` (pub/sub)
@@ -137,7 +137,7 @@ Redis is the publish/subscribe backbone for everything high-frequency and fire-a
       - socket-service
       - Every reading for that building, routed by the event's own `buildingId`.
     - - `alerts:temperature` (pub/sub)
-      - sensor-service
+      - telemetry-service
       - notification-service
       - A temperature reading that crossed a configured threshold — the trigger for the alert path, not yet a user-facing notification.
     - - `notifications` (pub/sub)
@@ -154,12 +154,9 @@ Publishers never know who (if anyone) is listening, and the broker absorbs burst
 .box {account.deleted has a consumer but no publisher} type:{warning}
     `tenancy-service`'s consumer (`internal/events/account_deleted.go`) is fully implemented — consumer group, at-least-once redelivery on processing failure, idempotent reap — but no component in this codebase ever calls `XAdd` on this stream. It is presumably meant to come from a Keycloak event listener that does not yet exist. As things stand, deleting a Keycloak account does not currently clean up its memberships. See `claude/issues/issues.md` for tracking.
 
-.box {sensor:latest:temperature:{buildingId} is a cache, not a message} type:{note}
-    sensor-service also uses Redis as a 10-second TTL cache for each room's latest temperature reading (`GET`/`SETEX`), independent of the pub/sub channels above. It exists purely to serve fast reads for `agent-service`'s dashboard tool calls without re-querying the primary datastore, not to communicate between services.
-
 ### Kafka
 
-Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a message is produced still sees it once it comes back, which is why this is the transport for the one flow where twin-service and sensor-service must eventually agree even if either one restarts mid-registration — not for anything high-frequency.
+Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a message is produced still sees it once it comes back, which is why this is the transport for the one flow where twin-service and telemetry-service must eventually agree even if either one restarts mid-registration — not for anything high-frequency.
 
 .var {headers}
    - Topic
@@ -170,14 +167,14 @@ Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a mess
 .tablebyrows {.headers}
     - - `building-registration-requested`
       - twin-service
-      - sensor-service
+      - telemetry-service
       - `{ buildingId, name, rooms: [{ id, name }] }`, keyed by `buildingId`, published once the twin's own write has succeeded.
     - - `building-registration-completed`
-      - sensor-service
+      - telemetry-service
       - twin-service
       - `{ buildingId, status: "ready" | "failed", error? }`, keyed by `buildingId` — resolves the caller's tracking handle.
 
-Publishing is not blocking on either side: twin-service's worker returns as soon as the first message reaches the broker, and sensor-service's consumer processes it on its own schedule. Both topics carry no `x-gateway-claims` — this is internal transport between two services already inside the trust perimeter, not a client-facing hop. See [Digital Twin Service](../services/digital-twin.qd) for the full sequence and the idempotency argument (every write either side makes is an upsert, so redelivery converges rather than duplicating).
+Publishing is not blocking on either side: twin-service's worker returns as soon as the first message reaches the broker, and telemetry-service's consumer processes it on its own schedule. Both topics carry no `x-gateway-claims` — this is internal transport between two services already inside the trust perimeter, not a client-facing hop. See [Digital Twin Service](../services/digital-twin.qd) for the full sequence and the idempotency argument (every write either side makes is an upsert, so redelivery converges rather than duplicating).
 
 ---
 
@@ -214,7 +211,7 @@ The client fetches the server's public VAPID key (`GET /notification/public-key`
 .mermaid
     sequenceDiagram
         participant Sensor as Sensor source
-        participant SS as sensor-service
+        participant SS as telemetry-service
         participant R as Redis
         participant CS as contracts-service
         participant WS as socket-service
@@ -236,7 +233,7 @@ The client fetches the server's public VAPID key (`GET /notification/public-key`
 
 .mermaid
     sequenceDiagram
-        participant SS as sensor-service
+        participant SS as telemetry-service
         participant R as Redis
         participant NS as notification-service
         participant TW as twin-service
@@ -257,7 +254,7 @@ The client fetches the server's public VAPID key (`GET /notification/public-key`
         WS->>U: emit "notification" to room domain:{name}
         Push-->>U: service worker "push" → OS notification
 
-Unlike Path 1, this is a **two-hop async chain**, not one publish: `sensor-service` never calls `notification-service` directly — the threshold trigger and the resolved, recipient-scoped notification are two distinct Redis events, with `notification-service` sitting in between doing the one synchronous call it needs (resolving domains from `twin-service`) and fanning out over both delivery paths — in-app (broker + socket) and Web Push (direct, works with no tab open).
+Unlike Path 1, this is a **two-hop async chain**, not one publish: `telemetry-service` never calls `notification-service` directly — the threshold trigger and the resolved, recipient-scoped notification are two distinct Redis events, with `notification-service` sitting in between doing the one synchronous call it needs (resolving domains from `twin-service`) and fanning out over both delivery paths — in-app (broker + socket) and Web Push (direct, works with no tab open).
 
 ### Path 3: Assistant Tool-Calling
 
@@ -267,7 +264,7 @@ Unlike Path 1, this is a **two-hop async chain**, not one publish: `sensor-servi
         participant Chat as chat-service
         participant Agent as agent-service
         participant Twin as twin-service
-        participant Sensor as sensor-service
+        participant Sensor as telemetry-service
 
         U->>Chat: POST /chat/... (x-gateway-claims via gateway)
         Chat->>Agent: POST /ask {question}, x-gateway-claims forwarded
@@ -279,7 +276,7 @@ Unlike Path 1, this is a **two-hop async chain**, not one publish: `sensor-servi
         Agent-->>Chat: answer
         Chat-->>U: chat response
 
-Every tool call `agent-service` makes carries the *original user's* `x-gateway-claims` header, forwarded across two hops (`chat-service → agent-service → twin-service`/`sensor-service`) — so `twin-service` and `sensor-service` apply the same Cedar authorization to an assistant-driven read as they would to a direct API call from that user. `chat-service` persists the conversation in its own MongoDB independently of this flow.
+Every tool call `agent-service` makes carries the *original user's* `x-gateway-claims` header, forwarded across two hops (`chat-service → agent-service → twin-service`/`telemetry-service`) — so `twin-service` and `telemetry-service` apply the same Cedar authorization to an assistant-driven read as they would to a direct API call from that user. `chat-service` persists the conversation in its own MongoDB independently of this flow.
 
 ### Path 4: Login & Identity Resolution
 

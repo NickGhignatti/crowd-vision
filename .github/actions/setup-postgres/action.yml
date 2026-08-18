@@ -1,0 +1,15 @@
+name: 'Setup TimescaleDB'
+description: 'Start TimescaleDB in Docker and wait for it to accept connections'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Start TimescaleDB
+      shell: bash
+      run: |
+        docker run -d -p 5432:5432 --name postgres \
+          -e POSTGRES_PASSWORD=telemetry \
+          -e POSTGRES_DB=telemetrydb \
+          timescale/timescaledb:2.17.2-pg17 \
+          postgres -c max_connections=400
+        until docker exec postgres pg_isready -U postgres -d telemetrydb; do sleep 1; done

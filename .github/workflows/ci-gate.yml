@@ -21,7 +21,7 @@ jobs:
       frontend: ${{ contains(fromJSON(steps.filter.outputs.changes), 'frontend') || contains(fromJSON(steps.filter.outputs.changes), 'frontend_ci_workflow') }}
       contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'contracts') }}
       notification: ${{ contains(fromJSON(steps.filter.outputs.changes), 'notification') }}
-      sensor: ${{ contains(fromJSON(steps.filter.outputs.changes), 'sensor') }}
+      telemetry: ${{ contains(fromJSON(steps.filter.outputs.changes), 'telemetry') }}
       socket: ${{ contains(fromJSON(steps.filter.outputs.changes), 'socket') }}
       twin: ${{ contains(fromJSON(steps.filter.outputs.changes), 'twin') }}
       claims_gateway: ${{ contains(fromJSON(steps.filter.outputs.changes), 'claims-gateway') }}
@@ -172,13 +172,16 @@ jobs:
       needs_mongo: true
       needs_redis: true
 
-  sensor:
+  telemetry:
     needs: changes
-    if: needs.changes.outputs.sensor == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/tpl-node-ci.yml
+    if: needs.changes.outputs.telemetry == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
     with:
-      service_key: sensor
-      working_directory: backend/sensor-service
+      service_key: telemetry
+      working_directory: backend/telemetry-service
+      needs_postgres: true
+      needs_redis: true
+      needs_kafka: true
 
   socket:
     needs: changes
@@ -229,7 +232,7 @@ jobs:
       - tenancy-service
       - chat
       - notification
-      - sensor
+      - telemetry
       - socket
       - twin
       - contracts
@@ -301,7 +304,7 @@ jobs:
       - tenancy-service
       - chat
       - notification
-      - sensor
+      - telemetry
       - socket
       - twin
       - contracts

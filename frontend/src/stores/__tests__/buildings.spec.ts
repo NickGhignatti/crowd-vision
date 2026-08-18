@@ -295,7 +295,7 @@ describe('useBuildingsStore', () => {
 
       const thresholdCall = vi
         .mocked(makeRequest)
-        .mock.calls.find((c) => String(c[0]).startsWith('/sensor/thresholds/'))
+        .mock.calls.find((c) => String(c[0]).startsWith('/telemetry/thresholds/'))
       expect(thresholdCall).toBeUndefined()
     })
 

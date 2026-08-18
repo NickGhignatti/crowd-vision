@@ -25,7 +25,7 @@ export function getBuildingHistory(
 
     try {
       const response = await makeRequest(
-        `/sensor/${apiType}/dashboard?building=${buildingId.value}&timeRange=${range.value}&aggMode=${aggMode.value}`,
+        `/telemetry/${apiType}/dashboard?building=${buildingId.value}&timeRange=${range.value}&aggMode=${aggMode.value}`,
         'GET',
       )
 

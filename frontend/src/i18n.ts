@@ -266,6 +266,7 @@ const messages = {
           loading: 'Loading room sensors...',
           error: 'Failed to load room sensors.',
           registerError: 'Failed to register the sensor.',
+          actionError: 'Failed to send the command to the sensor.',
           types: {
             temperature: 'Temperature',
           },
@@ -626,6 +627,7 @@ const messages = {
           loading: 'Caricamento sensori stanza...',
           error: 'Caricamento sensori stanza non riuscito.',
           registerError: 'Registrazione sensore non riuscita.',
+          actionError: 'Invio del comando al sensore non riuscito.',
           types: {
             temperature: 'Temperatura',
           },

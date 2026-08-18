@@ -15,7 +15,7 @@ services:
       twin-service:
         condition: service_started
         required: false
-      sensor-service:
+      telemetry-service:
         condition: service_started
         required: false
       socket-server:
@@ -140,6 +140,8 @@ services:
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
 

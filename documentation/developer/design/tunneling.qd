@@ -80,7 +80,7 @@ function release(buildingId: string, type: SensorType) {
 }
 ```
 
-Only the *first* caller for a building triggers `subscribe_building`; only the last `release` for that building triggers `unsubscribe_building` — the socket room's lifetime is derived entirely from whether any bucket still references that building, with no separate counter to keep in sync. `acquire` also kicks off a REST fetch (`GET /sensor/:type/entireBuilding?building=...`) for the initial snapshot, so a component sees the last known values immediately rather than waiting for the next telemetry tick; a second `acquire` for the same key doesn't refetch, it just bumps `refCount` and returns the existing bucket.
+Only the *first* caller for a building triggers `subscribe_building`; only the last `release` for that building triggers `unsubscribe_building` — the socket room's lifetime is derived entirely from whether any bucket still references that building, with no separate counter to keep in sync. `acquire` also kicks off a REST fetch (`GET /telemetry/:type/entireBuilding?building=...`) for the initial snapshot, so a component sees the last known values immediately rather than waiting for the next telemetry tick; a second `acquire` for the same key doesn't refetch, it just bumps `refCount` and returns the existing bucket.
 
 One global handler dispatches every incoming event to its bucket by an O(1) map lookup — there's no per-component listener to accumulate as more components mount:
 

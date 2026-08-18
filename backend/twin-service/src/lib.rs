@@ -57,6 +57,7 @@ fn protected_routes() -> Router<AppState> {
             get(get_building_by_id).patch(update_building),
         )
         .route("/building/{id}/status", get(get_upload_status))
+        .route("/building/{id}/sync", post(resync_building))
         .route("/buildings/counts", post(get_building_counts))
         .route("/buildings/{domain}", get(get_building_by_domain))
         .route("/domain/{building}", get(get_domains_by_building))

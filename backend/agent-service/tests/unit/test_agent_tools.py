@@ -236,7 +236,7 @@ async def test_latest_sensor_data_checks_room_before_sensor_request(monkeypatch)
     twin_client = _client(lambda request: httpx.Response(200, json=_building()))
 
     def unexpected_sensor_client():
-        raise AssertionError("unknown rooms must not reach sensor-service")
+        raise AssertionError("unknown rooms must not reach telemetry-service")
 
     monkeypatch.setattr(access_module, "get_twin_client", lambda: twin_client)
     monkeypatch.setattr(sensor_module, "get_sensor_client", unexpected_sensor_client)
@@ -390,7 +390,7 @@ async def test_list_sensors_checks_room_before_sensor_request(monkeypatch):
     twin_client = _client(lambda request: httpx.Response(200, json=_building()))
 
     def unexpected_sensor_client():
-        raise AssertionError("unknown rooms must not reach sensor-service")
+        raise AssertionError("unknown rooms must not reach telemetry-service")
 
     monkeypatch.setattr(access_module, "get_twin_client", lambda: twin_client)
     monkeypatch.setattr(sensor_module, "get_sensor_client", unexpected_sensor_client)

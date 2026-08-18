@@ -40,8 +40,8 @@ spec:
             notPaths:
               - /twin
               - /twin/*
-              - /sensor
-              - /sensor/*
+              - /telemetry
+              - /telemetry/*
               - /notification
               - /notification/*
               - /chat
@@ -52,12 +52,12 @@ spec:
               - /tenancy/*
               - /contracts
               - /contracts/*
-    # Device/simulator telemetry carries no user token — sensor-service leaves
+    # Device/simulator telemetry carries no user token — telemetry-service leaves
     # POST /ingest unauthenticated, so allow this exact path with no principal.
     - to:
         - operation:
             paths:
-              - /sensor/ingest
+              - /telemetry/ingest
     - from:
         - source:
             requestPrincipals: ["cv-gateway/*"]
@@ -66,8 +66,8 @@ spec:
             paths:
               - /twin
               - /twin/*
-              - /sensor
-              - /sensor/*
+              - /telemetry
+              - /telemetry/*
               - /notification
               - /notification/*
               - /chat

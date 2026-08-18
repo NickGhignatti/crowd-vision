@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::domain::identity::GatewayClaims;
 use crate::domain::{AcceptedUpload, Building, DomainError, UploadStatus};
+use crate::service::authz;
 use crate::service::ports::{BuildingStore, DownstreamSync, RegistrationEvents, UploadQueue};
 
 pub struct Provisioning {
@@ -66,6 +68,25 @@ impl Provisioning {
         Ok(())
     }
 
+    pub async fn resync(&self, id: &str, claims: &GatewayClaims) -> Result<(), DomainError> {
+        let building = self
+            .buildings
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound(format!("No building with id: \"{id}\"")))?;
+
+        if !authz::can_edit_domains(claims, &building.domains) {
+            return Err(DomainError::Forbidden(
+                "Requires an editing role in one of this building's domains".to_string(),
+            ));
+        }
+
+        self.events
+            .publish_building_registration_request(&building)
+            .await?;
+        Ok(())
+    }
+
     pub async fn resolve(
         &self,
         id: &str,
@@ -78,21 +99,26 @@ impl Provisioning {
     }
 
     // A failed upload must not leave an orphaned twin behind -- whether provisioning
-    // failed before sensor-service ever heard about it, or sensor-service rejected it later.
+    // failed before telemetry-service ever heard about it, or telemetry-service rejected it later.
     // Notify before deleting: notification-service resolves the building's domains by
     // calling back into twin-service, so the twin must still exist when it does.
     async fn fail(&self, id: &str, error: &str) -> Result<Option<Duration>, DomainError> {
-        let elapsed = self.queue.mark_failed(id, error).await?;
+        let Some(elapsed) = self.queue.mark_failed(id, error).await? else {
+            log::warn!("registration of {id} failed after the upload was resolved: {error}");
+            return Ok(None);
+        };
         self.downstream.notify_provisioning_failed(id, error).await;
         self.buildings.delete(id).await?;
-        Ok(elapsed)
+        Ok(Some(elapsed))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::fakes::{FakeEvents, FakeQueue, FakeStore, FakeSync, building};
+    use crate::service::fakes::{
+        FakeEvents, FakeQueue, FakeStore, FakeSync, building, claims_with,
+    };
 
     const LEASE: Duration = Duration::from_secs(30);
 
@@ -167,7 +193,7 @@ mod tests {
         assert_eq!(
             h.provisioning.status("b1").await.unwrap(),
             UploadStatus::Pending,
-            "a successful publish is not sensor-service's outcome -- \
+            "a successful publish is not telemetry-service's outcome -- \
              only resolve() may report ready"
         );
     }
@@ -193,7 +219,7 @@ mod tests {
         h.provisioning.provision_next(LEASE).await.unwrap();
 
         h.provisioning
-            .resolve("b1", Some("sensor-service said no"))
+            .resolve("b1", Some("telemetry-service said no"))
             .await
             .unwrap();
 
@@ -201,14 +227,14 @@ mod tests {
             h.provisioning.status("b1").await.unwrap(),
             UploadStatus::Failed
         );
-        assert!(h.queue.errors.lock().unwrap()["b1"].contains("sensor-service said no"));
+        assert!(h.queue.errors.lock().unwrap()["b1"].contains("telemetry-service said no"));
         assert!(
             h.store.get("b1").is_none(),
-            "a building sensor-service rejects must not linger in the store"
+            "a building telemetry-service rejects must not linger in the store"
         );
         assert_eq!(
             h.sync.failure_notifications.lock().unwrap()[0],
-            ("b1".to_string(), "sensor-service said no".to_string())
+            ("b1".to_string(), "telemetry-service said no".to_string())
         );
     }
 
@@ -296,6 +322,85 @@ mod tests {
             h.store.written.lock().unwrap().len(),
             1,
             "a redelivered upload must not produce a second twin"
+        );
+    }
+
+    #[tokio::test]
+    async fn resyncing_republishes_the_registration_request_for_a_building_that_already_exists() {
+        let h = harness();
+        h.store.seed(building("b1"));
+
+        h.provisioning
+            .resync("b1", &claims_with(vec![("eng", "business_admin")]))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            h.events
+                .published
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|b| b.id.clone())
+                .collect::<Vec<_>>(),
+            ["b1"]
+        );
+        assert!(
+            h.provisioning.status("b1").await.is_err(),
+            "a resync must not invent an upload record for a building that was never queued"
+        );
+    }
+
+    #[tokio::test]
+    async fn resyncing_an_unknown_building_is_not_found() {
+        let h = harness();
+
+        assert!(matches!(
+            h.provisioning
+                .resync("nope", &claims_with(vec![("eng", "business_admin")]))
+                .await,
+            Err(DomainError::NotFound(_))
+        ));
+        assert!(h.events.published.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resyncing_without_an_editing_role_is_forbidden() {
+        let h = harness();
+        h.store.seed(building("b1"));
+
+        assert!(matches!(
+            h.provisioning
+                .resync("b1", &claims_with(vec![("eng", "standard_customer")]))
+                .await,
+            Err(DomainError::Forbidden(_))
+        ));
+        assert!(h.events.published.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_failure_arriving_after_the_upload_was_resolved_leaves_the_twin_alone() {
+        let h = harness();
+        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning.provision_next(LEASE).await.unwrap();
+        h.provisioning.resolve("b1", None).await.unwrap();
+
+        assert!(
+            h.provisioning
+                .resolve("b1", Some("telemetry said no"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        assert!(
+            h.store.get("b1").is_some(),
+            "a resync rejected downstream must not delete a building that was already live"
+        );
+        assert!(h.sync.failure_notifications.lock().unwrap().is_empty());
+        assert_eq!(
+            h.provisioning.status("b1").await.unwrap(),
+            UploadStatus::Ready
         );
     }
 

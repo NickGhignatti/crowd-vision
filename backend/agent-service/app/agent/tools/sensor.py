@@ -161,21 +161,21 @@ class GetLatestSensorDataTool:
                 headers=auth_headers(ctx.user),
             )
         except httpx.HTTPError:
-            return ToolResult(content="sensor-service is unavailable", is_error=True)
+            return ToolResult(content="telemetry-service is unavailable", is_error=True)
 
         if response.status_code == 400:
             return ToolResult(content=_sensor_empty_payload(building, args.metric, key="readings"))
         if response.status_code >= 400:
             return ToolResult(
-                content=downstream_error("sensor-service", response),
+                content=downstream_error("telemetry-service", response),
                 is_error=True,
             )
         try:
             body = response.json()
         except ValueError:
-            return ToolResult(content="sensor-service returned invalid data", is_error=True)
+            return ToolResult(content="telemetry-service returned invalid data", is_error=True)
         if not isinstance(body, dict):
-            return ToolResult(content="sensor-service returned invalid data", is_error=True)
+            return ToolResult(content="telemetry-service returned invalid data", is_error=True)
 
         raw_data = body.get("data")
         if args.room_id is not None:
@@ -251,19 +251,19 @@ class ListSensorsTool:
                 headers=auth_headers(ctx.user),
             )
         except httpx.HTTPError:
-            return ToolResult(content="sensor-service is unavailable", is_error=True)
+            return ToolResult(content="telemetry-service is unavailable", is_error=True)
 
         if response.status_code >= 400:
             return ToolResult(
-                content=downstream_error("sensor-service", response),
+                content=downstream_error("telemetry-service", response),
                 is_error=True,
             )
         try:
             body = response.json()
         except ValueError:
-            return ToolResult(content="sensor-service returned invalid data", is_error=True)
+            return ToolResult(content="telemetry-service returned invalid data", is_error=True)
         if not isinstance(body, dict):
-            return ToolResult(content="sensor-service returned invalid data", is_error=True)
+            return ToolResult(content="telemetry-service returned invalid data", is_error=True)
 
         raw_sensors = body.get("data")
         sensors = [
@@ -348,21 +348,21 @@ class GetSensorHistoryTool:
                 headers=auth_headers(ctx.user),
             )
         except httpx.HTTPError:
-            return ToolResult(content="sensor-service is unavailable", is_error=True)
+            return ToolResult(content="telemetry-service is unavailable", is_error=True)
 
         if response.status_code == 400:
             return ToolResult(content=_sensor_empty_payload(building, args.metric, key="points"))
         if response.status_code >= 400:
             return ToolResult(
-                content=downstream_error("sensor-service", response),
+                content=downstream_error("telemetry-service", response),
                 is_error=True,
             )
         try:
             body = response.json()
         except ValueError:
-            return ToolResult(content="sensor-service returned invalid data", is_error=True)
+            return ToolResult(content="telemetry-service returned invalid data", is_error=True)
         if not isinstance(body, dict):
-            return ToolResult(content="sensor-service returned invalid data", is_error=True)
+            return ToolResult(content="telemetry-service returned invalid data", is_error=True)
 
         raw_points = body.get("data")
         points = (

@@ -26,7 +26,7 @@
 - [Identity & Tenancy Architecture](./architecture/auth-architecture.qd)
 - [Digital Twin Service Architecture](./architecture/twin-architecture.qd)
 - [Notification Service Architecture](./architecture/notification-architecture.qd)
-- [Sensor Service Architecture](./architecture/sensor-architecture.qd)
+- [Telemetry Service Architecture](./architecture/telemetry-architecture.qd)
 - [Contracts Service Architecture](./architecture/contracts-architecture.qd)
 - [Socket Service Architecture](./architecture/socket-architecture.qd)
 - [Chat Service Architecture](./architecture/chat-architecture.qd)
@@ -45,7 +45,7 @@
 - [Provisioner](./services/provisioner.qd)
 - [Digital Twin Service](./services/digital-twin.qd)
 - [Notification Service](./services/notification.qd)
-- [Sensor Service](./services/sensor.qd)
+- [Telemetry Service](./services/telemetry.qd)
 - [Contracts Service](./services/contracts.qd)
 - [Socket Service](./services/socket.qd)
 - [Agent Service](./services/agent.qd)
@@ -53,6 +53,8 @@
 
 ###! Design
 - [Real-Time Client Communication](./design/tunneling.qd)
+- [Telemetry Storage & Retention](./design/telemetry-storage.qd)
+- [Sensor Actions & the Device ACL](./design/sensor-actions.qd)
 
 ###! Configuration
 - [Setting Up the Environment](./config/setting-up.qd)

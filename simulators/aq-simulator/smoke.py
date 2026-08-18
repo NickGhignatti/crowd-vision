@@ -11,7 +11,7 @@ async def main() -> None:
     config = BuildingConfig(
         buildingId="smoke-building",
         roomIds=["room-1"],
-        targetUrl="http://localhost:80/sensor",
+        targetUrl="http://localhost:80/telemetry",
         interval_seconds=60.0,
     )
 

@@ -22,7 +22,7 @@ k8s/
 ├── stateful/                  # Databases and Redis (9 StatefulSets)
 │   ├── twin-db.yml            # MongoDB
 │   ├── notification-db.yml    # MongoDB
-│   ├── sensor-db.yml          # MongoDB
+│   ├── telemetry-db.yml       # PostgreSQL + TimescaleDB
 │   ├── chat-db.yml            # MongoDB
 │   ├── contracts-service-db.yml  # MongoDB
 │   ├── registry-db.yml        # PostgreSQL
@@ -34,7 +34,7 @@ k8s/
 │   └── grafana.yml
 └── deployments/                # Stateless application services (12)
     ├── twin-service.yml
-    ├── sensor-service.yml
+    ├── telemetry-service.yml
     ├── notification-service.yml
     ├── socket-service.yml
     ├── chat-service.yml
@@ -59,7 +59,7 @@ Kubernetes separates configuration into two object types based on sensitivity.
 data:
   PORT: "3000"
   REDIS_URL: "redis://redis:6379"
-  SENSOR_SERVICE_URL: "http://sensor-service:3000"
+  TELEMETRY_SERVICE_URL: "http://telemetry-service:3000"
   TWIN_SERVICE_URL: "http://twin-service:3000"
   CONTRACTS_SERVICE_URL: "http://contracts-service:3000"
   GATEWAY_URL: "http://crowdvision.local"
@@ -80,9 +80,9 @@ There is no `GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` here — that was true when each
 
 CrowdVision uses two different Kubernetes workload types depending on whether the service needs persistent identity.
 
-**Deployments** are used for all 12 stateless application services (`twin-service`, `sensor-service`, `client`, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.
+**Deployments** are used for all 12 stateless application services (`twin-service`, `telemetry-service`, `client`, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.
 
-**StatefulSets** are used for every database and Redis — 9 in total, and not a single engine: five MongoDB StatefulSets (`twin-db`, `notification-db`, `sensor-db`, `chat-db`, `contracts-service-db`), three PostgreSQL StatefulSets (`registry-db`, `tenancy-db`, `agent-db` — the Go and Python services that use a relational store), and one Redis. StatefulSets give each pod:
+**StatefulSets** are used for every database and Redis — 9 in total, and not a single engine: four MongoDB StatefulSets (`twin-db`, `notification-db`, `chat-db`, `contracts-service-db`), four PostgreSQL StatefulSets (`registry-db`, `tenancy-db`, `agent-db`, and `telemetry-db` — the latter on TimescaleDB), and one Redis. StatefulSets give each pod:
 - A **stable, predictable name** — `twin-db-0`, `twin-db-1` (never random hashes).
 - A **dedicated PersistentVolumeClaim (PVC)** — the storage is bound to `twin-db-0` specifically. If the pod is rescheduled to a different node, Kubernetes remounts the same volume there.
 - A **headless Service** (`clusterIP: None`) — enables direct per-pod DNS (`twin-db-0.twin-db.crowdvision.svc.cluster.local`).
@@ -103,7 +103,7 @@ Kubernetes ingress is Istio's Gateway API. `k8s/istio-gateway.yml` defines one `
 
 **Per-service routes.** Each API route gets a `URLRewrite`/`ReplacePrefixMatch` filter that strips the service prefix before forwarding — so `/twin/buildings` reaches `twin-service` as `/buildings`\. `socket-service`'s route and the client's `/` catch-all forward the path unrewritten; `/grafana` is forwarded intact to Grafana, which owns that subpath. Gateway API matches by path specificity, so the client catch-all is evaluated last regardless of file order. The routes cover every service including `claims-gateway` (`/gateway`) and `tenancy-service` (`/tenancy`).
 
-**Edge security.** The Gateway runs with Istio ambient enrollment underneath it — `ztunnel` L4 mTLS, `PeerAuthentication: STRICT`, and edge `RequestAuthentication` verifying the gateway JWT once and injecting the validated claims as `x-gateway-claims`\. An `AuthorizationPolicy` requires a verified JWT principal on the protected service paths (`/twin`, `/sensor`, `/notification`, `/chat`, `/socket.io`, `/tenancy`, `/contracts`); `/gateway`, `/agent`, `/sensor/ingest`, `/grafana`, and the client SPA are deliberately open. `docker-compose` + Caddy's `forward_auth` mirrors this exactly for the dev loop. See [Service Mesh Architecture](service-mesh.qd) for the full migration and [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh) for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).
+**Edge security.** The Gateway runs with Istio ambient enrollment underneath it — `ztunnel` L4 mTLS, `PeerAuthentication: STRICT`, and edge `RequestAuthentication` verifying the gateway JWT once and injecting the validated claims as `x-gateway-claims`\. An `AuthorizationPolicy` requires a verified JWT principal on the protected service paths (`/twin`, `/telemetry`, `/notification`, `/chat`, `/socket.io`, `/tenancy`, `/contracts`); `/gateway`, `/agent`, `/telemetry/ingest`, `/grafana`, and the client SPA are deliberately open. `docker-compose` + Caddy's `forward_auth` mirrors this exactly for the dev loop. See [Service Mesh Architecture](service-mesh.qd) for the full migration and [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh) for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).
 
 ---
 

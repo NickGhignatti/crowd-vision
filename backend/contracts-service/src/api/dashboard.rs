@@ -121,14 +121,14 @@ mod tests {
     #[test]
     fn push_unique_metric_adds_first_entry_to_empty_vec() {
         let mut metrics = Vec::new();
-        push_unique_metric(&mut metrics, metric("sensor-service"));
+        push_unique_metric(&mut metrics, metric("telemetry-service"));
         assert_eq!(metrics.len(), 1);
     }
 
     #[test]
     fn push_unique_metric_ignores_exact_duplicates() {
         let mut possible_metrics = Vec::new();
-        let m = metric("sensor-service");
+        let m = metric("telemetry-service");
 
         push_unique_metric(&mut possible_metrics, m.clone());
         push_unique_metric(&mut possible_metrics, m);
@@ -156,7 +156,7 @@ mod tests {
         // Same metric_key + interface_name but different source_service → not a duplicate.
         let mut possible_metrics = Vec::new();
 
-        push_unique_metric(&mut possible_metrics, metric("sensor-service"));
+        push_unique_metric(&mut possible_metrics, metric("telemetry-service"));
         push_unique_metric(&mut possible_metrics, metric("air-service"));
 
         assert_eq!(possible_metrics.len(), 2);
@@ -240,7 +240,7 @@ mod tests {
         // The `ServiceContract` variant carries its own service name, which is
         // used as source_service rather than the URL.
         let server = mock_contracts(json!({
-            "service": "sensor-service",
+            "service": "telemetry-service",
             "metrics": [{
                 "metricKey": "co2",
                 "label": "CO2",
@@ -253,13 +253,16 @@ mod tests {
         let metrics = collect_metrics(vec![server.uri()]).await;
 
         assert_eq!(metrics.len(), 1);
-        assert_eq!(metrics[0].source_service.as_deref(), Some("sensor-service"));
+        assert_eq!(
+            metrics[0].source_service.as_deref(),
+            Some("telemetry-service")
+        );
     }
 
     #[tokio::test]
     async fn dedupes_identical_metrics_returned_by_one_service() {
         let server = mock_contracts(json!({
-            "service": "sensor-service",
+            "service": "telemetry-service",
             "metrics": [
                 { "metricKey": "temperature", "label": "T", "interfaceName": "ITemperature", "fields": [] },
                 { "metricKey": "temperature", "label": "T", "interfaceName": "ITemperature", "fields": [] }
