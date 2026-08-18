@@ -9,10 +9,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Install mold linker
-      shell: bash
-      run: sudo apt-get update && sudo apt-get install -y mold
-
     - name: Setup Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
       with:
