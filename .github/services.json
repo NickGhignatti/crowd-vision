@@ -69,6 +69,7 @@
     "lang": "rust",
     "image": "crowdvision-telemetry",
     "needs_postgres": true,
+    "needs_kafka": true,
     "cd_context": ".",
     "dockerfile": "backend/telemetry-service/Dockerfile"
   },

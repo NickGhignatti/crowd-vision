@@ -7,6 +7,7 @@ on:
       needs_mongo: { required: false, type: boolean, default: false }
       needs_redis: { required: false, type: boolean, default: false }
       needs_postgres: { required: false, type: boolean, default: false }
+      needs_kafka: { required: false, type: boolean, default: false }
 
 jobs:
   test:
@@ -35,6 +36,10 @@ jobs:
         if: ${{ inputs.needs_postgres }}
         uses: ./.github/actions/setup-postgres
 
+      - name: Start Kafka
+        if: ${{ inputs.needs_kafka }}
+        uses: ./.github/actions/setup-kafka
+
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
@@ -58,9 +63,15 @@ jobs:
             cargo test --release --bins
           fi
 
+      # Same variables the services' docker-compose.test.yml sets, pointed at
+      # the host containers started above. A service that needs none of them
+      # ignores them.
       - name: Run Integration Tests
         env:
           REDIS_URL: redis://localhost:6379
+          MONGO_URI: mongodb://localhost:27017
+          DATABASE_URL: postgres://postgres:telemetry@localhost:5432/telemetrydb
+          KAFKA_BROKERS: localhost:9092
         run: bash "$GITHUB_WORKSPACE/scripts/rust-integration-tests.sh" --release
 
       - name: Build Release Binary

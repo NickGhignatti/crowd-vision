@@ -181,6 +181,7 @@ jobs:
       working_directory: backend/telemetry-service
       needs_postgres: true
       needs_redis: true
+      needs_kafka: true
 
   socket:
     needs: changes
