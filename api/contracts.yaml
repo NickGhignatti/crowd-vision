@@ -60,7 +60,7 @@ components:
               label: { type: string, example: "Temperature" }
               interfaceName: { type: string, example: "ITemperature" }
               unit: { type: string, example: "C" }
-              sourceService: { type: string, example: "sensor-service" }
+              sourceService: { type: string, example: "telemetry-service" }
               fields:
                 type: array
                 items: { type: object }
