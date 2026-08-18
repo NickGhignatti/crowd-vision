@@ -118,22 +118,6 @@ export function useBuildingDraft() {
         if (!registerResponse.ok) {
           throw new Error('Failed to register sensor')
         }
-
-        const actionPayload = {
-          sensorType: sensor.sensorType,
-          buildingId,
-          roomId: sensor.roomId,
-          timestamp: Date.now(),
-          temperature: draft.value?.thresholds.minTemp ?? 0,
-        }
-
-        const actionResponse = await makeRequestWithRetry('/sensor/executeAction', 'POST', {
-          body: JSON.stringify({ actionData: actionPayload }),
-        })
-
-        if (!actionResponse.ok) {
-          throw new Error('Failed to execute sensor action')
-        }
       })
     } finally {
       isSubmitting.value = false

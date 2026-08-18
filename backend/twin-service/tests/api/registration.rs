@@ -1,10 +1,11 @@
 // POST /register and the single-building read endpoints it feeds
-// (GET /building/:id, GET /building/:id/status).
+// (GET /building/:id, GET /building/:id/status), plus the manual
+// re-announcement (POST /building/:id/sync).
 
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::support::fixtures::{mock_building, token};
+use crate::support::fixtures::{editor_token, mock_building, token};
 use crate::support::http_client::send as request;
 use crate::support::registration::register;
 use crate::support::test_app::app;
@@ -155,4 +156,52 @@ async fn returns_404_if_building_not_found() {
     )
     .await;
     assert_eq!(res.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn resyncing_a_registered_building_is_accepted() {
+    let app = app().await;
+    let building_id = register(&app, mock_building()).await;
+
+    let res = request(
+        app,
+        "POST",
+        &format!("/building/{building_id}/sync"),
+        Some(&editor_token()),
+        None,
+    )
+    .await;
+
+    assert_eq!(res.status, StatusCode::ACCEPTED);
+}
+
+#[tokio::test]
+async fn resyncing_a_building_that_does_not_exist_is_not_found() {
+    let res = request(
+        app().await,
+        "POST",
+        "/building/NON_EXISTENT/sync",
+        Some(&editor_token()),
+        None,
+    )
+    .await;
+
+    assert_eq!(res.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn resyncing_without_an_editing_role_is_forbidden() {
+    let app = app().await;
+    let building_id = register(&app, mock_building()).await;
+
+    let res = request(
+        app,
+        "POST",
+        &format!("/building/{building_id}/sync"),
+        Some(&token()),
+        None,
+    )
+    .await;
+
+    assert_eq!(res.status, StatusCode::FORBIDDEN);
 }

@@ -183,29 +183,27 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
   const sendAction = async (payload: {
     roomId: string
     sensorId: string
-    sensorType: string
-    actionName: string
-    actionArguments: string[]
+    metric: string
+    action: string
+    arguments?: Record<string, number | string>
   }) => {
     if (!buildingId.value) return
-    console.log(payload)
 
     const response = await makeRequest('/sensor/executeAction', 'POST', {
       body: JSON.stringify({
         actionData: {
+          metric: payload.metric,
           buildingId: buildingId.value,
           roomId: payload.roomId,
           sensorId: payload.sensorId,
-          sensorType: payload.sensorType,
-          timestamp: Date.now(),
-          actionName: payload.actionName,
-          actionArguments: payload.actionArguments,
+          action: payload.action,
+          arguments: payload.arguments ?? {},
         },
       }),
     })
 
     if (!response.ok) {
-      throw new Error('Failed to register sensor')
+      throw new Error('Failed to execute sensor action')
     }
   }
 

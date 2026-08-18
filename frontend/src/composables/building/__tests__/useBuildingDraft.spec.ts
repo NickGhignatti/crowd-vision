@@ -170,7 +170,7 @@ describe('useBuildingDraft', () => {
       expect(sensorCalls).toHaveLength(2)
     })
 
-    it('calls executeAction for each provided sensor', async () => {
+    it('does not command a sensor it has only just registered', async () => {
       vi.mocked(makeRequestWithRetry).mockResolvedValue(makeResponse() as unknown as Response)
       const { loadFromJson, submit } = useBuildingDraft()
       loadFromJson(rawJson)
@@ -179,9 +179,9 @@ describe('useBuildingDraft', () => {
 
       const actionCalls = vi
         .mocked(makeRequestWithRetry)
-        .mock.calls.filter((c) => c[0] === '/sensor/executeAction' && c[1] === 'POST')
+        .mock.calls.filter((c) => c[0] === '/sensor/executeAction')
 
-      expect(actionCalls).toHaveLength(1)
+      expect(actionCalls).toHaveLength(0)
     })
 
     it('does nothing when draft is null', async () => {

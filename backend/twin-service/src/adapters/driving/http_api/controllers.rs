@@ -143,6 +143,15 @@ pub struct UpdateBuildingRequest {
     pub max_temperature: Option<f64>,
 }
 
+pub async fn resync_building(
+    State(state): State<AppState>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<StatusCode, DomainError> {
+    state.provisioning.resync(&building_id, &claims).await?;
+    Ok(StatusCode::ACCEPTED)
+}
+
 pub async fn update_building(
     State(state): State<AppState>,
     Path(building_id): Path<String>,

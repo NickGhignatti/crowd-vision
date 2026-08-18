@@ -18,9 +18,9 @@ const props = defineProps<{
   onSendAction: (payload: {
     roomId: string
     sensorId: string
-    sensorType: string
-    actionName: string
-    actionArguments: string[]
+    metric: string
+    action: string
+    arguments?: Record<string, number | string>
   }) => Promise<void>
 }>()
 
@@ -35,27 +35,26 @@ const togglePanel = () => {
 }
 
 const handleSendAction = async (
-  sensorId: string, 
-  sensorType: string,
-  actionName: string,
-  actionArguments: string[]
+  sensorId: string,
+  metric: string,
+  action: string,
+  actionArguments: Record<string, number | string>,
 ) => {
   const trimmedSensorId = sensorId.trim()
   if (!trimmedSensorId) return
-  console.log(sensorId)
+
   actionError.value = null
 
   try {
     await props.onSendAction({
       roomId: props.roomId,
       sensorId: trimmedSensorId,
-      sensorType: sensorType,
-      actionName: actionName,
-      actionArguments: actionArguments,
+      metric,
+      action,
+      arguments: actionArguments,
     })
-
   } catch {
-    actionError.value = t('model.rooms.sensors.registerError')
+    actionError.value = t('model.rooms.sensors.actionError')
   }
 }
 
@@ -180,11 +179,7 @@ const handleRegisterSensor = async () => {
                   type="button"
                   class="flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
                   title="Decrease"
-                  @click.stop="handleSendAction(
-                    sensor.sensorId, 
-                    sensor.sensorType,
-                    'decrease',
-                    ['1'])"
+                  @click.stop="handleSendAction(sensor.sensorId, sensor.sensorType, 'decrease', { step: 1 })"
                 >
                   <i class="ph-bold ph-minus text-[10px]"></i>
                 </button>
@@ -193,11 +188,7 @@ const handleRegisterSensor = async () => {
                   type="button"
                   class="flex h-5 w-5 items-center justify-center rounded bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
                   title="Increase"
-                  @click.stop="handleSendAction(
-                    sensor.sensorId, 
-                    sensor.sensorType,
-                    'increase',
-                    ['1'])"
+                  @click.stop="handleSendAction(sensor.sensorId, sensor.sensorType, 'increase', { step: 1 })"
                 >
                   <i class="ph-bold ph-plus text-[10px]"></i>
                 </button>
