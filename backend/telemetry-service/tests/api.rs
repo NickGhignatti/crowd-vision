@@ -409,9 +409,9 @@ async fn metrics_are_exposed_and_count_a_matched_route() {
         .await
         .unwrap();
     let text = String::from_utf8(bytes.to_vec()).unwrap();
-    assert!(text.contains(r#"sensor_http_requests_total{method="POST",route="/ingest""#));
-    assert!(text.contains(r#"sensor_ingest_total{metric="temperature",outcome="accepted"}"#));
-    assert!(text.contains("sensor_db_pool_connections"));
+    assert!(text.contains(r#"telemetry_http_requests_total{method="POST",route="/ingest""#));
+    assert!(text.contains(r#"telemetry_ingest_total{metric="temperature",outcome="accepted"}"#));
+    assert!(text.contains("telemetry_db_pool_connections"));
     assert!(!text.contains(r#"route="/metrics""#));
 }
 

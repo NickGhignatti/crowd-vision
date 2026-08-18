@@ -59,7 +59,7 @@ export function getBuildingData(
 
         try {
           const response = await makeRequest(
-            `/sensor/${apiType}/entireBuilding?building=${newId}`,
+            `/telemetry/${apiType}/entireBuilding?building=${newId}`,
             'GET',
             {
               signal: abortController.signal,
@@ -138,7 +138,7 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
 
     try {
       const response = await makeRequest(
-        `/sensor/sensors/buildings/${buildingId.value}`,
+        `/telemetry/sensors/buildings/${buildingId.value}`,
       )
 
       if (!response.ok) {
@@ -162,7 +162,7 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
   }) => {
     if (!buildingId.value) return
 
-    const response = await makeRequest('/sensor/sensor', 'POST', {
+    const response = await makeRequest('/telemetry/sensor', 'POST', {
       body: JSON.stringify({
         sensorData: {
           buildingId: buildingId.value,
@@ -189,7 +189,7 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
   }) => {
     if (!buildingId.value) return
 
-    const response = await makeRequest('/sensor/executeAction', 'POST', {
+    const response = await makeRequest('/telemetry/executeAction', 'POST', {
       body: JSON.stringify({
         actionData: {
           metric: payload.metric,

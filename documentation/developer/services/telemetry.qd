@@ -1,7 +1,7 @@
 .docname {Telemetry Service}
 .include {docs}
 
-Implementation reference for `backend/telemetry-service`. For its architectural role, see [Telemetry Service Architecture](../architecture/sensor-architecture.qd); for the domain model, see [Telemetry Ingestion](../domain/telemetry-ingestion.qd).
+Implementation reference for `backend/telemetry-service`. For its architectural role, see [Telemetry Service Architecture](../architecture/telemetry-architecture.qd); for the domain model, see [Telemetry Ingestion](../domain/telemetry-ingestion.qd).
 
 A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings from constrained hardware, persists them, publishes them for live distribution, manages per-building and per-room thresholds, and forwards commands to physical devices. Its design answers two pressures: adding a metric must not touch the core, and no I/O technology may reach the logic that decides what a reading means.
 
@@ -111,7 +111,7 @@ static BOUNDS: &[BoundSpec] = &[
 6. The event is published to `telemetry:raw`.
 7. `202 {accepted, type}`.
 
-A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `sensor_ingest_persist_failures_total`.
+A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `telemetry_ingest_persist_failures_total`.
 
 **Reads** — `GET /{sensorType}/latest`, `/entireBuilding`, `/dashboard`. Each resolves the building's domains through twin-service and evaluates Cedar before touching data. `latest` on an empty room is `404`.
 

@@ -13,6 +13,6 @@ clear:
     docker compose -f docker-compose.yml -f backend/notification-service/docker-compose.yml exec notification-db mongosh notificationdb --eval "db.dropDatabase()"
     docker compose -f docker-compose.yml -f backend/agent-service/docker-compose.yml exec agent-db psql -U agent -d agentdb -c "TRUNCATE chunks, documents RESTART IDENTITY CASCADE;"
 
-[doc("Clear sensor database only.")]
-clear-sensor:
+[doc("Clear telemetry database only.")]
+clear-telemetry:
     docker compose -f docker-compose.yml -f backend/telemetry-service/docker-compose.yml exec telemetry-db psql -U telemetry -d telemetrydb -c "truncate readings, thresholds, sensors, building_rooms, buildings cascade;"

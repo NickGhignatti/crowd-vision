@@ -8,7 +8,7 @@ use crate::service::ports::DownstreamSync;
 
 #[derive(Clone)]
 pub struct OutboundConfig {
-    pub sensor_service_url: String,
+    pub telemetry_service_url: String,
     pub contracts_service_url: String,
     pub notification_service_url: String,
     pub sync_enabled: bool,
@@ -79,7 +79,7 @@ pub async fn sync_building_clone(
 
     let url = format!(
         "{}/thresholds/buildings/{}",
-        config.sensor_service_url,
+        config.telemetry_service_url,
         urlencoding::encode(&building.id)
     );
     let response = config
@@ -110,7 +110,7 @@ pub async fn init_room_thresholds(
     }
     let url = format!(
         "{}/thresholds/peopleCount/buildings/{}/rooms/{}",
-        config.sensor_service_url,
+        config.telemetry_service_url,
         urlencoding::encode(building_id),
         urlencoding::encode(room_id)
     );
@@ -154,7 +154,7 @@ pub async fn init_building_preferences(
     }
 }
 
-// The failure notification fires from the provisioning worker (sensor-service's own
+// The failure notification fires from the provisioning worker (telemetry-service's own
 // callback, or a refused Kafka publish) -- there is no end-user request to forward
 // claims from, so it authenticates as a system caller (mirrors notification-service's
 // own SYSTEM_CLAIMS_HEADER for its Redis-triggered alerts).
@@ -221,7 +221,7 @@ mod tests {
 
     async fn config(server: &MockServer) -> OutboundConfig {
         OutboundConfig {
-            sensor_service_url: server.uri(),
+            telemetry_service_url: server.uri(),
             contracts_service_url: server.uri(),
             notification_service_url: server.uri(),
             sync_enabled: true,
@@ -263,7 +263,7 @@ mod tests {
     #[tokio::test]
     async fn skipped_entirely_when_sync_is_disabled() {
         let cfg = OutboundConfig {
-            sensor_service_url: "http://127.0.0.1:1".to_string(),
+            telemetry_service_url: "http://127.0.0.1:1".to_string(),
             contracts_service_url: "http://127.0.0.1:1".to_string(),
             notification_service_url: "http://127.0.0.1:1".to_string(),
             sync_enabled: false,
@@ -294,7 +294,7 @@ mod tests {
     #[tokio::test]
     async fn init_room_thresholds_never_fails_the_caller_on_transport_error() {
         let cfg = OutboundConfig {
-            sensor_service_url: "http://127.0.0.1:1".to_string(),
+            telemetry_service_url: "http://127.0.0.1:1".to_string(),
             contracts_service_url: "http://127.0.0.1:1".to_string(),
             notification_service_url: "http://127.0.0.1:1".to_string(),
             sync_enabled: true,
@@ -306,7 +306,7 @@ mod tests {
     #[tokio::test]
     async fn notify_provisioning_failed_never_fails_the_caller_on_transport_error() {
         let cfg = OutboundConfig {
-            sensor_service_url: "http://127.0.0.1:1".to_string(),
+            telemetry_service_url: "http://127.0.0.1:1".to_string(),
             contracts_service_url: "http://127.0.0.1:1".to_string(),
             notification_service_url: "http://127.0.0.1:1".to_string(),
             sync_enabled: true,
@@ -325,6 +325,6 @@ mod tests {
             .await;
 
         let cfg = config(&server).await;
-        notify_provisioning_failed(&cfg, "b1", "sensor-service said no").await;
+        notify_provisioning_failed(&cfg, "b1", "telemetry-service said no").await;
     }
 }

@@ -25,7 +25,7 @@ The root file holds the pieces every run needs regardless of which services are 
 
 - `gateway` — the Caddy reverse proxy on port 80 (see [Architecture Overview](../architecture/overview.qd)). Its `depends_on` entries are marked `required: false`, so the gateway still starts when a service is excluded and simply retries the connection when that service appears.
 - `redis` — the publish/subscribe broker.
-- `kafka` — event log for building-registration events between twin-service and sensor-service (single-node KRaft, no Zookeeper). Shared infra like `redis`, even though only those two services use it today.
+- `kafka` — event log for building-registration events between twin-service and telemetry-service (single-node KRaft, no Zookeeper). Shared infra like `redis`, even though only those two services use it today.
 - `keycloak` and `keycloak-db` — the hosted identity provider every login flows through, and its private Postgres. `keycloak` imports `keycloak/realm-export.json` on boot and exposes its own admin console directly on host port `8090` (not behind the gateway) — see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 - `prometheus` and `grafana` — metrics and dashboards.
 - The `langfuse-*`, `redis-langfuse`, `clickhouse`, and `minio` stack — the agent's trace backend (see [Setting Up the Environment](setting-up.qd) for the generated Langfuse credentials and UI URL).
@@ -57,7 +57,7 @@ include:
   - path:
       - backend/twin-service/docker-compose.yml
       - backend/twin-service/docker-compose.dev.yml
-  - path: backend/sensor-service/docker-compose.yml
+  - path: backend/telemetry-service/docker-compose.yml
   # … one entry per included service …
 ```
 
@@ -148,7 +148,7 @@ just stack down                # tear it all down
 .tablebyrows {.headers}
     - - `just db clear`
       - Drop the chat, twin, notification, and agent databases (MongoDB plus the agent's Postgres).
-    - - `just db clear-sensor`
+    - - `just db clear-telemetry`
       - Drop only the sensor database.
     - - `just test integration`
       - Bring up the full stack plus the integration test container, exit with its status, then tear down.

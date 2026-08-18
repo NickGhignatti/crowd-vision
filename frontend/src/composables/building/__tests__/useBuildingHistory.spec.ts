@@ -9,7 +9,7 @@ import { makeRequest } from '@/composables/core/useApi'
  *
  * The composable wraps a `watchEffect`-driven API call and returns
  * `{ data, isLoading, error }`. Since server-side aggregation was introduced,
- * the sensor-service dashboard endpoint returns `{ timestamp: number, value: number }[]`
+ * the telemetry-service dashboard endpoint returns `{ timestamp: number, value: number }[]`
  * directly — no client-side field-key extraction is needed.
  *
  * Covered behaviours:
@@ -73,7 +73,7 @@ describe('getBuildingHistory', () => {
     await flushPromises()
 
     expect(makeRequest).toHaveBeenCalledWith(
-      expect.stringContaining('/sensor/temperature/dashboard'),
+      expect.stringContaining('/telemetry/temperature/dashboard'),
       'GET',
     )
   })
@@ -125,7 +125,7 @@ describe('getBuildingHistory', () => {
     await flushPromises()
 
     expect(makeRequest).toHaveBeenCalledWith(
-      expect.stringContaining('/sensor/peopleCount/dashboard'),
+      expect.stringContaining('/telemetry/peopleCount/dashboard'),
       'GET',
     )
   })
@@ -138,7 +138,7 @@ describe('getBuildingHistory', () => {
     await flushPromises()
 
     expect(makeRequest).toHaveBeenCalledWith(
-      expect.stringContaining('/sensor/airQuality/dashboard'),
+      expect.stringContaining('/telemetry/airQuality/dashboard'),
       'GET',
     )
   })

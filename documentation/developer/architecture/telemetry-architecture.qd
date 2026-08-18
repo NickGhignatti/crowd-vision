@@ -1,7 +1,7 @@
 .docname {Telemetry Service Architecture}
 .include {docs}
 
-**Bounded context:** [Telemetry Ingestion](../domain/telemetry-ingestion.qd) · **Stack:** Rust / Axum / Postgres + TimescaleDB · **Code-level walkthrough:** [Telemetry Service](../services/sensor.qd)
+**Bounded context:** [Telemetry Ingestion](../domain/telemetry-ingestion.qd) · **Stack:** Rust / Axum / Postgres + TimescaleDB · **Code-level walkthrough:** [Telemetry Service](../services/telemetry.qd)
 
 The telemetry-service realises the [Telemetry Ingestion](../domain/telemetry-ingestion.qd) context. It is the platform's ingestion gateway, and its architecture answers two independent pressures: absorbing new sensor types without touching the core, and keeping every I/O technology out of the logic that decides what a reading means.
 
@@ -87,7 +87,7 @@ The kernel **never names a plugin**. Every metric-specific decision is reached t
 
 ### Components & Connectors diagram
 
-![Telemetry Service C&C diagram](images/cc-sensor-service.svg)
+![Telemetry Service C&C diagram](images/cc-telemetry-service.svg)
 
 ---
 
@@ -110,4 +110,4 @@ The kernel **never names a plugin**. Every metric-specific decision is reached t
 - Exposes a self-describing metric catalog to contracts-service at `GET /contracts`, now including each metric's available actions.
 - Scraped at `/metrics`. See [Observability](observability.qd).
 
-For the request lifecycle, the plugin template, the extension guide, and the API, see the [Telemetry Service](../services/sensor.qd) internals page.
+For the request lifecycle, the plugin template, the extension guide, and the API, see the [Telemetry Service](../services/telemetry.qd) internals page.

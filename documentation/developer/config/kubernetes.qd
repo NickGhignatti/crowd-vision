@@ -48,7 +48,7 @@ Manifests must be applied in dependency order, because a service crashes if its 
       - Shared, non-sensitive environment values (service URLs, ports).
     - - 3. Stateful layer
       - `k8s/stateful/`
-      - MongoDB for `chat`, `contracts`, `notification`, `sensor`, and `twin`; Postgres for `agent` (pgvector), `registry`, and `tenancy`; plus Redis. Must be `Running` before the services start.
+      - MongoDB for `chat`, `contracts`, `notification`, and `twin`; Postgres for `agent` (pgvector), `registry`, `tenancy`, and `telemetry` (TimescaleDB); plus Redis. Must be `Running` before the services start.
     - - 4. Deployments
       - `k8s/deployments/`
       - The stateless application services and the client, including the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`).

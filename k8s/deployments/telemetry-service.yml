@@ -44,7 +44,7 @@ spec:
               ephemeral-storage: "50Mi"
       containers:
         - name: telemetry-service
-          image: ghcr.io/nickghignatti/crowdvision-sensor:latest
+          image: ghcr.io/nickghignatti/crowdvision-telemetry:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

@@ -40,8 +40,8 @@ spec:
             notPaths:
               - /twin
               - /twin/*
-              - /sensor
-              - /sensor/*
+              - /telemetry
+              - /telemetry/*
               - /notification
               - /notification/*
               - /chat
@@ -57,7 +57,7 @@ spec:
     - to:
         - operation:
             paths:
-              - /sensor/ingest
+              - /telemetry/ingest
     - from:
         - source:
             requestPrincipals: ["cv-gateway/*"]
@@ -66,8 +66,8 @@ spec:
             paths:
               - /twin
               - /twin/*
-              - /sensor
-              - /sensor/*
+              - /telemetry
+              - /telemetry/*
               - /notification
               - /notification/*
               - /chat

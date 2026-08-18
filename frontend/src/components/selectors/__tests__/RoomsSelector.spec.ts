@@ -341,7 +341,7 @@ describe('RoomsSelector', () => {
         body: JSON.stringify({ name: 'room-a', capacity: 10, color: '#ffffff' }),
       })
       expect(makeRequest).toHaveBeenCalledWith(
-        '/sensor/thresholds/buildings/bldg-1/rooms/room-a',
+        '/telemetry/thresholds/buildings/bldg-1/rooms/room-a',
         'PATCH',
         { body: JSON.stringify({ maxTemperature: 31 }) },
       )

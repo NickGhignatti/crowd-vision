@@ -73,7 +73,7 @@ build:
     docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest ./backend/chat-service
     docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/twin-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./backend/notification-service
-    docker build -t ghcr.io/nickghignatti/crowdvision-sensor:latest -f backend/telemetry-service/Dockerfile .
+    docker build -t ghcr.io/nickghignatti/crowdvision-telemetry:latest -f backend/telemetry-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest ./backend/socket-service
     docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest -f backend/agent-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-contracts:latest ./backend/contracts-service
@@ -88,7 +88,7 @@ push:
     docker push ghcr.io/nickghignatti/crowdvision-chat:latest
     docker push ghcr.io/nickghignatti/crowdvision-twin:latest
     docker push ghcr.io/nickghignatti/crowdvision-notification:latest
-    docker push ghcr.io/nickghignatti/crowdvision-sensor:latest
+    docker push ghcr.io/nickghignatti/crowdvision-telemetry:latest
     docker push ghcr.io/nickghignatti/crowdvision-socket:latest
     docker push ghcr.io/nickghignatti/crowdvision-agent:latest
     docker push ghcr.io/nickghignatti/crowdvision-contracts:latest
@@ -102,7 +102,7 @@ build-push: build push
 
 [doc("Load locally built images directly into k3d (local dev — skips GHCR).")]
 load cluster="crowdvision":
-    k3d image import ghcr.io/nickghignatti/crowdvision-frontend:latest ghcr.io/nickghignatti/crowdvision-chat:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-sensor:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest ghcr.io/nickghignatti/crowdvision-claims-gateway:latest ghcr.io/nickghignatti/crowdvision-provisioner:latest ghcr.io/nickghignatti/crowdvision-registry:latest ghcr.io/nickghignatti/crowdvision-tenancy:latest -c {{cluster}}
+    k3d image import ghcr.io/nickghignatti/crowdvision-frontend:latest ghcr.io/nickghignatti/crowdvision-chat:latest ghcr.io/nickghignatti/crowdvision-twin:latest ghcr.io/nickghignatti/crowdvision-notification:latest ghcr.io/nickghignatti/crowdvision-telemetry:latest ghcr.io/nickghignatti/crowdvision-socket:latest ghcr.io/nickghignatti/crowdvision-agent:latest ghcr.io/nickghignatti/crowdvision-contracts:latest ghcr.io/nickghignatti/crowdvision-claims-gateway:latest ghcr.io/nickghignatti/crowdvision-provisioner:latest ghcr.io/nickghignatti/crowdvision-registry:latest ghcr.io/nickghignatti/crowdvision-tenancy:latest -c {{cluster}}
 
 [doc("Show all pods, deployments, services and StatefulSets in the namespace.")]
 status:

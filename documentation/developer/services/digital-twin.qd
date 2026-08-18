@@ -35,7 +35,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/service/fakes.rs`
       - `#[cfg(test)]` in-memory stand-ins for all four ports, shared by the use-case tests — the Rust counterpart of the Go services' `storefake` sibling.
     - - `src/service/provisioning.rs`
-      - The accept-and-provision use case: `accept` (durable enqueue, runs in the request), `provision_next` (claim-and-publish, runs in the worker), `resolve` (turns sensor-service's own outcome into `ready`/`failed`, runs in the Kafka consumer), `status`\. Depends only on the ports, so its unit tests need neither a database nor a network.
+      - The accept-and-provision use case: `accept` (durable enqueue, runs in the request), `provision_next` (claim-and-publish, runs in the worker), `resolve` (turns telemetry-service's own outcome into `ready`/`failed`, runs in the Kafka consumer), `status`\. Depends only on the ports, so its unit tests need neither a database nor a network.
     - - `src/adapters/driving/worker.rs`
       - An in-process Tokio loop that calls `provision_next` until told there is nothing to do. Names no queue and no database.
     - - `src/adapters/driving/kafka_consumer.rs`
@@ -45,7 +45,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/adapters/driven/persistence/jobs.rs`
       - `MongoUploadQueue`, the `UploadQueue` adapter over `pending_uploads`: lease-based `claim`, `mark_ready`/`mark_failed`, status lookup. The lease and attempt counters live in the document, never in the core.
     - - `src/adapters/driven/outbound.rs`
-      - Fire-and-forget/best-effort REST calls: default-preference seeding on contracts-service, the threshold clone on sensor-service for every *later* edit (not registration, which moved to Kafka), and the provisioning-failure alert on notification-service (`POST /trigger`, as a system caller — no end user to forward claims from). `OutboundConfig` is itself the `DownstreamSync` adapter.
+      - Fire-and-forget/best-effort REST calls: default-preference seeding on contracts-service, the threshold clone on telemetry-service for every *later* edit (not registration, which moved to Kafka), and the provisioning-failure alert on notification-service (`POST /trigger`, as a system caller — no end user to forward claims from). `OutboundConfig` is itself the `DownstreamSync` adapter.
     - - `src/adapters/driven/kafka_producer.rs`
       - `KafkaEventProducer`, the `RegistrationEvents` adapter: publishes `building-registration-requested`, ensuring both registration topics exist first (auto-created topics are lazy — the first-ever produce/subscribe against one can otherwise race the broker's own creation of it).
     - - `src/adapters/metrics.rs`
@@ -103,7 +103,7 @@ For the conceptual view — which module is core, which is a port, which is an a
 
         subgraph l4["LAYER 4 — frameworks and drivers"]
             MONGO[("twin-db\nbuildings · pending_uploads")]
-            SENSOR["sensor-service"]
+            SENSOR["telemetry-service"]
             CONTRACTS["contracts-service"]
             KAFKA[("Kafka\nbuilding-registration-requested/-completed")]
             POLICY["backend/auth-policy\npolicy.cedar + schema"]
@@ -163,7 +163,7 @@ Two things to read off it. First, `adapters/driving/http_api`, `adapters/driving
     - - `MONGO_URI`
       - `mongodb://localhost:27017`
       - Connection string; database name is `crowdvision`, collections `buildings` and `pending_uploads` (the provisioning queue, which always lives beside the buildings it provisions).
-    - - `SENSOR_SERVICE_URL`
+    - - `TELEMETRY_SERVICE_URL`
       - `http://localhost:3000`
       - Target for the threshold clone sync on later edits (not registration — see *Downstream Synchronisation*).
     - - `CONTRACTS_SERVICE_URL`
@@ -266,7 +266,7 @@ Free functions in `src/domain/building.rs`\.
 
 ## Downstream Synchronisation
 
-A building's structure is mirrored to sensor-service and contracts-service, but not the same way: **registration** announces over Kafka and waits on sensor-service's own outcome; **every later edit** (update, create/update/delete room, replace rooms) still calls sensor-service directly over REST, synchronously, in-request. Contracts-service preference seeding is REST and best-effort in both cases.
+A building's structure is mirrored to telemetry-service and contracts-service, but not the same way: **registration** announces over Kafka and waits on telemetry-service's own outcome; **every later edit** (update, create/update/delete room, replace rooms) still calls telemetry-service directly over REST, synchronously, in-request. Contracts-service preference seeding is REST and best-effort in both cases.
 
 .mermaid
     sequenceDiagram
@@ -277,7 +277,7 @@ A building's structure is mirrored to sensor-service and contracts-service, but 
         participant W as twin-service (worker)
         participant DB as twin-db
         participant K as Kafka
-        participant S as sensor-service
+        participant S as telemetry-service
         participant KC as twin-service (kafka_consumer)
         participant Ctr as contracts-service
         C->>T: POST /register { name, rooms, domains }
@@ -287,7 +287,7 @@ A building's structure is mirrored to sensor-service and contracts-service, but 
         W->>Q: claim (lease, atomic)
         W->>DB: upsert
         W->>K: publish building-registration-requested
-        Note over W,K: publish returns immediately -- does not wait on sensor-service
+        Note over W,K: publish returns immediately -- does not wait on telemetry-service
         W->>Ctr: POST /preferences/init/:id
         Note over W,Ctr: best-effort — errors logged, swallowed
         K->>S: building-registration-requested
@@ -298,9 +298,9 @@ A building's structure is mirrored to sensor-service and contracts-service, but 
         C->>T: GET /building/:id/status
         T-->>C: { status: "ready" }
 
-- **Registration announcement** (`KafkaEventProducer::publish_requested`, `src/adapters/driven/kafka_producer.rs`): publishes `building-registration-requested` keyed by `buildingId`, carrying `{ buildingId, name, rooms: [{ id, name }] }`\. A publish failure fails the *provisioning job* the same way a REST failure used to; a successful publish does **not** — the upload stays `pending` until sensor-service's own completion event resolves it.
+- **Registration announcement** (`KafkaEventProducer::publish_requested`, `src/adapters/driven/kafka_producer.rs`): publishes `building-registration-requested` keyed by `buildingId`, carrying `{ buildingId, name, rooms: [{ id, name }] }`\. A publish failure fails the *provisioning job* the same way a REST failure used to; a successful publish does **not** — the upload stays `pending` until telemetry-service's own completion event resolves it.
 - **Registration resolution** (`adapters/driving/kafka_consumer.rs`): consumes `building-registration-completed`, calling `resolve(buildingId, error)`, which is what actually marks the upload `ready` or `failed`. Idempotent under redelivery — resolving the same id twice sets the same status twice.
-- **Sensor threshold clone on later edits** (`sync_building_clone`, `src/adapters/driven/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the mutating request itself, since these routes are already synchronous. Forwards the caller's `x-gateway-claims` header verbatim — sensor-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
+- **Sensor threshold clone on later edits** (`sync_building_clone`, `src/adapters/driven/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the mutating request itself, since these routes are already synchronous. Forwards the caller's `x-gateway-claims` header verbatim — telemetry-service reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
 - **Contracts preference seeding** (`init_building_preferences`): a `POST`, best-effort — logged and swallowed on any error, never blocks building creation.
 - **Provisioning-failure cleanup and alert** (`Provisioning::fail`, private, called by both `provision_next` and `resolve`): marks the job `failed`, calls notification-service's `POST /trigger` (`notify_provisioning_failed`, `src/adapters/driven/outbound.rs`) as a fixed system caller — same pattern as notification-service's own event-listener path, see [Notification Service Architecture](../architecture/notification-architecture.qd) — then deletes the twin (`BuildingStore::delete`). Both steps are skipped unless `mark_failed` actually claimed a still-`pending` upload — a failure reported for an upload that was already resolved is logged and dropped, so a re-announced building (`POST /building/:id/sync`) that a consumer rejects can never delete a live twin. Notify happens *before* delete: `/trigger` resolves the building's domains by calling back into twin-service's `/domain/:building`, so the twin must still exist when that call lands. The HTTP call is best-effort — logged and swallowed on error, never blocks the failure resolution itself.
 

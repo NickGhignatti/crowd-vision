@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::task::JoinHandle;
 
-pub const GROUP_ID: &str = "sensor-service-registration";
+pub const GROUP_ID: &str = "telemetry-service-registration";
 
 pub fn spawn(brokers: &str, group_id: &str, registration: Arc<Registration>) -> JoinHandle<()> {
     let brokers = brokers.to_owned();

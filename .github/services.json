@@ -64,10 +64,10 @@
     "image": "crowdvision-notification"
   },
   {
-    "key": "sensor",
+    "key": "telemetry",
     "dir": "backend/telemetry-service",
     "lang": "rust",
-    "image": "crowdvision-sensor",
+    "image": "crowdvision-telemetry",
     "needs_postgres": true,
     "cd_context": ".",
     "dockerfile": "backend/telemetry-service/Dockerfile"

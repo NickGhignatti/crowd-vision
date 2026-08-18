@@ -49,12 +49,12 @@ def ingest_temperature(
         "timestamp": timestamp_ms if timestamp_ms is not None else int(time.time() * 1000),
         "temperature": value,
     }
-    return client.post(f"{config.SENSOR_SERVICE_URL}/ingest", json=body)
+    return client.post(f"{config.TELEMETRY_SERVICE_URL}/ingest", json=body)
 
 
 def latest_temperature(client: httpx.Client, building_id: str, room_id: str) -> dict:
     response = client.get(
-        f"{config.SENSOR_SERVICE_URL}/temperature/latest",
+        f"{config.TELEMETRY_SERVICE_URL}/temperature/latest",
         params={"building": building_id, "roomId": room_id},
         headers={"x-gateway-claims": claims_header()},
     )

@@ -46,7 +46,7 @@ just stack dev-light     # same, minus agent-service + tracing stack
 
 just test affected        # mirrors per-service CI legs
 just test all              # full suite
-just test <chat|twin|notification|sensor|socket|frontend|agent>
+just test <chat|twin|notification|telemetry|socket|frontend|agent>
 just test agent-integration
 just test integration           # full backend integration, composed stack
 just test twin-integration       # twin-service tests/*.rs against a real Mongo, composed
@@ -123,7 +123,7 @@ connection, not payload). Accepted except `agent-service`, restricted by `Author
 (untrusted LLM tool-calling input). Revisit if a cluster ever serves >1 tenant.
 
 **Routing** (same table both envs): `/gateway`→claims-gateway, `/tenancy`→tenancy-service,
-`/twin`→twin-service, `/sensor`→telemetry-service (`/sensor/ingest` ungated), `/notification`,
+`/twin`→twin-service, `/telemetry`→telemetry-service (`/telemetry/ingest` ungated), `/notification`,
 `/chat`, `/agent` (ungated), `/contracts` (own auth), `/socket.io`, `/`→frontend.
 `registry-service`/`provisioner`: no external route, HMAC-only internal calls.
 
@@ -151,7 +151,7 @@ Violating one won't be accepted regardless of CI status (full detail:
 ## Conventions
 
 - **Commits**: Conventional Commits (discipline only, not CI-enforced). Scope = service:
-  `feat(twin): …`. Scopes: gateway, tenancy, registry, provisioner, twin, sensor,
+  `feat(twin): …`. Scopes: gateway, tenancy, registry, provisioner, twin, telemetry,
   notification, socket, contracts, frontend, agent, ci, docs, k8s.
 - **Branches**: `<type>/<short-kebab>`, e.g. `feat/private-domains`.
 - **Naming** (full: `naming-conventions.qd`): TS `camelCase` files/fns, `PascalCase` models

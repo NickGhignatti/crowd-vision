@@ -214,7 +214,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /sensor
+            value: /telemetry
       filters:
         - type: URLRewrite
           urlRewrite:

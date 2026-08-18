@@ -100,17 +100,17 @@
   {
     "id": "cv-doc-007",
     "category": "docs_retrieval",
-    "question": "What is the sensor-service responsible for and how does it handle IoT ingestion?",
+    "question": "What is the telemetry-service responsible for and how does it handle IoT ingestion?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/services/sensor.qd"
+      "documentation/developer/services/telemetry.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
       "sensor"
     ],
-    "key_facts": "The sensor-service is the ingestion gateway for IoT telemetry (Node.js/Express, TypeScript). It uses a Modular Microkernel architecture with a Fast Path / Slow Path: validation is separated from persistence so the backend doesn't hold TCP connections open during slow DB writes/alerts, and new sensor types can be added without modifying existing controllers (Open/Closed).",
-    "ideal_answer": "The sensor-service is the ingestion gateway for all IoT telemetry. It uses a Modular Microkernel architecture with a Fast Path / Slow Path split: it validates and acknowledges the payload quickly (Fast Path) and defers persistence and alerting (Slow Path) so it never holds an IoT device's connection open during slow database writes, and new sensor types (temperature, air quality, people count) can be added without touching existing controllers."
+    "key_facts": "The telemetry-service is the ingestion gateway for IoT telemetry (Rust/Axum, Postgres + TimescaleDB). It combines a hexagon (ports and adapters) with a microkernel on an orthogonal axis: the kernel holds the use cases and never names a plugin, one plugin per metric declares its own fields, bounds and actions, and adapters hold every I/O technology, so a new metric can be added without touching the core.",
+    "ideal_answer": "The telemetry-service is the ingestion gateway for all IoT telemetry. `POST /ingest` resolves the metric's plugin from the payload's `type`, validates the reading against that plugin's declared fields, persists it, evaluates thresholds and publishes it for fan-out. Adding a metric (temperature, air quality, people count) means adding a plugin file and registering it — the kernel has no switch statement to extend."
   },
   {
     "id": "cv-doc-008",
@@ -141,7 +141,7 @@
     "expected_keywords": [
       "gateway"
     ],
-    "key_facts": "In Docker Compose all external traffic enters through a single Caddy reverse-proxy gateway on port 80, which strips the service prefix from the URL (/auth, /twin, /notification, /sensor, /socket.io) and proxies to the target container on the internal bridge network. In Kubernetes the same role is played by an nginx Ingress Controller.",
+    "key_facts": "In Docker Compose all external traffic enters through a single Caddy reverse-proxy gateway on port 80, which strips the service prefix from the URL (/auth, /twin, /notification, /telemetry, /socket.io) and proxies to the target container on the internal bridge network. In Kubernetes the same role is played by an nginx Ingress Controller.",
     "ideal_answer": "All external traffic enters through one gateway. In Docker Compose that's a Caddy reverse proxy on port 80 that strips the path prefix (e.g. `/twin/*`) and forwards the request to the matching service on the internal network. In Kubernetes the equivalent is an nginx Ingress Controller — same single-entry-point routing, declared in YAML instead of a Caddyfile."
   },
   {

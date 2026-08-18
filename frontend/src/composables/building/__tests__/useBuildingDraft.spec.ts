@@ -126,8 +126,8 @@ describe('useBuildingDraft', () => {
       await submit('acme')
 
       const urls = vi.mocked(makeRequestWithRetry).mock.calls.map((c) => c[0])
-      expect(urls).toContain('/sensor/thresholds/temperature/buildings/generated-id-001')
-      expect(urls).toContain('/sensor/thresholds/airQuality/buildings/generated-id-001')
+      expect(urls).toContain('/telemetry/thresholds/temperature/buildings/generated-id-001')
+      expect(urls).toContain('/telemetry/thresholds/airQuality/buildings/generated-id-001')
     })
 
     it('patches peopleCount threshold for each room', async () => {
@@ -138,10 +138,10 @@ describe('useBuildingDraft', () => {
 
       const urls = vi.mocked(makeRequestWithRetry).mock.calls.map((c) => c[0])
       expect(urls).toContain(
-        '/sensor/thresholds/peopleCount/buildings/generated-id-001/rooms/room-1',
+        '/telemetry/thresholds/peopleCount/buildings/generated-id-001/rooms/room-1',
       )
       expect(urls).toContain(
-        '/sensor/thresholds/peopleCount/buildings/generated-id-001/rooms/room-2',
+        '/telemetry/thresholds/peopleCount/buildings/generated-id-001/rooms/room-2',
       )
     })
 
@@ -165,7 +165,7 @@ describe('useBuildingDraft', () => {
 
       const sensorCalls = vi
         .mocked(makeRequestWithRetry)
-        .mock.calls.filter((c) => c[0] === '/sensor/sensor' && c[1] === 'POST')
+        .mock.calls.filter((c) => c[0] === '/telemetry/sensor' && c[1] === 'POST')
 
       expect(sensorCalls).toHaveLength(2)
     })
@@ -179,7 +179,7 @@ describe('useBuildingDraft', () => {
 
       const actionCalls = vi
         .mocked(makeRequestWithRetry)
-        .mock.calls.filter((c) => c[0] === '/sensor/executeAction')
+        .mock.calls.filter((c) => c[0] === '/telemetry/executeAction')
 
       expect(actionCalls).toHaveLength(0)
     })

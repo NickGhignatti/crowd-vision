@@ -208,7 +208,7 @@ impl DownstreamSync for FakeSync {
         _claims: &str,
     ) -> anyhow::Result<()> {
         if self.refuse {
-            anyhow::bail!("sensor-service said no");
+            anyhow::bail!("telemetry-service said no");
         }
         self.cloned
             .lock()

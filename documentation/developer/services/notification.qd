@@ -174,12 +174,12 @@ Authentication is not enough: every route that names a domain also checks that t
 
 ## The Temperature-Alert Throttle
 
-The sensor-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts:temperature` broker channel.
+The telemetry-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts:temperature` broker channel.
 
 .mermaid
     sequenceDiagram
         autonumber
-        participant SS as sensor-service
+        participant SS as telemetry-service
         participant NS as notification-service
         participant R as Redis
         participant TW as twin-service

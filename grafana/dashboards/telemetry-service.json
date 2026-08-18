@@ -53,7 +53,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (metric) (rate(sensor_ingest_total{outcome=\"accepted\"}[5m]))",
+          "expr": "sum by (metric) (rate(telemetry_ingest_total{outcome=\"accepted\"}[5m]))",
           "legendFormat": "{{metric}}",
           "refId": "A",
           "datasource": {
@@ -89,7 +89,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (outcome) (rate(sensor_ingest_total{outcome!=\"accepted\"}[5m]))",
+          "expr": "sum by (outcome) (rate(telemetry_ingest_total{outcome!=\"accepted\"}[5m]))",
           "legendFormat": "{{outcome}}",
           "refId": "A",
           "datasource": {
@@ -125,7 +125,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (metric) (rate(sensor_ingest_persist_failures_total[5m]))",
+          "expr": "sum by (metric) (rate(telemetry_ingest_persist_failures_total[5m]))",
           "legendFormat": "{{metric}}",
           "refId": "A",
           "datasource": {
@@ -161,7 +161,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(sensor_ingest_persist_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(telemetry_ingest_persist_duration_seconds_bucket[5m])))",
           "legendFormat": "p50",
           "refId": "A",
           "datasource": {
@@ -170,7 +170,7 @@
           }
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(sensor_ingest_persist_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(telemetry_ingest_persist_duration_seconds_bucket[5m])))",
           "legendFormat": "p95",
           "refId": "B",
           "datasource": {
@@ -179,7 +179,7 @@
           }
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(sensor_ingest_persist_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(telemetry_ingest_persist_duration_seconds_bucket[5m])))",
           "legendFormat": "p99",
           "refId": "C",
           "datasource": {
@@ -228,7 +228,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (outcome) (rate(sensor_telemetry_published_total[5m]))",
+          "expr": "sum by (outcome) (rate(telemetry_published_total[5m]))",
           "legendFormat": "{{outcome}}",
           "refId": "A",
           "datasource": {
@@ -264,7 +264,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (channel, outcome) (rate(sensor_alerts_published_total[5m]))",
+          "expr": "sum by (channel, outcome) (rate(telemetry_alerts_published_total[5m]))",
           "legendFormat": "{{channel}} {{outcome}}",
           "refId": "A",
           "datasource": {
@@ -300,7 +300,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (metric, direction) (rate(sensor_threshold_breaches_total[5m]))",
+          "expr": "sum by (metric, direction) (rate(telemetry_threshold_breaches_total[5m]))",
           "legendFormat": "{{metric}} {{direction}}",
           "refId": "A",
           "datasource": {
@@ -349,7 +349,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, query) (rate(sensor_query_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, query) (rate(telemetry_query_duration_seconds_bucket[5m])))",
           "legendFormat": "{{query}}",
           "refId": "A",
           "datasource": {
@@ -385,7 +385,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(sensor_http_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(telemetry_http_request_duration_seconds_bucket[5m])))",
           "legendFormat": "{{route}}",
           "refId": "A",
           "datasource": {
@@ -434,7 +434,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (outcome) (rate(sensor_registration_total[5m]))",
+          "expr": "sum by (outcome) (rate(telemetry_registration_total[5m]))",
           "legendFormat": "{{outcome}}",
           "refId": "A",
           "datasource": {
@@ -470,7 +470,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (action) (rate(sensor_authz_denials_total[5m]))",
+          "expr": "sum by (action) (rate(telemetry_authz_denials_total[5m]))",
           "legendFormat": "{{action}}",
           "refId": "A",
           "datasource": {
@@ -506,7 +506,7 @@
       },
       "targets": [
         {
-          "expr": "sensor_db_pool_connections",
+          "expr": "telemetry_db_pool_connections",
           "legendFormat": "{{state}}",
           "refId": "A",
           "datasource": {

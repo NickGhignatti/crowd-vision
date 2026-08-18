@@ -17,7 +17,7 @@ const UNMATCHED_ROUTE: &str = "unmatched";
 
 pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_http_requests_total",
+        "telemetry_http_requests_total",
         "Total number of HTTP requests",
         LABELS,
         REGISTRY
@@ -27,7 +27,7 @@ pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static HTTP_REQUESTS_ERROR: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_http_error_requests_total",
+        "telemetry_http_error_requests_total",
         "Total number of HTTP requests that failed with a server (5xx) error",
         LABELS,
         REGISTRY
@@ -37,7 +37,7 @@ pub static HTTP_REQUESTS_ERROR: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static HTTP_REQUEST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec_with_registry!(
-        "sensor_http_request_duration_seconds",
+        "telemetry_http_request_duration_seconds",
         "Duration of HTTP requests in seconds",
         LABELS,
         vec![0.05, 0.1, 0.3, 0.5, 1.0, 2.0, 5.0],
@@ -48,7 +48,7 @@ pub static HTTP_REQUEST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
 
 pub static INGEST_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_ingest_total",
+        "telemetry_ingest_total",
         "Telemetry readings offered to the service, by outcome",
         &["metric", "outcome"],
         REGISTRY
@@ -58,7 +58,7 @@ pub static INGEST_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static INGEST_PERSIST_FAILURES: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_ingest_persist_failures_total",
+        "telemetry_ingest_persist_failures_total",
         "Readings accepted but never persisted",
         &["metric"],
         REGISTRY
@@ -68,7 +68,7 @@ pub static INGEST_PERSIST_FAILURES: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static INGEST_PERSIST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec_with_registry!(
-        "sensor_ingest_persist_duration_seconds",
+        "telemetry_ingest_persist_duration_seconds",
         "Time spent persisting a reading",
         &["metric"],
         vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
@@ -79,7 +79,7 @@ pub static INGEST_PERSIST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
 
 pub static THRESHOLD_BREACHES: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_threshold_breaches_total",
+        "telemetry_threshold_breaches_total",
         "Readings that breached a configured bound",
         &["metric", "direction"],
         REGISTRY
@@ -89,7 +89,7 @@ pub static THRESHOLD_BREACHES: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static ALERTS_PUBLISHED: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_alerts_published_total",
+        "telemetry_alerts_published_total",
         "Breach alerts published to Redis, by channel and outcome",
         &["channel", "outcome"],
         REGISTRY
@@ -99,7 +99,7 @@ pub static ALERTS_PUBLISHED: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static TELEMETRY_PUBLISHED: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_telemetry_published_total",
+        "telemetry_published_total",
         "Telemetry events published to Redis, by outcome",
         &["outcome"],
         REGISTRY
@@ -109,7 +109,7 @@ pub static TELEMETRY_PUBLISHED: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static REGISTRATION_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_registration_total",
+        "telemetry_registration_total",
         "Building registrations resolved, by outcome",
         &["outcome"],
         REGISTRY
@@ -119,7 +119,7 @@ pub static REGISTRATION_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static REGISTRATION_DURATION: LazyLock<Histogram> = LazyLock::new(|| {
     register_histogram_with_registry!(
-        "sensor_registration_duration_seconds",
+        "telemetry_registration_duration_seconds",
         "Time from registration request to resolution",
         vec![0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
         REGISTRY
@@ -129,7 +129,7 @@ pub static REGISTRATION_DURATION: LazyLock<Histogram> = LazyLock::new(|| {
 
 pub static QUERY_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec_with_registry!(
-        "sensor_query_duration_seconds",
+        "telemetry_query_duration_seconds",
         "Read-path latency by query shape",
         &["query"],
         vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5],
@@ -140,7 +140,7 @@ pub static QUERY_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
 
 pub static AUTHZ_DENIALS: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec_with_registry!(
-        "sensor_authz_denials_total",
+        "telemetry_authz_denials_total",
         "Requests denied by Cedar, by action",
         &["action"],
         REGISTRY
@@ -150,7 +150,7 @@ pub static AUTHZ_DENIALS: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 pub static DB_POOL_CONNECTIONS: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec_with_registry!(
-        "sensor_db_pool_connections",
+        "telemetry_db_pool_connections",
         "Postgres pool connections by state",
         &["state"],
         REGISTRY
@@ -321,15 +321,21 @@ mod tests {
         record_ingest("temperature", "invalid");
         record_ingest("humidity", "unknown_type");
         let text = rendered_body().await;
-        assert!(text.contains(r#"sensor_ingest_total{metric="temperature",outcome="accepted"} 1"#));
-        assert!(text.contains(r#"sensor_ingest_total{metric="temperature",outcome="invalid"} 1"#));
+        assert!(
+            text.contains(r#"telemetry_ingest_total{metric="temperature",outcome="accepted"} 1"#)
+        );
+        assert!(
+            text.contains(r#"telemetry_ingest_total{metric="temperature",outcome="invalid"} 1"#)
+        );
     }
 
     #[tokio::test]
     async fn a_persist_failure_is_visible_even_though_the_client_got_a_202() {
         record_persist_failure("temperature");
         let text = rendered_body().await;
-        assert!(text.contains(r#"sensor_ingest_persist_failures_total{metric="temperature"} 1"#));
+        assert!(
+            text.contains(r#"telemetry_ingest_persist_failures_total{metric="temperature"} 1"#)
+        );
     }
 
     #[tokio::test]
@@ -338,10 +344,10 @@ mod tests {
         record_breach("peopleCount", "high");
         let text = rendered_body().await;
         assert!(text.contains(
-            r#"sensor_threshold_breaches_total{direction="high",metric="temperature"} 1"#
+            r#"telemetry_threshold_breaches_total{direction="high",metric="temperature"} 1"#
         ));
         assert!(text.contains(
-            r#"sensor_threshold_breaches_total{direction="high",metric="peopleCount"} 1"#
+            r#"telemetry_threshold_breaches_total{direction="high",metric="peopleCount"} 1"#
         ));
     }
 
@@ -351,9 +357,9 @@ mod tests {
         record_telemetry_published("error");
         record_alert_published("alerts:temperature", "ok");
         let text = rendered_body().await;
-        assert!(text.contains(r#"sensor_telemetry_published_total{outcome="error"} 1"#));
+        assert!(text.contains(r#"telemetry_published_total{outcome="error"} 1"#));
         assert!(text.contains(
-            r#"sensor_alerts_published_total{channel="alerts:temperature",outcome="ok"} 1"#
+            r#"telemetry_alerts_published_total{channel="alerts:temperature",outcome="ok"} 1"#
         ));
     }
 
@@ -362,8 +368,8 @@ mod tests {
         record_registration("ready", Duration::from_millis(120));
         record_registration("failed", Duration::from_millis(80));
         let text = rendered_body().await;
-        assert!(text.contains(r#"sensor_registration_total{outcome="ready"} 1"#));
-        assert!(text.contains("sensor_registration_duration_seconds_count 2"));
+        assert!(text.contains(r#"telemetry_registration_total{outcome="ready"} 1"#));
+        assert!(text.contains("telemetry_registration_duration_seconds_count 2"));
     }
 
     #[tokio::test]
@@ -371,8 +377,8 @@ mod tests {
         record_query("latest", Duration::from_millis(3));
         record_query("dashboard", Duration::from_millis(90));
         let text = rendered_body().await;
-        assert!(text.contains(r#"sensor_query_duration_seconds_count{query="latest"} 1"#));
-        assert!(text.contains(r#"sensor_query_duration_seconds_count{query="dashboard"} 1"#));
+        assert!(text.contains(r#"telemetry_query_duration_seconds_count{query="latest"} 1"#));
+        assert!(text.contains(r#"telemetry_query_duration_seconds_count{query="dashboard"} 1"#));
     }
 
     #[tokio::test]
@@ -380,14 +386,14 @@ mod tests {
         record_authz_denial("read");
         record_authz_denial("edit");
         let text = rendered_body().await;
-        assert!(text.contains(r#"sensor_authz_denials_total{action="read"} 1"#));
+        assert!(text.contains(r#"telemetry_authz_denials_total{action="read"} 1"#));
     }
 
     #[tokio::test]
     async fn pool_gauges_split_idle_from_in_use() {
         set_pool_gauges(10, 4);
         let text = rendered_body().await;
-        assert!(text.contains(r#"sensor_db_pool_connections{state="idle"} 4"#));
-        assert!(text.contains(r#"sensor_db_pool_connections{state="in_use"} 6"#));
+        assert!(text.contains(r#"telemetry_db_pool_connections{state="idle"} 4"#));
+        assert!(text.contains(r#"telemetry_db_pool_connections{state="in_use"} 6"#));
     }
 }

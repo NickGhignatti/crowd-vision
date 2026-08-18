@@ -129,7 +129,7 @@ estimated/provider-reported cost, an `idk` flag, and a final decision.
     as that same header (`downstream.py`'s `auth_headers`) so the read happens as the asking user.
     Authorization is checked **twice, independently**: `access.py`'s `can_access_domain` /
     `accessible_domains` run a Cedar `ReadWithAdminBypass` check against the tool's own
-    `ToolContext` before the result is trusted, on top of whatever twin-service and sensor-service
+    `ToolContext` before the result is trusted, on top of whatever twin-service and telemetry-service
     enforce on their own routes — neither layer assumes the other already did it. Do not add
     sensitive or write-capable tools without the same explicit authorization, confirmation, and
     audit behavior.
@@ -146,14 +146,14 @@ Given a `building_id` and an optional `room_id`, the tool:
 1. Fetches the building from **twin-service** (forwarding the caller's `x-gateway-claims` header) and rejects
    inaccessible or unknown buildings without revealing whether they exist; an unknown `room_id`
    is rejected before any sensor request is made.
-2. Calls **sensor-service** `GET /sensors/buildings/{buildingId}` — or
-   `…/rooms/{roomId}` when a room is given — again as the asking user. Sensor-service reads its
-   Mongo-backed device registry (`buildingId`, `roomId`, `sensorId`, `sensorType`).
+2. Calls **telemetry-service** `GET /sensors/buildings/{buildingId}` — or
+   `…/rooms/{roomId}` when a room is given — again as the asking user. Telemetry-service reads its
+   Postgres-backed device registry (`buildingId`, `roomId`, `sensorId`, `sensorType`).
 3. Filters the response to rooms that actually belong to the authorized building (downstream
    data is untrusted) and projects each device to `sensor_id`, `sensor_type`, `room_id`, and the
    room name resolved from the twin.
 
-Two services are involved: twin-service for authorization and room names, sensor-service for the
+Two services are involved: twin-service for authorization and room names, telemetry-service for the
 device registry itself. The tool is read-only and returns an inventory, never measurements — the
 system prompt steers the model to `get_latest_sensor_data` / `get_sensor_history` for those.
 

@@ -99,7 +99,7 @@ impl Provisioning {
     }
 
     // A failed upload must not leave an orphaned twin behind -- whether provisioning
-    // failed before sensor-service ever heard about it, or sensor-service rejected it later.
+    // failed before telemetry-service ever heard about it, or telemetry-service rejected it later.
     // Notify before deleting: notification-service resolves the building's domains by
     // calling back into twin-service, so the twin must still exist when it does.
     async fn fail(&self, id: &str, error: &str) -> Result<Option<Duration>, DomainError> {
@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(
             h.provisioning.status("b1").await.unwrap(),
             UploadStatus::Pending,
-            "a successful publish is not sensor-service's outcome -- \
+            "a successful publish is not telemetry-service's outcome -- \
              only resolve() may report ready"
         );
     }
@@ -219,7 +219,7 @@ mod tests {
         h.provisioning.provision_next(LEASE).await.unwrap();
 
         h.provisioning
-            .resolve("b1", Some("sensor-service said no"))
+            .resolve("b1", Some("telemetry-service said no"))
             .await
             .unwrap();
 
@@ -227,14 +227,14 @@ mod tests {
             h.provisioning.status("b1").await.unwrap(),
             UploadStatus::Failed
         );
-        assert!(h.queue.errors.lock().unwrap()["b1"].contains("sensor-service said no"));
+        assert!(h.queue.errors.lock().unwrap()["b1"].contains("telemetry-service said no"));
         assert!(
             h.store.get("b1").is_none(),
-            "a building sensor-service rejects must not linger in the store"
+            "a building telemetry-service rejects must not linger in the store"
         );
         assert_eq!(
             h.sync.failure_notifications.lock().unwrap()[0],
-            ("b1".to_string(), "sensor-service said no".to_string())
+            ("b1".to_string(), "telemetry-service said no".to_string())
         );
     }
 

@@ -59,9 +59,9 @@ Independently deployable, each with its own container image.
     - - twin-service
       - Building Management — the spatial model
       - Rust / Axum / MongoDB
-    - - sensor-service
+    - - telemetry-service
       - Telemetry Ingestion — readings & thresholds
-      - Node.js / Express / MongoDB
+      - Rust / Axum / PostgreSQL + TimescaleDB
     - - contracts-service
       - Telemetry Distribution — per-building filtering
       - Rust / Axum / MongoDB
@@ -91,7 +91,7 @@ Independently deployable, each with its own container image.
       - Redis
     - - Datastores
       - One database per stateful service
-      - MongoDB (sensor-service, chat-service — Node.js; twin-service, contracts-service, notification-service — Rust), PostgreSQL (agent-service, tenancy-service, registry-service, Keycloak)
+      - MongoDB (chat-service — Node.js; twin-service, contracts-service, notification-service — Rust), PostgreSQL (telemetry-service — with TimescaleDB; agent-service, tenancy-service, registry-service, Keycloak)
 
 The agent-service runs as part of the system but sits outside this guide's microservice set; it appears here for completeness only.
 
@@ -109,7 +109,7 @@ request-time calls between services, see [Communication & Data Flow](data-flow.q
 - `claims-gateway`, `tenancy-service` pull in the Go auth libs. `twin-service`,
   `agent-service` embed only `auth-policy`'s Cedar bundle (`include_str!` /
   `cedarpy`, not a package import).
-- `registry-service`, `provisioner`, `sensor-service`, `contracts-service`,
+- `registry-service`, `provisioner`, `telemetry-service`, `contracts-service`,
   `notification-service`, `socket-service`, `chat-service` — no shared-lib
   dependency, hang directly off `backend`.
 
@@ -126,7 +126,7 @@ All incoming external traffic enters the system through a single **Caddy** rever
 ### Network Segregation & Database Isolation
 Each stateful microservice is attached to two networks:
 - The shared **gateway-net** (so Caddy can reach them).
-- A private **database network** (e.g., `tenancy-net`, `twin-net`, `notification-net`, `sensor-net`, `chat-net`, `contracts-net`, `agent-net`, `registry-net`). `claims-gateway` and `provisioner` have no private network of their own — both are stateless and own no database.
+- A private **database network** (e.g., `tenancy-net`, `twin-net`, `notification-net`, `telemetry-net`, `chat-net`, `contracts-net`, `agent-net`, `registry-net`). `claims-gateway` and `provisioner` have no private network of their own — both are stateless and own no database.
 
 This is the intended database-per-service boundary: no service is meant to reach another service's database directly, only through an API call or an event.
 
@@ -166,9 +166,9 @@ The routing table is identical across both deployment models. Only the component
     - - `/notification/`
       - `notification-service`
       - Processing sensor events, triggering Web Push alerts.
-    - - `/sensor/`
-      - `sensor-service`
-      - Ingesting time-series sensor readings (people count, temperature). `/sensor/ingest` is exempt from the auth gate — it is device/simulator-facing and carries no user token.
+    - - `/telemetry/`
+      - `telemetry-service`
+      - Ingesting time-series sensor readings (people count, temperature). `/telemetry/ingest` is exempt from the auth gate — it is device/simulator-facing and carries no user token.
     - - `/chat/`
       - `chat-service`
       - Persisted multi-turn chat sessions, forwarding to agent-service.
@@ -186,4 +186,4 @@ The routing table is identical across both deployment models. Only the component
       - Serves the Vue 3 SPA. Catch-all, must be defined last.
 
 .box {Dev Mode} type:{note}
-    Developer Mode Only: when running `just stack dev`, Caddy also exposes database GUIs at `/twin-db-gui/*`, `/sensor-db-gui/*`, `/notification-db-gui/*`, `/contracts-db-gui/*`, and `/chat-db-gui/*`. These are not present in Kubernetes deployments for security reasons.
+    Developer Mode Only: when running `just stack dev`, Caddy also exposes database GUIs at `/twin-db-gui/*`, `/telemetry-db-gui/*`, `/notification-db-gui/*`, `/contracts-db-gui/*`, and `/chat-db-gui/*`. These are not present in Kubernetes deployments for security reasons.

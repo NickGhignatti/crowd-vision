@@ -57,6 +57,6 @@ There isn't a named pattern here worth reaching for — it's two Tokio tasks in 
 ## Integration
 
 - Subscribes to the raw-reading channel and publishes per-building feeds on the broker — see [Communication & Data Flow](data-flow.qd).
-- Discovers metric catalogs from sensor-service and twin-service; receives default preferences seeded by twin-service.
+- Discovers metric catalogs from telemetry-service and twin-service; receives default preferences seeded by twin-service.
 
 For the concurrency model, the tunnel internals, persistence status, and the API, see the [Contracts Service](../services/contracts.qd) internals page.

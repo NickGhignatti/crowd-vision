@@ -83,7 +83,7 @@ export async function toggleSimulator(
 
   // Ensure no double-slashes by removing any trailing slash from serverUrl
   const cleanServerUrl = serverUrl.replace(/\/$/, '')
-  const targetUrl = cleanServerUrl + '/sensor/'
+  const targetUrl = cleanServerUrl + '/telemetry/'
   const simulatorUrls = getSimulatorUrls()
 
   if (action === 'start') {
