@@ -84,7 +84,7 @@ k8s/Istio (prod) kept at routing/auth parity — diagrams: `architecture/overvie
 **Identity**: Browser OIDC/PKCE → Keycloak → `claims-gateway` mints internal RS256 JWT
 (Stable Claims Contract: `{sub, accountName, sid, memberships}`) → edge (Caddy/Istio) verifies
 once, injects `x-gateway-claims` header. Downstream services decode header, trust it, never
-re-verify. `claims-gateway` = only signature verifier. `agent-service` excluded from edge gate
+re-verify. `claims-gateway` = only signature verifier. Session cookie `authentication_token` *is* the JWT, TTL 15min; `/gateway/refresh` slides it but needs a still-valid token. Frontend renews every 10min via `useSessionKeepAlive` (`App.vue`) — keep interval < `TokenTTL`. `agent-service` excluded from edge gate
 (own HS256 dev token) — both edges strip client-supplied `x-gateway-claims` on `/agent/*`.
 
 **Cedar authz**: local, no remote PDP. Shared bundle `backend/auth-policy` (see its

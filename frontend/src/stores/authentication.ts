@@ -29,7 +29,12 @@ export const useAuthStore = defineStore('authentication', {
     // Re-mints the session cookie so a membership change this session (create/join domain,
     // redeem invite) lands in the gateway JWT — otherwise the mesh 403s against the stale token.
     async refreshSession(): Promise<void> {
-      await makeRequest('/gateway/refresh', 'POST')
+      const res = await makeRequest('/gateway/refresh', 'POST')
+      if (res.status === 401) {
+        this.accountName = null
+        this.accountId = null
+        this.isAuthenticated = false
+      }
     },
 
     async logout() {

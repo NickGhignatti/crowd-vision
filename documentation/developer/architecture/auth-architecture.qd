@@ -204,7 +204,21 @@ The internal HMAC-signed contract used for `claims-gateway` → `tenancy-service
 
 ## Client Integration
 
-The Vue frontend authenticates against Keycloak (authorization code + PKCE) and calls `claims-gateway`'s `/exchange`, `/me`, `/logout` for session lifecycle, and `tenancy-service`'s `/domains`, `/me/memberships`, `/domains/{domain}/subdomains`, join/leave, and invite-code endpoints for all domain-management UI.
+The Vue frontend authenticates against Keycloak (authorization code + PKCE) and calls `claims-gateway`'s `/exchange`, `/me`, `/refresh`, `/logout` for session lifecycle, and `tenancy-service`'s `/domains`, `/me/memberships`, `/domains/{domain}/subdomains`, join/leave, and invite-code endpoints for all domain-management UI.
+
+### Session lifetime
+
+The `authentication_token` cookie *is* the internal JWT — HttpOnly, `Secure`, `SameSite=Lax`, and no `Expires`, so the cookie itself is a browser-session cookie whose contents expire on their own. `TokenTTL` is **15 minutes** (`claims-gateway/internal/config`).
+
+`/refresh` re-mints and re-sets the cookie, but sits behind `RequireAuthentication` — it needs a *still-valid* token. The session is therefore a sliding window: renew in time and it slides indefinitely; let it lapse and only a fresh Keycloak login recovers it.
+
+`useSessionKeepAlive` (`frontend/src/composables/auth/`) renews on a timer at `REFRESH_INTERVAL_MS` (10 min, two thirds of the TTL) for as long as `isAuthenticated` holds, mounted once from `App.vue`. It needs no user interaction, so an unattended display stays authenticated. A `401` from `/refresh` is a verdict on the token and clears the session; a transport failure or `5xx` is not, and the next tick retries.
+
+.box {The 10-minute interval must stay below `TokenTTL`} type:{warning}
+    The two values live in different services and nothing enforces the relationship. Lowering `TokenTTL` below `REFRESH_INTERVAL_MS` would let every session die between renewals.
+
+.box {A display offline longer than the TTL cannot recover itself} type:{warning}
+    `/refresh` requires a live token, and the frontend keeps only `id_token` from Keycloak (`useKeycloakAuth`), discarding the refresh token. After an outage longer than `TokenTTL` an unattended client stays dark until someone logs in. Closing this needs silent re-auth against the Keycloak SSO session (`prompt=none`) or a dedicated kiosk account.
 
 ---
 
