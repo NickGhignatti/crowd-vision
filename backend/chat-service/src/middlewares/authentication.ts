@@ -1,6 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from "jsonwebtoken";
 import { UnauthorizedError } from "../models/error.js";
+
+interface JwtPayload {
+  sub?: string;
+  [key: string]: unknown;
+}
 
 declare global {
   namespace Express {
@@ -47,7 +51,9 @@ export const requireAuthentication = (
 
   let payload: JwtPayload;
   try {
-    payload = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as JwtPayload;
+    payload = JSON.parse(
+      Buffer.from(header, "base64").toString("utf8"),
+    ) as JwtPayload;
   } catch {
     throw new UnauthorizedError("Invalid authentication token");
   }
@@ -55,7 +61,9 @@ export const requireAuthentication = (
   const normalized = normalizeGatewayClaims(payload);
   const userId = normalized.accountId;
   if (typeof userId !== "string" || !userId) {
-    throw new UnauthorizedError("Authentication token is missing an account id");
+    throw new UnauthorizedError(
+      "Authentication token is missing an account id",
+    );
   }
 
   req.account = normalized;
