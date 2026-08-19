@@ -141,6 +141,48 @@ describe('socket service', () => {
       fireEvent('disconnect')
       expect(socketState.unreadCount).toBe(3)
     })
+
+    describe('after a server-forced disconnect', () => {
+      beforeEach(() => {
+        vi.useFakeTimers()
+      })
+
+      afterEach(() => {
+        vi.useRealTimers()
+      })
+
+      it('re-verifies the session and reconnects', async () => {
+        const hydrate = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useAuthStore).mockReturnValue({ hydrate, isAuthenticated: true } as never)
+
+        fireEvent('disconnect', 'io server disconnect')
+        await vi.advanceTimersByTimeAsync(3000)
+
+        expect(hydrate).toHaveBeenCalledWith(true)
+        expect(mockSocket.connect).toHaveBeenCalled()
+      })
+
+      it('stays down when the session is genuinely over', async () => {
+        const hydrate = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useAuthStore).mockReturnValue({ hydrate, isAuthenticated: false } as never)
+
+        fireEvent('disconnect', 'io server disconnect')
+        await vi.advanceTimersByTimeAsync(3000)
+
+        expect(mockSocket.connect).not.toHaveBeenCalled()
+      })
+
+      it('leaves reasons socket.io retries on its own alone', async () => {
+        const hydrate = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useAuthStore).mockReturnValue({ hydrate, isAuthenticated: true } as never)
+
+        fireEvent('disconnect', 'transport close')
+        await vi.advanceTimersByTimeAsync(3000)
+
+        expect(hydrate).not.toHaveBeenCalled()
+        expect(mockSocket.connect).not.toHaveBeenCalled()
+      })
+    })
   })
 
   describe('on notification — stored shape', () => {

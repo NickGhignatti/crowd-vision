@@ -30,7 +30,12 @@ Authorisation is point-in-time, evaluated at subscribe. A socket keeps its rooms
 
 A socket is disconnected once it has been open longer than `SOCKET_MAX_LIFETIME_SECS` (default 15 min, matching `claims-gateway`'s `TokenTTL`). A sweep task in `shell/server.rs` walks `io.sockets()` every `core::session::sweep_interval` (a tenth of the lifetime, capped at 30s) and drops whatever has aged out, counting `socket_sessions_expired_total`.
 
-Reconnection re-runs the whole handshake, so the claims header is rebuilt from the cookie the browser sends — that is the re-validation. It needs no client cooperation: socket.io reconnects on its own, and `sensorData`'s `connect` handler rejoins the building rooms and refetches to close the gap.
+Reconnection re-runs the whole handshake, so the claims header is rebuilt from the cookie the browser sends — that is the re-validation. It needs no user interaction, but it does need the client to ask for it.
+
+.box {A forced disconnect is the one case socket.io does not retry} type:{warning}
+    `SocketRef::disconnect()` sends a namespace DISCONNECT packet; socket.io-client reports that as `io server disconnect`, tears the engine.io transport down, and deliberately does **not** reconnect. `services/socket.ts` therefore reconnects explicitly on that reason, through the same delayed `hydrate`-then-connect path `connect_error` uses — so an expired session stays down instead of hammering the edge. Because the transport really is gone, the reconnect is a fresh HTTP handshake with a fresh cookie, not a namespace re-CONNECT replaying the original headers.
+
+Room membership does not survive the reconnect. Domain rooms are rejoined server-side from the new claims; building rooms are client state, so `useSensorData`'s `connect` handler re-emits `subscribe_building` and refetches to close the gap in the series.
 
 `core::session::lifetime_for` subtracts a per-socket jitter of up to an eighth of the lifetime, derived by hashing the socket id. Without it every client connected by the same deploy would expire in lockstep and re-handshake in one burst, forever.
 

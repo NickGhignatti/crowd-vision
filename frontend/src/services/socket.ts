@@ -25,16 +25,10 @@ socket.on('connect', () => {
   socketState.connected = true
 })
 
-socket.on('disconnect', () => {
-  socketState.connected = false
-})
-
 const RECONNECT_DELAY_MS = 3000
 let retryTimer: ReturnType<typeof setTimeout> | undefined
 
-socket.on('connect_error', (error) => {
-  console.error('[socket] connect_error', error)
-
+const scheduleReconnect = () => {
   clearTimeout(retryTimer)
   retryTimer = setTimeout(() => {
     const authStore = useAuthStore()
@@ -42,6 +36,16 @@ socket.on('connect_error', (error) => {
       if (authStore.isAuthenticated) socket.connect()
     })
   }, RECONNECT_DELAY_MS)
+}
+
+socket.on('disconnect', (reason) => {
+  socketState.connected = false
+  if (reason === 'io server disconnect') scheduleReconnect()
+})
+
+socket.on('connect_error', (error) => {
+  console.error('[socket] connect_error', error)
+  scheduleReconnect()
 })
 
 socket.on('notification', (data) => {

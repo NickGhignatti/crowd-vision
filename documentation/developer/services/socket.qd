@@ -147,9 +147,7 @@ Domain rooms are **not** client-controlled: on connection the service reads the 
         R-->>WS: notifications message (domainName=D)
         WS->>UI: emit "notification" (room domain:D only)
 
-A socket is dropped once it has been open longer than `SOCKET_MAX_LIFETIME_SECS`, counted as `socket_sessions_expired_total`; the client reconnects on its own and its rooms are rejoined by the `connect` handler, so the re-handshake re-reads the session cookie without any user interaction. A building room is only ever joined after the caller's memberships are checked against the building's owning domains, so a client cannot follow another tenant's building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Only a system-wide notification with no `domainName` is broadcast to everyone.
-
-> ⚠️ Per-building authorization (verifying the account's domain actually owns the requested building) needs a twin-service lookup and is deferred; today the guard is domain-membership presence.
+A socket is dropped once it has been open longer than `SOCKET_MAX_LIFETIME_SECS`, counted as `socket_sessions_expired_total`. socket.io-client does not retry a server-forced disconnect, so `services/socket.ts` reconnects explicitly on reason `io server disconnect` and `useSensorData`'s `connect` handler re-emits `subscribe_building`; the re-handshake re-reads the session cookie without any user interaction. A building room is only ever joined after the caller's memberships are checked against the building's owning domains, so a client cannot follow another tenant's building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Only a system-wide notification with no `domainName` is broadcast to everyone.
 
 ---
 
