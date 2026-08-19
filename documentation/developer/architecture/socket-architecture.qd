@@ -11,17 +11,44 @@ The socket-service is the bridge between the broker and the browser. It carries 
 
 Deliberately the simplest service in the system: **no persistence and no domain model**. No ports-and-adapters layering, because there is no domain logic to isolate. Instead the split is the directory structure itself — `src/core/` and `src/shell/` — so the architecture is visible in the file tree and mechanically checkable.
 
-- **`src/core/`** is pure and carries every unit test: `rooms.rs` (`room_for_building`, `room_for_domain`, `building_id_from_channel`), `auth.rs` (`authenticate_claims_header`: claims header → `Identity`), and `relay.rs` (`telemetry_delivery`, `notification_delivery`: a Redis message → the room it belongs in). String and JSON manipulation only, no I/O, no socket types.
-- **`src/shell/`** is everything that touches the outside world: `handlers.rs` runs the connect middleware, joins and leaves rooms, and emits; `server.rs` builds the Axum router, the CORS layer, and the Redis subscriber loop; `metrics.rs` owns the Prometheus registry.
+- **`src/core/`** is pure and carries every unit test: `rooms.rs` (`room_for_building`, `room_for_domain`, `building_id_from_channel`), `auth.rs` (`authenticate_claims_header`: claims header → `Identity`; `may_read_building`: caller domains ∩ building domains), and `relay.rs` (`telemetry_delivery`, `notification_delivery`: a Redis message → the room it belongs in). String and JSON manipulation only, no I/O, no socket types.
+- **`src/shell/`** is everything that touches the outside world: `handlers.rs` runs the connect middleware, joins and leaves rooms, and emits; `server.rs` builds the Axum router, the CORS layer, and the Redis subscriber loop; `twin.rs` resolves a building's domains from `twin-service` behind a 60s cache; `metrics.rs` owns the Prometheus registry.
 - **`src/main.rs`** binds the port and installs the shutdown signal — nothing else.
 
 The connect middleware decodes the mesh-injected `x-gateway-claims` header on the WebSocket handshake (Istio's `RequestAuthentication` already verified it once, upstream — the same trust model every other migrated service uses) and stores the resulting `Identity` in the socket's extensions, server-side.
+
+`subscribe_building` authorises per building, not per session: `shell/twin.rs` asks `twin-service` for `GET /domain/{buildingId}`, forwarding the caller's own claims header, and `core::auth::may_read_building` requires a shared domain before the socket joins the room. The emit path is untouched — room membership is the authorisation, so relaying stays a single `io.to(room)` with no per-message check.
+
+- The lookup is cached 60s per building, so N clients opening the same building cost one call, not N.
+- An **authoritative** answer is cached, empty list included — an unknown building id returns `200 []`, which denies via the same predicate and stops a client probing arbitrary ids from amplifying into `twin-service`.
+- A **failed** lookup (timeout, 5xx, refused) denies but is *not* cached, so a brief `twin-service` blip cannot blank dashboards for the whole TTL.
+- `socket_subscriptions_rejected_total{reason}` separates `forbidden` from `lookup_failed`: a cross-tenant attempt and a `twin-service` outage must not read the same on a dashboard.
+
+Authorisation is point-in-time, evaluated at subscribe. A socket keeps its rooms until it is dropped, so that window is bounded by the socket lifetime below rather than by network stability.
+
+### Socket lifetime
+
+A socket is disconnected once it has been open longer than `SOCKET_MAX_LIFETIME_SECS` (default 15 min, matching `claims-gateway`'s `TokenTTL`). A sweep task in `shell/server.rs` walks `io.sockets()` every `core::session::sweep_interval` (a tenth of the lifetime, capped at 30s) and drops whatever has aged out, counting `socket_sessions_expired_total`.
+
+Reconnection re-runs the whole handshake, so the claims header is rebuilt from the cookie the browser sends — that is the re-validation. It needs no user interaction, but it does need the client to ask for it.
+
+.box {A forced disconnect is the one case socket.io does not retry} type:{warning}
+    `SocketRef::disconnect()` sends a namespace DISCONNECT packet; socket.io-client reports that as `io server disconnect`, tears the engine.io transport down, and deliberately does **not** reconnect. `services/socket.ts` therefore reconnects explicitly on that reason, through the same delayed `hydrate`-then-connect path `connect_error` uses — so an expired session stays down instead of hammering the edge. Because the transport really is gone, the reconnect is a fresh HTTP handshake with a fresh cookie, not a namespace re-CONNECT replaying the original headers.
+
+Room membership does not survive the reconnect. Domain rooms are rejoined server-side from the new claims; building rooms are client state, so `useSensorData`'s `connect` handler re-emits `subscribe_building` and refetches to close the gap in the series.
+
+`core::session::lifetime_for` subtracts a per-socket jitter of up to an eighth of the lifetime, derived by hashing the socket id. Without it every client connected by the same deploy would expire in lockstep and re-handshake in one burst, forever.
+
+.box {A fixed lifetime bounds the socket, not the gap past token expiry} type:{warning}
+    Total socket life is capped at the configured lifetime (plus at most one sweep interval), but a socket opened just before its token dies can still outlive that token by nearly the full window. Closing that exactly needs an `exp` in the Stable Claims Contract, which `{sub, accountName, sid, memberships}` does not carry. Accepted: with the frontend keep-alive renewing every 10 min, an active client's token is continuously fresh, so the residual case is a client that stops renewing — and that one is bounded by the lifetime.
 
 .mermaid
     graph LR
         subgraph "src/shell — Imperative Shell"
             SRV["server.rs\ncomposition root + Redis loop"]
             HND["handlers.rs\nconnect · subscribe · emit"]
+            TWIN["twin.rs\nbuilding → domains, cached"]
+            SWEEP["server.rs\nlifetime sweep"]
         end
         subgraph "src/core — Functional Core"
             AUTH["auth.rs\nauthenticate_claims_header"]
@@ -33,6 +60,9 @@ The connect middleware decodes the mesh-injected `x-gateway-claims` header on th
         SRV --> REL
         SRV -->|"io.ns('/', on_connect.with(authenticate))"| HND
         HND --> AUTH
+        HND --> TWIN
+        SWEEP --> SESS["session.rs\nlifetime_for · sweep_interval"]
+        TWIN -->|"GET /domain/{id}"| TS[twin-service]
         HND --> ROOMS
         REL --> ROOMS
         SRV -->|room-scoped| CL[Connected clients]

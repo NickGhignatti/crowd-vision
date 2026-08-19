@@ -90,7 +90,7 @@ export function getBuildingData(
         if (event?.buildingId !== buildingId.value || event?.type !== apiType) return
 
         const arr = data.value
-        const idx = arr.findIndex(d => d.roomId === event.roomId)
+        const idx = arr.findIndex((d) => d.roomId === event.roomId)
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], ...event }
         } else {
@@ -108,12 +108,19 @@ export function getBuildingData(
         }
       }
 
+      const rejoinHandler = () => {
+        socket.emit('subscribe_building' as any, newId)
+        void fetchData(true)
+      }
+
       socket.on('telemetry' as any, telemetryHandler)
+      socket.on('connect', rejoinHandler)
 
       onCleanup(() => {
         if (abortController) abortController.abort()
         socket.emit('unsubscribe_building' as any, newId)
         socket.off('telemetry' as any, telemetryHandler)
+        socket.off('connect', rejoinHandler)
       })
     },
     { immediate: true },
@@ -137,9 +144,7 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
     error.value = null
 
     try {
-      const response = await makeRequest(
-        `/telemetry/sensors/buildings/${buildingId.value}`,
-      )
+      const response = await makeRequest(`/telemetry/sensors/buildings/${buildingId.value}`)
 
       if (!response.ok) {
         throw new Error('Fetch failed')

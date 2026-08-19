@@ -55,7 +55,7 @@ spec:
             - containerPort: 3000
           envFrom:
             - configMapRef:
-                name: common-config # PORT, REDIS_URL, FRONTEND_URL
+                name: common-config # PORT, REDIS_URL, FRONTEND_URL, TWIN_SERVICE_URL
           volumeMounts:
             - name: tmp
               mountPath: /tmp

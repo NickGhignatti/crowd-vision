@@ -43,6 +43,60 @@ describe('useAuthStore', () => {
     })
   })
 
+  describe('refreshSession', () => {
+    it('POSTs to the gateway refresh endpoint', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
+      const store = useAuthStore()
+      store.isAuthenticated = true
+
+      await store.refreshSession()
+
+      expect(makeRequest).toHaveBeenCalledWith('/gateway/refresh', 'POST')
+    })
+
+    it('keeps the session when the refresh succeeds', async () => {
+      vi.mocked(makeRequest).mockResolvedValue(makeResponse(true) as unknown as Response)
+      const store = useAuthStore()
+      store.isAuthenticated = true
+      store.accountName = 'alice'
+
+      await store.refreshSession()
+
+      expect(store.isAuthenticated).toBe(true)
+      expect(store.accountName).toBe('alice')
+    })
+
+    it('clears the session when the token is no longer accepted', async () => {
+      vi.mocked(makeRequest).mockResolvedValue({
+        ok: false,
+        status: 401,
+      } as unknown as Response)
+      const store = useAuthStore()
+      store.isAuthenticated = true
+      store.accountName = 'alice'
+      store.accountId = 'u1'
+
+      await store.refreshSession()
+
+      expect(store.isAuthenticated).toBe(false)
+      expect(store.accountName).toBeNull()
+      expect(store.accountId).toBeNull()
+    })
+
+    it('keeps the session on a server error, which is not a verdict on the token', async () => {
+      vi.mocked(makeRequest).mockResolvedValue({
+        ok: false,
+        status: 503,
+      } as unknown as Response)
+      const store = useAuthStore()
+      store.isAuthenticated = true
+
+      await store.refreshSession()
+
+      expect(store.isAuthenticated).toBe(true)
+    })
+  })
+
   describe('completeLogin', () => {
     it('POSTs the id token to the gateway exchange endpoint', async () => {
       vi.mocked(makeRequest)

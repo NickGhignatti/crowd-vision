@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
@@ -10,36 +11,61 @@ use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
 use crate::core::relay::{Target, get_notification_delivery_plan, get_telemetry_delivery_plan};
-use crate::shell::handlers::{authenticate, deliver, on_connect};
+use crate::core::session::{lifetime_for, sweep_interval};
+use crate::shell::handlers::{ConnectedAt, authenticate, deliver, on_connect};
 use crate::shell::metrics::{
     self, NOTIFICATIONS_RELAYED_TOTAL, RELAY_MESSAGES_SKIPPED_TOTAL, RELAY_PAYLOAD_BYTES_TOTAL,
-    TELEMETRY_RELAYED_TOTAL, gather,
+    SOCKETS_EXPIRED_TOTAL, TELEMETRY_RELAYED_TOTAL, gather,
 };
+use crate::shell::twin::BuildingDomains;
 
 pub const PORT: u16 = 3000;
 const NOTIFICATIONS_CHANNEL: &str = "notifications";
 const TELEMETRY_PATTERN: &str = "telemetry:filtered:*";
 const DEFAULT_FRONTEND_URL: &str = "http://localhost:5173";
+const DEFAULT_TWIN_URL: &str = "http://twin-service:3000";
+const DEFAULT_MAX_LIFETIME: Duration = Duration::from_secs(15 * 60);
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
 
 pub fn redis_url() -> String {
     std::env::var("REDIS_URL").expect("REDIS_URL is set")
 }
 
+pub fn twin_url() -> String {
+    std::env::var("TWIN_SERVICE_URL").unwrap_or_else(|_| DEFAULT_TWIN_URL.to_string())
+}
+
+pub fn max_socket_lifetime() -> Duration {
+    std::env::var("SOCKET_MAX_LIFETIME_SECS")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .map(Duration::from_secs)
+        .unwrap_or(DEFAULT_MAX_LIFETIME)
+}
+
 fn frontend_url() -> String {
     std::env::var("FRONTEND_URL").unwrap_or_else(|_| DEFAULT_FRONTEND_URL.to_string())
 }
 
-pub async fn serve<F>(listener: TcpListener, redis_url: String, shutdown: F) -> std::io::Result<()>
+pub async fn serve<F>(
+    listener: TcpListener,
+    redis_url: String,
+    twin_url: String,
+    max_lifetime: Duration,
+    shutdown: F,
+) -> std::io::Result<()>
 where
     F: Future<Output = ()> + Send + 'static,
 {
     metrics::init();
 
-    let (layer, io) = SocketIo::builder().build_layer();
+    let (layer, io) = SocketIo::builder()
+        .with_state(Arc::new(BuildingDomains::new(twin_url)))
+        .build_layer();
     io.ns("/", on_connect.with(authenticate));
 
-    tokio::spawn(subscribe_to_redis(io, redis_url));
+    tokio::spawn(subscribe_to_redis(io.clone(), redis_url));
+    tokio::spawn(expire_stale_sockets(io, max_lifetime));
 
     let app = Router::new()
         .route("/health", get(async || StatusCode::OK))
@@ -65,6 +91,29 @@ fn cors() -> CorsLayer {
         .allow_origin(origin)
         .allow_methods([Method::GET, Method::POST])
         .allow_credentials(true)
+}
+
+async fn expire_stale_sockets(io: SocketIo, max_lifetime: Duration) {
+    let interval = sweep_interval(max_lifetime);
+
+    loop {
+        tokio::time::sleep(interval).await;
+
+        for socket in io.sockets() {
+            let Some(ConnectedAt(connected_at)) = socket.extensions.get::<ConnectedAt>() else {
+                continue;
+            };
+            if connected_at.elapsed() < lifetime_for(&socket.id.to_string(), max_lifetime) {
+                continue;
+            }
+
+            let id = socket.id;
+            match socket.disconnect() {
+                Ok(()) => SOCKETS_EXPIRED_TOTAL.inc(),
+                Err(error) => log::warn!("failed to drop expired socket {id}: {error}"),
+            }
+        }
+    }
 }
 
 async fn subscribe_to_redis(io: SocketIo, url: String) {

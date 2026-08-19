@@ -8,8 +8,9 @@ use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::{Event, Payload};
 use serde_json::Value;
 use socket_service::shell::metrics::{
-    CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, RELAY_MESSAGES_SKIPPED_TOTAL,
-    RELAY_PAYLOAD_BYTES_TOTAL, TELEMETRY_RELAYED_TOTAL,
+    CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, REASON_FORBIDDEN, RELAY_MESSAGES_SKIPPED_TOTAL,
+    RELAY_PAYLOAD_BYTES_TOTAL, SOCKETS_EXPIRED_TOTAL, SUBSCRIPTIONS_REJECTED_TOTAL,
+    TELEMETRY_RELAYED_TOTAL,
 };
 use socket_service::shell::server::{redis_url, serve};
 use tokio::sync::Mutex;
@@ -22,13 +23,48 @@ const DELIVERY_TIMEOUT: Duration = Duration::from_secs(5);
 const SILENCE_TIMEOUT: Duration = Duration::from_millis(800);
 const RECONNECT_SETTLE: Duration = Duration::from_secs(3);
 
-async fn start_server() -> String {
+async fn start_twin_stub() -> String {
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
         .await
         .unwrap();
     let address = listener.local_addr().unwrap();
 
-    tokio::spawn(serve(listener, redis_url(), std::future::pending()));
+    let app = axum::Router::new().route(
+        "/domain/{building}",
+        axum::routing::get(
+            async |axum::extract::Path(building): axum::extract::Path<String>| {
+                axum::Json(match building.as_str() {
+                    "b1" => vec!["acme".to_string()],
+                    _ => Vec::<String>::new(),
+                })
+            },
+        ),
+    );
+
+    tokio::spawn(async move { axum::serve(listener, app).await });
+
+    format!("http://{address}")
+}
+
+async fn start_server() -> String {
+    start_server_with_lifetime(Duration::from_secs(3600)).await
+}
+
+async fn start_server_with_lifetime(max_lifetime: Duration) -> String {
+    let twin_url = start_twin_stub().await;
+
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let address = listener.local_addr().unwrap();
+
+    tokio::spawn(serve(
+        listener,
+        redis_url(),
+        twin_url,
+        max_lifetime,
+        std::future::pending(),
+    ));
     tokio::time::sleep(SETTLE).await;
 
     format!("http://{address}")
@@ -138,6 +174,8 @@ async fn every_metric_series_is_exposed_before_any_traffic() {
         r#"relay_payload_bytes_total{channel="notifications"}"#,
         r#"relay_messages_skipped_total{channel="telemetry"}"#,
         r#"relay_messages_skipped_total{channel="notifications"}"#,
+        r#"socket_subscriptions_rejected_total{reason="forbidden"}"#,
+        r#"socket_subscriptions_rejected_total{reason="lookup_failed"}"#,
     ] {
         assert!(body.contains(series), "missing series: {series}");
     }
@@ -309,4 +347,64 @@ async fn a_malformed_message_does_not_stop_the_relay() {
     );
 
     client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn telemetry_is_denied_for_a_building_outside_the_callers_domains() {
+    let _guard = SERIALIZE.lock().await;
+    let url = start_server().await;
+
+    let (member, mut allowed) = connect(&url, &claims_header(&["acme"]), "telemetry").await;
+    let (outsider, mut denied) = connect(&url, &claims_header(&["beta"]), "telemetry").await;
+
+    let forbidden_before = SUBSCRIPTIONS_REJECTED_TOTAL
+        .with_label_values(&[REASON_FORBIDDEN])
+        .get();
+
+    member.emit("subscribe_building", "b1").await.unwrap();
+    outsider.emit("subscribe_building", "b1").await.unwrap();
+    tokio::time::sleep(SETTLE).await;
+
+    publish("telemetry:filtered:b1", r#"{"value":21}"#).await;
+
+    assert_eq!(next_delivery(&mut allowed).await["value"], 21);
+    assert_silent(&mut denied).await;
+    assert_eq!(
+        SUBSCRIPTIONS_REJECTED_TOTAL
+            .with_label_values(&[REASON_FORBIDDEN])
+            .get(),
+        forbidden_before + 1,
+        "the subscribe must be refused as forbidden, not as an unreachable directory"
+    );
+
+    member.disconnect().await.unwrap();
+    outsider.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_socket_is_dropped_once_its_authorised_lifetime_elapses() {
+    let _guard = SERIALIZE.lock().await;
+    let url = start_server_with_lifetime(Duration::from_millis(800)).await;
+
+    let (client, mut events) = connect(&url, &claims_header(&["acme"]), "telemetry").await;
+    client.emit("subscribe_building", "b1").await.unwrap();
+    tokio::time::sleep(SETTLE).await;
+
+    let expired_before = SOCKETS_EXPIRED_TOTAL.get();
+    publish("telemetry:filtered:b1", r#"{"value":21}"#).await;
+    assert_eq!(
+        next_delivery(&mut events).await["value"],
+        21,
+        "the socket must work normally before its lifetime elapses"
+    );
+
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    assert!(
+        SOCKETS_EXPIRED_TOTAL.get() > expired_before,
+        "the expiry must be observable in metrics"
+    );
+
+    publish("telemetry:filtered:b1", r#"{"value":22}"#).await;
+    assert_silent(&mut events).await;
 }

@@ -2,10 +2,13 @@
 import { onMounted, onUnmounted, watch } from 'vue'
 import { socket } from '@/services/socket'
 import { useAuthStore } from '@/stores/authentication'
+import { useSessionKeepAlive } from '@/composables/auth/useSessionKeepAlive'
 import PushNotificationModal from '@/components/modals/PushNotificationModal.vue'
 import ChatWidget from '@/components/layouts/ChatWidget.vue'
 
 const authStore = useAuthStore()
+
+useSessionKeepAlive()
 
 onMounted(() => {
   authStore.hydrate()

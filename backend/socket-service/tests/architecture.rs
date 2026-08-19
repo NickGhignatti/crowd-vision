@@ -6,6 +6,7 @@ const SHELL: &str = "src/shell";
 const IO_CRATES: &[&str] = &[
     "use axum",
     "use redis",
+    "use reqwest",
     "use socketioxide",
     "use tokio",
     "use tower_http",

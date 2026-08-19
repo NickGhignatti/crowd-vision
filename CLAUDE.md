@@ -84,7 +84,7 @@ k8s/Istio (prod) kept at routing/auth parity — diagrams: `architecture/overvie
 **Identity**: Browser OIDC/PKCE → Keycloak → `claims-gateway` mints internal RS256 JWT
 (Stable Claims Contract: `{sub, accountName, sid, memberships}`) → edge (Caddy/Istio) verifies
 once, injects `x-gateway-claims` header. Downstream services decode header, trust it, never
-re-verify. `claims-gateway` = only signature verifier. `agent-service` excluded from edge gate
+re-verify. `claims-gateway` = only signature verifier. Session cookie `authentication_token` *is* the JWT, TTL 15min; `/gateway/refresh` slides it but needs a still-valid token. Frontend renews every 10min via `useSessionKeepAlive` (`App.vue`) — keep interval < `TokenTTL`. `agent-service` excluded from edge gate
 (own HS256 dev token) — both edges strip client-supplied `x-gateway-claims` on `/agent/*`.
 
 **Cedar authz**: local, no remote PDP. Shared bundle `backend/auth-policy` (see its
@@ -111,10 +111,16 @@ Test-enforced by `tests/architecture.rs`. Device vocabulary lives **only** in
 `design/telemetry-storage.qd`.
 `socket-service` (Rust) = functional core / imperative shell,
 split as directories: `src/core/` (`auth`/`rooms`/`relay`, pure + unit-tested), `src/shell/`
-(`handlers`/`server`/`metrics`), `src/main.rs` binds only. Test-enforced by
+(`handlers`/`server`/`metrics`/`twin`), `src/main.rs` binds only. Test-enforced by
 `tests/architecture.rs`: every `src/*.rs` must live in `core/` or `shell/`; core imports no I/O
 crate, no `async fn`, never names `crate::shell`; room-name literals only in `core/rooms.rs`,
-`x-gateway-claims` only in `core/auth.rs`. `contracts-service` (Rust) stays flat, no restructure.
+`x-gateway-claims` only in `core/auth.rs`. `subscribe_building` authorizes per building:
+`shell/twin.rs` resolves building → domains from twin-service (`TWIN_SERVICE_URL`, caller's
+claims forwarded, 60s cache — authoritative answers cached incl. empty, failures not),
+`core::auth::may_read_building` requires a shared domain. Emit path unchanged, no per-message
+check. Sockets dropped after `SOCKET_MAX_LIFETIME_SECS` (default 900, = gateway `TokenTTL`) by a
+sweep in `server.rs`; `core/session.rs` jitters per socket so a deploy's clients don't re-expire
+in lockstep. Reconnect re-reads the cookie — that is the re-validation. `contracts-service` (Rust) stays flat, no restructure.
 
 **Service mesh**: prod/staging = Istio ambient (`ztunnel` L4 mTLS, no sidecars; optional
 `waypoint` for L7). Trust: hard perimeter, guarded interior — edge authenticates once, every
