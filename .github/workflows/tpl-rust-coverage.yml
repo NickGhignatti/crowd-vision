@@ -70,7 +70,7 @@ jobs:
           cargo llvm-cov --all-targets --json --summary-only --output-path coverage/coverage-summary.json
 
       - name: Upload report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ inputs.service_key }}
           path: ${{ inputs.working_directory }}/coverage/coverage-summary.json
