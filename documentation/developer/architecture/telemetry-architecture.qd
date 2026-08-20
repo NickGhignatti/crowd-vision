@@ -105,7 +105,7 @@ The kernel **never names a plugin**. Every metric-specific decision is reached t
 ## Integration
 
 - Owns `telemetry-db` (Postgres + TimescaleDB); no other service reads it. Retention and rollup policy in [Telemetry Storage & Retention](../design/telemetry-storage.qd).
-- Publishes every accepted reading to Redis `telemetry:raw`, and every threshold breach to `alerts:<metric>` — `alerts:temperature`, `alerts:peopleCount`, `alerts:airQuality` — with no reference to whichever service consumes them.
+- Publishes every accepted reading to Redis `telemetry:raw`, and every threshold breach to the Kafka `alerts` topic keyed `buildingId:roomId`, with no reference to whichever service consumes them. Breaches are enqueued, never awaited (`send_result`), so a broker outage cannot stall `/telemetry/ingest`.
 - Receives a threshold baseline from twin-service: over Kafka for a new building's registration, over REST (`PUT /thresholds/buildings/:id`) for every later edit. Both are driving adapters over the **same** registration use case.
 - Exposes a self-describing metric catalog to contracts-service at `GET /contracts`, now including each metric's available actions.
 - Scraped at `/metrics`. See [Observability](observability.qd).

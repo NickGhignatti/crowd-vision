@@ -49,7 +49,7 @@ A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings fr
       - Telemetry fan-out and breach alerts.
     - - `KAFKA_BROKERS`
       - `kafka:9092`
-      - Building-registration topics. Unreachable at boot degrades to a disabled producer rather than failing.
+      - Building-registration topics and the `alerts` breach topic. Unreachable at boot degrades to a disabled producer rather than failing — readings still land, breaches are counted but not delivered.
     - - `TWIN_SERVICE_URL`
       - `http://twin-service:3000`
       - Building-to-domain lookups for authorization.

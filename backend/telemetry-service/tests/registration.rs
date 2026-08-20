@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use support::fakes::StubEvents;
 use support::{fresh_db, seed_building};
-use telemetry_service::adapters::driven::kafka_producer::{KafkaRegistrationEvents, ensure_topics};
+use telemetry_service::adapters::driven::kafka_producer::{KafkaEvents, ensure_topics};
 use telemetry_service::adapters::driven::postgres::{PgBuildings, PgThresholds};
 use telemetry_service::adapters::driving::kafka_consumer;
 use telemetry_service::adapters::topics::{
@@ -87,7 +87,7 @@ fn registration(pool: sqlx::PgPool, events: Arc<dyn RegistrationEvents>) -> Arc<
 async fn a_registration_request_persists_the_building_and_acknowledges_ready() {
     ensure_topics(&brokers()).await;
     let pool = fresh_db("kafka_ready").await;
-    let events = Arc::new(KafkaRegistrationEvents::connect(&brokers()).await.unwrap());
+    let events = Arc::new(KafkaEvents::connect(&brokers()).await.unwrap());
     let group = unique_group();
     let completions = completions(&format!("{group}-watch"));
 
@@ -127,7 +127,7 @@ async fn a_registration_request_persists_the_building_and_acknowledges_ready() {
 async fn a_redelivered_registration_request_converges_and_acknowledges_again() {
     ensure_topics(&brokers()).await;
     let pool = fresh_db("kafka_redeliver").await;
-    let events = Arc::new(KafkaRegistrationEvents::connect(&brokers()).await.unwrap());
+    let events = Arc::new(KafkaEvents::connect(&brokers()).await.unwrap());
     let group = unique_group();
     let completions = completions(&format!("{group}-watch"));
 
@@ -164,7 +164,7 @@ async fn a_redelivered_registration_request_converges_and_acknowledges_again() {
 async fn a_registration_that_cannot_be_persisted_acknowledges_failed_with_the_error() {
     ensure_topics(&brokers()).await;
     let pool = fresh_db("kafka_failed").await;
-    let events = Arc::new(KafkaRegistrationEvents::connect(&brokers()).await.unwrap());
+    let events = Arc::new(KafkaEvents::connect(&brokers()).await.unwrap());
     let group = unique_group();
     let completions = completions(&format!("{group}-watch"));
 
@@ -185,7 +185,7 @@ async fn a_malformed_message_is_dropped_without_killing_the_consumer() {
     ensure_topics(&brokers()).await;
     let pool = fresh_db("kafka_poison").await;
     seed_building(&pool, "seeded", &[]).await;
-    let events = Arc::new(KafkaRegistrationEvents::connect(&brokers()).await.unwrap());
+    let events = Arc::new(KafkaEvents::connect(&brokers()).await.unwrap());
     let group = unique_group();
     let completions = completions(&format!("{group}-watch"));
 
@@ -217,7 +217,7 @@ async fn a_malformed_message_is_dropped_without_killing_the_consumer() {
 
 #[tokio::test]
 async fn a_disabled_producer_publishes_nothing_and_succeeds() {
-    let events = KafkaRegistrationEvents::disabled();
+    let events = KafkaEvents::disabled();
     events.publish_completed("b1", Ok(())).await.unwrap();
     events
         .publish_completed("b1", Err("boom".to_owned()))

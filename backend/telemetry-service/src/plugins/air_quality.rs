@@ -109,10 +109,6 @@ impl SensorPlugin for AirQualityPlugin {
     fn bounds(&self) -> &'static [BoundSpec] {
         BOUNDS
     }
-
-    fn alert_channel(&self) -> &'static str {
-        "alerts:airQuality"
-    }
 }
 
 #[cfg(test)]
@@ -210,10 +206,5 @@ mod tests {
                 },
             ]
         );
-    }
-
-    #[test]
-    fn breaches_are_published_to_the_air_quality_alert_channel() {
-        assert_eq!(AirQualityPlugin.alert_channel(), "alerts:airQuality");
     }
 }

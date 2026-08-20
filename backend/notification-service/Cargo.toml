@@ -14,6 +14,7 @@ futures = "0.3.32"
 log = "0.4.32"
 mongodb = "3"
 prometheus = { version = "0.14", default-features = false }
+rdkafka = "0.39"
 redis = { version = "1.2.3", default-features = false, features = ["tokio-comp"] }
 reqwest = { version = "0.13.4", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }

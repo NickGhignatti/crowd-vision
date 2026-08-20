@@ -63,10 +63,6 @@ impl SensorPlugin for PeopleCountPlugin {
     fn bounds(&self) -> &'static [BoundSpec] {
         BOUNDS
     }
-
-    fn alert_channel(&self) -> &'static str {
-        "alerts:peopleCount"
-    }
 }
 
 #[cfg(test)]
@@ -127,10 +123,5 @@ mod tests {
                 direction: BoundDirection::Above
             }]
         );
-    }
-
-    #[test]
-    fn breaches_are_published_to_the_people_count_alert_channel() {
-        assert_eq!(PeopleCountPlugin.alert_channel(), "alerts:peopleCount");
     }
 }

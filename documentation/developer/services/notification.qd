@@ -27,7 +27,7 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
     - - `src/adapters/driving/http_api/`
       - Axum handlers, `GatewayClaims` extractor, `DomainError` responses.
     - - `src/adapters/driving/alert_listener.rs`
-      - Redis subscriber on `alerts:temperature`.
+      - Kafka consumer on the `alerts` topic.
     - - `src/adapters/driven/`
       - Mongo stores, Redis bus + cooldown, `web-push` sender, twin-service domain lookup.
 
@@ -66,7 +66,10 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
       - Database; the name is taken from the URI path.
     - - `REDIS_URL`
       - `redis://localhost:6379`
-      - Broker for publishing `notifications`, subscribing to `alerts:temperature`, and the cooldown keys.
+      - Broker for publishing `notifications` and the cooldown keys; breaches are consumed from Kafka.
+    - - `KAFKA_BROKERS`
+      - `kafka:9092`
+      - Source of the `alerts` topic. Unreachable at boot is retried, not fatal: the consumer reconnects every 5s.
     - - `PORT`
       - `3000`
       - HTTP listen port.
@@ -174,7 +177,7 @@ Authentication is not enough: every route that names a domain also checks that t
 
 ## The Temperature-Alert Throttle
 
-The telemetry-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts:temperature` broker channel.
+The telemetry-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts` Kafka topic — and it is what absorbs the duplicates that at-least-once delivery allows.
 
 .mermaid
     sequenceDiagram

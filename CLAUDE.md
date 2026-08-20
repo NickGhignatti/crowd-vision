@@ -28,7 +28,7 @@ independently.
 | `backend/twin-service` | Rust / Axum / MongoDB / Kafka | Building spatial model |
 | `backend/contracts-service` | Rust / Axum / MongoDB | Per-building telemetry-dashboard filtering |
 | `backend/telemetry-service` | Rust / Axum / Postgres+Timescale / Kafka / Redis | Telemetry ingestion (readings, thresholds, device actions) |
-| `backend/notification-service` | Rust / Axum / MongoDB / Redis | Alerting, Web Push |
+| `backend/notification-service` | Rust / Axum / MongoDB / Kafka / Redis | Alerting, Web Push |
 | `backend/socket-service` | Rust / Axum / socketioxide / Redis | Real-time transport to browser |
 | `backend/chat-service` | Node / MongoDB | Chat sessions, orchestrates `agent-service` |
 | `backend/agent-service` | Python / FastAPI / PostgreSQL+pgvector | RAG assistant, maintained separately |
@@ -99,7 +99,7 @@ inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = 
 **twin-service** (Rust): same Ports & Adapters shape, test-enforced. Detail in
 `backend/twin-service/CLAUDE.md`. **notification-service** (Rust): same shape —
 `src/domain/` (pure), `src/service/` (use cases + `Arc<dyn Port>`), `src/adapters/driving/`
-(HTTP + Redis `alerts:temperature` subscriber), `src/adapters/driven/` (Mongo, Redis bus +
+(HTTP + Kafka `alerts` consumer), `src/adapters/driven/` (Mongo, Redis bus +
 cooldown, web-push, twin lookup), wired in `main.rs`. Test-enforced by
 `tests/architecture_fitness.rs`; `x-gateway-claims` literal only in `domain/identity.rs`.
 **telemetry-service** (Rust) = hexagon + microkernel on orthogonal axes: `src/contracts/`
@@ -109,6 +109,13 @@ never import each other or the kernel), `src/adapters/driven|driving/`, wired in
 Test-enforced by `tests/architecture.rs`. Device vocabulary lives **only** in
 `adapters/driven/dispatch.rs` — see `design/sensor-actions.qd`. Storage levers in
 `design/telemetry-storage.qd`.
+**Breach alerts on Kafka**: every threshold breach goes to the single `alerts` topic, keyed
+`buildingId:roomId`, produced enqueue-only (`send_result`) so a broker outage never stalls
+`/telemetry/ingest`. notification-service consumes it (group `notification-service-alerts`,
+`auto.offset.reset=earliest`) and filters `type == "temperature"`; a breach produced while it
+is down is processed on return. Auto-commit and concurrent handling are deliberate — no record
+blocks the next. Duplicates are absorbed by the existing Redis cooldown (`temp_alert:<b>:<r>`,
+300s). Telemetry fan-out stays on Redis.
 `socket-service` (Rust) = functional core / imperative shell,
 split as directories: `src/core/` (`auth`/`rooms`/`relay`, pure + unit-tested), `src/shell/`
 (`handlers`/`server`/`metrics`/`twin`), `src/main.rs` binds only. Test-enforced by

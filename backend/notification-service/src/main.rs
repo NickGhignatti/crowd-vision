@@ -52,6 +52,7 @@ async fn main() {
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
     let twin_url =
         env::var("TWIN_SERVICE_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let brokers = env::var("KAFKA_BROKERS").unwrap_or_else(|_| "kafka:9092".to_string());
     let vapid_public_key = env::var("VAPID_PUBLIC_KEY").unwrap_or_default();
     let vapid_private_key = env::var("VAPID_PRIVATE_KEY").unwrap_or_default();
 
@@ -83,9 +84,8 @@ async fn main() {
     ));
 
     let listener_alerts = alerts.clone();
-    let listener_url = redis_url.clone();
     tokio::spawn(async move {
-        if let Err(e) = alert_listener::listen(&listener_url, listener_alerts).await {
+        if let Err(e) = alert_listener::listen(&brokers, listener_alerts).await {
             error!("[Event] Temperature alert listener stopped: {e:?}");
         }
     });

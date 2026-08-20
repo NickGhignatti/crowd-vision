@@ -44,6 +44,20 @@ pub static HTTP_REQUEST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     .expect("metric can be created")
 });
 
+pub static ALERTS_CONSUMED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "notification_alerts_consumed_total",
+        "Total number of records read from the alerts topic",
+        &["outcome"],
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub fn record_alert_consumed(outcome: &str) {
+    ALERTS_CONSUMED_TOTAL.with_label_values(&[outcome]).inc();
+}
+
 fn is_infra_path(path: &str) -> bool {
     matches!(path, "/metrics" | "/metrics/" | "/health" | "/health/")
 }

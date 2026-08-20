@@ -4,8 +4,16 @@ use time::format_description::BorrowedFormatItem;
 use time::macros::format_description;
 
 pub const NOTIFICATIONS_CHANNEL: &str = "notifications";
-pub const ALERTS_TEMPERATURE_CHANNEL: &str = "alerts:temperature";
+pub const ALERTS_TOPIC: &str = "alerts";
 pub const COOLDOWN_SECONDS: u64 = 300;
+
+pub fn is_temperature_alert(raw: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(raw)
+        .ok()
+        .and_then(|body| body["type"].as_str().map(str::to_owned))
+        .as_deref()
+        == Some(crate::domain::preference::TEMPERATURE)
+}
 
 const JS_ISO: &[BorrowedFormatItem] =
     format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z");
@@ -189,6 +197,22 @@ mod tests {
             direction: direction.map(str::to_string),
             timestamp: Some(1_700_000_000_000),
         }
+    }
+
+    #[test]
+    fn a_temperature_record_is_the_only_one_the_listener_acts_on() {
+        assert!(is_temperature_alert(
+            r#"{"type":"temperature","temperature":31.5}"#
+        ));
+        assert!(!is_temperature_alert(
+            r#"{"type":"peopleCount","peopleCount":20}"#
+        ));
+    }
+
+    #[test]
+    fn a_record_without_a_type_is_not_treated_as_a_temperature_breach() {
+        assert!(!is_temperature_alert(r#"{"temperature":31.5}"#));
+        assert!(!is_temperature_alert("not json"));
     }
 
     #[test]

@@ -171,6 +171,7 @@ jobs:
       working_directory: backend/notification-service
       needs_mongo: true
       needs_redis: true
+      needs_kafka: true
 
   telemetry:
     needs: changes
