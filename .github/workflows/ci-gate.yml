@@ -169,9 +169,6 @@ jobs:
     with:
       service_key: notification
       working_directory: backend/notification-service
-      needs_mongo: true
-      needs_redis: true
-      needs_kafka: true
 
   telemetry:
     needs: changes
@@ -180,9 +177,6 @@ jobs:
     with:
       service_key: telemetry
       working_directory: backend/telemetry-service
-      needs_postgres: true
-      needs_redis: true
-      needs_kafka: true
 
   socket:
     needs: changes
@@ -191,8 +185,6 @@ jobs:
     with:
       service_key: socket
       working_directory: backend/socket-service
-      needs_mongo: false
-      needs_redis: true
 
   twin:
     needs: changes
@@ -201,7 +193,6 @@ jobs:
     with:
       service_key: twin
       working_directory: backend/twin-service
-      needs_mongo: true
 
   contracts:
     needs: changes
@@ -210,7 +201,6 @@ jobs:
     with:
       service_key: contracts
       working_directory: backend/contracts-service
-      needs_mongo: false
 
   agent:
     needs: changes
