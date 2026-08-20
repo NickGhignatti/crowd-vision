@@ -2,9 +2,19 @@ use async_trait::async_trait;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use serde_json::json;
+use std::time::Duration;
 
 use crate::domain::Building;
 use crate::service::ports::DownstreamSync;
+
+const TIMEOUT: Duration = Duration::from_secs(5);
+
+pub fn client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(TIMEOUT)
+        .build()
+        .expect("an HTTP client with a timeout is constructible")
+}
 
 #[derive(Clone)]
 pub struct OutboundConfig {
@@ -225,8 +235,25 @@ mod tests {
             contracts_service_url: server.uri(),
             notification_service_url: server.uri(),
             sync_enabled: true,
-            client: reqwest::Client::new(),
+            client: client(),
         }
+    }
+
+    #[tokio::test]
+    async fn a_stalled_downstream_times_out_instead_of_hanging() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .and(path("/thresholds/buildings/b1"))
+            .respond_with(ResponseTemplate::new(200).set_delay(TIMEOUT * 3))
+            .mount(&server)
+            .await;
+
+        let cfg = config(&server).await;
+        let started = std::time::Instant::now();
+        let result = sync_building_clone(&cfg, &building(), None, None).await;
+
+        assert!(result.is_err());
+        assert!(started.elapsed() < TIMEOUT * 2);
     }
 
     #[tokio::test]

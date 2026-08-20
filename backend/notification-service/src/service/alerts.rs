@@ -7,6 +7,27 @@ use crate::domain::{
 use crate::service::ports::{Clock, Cooldown, DomainDirectory, NotificationBus};
 use crate::service::push::Push;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BreachOutcome {
+    Invalid,
+    Failed,
+    Suppressed,
+    Delivered,
+    Unroutable,
+}
+
+impl BreachOutcome {
+    pub fn label(self) -> &'static str {
+        match self {
+            BreachOutcome::Invalid => "invalid",
+            BreachOutcome::Failed => "failed",
+            BreachOutcome::Suppressed => "suppressed",
+            BreachOutcome::Delivered => "delivered",
+            BreachOutcome::Unroutable => "unroutable",
+        }
+    }
+}
+
 pub struct Alerts {
     bus: Arc<dyn NotificationBus>,
     cooldown: Arc<dyn Cooldown>,
@@ -32,27 +53,28 @@ impl Alerts {
         }
     }
 
-    pub async fn on_temperature_breach(&self, raw: &str) {
+    pub async fn on_temperature_breach(&self, raw: &str) -> BreachOutcome {
         let alert: TemperatureAlert = match serde_json::from_str(raw) {
             Ok(alert) => alert,
             Err(e) => {
                 log::error!("[Event] Failed to process temperature alert: {e}");
-                return;
+                return BreachOutcome::Invalid;
             }
         };
 
         let key = alert.cooldown_key();
         match self.cooldown.is_active(&key).await {
-            Ok(true) => return,
+            Ok(true) => return BreachOutcome::Suppressed,
             Ok(false) => {}
             Err(e) => {
                 log::error!("[Event] Failed to read the alert cooldown: {e:?}");
-                return;
+                return BreachOutcome::Failed;
             }
         }
 
         let message = alert.message();
-        let domains = match alert.building_id.as_deref().filter(|b| !b.is_empty()) {
+        let building = alert.building_id.as_deref().filter(|b| !b.is_empty());
+        let domains = match building {
             Some(building) => self
                 .domain_directory
                 .domains_for_building(building, &system_claims_header())
@@ -64,17 +86,24 @@ impl Alerts {
             None => Vec::new(),
         };
 
-        if domains.is_empty() {
+        let outcome = if domains.is_empty() {
+            log::error!(
+                "[Event] Temperature alert for building {} reached no domain: no web push was sent and only open sockets can receive it. Alert: {message}",
+                building.unwrap_or("<missing>")
+            );
             let at = alert.timestamp.unwrap_or_else(|| self.clock.now_millis());
             self.publish(&message, "danger", None, at).await;
+            BreachOutcome::Unroutable
         } else {
             self.fan_out(&message, &alert.push_title(), &domains, Some(TEMPERATURE))
                 .await;
-        }
+            BreachOutcome::Delivered
+        };
 
         if let Err(e) = self.cooldown.start(&key, COOLDOWN_SECONDS).await {
             log::error!("[Event] Failed to arm the alert cooldown: {e:?}");
         }
+        outcome
     }
 
     pub async fn trigger(
@@ -357,6 +386,57 @@ mod tests {
         assert!(fixture.directory.calls.lock().unwrap().is_empty());
         assert!(published(&fixture).is_empty());
         assert!(fixture.cooldown.started.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_alert_that_reaches_no_domain_is_reported_as_unroutable() {
+        let fixture = fixture(StubDirectory::empty());
+
+        let outcome = fixture.alerts.on_temperature_breach(&breach()).await;
+
+        assert_eq!(outcome, BreachOutcome::Unroutable);
+    }
+
+    #[tokio::test]
+    async fn a_failed_lookup_is_also_reported_as_unroutable() {
+        let fixture = fixture(StubDirectory::failing());
+
+        let outcome = fixture.alerts.on_temperature_breach(&breach()).await;
+
+        assert_eq!(outcome, BreachOutcome::Unroutable);
+    }
+
+    #[tokio::test]
+    async fn an_alert_fanned_out_to_a_domain_is_reported_as_delivered() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+
+        let outcome = fixture.alerts.on_temperature_breach(&breach()).await;
+
+        assert_eq!(outcome, BreachOutcome::Delivered);
+    }
+
+    #[tokio::test]
+    async fn an_alert_inside_the_cooldown_is_reported_as_suppressed() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+        fixture
+            .cooldown
+            .active
+            .lock()
+            .unwrap()
+            .push("temp_alert:b1:r1".to_string());
+
+        let outcome = fixture.alerts.on_temperature_breach(&breach()).await;
+
+        assert_eq!(outcome, BreachOutcome::Suppressed);
+    }
+
+    #[tokio::test]
+    async fn a_malformed_message_is_reported_as_invalid() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+
+        let outcome = fixture.alerts.on_temperature_breach("not-json").await;
+
+        assert_eq!(outcome, BreachOutcome::Invalid);
     }
 
     #[tokio::test]

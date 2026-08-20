@@ -7,6 +7,8 @@ export interface HistoryMessage {
   content: string;
 }
 
+const TIMEOUT_MS = 60_000;
+
 interface AskResponse {
   answer: string;
   citations: ICitation[];
@@ -26,6 +28,7 @@ export const askAgent = async (
         "x-gateway-claims": claimsHeader,
       },
       body: JSON.stringify({ question, history, stream: false }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
     throw new BadGatewayError("Could not reach agent-service");

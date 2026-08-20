@@ -114,6 +114,9 @@ describe("conversation API", () => {
     expect(jest.mocked(fetch).mock.calls[0]?.[1]?.headers).toMatchObject({
       "x-gateway-claims": header,
     });
+    expect(jest.mocked(fetch).mock.calls[0]?.[1]?.signal).toBeInstanceOf(
+      AbortSignal,
+    );
 
     const saved = await Conversation.findById(conversation.id);
     expect(saved?.messages).toHaveLength(4);

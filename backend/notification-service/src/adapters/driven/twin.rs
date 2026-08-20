@@ -1,7 +1,10 @@
 use async_trait::async_trait;
+use std::time::Duration;
 
 use crate::domain::CLAIMS_HEADER;
 use crate::service::ports::DomainDirectory;
+
+const TIMEOUT: Duration = Duration::from_secs(2);
 
 pub struct TwinDirectory {
     base_url: String,
@@ -12,7 +15,10 @@ impl TwinDirectory {
     pub fn new(base_url: String) -> Self {
         TwinDirectory {
             base_url,
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(TIMEOUT)
+                .build()
+                .expect("an HTTP client with a timeout is constructible"),
         }
     }
 }
@@ -86,6 +92,24 @@ mod tests {
             .unwrap();
 
         assert!(domains.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_stalled_twin_service_times_out_instead_of_hanging() {
+        let server = server().await;
+        Mock::given(method("GET"))
+            .and(path("/domain/b1"))
+            .respond_with(ResponseTemplate::new(200).set_delay(TIMEOUT * 5))
+            .mount(&server)
+            .await;
+
+        let started = std::time::Instant::now();
+        let result = TwinDirectory::new(server.uri())
+            .domains_for_building("b1", "claims")
+            .await;
+
+        assert!(result.is_err());
+        assert!(started.elapsed() < TIMEOUT * 3);
     }
 
     #[tokio::test]

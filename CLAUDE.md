@@ -96,38 +96,17 @@ Ports & Adapters. Core in `internal/service`/`internal/reconciler`, depends only
 interfaces, wired in `cmd/<service>/main.go`. Only outbound side has real port/adapter split —
 inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = ticker loop.
 
-**twin-service** (Rust): same Ports & Adapters shape, test-enforced. Detail in
-`backend/twin-service/CLAUDE.md`. **notification-service** (Rust): same shape —
-`src/domain/` (pure), `src/service/` (use cases + `Arc<dyn Port>`), `src/adapters/driving/`
-(HTTP + Kafka `alerts` consumer), `src/adapters/driven/` (Mongo, Redis bus +
-cooldown, web-push, twin lookup), wired in `main.rs`. Test-enforced by
-`tests/architecture_fitness.rs`; `x-gateway-claims` literal only in `domain/identity.rs`.
-**telemetry-service** (Rust) = hexagon + microkernel on orthogonal axes: `src/contracts/`
-(pure types + `SensorPlugin`/`ActionSpec` traits, depends on nothing), `src/kernel/` (use cases
-+ `Arc<dyn Port>`, the microkernel — never names a plugin), `src/plugins/` (one file per metric,
-never import each other or the kernel), `src/adapters/driven|driving/`, wired in `main.rs`.
-Test-enforced by `tests/architecture.rs`. Device vocabulary lives **only** in
-`adapters/driven/dispatch.rs` — see `design/sensor-actions.qd`. Storage levers in
-`design/telemetry-storage.qd`.
-**Breach alerts on Kafka**: every threshold breach goes to the single `alerts` topic, keyed
-`buildingId:roomId`, produced enqueue-only (`send_result`) so a broker outage never stalls
-`/telemetry/ingest`. notification-service consumes it (group `notification-service-alerts`,
-`auto.offset.reset=earliest`) and filters `type == "temperature"`; a breach produced while it
-is down is processed on return. Auto-commit and concurrent handling are deliberate — no record
-blocks the next. Duplicates are absorbed by the existing Redis cooldown (`temp_alert:<b>:<r>`,
-300s). Telemetry fan-out stays on Redis.
-`socket-service` (Rust) = functional core / imperative shell,
-split as directories: `src/core/` (`auth`/`rooms`/`relay`, pure + unit-tested), `src/shell/`
-(`handlers`/`server`/`metrics`/`twin`), `src/main.rs` binds only. Test-enforced by
-`tests/architecture.rs`: every `src/*.rs` must live in `core/` or `shell/`; core imports no I/O
-crate, no `async fn`, never names `crate::shell`; room-name literals only in `core/rooms.rs`,
-`x-gateway-claims` only in `core/auth.rs`. `subscribe_building` authorizes per building:
-`shell/twin.rs` resolves building → domains from twin-service (`TWIN_SERVICE_URL`, caller's
-claims forwarded, 60s cache — authoritative answers cached incl. empty, failures not),
-`core::auth::may_read_building` requires a shared domain. Emit path unchanged, no per-message
-check. Sockets dropped after `SOCKET_MAX_LIFETIME_SECS` (default 900, = gateway `TokenTTL`) by a
-sweep in `server.rs`; `core/session.rs` jitters per socket so a deploy's clients don't re-expire
-in lockstep. Reconnect re-reads the cookie — that is the re-validation. `contracts-service` (Rust) stays flat, no restructure.
+**Rust services**: each enforces its own layering with a `tests/architecture*.rs` fitness test —
+read the service's own `CLAUDE.md` before restructuring. `twin-service`, `notification-service`
+= Ports & Adapters. `telemetry-service` = hexagon + microkernel. `socket-service` = functional
+core / imperative shell. `contracts-service` stays flat, no restructure.
+
+**Breach alerts**: telemetry-service produces every threshold breach to the `alerts` Kafka topic;
+notification-service consumes and delivers. Redelivery-safe, absorbed by a Redis cooldown.
+Telemetry fan-out stays on Redis. Detail on each side in the two services' `CLAUDE.md`.
+
+**Every outbound service-to-service HTTP call sets a timeout.** Neither `reqwest` nor Node
+`fetch` has one by default, and a hang is silent — no error, so no fallback path fires.
 
 **Service mesh**: prod/staging = Istio ambient (`ztunnel` L4 mTLS, no sidecars; optional
 `waypoint` for L7). Trust: hard perimeter, guarded interior — edge authenticates once, every
