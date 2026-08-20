@@ -45,9 +45,7 @@ impl Ingest {
                         threshold: breach.threshold,
                         ts_ms: self.clock.now_ms(),
                     };
-                    self.alerts
-                        .publish_breach(plugin.alert_channel(), &alert)
-                        .await;
+                    self.alerts.publish_breach(&alert).await;
                 }
             }
             Ok(None) => {}
@@ -176,14 +174,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_breach_publishes_on_the_channel_named_by_the_plugin() {
+    async fn a_breach_publishes_an_alert_carrying_the_metric_and_the_bound() {
         let h = harness(FakeReadings::default(), bounds(json!({ "maxFake": 25.0 })));
         h.ingest.accept("fake", &payload(26.0)).await.unwrap();
         let published = h.alerts.published.lock().unwrap();
         assert_eq!(published.len(), 1);
-        assert_eq!(published[0].0, "alerts:fake");
-        assert_eq!(published[0].1.threshold, 25.0);
-        assert_eq!(published[0].1.value, 26.0);
+        assert_eq!(published[0].metric, "fake");
+        assert_eq!(published[0].building_id, "b1");
+        assert_eq!(published[0].room_id, "r1");
+        assert_eq!(published[0].threshold, 25.0);
+        assert_eq!(published[0].value, 26.0);
     }
 
     #[tokio::test]

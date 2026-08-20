@@ -96,10 +96,6 @@ impl SensorPlugin for FakePlugin {
         FAKE_BOUNDS
     }
 
-    fn alert_channel(&self) -> &'static str {
-        "alerts:fake"
-    }
-
     fn actions(&self) -> &'static [ActionSpec] {
         FAKE_ACTIONS
     }
@@ -513,16 +509,13 @@ impl Fanout for FakeFanout {
 
 #[derive(Default)]
 pub struct FakeAlerts {
-    pub published: Mutex<Vec<(String, AlertPayload)>>,
+    pub published: Mutex<Vec<AlertPayload>>,
 }
 
 #[async_trait]
 impl Alerts for FakeAlerts {
-    async fn publish_breach(&self, channel: &str, alert: &AlertPayload) {
-        self.published
-            .lock()
-            .unwrap()
-            .push((channel.to_owned(), alert.clone()));
+    async fn publish_breach(&self, alert: &AlertPayload) {
+        self.published.lock().unwrap().push(alert.clone());
     }
 }
 

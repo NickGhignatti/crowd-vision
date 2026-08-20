@@ -51,7 +51,6 @@ pub trait SensorPlugin: Send + Sync {
     fn descriptor(&self) -> &MetricDescriptor;
     fn validate(&self, payload: &Value) -> Result<Reading, Vec<String>>;
     fn bounds(&self) -> &'static [BoundSpec];
-    fn alert_channel(&self) -> &'static str;
 
     fn actions(&self) -> &'static [ActionSpec] {
         &[]

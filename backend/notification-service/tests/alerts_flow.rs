@@ -15,7 +15,7 @@ use notification_service::adapters::driven::redis_bus::RedisBus;
 use notification_service::adapters::driven::twin::TwinDirectory;
 use notification_service::adapters::driving::alert_listener;
 use notification_service::domain::{
-    ALERTS_TEMPERATURE_CHANNEL, NOTIFICATIONS_CHANNEL, PreferenceUpdate, WebPushSubscription,
+    ALERTS_TOPIC, NOTIFICATIONS_CHANNEL, PreferenceUpdate, WebPushSubscription,
 };
 use notification_service::service::alerts::Alerts;
 use notification_service::service::ports::SystemClock;
@@ -23,6 +23,27 @@ use notification_service::service::ports::{Cooldown, PreferenceStore, Subscripti
 use notification_service::service::push::Push;
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+fn brokers() -> String {
+    std::env::var("KAFKA_BROKERS").unwrap_or_else(|_| "localhost:9092".to_string())
+}
+
+async fn produce(payload: String) {
+    let producer: rdkafka::producer::FutureProducer = rdkafka::ClientConfig::new()
+        .set("bootstrap.servers", brokers())
+        .set("message.timeout.ms", "5000")
+        .create()
+        .unwrap();
+    producer
+        .send(
+            rdkafka::producer::FutureRecord::to(ALERTS_TOPIC)
+                .key("b1:r1")
+                .payload(&payload),
+            Duration::from_secs(10),
+        )
+        .await
+        .unwrap();
+}
 
 fn redis_url() -> String {
     std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string())
@@ -112,7 +133,7 @@ async fn next_notification() -> tokio::task::JoinHandle<Option<Value>> {
     pubsub.subscribe(NOTIFICATIONS_CHANNEL).await.unwrap();
 
     tokio::spawn(async move {
-        let message = tokio::time::timeout(Duration::from_secs(5), pubsub.on_message().next())
+        let message = tokio::time::timeout(Duration::from_secs(30), pubsub.on_message().next())
             .await
             .ok()
             .flatten()?;
@@ -121,33 +142,23 @@ async fn next_notification() -> tokio::task::JoinHandle<Option<Value>> {
 }
 
 #[tokio::test]
-async fn a_temperature_breach_on_the_channel_publishes_a_scoped_notification() {
+async fn a_breach_produced_while_nobody_listens_is_still_delivered_on_return() {
     let building = unique("b");
     let twin = twin_returning(&building, &["eng"]).await;
     let (alerts, bus) = alerts(twin.uri()).await;
 
-    let listener = {
-        let alerts = alerts.clone();
-        tokio::spawn(async move { alert_listener::listen(&redis_url(), alerts).await })
-    };
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    produce(format!(
+        r#"{{"type":"temperature","buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high"}}"#
+    ))
+    .await;
 
     let observer = next_notification().await;
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    let mut publisher = redis::Client::open(redis_url())
-        .unwrap()
-        .get_multiplexed_async_connection()
-        .await
-        .unwrap();
-    redis::cmd("PUBLISH")
-        .arg(ALERTS_TEMPERATURE_CHANNEL)
-        .arg(format!(
-            r#"{{"buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high"}}"#
-        ))
-        .query_async::<()>(&mut publisher)
-        .await
-        .unwrap();
+    let listener = {
+        let alerts = alerts.clone();
+        tokio::spawn(async move { alert_listener::listen(&brokers(), alerts).await })
+    };
 
     let notification = observer
         .await
@@ -156,7 +167,7 @@ async fn a_temperature_breach_on_the_channel_publishes_a_scoped_notification() {
 
     assert_eq!(
         notification["message"],
-        format!("{building} : r1 is 31.5°C (above maximum)")
+        format!("{building} : r1 is 31.5\u{00b0}C (above maximum)")
     );
     assert_eq!(notification["type"], "danger");
     assert_eq!(notification["domainName"], "eng");

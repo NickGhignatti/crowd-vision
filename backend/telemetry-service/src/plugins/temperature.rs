@@ -101,10 +101,6 @@ impl SensorPlugin for TemperaturePlugin {
         BOUNDS
     }
 
-    fn alert_channel(&self) -> &'static str {
-        "alerts:temperature"
-    }
-
     fn actions(&self) -> &'static [ActionSpec] {
         ACTIONS
     }
@@ -184,10 +180,5 @@ mod tests {
                 },
             ]
         );
-    }
-
-    #[test]
-    fn breaches_are_published_to_the_temperature_alert_channel() {
-        assert_eq!(TemperaturePlugin.alert_channel(), "alerts:temperature");
     }
 }

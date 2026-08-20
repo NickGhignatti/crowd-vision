@@ -114,7 +114,7 @@ pub trait Fanout: Send + Sync {
 
 #[async_trait]
 pub trait Alerts: Send + Sync {
-    async fn publish_breach(&self, channel: &str, alert: &AlertPayload);
+    async fn publish_breach(&self, alert: &AlertPayload);
 }
 
 pub trait Clock: Send + Sync {

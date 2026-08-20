@@ -315,8 +315,8 @@ async fn a_people_count_room_threshold_is_readable_back() {
 
     let alerts = app.alerts.published.lock().unwrap();
     assert_eq!(alerts.len(), 1);
-    assert_eq!(alerts[0].0, "alerts:peopleCount");
-    assert_eq!(alerts[0].1.threshold, 12.0);
+    assert_eq!(alerts[0].metric, "peopleCount");
+    assert_eq!(alerts[0].threshold, 12.0);
 }
 
 #[tokio::test]

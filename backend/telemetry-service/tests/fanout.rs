@@ -3,9 +3,8 @@ mod support;
 use futures::StreamExt;
 use serde_json::json;
 use telemetry_service::adapters::driven::redis_fanout::{RAW_CHANNEL, RedisFanout};
-use telemetry_service::contracts::event::{AlertPayload, TelemetryEvent};
-use telemetry_service::contracts::plugin::BoundDirection;
-use telemetry_service::kernel::ports::{Alerts, Fanout};
+use telemetry_service::contracts::event::TelemetryEvent;
+use telemetry_service::kernel::ports::Fanout;
 
 fn redis_url() -> String {
     std::env::var("REDIS_URL").expect("REDIS_URL is set by docker-compose.test.yml")
@@ -57,50 +56,4 @@ async fn a_telemetry_event_reaches_the_raw_channel() {
     assert_eq!(body["roomId"], "r1");
     assert_eq!(body["value"], 21.5);
     assert_eq!(body["ingestedAt"], 1_700_000_000_000i64);
-}
-
-#[tokio::test]
-async fn a_breach_reaches_the_channel_named_by_the_plugin() {
-    let mut pubsub = subscribe("alerts:peopleCount").await;
-    let fanout = RedisFanout::connect(&redis_url()).await.unwrap();
-
-    fanout
-        .publish_breach(
-            "alerts:peopleCount",
-            &AlertPayload {
-                metric: "peopleCount".to_owned(),
-                building_id: "b1".to_owned(),
-                room_id: "r1".to_owned(),
-                value: 20.0,
-                direction: BoundDirection::Above,
-                threshold: 12.0,
-                ts_ms: 1_700_000_000_000,
-            },
-        )
-        .await;
-
-    let body = next_message(&mut pubsub).await;
-    assert_eq!(body["type"], "peopleCount");
-    assert_eq!(body["peopleCount"], 20.0);
-    assert_eq!(body["direction"], "high");
-    assert_eq!(body["threshold"], 12.0);
-}
-
-#[tokio::test]
-async fn a_publish_failure_never_reaches_the_caller() {
-    let fanout = RedisFanout::connect(&redis_url()).await.unwrap();
-    fanout
-        .publish_breach(
-            "alerts:temperature",
-            &AlertPayload {
-                metric: "temperature".to_owned(),
-                building_id: "b1".to_owned(),
-                room_id: "r1".to_owned(),
-                value: 26.0,
-                direction: BoundDirection::Above,
-                threshold: 25.0,
-                ts_ms: 1,
-            },
-        )
-        .await;
 }

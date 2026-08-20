@@ -206,7 +206,7 @@ Step by step:
 The device's own status is never forwarded verbatim — its `503` becomes our `502`, because the failure is ours-talking-to-them, not the caller's request.
 
 .box {`200 accepted` means delivered, not applied} type:{note}
-    The response confirms the command reached the device, not that the room is 21 °C. Confirmation arrives seconds later through the ordinary read path: the boiler heats, the sensor reports 21.4, `POST /ingest` stores it, `telemetry:raw` reaches the browser, the chart moves. If the new value breaches `maxTemp`, the same ingest fires `alerts:temperature` and the user is notified about the change they just made — no action-specific plumbing.
+    The response confirms the command reached the device, not that the room is 21 °C. Confirmation arrives seconds later through the ordinary read path: the boiler heats, the sensor reports 21.4, `POST /ingest` stores it, `telemetry:raw` reaches the browser, the chart moves. If the new value breaches `maxTemp`, the same ingest fires a record onto the `alerts` topic and the user is notified about the change they just made — no action-specific plumbing.
 
 ---
 

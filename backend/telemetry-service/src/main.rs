@@ -1,7 +1,7 @@
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 use telemetry_service::adapters::driven::dispatch::HttpDispatch;
-use telemetry_service::adapters::driven::kafka_producer::KafkaRegistrationEvents;
+use telemetry_service::adapters::driven::kafka_producer::KafkaEvents;
 use telemetry_service::adapters::driven::postgres::{
     PgBuildings, PgReadings, PgSensors, PgThresholds,
 };
@@ -63,14 +63,16 @@ async fn main() -> anyhow::Result<()> {
     let fanout = Arc::new(RedisFanout::connect(&redis_url).await?);
     let directory = Arc::new(TwinDirectory::new(twin_url));
 
-    let events: Arc<dyn RegistrationEvents> = match KafkaRegistrationEvents::connect(&brokers).await
-    {
+    let kafka = match KafkaEvents::connect(&brokers).await {
         Ok(producer) => Arc::new(producer),
         Err(error) => {
-            log::error!("kafka producer unavailable, registration acks disabled: {error}");
-            Arc::new(KafkaRegistrationEvents::disabled())
+            log::error!(
+                "kafka producer unavailable, registration acks and alerts disabled: {error}"
+            );
+            Arc::new(KafkaEvents::disabled())
         }
     };
+    let events: Arc<dyn RegistrationEvents> = kafka.clone();
 
     let registration = Arc::new(Registration {
         buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
@@ -88,7 +90,7 @@ async fn main() -> anyhow::Result<()> {
             readings: readings_store.clone() as Arc<dyn ReadingStore>,
             thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
             fanout: fanout.clone() as Arc<dyn Fanout>,
-            alerts: fanout.clone() as Arc<dyn Alerts>,
+            alerts: kafka.clone() as Arc<dyn Alerts>,
             clock: Arc::new(SystemClock) as Arc<dyn Clock>,
         },
         readings: Readings {

@@ -33,6 +33,7 @@ fn domain_has_no_framework_dependencies() {
         &[
             "axum",
             "mongodb",
+            "rdkafka",
             "redis",
             "reqwest",
             "web_push",
@@ -46,7 +47,14 @@ fn domain_has_no_framework_dependencies() {
 fn service_has_no_framework_or_adapter_dependencies() {
     assert_no_forbidden_imports(
         "src/service",
-        &["axum", "mongodb", "redis::", "reqwest", "crate::adapters"],
+        &[
+            "axum",
+            "mongodb",
+            "rdkafka",
+            "redis::",
+            "reqwest",
+            "crate::adapters",
+        ],
     );
 }
 

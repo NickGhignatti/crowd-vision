@@ -1,7 +1,7 @@
 use crate::adapters::metrics;
-use crate::contracts::event::{AlertPayload, TelemetryEvent};
-use crate::contracts::plugin::{BoundDirection, ENVELOPE_FIELDS};
-use crate::kernel::ports::{Alerts, Fanout};
+use crate::contracts::event::TelemetryEvent;
+use crate::contracts::plugin::ENVELOPE_FIELDS;
+use crate::kernel::ports::Fanout;
 use async_trait::async_trait;
 use redis::AsyncCommands;
 use redis::aio::MultiplexedConnection;
@@ -53,41 +53,11 @@ fn telemetry_json(event: &TelemetryEvent) -> Value {
     Value::Object(body)
 }
 
-fn alert_json(alert: &AlertPayload) -> Value {
-    json!({
-        "buildingId": alert.building_id,
-        "roomId": alert.room_id,
-        alert.metric.clone(): alert.value,
-        "type": alert.metric,
-        "direction": match alert.direction {
-            BoundDirection::Above => "high",
-            BoundDirection::Below => "low",
-        },
-        "threshold": alert.threshold,
-        "timestamp": alert.ts_ms,
-    })
-}
-
 #[async_trait]
 impl Fanout for RedisFanout {
     async fn publish_telemetry(&self, event: &TelemetryEvent) {
         let outcome = self.publish(RAW_CHANNEL, &telemetry_json(event)).await;
         metrics::record_telemetry_published(outcome);
-    }
-}
-
-#[async_trait]
-impl Alerts for RedisFanout {
-    async fn publish_breach(&self, channel: &str, alert: &AlertPayload) {
-        metrics::record_breach(
-            &alert.metric,
-            match alert.direction {
-                BoundDirection::Above => "high",
-                BoundDirection::Below => "low",
-            },
-        );
-        let outcome = self.publish(channel, &alert_json(alert)).await;
-        metrics::record_alert_published(channel, outcome);
     }
 }
 
@@ -157,54 +127,5 @@ mod tests {
         ] {
             assert!(body.get(field).is_some(), "missing {field}");
         }
-    }
-
-    #[test]
-    fn a_high_breach_keeps_the_node_alert_shape() {
-        let body = alert_json(&AlertPayload {
-            metric: "temperature".to_owned(),
-            building_id: "b1".to_owned(),
-            room_id: "r1".to_owned(),
-            value: 26.0,
-            direction: BoundDirection::Above,
-            threshold: 25.0,
-            ts_ms: 1_700_000_000_000,
-        });
-        assert_eq!(body["buildingId"], "b1");
-        assert_eq!(body["roomId"], "r1");
-        assert_eq!(body["temperature"], 26.0);
-        assert_eq!(body["type"], "temperature");
-        assert_eq!(body["direction"], "high");
-        assert_eq!(body["threshold"], 25.0);
-        assert_eq!(body["timestamp"], 1_700_000_000_000i64);
-    }
-
-    #[test]
-    fn a_low_breach_reports_the_direction_as_low() {
-        let body = alert_json(&AlertPayload {
-            metric: "temperature".to_owned(),
-            building_id: "b1".to_owned(),
-            room_id: "r1".to_owned(),
-            value: 14.0,
-            direction: BoundDirection::Below,
-            threshold: 18.0,
-            ts_ms: 1,
-        });
-        assert_eq!(body["direction"], "low");
-    }
-
-    #[test]
-    fn another_metric_names_its_value_field_after_itself() {
-        let body = alert_json(&AlertPayload {
-            metric: "peopleCount".to_owned(),
-            building_id: "b1".to_owned(),
-            room_id: "r1".to_owned(),
-            value: 20.0,
-            direction: BoundDirection::Above,
-            threshold: 12.0,
-            ts_ms: 1,
-        });
-        assert_eq!(body["peopleCount"], 20.0);
-        assert_eq!(body["type"], "peopleCount");
     }
 }

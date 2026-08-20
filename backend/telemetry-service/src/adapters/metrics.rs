@@ -355,11 +355,11 @@ mod tests {
     async fn publish_outcomes_are_counted_for_both_channels() {
         record_telemetry_published("ok");
         record_telemetry_published("error");
-        record_alert_published("alerts:temperature", "ok");
+        record_alert_published("alerts", "ok");
         let text = rendered_body().await;
         assert!(text.contains(r#"telemetry_published_total{outcome="error"} 1"#));
         assert!(text.contains(
-            r#"telemetry_alerts_published_total{channel="alerts:temperature",outcome="ok"} 1"#
+            r#"telemetry_alerts_published_total{channel="alerts",outcome="ok"} 1"#
         ));
     }
 
