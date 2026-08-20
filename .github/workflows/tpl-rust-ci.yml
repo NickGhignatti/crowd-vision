@@ -60,6 +60,21 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --release --all-targets -- -D warnings
 
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@75a348306ce8f67c0b06fc62c32a8546140ba955
+        with:
+          tool: cargo-audit@0.22.2
+
+      # Vulnerabilities fail; unmaintained/yanked crates are warnings and do not
+      # (that would need `--deny warnings`). Mirrors the Node templates, where
+      # `npm audit --audit-level=high` gates and the noisier scan does not.
+      #
+      # RUSTSEC-2023-0071 (rsa, Marvin timing sidechannel) has no fixed release.
+      # notification-service reaches it through web-push -> jwt-simple ->
+      # superboring. Drop this flag the moment rsa ships a fix.
+      - name: Audit Dependencies
+        run: cargo audit --ignore RUSTSEC-2023-0071
+
       # `--lib` errors outright on a bin-only crate (no lib.rs, e.g.
       # contracts-service) instead of skipping, so pick the target kind that
       # actually exists.
