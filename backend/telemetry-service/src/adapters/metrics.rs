@@ -358,9 +358,9 @@ mod tests {
         record_alert_published("alerts", "ok");
         let text = rendered_body().await;
         assert!(text.contains(r#"telemetry_published_total{outcome="error"} 1"#));
-        assert!(text.contains(
-            r#"telemetry_alerts_published_total{channel="alerts",outcome="ok"} 1"#
-        ));
+        assert!(
+            text.contains(r#"telemetry_alerts_published_total{channel="alerts",outcome="ok"} 1"#)
+        );
     }
 
     #[tokio::test]

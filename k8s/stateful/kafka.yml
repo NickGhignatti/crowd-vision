@@ -34,12 +34,19 @@ spec:
       labels:
         app: kafka
     spec:
+      # The image runs as appuser (1000); fsGroup is what makes the emptyDir
+      # volumes below writable to it once the root filesystem is read-only.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
         - name: kafka
           image: apache/kafka:3.9.2
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 9092
             - containerPort: 9093
@@ -73,6 +80,14 @@ spec:
           volumeMounts:
             - name: kafka-data
               mountPath: /var/lib/kafka/data
+            # KafkaDockerWrapper renders the final server.properties here at boot,
+            # reading its defaults from the read-only /etc/kafka/docker.
+            - name: kafka-config
+              mountPath: /opt/kafka/config
+            - name: kafka-logs
+              mountPath: /opt/kafka/logs
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             tcpSocket:
               port: 9092
@@ -94,6 +109,13 @@ spec:
               cpu: "1000m"
               memory: "1Gi"
               ephemeral-storage: "1Gi"
+      volumes:
+        - name: kafka-config
+          emptyDir: {}
+        - name: kafka-logs
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
 
   volumeClaimTemplates:
     - metadata:
