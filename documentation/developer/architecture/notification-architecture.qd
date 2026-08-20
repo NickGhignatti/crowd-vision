@@ -40,6 +40,8 @@ The service has **two driving adapters into the same use cases**, not just one. 
 
 `POST /trigger`, `POST /push/temperature`, and the `alerts` Kafka subscription — the path that actually fires for every automatic sensor-driven threshold breach (see [Communication & Data Flow](data-flow.qd)'s Threshold Alert flow) — all resolve recipients via twin-service, debounce, and dispatch on both channels. The two HTTP routes forward the calling user's own `x-gateway-claims` header to twin-service's building→domain lookup; the event-listener path has no HTTP caller to forward a token from, so it presents a fixed system identity instead (`system_claims_header()` in `domain/identity.rs`) — safe only because that specific twin-service route (`GET /domain/:building_name`) doesn't perform any per-identity authorization, it just requires *a* structurally valid claims header to exist.
 
+The lookup client carries a 2-second timeout, matching socket-service's. Without one a stalled twin-service would block the alert pipeline forever and the unscoped fallback below would be unreachable — it only triggers on an error, and a hang never produces one.
+
 Because twin's answer is unscoped, notification-service scopes it itself: the resolved domains are intersected with the caller's own `memberships` before anything is published or pushed. See [Notification Service](../services/notification.qd)'s membership table.
 
 `POST /trigger` has a third caller besides the browser: twin-service itself, on a failed building provisioning (`Provisioning::fail`, see [Digital Twin Service](../services/digital-twin.qd)). Same shape as the event-listener path — no end user in the loop, so it authenticates as a fixed system identity too — but it's an in-mesh service-to-service call, not a Redis event.
@@ -49,6 +51,8 @@ Because twin's answer is unscoped, notification-service scopes it itself: the re
 
 .box {The event-listener path degrades gracefully instead of failing loudly} type:{note}
     `push_temperature` returns a `Validation` error (400) if no domain can be determined — reasonable for a synchronous HTTP call, where silence would be bad UX. The event-listener path can't do that (there's no HTTP response to fail), so if the twin-service lookup errors or resolves to zero domains, it falls back to an unscoped broadcast straight to the `notifications` channel rather than dropping the alert entirely. The 5-minute cooldown still applies either way, so a building that can't be resolved doesn't flood the channel.
+
+    The unscoped broadcast is Redis-only — no web push, because there is no domain to target one at, and pushing to every subscription would be a cross-tenant leak. So it reaches open browser tabs and nothing else. That is a degraded delivery, not a full one: it is logged at `error` and counted as `notification_alerts_consumed_total{outcome="unroutable"}`. Alert on that counter — it means twin-service is unreachable or the building is unregistered.
 
 ### Components & Connectors diagram
 

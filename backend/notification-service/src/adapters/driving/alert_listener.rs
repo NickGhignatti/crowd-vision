@@ -58,6 +58,6 @@ async fn handle(alerts: &Alerts, payload: Option<&[u8]>) {
         metrics::record_alert_consumed("skipped");
         return;
     }
-    alerts.on_temperature_breach(raw).await;
-    metrics::record_alert_consumed("processed");
+    let outcome = alerts.on_temperature_breach(raw).await;
+    metrics::record_alert_consumed(outcome.label());
 }
