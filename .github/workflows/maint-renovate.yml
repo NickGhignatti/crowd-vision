@@ -19,6 +19,7 @@ jobs:
           token: ${{ secrets.RENOVATE_TOKEN }}
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_GIT_AUTHOR: "renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>"
           # Three of the last four runs aborted with "Repository has changed
           # during renovation" on days master had no commits at all, and the
           # fourth stopped after one PR with "Lock file error". Neither reason
