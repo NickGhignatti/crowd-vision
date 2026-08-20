@@ -10,6 +10,7 @@ jobs:
   # list also used by ci-gate.yml, cd-registry.yml, and cd-coverage.yml.
   load-registry:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -27,6 +28,7 @@ jobs:
   cleanup:
     needs: load-registry
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       packages: write
     strategy:

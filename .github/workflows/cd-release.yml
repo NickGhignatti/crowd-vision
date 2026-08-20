@@ -17,6 +17,7 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Run Release Please
         uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071

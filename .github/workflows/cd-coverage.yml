@@ -19,6 +19,7 @@ jobs:
   # actually changed (mirrors cd-registry.yml's own change-detection).
   load-registry:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       node: ${{ steps.split.outputs.node }}
       python: ${{ steps.split.outputs.python }}
@@ -138,6 +139,7 @@ jobs:
     # coverage failure suppresses it.
     if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:

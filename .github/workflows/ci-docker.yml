@@ -13,6 +13,7 @@ jobs:
   build:
     name: docker (${{ matrix.image }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.images) }}

@@ -7,6 +7,7 @@ jobs:
   node-simulators:
     name: sensor-simulator
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ./simulators/sensor-simulator
@@ -31,6 +32,7 @@ jobs:
   python-simulators:
     name: aq-simulator
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ./simulators/aq-simulator

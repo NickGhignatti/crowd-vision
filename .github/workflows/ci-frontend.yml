@@ -7,6 +7,7 @@ jobs:
   quality:
     name: Lint, Type-Check, and Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ./frontend
@@ -37,6 +38,7 @@ jobs:
   test:
     name: Unit Tests (Shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
