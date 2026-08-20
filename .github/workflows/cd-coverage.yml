@@ -66,6 +66,10 @@ jobs:
   node:
     name: coverage (node)
     needs: load-registry
+    # An empty matrix on a reusable-workflow call errors the run instead of
+    # skipping the job, so a push touching only some languages fails CD Coverage
+    # with no failing job to point at. Gate on the matrix being non-empty.
+    if: ${{ needs.load-registry.outputs.node != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -78,6 +82,10 @@ jobs:
   python:
     name: coverage (python)
     needs: load-registry
+    # An empty matrix on a reusable-workflow call errors the run instead of
+    # skipping the job, so a push touching only some languages fails CD Coverage
+    # with no failing job to point at. Gate on the matrix being non-empty.
+    if: ${{ needs.load-registry.outputs.python != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -91,6 +99,10 @@ jobs:
   rust:
     name: coverage (rust)
     needs: load-registry
+    # An empty matrix on a reusable-workflow call errors the run instead of
+    # skipping the job, so a push touching only some languages fails CD Coverage
+    # with no failing job to point at. Gate on the matrix being non-empty.
+    if: ${{ needs.load-registry.outputs.rust != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -108,6 +120,10 @@ jobs:
   go:
     name: coverage (go)
     needs: load-registry
+    # An empty matrix on a reusable-workflow call errors the run instead of
+    # skipping the job, so a push touching only some languages fails CD Coverage
+    # with no failing job to point at. Gate on the matrix being non-empty.
+    if: ${{ needs.load-registry.outputs.go != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -121,6 +137,10 @@ jobs:
   publish:
     name: publish coverage-data
     needs: [node, python, rust, go]
+    # Languages with nothing to run are skipped, not failed; publish still has to
+    # happen so unchanged services keep their baseline counts. Only a real
+    # coverage failure suppresses it.
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
