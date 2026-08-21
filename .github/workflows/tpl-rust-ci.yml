@@ -22,8 +22,10 @@ jobs:
 
       - name: Resolve infra from registry
         id: infra
+        env:
+          SERVICE_KEY: ${{ inputs.service_key }}
         run: |
-          jq -r --arg k "${{ inputs.service_key }}" \
+          jq -r --arg k "$SERVICE_KEY" \
             '.[] | select(.key == $k)
              | "mongo=\(.needs_mongo // false)",
                "redis=\(.needs_redis // false)",
