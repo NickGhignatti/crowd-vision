@@ -1,9 +1,17 @@
+from typing import TYPE_CHECKING, cast
+
 import pytest
 
 from app.agent.llm.base import ChatTurn, CompletionUsage, TextDelta, ToolCall
 from app.agent.loop import Agent
 from app.auth import AuthUser
 from app.config import get_settings
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+# No tool in these scripts touches the database, so the loop never dereferences it.
+NO_SESSION = cast("AsyncSession", None)
 
 
 @pytest.fixture(autouse=True)
@@ -54,7 +62,7 @@ class FakeLLM:
 
 async def collect(agent, llm, question="which room is full?"):
     events = []
-    async for event in agent.stream_answer(None, question, AuthUser("user-1"), llm=llm):
+    async for event in agent.stream_answer(NO_SESSION, question, AuthUser("user-1"), llm=llm):
         events.append(event)
     return events
 
@@ -150,7 +158,7 @@ async def test_an_exhausted_tool_loop_still_terminates_the_stream():
 async def test_the_buffered_path_never_opens_a_stream():
     llm = FakeLLM([(["ignored"], turn(text="Room B2 is full."))])
 
-    result = await Agent(llm=llm).answer(None, "which room?", AuthUser("user-1"), llm=llm)
+    result = await Agent(llm=llm).answer(NO_SESSION, "which room?", AuthUser("user-1"), llm=llm)
 
     assert result.answer == "Room B2 is full."
     assert llm.chat_calls == 1
