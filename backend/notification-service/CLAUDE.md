@@ -32,6 +32,12 @@ counter.
 The cooldown is armed on the unroutable path too, so an unrouted breach still suppresses the
 next 300s.
 
+## Twin lookup
+
+`adapters/driven/twin.rs`: 2s timeout, in-process `Mutex<HashMap>` cache, `TTL` 6h, per pod.
+Empty and failed results are **not** cached — a just-provisioned building must not stay
+unroutable for a whole TTL. No eviction sweep; bounded by building count.
+
 System callers (`system:` subject prefix) bypass the membership filter — see
 `documentation/developer/architecture/notification-architecture.qd`.
 
