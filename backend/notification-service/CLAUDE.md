@@ -34,7 +34,13 @@ next 300s.
 
 ## Twin lookup
 
-`adapters/driven/twin.rs`: 2s timeout, in-process `Mutex<HashMap>` cache, `TTL` 6h, per pod.
+`adapters/driven/twin.rs`: 2s timeout, in-process `Mutex<HashMap>` cache, `TTL` 15min, per pod.
+
+**Do not raise `TTL` to hours.** The 300s cooldown already caps lookups at one per
+building+room per 5min, so a longer TTL saves ~4 HTTP calls/hour/building — nothing — while
+multiplying the window in which a *removed* domain still gets pushed alerts. The Kafka path
+runs as `system:` (`Audience::Unrestricted`), so nothing filters that. Want an indefinite
+cache? Invalidate on a building-updated event, not a longer timer.
 Empty and failed results are **not** cached — a just-provisioned building must not stay
 unroutable for a whole TTL. No eviction sweep; bounded by building count.
 

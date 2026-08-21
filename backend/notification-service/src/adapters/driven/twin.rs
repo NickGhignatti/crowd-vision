@@ -7,7 +7,7 @@ use crate::domain::CLAIMS_HEADER;
 use crate::service::ports::DomainDirectory;
 
 const TIMEOUT: Duration = Duration::from_secs(2);
-const TTL: Duration = Duration::from_secs(6 * 60 * 60);
+const TTL: Duration = Duration::from_secs(15 * 60);
 
 pub struct TwinDirectory {
     base_url: String,
