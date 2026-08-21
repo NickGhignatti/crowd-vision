@@ -6,25 +6,25 @@ use async_trait::async_trait;
 use redis::AsyncCommands;
 use redis::aio::MultiplexedConnection;
 use serde_json::{Map, Value, json};
-use tokio::sync::Mutex;
 
 pub const RAW_CHANNEL: &str = "telemetry:raw";
 
 pub struct RedisFanout {
-    connection: Mutex<MultiplexedConnection>,
+    connection: MultiplexedConnection,
 }
 
 impl RedisFanout {
     pub async fn connect(url: &str) -> anyhow::Result<Self> {
         let client = redis::Client::open(url)?;
         let connection = client.get_multiplexed_async_connection().await?;
-        Ok(Self {
-            connection: Mutex::new(connection),
-        })
+        Ok(Self { connection })
     }
 
     async fn publish(&self, channel: &str, payload: &Value) -> &'static str {
-        let mut connection = self.connection.lock().await;
+        // Cloned per publish, not locked: MultiplexedConnection shares one
+        // socket and pipelines concurrent commands. A Mutex here would make
+        // every ingest wait a full round trip for the one before it.
+        let mut connection = self.connection.clone();
         let published: redis::RedisResult<()> =
             connection.publish(channel, payload.to_string()).await;
         match published {

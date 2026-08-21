@@ -27,13 +27,16 @@ impl Ingest {
             .validate(payload)
             .map_err(|errors| DomainError::Validation(errors.join(" ")))?;
 
-        self.readings.insert(&reading).await?;
+        // Independent of each other, so they overlap: persisting a reading
+        // does not inform which thresholds apply to it.
+        let (inserted, resolved) = tokio::join!(
+            self.readings.insert(&reading),
+            self.thresholds
+                .resolve(&reading.building_id, &reading.metric, &reading.room_id)
+        );
+        inserted?;
 
-        match self
-            .thresholds
-            .resolve(&reading.building_id, &reading.metric, &reading.room_id)
-            .await
-        {
+        match resolved {
             Ok(Some(bounds)) => {
                 if let Some(breach) = breach(plugin.bounds(), &bounds, reading.value) {
                     let alert = AlertPayload {
