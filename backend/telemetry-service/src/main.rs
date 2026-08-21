@@ -6,6 +6,7 @@ use telemetry_service::adapters::driven::postgres::{
     PgBuildings, PgReadings, PgSensors, PgThresholds,
 };
 use telemetry_service::adapters::driven::redis_fanout::RedisFanout;
+use telemetry_service::adapters::driven::threshold_cache::CachedThresholds;
 use telemetry_service::adapters::driven::twin_directory::TwinDirectory;
 use telemetry_service::adapters::driving::kafka_consumer;
 use telemetry_service::kernel::actions::Actions;
@@ -56,7 +57,11 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let readings_store = Arc::new(PgReadings::new(pool.clone(), registry.clone()));
-    let thresholds_store = Arc::new(PgThresholds::new(pool.clone()));
+    // Wrapped once and shared: writes have to travel the same instance as
+    // reads or the cache would never learn that a threshold changed.
+    let thresholds_store = Arc::new(CachedThresholds::new(Arc::new(PgThresholds::new(
+        pool.clone(),
+    ))));
     let sensors_store = Arc::new(PgSensors::new(pool.clone()));
     let buildings_store = Arc::new(PgBuildings::new(pool.clone()));
     let dispatch = Arc::new(HttpDispatch::from_json(pool.clone(), BINDINGS)?);
