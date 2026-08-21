@@ -54,8 +54,22 @@ pub static ALERTS_CONSUMED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     .expect("metric can be created")
 });
 
+pub static ALERTS_PARKED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "notification_alerts_parked_total",
+        "Total number of records moved to the alerts dead-letter topic",
+        &["reason"],
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
 pub fn record_alert_consumed(outcome: &str) {
     ALERTS_CONSUMED_TOTAL.with_label_values(&[outcome]).inc();
+}
+
+pub fn record_alert_parked(reason: &str) {
+    ALERTS_PARKED_TOTAL.with_label_values(&[reason]).inc();
 }
 
 fn is_infra_path(path: &str) -> bool {

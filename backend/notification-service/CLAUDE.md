@@ -18,9 +18,27 @@ Test-enforced by `tests/architecture_fitness.rs`; `x-gateway-claims` literal onl
 ## Alerts consumer
 
 Group `notification-service-alerts`, `auto.offset.reset=earliest`, filters `type ==
-"temperature"` — a breach produced while it is down is processed on return. Auto-commit and
-concurrent handling are deliberate: no record blocks the next. Duplicates are absorbed by the
-Redis cooldown (`temp_alert:<b>:<r>`, 300s).
+"temperature"` — a breach produced while it is down is processed on return. Concurrent handling
+(`IN_FLIGHT` 16) is deliberate: no record blocks the next. Duplicates are absorbed by the Redis
+cooldown (`temp_alert:<b>:<r>`, 300s).
+
+`enable.auto.commit=false`. Offsets advance because a record was handled, not because a timer
+fired — auto-commit plus concurrency loses records: offset 20 committing while 12 is still in
+flight puts the group past a breach nobody delivered.
+
+Commit is a **contiguous watermark per partition**, `Watermarks` in `alert_listener.rs`: only
+the run below the lowest in-flight offset is committable. Records complete out of order;
+committed offsets are a watermark, not a set. Committed value is `watermark + 1` — a commit
+names the next record to read.
+
+**Dead letters**: `alerts.dlq`, original payload and key, `reason` header. Parked on
+`undecodable` (not UTF-8) and on `BreachOutcome` `invalid`/`failed` — neither is fixed by
+reading the same record again. Counted on `notification_alerts_parked_total{reason}`; alert on
+it. A failed DLQ produce leaves the offset uncommitted, so the record is redelivered rather
+than lost.
+
+Crash-redelivery has no automated test — it needs process control the suite does not have. The
+offset arithmetic that makes it correct is unit-tested in `alert_listener.rs`.
 
 `on_temperature_breach` returns `BreachOutcome`, labelled onto
 `notification_alerts_consumed_total{outcome}`. **`unroutable`** = no domain resolved (twin
