@@ -18,6 +18,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ${{ inputs.working_directory }}
@@ -34,6 +35,15 @@ jobs:
 
       - name: Run go vet
         run: go vet ./...
+
+      # Reachability-based: only advisories whose vulnerable symbols this module
+      # actually calls are reported, so it stays quiet enough to gate on. Today
+      # every finding is Go stdlib, cleared by keeping setup-go's pin current.
+      - name: Audit Dependencies
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          govulncheck ./...
+        continue-on-error: true
 
       - name: Build
         run: go build ./...

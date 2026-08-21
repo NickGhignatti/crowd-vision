@@ -13,6 +13,7 @@ jobs:
   build:
     name: docker (${{ matrix.image }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.images) }}
@@ -121,7 +122,7 @@ jobs:
           vuln-type: os
 
       - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

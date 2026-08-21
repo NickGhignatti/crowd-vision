@@ -19,6 +19,7 @@ jobs:
   # actually changed (mirrors cd-registry.yml's own change-detection).
   load-registry:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       node: ${{ steps.split.outputs.node }}
       python: ${{ steps.split.outputs.python }}
@@ -58,7 +59,7 @@ jobs:
 
           for lang in node python rust go; do
             matrix=$(jq -c --arg l "$lang" --argjson changed "$CHANGED" --argjson all "$ALL" \
-              '[.[] | select(.lang == $l and .ci != false and (.key as $k | $all or ($changed | any(. == $k)))) | {key, dir, needs_mongo: (.needs_mongo // false), needs_redis: (.needs_redis // false), needs_postgres: (.needs_postgres // false), needs_kafka: (.needs_kafka // false)}]' \
+              '[.[] | select(.lang == $l and .ci != false and (.key as $k | $all or ($changed | any(. == $k)))) | {key, dir}]' \
               .github/services.json)
             echo "$lang=$matrix" >> "$GITHUB_OUTPUT"
           done
@@ -66,6 +67,10 @@ jobs:
   node:
     name: coverage (node)
     needs: load-registry
+    # An empty matrix on a reusable-workflow call errors the run instead of
+    # skipping the job, so a push touching only some languages fails CD Coverage
+    # with no failing job to point at. Gate on the matrix being non-empty.
+    if: ${{ needs.load-registry.outputs.node != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -78,6 +83,10 @@ jobs:
   python:
     name: coverage (python)
     needs: load-registry
+    # An empty matrix on a reusable-workflow call errors the run instead of
+    # skipping the job, so a push touching only some languages fails CD Coverage
+    # with no failing job to point at. Gate on the matrix being non-empty.
+    if: ${{ needs.load-registry.outputs.python != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -91,6 +100,10 @@ jobs:
   rust:
     name: coverage (rust)
     needs: load-registry
+    # An empty matrix on a reusable-workflow call errors the run instead of
+    # skipping the job, so a push touching only some languages fails CD Coverage
+    # with no failing job to point at. Gate on the matrix being non-empty.
+    if: ${{ needs.load-registry.outputs.rust != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -100,14 +113,14 @@ jobs:
     with:
       service_key: ${{ matrix.key }}
       working_directory: ${{ matrix.dir }}
-      needs_mongo: ${{ matrix.needs_mongo }}
-      needs_redis: ${{ matrix.needs_redis }}
-      needs_postgres: ${{ matrix.needs_postgres }}
-      needs_kafka: ${{ matrix.needs_kafka }}
 
   go:
     name: coverage (go)
     needs: load-registry
+    # An empty matrix on a reusable-workflow call errors the run instead of
+    # skipping the job, so a push touching only some languages fails CD Coverage
+    # with no failing job to point at. Gate on the matrix being non-empty.
+    if: ${{ needs.load-registry.outputs.go != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -121,7 +134,12 @@ jobs:
   publish:
     name: publish coverage-data
     needs: [node, python, rust, go]
+    # Languages with nothing to run are skipped, not failed; publish still has to
+    # happen so unchanged services keep their baseline counts. Only a real
+    # coverage failure suppresses it.
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
@@ -131,12 +149,12 @@ jobs:
           persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.12"
 
       - name: Download coverage reports
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           path: coverage-artifacts
 
@@ -172,4 +190,14 @@ jobs:
           git rm -rf --cached . > /dev/null 2>&1 || true
           git add -f badge.json summary.json coverage-counts.json
           git commit -m "coverage: ${SHA:0:7}"
-          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" coverage-data-tmp:coverage-data
+          # This push has 500'd on GitHub's side before, losing a whole run's
+          # coverage to a fault that clears in seconds.
+          for attempt in 1 2 3; do
+            if git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" coverage-data-tmp:coverage-data; then
+              exit 0
+            fi
+            echo "publish failed (attempt ${attempt}/3), retrying in $((attempt * 10))s"
+            sleep $((attempt * 10))
+          done
+          echo "::error::could not publish coverage-data after 3 attempts"
+          exit 1

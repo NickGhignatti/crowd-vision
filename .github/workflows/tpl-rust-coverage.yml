@@ -4,10 +4,6 @@ on:
     inputs:
       service_key: { required: true, type: string }
       working_directory: { required: true, type: string }
-      needs_mongo: { required: false, type: boolean, default: false }
-      needs_redis: { required: false, type: boolean, default: false }
-      needs_postgres: { required: false, type: boolean, default: false }
-      needs_kafka: { required: false, type: boolean, default: false }
 
 jobs:
   coverage:
@@ -23,20 +19,34 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve infra from registry
+        id: infra
+        env:
+          SERVICE_KEY: ${{ inputs.service_key }}
+        run: |
+          jq -r --arg k "$SERVICE_KEY" \
+            '.[] | select(.key == $k)
+             | "mongo=\(.needs_mongo // false)",
+               "redis=\(.needs_redis // false)",
+               "postgres=\(.needs_postgres // false)",
+               "kafka=\(.needs_kafka // false)"' \
+            .github/services.json >> "$GITHUB_OUTPUT"
+        working-directory: ${{ github.workspace }}
+
       - name: Start Mongo
-        if: ${{ inputs.needs_mongo }}
+        if: ${{ steps.infra.outputs.mongo == 'true' }}
         uses: ./.github/actions/setup-mongo
 
       - name: Start Redis
-        if: ${{ inputs.needs_redis }}
+        if: ${{ steps.infra.outputs.redis == 'true' }}
         uses: ./.github/actions/setup-redis
 
       - name: Start TimescaleDB
-        if: ${{ inputs.needs_postgres }}
+        if: ${{ steps.infra.outputs.postgres == 'true' }}
         uses: ./.github/actions/setup-postgres
 
       - name: Start Kafka
-        if: ${{ inputs.needs_kafka }}
+        if: ${{ steps.infra.outputs.kafka == 'true' }}
         uses: ./.github/actions/setup-kafka
 
       - name: Setup Rust
@@ -62,7 +72,7 @@ jobs:
           cargo llvm-cov --all-targets --json --summary-only --output-path coverage/coverage-summary.json
 
       - name: Upload report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ inputs.service_key }}
           path: ${{ inputs.working_directory }}/coverage/coverage-summary.json

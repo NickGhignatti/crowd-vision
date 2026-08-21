@@ -12,6 +12,7 @@ on:
 jobs:
   ci-pipeline:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ${{ inputs.working_directory }}
