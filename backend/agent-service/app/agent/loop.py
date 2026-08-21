@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from app.agent.llm import OpenAICompatClient
+from app.agent.llm.base import ChatTurn, TextDelta
 from app.agent.prompts import IDK_MARKER, SYSTEM_PROMPT
 from app.agent.tools import REGISTRY, ToolContext, ToolResult
 from app.citations import Citation, extract_citations, strip_hallucinated
@@ -132,14 +133,23 @@ class Agent:
             )
         return out_messages
 
-    async def answer(
+    async def _run(
         self,
         session: AsyncSession,
         question: str,
         user: AuthUser,
         llm: LLMClient | None = None,
         history: list[dict] | None = None,
-    ) -> AnswerResult:
+        *,
+        stream: bool = False,
+    ) -> AsyncIterator[TextDelta | AnswerResult]:
+        """The tool loop, shared by both callers, yielding an `AnswerResult` last.
+
+        `stream=True` swaps the per-hop call for its streaming twin and forwards each
+        `TextDelta` on the way through; everything else — hop limit, citation
+        checking, tracing, usage accounting — is the same code either way, so the
+        buffered and streamed paths cannot drift apart.
+        """
         # `llm` lets a caller pick a model per request (multi-model eval); defaults
         # to the agent's configured client.
         llm = llm or self._llm
@@ -161,7 +171,15 @@ class Agent:
             for hop in range(self._settings.max_tool_hops):
                 with tr.start_as_current_span(f"agent.hop.{hop}") as hop_span:
                     hop_span.set_attribute("agent.hop", hop)
-                    turn = await llm.chat(messages, tools=tools)
+                    if stream:
+                        turn = ChatTurn(text="")
+                        async for item in llm.stream_chat(messages, tools=tools):
+                            if isinstance(item, ChatTurn):
+                                turn = item
+                            else:
+                                yield item
+                    else:
+                        turn = await llm.chat(messages, tools=tools)
                     usage.add(
                         turn.usage.input_tokens, turn.usage.output_tokens, turn.usage.cost_usd
                     )
@@ -175,7 +193,7 @@ class Agent:
                     valid, hallucinated = extract_citations(full_text, doc_citations)
                     cleaned = strip_hallucinated(full_text, hallucinated)
                     self._tag_run(root, answer=cleaned, usage=usage, decision="answered")
-                    return AnswerResult(
+                    yield AnswerResult(
                         answer=cleaned,
                         citations=valid,
                         retrieved=doc_citations,
@@ -184,6 +202,7 @@ class Agent:
                         hallucinated_citations=hallucinated,
                         tool_calls=tool_trace,
                     )
+                    return
 
                 # Append the assistant turn (with its tool_calls) and the tool results.
                 messages.append(
@@ -201,7 +220,7 @@ class Agent:
 
             log.warning("agent.tool_loop_exhausted", hops=self._settings.max_tool_hops)
             self._tag_run(root, answer=IDK_MARKER, usage=usage, decision="tool_loop_exhausted")
-            return AnswerResult(
+            yield AnswerResult(
                 answer=IDK_MARKER,
                 citations=[],
                 retrieved=[c for c in ctx.citations if isinstance(c, RetrievedChunk)],
@@ -220,6 +239,22 @@ class Agent:
         span.set_attribute("gen_ai.usage.output_tokens", usage.output_tokens)
         span.set_attribute("gen_ai.usage.cost_usd", usage.cost_usd)
 
+    async def answer(
+        self,
+        session: AsyncSession,
+        question: str,
+        user: AuthUser,
+        llm: LLMClient | None = None,
+        history: list[dict] | None = None,
+    ) -> AnswerResult:
+        """Run the loop to completion and return the whole answer at once."""
+        result: AnswerResult | None = None
+        async for item in self._run(session, question, user, llm=llm, history=history):
+            if isinstance(item, AnswerResult):
+                result = item
+        assert result is not None, "the loop always yields a result"
+        return result
+
     async def stream_answer(
         self,
         session: AsyncSession,
@@ -228,24 +263,27 @@ class Agent:
         llm: LLMClient | None = None,
         history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
-        """Run the tool loop, then stream the final answer text token by token.
+        """Run the loop, emitting the final answer token by token as it is generated.
 
-        Tool-calling and streaming are awkward together across providers; we pay one
-        non-streamed final hop's cost in exchange for a uniform implementation."""
-        result = await self.answer(session, question, user, llm=llm, history=history)
+        `answer` on the terminal event — not the concatenated tokens — is the
+        authoritative text. The two differ whenever the loop rewrites what the model
+        produced: hallucinated citation markers are stripped afterwards, and a hop
+        that opens with a preamble before calling a tool has already streamed words
+        that are no part of the answer. Consumers must persist and display `answer`.
+        """
+        async for item in self._run(session, question, user, llm=llm, history=history, stream=True):
+            if isinstance(item, TextDelta):
+                yield {"type": "token", "text": item.text}
+                continue
 
-        # Emitted as a single token event for now; real per-token streaming of the
-        # final turn is a follow-up.
-        if result.answer:
-            yield {"type": "token", "text": result.answer}
-
-        yield {
-            "type": "done",
-            "citations": [c.__dict__ for c in result.citations],
-            "retrieved_ids": [c.id for c in result.retrieved],
-            "usage": result.usage.__dict__,
-            "idk": result.idk,
-            "decision": result.decision,
-            "tool_calls": result.tool_calls,
-            "hallucinated_citations": result.hallucinated_citations,
-        }
+            yield {
+                "type": "done",
+                "answer": item.answer,
+                "citations": [c.__dict__ for c in item.citations],
+                "retrieved_ids": [c.id for c in item.retrieved],
+                "usage": item.usage.__dict__,
+                "idk": item.idk,
+                "decision": item.decision,
+                "tool_calls": item.tool_calls,
+                "hallucinated_citations": item.hallucinated_citations,
+            }

@@ -373,6 +373,48 @@ async fn the_answer_streams_as_tokens_and_ends_with_the_stored_message() {
 }
 
 #[tokio::test]
+async fn the_agents_cleaned_answer_is_what_gets_stored_and_returned() {
+    let app = app_with_agent(ResponseTemplate::new(200).set_body_raw(
+        sse(&[
+            json!({ "type": "token", "text": "Let me check. " }),
+            json!({ "type": "token", "text": "Room B2 [^deadbeefdeadbeef] is full." }),
+            json!({ "type": "done", "answer": "Room B2 is full.", "citations": [] }),
+        ]),
+        "text/event-stream",
+    ))
+    .await;
+    let id = app.conversation("ada").await;
+
+    let (_, body) = app
+        .send(
+            "POST",
+            &format!("/conversations/{id}/messages"),
+            Some("ada"),
+            Some(json!({"content": "which room is full?"})),
+        )
+        .await;
+    let frames = frames(&body);
+
+    let streamed: String = frames
+        .iter()
+        .filter(|f| f["type"] == "token")
+        .map(|f| f["text"].as_str().unwrap_or_default())
+        .collect();
+    assert!(
+        streamed.contains("[^deadbeefdeadbeef]"),
+        "tokens relay verbatim"
+    );
+
+    let done = frames.last().unwrap();
+    assert_eq!(done["message"]["content"], "Room B2 is full.");
+
+    let (_, conversation) = app
+        .json("GET", &format!("/conversations/{id}"), "ada", None)
+        .await;
+    assert_eq!(conversation["messages"][1]["content"], "Room B2 is full.");
+}
+
+#[tokio::test]
 async fn the_completed_exchange_is_persisted_and_titles_the_conversation() {
     let app = app().await;
     let id = app.conversation("ada").await;

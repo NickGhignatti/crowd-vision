@@ -35,7 +35,14 @@ pub trait ConversationStore: Send + Sync {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AgentEvent {
     Token(String),
-    Done { citations: Vec<Citation> },
+    /// `answer` is the authoritative final text when the agent sends one: it differs
+    /// from the concatenated tokens whenever the agent rewrites what the model
+    /// produced — stripped hallucinated citations, or a preamble streamed before a
+    /// tool call. Absent on an agent old enough not to send it, hence the `Option`.
+    Done {
+        answer: Option<String>,
+        citations: Vec<Citation>,
+    },
 }
 
 pub type AnswerStream = Pin<Box<dyn Stream<Item = anyhow::Result<AgentEvent>> + Send>>;

@@ -180,6 +180,12 @@ paths:
         assistant message. Both halves of the exchange are persisted only when the
         stream completes, so an aborted generation leaves no half-written message.
 
+        Tokens are relayed exactly as agent-service produced them, and can differ
+        from the final answer: hallucinated citation markers are stripped after
+        generation, and a preamble written before a tool call is not part of the
+        answer. The `done` event's `message.content` is authoritative — render
+        tokens as they arrive, then replace with `message` on `done`.
+
         Every failure knowable before generation starts — validation, ownership, the
         message cap, an unreachable agent — is returned as an ordinary status code.
         A failure *after* the response has begun cannot be, and arrives instead as a

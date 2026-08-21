@@ -168,6 +168,7 @@ impl ScriptedAgent {
         ScriptedAgent::new(AgentScript::Stream(vec![
             AgentEvent::Token(text.to_string()),
             AgentEvent::Done {
+                answer: None,
                 citations: Vec::new(),
             },
         ]))

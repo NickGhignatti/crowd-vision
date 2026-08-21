@@ -36,9 +36,11 @@ terminal frame arrives. A dropped stream leaves no half-written message and no r
 conversation. A stream that ends without `done` is `"agent-service returned an invalid
 response"` — the streaming heir to the old shape check on the buffered body.
 
-Real time-to-first-token also needs `agent-service` to stream its final hop.
-`loop.py:stream_answer` currently computes the whole answer, then emits it as one `token`
-event. This service is already correct for both.
+**`done.answer` beats the tokens.** The agent sends the authoritative final text on the
+terminal frame, and it can differ from the concatenated tokens — hallucinated citation
+markers are stripped after generation, and a hop that writes a preamble before calling a
+tool has already streamed words that are not part of the answer. Store and display
+`answer`; fall back to the accumulated tokens only when the field is absent.
 
 ## Node parity traps
 

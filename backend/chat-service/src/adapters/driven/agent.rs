@@ -32,6 +32,8 @@ enum AgentFrame {
     },
     Done {
         #[serde(default)]
+        answer: Option<String>,
+        #[serde(default)]
         citations: Vec<Citation>,
     },
     #[serde(other)]
@@ -140,7 +142,9 @@ fn parse_frame(raw: &[u8]) -> Option<anyhow::Result<AgentEvent>> {
 
     match serde_json::from_str::<AgentFrame>(&payload) {
         Ok(AgentFrame::Token { text }) => Some(Ok(AgentEvent::Token(text))),
-        Ok(AgentFrame::Done { citations }) => Some(Ok(AgentEvent::Done { citations })),
+        Ok(AgentFrame::Done { answer, citations }) => {
+            Some(Ok(AgentEvent::Done { answer, citations }))
+        }
         Ok(AgentFrame::Ignored) => None,
         Err(e) => Some(Err(anyhow::anyhow!("unreadable agent frame: {e}"))),
     }
@@ -201,7 +205,7 @@ mod tests {
         assert_eq!(read.len(), 3);
         assert!(matches!(&read[0], Ok(AgentEvent::Token(t)) if t == "Room "));
         assert!(matches!(&read[1], Ok(AgentEvent::Token(t)) if t == "B2"));
-        assert!(matches!(&read[2], Ok(AgentEvent::Done { citations }) if citations.is_empty()));
+        assert!(matches!(&read[2], Ok(AgentEvent::Done { citations, .. }) if citations.is_empty()));
     }
 
     #[test]
@@ -246,7 +250,7 @@ mod tests {
             "data: {\"type\":\"done\",\"citations\":[{\"chunk_id\":\"c\",\"document_id\":\"d\",\"source\":\"s\",\"section_path\":\"Top\"}]}\n\n",
         ]);
 
-        let Ok(AgentEvent::Done { citations }) = &read[0] else {
+        let Ok(AgentEvent::Done { citations, .. }) = &read[0] else {
             panic!("expected the terminal frame");
         };
         assert_eq!(citations[0].chunk_id, "c");
@@ -261,6 +265,25 @@ mod tests {
             "data: {\"type\":\"done\",\"citations\":[]}\n\n",
         ]);
         assert_eq!(read.len(), 1);
+    }
+
+    #[test]
+    fn the_terminal_frame_carries_the_agents_authoritative_answer() {
+        let read = events(vec![
+            "data: {\"type\":\"done\",\"answer\":\"cleaned text\",\"citations\":[]}\n\n",
+        ]);
+
+        assert!(matches!(
+            &read[0],
+            Ok(AgentEvent::Done { answer, .. }) if answer.as_deref() == Some("cleaned text")
+        ));
+    }
+
+    #[test]
+    fn a_terminal_frame_without_an_answer_leaves_the_accumulated_tokens_in_charge() {
+        let read = events(vec!["data: {\"type\":\"done\",\"citations\":[]}\n\n"]);
+
+        assert!(matches!(&read[0], Ok(AgentEvent::Done { answer, .. }) if answer.is_none()));
     }
 
     #[test]

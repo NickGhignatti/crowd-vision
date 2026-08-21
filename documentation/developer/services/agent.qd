@@ -57,9 +57,20 @@ limit returns the IDK marker with `decision=tool_loop_exhausted`\. Tool errors a
 to the model as ordinary tool-result messages rather than raised, so the model gets a chance
 to recover (retry with different arguments, or give up cleanly).
 
-`stream=true` runs the same loop and then emits the finished answer as a single Server-Sent
-Events `token` event followed by `done`\. It is **not** per-token streaming yet — the event
-shape exists so the client contract is stable when true streaming is added later.
+`stream=true` runs the same loop over the streaming form of each model call, forwarding text
+as Server-Sent Events `token` events the moment the model produces them, and closing with a
+`done` event. Total generation time is unchanged; time-to-first-token drops from seconds to
+milliseconds.
+
+The `done` event's **`answer` field is authoritative, not the concatenated tokens**. The two
+diverge whenever the loop rewrites what the model produced: hallucinated citation markers are
+stripped after generation, and a hop that opens with a preamble before calling a tool has
+already streamed words that are no part of the answer. Clients display tokens as they arrive
+but must persist `answer`.
+
+Both modes run the *same* loop — `stream` only swaps the per-hop call for its streaming twin —
+so the hop limit, citation checking, tracing, and usage accounting cannot drift apart between
+them. `stream=false` still uses the buffered call, so evals and cost accounting are unaffected.
 
 ---
 

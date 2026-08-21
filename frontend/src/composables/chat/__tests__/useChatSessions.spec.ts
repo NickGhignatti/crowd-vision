@@ -101,6 +101,30 @@ describe('useChatSessions', () => {
     expect(sessions.activeConversation.value.title).toBe('Question')
   })
 
+  it('replaces the streamed text with the saved answer when the two differ', async () => {
+    vi.mocked(makeRequest).mockResolvedValueOnce(
+      sseResponse([
+        { type: 'token', text: 'Let me check. ' },
+        { type: 'token', text: 'Room B2 [^deadbeef] is full.' },
+        {
+          type: 'done',
+          message: {
+            _id: 'msg-2',
+            role: 'assistant',
+            content: 'Room B2 is full.',
+            createdAt: 'now',
+          },
+        },
+      ]),
+    )
+    const sessions = useChatSessions()
+    sessions.activeConversation.value = activeChat()
+
+    await sessions.sendMessage('Question')
+
+    expect(sessions.activeConversation.value.messages[1]?.content).toBe('Room B2 is full.')
+  })
+
   it('reassembles a frame split across two network reads', async () => {
     vi.mocked(makeRequest).mockResolvedValueOnce(
       sseResponse(

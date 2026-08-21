@@ -147,8 +147,11 @@ impl Exchange {
                 self.answer.text.push_str(&text);
                 Some((Ok(ChatEvent::Token(text)), self))
             }
-            Some(Ok(AgentEvent::Done { citations })) => {
+            Some(Ok(AgentEvent::Done { answer, citations })) => {
                 self.finished = true;
+                if let Some(answer) = answer {
+                    self.answer.text = answer;
+                }
                 let persisted = self.answer.persist(citations).await.map(ChatEvent::Done);
                 Some((persisted, self))
             }
@@ -383,6 +386,7 @@ mod tests {
             AgentEvent::Token("Room ".to_string()),
             AgentEvent::Token("B2 is full.".to_string()),
             AgentEvent::Done {
+                answer: None,
                 citations: vec![Citation {
                     chunk_id: "c1".to_string(),
                     document_id: "d1".to_string(),
@@ -406,6 +410,71 @@ mod tests {
         assert_eq!(stored.content, "Room B2 is full.");
         assert_eq!(stored.role, Role::Assistant);
         assert_eq!(stored.citations.as_ref().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn the_agents_final_answer_wins_over_the_tokens_it_streamed() {
+        let store = Arc::new(InMemoryConversations::default());
+        let conversation = conversation_with(&store, DEFAULT_TITLE, 0).await;
+        let agent = Arc::new(ScriptedAgent::new(AgentScript::Stream(vec![
+            AgentEvent::Token("Let me check. ".to_string()),
+            AgentEvent::Token("Room B2 [^deadbeef] is full.".to_string()),
+            AgentEvent::Done {
+                answer: Some("Room B2 is full.".to_string()),
+                citations: Vec::new(),
+            },
+        ])));
+        let service = service(store.clone(), agent);
+
+        let events = collect(
+            service
+                .send_message("ada", &conversation.id, Some("which room?"), "claims")
+                .await
+                .unwrap(),
+        )
+        .await;
+
+        assert_eq!(
+            tokens(&events),
+            "Let me check. Room B2 [^deadbeef] is full.",
+            "tokens are relayed exactly as the agent produced them"
+        );
+        assert_eq!(finished(&events).unwrap().content, "Room B2 is full.");
+
+        let saved = store
+            .find_owned("ada", &conversation.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            saved.messages[1].content, "Room B2 is full.",
+            "what is stored is the agent's cleaned answer, not the raw stream"
+        );
+    }
+
+    #[tokio::test]
+    async fn without_a_final_answer_the_accumulated_tokens_are_stored() {
+        let store = Arc::new(InMemoryConversations::default());
+        let conversation = conversation_with(&store, DEFAULT_TITLE, 0).await;
+        let service = service(
+            store.clone(),
+            Arc::new(ScriptedAgent::answering("plain answer")),
+        );
+
+        collect(
+            service
+                .send_message("ada", &conversation.id, Some("which room?"), "claims")
+                .await
+                .unwrap(),
+        )
+        .await;
+
+        let saved = store
+            .find_owned("ada", &conversation.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.messages[1].content, "plain answer");
     }
 
     #[tokio::test]
