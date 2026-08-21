@@ -91,7 +91,7 @@ Independently deployable, each with its own container image.
       - Redis
     - - Datastores
       - One database per stateful service
-      - MongoDB (chat-service — Node.js; twin-service, contracts-service, notification-service — Rust), PostgreSQL (telemetry-service — with TimescaleDB; agent-service, tenancy-service, registry-service, Keycloak)
+      - MongoDB (chat-service, twin-service, contracts-service, notification-service — all Rust), PostgreSQL (telemetry-service — with TimescaleDB; agent-service, tenancy-service, registry-service, Keycloak)
 
 The agent-service runs as part of the system but sits outside this guide's microservice set; it appears here for completeness only.
 

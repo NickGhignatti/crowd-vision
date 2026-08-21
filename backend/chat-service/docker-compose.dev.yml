@@ -1,21 +1,24 @@
 services:
   chat-service:
     build:
-      target: builder
-    command: npm run dev
+      target: dev
+    command: cargo watch -x run
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 60s
     develop:
       watch:
         - action: sync
           path: ./src
           target: /app/src
         - action: rebuild
-          path: ./package.json
+          path: ./Cargo.toml
+    volumes:
+      - chat-target:/app/target
+      - cargo-registry:/usr/local/cargo/registry
 
   chat-db:
     ports:
@@ -31,3 +34,7 @@ services:
       - ME_CONFIG_SITE_BASEURL=/chat-db-gui/
     depends_on:
       - chat-db
+
+volumes:
+  chat-target:
+  cargo-registry:

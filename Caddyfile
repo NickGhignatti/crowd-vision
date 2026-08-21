@@ -71,7 +71,12 @@
     # ── Chat service ──────────────────────────────────────────────────────────
     handle_path /chat/* {
         import require_gateway_auth
-        reverse_proxy chat-service:3000
+        reverse_proxy chat-service:3000 {
+            # Chat answers stream back as SSE. Without this the proxy buffers the
+            # whole response and the tokens arrive all at once, which is the exact
+            # behaviour streaming exists to remove.
+            flush_interval -1
+        }
     }
 
     # ── Contracts Service ───────────────────────────────────────────────────────

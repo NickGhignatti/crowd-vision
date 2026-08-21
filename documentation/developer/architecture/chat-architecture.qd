@@ -1,7 +1,7 @@
 .docname {Chat Service Architecture}
 .include {docs}
 
-**Bounded context:** [Knowledge & Assistance](../domain/knowledge-assistance.qd) (shared with agent-service) · **Stack:** Node.js / Express · **Code-level walkthrough:** [Chat Service](../services/chat.qd)
+**Bounded context:** [Knowledge & Assistance](../domain/knowledge-assistance.qd) (shared with agent-service) · **Stack:** Rust / Axum / MongoDB · **Code-level walkthrough:** [Chat Service](../services/chat.qd)
 
 The chat-service owns conversations: it persists message history, enforces per-conversation limits, and forwards each question to `agent-service` for an answer. It holds no assistant logic itself — `agent-service` is stateless per request and never sees a conversation until chat-service sends it one.
 
@@ -9,29 +9,31 @@ The chat-service owns conversations: it persists message history, enforces per-c
 
 ## Architectural Style
 
-A **layered architecture** — Router → Controller → Service → Model — with one twist: the service layer has two members that do fundamentally different jobs. `services/conversation.ts` is ordinary persistence (Mongoose CRUD, scoped to the caller). `services/agent.ts` touches no model at all — it's a plain HTTP client to `agent-service`'s `/ask`, forwarding the caller's `x-gateway-claims` header verbatim rather than re-authenticating.
+**Ports & Adapters**, the same shape as `twin-service` and `notification-service`, enforced by `tests/architecture_fitness.rs`. The service has exactly two things outside itself — the conversation store and the agent — so it has exactly two driven ports. `domain/` is pure; `service/conversations.rs` holds the use cases and depends only on `ConversationStore` and `AgentClient`; the adapters supply Mongo and the agent's SSE stream.
 
 .mermaid
     graph TD
-        subgraph Router
-            R[router.ts]
+        subgraph "Driving adapter — adapters/driving/http_api"
+            C["controllers · claims · exceptions\nSSE frame encoding"]
         end
-        subgraph "Controller — controller/conversation.ts"
-            C["createConversation · listConversations · getConversation\nrenameConversation · deleteConversation · sendMessage"]
+        subgraph "Service — service/conversations.rs"
+            UC["use cases: create · list · open · rename · delete · send_message"]
+            P["ports: ConversationStore · AgentClient"]
         end
-        subgraph "Service"
-            CSV["services/conversation.ts\nCRUD, ownership checks, limits"]
-            ASV["services/agent.ts\naskAgent — HTTP client only"]
+        subgraph "Domain — domain/"
+            M["conversation · identity · error\nvalidation, history window, titling"]
         end
-        subgraph Model
-            M["models/conversation.ts"]
+        subgraph "Driven adapters — adapters/driven"
+            MONGO["persistence/conversations.rs"]
+            AG["agent.rs — SSE client"]
         end
-        R --> C
-        C --> CSV
-        CSV -->|"sendMessage: forward question + trimmed history"| ASV
-        CSV --> M
-        M -.-> DB[(chat-db)]
-        ASV -->|"POST /ask, x-gateway-claims forwarded"| AGENT[agent-service]
+        C --> UC
+        UC --> M
+        UC --> P
+        P -.->|"implemented by"| MONGO
+        P -.->|"implemented by"| AG
+        MONGO --> DB[(chat-db)]
+        AG -->|"POST /ask stream=true, x-gateway-claims forwarded"| AGENT[agent-service]
 
 ### Components & Connectors diagram
 
@@ -46,7 +48,10 @@ A **layered architecture** — Router → Controller → Service → Model — w
 - **Hard limits everywhere a user writes.** A conversation caps at 100 messages, a message at 8000 characters, a title at 120 — all rejected at the service layer before anything is persisted, not enforced by the database schema.
 - **Every operation is ownership-scoped.** `ownedConversation` checks `userId` and `conversationId` together on every read, write, and delete; a valid id for someone else's conversation resolves to "not found," not "forbidden," so existence isn't leaked either.
 - **Auto-titling from the first exchange.** A new conversation starts titled "New chat"; the first question becomes the title (truncated to the limit) the moment the first exchange completes, with no separate naming step.
-- **Identity forwarded, not re-verified.** `askAgent` passes the caller's `x-gateway-claims` header straight through to `agent-service` — the same mesh-injected header chat-service itself trusted, on the same trust chain every other migrated service uses.
+- **Answers stream; they are not buffered.** `POST /conversations/{id}/messages` returns Server-Sent Events — `token` frames as the answer is generated, then a terminal `done` frame carrying the saved assistant message. Total generation time is unchanged; time-to-first-token drops from seconds to milliseconds. The edge must not buffer the response (Caddy: `flush_interval -1`).
+- **Failures split by whether the response has begun.** Validation, ownership, the message cap, and an unreachable agent are all knowable before the first token, so they stay ordinary status codes. Once the stream is open the status line is gone, and a failure arrives instead as a terminal `error` frame on a `200`.
+- **Nothing is persisted until the stream completes.** Tokens accumulate in memory; the exchange is written on the terminal frame and never before. An aborted generation therefore leaves no half-written answer and no retitled conversation — the conversation looks exactly as it did before the question.
+- **Identity forwarded, not re-verified.** the agent adapter passes the caller's `x-gateway-claims` header straight through to `agent-service` — the same mesh-injected header chat-service itself trusted, on the same trust chain every other migrated service uses.
 
 ---
 

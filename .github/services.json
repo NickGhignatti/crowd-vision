@@ -52,7 +52,8 @@
   {
     "key": "chat",
     "dir": "backend/chat-service",
-    "lang": "node",
+    "lang": "rust",
+    "needs_mongo": true,
     "image": "crowdvision-chat"
   },
   {

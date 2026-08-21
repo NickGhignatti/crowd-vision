@@ -18,6 +18,10 @@ affected:
 chat:
     mise exec -- moon run chat-service:test
 
+[doc("Integration tests for chat-service — starts a throwaway MongoDB, runs tests/*.rs, tears it down.")]
+chat-integration:
+    mise exec -- moon run chat-service:test-integration
+
 [doc("Unit tests for telemetry-service.")]
 telemetry:
     mise exec -- moon run telemetry-service:test

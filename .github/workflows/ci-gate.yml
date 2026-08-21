@@ -157,8 +157,8 @@ jobs:
 
   chat:
     needs: changes
-    if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.shared == 'true'
-    uses: ./.github/workflows/tpl-node-ci.yml
+    if: needs.changes.outputs.chat == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: chat
       working_directory: backend/chat-service

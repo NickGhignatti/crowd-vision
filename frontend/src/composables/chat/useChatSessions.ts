@@ -1,10 +1,16 @@
 import { ref } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
+import { readSseFrames } from '@/composables/chat/useSseStream.ts'
 import type {
   ChatConversation,
   ChatConversationSummary,
   ChatMessage,
 } from '@/interfaces/chat.ts'
+
+type ChatFrame =
+  | { type: 'token'; text: string }
+  | { type: 'done'; message: ChatMessage }
+  | { type: 'error'; message?: string }
 
 const responseError = async (response: Response) => {
   try {
@@ -116,22 +122,39 @@ export function useChatSessions() {
     if (!activeConversation.value || sending.value) return
     sending.value = true
     error.value = ''
+
+    const conversation = activeConversation.value
+    // Shown before the first token arrives; dropped again if the answer never lands.
+    const settled = conversation.messages.length
+    conversation.messages.push(
+      { role: 'user', content, createdAt: new Date().toISOString() },
+      { role: 'assistant', content: '', createdAt: new Date().toISOString() },
+    )
+    // Read back out of the array rather than kept from the literal above: the pushed
+    // objects are wrapped on the way in, and only the wrapper's mutations re-render.
+    const streamed = conversation.messages[conversation.messages.length - 1] as ChatMessage
+    const discard = () => conversation.messages.splice(settled)
+
     try {
-      const conversation = activeConversation.value
       const response = await makeRequest(`/chat/conversations/${conversation._id}/messages`, 'POST', {
         body: JSON.stringify({ content }),
       })
       if (!response.ok) throw new Error(await responseError(response))
+      if (!response.body) throw new Error('The chat response could not be read')
 
-      const assistant = (await response.json()) as ChatMessage
-      conversation.messages.push({
-        role: 'user',
-        content,
-        createdAt: new Date().toISOString(),
-      })
-      conversation.messages.push(assistant)
+      let completed = false
+      for await (const frame of readSseFrames(response.body)) {
+        const event = frame as ChatFrame
+        if (event.type === 'token') streamed.content += event.text
+        else if (event.type === 'error') throw new Error(event.message ?? 'Request failed')
+        else if (event.type === 'done') {
+          Object.assign(streamed, event.message)
+          completed = true
+        }
+      }
+      if (!completed) throw new Error('The chat response ended early')
+
       if (conversation.title === 'New chat') conversation.title = content.slice(0, 120)
-
       const summary = conversations.value.find(({ _id }) => _id === conversation._id)
       if (summary) {
         summary.title = conversation.title
@@ -142,6 +165,7 @@ export function useChatSessions() {
         ]
       }
     } catch (cause) {
+      discard()
       error.value = cause instanceof Error ? cause.message : String(cause)
     } finally {
       sending.value = false

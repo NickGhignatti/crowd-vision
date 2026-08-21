@@ -256,9 +256,9 @@ depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
 `RequestAuthentication` (or, in docker-compose dev, Caddy's `forward_auth` against
 claims-gateway's `/verify`) verifies the gateway JWT once at the edge and injects the validated
 payload as this base64 header — agent-service trusts it rather than re-verifying a JWT itself,
-the same trust model as every other migrated service (see
-[Node Auth & Error Middleware](../packages/middlewares.qd)). There is no JWKS material anywhere
-in this service's configuration.
+the same trust model as every other service behind the edge (see
+[Identity & Tenancy Architecture](../architecture/auth-architecture.qd)). There is no JWKS
+material anywhere in this service's configuration.
 
 Only when the header is **absent** does a second, narrower path run: a local-dev bypass for
 `evals/run_evals.py`, which sends its own self-minted token as the `authentication_token` cookie

@@ -6,7 +6,10 @@ info:
     The chat service owns authenticated users' conversation history and forwards new
     messages, with recent history, to the Crowd-Vision agent.
 
-    Protected endpoints require a signed JWT in the `authentication_token` cookie.
+    Protected endpoints are authenticated at the edge, which injects the verified
+    claims as the `x-gateway-claims` header; the service decodes it and never
+    re-verifies. Callers reach it through the gateway with the `authentication_token`
+    cookie.
     Conversation lookups are always scoped to the authenticated account. A missing,
     invalid, or another user's conversation therefore returns `404`.
   version: 1.0.0
@@ -169,12 +172,21 @@ paths:
       summary: Send a message to the assistant
       description: |
         Sends the current question and the configured recent-history window to the
-        agent service. On success, both the user message and assistant response are
-        saved, while only the saved assistant message is returned.
+        agent service and streams the answer back as Server-Sent Events, so tokens
+        render as they are generated rather than after the whole answer is ready.
+
+        The stream is a sequence of `{"type":"token","text":...}` events terminated
+        by a single `{"type":"done","message":...}` event carrying the saved
+        assistant message. Both halves of the exchange are persisted only when the
+        stream completes, so an aborted generation leaves no half-written message.
+
+        Every failure knowable before generation starts — validation, ownership, the
+        message cap, an unreachable agent — is returned as an ordinary status code.
+        A failure *after* the response has begun cannot be, and arrives instead as a
+        terminal `{"type":"error",...}` event on an otherwise `200` response.
 
         If the conversation still has its default title, the first user message
-        becomes the title, truncated to 120 characters. Agent failures save neither
-        message and return `502`.
+        becomes the title, truncated to 120 characters.
       requestBody:
         required: true
         content:
@@ -182,12 +194,18 @@ paths:
             schema:
               $ref: "#/components/schemas/SendMessageRequest"
       responses:
-        "201":
-          description: Saved assistant response.
+        "200":
+          description: Server-Sent Events stream of the answer.
           content:
-            application/json:
+            text/event-stream:
               schema:
-                $ref: "#/components/schemas/AssistantMessage"
+                type: string
+              example: |
+                data: {"type":"token","text":"Room "}
+
+                data: {"type":"token","text":"B2 is full."}
+
+                data: {"type":"done","message":{"_id":"665f0d45a6ef2e29c42d5678","role":"assistant","content":"Room B2 is full.","citations":[],"createdAt":"2026-08-21T10:00:00.000Z"}}
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":
@@ -210,7 +228,7 @@ components:
       type: apiKey
       in: cookie
       name: authentication_token
-      description: Signed HS256 JWT containing a non-empty `accountId` claim.
+      description: Signed RS256 JWT containing a non-empty `sub` claim.
 
   parameters:
     ConversationId:
