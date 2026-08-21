@@ -62,6 +62,16 @@ cache? Invalidate on a building-updated event, not a longer timer.
 Empty and failed results are **not** cached — a just-provisioned building must not stay
 unroutable for a whole TTL. No eviction sweep; bounded by building count.
 
+**One retry** on transport failure or 5xx, ~50-100ms jittered; not on 4xx, since a 404 will
+say the same thing twice. An unrouted breach costs an alert its web push (`unroutable`), so a
+single dropped connection should not be enough to cause one. Jitter is taken from the clock,
+not a `rand` dep — it needs to be uneven, not unpredictable.
+
+**Single-flight per building** (`gates`): one lookup at a time per name, the rest wait and read
+what the winner cached. Failures are uncached by design, so without this a slow twin-service
+gets N concurrent identical requests exactly when it can least afford them. Same bound as the
+cache: one entry per building, no sweep.
+
 System callers (`system:` subject prefix) bypass the membership filter — see
 `documentation/developer/architecture/notification-architecture.qd`.
 

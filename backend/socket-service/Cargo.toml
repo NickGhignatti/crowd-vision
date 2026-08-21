@@ -29,6 +29,7 @@ tower-http = { version = "0.6", features = ["cors"] }
 
 [dev-dependencies]
 rust_socketio = { version = "0.6", features = ["async"] }
+wiremock = "0.6"
 
 [profile.release]
 overflow-checks = true
