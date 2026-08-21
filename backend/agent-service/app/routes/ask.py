@@ -55,9 +55,12 @@ def _resolve_override_llm(model: str | None, user: AuthUser) -> LLMClient | None
     description=(
         "Runs the tool-calling loop and returns an answer with citations and a "
         "tool-call trace. If `stream=true` (default), the response is a "
-        "Server-Sent Events stream of `{type: 'token', text}` events terminated "
-        "by a `{type: 'done', citations, usage, ...}` event. If `stream=false`, "
-        "returns a single JSON `AskResponse`."
+        "Server-Sent Events stream of `{type: 'token', text}` events, emitted as "
+        "the model generates them, terminated by a "
+        "`{type: 'done', answer, citations, usage, ...}` event. The `done` event's "
+        "`answer` is authoritative: it is the final text after hallucinated "
+        "citations are stripped, which can differ from the concatenated tokens. "
+        "If `stream=false`, returns a single JSON `AskResponse`."
     ),
     openapi_extra={"security": [{"cookieAuth": []}]},
     responses={
@@ -67,8 +70,10 @@ def _resolve_override_llm(model: str | None, user: AuthUser) -> LLMClient | None
                 "text/event-stream": {
                     "schema": {"type": "string"},
                     "example": (
-                        'data: {"type":"token","text":"Crowd-Vision is..."}\n\n'
-                        'data: {"type":"done","citations":[],"usage":{}}\n\n'
+                        'data: {"type":"token","text":"Crowd-Vision is"}\n\n'
+                        'data: {"type":"token","text":" a digital twin."}\n\n'
+                        'data: {"type":"done","answer":"Crowd-Vision is a digital '
+                        'twin.","citations":[],"usage":{}}\n\n'
                     ),
                 },
             },

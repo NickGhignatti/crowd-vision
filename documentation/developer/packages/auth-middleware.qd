@@ -1,7 +1,7 @@
 .docname {Auth Middleware}
 .include {docs}
 
-`auth-middleware` is the Go equivalent of [Node Auth & Error Middleware](middlewares.qd): the shared code every Go HTTP service wires in front of its routes to resolve `authcontracts.StandardClaims` — the caller's identity and memberships — from a request, before any handler runs.
+`auth-middleware` is the Go side of a boundary every backend language implements: the shared code every Go HTTP service wires in front of its routes to resolve `authcontracts.StandardClaims` — the caller's identity and memberships — from a request, before any handler runs.
 
 Unlike the Node package, it exposes **two** distinct entry points, because the Go services that use it don't all receive requests the same way:
 
@@ -27,7 +27,7 @@ Unlike the Node package, it exposes **two** distinct entry points, because the G
         RA -->|"context.WithValue"| FC
         RM -->|"context.WithValue"| FC
 
-The same split exists in every other language: see [Node Auth & Error Middleware](middlewares.qd) for the Node services and [Digital Twin Service](../services/digital-twin.qd) for `twin-service`'s Rust extractor — both trust the same `x-gateway-claims` header rather than verifying anything themselves, for the same reason `tenancy-service` does here.
+The same split exists in every other language: see [Digital Twin Service](../services/digital-twin.qd) and [Chat Service](../services/chat.qd) for the Rust `GatewayClaims` extractors — they trust the same `x-gateway-claims` header rather than verifying anything themselves, for the same reason `tenancy-service` does here.
 
 Not every Go service uses this package for its inbound auth. `registry-service` and `provisioner` are control-plane-to-control-plane only: their `/internal/*` routes are protected by a separate HMAC-SHA256 request-signing scheme (`X-Signature`, checked against a shared internal secret), not a `StandardClaims` token at all, and `provisioner` has no inbound HTTP handlers to protect in the first place — it only ever makes outbound calls, signing its own requests with that same HMAC scheme. Neither service currently needs `auth-middleware`.
 

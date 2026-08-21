@@ -32,6 +32,13 @@ class ToolSchema:
 
 
 @dataclass
+class TextDelta:
+    """One chunk of generated text, forwarded as it arrives."""
+
+    text: str
+
+
+@dataclass
 class ChatTurn:
     text: str
     tool_calls: list[ToolCall] = field(default_factory=list)
@@ -46,15 +53,23 @@ class LLMClient(Protocol):
         self, messages: list[dict], temperature: float | None = None
     ) -> Completion: ...
 
-    # Async generator: calling it returns the iterator directly (not a coroutine),
-    # so this is a plain `def` returning AsyncIterator — not `async def`.
-    def stream(
-        self, messages: list[dict], temperature: float | None = None
-    ) -> AsyncIterator[str]: ...
-
     async def chat(
         self,
         messages: list[dict],
         tools: list[ToolSchema] | None = None,
         temperature: float | None = None,
     ) -> ChatTurn: ...
+
+    # Async generator: calling it returns the iterator directly (not a coroutine),
+    # so this is a plain `def` returning AsyncIterator — not `async def`.
+    #
+    # Yields a `TextDelta` per chunk of generated text, then exactly one `ChatTurn`
+    # as its final item — the same turn `chat()` would have returned, tool calls and
+    # usage included. Streaming a hop that turns out to call tools is normal: it
+    # simply yields no text before its turn.
+    def stream_chat(
+        self,
+        messages: list[dict],
+        tools: list[ToolSchema] | None = None,
+        temperature: float | None = None,
+    ) -> AsyncIterator[TextDelta | ChatTurn]: ...

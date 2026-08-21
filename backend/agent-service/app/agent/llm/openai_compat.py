@@ -5,7 +5,14 @@ from typing import TYPE_CHECKING, cast
 
 from openai import AsyncOpenAI, omit
 
-from app.agent.llm.base import ChatTurn, Completion, CompletionUsage, ToolCall, ToolSchema
+from app.agent.llm.base import (
+    ChatTurn,
+    Completion,
+    CompletionUsage,
+    TextDelta,
+    ToolCall,
+    ToolSchema,
+)
 from app.agent.llm.pricing import estimate_cost
 from app.config import get_settings
 from app.tracing import tag_generation, tracer
@@ -14,6 +21,22 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolUnionParam
+
+
+def _to_openai_tools(tools: list[ToolSchema] | None) -> list[dict] | None:
+    if not tools:
+        return None
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t.name,
+                "description": t.description,
+                "parameters": t.parameters,
+            },
+        }
+        for t in tools
+    ]
 
 
 def _to_openai_messages(messages: list[dict]) -> list[dict]:
@@ -142,21 +165,87 @@ class OpenAICompatClient:
         text = (getattr(msg, "content", None) or "") if msg else ""
         return Completion(text=text, usage=usage, model=self.model)
 
-    async def stream(
-        self, messages: list[dict], temperature: float | None = None
-    ) -> AsyncIterator[str]:
+    async def stream_chat(
+        self,
+        messages: list[dict],
+        tools: list[ToolSchema] | None = None,
+        temperature: float | None = None,
+    ) -> AsyncIterator[TextDelta | ChatTurn]:
+        """Same call as `chat()`, but text is forwarded as the model produces it.
+
+        Tool-call arguments arrive fragmented across chunks and have to be
+        reassembled per `index` before they can be parsed; text does not, so it is
+        yielded immediately. `include_usage` asks for the trailing usage-only chunk,
+        without which a streamed hop would report zero tokens and zero cost.
+        """
         temperature = self._temperature if temperature is None else temperature
-        stream = await self._client.chat.completions.create(
+        oai_tools = _to_openai_tools(tools)
+
+        with tracer().start_as_current_span(f"gen_ai.chat {self.model}") as span:
+            span.set_attribute("gen_ai.system", self._system)
+            span.set_attribute("gen_ai.request.temperature", temperature)
+            if tools:
+                span.set_attribute("gen_ai.request.tool_count", len(tools))
+
+            stream = await self._client.chat.completions.create(
+                model=self.model,
+                messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
+                temperature=temperature,
+                max_tokens=self._max_tokens,
+                tools=cast("list[ChatCompletionToolUnionParam]", oai_tools) if oai_tools else omit,
+                stream=True,
+                stream_options={"include_usage": True},
+                extra_body=self._usage_extra_body,
+            )
+
+            text_parts: list[str] = []
+            partial: dict[int, dict] = {}
+            final_chunk: object | None = None
+
+            async for chunk in stream:
+                if getattr(chunk, "usage", None):
+                    final_chunk = chunk
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    text_parts.append(delta.content)
+                    yield TextDelta(delta.content)
+                for fragment in delta.tool_calls or []:
+                    slot = partial.setdefault(fragment.index, {"id": "", "name": "", "args": ""})
+                    if fragment.id:
+                        slot["id"] = fragment.id
+                    if fragment.function and fragment.function.name:
+                        slot["name"] = fragment.function.name
+                    if fragment.function and fragment.function.arguments:
+                        slot["args"] += fragment.function.arguments
+
+            usage = (
+                self._usage(final_chunk) if final_chunk is not None else CompletionUsage(0, 0, 0.0)
+            )
+            tag_generation(
+                span,
+                model=self.model,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                cost_usd=usage.cost_usd,
+            )
+
+            calls: list[ToolCall] = []
+            for slot in (partial[index] for index in sorted(partial)):
+                try:
+                    args = json.loads(slot["args"] or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                calls.append(ToolCall(id=slot["id"], name=slot["name"], arguments=args))
+            span.set_attribute("gen_ai.response.tool_call_count", len(calls))
+
+        yield ChatTurn(
+            text="".join(text_parts),
+            tool_calls=calls,
+            usage=usage,
             model=self.model,
-            messages=cast("list[ChatCompletionMessageParam]", _to_openai_messages(messages)),
-            temperature=temperature,
-            max_tokens=self._max_tokens,
-            stream=True,
         )
-        async for chunk in stream:
-            delta = chunk.choices[0].delta.content if chunk.choices else None
-            if delta:
-                yield delta
 
     async def chat(
         self,
@@ -165,21 +254,7 @@ class OpenAICompatClient:
         temperature: float | None = None,
     ) -> ChatTurn:
         temperature = self._temperature if temperature is None else temperature
-        oai_tools = (
-            [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": t.name,
-                        "description": t.description,
-                        "parameters": t.parameters,
-                    },
-                }
-                for t in tools
-            ]
-            if tools
-            else None
-        )
+        oai_tools = _to_openai_tools(tools)
 
         with tracer().start_as_current_span(f"gen_ai.chat {self.model}") as span:
             span.set_attribute("gen_ai.system", self._system)

@@ -57,15 +57,6 @@ groups:
           summary: "contracts-service fan-out latency above 500ms"
           description: "contracts-service's 95th percentile sensor-ingestion-to-fan-out latency has been above 500ms for 5 minutes."
 
-      - alert: NodeEventLoopLagHigh
-        expr: nodejs_eventloop_lag_seconds > 0.1
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Node.js event loop lag above 100ms ({{ $labels.job }})"
-          description: "{{ $labels.job }}'s Node.js event loop has been lagging by more than 100ms for 5 minutes, indicating the process is struggling to keep up."
-
       - alert: SensorIngestPersistFailures
         expr: sum(rate(telemetry_ingest_persist_failures_total[5m])) > 0
         for: 5m

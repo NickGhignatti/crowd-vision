@@ -1,0 +1,15 @@
+services:
+  chat-db:
+    image: mongo:7
+
+  chat-service-test:
+    build:
+      context: .
+      target: test
+    command: ["bash", "/app/scripts/rust-integration-tests.sh"]
+    environment:
+      - MONGO_URI=mongodb://chat-db:27017
+    volumes:
+      - ../../scripts/rust-integration-tests.sh:/app/scripts/rust-integration-tests.sh:ro
+    depends_on:
+      - chat-db

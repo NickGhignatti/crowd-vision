@@ -3,7 +3,7 @@
 
 **Bounded context:** [Identity & Access](../domain/identity-access.qd) · **Stack:** Keycloak (identity provider) + Go (control plane)
 
-Keycloak owns authentication for every tier; `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` (all Go) own everything else — token exchange, membership resolution, organization lifecycle, and provisioning, respectively. Nothing on this page is code — see [Auth Middleware](../packages/auth-middleware.qd), [Auth Contracts](../packages/auth-contracts.qd), and [Auth Policy](../packages/auth-policy.qd) for the implementation-level walkthroughs, or [Node Auth & Error Middleware](../packages/middlewares.qd) for how the Node services on the other side of claims-gateway trust its output.
+Keycloak owns authentication for every tier; `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` (all Go) own everything else — token exchange, membership resolution, organization lifecycle, and provisioning, respectively. Nothing on this page is code — see [Auth Middleware](../packages/auth-middleware.qd), [Auth Contracts](../packages/auth-contracts.qd), and [Auth Policy](../packages/auth-policy.qd) for the implementation-level walkthroughs. Every service on the other side of claims-gateway trusts its output rather than re-verifying it; see [Service Mesh Architecture](service-mesh.qd) for why.
 
 ---
 

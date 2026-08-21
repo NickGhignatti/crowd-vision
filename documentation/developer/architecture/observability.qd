@@ -57,9 +57,6 @@ Both stacks load the same seven alerting rules — see **Alerting rules** below.
     - - `ContractsServiceFanoutLatencyHigh`
       - p95 `telemetry_fanout_latency_ms` (sensor-ingestion-to-fan-out) exceeds 500ms.
       - 5m
-    - - `NodeEventLoopLagHigh`
-      - `nodejs_eventloop_lag_seconds` (from `collectDefaultMetrics`) exceeds 100ms — chat-service is the only remaining emitter.
-      - 5m
 
 .box {No Alertmanager — these only populate Prometheus's own Alerts page} type:{warning}
     Neither stack deploys Alertmanager, so a firing alert is visible in Prometheus's `/alerts` UI and exposed as the `ALERTS` metric, but nothing routes it anywhere — no email, Slack, or PagerDuty notification is sent. Someone still has to be looking at the page. Wiring up Alertmanager (and a receiver) is a separate piece of work from defining the rules themselves.
@@ -93,9 +90,9 @@ Of the 11 backend services, only 4 expose a `/metrics` endpoint:
     - - notification-service (Rust)
       - `prometheus` crate
       - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service
-    - - chat-service (Node)
-      - `prom-client` + `collectDefaultMetrics`
-      - `chat_http_requests_total`, `chat_http_error_requests_total`, `chat_http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service
+    - - chat-service (Rust)
+      - `prometheus` crate
+      - `chat_http_requests_total`, `chat_http_error_requests_total`, `chat_http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service. The `chat_` prefix survives the Rust rewrite because `prometheus.rules.yml` alerts on these exact names. No default process metrics: the last `nodejs_*` series, and the `NodeEventLoopLagHigh` alert that read them, went with the rewrite.
 
 `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` have no metrics instrumentation at all — no `prom-client`, `prometheus_client`, or `promhttp`, no `/metrics` route.
 

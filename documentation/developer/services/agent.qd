@@ -57,9 +57,20 @@ limit returns the IDK marker with `decision=tool_loop_exhausted`\. Tool errors a
 to the model as ordinary tool-result messages rather than raised, so the model gets a chance
 to recover (retry with different arguments, or give up cleanly).
 
-`stream=true` runs the same loop and then emits the finished answer as a single Server-Sent
-Events `token` event followed by `done`\. It is **not** per-token streaming yet — the event
-shape exists so the client contract is stable when true streaming is added later.
+`stream=true` runs the same loop over the streaming form of each model call, forwarding text
+as Server-Sent Events `token` events the moment the model produces them, and closing with a
+`done` event. Total generation time is unchanged; time-to-first-token drops from seconds to
+milliseconds.
+
+The `done` event's **`answer` field is authoritative, not the concatenated tokens**. The two
+diverge whenever the loop rewrites what the model produced: hallucinated citation markers are
+stripped after generation, and a hop that opens with a preamble before calling a tool has
+already streamed words that are no part of the answer. Clients display tokens as they arrive
+but must persist `answer`.
+
+Both modes run the *same* loop — `stream` only swaps the per-hop call for its streaming twin —
+so the hop limit, citation checking, tracing, and usage accounting cannot drift apart between
+them. `stream=false` still uses the buffered call, so evals and cost accounting are unaffected.
 
 ---
 
@@ -256,9 +267,9 @@ depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
 `RequestAuthentication` (or, in docker-compose dev, Caddy's `forward_auth` against
 claims-gateway's `/verify`) verifies the gateway JWT once at the edge and injects the validated
 payload as this base64 header — agent-service trusts it rather than re-verifying a JWT itself,
-the same trust model as every other migrated service (see
-[Node Auth & Error Middleware](../packages/middlewares.qd)). There is no JWKS material anywhere
-in this service's configuration.
+the same trust model as every other service behind the edge (see
+[Identity & Tenancy Architecture](../architecture/auth-architecture.qd)). There is no JWKS
+material anywhere in this service's configuration.
 
 Only when the header is **absent** does a second, narrower path run: a local-dev bypass for
 `evals/run_evals.py`, which sends its own self-minted token as the `authentication_token` cookie

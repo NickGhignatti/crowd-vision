@@ -30,7 +30,7 @@ independently.
 | `backend/telemetry-service` | Rust / Axum / Postgres+Timescale / Kafka / Redis | Telemetry ingestion (readings, thresholds, device actions) |
 | `backend/notification-service` | Rust / Axum / MongoDB / Kafka / Redis | Alerting, Web Push |
 | `backend/socket-service` | Rust / Axum / socketioxide / Redis | Real-time transport to browser |
-| `backend/chat-service` | Node / MongoDB | Chat sessions, orchestrates `agent-service` |
+| `backend/chat-service` | Rust / Axum / MongoDB | Chat sessions, SSE streaming, orchestrates `agent-service` |
 | `backend/agent-service` | Python / FastAPI / PostgreSQL+pgvector | RAG assistant, maintained separately |
 | `backend/auth-contracts`, `auth-middleware`, `auth-policy` | Go modules (+Rust/Python Cedar bindings) | Shared libs, embedded not deployed |
 | `simulators/*` | Python / Node | Synthetic telemetry generators |
@@ -51,6 +51,7 @@ just test agent-integration
 just test integration           # full backend integration, composed stack
 just test twin-integration       # twin-service tests/*.rs against a real Mongo, composed
 just test socket-integration      # socket-service tests/*.rs against a real Redis, composed
+just test chat-integration        # chat-service tests/*.rs against a real Mongo, composed
 just test notification-integration # notification-service tests/*.rs against real Mongo+Redis, composed
 just setup deps-check      # lockfile-in-sync gate
 just setup audit             # npm/uv/cargo audit
@@ -97,9 +98,14 @@ interfaces, wired in `cmd/<service>/main.go`. Only outbound side has real port/a
 inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = ticker loop.
 
 **Rust services**: each enforces its own layering with a `tests/architecture*.rs` fitness test —
-read the service's own `CLAUDE.md` before restructuring. `twin-service`, `notification-service`
-= Ports & Adapters. `telemetry-service` = hexagon + microkernel. `socket-service` = functional
-core / imperative shell. `contracts-service` stays flat, no restructure.
+read the service's own `CLAUDE.md` before restructuring. `twin-service`, `notification-service`,
+`chat-service` = Ports & Adapters. `telemetry-service` = hexagon + microkernel. `socket-service`
+= functional core / imperative shell. `contracts-service` stays flat, no restructure.
+
+**Chat streaming**: `POST /chat/conversations/{id}/messages` is SSE, not JSON — `token` frames
+then a terminal `done` (or `error`) frame. Persist only on `done`, so an aborted generation
+leaves no half-written message. Pre-stream failures stay ordinary status codes. Needs
+`flush_interval -1` at Caddy. Detail: `backend/chat-service/CLAUDE.md`.
 
 **Breach alerts**: telemetry-service produces every threshold breach to the `alerts` Kafka topic;
 notification-service consumes and delivers. Redelivery-safe, absorbed by a Redis cooldown.
