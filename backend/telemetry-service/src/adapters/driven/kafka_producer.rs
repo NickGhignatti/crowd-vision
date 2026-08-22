@@ -24,6 +24,9 @@ impl KafkaEvents {
         let producer: FutureProducer = ClientConfig::new()
             .set("bootstrap.servers", brokers)
             .set("message.timeout.ms", "5000")
+            // A producer-side retry after a partial ack would otherwise
+            // publish the same breach twice.
+            .set("enable.idempotence", "true")
             .create()?;
         ensure_topics(brokers).await;
         Ok(Self {

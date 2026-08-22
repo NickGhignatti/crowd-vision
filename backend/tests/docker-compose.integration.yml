@@ -20,7 +20,9 @@ services:
   integration-tests:
     image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
     working_dir: /workspace
-    command: ["uv", "run", "pytest", "-v"]
+    # -s: the LD-4 tests print measured latency/throughput baselines (issue
+    # #340); pytest captures stdout of passing tests without it.
+    command: ["uv", "run", "pytest", "-v", "-s"]
     environment:
       - TELEMETRY_SERVICE_URL=http://telemetry-service:3000
       - SOCKET_SERVICE_URL=http://socket-server:3000

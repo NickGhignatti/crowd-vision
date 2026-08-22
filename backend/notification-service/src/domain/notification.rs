@@ -5,6 +5,7 @@ use time::macros::format_description;
 
 pub const NOTIFICATIONS_CHANNEL: &str = "notifications";
 pub const ALERTS_TOPIC: &str = "alerts";
+pub const ALERTS_DLQ_TOPIC: &str = "alerts.dlq";
 pub const COOLDOWN_SECONDS: u64 = 300;
 
 pub fn is_temperature_alert(raw: &str) -> bool {

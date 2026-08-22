@@ -21,6 +21,12 @@ imports no I/O crate, no `async fn`, never names `crate::shell`; room-name liter
 - `shell/twin.rs` resolves building → domains from twin-service (`TWIN_SERVICE_URL`, caller's
   claims forwarded, 2s timeout, 60s cache — authoritative answers cached incl. empty, failures
   not)
+- **one retry** on transport failure or 5xx, ~50-100ms jittered. Not on 4xx: a 404 means the
+  building is not there. Jitter comes off the clock, not a `rand` dep
+- **single-flight per building** (`gates`): one lookup at a time per id, others wait and read
+  the cache the winner filled. A subscribe storm after a deploy is when twin-service is
+  slowest; without this every socket in it asks separately. Bounded by building count, like
+  the cache
 - `core::auth::may_read_building` requires a shared domain
 - lookup failure = reject, not fallthrough; both rejection paths counted
 

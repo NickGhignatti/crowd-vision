@@ -20,5 +20,19 @@ class DashboardSocket:
         assert event == "telemetry", f"expected a 'telemetry' event, got {event!r}"
         return data
 
+    def drain_telemetry(self, idle_timeout: float = 5.0) -> int:
+        """Count every `telemetry` event already queued, returning once
+        `idle_timeout` passes with nothing new. Used to check for loss under
+        sustained load, where waiting for one event at a time says nothing.
+        """
+        received = 0
+        while True:
+            try:
+                event, _ = self._client.receive(timeout=idle_timeout)
+            except socketio.exceptions.TimeoutError:
+                return received
+            if event == "telemetry":
+                received += 1
+
     def disconnect(self) -> None:
         self._client.disconnect()

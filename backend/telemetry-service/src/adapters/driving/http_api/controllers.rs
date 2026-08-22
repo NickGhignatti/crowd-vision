@@ -149,11 +149,8 @@ pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<Value> {
     Json(json!({ "service": "telemetry-service", "metrics": metrics }))
 }
 
-pub async fn ingest(
-    State(state): State<Arc<AppState>>,
-    Json(mut body): Json<Value>,
-) -> Result<(StatusCode, Json<Value>), Response> {
-    let sensor_type = body
+pub async fn ingest(State(state): State<Arc<AppState>>, Json(mut body): Json<Value>) -> Response {
+    let Some(sensor_type) = body
         .as_object_mut()
         .and_then(|payload| payload.remove("type"))
         .and_then(|value| {
@@ -163,10 +160,11 @@ pub async fn ingest(
                 .filter(|t| !t.is_empty())
                 .map(str::to_owned)
         })
-        .ok_or_else(|| {
-            metrics::record_ingest("unknown", "invalid");
-            DomainError::Validation("type: must be a non-empty string.".to_owned()).into_response()
-        })?;
+    else {
+        metrics::record_ingest("unknown", "invalid");
+        return DomainError::Validation("type: must be a non-empty string.".to_owned())
+            .into_response();
+    };
 
     let accepted = state.ingest.accept(&sensor_type, &body).await;
     metrics::record_ingest(
@@ -179,16 +177,17 @@ pub async fn ingest(
     );
 
     match accepted {
-        Ok(()) => Ok((
+        Ok(()) => (
             StatusCode::ACCEPTED,
             Json(json!({ "accepted": true, "type": sensor_type })),
-        )),
-        Err(DomainError::Validation(message)) => Err((
+        )
+            .into_response(),
+        Err(DomainError::Validation(message)) => (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({ "error": "Payload validation failed.", "details": [message] })),
         )
-            .into_response()),
-        Err(error) => Err(error.into_response()),
+            .into_response(),
+        Err(error) => error.into_response(),
     }
 }
 

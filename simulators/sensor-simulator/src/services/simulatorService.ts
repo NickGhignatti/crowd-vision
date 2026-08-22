@@ -70,18 +70,22 @@ export class Simulator {
   private async tick() {
     if (!this.isRunning) return;
 
-    for (const building of this.activeBuildings.activeBuildings) {
-      await this.sendSignals(building);
-    }
+    await Promise.all(
+      this.activeBuildings.activeBuildings.map((building) =>
+        this.sendSignals(building),
+      ),
+    );
 
     setTimeout(() => this.tick(), this.delay);
   }
 
   private async sendSignals(building: IBuilding) {
     const rooms = this.activeBuildings.getRooms(building.buildingId);
-    for (const roomId of rooms) {
-      this.sendSingleSignal(roomId, building);
-    }
+    // Awaited, not fired and forgotten: an unawaited send inside an async
+    // method rejects into nothing, so a failing tick looked like a passing one.
+    await Promise.all(
+      rooms.map((roomId) => this.sendSingleSignal(roomId, building)),
+    );
   }
 
   private async sendSingleSignal(roomId: string, building: IBuilding) {
@@ -122,17 +126,18 @@ export class Simulator {
         type: "peopleCount",
       };
 
-      const responseTemperature = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(microkernelTempPayload),
-      });
-
-      const responsePeopleCount = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(microkernelPeopPayload),
-      });
+      const [responseTemperature, responsePeopleCount] = await Promise.all([
+        fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(microkernelTempPayload),
+        }),
+        fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(microkernelPeopPayload),
+        }),
+      ]);
 
       if (!responseTemperature.ok || !responsePeopleCount.ok) {
         console.error(

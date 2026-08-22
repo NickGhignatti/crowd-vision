@@ -60,6 +60,15 @@ def test_ingestion_to_dashboard_p99_meets_both_sla_checkpoints():
 
     observed = p99(latencies)
 
+    # Printed, not just asserted: the budget below says whether we are inside
+    # the SLA, never how much room is left. Issue #340 needs the number itself
+    # to tell an improvement from a no-op.
+    print(
+        f"\n[#340 baseline] ingestion-to-dashboard p99:  {observed * 1000:.0f}ms"
+        f"\n[#340 baseline] ingestion-to-dashboard mean: "
+        f"{sum(latencies) / len(latencies) * 1000:.0f}ms"
+    )
+
     assert observed <= 1.0, (
         f"p99 ingestion-to-leaving-socket-service latency {observed:.3f}s exceeded 1s"
     )

@@ -242,8 +242,14 @@ class Simulator:
     async def _send_signals(self, building: SimulationBuilding, dt_hours: float) -> None:
         """Generate and POST one reading per room."""
         client = await self._get_client()
-        for room in building.rooms.values():
-            await self._send_single_signal(client, building, room, dt_hours)
+        # Concurrent, not sequential: one room's POST does not depend on the
+        # last one's, and a serial loop makes a tick cost rooms x round trip.
+        await asyncio.gather(
+            *(
+                self._send_single_signal(client, building, room, dt_hours)
+                for room in building.rooms.values()
+            )
+        )
 
     async def _send_single_signal(
             self,
