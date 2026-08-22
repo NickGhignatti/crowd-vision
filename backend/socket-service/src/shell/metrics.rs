@@ -2,11 +2,11 @@ use std::sync::LazyLock;
 
 use prometheus::{Encoder, Gauge, IntCounter, IntCounterVec, Opts, Registry, TextEncoder};
 
+use crate::core::subscription::Subscription;
+
 pub const CHANNEL_TELEMETRY: &str = "telemetry";
 pub const CHANNEL_NOTIFICATIONS: &str = "notifications";
 pub const SCOPE_DOMAIN: &str = "domain";
-pub const REASON_FORBIDDEN: &str = "forbidden";
-pub const REASON_LOOKUP_FAILED: &str = "lookup_failed";
 pub const SCOPE_BROADCAST: &str = "broadcast";
 
 static REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
@@ -100,8 +100,10 @@ pub fn init() {
         RELAY_PAYLOAD_BYTES_TOTAL.with_label_values(&[channel]);
         RELAY_MESSAGES_SKIPPED_TOTAL.with_label_values(&[channel]);
     }
-    for reason in [REASON_FORBIDDEN, REASON_LOOKUP_FAILED] {
-        SUBSCRIPTIONS_REJECTED_TOTAL.with_label_values(&[reason]);
+    for outcome in [Subscription::Forbidden, Subscription::Unavailable] {
+        if let Some(reason) = outcome.reason() {
+            SUBSCRIPTIONS_REJECTED_TOTAL.with_label_values(&[reason]);
+        }
     }
     for scope in [SCOPE_DOMAIN, SCOPE_BROADCAST] {
         NOTIFICATIONS_RELAYED_TOTAL.with_label_values(&[scope]);
@@ -138,10 +140,14 @@ mod tests {
             r#"relay_payload_bytes_total{channel="notifications"} 0"#,
             r#"relay_messages_skipped_total{channel="telemetry"} 0"#,
             r#"relay_messages_skipped_total{channel="notifications"} 0"#,
-            r#"socket_subscriptions_rejected_total{reason="forbidden"} 0"#,
-            r#"socket_subscriptions_rejected_total{reason="lookup_failed"} 0"#,
         ] {
             assert!(text.contains(series), "missing series: {series}");
+        }
+
+        for outcome in [Subscription::Forbidden, Subscription::Unavailable] {
+            let reason = outcome.reason().unwrap();
+            let series = format!("socket_subscriptions_rejected_total{{reason=\"{reason}\"}} 0");
+            assert!(text.contains(&series), "missing series: {series}");
         }
     }
 }

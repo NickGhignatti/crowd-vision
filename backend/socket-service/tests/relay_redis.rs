@@ -7,8 +7,9 @@ use redis::AsyncCommands;
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::{Event, Payload};
 use serde_json::Value;
+use socket_service::core::subscription::Subscription;
 use socket_service::shell::metrics::{
-    CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, REASON_FORBIDDEN, RELAY_MESSAGES_SKIPPED_TOTAL,
+    CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, RELAY_MESSAGES_SKIPPED_TOTAL,
     RELAY_PAYLOAD_BYTES_TOTAL, SOCKETS_EXPIRED_TOTAL, SUBSCRIPTIONS_REJECTED_TOTAL,
     TELEMETRY_RELAYED_TOTAL,
 };
@@ -17,6 +18,15 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 
 static SERIALIZE: Mutex<()> = Mutex::const_new(());
+
+fn forbidden() -> &'static str {
+    Subscription::Forbidden.reason().unwrap()
+}
+
+/// rust_socketio hands ack arguments back wrapped in one array level.
+fn ack_body(raw: &Value) -> &Value {
+    raw.get(0).unwrap_or(raw)
+}
 
 const SETTLE: Duration = Duration::from_millis(300);
 const DELIVERY_TIMEOUT: Duration = Duration::from_secs(5);
@@ -267,6 +277,85 @@ async fn telemetry_reaches_only_subscribers_of_that_building() {
 }
 
 #[tokio::test]
+async fn subscribing_acknowledges_the_join_before_any_telemetry_is_published() {
+    let _guard = SERIALIZE.lock().await;
+    let url = start_server().await;
+
+    let (client, mut events) = connect(&url, &claims_header(&["acme"]), "telemetry").await;
+
+    let (ack_sender, mut acks) = mpsc::unbounded_channel();
+    client
+        .emit_with_ack(
+            "subscribe_building",
+            "b1",
+            Duration::from_secs(5),
+            move |payload, _| {
+                let sender = ack_sender.clone();
+                async move {
+                    if let Payload::Text(values) = payload {
+                        let _ = sender.send(values[0].clone());
+                    }
+                }
+                .boxed()
+            },
+        )
+        .await
+        .unwrap();
+
+    let raw = tokio::time::timeout(Duration::from_secs(5), acks.recv())
+        .await
+        .expect("the subscribe ack arrives")
+        .expect("the ack carries a payload");
+    let ack = ack_body(&raw);
+    assert_eq!(ack["subscribed"], true, "ack payload was {raw}");
+    assert_eq!(ack["buildingId"], "b1");
+
+    // No settle sleep: the ack is the proof the room join landed, which is the
+    // whole point of acknowledging it.
+    publish("telemetry:filtered:b1", r#"{"value":21}"#).await;
+    assert_eq!(next_delivery(&mut events).await["value"], 21);
+
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_refused_subscription_is_acknowledged_with_its_reason() {
+    let _guard = SERIALIZE.lock().await;
+    let url = start_server().await;
+
+    let (client, _events) = connect(&url, &claims_header(&["other"]), "telemetry").await;
+
+    let (ack_sender, mut acks) = mpsc::unbounded_channel();
+    client
+        .emit_with_ack(
+            "subscribe_building",
+            "b1",
+            Duration::from_secs(5),
+            move |payload, _| {
+                let sender = ack_sender.clone();
+                async move {
+                    if let Payload::Text(values) = payload {
+                        let _ = sender.send(values[0].clone());
+                    }
+                }
+                .boxed()
+            },
+        )
+        .await
+        .unwrap();
+
+    let raw = tokio::time::timeout(Duration::from_secs(5), acks.recv())
+        .await
+        .expect("a refusal is acknowledged too, not silently dropped")
+        .expect("the ack carries a payload");
+    let ack = ack_body(&raw);
+    assert_eq!(ack["subscribed"], false, "ack payload was {raw}");
+    assert_eq!(ack["reason"], forbidden());
+
+    client.disconnect().await.unwrap();
+}
+
+#[tokio::test]
 async fn unsubscribing_stops_telemetry_for_that_building() {
     let _guard = SERIALIZE.lock().await;
     let url = start_server().await;
@@ -358,7 +447,7 @@ async fn telemetry_is_denied_for_a_building_outside_the_callers_domains() {
     let (outsider, mut denied) = connect(&url, &claims_header(&["beta"]), "telemetry").await;
 
     let forbidden_before = SUBSCRIPTIONS_REJECTED_TOTAL
-        .with_label_values(&[REASON_FORBIDDEN])
+        .with_label_values(&[forbidden()])
         .get();
 
     member.emit("subscribe_building", "b1").await.unwrap();
@@ -371,7 +460,7 @@ async fn telemetry_is_denied_for_a_building_outside_the_callers_domains() {
     assert_silent(&mut denied).await;
     assert_eq!(
         SUBSCRIPTIONS_REJECTED_TOTAL
-            .with_label_values(&[REASON_FORBIDDEN])
+            .with_label_values(&[forbidden()])
             .get(),
         forbidden_before + 1,
         "the subscribe must be refused as forbidden, not as an unreachable directory"
