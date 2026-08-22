@@ -13,10 +13,16 @@ from support.claims import claims_header
 def new_room(
     building_id: str | None = None, room_id: str | None = None
 ) -> tuple[str, str]:
-    """A fresh, isolated (building, room) pair per test — no dependency on
-    twin-service's registration flow, since contracts-service's dashboard
-    preference (see register_dashboard_preference) is the only thing this
-    pipeline actually needs to exist first.
+    """A fresh, isolated (building, room) pair per test.
+
+    Two things must already know about the building for a reading to reach a
+    dashboard: contracts-service needs a preference row (see
+    register_dashboard_preference), and twin-service must answer
+    GET /domain/{building}, because socket-service authorises
+    subscribe_building against it and rejects the subscription as
+    lookup_failed otherwise. The suite stubs twin-service (see
+    docker-compose.integration.yml), so any id works here — but neither
+    dependency is optional.
     """
     return (
         building_id or f"bldg-{uuid.uuid4().hex[:12]}",
