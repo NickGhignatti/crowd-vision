@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import json
 import time
 import uuid
 
@@ -49,7 +52,22 @@ def ingest_temperature(
         "timestamp": timestamp_ms if timestamp_ms is not None else int(time.time() * 1000),
         "temperature": value,
     }
-    return client.post(f"{config.TELEMETRY_SERVICE_URL}/ingest", json=body)
+    return post_reading(client, body)
+
+
+def post_reading(client: httpx.Client, body: dict) -> httpx.Response:
+    """Signed exactly like a real gateway: HMAC-SHA256 over the bytes on the wire,
+    so the body is serialised here rather than by httpx's json= encoder.
+    """
+    raw = json.dumps(body, separators=(",", ":")).encode()
+    signature = hmac.new(
+        config.TELEMETRY_INGEST_SECRET.encode(), raw, hashlib.sha256
+    ).hexdigest()
+    return client.post(
+        f"{config.TELEMETRY_SERVICE_URL}/ingest",
+        content=raw,
+        headers={"content-type": "application/json", "x-signature": signature},
+    )
 
 
 def latest_temperature(client: httpx.Client, building_id: str, room_id: str) -> dict:

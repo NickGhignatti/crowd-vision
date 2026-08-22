@@ -33,6 +33,7 @@ services:
       - DATABASE_URL=postgres://postgres:telemetry@telemetry-db:5432/telemetrydb
       - REDIS_URL=redis://telemetry-redis:6379
       - KAFKA_BROKERS=telemetry-kafka:9092
+      - TELEMETRY_INGEST_SECRET=integration-ingest-secret-0123456789
     depends_on:
       - telemetry-db
       - telemetry-redis

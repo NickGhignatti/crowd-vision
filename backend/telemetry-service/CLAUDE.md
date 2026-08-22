@@ -20,11 +20,26 @@ Storage levers in `design/telemetry-storage.qd`.
 
 ## Routes
 
-`router()` in `lib.rs` splits `public` (health, metrics, contracts, `/ingest`) from `protected`
-(thresholds, sensors, actions, queries). `/ingest` is ungated at the edge too.
+`router()` in `lib.rs` splits three ways: `public` (health, metrics, contracts), `ingest`
+(`/ingest`, HMAC-gated), `protected` (thresholds, sensors, actions, queries).
 
-`adapters/ratelimit.rs` exists but is **not wired** — `router()` layers only `track_metrics`.
-twin-service and notification-service wire theirs. See issue #346.
+`/ingest` is ungated at the *edge* but not open: `adapters/ingest_auth.rs` verifies
+`X-Signature` = lowercase-hex `HMAC-SHA256(TELEMETRY_INGEST_SECRET, raw_body)` before the
+handler. 401 on missing/bad, 413 over 1 MiB. Signature covers the exact wire bytes — sign
+the same string you send, never a re-serialised one. `IngestKey::sign` is the one
+implementation, used by the verifier and by test/simulator signers.
+
+`TELEMETRY_INGEST_SECRET` is required at boot (min 32 chars) — fail-closed, no "disabled"
+mode. Separate key from `INTERNAL_SIGNING_SECRET`: this one leaves the mesh.
+
+Ceilings, both deliberate: one shared secret (so a legitimate gateway can post for a building
+that isn't its own — per-building keys are a store lookup behind the same header, no wire
+change), and no replay defense (a captured body stays valid, matching the mesh's
+"hard perimeter, guarded interior" posture).
+
+`adapters/ratelimit.rs` exists but is still **not wired** — it keys on IP, which is the wrong
+key for gateways behind one NAT. Wire it on the signing identity when per-building keys land.
+See issue #346.
 
 ## Breach alerts
 

@@ -101,8 +101,9 @@ static BOUNDS: &[BoundSpec] = &[
 
 ## Request Lifecycle
 
-**Ingestion** — `POST /ingest`, unauthenticated by design (device-facing, exempted at the edge):
+**Ingestion** — `POST /ingest`, device-facing so no user JWT and still exempt from the edge gate, but not open: the caller signs the request itself.
 
+0. `X-Signature` must equal `HMAC-SHA256(TELEMETRY_INGEST_SECRET, raw_body)` in lowercase hex — missing, malformed or mismatched is `401` before any parsing, persistence or fanout. Bodies over 1 MiB are `413`.
 1. `type` is taken from the body and removed; the remainder is the payload.
 2. `PluginRegistry` resolves the plugin — unknown metric is `404`.
 3. `plugin.validate` runs `check_fields` — failures are `422` with a `details` array.
@@ -110,6 +111,11 @@ static BOUNDS: &[BoundSpec] = &[
 5. Thresholds resolve room-first, then building; a breach publishes to `alerts:<metric>`.
 6. The event is published to `telemetry:raw`.
 7. `202 {accepted, type}`.
+
+The signature covers the exact bytes on the wire, so a re-serialised body fails: a signing client must send the same string it hashed.
+
+.box {One shared secret, not one per building} type:{note}
+    Every gateway currently signs with the same key, so a legitimate gateway could still post for a building that is not its own. That is bounded by there being no third-party gateways yet. Per-building keys are a store lookup behind the same header, with no wire change. Replay is likewise undefended — a captured body stays valid — which matches the mesh's documented "hard perimeter, guarded interior" posture, where an in-mesh attacker could forge `x-gateway-claims` regardless.
 
 A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `telemetry_ingest_persist_failures_total`.
 

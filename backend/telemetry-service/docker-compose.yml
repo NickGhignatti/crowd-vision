@@ -11,6 +11,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - KAFKA_BROKERS=kafka:9092
       - TWIN_SERVICE_URL=http://twin-service:3000
+      - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
       - PORT=3000
       - RUST_LOG=info
     healthcheck:

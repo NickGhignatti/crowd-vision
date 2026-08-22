@@ -1,4 +1,5 @@
 use crate::adapters::driven::dispatch::HttpDispatch;
+use crate::adapters::ingest_auth::IngestKey;
 use crate::contracts::sensor::Sensor;
 use crate::kernel::actions::Actions;
 use crate::kernel::ingest::Ingest;
@@ -24,6 +25,7 @@ pub struct AppState {
     pub pool: sqlx::PgPool,
     pub directory: Arc<dyn BuildingDirectory>,
     pub dispatch: Arc<HttpDispatch>,
+    pub ingest_key: IngestKey,
     pub ingest: Ingest,
     pub readings: Readings,
     pub thresholds: Thresholds,

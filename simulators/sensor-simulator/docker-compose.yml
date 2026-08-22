@@ -3,6 +3,8 @@ services:
     cpus: "3"
     build:
       context: .
+    environment:
+      - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
     ports:
       - "3001:3000"
     # Resolve `host.docker.internal` on hosts that don't provide it automatically;

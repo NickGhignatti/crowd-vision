@@ -113,7 +113,7 @@ These calls are intentionally few. The design keeps the request path short and a
 
 ### Device Ingestion
 
-`POST /ingest` on `telemetry-service` — no authentication (a physical sensor or simulator has no user token to present), and exempt from the gateway's auth gate for the same reason. The endpoint responds `202 Accepted` immediately and validates/persists/evaluates thresholds in the background (`setImmediate`), so a slow downstream step never makes an IoT device wait or retry.
+`POST /ingest` on `telemetry-service` — no user token (a sensor gateway has none to present), so it is exempt from the gateway's auth gate and carries its own credential instead: `X-Signature`, an HMAC-SHA256 over the raw body keyed by `TELEMETRY_INGEST_SECRET` — the same `X-Signature` scheme as the control-plane hops above, but a separate key, since this one leaves the mesh and lives on customer premises. Unsigned or mis-signed requests are `401` before any work. The endpoint validates, persists and evaluates thresholds before answering `202 Accepted`, so a `202` means the reading is durable and queryable.
 
 ---
 
@@ -217,9 +217,9 @@ The client fetches the server's public VAPID key (`GET /notification/public-key`
         participant WS as socket-service
         participant UI as Vue client
 
-        Sensor->>SS: POST /ingest (no auth)
+        Sensor->>SS: POST /ingest (X-Signature HMAC)
+        Note over SS: verify signature, validate, persist, normalize
         SS-->>Sensor: 202 Accepted
-        Note over SS: background: validate, persist, normalize
         SS->>R: PUBLISH telemetry:raw
         R-->>CS: telemetry:raw event
         Note over CS: read the event's own buildingId → route

@@ -15,7 +15,10 @@ ticks them on a configurable schedule, and POSTs the results to the target URL.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass, field
@@ -28,6 +31,12 @@ from scenarios import EnvironmentModel, Scenario
 from schemas import AirQualityReading, BuildingConfig
 
 logger = logging.getLogger("simulator")
+
+INGEST_SECRET = os.environ.get("TELEMETRY_INGEST_SECRET", "").encode()
+
+
+def _sign(raw: bytes) -> str:
+    return hmac.new(INGEST_SECRET, raw, hashlib.sha256).hexdigest()
 
 
 def _log_safe(value: object) -> str:
@@ -261,12 +270,20 @@ class Simulator:
             reading = room.read(dt_hours)
 
             payload = reading.model_dump()
+            raw     = reading.model_dump_json().encode()
 
             url     = f"{building.target_url}/ingest"
 
             try:
                 logger.info("POSTing reading to %s: %s", url, payload)
-                response = await client.post(url, json=payload)
+                response = await client.post(
+                    url,
+                    content=raw,
+                    headers={
+                        "content-type": "application/json",
+                        "x-signature": _sign(raw),
+                    },
+                )
                 if response.is_success or response.status_code == 202:
                     logger.debug(
                         "Sent reading building=%s room=%s aqi=%s pm25=%.1f co2=%.0f",

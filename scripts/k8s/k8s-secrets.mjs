@@ -133,6 +133,7 @@ applySecret('twin-service-secret', {
 
 applySecret('telemetry-service-secret', {
   DATABASE_URL: `postgres://telemetry:${need('TELEMETRY_DB_PASSWORD')}@telemetry-db:5432/telemetrydb`,
+  TELEMETRY_INGEST_SECRET: need('TELEMETRY_INGEST_SECRET'),
 })
 
 applySecret('telemetry-db-secret', {

@@ -123,7 +123,8 @@ connection, not payload). Accepted except `agent-service`, restricted by `Author
 (untrusted LLM tool-calling input). Revisit if a cluster ever serves >1 tenant.
 
 **Routing** (same table both envs): `/gateway`→claims-gateway, `/tenancy`→tenancy-service,
-`/twin`→twin-service, `/telemetry`→telemetry-service (`/telemetry/ingest` ungated), `/notification`,
+`/twin`→twin-service, `/telemetry`→telemetry-service (`/telemetry/ingest` ungated at the edge,
+HMAC `X-Signature` verified in-service), `/notification`,
 `/chat`, `/agent` (ungated), `/contracts` (own auth), `/socket.io`, `/`→frontend.
 `registry-service`/`provisioner`: no external route, HMAC-only internal calls.
 

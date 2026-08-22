@@ -5,6 +5,7 @@ use axum::http::{Request, StatusCode};
 use serde_json::json;
 use support::test_app::{claims_with, test_app};
 use support::{fresh_db, seed_building};
+use telemetry_service::adapters::ingest_auth::IngestKey;
 
 const BASE_MS: i64 = 1_700_000_000_000;
 
@@ -84,11 +85,9 @@ async fn a_reader_cannot_edit() {
 }
 
 #[tokio::test]
-async fn ingest_needs_no_credentials() {
-    let app = test_app(fresh_db("ingest_open").await, vec!["eng"]).await;
-    let (status, body) = app
-        .send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+async fn a_signed_reading_is_accepted_without_any_user_credential() {
+    let app = test_app(fresh_db("ingest_signed").await, vec!["eng"]).await;
+    let (status, body) = app.ingest(temperature("r1", BASE_MS, 21.5)).await;
     assert_eq!(status, StatusCode::ACCEPTED);
     assert_eq!(body["accepted"], true);
     assert_eq!(body["type"], "temperature");
@@ -96,13 +95,47 @@ async fn ingest_needs_no_credentials() {
 }
 
 #[tokio::test]
+async fn an_unsigned_reading_is_unauthorized() {
+    let app = test_app(fresh_db("ingest_unsigned").await, vec!["eng"]).await;
+    let (status, _) = app.ingest_unsigned(temperature("r1", BASE_MS, 21.5)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(app.fanout.published.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_reading_signed_with_the_wrong_secret_is_unauthorized() {
+    let app = test_app(fresh_db("ingest_wrongkey").await, vec!["eng"]).await;
+    let forged = IngestKey::new("attacker-secret-0123456789abcdefgh").unwrap();
+    let raw = temperature("r1", BASE_MS, 21.5).to_string();
+    let (status, _) = app.ingest_signed(&raw, &forged.sign(raw.as_bytes())).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(app.fanout.published.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_body_altered_after_signing_is_unauthorized() {
+    let app = test_app(fresh_db("ingest_tampered").await, vec!["eng"]).await;
+    let signed = temperature("r1", BASE_MS, 21.5).to_string();
+    let signature = app.ingest_key.sign(signed.as_bytes());
+    let tampered = temperature("r1", BASE_MS, 99.0).to_string();
+    let (status, _) = app.ingest_signed(&tampered, &signature).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(app.fanout.published.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_malformed_signature_header_is_unauthorized() {
+    let app = test_app(fresh_db("ingest_malformed_sig").await, vec!["eng"]).await;
+    let raw = temperature("r1", BASE_MS, 21.5).to_string();
+    let (status, _) = app.ingest_signed(&raw, "not-a-signature").await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn ingesting_an_unknown_sensor_type_is_not_found() {
     let app = test_app(fresh_db("ingest_unknown").await, vec!["eng"]).await;
     let (status, body) = app
-        .send_json(
-            "POST",
-            "/ingest",
-            None,
+        .ingest(
             json!({ "type": "humidity", "buildingId": "b1", "roomId": "r1",
                     "timestamp": BASE_MS, "temperature": 21.5 }),
         )
@@ -115,12 +148,7 @@ async fn ingesting_an_unknown_sensor_type_is_not_found() {
 async fn ingesting_an_invalid_payload_is_rejected_with_the_offending_fields() {
     let app = test_app(fresh_db("ingest_invalid").await, vec!["eng"]).await;
     let (status, body) = app
-        .send_json(
-            "POST",
-            "/ingest",
-            None,
-            json!({ "type": "temperature", "buildingId": "b1", "roomId": "r1" }),
-        )
+        .ingest(json!({ "type": "temperature", "buildingId": "b1", "roomId": "r1" }))
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(body["error"], "Payload validation failed.");
@@ -145,8 +173,7 @@ async fn latest_with_no_data_is_not_found() {
 #[tokio::test]
 async fn a_reading_is_ingested_then_read_back() {
     let app = test_app(fresh_db("readback").await, vec!["eng"]).await;
-    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+    app.ingest(temperature("r1", BASE_MS, 21.5)).await;
 
     let (status, body) = app
         .get(
@@ -164,8 +191,7 @@ async fn a_reading_is_ingested_then_read_back() {
 async fn entire_building_returns_one_row_per_room() {
     let app = test_app(fresh_db("entire").await, vec!["eng"]).await;
     for (room, value) in [("r1", 21.0), ("r2", 19.0)] {
-        app.send_json("POST", "/ingest", None, temperature(room, BASE_MS, value))
-            .await;
+        app.ingest(temperature(room, BASE_MS, value)).await;
     }
 
     let (status, body) = app
@@ -178,10 +204,7 @@ async fn entire_building_returns_one_row_per_room() {
 #[tokio::test]
 async fn a_read_carries_the_same_flat_metric_fields_the_socket_event_does() {
     let app = test_app(fresh_db("read_shape").await, vec!["eng"]).await;
-    app.send_json(
-        "POST",
-        "/ingest",
-        None,
+    app.ingest(
         json!({ "type": "airQuality", "buildingId": "b1", "roomId": "r1",
                 "timestamp": BASE_MS, "pm25": 8.0, "co2": 700.0, "indoor_aqi": 42.5 }),
     )
@@ -236,8 +259,7 @@ async fn a_custom_range_without_a_start_is_rejected() {
 #[tokio::test]
 async fn a_custom_range_with_an_explicit_start_and_end_works() {
     let app = test_app(fresh_db("w8_works").await, vec!["eng"]).await;
-    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+    app.ingest(temperature("r1", BASE_MS, 21.5)).await;
 
     let uri = format!(
         "/temperature/dashboard?building=b1&timeRange=custom&start={}&end={}",
@@ -304,10 +326,7 @@ async fn a_people_count_room_threshold_is_readable_back() {
         .await;
     assert_eq!(building["data"]["maxPeople"], 50);
 
-    app.send_json(
-        "POST",
-        "/ingest",
-        None,
+    app.ingest(
         json!({ "type": "peopleCount", "buildingId": "b1", "roomId": "r1",
                 "timestamp": BASE_MS, "peopleCount": 20 }),
     )
@@ -437,8 +456,7 @@ async fn health_answers_without_credentials() {
 #[tokio::test]
 async fn metrics_are_exposed_and_count_a_matched_route() {
     let app = test_app(fresh_db("metrics").await, vec!["eng"]).await;
-    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+    app.ingest(temperature("r1", BASE_MS, 21.5)).await;
 
     let response = app
         .send(
@@ -464,12 +482,7 @@ async fn metrics_are_exposed_and_count_a_matched_route() {
 async fn ingest_without_a_type_is_rejected() {
     let app = test_app(fresh_db("ingest_notype").await, vec!["eng"]).await;
     let (status, _) = app
-        .send_json(
-            "POST",
-            "/ingest",
-            None,
-            json!({ "buildingId": "b1", "roomId": "r1", "timestamp": BASE_MS }),
-        )
+        .ingest(json!({ "buildingId": "b1", "roomId": "r1", "timestamp": BASE_MS }))
         .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
@@ -477,8 +490,7 @@ async fn ingest_without_a_type_is_rejected() {
 #[tokio::test]
 async fn the_type_field_is_not_stored_as_a_payload_extra() {
     let app = test_app(fresh_db("ingest_typestrip").await, vec!["eng"]).await;
-    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+    app.ingest(temperature("r1", BASE_MS, 21.5)).await;
 
     let payload: serde_json::Value = sqlx::query_scalar("select payload from readings")
         .fetch_one(&app.pool)

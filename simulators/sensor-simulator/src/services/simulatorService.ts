@@ -1,9 +1,26 @@
+import { createHmac } from "node:crypto";
 import {
   mySimulationBuildings,
   type ISignalPeopleCount,
   type ISignalTemperature,
   type IBuilding,
 } from "../models/signal.js";
+
+const INGEST_SECRET = process.env.TELEMETRY_INGEST_SECRET ?? "";
+
+function signedIngest(url: string, payload: unknown): Promise<Response> {
+  const body = JSON.stringify(payload);
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Signature": createHmac("sha256", INGEST_SECRET)
+        .update(body)
+        .digest("hex"),
+    },
+    body,
+  });
+}
 
 export class Simulator {
   private isRunning: boolean = false;
@@ -127,16 +144,8 @@ export class Simulator {
       };
 
       const [responseTemperature, responsePeopleCount] = await Promise.all([
-        fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(microkernelTempPayload),
-        }),
-        fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(microkernelPeopPayload),
-        }),
+        signedIngest(url, microkernelTempPayload),
+        signedIngest(url, microkernelPeopPayload),
       ]);
 
       if (!responseTemperature.ok || !responsePeopleCount.ok) {
