@@ -217,7 +217,10 @@ mod tests {
             .mount(&server)
             .await;
 
-        assert_eq!(BuildingDomains::new(server.uri()).of("b1", "claims").await, None);
+        assert_eq!(
+            BuildingDomains::new(server.uri()).of("b1", "claims").await,
+            None
+        );
         assert_eq!(server.received_requests().await.unwrap().len(), 1);
     }
 
