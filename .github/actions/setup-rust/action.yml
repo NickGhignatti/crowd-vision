@@ -9,10 +9,21 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Resolve the pinned toolchain
+      id: toolchain
+      shell: bash
+      run: |
+        version=$(grep -oP '^rust = "\K[^"]+' "$GITHUB_WORKSPACE/.mise.toml")
+        if [[ -z "$version" ]]; then
+          echo "no rust pin found in .mise.toml" >&2
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
     - name: Setup Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
       with:
-        toolchain: stable
+        toolchain: ${{ steps.toolchain.outputs.version }}
         components: rustfmt, clippy, llvm-tools-preview
         cache: false
 

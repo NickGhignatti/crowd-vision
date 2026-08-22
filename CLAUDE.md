@@ -75,6 +75,8 @@ cd frontend && mise exec -- npx vitest run src/path/to/File.spec.ts -t "test nam
   `npm install --prefix backend/<svc> --package-lock-only --cpu=x64 --os=linux`) — else CI
   `npm ci` fails. Rust/Go: `cargo add`/`go get` in-dir, no lockfile step.
 - Go unpinned in `.mise.toml`, fetched on demand.
+- Rust pinned exact in `.mise.toml`; `.github/actions/setup-rust` reads that pin, so CI
+  and local run the same clippy. Bumping it is a deliberate commit.
 - New package → register in `.moon/workspace.yml`.
 
 ## Architecture

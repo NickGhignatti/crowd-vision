@@ -18,6 +18,8 @@ use telemetry_service::adapters::topics::{
 use telemetry_service::kernel::ports::{BuildingStore, RegistrationEvents, ThresholdStore};
 use telemetry_service::kernel::registration::Registration;
 
+static ONE_CONSUMER_AT_A_TIME: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 fn brokers() -> String {
     std::env::var("KAFKA_BROKERS").expect("KAFKA_BROKERS is set by docker-compose.test.yml")
 }
@@ -85,6 +87,7 @@ fn registration(pool: sqlx::PgPool, events: Arc<dyn RegistrationEvents>) -> Arc<
 
 #[tokio::test]
 async fn a_registration_request_persists_the_building_and_acknowledges_ready() {
+    let _consumer_slot = ONE_CONSUMER_AT_A_TIME.lock().await;
     ensure_topics(&brokers()).await;
     let pool = fresh_db("kafka_ready").await;
     let events = Arc::new(KafkaEvents::connect(&brokers()).await.unwrap());
@@ -121,10 +124,12 @@ async fn a_registration_request_persists_the_building_and_acknowledges_ready() {
     assert_eq!(bounds["maxTemp"], 26.5);
 
     handle.abort();
+    let _ = handle.await;
 }
 
 #[tokio::test]
 async fn a_redelivered_registration_request_converges_and_acknowledges_again() {
+    let _consumer_slot = ONE_CONSUMER_AT_A_TIME.lock().await;
     ensure_topics(&brokers()).await;
     let pool = fresh_db("kafka_redeliver").await;
     let events = Arc::new(KafkaEvents::connect(&brokers()).await.unwrap());
@@ -158,10 +163,12 @@ async fn a_redelivered_registration_request_converges_and_acknowledges_again() {
     assert_eq!(rooms, 1);
 
     handle.abort();
+    let _ = handle.await;
 }
 
 #[tokio::test]
 async fn a_registration_that_cannot_be_persisted_acknowledges_failed_with_the_error() {
+    let _consumer_slot = ONE_CONSUMER_AT_A_TIME.lock().await;
     ensure_topics(&brokers()).await;
     let pool = fresh_db("kafka_failed").await;
     let events = Arc::new(KafkaEvents::connect(&brokers()).await.unwrap());
@@ -178,10 +185,12 @@ async fn a_registration_that_cannot_be_persisted_acknowledges_failed_with_the_er
     assert!(completion["error"].as_str().unwrap().contains("name"));
 
     handle.abort();
+    let _ = handle.await;
 }
 
 #[tokio::test]
 async fn a_malformed_message_is_dropped_without_killing_the_consumer() {
+    let _consumer_slot = ONE_CONSUMER_AT_A_TIME.lock().await;
     ensure_topics(&brokers()).await;
     let pool = fresh_db("kafka_poison").await;
     seed_building(&pool, "seeded", &[]).await;
@@ -213,6 +222,7 @@ async fn a_malformed_message_is_dropped_without_killing_the_consumer() {
         "ready"
     );
     handle.abort();
+    let _ = handle.await;
 }
 
 #[tokio::test]
