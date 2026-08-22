@@ -23,6 +23,15 @@ components:
         Base64-encoded Stable Claims Contract injected by the edge after it
         verifies the internal RS256 JWT. Clients never set this header —
         the edge strips any client-supplied value and re-injects its own.
+    ingestSignature:
+      type: apiKey
+      in: header
+      name: x-signature
+      description: >
+        Lowercase-hex HMAC-SHA256 over the raw request body, keyed by
+        TELEMETRY_INGEST_SECRET. A sensor gateway has no user JWT, so this is
+        how it authenticates itself. The signature covers the exact bytes on
+        the wire — sign the string you send, never a re-serialised copy.
 
   parameters:
     SensorType:
@@ -194,7 +203,7 @@ components:
           items:
             type: object
             properties:
-              key: { type: string, example: "temperature" }
+              metricKey: { type: string, example: "temperature" }
               label: { type: string, example: "Temperature" }
               interfaceName: { type: string, example: "ITemperature" }
               unit: { type: [string, "null"], example: "C" }
@@ -204,7 +213,7 @@ components:
                   type: object
                   properties:
                     name: { type: string, example: "temperature" }
-                    kind: { type: string, example: "Finite" }
+                    type: { type: string, example: "Finite" }
                     required: { type: boolean }
               actions:
                 type: array
@@ -237,8 +246,13 @@ paths:
         the reading. Persistence, threshold evaluation and telemetry fan-out all
         happen before the response. A threshold-evaluation failure is logged and
         does not fail the ingest; a persistence failure does.
+
+        Requires an `x-signature` HMAC over the raw body. The route carries no
+        user JWT and is ungated at the edge, but it is not open — an unsigned or
+        mis-signed request is rejected before the body is parsed.
       tags: [Ingestion]
-      security: []
+      security:
+        - ingestSignature: []
       requestBody:
         required: true
         content:
@@ -257,8 +271,12 @@ paths:
                   type: { type: string, example: "temperature" }
         "400":
           description: Missing or invalid `type` field
+        "401":
+          description: Missing, malformed or mismatched `x-signature`
         "404":
           description: No module registered for the given sensor type
+        "413":
+          description: Body exceeds the 1 MiB ingest limit
         "422":
           description: Payload validation failed
           content:

@@ -170,5 +170,13 @@ Started at boot, the tunnel opens a dedicated Redis PubSub connection and subscr
 
 New metric types therefore appear automatically once a service advertises them; no change is needed here.
 
+The types in step 2 are **not** defined here. `MetricContract`, `ServiceMetricsContract` and
+`MetricsDiscoveryResponse` live in `backend/telemetry-contracts`, a serde-only crate that
+`telemetry-service` builds its response from and this service parses into. One definition, so
+the producer and the consumer cannot disagree.
+
+.box {Why the shared crate exists} type:{note}
+    They did disagree. After the Rust migration telemetry-service emitted `key` and `fields[].kind` while this service parsed `metricKey` and `fields[].type`. `MetricsDiscoveryResponse` is `untagged`, so both variants failed, `fetch_service_metrics` swallowed it as "one bad service is skipped", and the catalog came back empty — meaning no user could add or swap a dashboard column. A hand-maintained JSON contract file would not have caught it, because nothing would have read it. A shared struct turns it into a compile error.
+
 .box {Known gap: deletion cleanup} type:{warning}
     There is no `DELETE /preferences/{building_id}`. When a building is removed from the twin-service, its entry remains in both the `DashMap` and Mongo, and the tunnel keeps evaluating it. A deletion endpoint (called from the twin on removal) is the intended fix.

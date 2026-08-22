@@ -94,6 +94,8 @@ static BOUNDS: &[BoundSpec] = &[
 
 `GET /contracts`, `POST /ingest`, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.
 
+`GET /contracts` serialises that declaration into `ServiceMetricsContract` from the shared `backend/telemetry-contracts` crate — the same types `contracts-service` parses, so the two cannot drift.
+
 .box {The declaration is the single source of truth} type:{note}
     In the Node predecessor the served catalog and the per-module `validate()` were two independent lists. They drifted: `airQuality` advertised eight required fields and checked two, and the catalog said `building` while every validator required `buildingId`. `MetricDescriptor.fields` now drives both, which makes that class of drift inexpressible.
 

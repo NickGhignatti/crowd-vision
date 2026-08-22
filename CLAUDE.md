@@ -33,6 +33,7 @@ independently.
 | `backend/chat-service` | Rust / Axum / MongoDB | Chat sessions, SSE streaming, orchestrates `agent-service` |
 | `backend/agent-service` | Python / FastAPI / PostgreSQL+pgvector | RAG assistant, maintained separately |
 | `backend/auth-contracts`, `auth-middleware`, `auth-policy` | Go modules (+Rust/Python Cedar bindings) | Shared libs, embedded not deployed |
+| `backend/telemetry-contracts` | Rust crate | Metric-catalog wire types shared by telemetry-service + contracts-service |
 | `simulators/*` | Python / Node | Synthetic telemetry generators |
 | `tooling/eslint-config` | Node | Shared flat ESLint config |
 
@@ -103,6 +104,12 @@ inbound (`internal/api`) calls core directly. `provisioner`'s driving adapter = 
 read the service's own `CLAUDE.md` before restructuring. `twin-service`, `notification-service`,
 `chat-service` = Ports & Adapters. `telemetry-service` = hexagon + microkernel. `socket-service`
 = functional core / imperative shell. `contracts-service` stays flat, no restructure.
+
+**Metric-catalog contract**: `telemetry-service` `/contracts` and `contracts-service`'s parser
+share one definition, `backend/telemetry-contracts` (path dependency, both build from repo-root
+context). Drift is a compile error, not a runtime `error decoding response body` — which is
+exactly how `key`/`metricKey` and `kind`/`type` diverged and emptied the dashboard catalog.
+New cross-service JSON between Rust services goes here, not into a hand-rolled `json!`.
 
 **Chat streaming**: `POST /chat/conversations/{id}/messages` is SSE, not JSON — `token` frames
 then a terminal `done` (or `error`) frame. Persist only on `done`, so an aborted generation
