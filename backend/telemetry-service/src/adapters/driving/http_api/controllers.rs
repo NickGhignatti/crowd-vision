@@ -16,6 +16,10 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 use std::time::Instant;
+use telemetry_contracts::{
+    ActionContract, ActionParameterContract, MetricContract, MetricFieldContract,
+    ServiceMetricsContract,
+};
 
 #[derive(Deserialize)]
 pub struct BuildingQuery {
@@ -117,36 +121,53 @@ pub async fn metrics(State(state): State<Arc<AppState>>) -> impl axum::response:
     metrics::metrics_handler().await
 }
 
-pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<Value> {
-    let metrics: Vec<Value> = state
+pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<ServiceMetricsContract> {
+    let metrics = state
         .registry
         .all()
         .iter()
         .map(|plugin| {
             let descriptor = plugin.descriptor();
-            json!({
-                "key": descriptor.key,
-                "label": descriptor.label,
-                "interfaceName": descriptor.interface_name,
-                "unit": descriptor.unit,
-                "fields": descriptor.fields.iter().map(|field| json!({
-                    "name": field.name,
-                    "kind": format!("{:?}", field.kind),
-                    "required": field.required,
-                })).collect::<Vec<_>>(),
-                "actions": plugin.actions().iter().map(|action| json!({
-                    "name": action.name,
-                    "label": action.label,
-                    "parameters": action.parameters.iter().map(|parameter| json!({
-                        "name": parameter.name,
-                        "kind": format!("{:?}", parameter.kind),
-                        "required": parameter.required,
-                    })).collect::<Vec<_>>(),
-                })).collect::<Vec<_>>(),
-            })
+            MetricContract {
+                metric_key: descriptor.key.to_owned(),
+                label: descriptor.label.to_owned(),
+                interface_name: descriptor.interface_name.to_owned(),
+                unit: descriptor.unit.map(str::to_owned),
+                fields: descriptor
+                    .fields
+                    .iter()
+                    .map(|field| MetricFieldContract {
+                        name: field.name.to_owned(),
+                        field_type: format!("{:?}", field.kind),
+                        required: field.required,
+                        description: None,
+                    })
+                    .collect(),
+                actions: plugin
+                    .actions()
+                    .iter()
+                    .map(|action| ActionContract {
+                        name: action.name.to_owned(),
+                        label: action.label.to_owned(),
+                        parameters: action
+                            .parameters
+                            .iter()
+                            .map(|parameter| ActionParameterContract {
+                                name: parameter.name.to_owned(),
+                                parameter_type: format!("{:?}", parameter.kind),
+                                required: parameter.required,
+                            })
+                            .collect(),
+                    })
+                    .collect(),
+                source_service: None,
+            }
         })
         .collect();
-    Json(json!({ "service": "telemetry-service", "metrics": metrics }))
+    Json(ServiceMetricsContract {
+        service: "telemetry-service".to_owned(),
+        metrics,
+    })
 }
 
 pub async fn ingest(State(state): State<Arc<AppState>>, Json(mut body): Json<Value>) -> Response {

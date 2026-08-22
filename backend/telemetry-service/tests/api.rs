@@ -5,6 +5,7 @@ use axum::http::{Request, StatusCode};
 use serde_json::json;
 use support::test_app::{claims_with, test_app};
 use support::{fresh_db, seed_building};
+use telemetry_contracts::MetricsDiscoveryResponse;
 use telemetry_service::adapters::ingest_auth::IngestKey;
 
 const BASE_MS: i64 = 1_700_000_000_000;
@@ -425,7 +426,7 @@ async fn the_contract_advertises_metrics_and_their_actions() {
     assert_eq!(metrics.len(), 3);
     let temperature = metrics
         .iter()
-        .find(|metric| metric["key"] == "temperature")
+        .find(|metric| metric["metricKey"] == "temperature")
         .unwrap();
     assert_eq!(temperature["unit"], "C");
     assert_eq!(temperature["actions"].as_array().unwrap().len(), 3);
@@ -434,9 +435,35 @@ async fn the_contract_advertises_metrics_and_their_actions() {
 
     let people = metrics
         .iter()
-        .find(|metric| metric["key"] == "peopleCount")
+        .find(|metric| metric["metricKey"] == "peopleCount")
         .unwrap();
     assert_eq!(people["actions"], json!([]));
+}
+
+#[tokio::test]
+async fn the_catalog_deserialises_into_the_shape_contracts_service_parses() {
+    let app = test_app(fresh_db("contracts_seam").await, vec!["eng"]).await;
+    let (status, body) = app.get("/contracts", None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let discovered: MetricsDiscoveryResponse = serde_json::from_value(body).unwrap();
+    let MetricsDiscoveryResponse::ServiceContract(contract) = discovered else {
+        panic!("telemetry-service advertises a service-shaped catalog");
+    };
+    assert_eq!(contract.service, "telemetry-service");
+    assert!(
+        contract
+            .metrics
+            .iter()
+            .any(|metric| metric.metric_key == "temperature")
+    );
+    assert!(
+        contract
+            .metrics
+            .iter()
+            .flat_map(|metric| &metric.fields)
+            .any(|field| field.name == "buildingId")
+    );
 }
 
 #[tokio::test]

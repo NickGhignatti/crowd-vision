@@ -2942,6 +2942,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "telemetry-contracts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "telemetry-service"
 version = "0.1.0"
 dependencies = [
@@ -2964,6 +2971,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "sqlx",
+ "telemetry-contracts",
  "tokio",
  "tower",
  "urlencoding",
