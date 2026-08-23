@@ -112,6 +112,7 @@ mod tests {
             interface_name: interface_name.to_string(),
             unit: None,
             fields: vec![],
+            actions: vec![],
             source_service: Some(source_service.to_string()),
         }
     }

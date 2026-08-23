@@ -16,6 +16,7 @@ env:
     mise exec -- node scripts/env/keycloak.js
     mise exec -- node scripts/env/controlplane.js
     mise exec -- node scripts/env/gateway-key.js
+    mise exec -- node scripts/env/ingest-key.js
 
 [doc("Start dev stack. Use exclude= with space-separated substrings of folder names.")]
 dev exclude="": env

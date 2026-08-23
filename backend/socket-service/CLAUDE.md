@@ -28,6 +28,12 @@ imports no I/O crate, no `async fn`, never names `crate::shell`; room-name liter
   slowest; without this every socket in it asks separately. Bounded by building count, like
   the cache
 - `core::auth::may_read_building` requires a shared domain
+- **acknowledged**: the handler answers `{subscribed, buildingId}` (+ `reason` when refused).
+  The join waits on an HTTP lookup, so without the ack no caller can tell "joined" from "about
+  to join", and events published in that window go to an empty room and are lost — socket.io
+  has no buffer or replay. Ack shape and the reason vocabulary live in `core/subscription.rs`
+  (one source, fitness-tested like room names); `shell/metrics.rs` labels its counter from the
+  same enum. Additive: an emitting client is unaffected.
 - lookup failure = reject, not fallthrough; both rejection paths counted
 
 Emit path unchanged, no per-message check.

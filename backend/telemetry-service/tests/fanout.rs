@@ -35,7 +35,7 @@ async fn a_telemetry_event_reaches_the_raw_channel() {
     let fanout = RedisFanout::connect(&redis_url()).await.unwrap();
 
     fanout
-        .publish_telemetry(&TelemetryEvent {
+        .publish_telemetry(&[TelemetryEvent {
             metric: "temperature".to_owned(),
             building_id: "b1".to_owned(),
             room_id: "r1".to_owned(),
@@ -47,13 +47,18 @@ async fn a_telemetry_event_reaches_the_raw_channel() {
                     .cloned()
                     .unwrap(),
             ingested_at_ms: 1_700_000_000_000,
-        })
+        }])
         .await;
 
     let body = next_message(&mut pubsub).await;
-    assert_eq!(body["type"], "temperature");
+    assert!(
+        body.get("type").is_none(),
+        "`type` belongs to a reading, not the tick"
+    );
     assert_eq!(body["buildingId"], "b1");
-    assert_eq!(body["roomId"], "r1");
-    assert_eq!(body["value"], 21.5);
     assert_eq!(body["ingestedAt"], 1_700_000_000_000i64);
+    let reading = &body["readings"][0];
+    assert_eq!(reading["type"], "temperature");
+    assert_eq!(reading["roomId"], "r1");
+    assert_eq!(reading["value"], 21.5);
 }

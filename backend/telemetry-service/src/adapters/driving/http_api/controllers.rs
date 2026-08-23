@@ -16,6 +16,10 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 use std::time::Instant;
+use telemetry_contracts::{
+    ActionContract, ActionParameterContract, MetricContract, MetricFieldContract,
+    ServiceMetricsContract,
+};
 
 #[derive(Deserialize)]
 pub struct BuildingQuery {
@@ -117,69 +121,84 @@ pub async fn metrics(State(state): State<Arc<AppState>>) -> impl axum::response:
     metrics::metrics_handler().await
 }
 
-pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<Value> {
-    let metrics: Vec<Value> = state
+pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<ServiceMetricsContract> {
+    let metrics = state
         .registry
         .all()
         .iter()
         .map(|plugin| {
             let descriptor = plugin.descriptor();
-            json!({
-                "key": descriptor.key,
-                "label": descriptor.label,
-                "interfaceName": descriptor.interface_name,
-                "unit": descriptor.unit,
-                "fields": descriptor.fields.iter().map(|field| json!({
-                    "name": field.name,
-                    "kind": format!("{:?}", field.kind),
-                    "required": field.required,
-                })).collect::<Vec<_>>(),
-                "actions": plugin.actions().iter().map(|action| json!({
-                    "name": action.name,
-                    "label": action.label,
-                    "parameters": action.parameters.iter().map(|parameter| json!({
-                        "name": parameter.name,
-                        "kind": format!("{:?}", parameter.kind),
-                        "required": parameter.required,
-                    })).collect::<Vec<_>>(),
-                })).collect::<Vec<_>>(),
-            })
+            MetricContract {
+                metric_key: descriptor.key.to_owned(),
+                label: descriptor.label.to_owned(),
+                interface_name: descriptor.interface_name.to_owned(),
+                unit: descriptor.unit.map(str::to_owned),
+                fields: descriptor
+                    .fields
+                    .iter()
+                    .map(|field| MetricFieldContract {
+                        name: field.name.to_owned(),
+                        field_type: format!("{:?}", field.kind),
+                        required: field.required,
+                        description: None,
+                    })
+                    .collect(),
+                actions: plugin
+                    .actions()
+                    .iter()
+                    .map(|action| ActionContract {
+                        name: action.name.to_owned(),
+                        label: action.label.to_owned(),
+                        parameters: action
+                            .parameters
+                            .iter()
+                            .map(|parameter| ActionParameterContract {
+                                name: parameter.name.to_owned(),
+                                parameter_type: format!("{:?}", parameter.kind),
+                                required: parameter.required,
+                            })
+                            .collect(),
+                    })
+                    .collect(),
+                source_service: None,
+            }
         })
         .collect();
-    Json(json!({ "service": "telemetry-service", "metrics": metrics }))
+    Json(ServiceMetricsContract {
+        service: "telemetry-service".to_owned(),
+        metrics,
+    })
 }
 
-pub async fn ingest(State(state): State<Arc<AppState>>, Json(mut body): Json<Value>) -> Response {
-    let Some(sensor_type) = body
-        .as_object_mut()
-        .and_then(|payload| payload.remove("type"))
-        .and_then(|value| {
-            value
-                .as_str()
-                .map(str::trim)
-                .filter(|t| !t.is_empty())
-                .map(str::to_owned)
-        })
-    else {
+pub async fn ingest(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
+    let building_id = body
+        .get("buildingId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    let Some(readings) = body.get("readings").and_then(Value::as_array) else {
         metrics::record_ingest("unknown", "invalid");
-        return DomainError::Validation("type: must be a non-empty string.".to_owned())
-            .into_response();
+        return DomainError::Validation("readings: must be an array.".to_owned()).into_response();
     };
 
-    let accepted = state.ingest.accept(&sensor_type, &body).await;
-    metrics::record_ingest(
-        &sensor_type,
-        match &accepted {
-            Ok(()) => "accepted",
-            Err(DomainError::NotFound(_)) => "unknown_type",
-            Err(_) => "invalid",
-        },
-    );
+    let accepted = state.ingest.accept(building_id, readings).await;
+    match &accepted {
+        Ok(_) => {
+            for item in readings {
+                let metric = item
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+                metrics::record_ingest(metric, "accepted");
+            }
+        }
+        Err(_) => metrics::record_ingest("unknown", "invalid"),
+    }
 
     match accepted {
-        Ok(()) => (
+        Ok(count) => (
             StatusCode::ACCEPTED,
-            Json(json!({ "accepted": true, "type": sensor_type })),
+            Json(json!({ "accepted": true, "readings": count })),
         )
             .into_response(),
         Err(DomainError::Validation(message)) => (

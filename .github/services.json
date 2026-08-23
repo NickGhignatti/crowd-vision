@@ -98,7 +98,9 @@
     "dir": "backend/contracts-service",
     "lang": "rust",
     "needs_mongo": false,
-    "image": "crowdvision-contracts"
+    "image": "crowdvision-contracts",
+    "cd_context": ".",
+    "dockerfile": "backend/contracts-service/Dockerfile"
   },
   {
     "key": "agent",

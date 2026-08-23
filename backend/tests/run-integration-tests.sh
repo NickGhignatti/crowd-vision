@@ -13,6 +13,11 @@ export COMPOSE_BAKE=true
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."  # repo root
 
+# telemetry-service refuses to boot without an ingest signing key, and both it
+# and the test client read the same one out of the repo-root .env that compose
+# auto-loads. Generating it here keeps the suite runnable without `just stack env`.
+mise exec -- node scripts/env/ingest-key.js
+
 PROJECT_NAME="crowdvision-integration-tests"
 RUNTIME_FILE="compose.integration-tests.runtime.yml"
 

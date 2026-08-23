@@ -8,7 +8,7 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait ReadingStore: Send + Sync {
-    async fn insert(&self, reading: &Reading) -> anyhow::Result<()>;
+    async fn insert(&self, readings: &[Reading]) -> anyhow::Result<()>;
 
     async fn latest(
         &self,
@@ -109,7 +109,7 @@ pub trait RegistrationEvents: Send + Sync {
 
 #[async_trait]
 pub trait Fanout: Send + Sync {
-    async fn publish_telemetry(&self, event: &TelemetryEvent);
+    async fn publish_telemetry(&self, events: &[TelemetryEvent]);
 }
 
 #[async_trait]

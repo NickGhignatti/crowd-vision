@@ -125,8 +125,8 @@ Domain rooms are **not** client-controlled: on connection the service reads the 
    - Handler effect
 
 .tablebyrows {.headers}
-    - - `subscribe_building(buildingId)`
-      - Resolves the building's domains from `twin-service` (cached 60s, caller's claims forwarded) and joins room `building:{buildingId}` only if the account holds one of them. Refused otherwise, and refused if the directory cannot be reached — counted under `socket_subscriptions_rejected_total{reason}` as `forbidden` or `lookup_failed`.
+    - - `subscribe_building(buildingId)` → **acknowledged**
+      - Resolves the building's domains from `twin-service` (cached 60s, caller's claims forwarded) and joins room `building:{buildingId}` only if the account holds one of them. Refused otherwise, and refused if the directory cannot be reached — counted under `socket_subscriptions_rejected_total{reason}` as `forbidden` or `lookup_failed`. Answers `{subscribed, buildingId}` either way, plus `reason` when refused.
     - - `unsubscribe_building(buildingId)`
       - Leaves room `building:{buildingId}` to stop receiving it.
 
@@ -142,10 +142,16 @@ Domain rooms are **not** client-controlled: on connection the service reads the 
         WS->>TW: GET /domain/B (cached 60s)
         TW-->>WS: ["acme", ...]
         Note over WS: shares a domain? → socket joins room building:B
+        WS-->>UI: ack {subscribed: true, buildingId: B}
         R-->>WS: telemetry:filtered:B message
         WS->>UI: emit "telemetry" (room building:B only)
         R-->>WS: notifications message (domainName=D)
         WS->>UI: emit "notification" (room domain:D only)
+
+The join is **not** immediate — it waits on the twin-service lookup — so `subscribe_building` is acknowledged. Anything published to `building:{buildingId}` before the join lands is emitted to a room the caller has not entered, and socket.io drops it silently: no buffer, no replay. A client that wants no gap should wait for the ack, then take its REST snapshot, then apply live events. The Vue client emits without waiting and is covered by its snapshot refetch (`stores/sensorData.ts`), which backfills anything missed in that window; a client that only listens has no such safety net.
+
+.box {The ack is additive} type:{note}
+    A caller that ignores it behaves exactly as before. Waiting on it is what makes the snapshot-then-stream handoff ordered rather than lucky.
 
 A socket is dropped once it has been open longer than `SOCKET_MAX_LIFETIME_SECS`, counted as `socket_sessions_expired_total`. socket.io-client does not retry a server-forced disconnect, so `services/socket.ts` reconnects explicitly on reason `io server disconnect` and `useSensorData`'s `connect` handler re-emits `subscribe_building`; the re-handshake re-reads the session cookie without any user interaction. A building room is only ever joined after the caller's memberships are checked against the building's owning domains, so a client cannot follow another tenant's building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Only a system-wide notification with no `domainName` is broadcast to everyone.
 

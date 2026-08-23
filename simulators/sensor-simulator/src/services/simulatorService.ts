@@ -1,9 +1,26 @@
+import { createHmac } from "node:crypto";
 import {
   mySimulationBuildings,
   type ISignalPeopleCount,
   type ISignalTemperature,
   type IBuilding,
 } from "../models/signal.js";
+
+const INGEST_SECRET = process.env.TELEMETRY_INGEST_SECRET ?? "";
+
+function signedIngest(url: string, payload: unknown): Promise<Response> {
+  const body = JSON.stringify(payload);
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Signature": createHmac("sha256", INGEST_SECRET)
+        .update(body)
+        .digest("hex"),
+    },
+    body,
+  });
+}
 
 export class Simulator {
   private isRunning: boolean = false;
@@ -81,67 +98,21 @@ export class Simulator {
 
   private async sendSignals(building: IBuilding) {
     const rooms = this.activeBuildings.getRooms(building.buildingId);
-    // Awaited, not fired and forgotten: an unawaited send inside an async
-    // method rejects into nothing, so a failing tick looked like a passing one.
-    await Promise.all(
-      rooms.map((roomId) => this.sendSingleSignal(roomId, building)),
-    );
-  }
+    if (rooms.length === 0) return;
 
-  private async sendSingleSignal(roomId: string, building: IBuilding) {
+    const readings = rooms.flatMap((roomId) => [
+      { ...this.temperatureFor(roomId, building), type: "temperature" },
+      { ...this.peopleCountFor(roomId, building), type: "peopleCount" },
+    ]);
+
     try {
-      const url = `${building.targetUrl}/ingest`;
-
-      const payloadPeople: ISignalPeopleCount = {
-        buildingId: building.buildingId,
-        roomId: roomId,
-        timestamp: Date.now(),
-        peopleCount:
-          Math.floor(
-            Math.random() *
-              (this.peopleCountRange[1] - this.peopleCountRange[0] + 1),
-          ) + this.peopleCountRange[0],
-      };
-
-      const payloadTemp: ISignalTemperature = {
-        buildingId: building.buildingId,
-        roomId: roomId,
-        timestamp: Date.now(),
-        temperature: parseFloat(
-          (
-            Math.random() *
-              (this.temperatureRange[1] - this.temperatureRange[0]) +
-            this.temperatureRange[0]
-          ).toFixed(2),
-        ),
-      };
-
-      const microkernelTempPayload = {
-        ...payloadTemp,
-        type: "temperature",
-      };
-
-      const microkernelPeopPayload = {
-        ...payloadPeople,
-        type: "peopleCount",
-      };
-
-      const [responseTemperature, responsePeopleCount] = await Promise.all([
-        fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(microkernelTempPayload),
-        }),
-        fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(microkernelPeopPayload),
-        }),
-      ]);
-
-      if (!responseTemperature.ok || !responsePeopleCount.ok) {
+      const response = await signedIngest(
+        `${building.targetUrl}/ingest`,
+        { buildingId: building.buildingId, readings },
+      );
+      if (!response.ok) {
         console.error(
-          `[Simulator] Error: Something went wrong sending data to building ${building.buildingId}`,
+          `[Simulator] Error: batch rejected for building ${building.buildingId} (${response.status})`,
         );
       }
     } catch (error: any) {
@@ -153,5 +124,39 @@ export class Simulator {
         console.error(`[Simulator] Deep Cause:`, error.cause);
       }
     }
+  }
+
+  private temperatureFor(
+    roomId: string,
+    building: IBuilding,
+  ): ISignalTemperature {
+    return {
+      buildingId: building.buildingId,
+      roomId,
+      timestamp: Date.now(),
+      temperature: parseFloat(
+        (
+          Math.random() *
+            (this.temperatureRange[1] - this.temperatureRange[0]) +
+          this.temperatureRange[0]
+        ).toFixed(2),
+      ),
+    };
+  }
+
+  private peopleCountFor(
+    roomId: string,
+    building: IBuilding,
+  ): ISignalPeopleCount {
+    return {
+      buildingId: building.buildingId,
+      roomId,
+      timestamp: Date.now(),
+      peopleCount:
+        Math.floor(
+          Math.random() *
+            (this.peopleCountRange[1] - this.peopleCountRange[0] + 1),
+        ) + this.peopleCountRange[0],
+    };
   }
 }

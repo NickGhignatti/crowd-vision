@@ -15,7 +15,11 @@ ticks them on a configurable schedule, and POSTs the results to the target URL.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
+import json
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass, field
@@ -28,6 +32,12 @@ from scenarios import EnvironmentModel, Scenario
 from schemas import AirQualityReading, BuildingConfig
 
 logger = logging.getLogger("simulator")
+
+INGEST_SECRET = os.environ.get("TELEMETRY_INGEST_SECRET", "").encode()
+
+
+def _sign(raw: bytes) -> str:
+    return hmac.new(INGEST_SECRET, raw, hashlib.sha256).hexdigest()
 
 
 def _log_safe(value: object) -> str:
@@ -240,45 +250,39 @@ class Simulator:
             await asyncio.sleep(building.interval)
 
     async def _send_signals(self, building: SimulationBuilding, dt_hours: float) -> None:
-        """Generate and POST one reading per room."""
+        """Generate every room's reading and POST the tick as one batch."""
         client = await self._get_client()
-        # Concurrent, not sequential: one room's POST does not depend on the
-        # last one's, and a serial loop makes a tick cost rooms x round trip.
-        await asyncio.gather(
-            *(
-                self._send_single_signal(client, building, room, dt_hours)
-                for room in building.rooms.values()
+        readings = [room.read(dt_hours) for room in building.rooms.values()]
+        if not readings:
+            return
+
+        payload = {
+            "buildingId": building.building_id,
+            "readings": [reading.model_dump() for reading in readings],
+        }
+        raw = json.dumps(payload, separators=(",", ":")).encode()
+        url = f"{building.target_url}/ingest"
+
+        try:
+            logger.info("POSTing %d readings to %s", len(readings), url)
+            response = await client.post(
+                url,
+                content=raw,
+                headers={
+                    "content-type": "application/json",
+                    "x-signature": _sign(raw),
+                },
             )
-        )
-
-    async def _send_single_signal(
-            self,
-            client: httpx.AsyncClient,
-            building: SimulationBuilding,
-            room: SimulationRoom,
-            dt_hours: float,
-        ) -> None:
-            reading = room.read(dt_hours)
-
-            payload = reading.model_dump()
-
-            url     = f"{building.target_url}/ingest"
-
-            try:
-                logger.info("POSTing reading to %s: %s", url, payload)
-                response = await client.post(url, json=payload)
-                if response.is_success or response.status_code == 202:
-                    logger.debug(
-                        "Sent reading building=%s room=%s aqi=%s pm25=%.1f co2=%.0f",
-                        room.building_id, room.room_id,
-                        reading.aqi, reading.pm25, reading.co2,
-                    )
-                else:
-                    logger.warning(
-                        "[Simulator] POST %s → %s %s",
-                        url, response.status_code, response.reason_phrase,
-                    )
-            except httpx.RequestError as exc:
-                logger.error(
-                    "[Simulator] Network error connecting to %s: %s", url, exc
+            if response.is_success or response.status_code == 202:
+                logger.debug(
+                    "Sent tick building=%s rooms=%d",
+                    building.building_id,
+                    len(readings),
                 )
+            else:
+                logger.warning(
+                    "[Simulator] POST %s → %s %s",
+                    url, response.status_code, response.reason_phrase,
+                )
+        except httpx.RequestError as exc:
+            logger.error("[Simulator] Network error connecting to %s: %s", url, exc)

@@ -72,24 +72,31 @@ impl PgReadings {
 
 #[async_trait]
 impl ReadingStore for PgReadings {
-    async fn insert(&self, reading: &Reading) -> anyhow::Result<()> {
-        let started = Instant::now();
-        let inserted = sqlx::query(
-            "insert into readings (building_id, room_id, metric, ts, value, payload)
-             values ($1, $2, $3, $4, $5, $6)",
-        )
-        .bind(&reading.building_id)
-        .bind(&reading.room_id)
-        .bind(&reading.metric)
-        .bind(to_timestamp(reading.ts_ms))
-        .bind(reading.value)
-        .bind(Value::Object(self.trim(reading)))
-        .execute(&self.pool)
-        .await;
+    async fn insert(&self, readings: &[Reading]) -> anyhow::Result<()> {
+        if readings.is_empty() {
+            return Ok(());
+        }
 
-        metrics::record_persist_duration(&reading.metric, started.elapsed());
-        if inserted.is_err() {
-            metrics::record_persist_failure(&reading.metric);
+        let started = Instant::now();
+        let mut builder = sqlx::QueryBuilder::new(
+            "insert into readings (building_id, room_id, metric, ts, value, payload) ",
+        );
+        builder.push_values(readings, |mut row, reading| {
+            row.push_bind(&reading.building_id)
+                .push_bind(&reading.room_id)
+                .push_bind(&reading.metric)
+                .push_bind(to_timestamp(reading.ts_ms))
+                .push_bind(reading.value)
+                .push_bind(Value::Object(self.trim(reading)));
+        });
+        let inserted = builder.build().execute(&self.pool).await;
+
+        let elapsed = started.elapsed();
+        for reading in readings {
+            metrics::record_persist_duration(&reading.metric, elapsed);
+            if inserted.is_err() {
+                metrics::record_persist_failure(&reading.metric);
+            }
         }
         inserted?;
         Ok(())

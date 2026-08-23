@@ -19,12 +19,17 @@ impl BuildingDirectory for StubDirectory {
 #[derive(Default)]
 pub struct StubFanout {
     pub published: Mutex<Vec<TelemetryEvent>>,
+    pub batches: Mutex<Vec<Vec<TelemetryEvent>>>,
 }
 
 #[async_trait]
 impl Fanout for StubFanout {
-    async fn publish_telemetry(&self, event: &TelemetryEvent) {
-        self.published.lock().unwrap().push(event.clone());
+    async fn publish_telemetry(&self, events: &[TelemetryEvent]) {
+        self.batches.lock().unwrap().push(events.to_vec());
+        self.published
+            .lock()
+            .unwrap()
+            .extend(events.iter().cloned());
     }
 }
 

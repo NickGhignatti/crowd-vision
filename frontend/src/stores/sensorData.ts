@@ -14,6 +14,9 @@ export interface SensorBucket {
   abort: AbortController | null
 }
 
+type SensorReading = ApiDataPoint & { type?: SensorType; buildingId?: string }
+type TelemetryTick = { readings?: SensorReading[] }
+
 const bucketKey = (type: SensorType, buildingId: string) => `${type}:${buildingId}`
 const buildingOf = (key: string) => key.slice(key.indexOf(':') + 1)
 
@@ -30,9 +33,14 @@ export const useSensorDataStore = defineStore('sensorData', () => {
     [...buckets.keys()].some((key) => buildingOf(key) === buildingId)
 
   function onTelemetry(rawEvent: unknown) {
+    const tick = rawEvent as TelemetryTick
+    for (const reading of tick?.readings ?? []) applyReading(reading)
+    scheduleFlush()
+  }
+
+  function applyReading(event: SensorReading) {
     // Telemetry events identify their building as `buildingId` (the REST shape
     // uses `building`); the bucket key is the building id passed to `acquire`.
-    const event = rawEvent as ApiDataPoint & { type?: SensorType; buildingId?: string }
     const key = bucketKey(event?.type as SensorType, event?.buildingId as string)
     const bucket = buckets.get(key)
     if (!bucket) return
@@ -43,7 +51,6 @@ export const useSensorDataStore = defineStore('sensorData', () => {
     else arr.push(event)
 
     dirty.add(key)
-    scheduleFlush()
   }
 
   // Coalesce every bucket touched this frame into one reactive update, swapping in a fresh

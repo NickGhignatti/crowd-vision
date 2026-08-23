@@ -110,6 +110,21 @@ fn room_names_are_built_only_in_rooms() {
 }
 
 #[test]
+fn subscription_ack_fields_are_built_only_in_subscription() {
+    let files: Vec<PathBuf> = rust_files_under(CORE)
+        .into_iter()
+        .chain(rust_files_under(SHELL))
+        .filter(|f| f.file_name().unwrap() != "subscription.rs")
+        .collect();
+
+    assert_absent(
+        &files,
+        &["\"subscribed\"", "\"lookup_failed\"", "\"forbidden\""],
+        "the subscribe ack is a wire contract with the browser — build it via core::subscription",
+    );
+}
+
+#[test]
 fn the_claims_header_is_named_only_in_auth() {
     let files: Vec<PathBuf> = rust_files_under(CORE)
         .into_iter()

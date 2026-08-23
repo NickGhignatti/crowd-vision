@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import json
 import time
 import uuid
 
@@ -10,10 +13,16 @@ from support.claims import claims_header
 def new_room(
     building_id: str | None = None, room_id: str | None = None
 ) -> tuple[str, str]:
-    """A fresh, isolated (building, room) pair per test — no dependency on
-    twin-service's registration flow, since contracts-service's dashboard
-    preference (see register_dashboard_preference) is the only thing this
-    pipeline actually needs to exist first.
+    """A fresh, isolated (building, room) pair per test.
+
+    Two things must already know about the building for a reading to reach a
+    dashboard: contracts-service needs a preference row (see
+    register_dashboard_preference), and twin-service must answer
+    GET /domain/{building}, because socket-service authorises
+    subscribe_building against it and rejects the subscription as
+    lookup_failed otherwise. The suite stubs twin-service (see
+    docker-compose.integration.yml), so any id works here — but neither
+    dependency is optional.
     """
     return (
         building_id or f"bldg-{uuid.uuid4().hex[:12]}",
@@ -43,13 +52,34 @@ def ingest_temperature(
     timestamp_ms: int | None = None,
 ) -> httpx.Response:
     body = {
-        "type": "temperature",
         "buildingId": building_id,
-        "roomId": room_id,
-        "timestamp": timestamp_ms if timestamp_ms is not None else int(time.time() * 1000),
-        "temperature": value,
+        "readings": [
+            {
+                "type": "temperature",
+                "roomId": room_id,
+                "timestamp": timestamp_ms
+                if timestamp_ms is not None
+                else int(time.time() * 1000),
+                "temperature": value,
+            }
+        ],
     }
-    return client.post(f"{config.TELEMETRY_SERVICE_URL}/ingest", json=body)
+    return post_reading(client, body)
+
+
+def post_reading(client: httpx.Client, body: dict) -> httpx.Response:
+    """Signed exactly like a real gateway: HMAC-SHA256 over the bytes on the wire,
+    so the body is serialised here rather than by httpx's json= encoder.
+    """
+    raw = json.dumps(body, separators=(",", ":")).encode()
+    signature = hmac.new(
+        config.TELEMETRY_INGEST_SECRET.encode(), raw, hashlib.sha256
+    ).hexdigest()
+    return client.post(
+        f"{config.TELEMETRY_SERVICE_URL}/ingest",
+        content=raw,
+        headers={"content-type": "application/json", "x-signature": signature},
+    )
 
 
 def latest_temperature(client: httpx.Client, building_id: str, room_id: str) -> dict:

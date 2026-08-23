@@ -11,6 +11,7 @@ use telemetry_service::adapters::driven::dispatch::HttpDispatch;
 use telemetry_service::adapters::driven::postgres::{
     PgBuildings, PgReadings, PgSensors, PgThresholds,
 };
+use telemetry_service::adapters::ingest_auth::{IngestKey, SIGNATURE_HEADER};
 use telemetry_service::kernel::actions::Actions;
 use telemetry_service::kernel::ingest::Ingest;
 use telemetry_service::kernel::ports::{
@@ -30,10 +31,13 @@ use tower::ServiceExt;
 
 pub struct TestApp {
     pub router: Router,
+    pub ingest_key: IngestKey,
     pub pool: PgPool,
     pub alerts: Arc<StubAlerts>,
     pub fanout: Arc<StubFanout>,
 }
+
+pub const INGEST_SECRET: &str = "test-ingest-secret-0123456789abcdef";
 
 pub const BINDINGS: &str = r#"{
   "tp-simulator": {
@@ -61,6 +65,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
     let sensors_store = Arc::new(PgSensors::new(pool.clone()));
     let buildings_store = Arc::new(PgBuildings::new(pool.clone()));
     let dispatch = Arc::new(HttpDispatch::from_json(pool.clone(), bindings).unwrap());
+    let ingest_key = IngestKey::new(INGEST_SECRET).unwrap();
     let alerts = Arc::new(StubAlerts::default());
     let fanout = Arc::new(StubFanout::default());
     let directory = Arc::new(StubDirectory {
@@ -72,6 +77,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
         pool: pool.clone(),
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
+        ingest_key: ingest_key.clone(),
         ingest: Ingest {
             registry: registry.clone(),
             readings: readings_store.clone() as Arc<dyn ReadingStore>,
@@ -106,6 +112,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
 
     TestApp {
         router: telemetry_service::router(state),
+        ingest_key,
         pool,
         alerts,
         fanout,
@@ -154,6 +161,27 @@ impl TestApp {
             .send(builder.body(Body::from(body.to_string())).unwrap())
             .await;
         read_json(response).await
+    }
+
+    pub async fn ingest(&self, body: Value) -> (StatusCode, Value) {
+        let raw = body.to_string();
+        let signature = self.ingest_key.sign(raw.as_bytes());
+        self.ingest_signed(&raw, &signature).await
+    }
+
+    pub async fn ingest_signed(&self, raw: &str, signature: &str) -> (StatusCode, Value) {
+        let request = Request::builder()
+            .method("POST")
+            .uri("/ingest")
+            .header("content-type", "application/json")
+            .header(SIGNATURE_HEADER, signature)
+            .body(Body::from(raw.to_owned()))
+            .unwrap();
+        read_json(self.send(request).await).await
+    }
+
+    pub async fn ingest_unsigned(&self, body: Value) -> (StatusCode, Value) {
+        self.send_json("POST", "/ingest", None, body).await
     }
 }
 

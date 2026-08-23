@@ -1,7 +1,24 @@
 services:
+  # socket-service authorises subscribe_building against twin-service
+  # (GET /domain/{building}); without an answer every subscription is
+  # rejected as lookup_failed and the LD-4 tests see no telemetry. LD-4 is
+  # about dashboard freshness, not building authz, so this stubs the answer
+  # rather than dragging twin provisioning into the suite.
+  twin-service:
+    image: nginx:alpine
+    volumes:
+      - ./stubs/twin.conf:/etc/nginx/conf.d/default.conf:z
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   socket-server:
     depends_on:
       redis:
+        condition: service_healthy
+      twin-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
@@ -11,6 +28,8 @@ services:
       start_period: 20s
 
   contracts-service:
+    environment:
+      - RUST_LOG=info
     depends_on:
       redis:
         condition: service_healthy
@@ -27,6 +46,7 @@ services:
       - TELEMETRY_SERVICE_URL=http://telemetry-service:3000
       - SOCKET_SERVICE_URL=http://socket-server:3000
       - CONTRACTS_SERVICE_URL=http://contracts-service:3000
+      - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
     volumes:
       # :z relabels the bind mount for SELinux-enforcing hosts (same reason
       # the root compose file's gateway service does it for its own mounts)

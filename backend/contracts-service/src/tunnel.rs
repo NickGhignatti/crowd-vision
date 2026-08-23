@@ -10,8 +10,8 @@ use tokio::task;
 const RAW_CHANNEL: &str = "telemetry:raw";
 
 /// Returns the `type` field of a telemetry JSON payload if it is present and a string.
-fn extract_metric_type(raw: &Value) -> Option<&str> {
-    raw.get("type").and_then(|v| v.as_str())
+fn extract_readings(raw: &Value) -> Option<&Vec<Value>> {
+    raw.get("readings").and_then(|v| v.as_array())
 }
 
 /// Initializes the telemetry processing tunnel.
@@ -98,8 +98,8 @@ fn resolve_channel(
     raw: &Value,
     building_preferences: &DashMap<String, Vec<String>>,
 ) -> Option<String> {
-    if extract_metric_type(raw).is_none() {
-        info!("Raw telemetry missing 'type' field, skipping");
+    if extract_readings(raw).is_none() {
+        info!("Raw telemetry carries no 'readings' array, skipping");
         return None;
     }
 
@@ -157,49 +157,50 @@ async fn process_and_publish(
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_building_id, extract_metric_type, resolve_channel};
+    use super::{extract_building_id, extract_readings, resolve_channel};
     use dashmap::DashMap;
     use serde_json::json;
 
     #[test]
-    fn extracts_string_type_field() {
-        let raw = json!({ "type": "temperature", "value": 22 });
-        assert_eq!(extract_metric_type(&raw), Some("temperature"));
+    fn extracts_the_readings_of_a_tick() {
+        let raw = json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature" }] });
+        assert_eq!(extract_readings(&raw).map(Vec::len), Some(1));
     }
 
     #[test]
-    fn returns_none_when_type_field_missing() {
-        let raw = json!({ "value": 22 });
-        assert_eq!(extract_metric_type(&raw), None);
+    fn returns_none_when_readings_are_missing() {
+        let raw = json!({ "buildingId": "bldg-1" });
+        assert_eq!(extract_readings(&raw), None);
     }
 
     #[test]
-    fn returns_none_when_type_field_is_not_a_string() {
-        let raw = json!({ "type": 42 });
-        assert_eq!(extract_metric_type(&raw), None);
+    fn returns_none_when_readings_is_not_an_array() {
+        let raw = json!({ "readings": 42 });
+        assert_eq!(extract_readings(&raw), None);
     }
 
     #[test]
     fn returns_none_for_empty_json_object() {
         let raw = json!({});
-        assert_eq!(extract_metric_type(&raw), None);
+        assert_eq!(extract_readings(&raw), None);
     }
 
     #[test]
     fn extracts_string_building_id_field() {
-        let raw = json!({ "type": "temperature", "buildingId": "bldg-1", "value": 22 });
+        let raw =
+            json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(extract_building_id(&raw), Some("bldg-1"));
     }
 
     #[test]
     fn returns_none_when_building_id_field_missing() {
-        let raw = json!({ "type": "temperature", "value": 22 });
+        let raw = json!({ "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(extract_building_id(&raw), None);
     }
 
     #[test]
     fn returns_none_when_building_id_field_is_not_a_string() {
-        let raw = json!({ "type": "temperature", "buildingId": 42 });
+        let raw = json!({ "buildingId": 42, "readings": [{ "type": "temperature" }] });
         assert_eq!(extract_building_id(&raw), None);
     }
 
@@ -217,7 +218,8 @@ mod tests {
     #[test]
     fn routes_allowed_metric_to_its_own_building_channel() {
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "type": "temperature", "buildingId": "bldg-1", "value": 22 });
+        let raw =
+            json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(
             resolve_channel(&raw, &map),
             Some("telemetry:filtered:bldg-1".to_string())
@@ -229,7 +231,8 @@ mod tests {
         // The dashboard column set doesn't gate telemetry: an unlisted metric
         // is still forwarded (display filtering is the client's job).
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "type": "air_quality", "buildingId": "bldg-1", "value": 5 });
+        let raw =
+            json!({ "buildingId": "bldg-1", "readings": [{ "type": "air_quality", "value": 5 }] });
         assert_eq!(
             resolve_channel(&raw, &map),
             Some("telemetry:filtered:bldg-1".to_string())
@@ -240,7 +243,7 @@ mod tests {
     fn drops_event_for_building_with_no_preferences() {
         let map = prefs(&[("bldg-1", &["temperature"])]);
         // Event belongs to a building that never registered preferences.
-        let raw = json!({ "type": "temperature", "buildingId": "bldg-unknown", "value": 22 });
+        let raw = json!({ "buildingId": "bldg-unknown", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(resolve_channel(&raw, &map), None);
     }
 
@@ -249,14 +252,16 @@ mod tests {
         // bldg-1 allows temperature; the event is for bldg-2 (which has no prefs).
         // The pre-fix bug fanned this out to bldg-1's channel — assert it does not.
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "type": "temperature", "buildingId": "bldg-2", "value": 22 });
+        let raw =
+            json!({ "buildingId": "bldg-2", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(resolve_channel(&raw, &map), None);
     }
 
     #[test]
     fn routes_to_the_correct_building_when_multiple_are_subscribed() {
         let map = prefs(&[("bldg-1", &["temperature"]), ("bldg-2", &["temperature"])]);
-        let raw = json!({ "type": "temperature", "buildingId": "bldg-2", "value": 22 });
+        let raw =
+            json!({ "buildingId": "bldg-2", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(
             resolve_channel(&raw, &map),
             Some("telemetry:filtered:bldg-2".to_string())
@@ -264,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn drops_event_missing_type_field() {
+    fn drops_an_event_that_is_not_a_tick() {
         let map = prefs(&[("bldg-1", &["temperature"])]);
         let raw = json!({ "buildingId": "bldg-1", "value": 22 });
         assert_eq!(resolve_channel(&raw, &map), None);
@@ -273,7 +278,7 @@ mod tests {
     #[test]
     fn drops_event_missing_building_id_field() {
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "type": "temperature", "value": 22 });
+        let raw = json!({ "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(resolve_channel(&raw, &map), None);
     }
 }

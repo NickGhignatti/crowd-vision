@@ -12,12 +12,32 @@ class DashboardSocket:
         self._client = socketio.SimpleClient()
 
     def connect(self, url: str, headers: dict[str, str]) -> None:
+        """Connects and blocks until socket-service confirms the room join.
+
+        `subscribe_building` is acknowledged because the join is not immediate
+        — the handler resolves the building's domains through twin-service
+        first. Emitting without waiting leaves a window in which telemetry is
+        published to a room this client has not joined yet, and socket.io
+        drops it silently: no buffer, no replay.
+        """
         self._client.connect(url, headers=headers, wait_timeout=10)
-        self._client.emit("subscribe_building", self._building_id)
+        ack = self._client.call(
+            "subscribe_building", self._building_id, timeout=10
+        )
+        assert ack.get("subscribed") is True, (
+            f"subscribe_building refused for {self._building_id}: {ack}"
+        )
 
     def wait_for_telemetry(self, timeout: float = 10.0) -> dict:
+        envelope = self.wait_for_tick(timeout=timeout)
+        readings = envelope["readings"]
+        assert len(readings) == 1, f"expected a single-reading tick, got {len(readings)}"
+        return readings[0]
+
+    def wait_for_tick(self, timeout: float = 10.0) -> dict:
         event, data = self._client.receive(timeout=timeout)
         assert event == "telemetry", f"expected a 'telemetry' event, got {event!r}"
+        assert "readings" in data, f"telemetry is always a tick, got {data!r}"
         return data
 
     def drain_telemetry(self, idle_timeout: float = 5.0) -> int:

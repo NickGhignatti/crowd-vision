@@ -168,7 +168,7 @@ The routing table is identical across both deployment models. Only the component
       - Processing sensor events, triggering Web Push alerts.
     - - `/telemetry/`
       - `telemetry-service`
-      - Ingesting time-series sensor readings (people count, temperature). `/telemetry/ingest` is exempt from the auth gate — it is device/simulator-facing and carries no user token.
+      - Ingesting time-series sensor readings (people count, temperature). `/telemetry/ingest` is exempt from the auth gate — it is device/simulator-facing and carries no user token, authenticating instead with an HMAC `X-Signature` over the raw body that telemetry-service verifies itself.
     - - `/chat/`
       - `chat-service`
       - Persisted multi-turn chat sessions, forwarding to agent-service.

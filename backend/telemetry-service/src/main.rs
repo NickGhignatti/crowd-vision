@@ -9,6 +9,7 @@ use telemetry_service::adapters::driven::redis_fanout::RedisFanout;
 use telemetry_service::adapters::driven::threshold_cache::CachedThresholds;
 use telemetry_service::adapters::driven::twin_directory::TwinDirectory;
 use telemetry_service::adapters::driving::kafka_consumer;
+use telemetry_service::adapters::ingest_auth::IngestKey;
 use telemetry_service::kernel::actions::Actions;
 use telemetry_service::kernel::ingest::Ingest;
 use telemetry_service::kernel::ports::{
@@ -36,6 +37,7 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let database_url = std::env::var("DATABASE_URL")?;
+    let ingest_key = IngestKey::new(&std::env::var("TELEMETRY_INGEST_SECRET")?)?;
     let redis_url = env_or("REDIS_URL", "redis://redis:6379");
     let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
     let twin_url = env_or("TWIN_SERVICE_URL", "http://twin-service:3000");
@@ -90,6 +92,7 @@ async fn main() -> anyhow::Result<()> {
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
         pool: pool.clone(),
+        ingest_key,
         ingest: Ingest {
             registry: registry.clone(),
             readings: readings_store.clone() as Arc<dyn ReadingStore>,

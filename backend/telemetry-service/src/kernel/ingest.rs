@@ -1,9 +1,10 @@
 use crate::contracts::error::DomainError;
 use crate::contracts::event::{AlertPayload, TelemetryEvent};
-use crate::contracts::threshold::breach;
+use crate::contracts::reading::Reading;
+use crate::contracts::threshold::{Bounds, breach};
 use crate::kernel::ports::{Alerts, Clock, Fanout, ReadingStore, ThresholdStore};
 use crate::kernel::registry::PluginRegistry;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::sync::Arc;
 
 /// Ingests telemetry readings from plugins guiding the ingestion process.
@@ -16,26 +17,98 @@ pub struct Ingest {
     pub clock: Arc<dyn Clock>,
 }
 
+pub const MAX_BATCH_READINGS: usize = 500;
+
 impl Ingest {
-    pub async fn accept(&self, metric: &str, payload: &Value) -> Result<(), DomainError> {
-        let plugin = self
-            .registry
-            .get(metric)
-            .ok_or_else(|| DomainError::NotFound(format!("unknown sensor type: {metric}")))?;
+    pub async fn accept(&self, building_id: &str, items: &[Value]) -> Result<usize, DomainError> {
+        if items.len() > MAX_BATCH_READINGS {
+            return Err(DomainError::Validation(format!(
+                "readings: must not exceed {MAX_BATCH_READINGS} per batch."
+            )));
+        }
 
-        let reading = plugin
-            .validate(payload)
-            .map_err(|errors| DomainError::Validation(errors.join(" ")))?;
+        let mut errors = Vec::new();
+        if building_id.trim().is_empty() {
+            errors.push("buildingId: must be a non-empty string.".to_owned());
+        }
+        if items.is_empty() {
+            errors.push("readings: must not be empty.".to_owned());
+        }
 
-        // Independent of each other, so they overlap: persisting a reading
-        // does not inform which thresholds apply to it.
+        let mut readings = Vec::with_capacity(items.len());
+        for (index, item) in items.iter().enumerate() {
+            match self.reading_from(building_id, item) {
+                Ok(reading) => readings.push(reading),
+                Err(message) => errors.push(format!("readings[{index}]: {message}")),
+            }
+        }
+        if !errors.is_empty() {
+            return Err(DomainError::Validation(errors.join(" ")));
+        }
+
         let (inserted, resolved) = tokio::join!(
-            self.readings.insert(&reading),
-            self.thresholds
-                .resolve(&reading.building_id, &reading.metric, &reading.room_id)
+            self.readings.insert(&readings),
+            futures::future::join_all(readings.iter().map(|reading| self.thresholds.resolve(
+                &reading.building_id,
+                &reading.metric,
+                &reading.room_id
+            ))),
         );
         inserted?;
 
+        for (reading, bounds) in readings.iter().zip(resolved) {
+            self.raise_breach(reading, bounds).await;
+        }
+
+        let now_ms = self.clock.now_ms();
+        let events: Vec<TelemetryEvent> = readings
+            .iter()
+            .map(|reading| TelemetryEvent::from_reading(reading, now_ms))
+            .collect();
+        self.fanout.publish_telemetry(&events).await;
+
+        Ok(events.len())
+    }
+
+    fn reading_from(&self, building_id: &str, item: &Value) -> Result<Reading, String> {
+        let Some(object) = item.as_object() else {
+            return Err("must be an object.".to_owned());
+        };
+
+        let metric = object
+            .get("type")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|metric| !metric.is_empty())
+            .ok_or_else(|| "type: must be a non-empty string.".to_owned())?;
+
+        let plugin = self
+            .registry
+            .get(metric)
+            .ok_or_else(|| format!("type: unknown sensor type: {metric}."))?;
+
+        let mut payload: Map<String, Value> = object.clone();
+        payload.remove("type");
+        if !building_id.trim().is_empty() {
+            if let Some(own) = object.get("buildingId").and_then(Value::as_str)
+                && own != building_id
+            {
+                return Err(format!(
+                    "buildingId: must match the batch's building ({building_id})."
+                ));
+            }
+            payload.insert("buildingId".to_owned(), Value::from(building_id));
+        }
+
+        plugin
+            .validate(&Value::Object(payload))
+            .map_err(|messages| messages.join(" "))
+    }
+
+    async fn raise_breach(&self, reading: &Reading, resolved: anyhow::Result<Option<Bounds>>) {
+        let Some(plugin) = self.registry.get(&reading.metric) else {
+            return;
+        };
         match resolved {
             Ok(Some(bounds)) => {
                 if let Some(breach) = breach(plugin.bounds(), &bounds, reading.value) {
@@ -54,12 +127,6 @@ impl Ingest {
             Ok(None) => {}
             Err(error) => log::error!("threshold evaluation failed: {error}"),
         }
-
-        self.fanout
-            .publish_telemetry(&TelemetryEvent::from_reading(&reading, self.clock.now_ms()))
-            .await;
-
-        Ok(())
     }
 }
 
@@ -106,44 +173,141 @@ mod tests {
         FakeThresholds::with(vec![crate::kernel::fakes::row("b1", None, "fake", value)])
     }
 
-    fn payload(value: f64) -> Value {
-        json!({
-            "buildingId": "b1",
-            "roomId": "r1",
-            "timestamp": 1_699_999_000_000i64,
-            "fake": value
-        })
+    fn item(room: &str, value: f64) -> Value {
+        json!({ "type": "fake", "roomId": room, "timestamp": 1_699_999_000_000i64, "fake": value })
     }
 
     #[tokio::test]
-    async fn an_unknown_sensor_type_is_rejected_before_any_persistence() {
+    async fn a_whole_tick_is_persisted_and_published_as_one_message() {
         let h = plain();
-        let error = h
-            .ingest
-            .accept("humidity", &payload(1.0))
-            .await
-            .unwrap_err();
-        assert!(matches!(error, DomainError::NotFound(_)));
-        assert!(h.readings.inserted.lock().unwrap().is_empty());
+        let items = vec![item("r1", 1.0), item("r2", 2.0), item("r3", 3.0)];
+
+        let accepted = h.ingest.accept("b1", &items).await.unwrap();
+
+        assert_eq!(accepted, 3);
+        assert_eq!(h.readings.inserted.lock().unwrap().len(), 3);
+        let batches = h.fanout.batches.lock().unwrap();
+        assert_eq!(batches.len(), 1, "one tick must be one message");
+        assert_eq!(batches[0].len(), 3);
     }
 
     #[tokio::test]
-    async fn an_invalid_payload_is_rejected_and_nothing_is_persisted() {
+    async fn the_batch_building_is_stamped_onto_every_reading() {
         let h = plain();
-        let error = h
-            .ingest
-            .accept("fake", &json!({ "buildingId": "b1", "roomId": "r1" }))
+        h.ingest
+            .accept("b1", &[item("r1", 1.0), item("r2", 2.0)])
             .await
-            .unwrap_err();
+            .unwrap();
+
+        let inserted = h.readings.inserted.lock().unwrap();
+        assert!(inserted.iter().all(|reading| reading.building_id == "b1"));
+    }
+
+    #[tokio::test]
+    async fn a_reading_naming_another_building_is_rejected() {
+        let h = plain();
+        let mut smuggled = item("r1", 1.0);
+        smuggled["buildingId"] = json!("someone-elses-building");
+
+        let error = h.ingest.accept("b1", &[smuggled]).await.unwrap_err();
+
         assert!(matches!(error, DomainError::Validation(_)));
         assert!(h.readings.inserted.lock().unwrap().is_empty());
-        assert!(h.fanout.published.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn one_bad_reading_rejects_the_whole_batch() {
+        let h = plain();
+        let items = vec![item("r1", 1.0), json!({ "type": "fake", "roomId": "r2" })];
+
+        let error = h.ingest.accept("b1", &items).await.unwrap_err();
+
+        let DomainError::Validation(message) = error else {
+            panic!("a malformed reading is a validation error");
+        };
+        assert!(message.contains("readings[1]"), "got {message}");
+        assert!(
+            h.readings.inserted.lock().unwrap().is_empty(),
+            "all-or-nothing: nothing persists when one reading fails"
+        );
+        assert!(h.fanout.batches.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_unknown_sensor_type_names_the_reading_that_carried_it() {
+        let h = plain();
+        let items = vec![
+            item("r1", 1.0),
+            json!({ "type": "humidity", "roomId": "r2" }),
+        ];
+
+        let error = h.ingest.accept("b1", &items).await.unwrap_err();
+
+        let DomainError::Validation(message) = error else {
+            panic!("an unknown type inside a batch is a validation error, not a 404");
+        };
+        assert!(message.contains("readings[1]"), "got {message}");
+        assert!(message.contains("humidity"), "got {message}");
+    }
+
+    #[tokio::test]
+    async fn an_empty_batch_is_rejected() {
+        let h = plain();
+        assert!(h.ingest.accept("b1", &[]).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn a_batch_without_a_building_is_rejected() {
+        let h = plain();
+        let error = h.ingest.accept("  ", &[item("r1", 1.0)]).await;
+        assert!(error.is_err());
+    }
+
+    #[tokio::test]
+    async fn a_batch_larger_than_the_cap_is_rejected_before_any_work() {
+        let h = plain();
+        let items: Vec<Value> = (0..MAX_BATCH_READINGS + 1)
+            .map(|i| item(&format!("r{i}"), 1.0))
+            .collect();
+
+        assert!(h.ingest.accept("b1", &items).await.is_err());
+        assert!(h.readings.inserted.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn every_breach_in_a_tick_raises_its_own_alert() {
+        let h = harness(FakeReadings::default(), bounds(json!({ "maxFake": 10.0 })));
+
+        h.ingest
+            .accept("b1", &[item("r1", 50.0), item("r2", 1.0), item("r3", 99.0)])
+            .await
+            .unwrap();
+
+        let alerts = h.alerts.published.lock().unwrap();
+        assert_eq!(alerts.len(), 2, "only the two readings over the bound");
+    }
+
+    #[tokio::test]
+    async fn nothing_is_published_when_the_bulk_write_fails() {
+        let h = harness(
+            FakeReadings {
+                refuse: true,
+                ..Default::default()
+            },
+            FakeThresholds::default(),
+        );
+
+        assert!(h.ingest.accept("b1", &[item("r1", 1.0)]).await.is_err());
+        assert!(
+            h.fanout.batches.lock().unwrap().is_empty(),
+            "publish only after the batch is durably written"
+        );
     }
 
     #[tokio::test]
     async fn a_valid_reading_is_persisted_and_published() {
         let h = plain();
-        h.ingest.accept("fake", &payload(21.5)).await.unwrap();
+        h.ingest.accept("b1", &[item("r1", 21.5)]).await.unwrap();
         assert_eq!(h.readings.inserted.lock().unwrap().len(), 1);
         let published = h.fanout.published.lock().unwrap();
         assert_eq!(published.len(), 1);
@@ -152,26 +316,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_failed_persist_does_not_publish_telemetry() {
-        let h = harness(
-            FakeReadings {
-                refuse: true,
-                ..Default::default()
-            },
-            FakeThresholds::default(),
-        );
-        assert!(h.ingest.accept("fake", &payload(21.5)).await.is_err());
-        assert!(h.fanout.published.lock().unwrap().is_empty());
-        assert!(h.alerts.published.lock().unwrap().is_empty());
-    }
-
-    #[tokio::test]
     async fn a_reading_within_bounds_publishes_no_alert() {
         let h = harness(
             FakeReadings::default(),
             bounds(json!({ "maxFake": 25.0, "minFake": 18.0 })),
         );
-        h.ingest.accept("fake", &payload(21.5)).await.unwrap();
+        h.ingest.accept("b1", &[item("r1", 21.5)]).await.unwrap();
         assert!(h.alerts.published.lock().unwrap().is_empty());
         assert_eq!(h.fanout.published.lock().unwrap().len(), 1);
     }
@@ -179,7 +329,7 @@ mod tests {
     #[tokio::test]
     async fn a_breach_publishes_an_alert_carrying_the_metric_and_the_bound() {
         let h = harness(FakeReadings::default(), bounds(json!({ "maxFake": 25.0 })));
-        h.ingest.accept("fake", &payload(26.0)).await.unwrap();
+        h.ingest.accept("b1", &[item("r1", 26.0)]).await.unwrap();
         let published = h.alerts.published.lock().unwrap();
         assert_eq!(published.len(), 1);
         assert_eq!(published[0].metric, "fake");
@@ -192,7 +342,7 @@ mod tests {
     #[tokio::test]
     async fn a_breach_still_publishes_telemetry() {
         let h = harness(FakeReadings::default(), bounds(json!({ "maxFake": 25.0 })));
-        h.ingest.accept("fake", &payload(26.0)).await.unwrap();
+        h.ingest.accept("b1", &[item("r1", 26.0)]).await.unwrap();
         assert_eq!(h.fanout.published.lock().unwrap().len(), 1);
     }
 
@@ -205,7 +355,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        h.ingest.accept("fake", &payload(21.5)).await.unwrap();
+        h.ingest.accept("b1", &[item("r1", 21.5)]).await.unwrap();
         assert_eq!(h.readings.inserted.lock().unwrap().len(), 1);
         assert_eq!(h.fanout.published.lock().unwrap().len(), 1);
         assert!(h.alerts.published.lock().unwrap().is_empty());
@@ -214,7 +364,7 @@ mod tests {
     #[tokio::test]
     async fn no_thresholds_configured_means_no_alert() {
         let h = plain();
-        h.ingest.accept("fake", &payload(9_000.0)).await.unwrap();
+        h.ingest.accept("b1", &[item("r1", 9_000.0)]).await.unwrap();
         assert!(h.alerts.published.lock().unwrap().is_empty());
     }
 }

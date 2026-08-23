@@ -3,13 +3,14 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use socketioxide::SocketIo;
-use socketioxide::extract::{Data, Extension, SocketRef, State};
+use socketioxide::extract::{AckSender, Data, Extension, SocketRef, State};
 
 use crate::core::auth::{CLAIMS_HEADER, Identity, authenticate_claims_header, may_read_building};
 use crate::core::relay::{Delivery, Target};
 use crate::core::rooms::{room_for_building, room_for_domain};
+use crate::core::subscription::{Subscription, ack};
 use crate::shell::metrics::{
-    self, CONNECTED_CLIENTS, CONNECTIONS_REJECTED_TOTAL, SUBSCRIPTIONS_REJECTED_TOTAL,
+    CONNECTED_CLIENTS, CONNECTIONS_REJECTED_TOTAL, SUBSCRIPTIONS_REJECTED_TOTAL,
 };
 use crate::shell::twin::BuildingDomains;
 
@@ -64,24 +65,24 @@ async fn subscribe_building(
     Extension(ClaimsHeader(claims)): Extension<ClaimsHeader>,
     State(directory): State<Arc<BuildingDomains>>,
     Data(building_id): Data<String>,
+    acknowledge: AckSender,
 ) {
-    let Some(domains) = directory.of(&building_id, &claims).await else {
-        reject(metrics::REASON_LOOKUP_FAILED);
-        return;
+    let outcome = match directory.of(&building_id, &claims).await {
+        None => Subscription::Unavailable,
+        Some(domains) if !may_read_building(&identity, &domains) => Subscription::Forbidden,
+        Some(_) => {
+            s.join(room_for_building(&building_id));
+            Subscription::Joined
+        }
     };
 
-    if !may_read_building(&identity, &domains) {
-        reject(metrics::REASON_FORBIDDEN);
-        return;
+    if let Some(reason) = outcome.reason() {
+        SUBSCRIPTIONS_REJECTED_TOTAL
+            .with_label_values(&[reason])
+            .inc();
     }
 
-    s.join(room_for_building(&building_id));
-}
-
-fn reject(reason: &str) {
-    SUBSCRIPTIONS_REJECTED_TOTAL
-        .with_label_values(&[reason])
-        .inc();
+    let _ = acknowledge.send(&ack(&building_id, outcome));
 }
 
 async fn unsubscribe_building(s: SocketRef, Data(building_id): Data<String>) {

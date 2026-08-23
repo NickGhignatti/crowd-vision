@@ -67,7 +67,7 @@ async fn a_reading_round_trips_with_millisecond_timestamp_fidelity() {
 
     let ts_ms = BASE_MS + 123;
     readings
-        .insert(&temperature("r1", ts_ms, 21.5))
+        .insert(&[temperature("r1", ts_ms, 21.5)])
         .await
         .unwrap();
 
@@ -87,7 +87,7 @@ async fn an_inserted_reading_stores_no_envelope_keys_in_its_payload() {
     let pool = fresh_db("trim").await;
     let readings = PgReadings::new(pool.clone(), registry());
     readings
-        .insert(&temperature("r1", BASE_MS, 21.5))
+        .insert(&[temperature("r1", BASE_MS, 21.5)])
         .await
         .unwrap();
 
@@ -103,7 +103,7 @@ async fn a_read_reading_carries_its_envelope_back() {
     let pool = fresh_db("reinflate").await;
     let readings = PgReadings::new(pool, registry());
     readings
-        .insert(&temperature("r1", BASE_MS, 21.5))
+        .insert(&[temperature("r1", BASE_MS, 21.5)])
         .await
         .unwrap();
 
@@ -129,7 +129,7 @@ async fn an_air_quality_reading_keeps_its_eight_extra_measurements() {
         "voc": 0.3, "temperature": 22.0, "humidity": 41.0, "aqi": 55.0, "indoor_aqi": 61.0
     });
     readings
-        .insert(&reading("airQuality", "r1", BASE_MS, 61.0, payload))
+        .insert(&[reading("airQuality", "r1", BASE_MS, 61.0, payload)])
         .await
         .unwrap();
 
@@ -155,7 +155,7 @@ async fn latest_per_room_returns_the_newest_row_for_each_room_and_nothing_else()
         ("r2", BASE_MS + 500, 19.0),
     ] {
         readings
-            .insert(&temperature(room, ts, value))
+            .insert(&[temperature(room, ts, value)])
             .await
             .unwrap();
     }
@@ -174,7 +174,7 @@ async fn series_buckets_hourly_for_a_one_day_range() {
 
     for (offset, value) in [(0, 20.0), (60_000, 22.0), (HOUR_MS, 30.0)] {
         readings
-            .insert(&temperature("r1", BASE_MS + offset, value))
+            .insert(&[temperature("r1", BASE_MS + offset, value)])
             .await
             .unwrap();
     }
@@ -204,7 +204,7 @@ async fn each_agg_mode_produces_its_own_aggregate() {
 
     for (offset, value) in [(0, 10.0), (60_000, 20.0), (120_000, 30.0)] {
         readings
-            .insert(&temperature("r1", BASE_MS + offset, value))
+            .insert(&[temperature("r1", BASE_MS + offset, value)])
             .await
             .unwrap();
     }
@@ -224,11 +224,11 @@ async fn a_room_filter_narrows_the_series() {
     let pool = fresh_db("seriesroom").await;
     let readings = PgReadings::new(pool, registry());
     readings
-        .insert(&temperature("r1", BASE_MS, 10.0))
+        .insert(&[temperature("r1", BASE_MS, 10.0)])
         .await
         .unwrap();
     readings
-        .insert(&temperature("r2", BASE_MS, 30.0))
+        .insert(&[temperature("r2", BASE_MS, 30.0)])
         .await
         .unwrap();
 
@@ -448,11 +448,11 @@ async fn a_week_range_reads_from_readings_hourly_not_readings() {
     let midnight_ms = 1_699_920_000_000;
     for hour in 0..3 {
         readings
-            .insert(&temperature(
+            .insert(&[temperature(
                 "r1",
                 midnight_ms + hour * HOUR_MS,
                 20.0 + hour as f64,
-            ))
+            )])
             .await
             .unwrap();
     }

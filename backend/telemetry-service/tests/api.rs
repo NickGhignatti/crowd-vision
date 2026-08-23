@@ -5,6 +5,8 @@ use axum::http::{Request, StatusCode};
 use serde_json::json;
 use support::test_app::{claims_with, test_app};
 use support::{fresh_db, seed_building};
+use telemetry_contracts::MetricsDiscoveryResponse;
+use telemetry_service::adapters::ingest_auth::IngestKey;
 
 const BASE_MS: i64 = 1_700_000_000_000;
 
@@ -21,8 +23,17 @@ fn outsider() -> String {
 }
 
 fn temperature(room: &str, ts_ms: i64, value: f64) -> serde_json::Value {
-    json!({ "type": "temperature", "buildingId": "b1", "roomId": room,
-            "timestamp": ts_ms, "temperature": value })
+    batch(&[(room, ts_ms, value)])
+}
+
+fn batch(readings: &[(&str, i64, f64)]) -> serde_json::Value {
+    json!({
+        "buildingId": "b1",
+        "readings": readings.iter().map(|(room, ts_ms, value)| json!({
+            "type": "temperature", "roomId": room,
+            "timestamp": ts_ms, "temperature": value
+        })).collect::<Vec<_>>(),
+    })
 }
 
 #[tokio::test]
@@ -84,49 +95,185 @@ async fn a_reader_cannot_edit() {
 }
 
 #[tokio::test]
-async fn ingest_needs_no_credentials() {
-    let app = test_app(fresh_db("ingest_open").await, vec!["eng"]).await;
-    let (status, body) = app
-        .send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+async fn a_signed_reading_is_accepted_without_any_user_credential() {
+    let app = test_app(fresh_db("ingest_signed").await, vec!["eng"]).await;
+    let (status, body) = app.ingest(temperature("r1", BASE_MS, 21.5)).await;
     assert_eq!(status, StatusCode::ACCEPTED);
     assert_eq!(body["accepted"], true);
-    assert_eq!(body["type"], "temperature");
+    assert_eq!(body["readings"], 1);
     assert_eq!(app.fanout.published.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
-async fn ingesting_an_unknown_sensor_type_is_not_found() {
+async fn an_unsigned_reading_is_unauthorized() {
+    let app = test_app(fresh_db("ingest_unsigned").await, vec!["eng"]).await;
+    let (status, _) = app.ingest_unsigned(temperature("r1", BASE_MS, 21.5)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(app.fanout.published.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_reading_signed_with_the_wrong_secret_is_unauthorized() {
+    let app = test_app(fresh_db("ingest_wrongkey").await, vec!["eng"]).await;
+    let forged = IngestKey::new("attacker-secret-0123456789abcdefgh").unwrap();
+    let raw = temperature("r1", BASE_MS, 21.5).to_string();
+    let (status, _) = app.ingest_signed(&raw, &forged.sign(raw.as_bytes())).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(app.fanout.published.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_body_altered_after_signing_is_unauthorized() {
+    let app = test_app(fresh_db("ingest_tampered").await, vec!["eng"]).await;
+    let signed = temperature("r1", BASE_MS, 21.5).to_string();
+    let signature = app.ingest_key.sign(signed.as_bytes());
+    let tampered = temperature("r1", BASE_MS, 99.0).to_string();
+    let (status, _) = app.ingest_signed(&tampered, &signature).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(app.fanout.published.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_malformed_signature_header_is_unauthorized() {
+    let app = test_app(fresh_db("ingest_malformed_sig").await, vec!["eng"]).await;
+    let raw = temperature("r1", BASE_MS, 21.5).to_string();
+    let (status, _) = app.ingest_signed(&raw, "not-a-signature").await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn ingesting_an_unknown_sensor_type_names_the_reading_that_carried_it() {
     let app = test_app(fresh_db("ingest_unknown").await, vec!["eng"]).await;
     let (status, body) = app
-        .send_json(
-            "POST",
-            "/ingest",
-            None,
-            json!({ "type": "humidity", "buildingId": "b1", "roomId": "r1",
-                    "timestamp": BASE_MS, "temperature": 21.5 }),
-        )
+        .ingest(json!({ "buildingId": "b1", "readings": [
+            { "type": "humidity", "roomId": "r1", "timestamp": BASE_MS, "temperature": 21.5 }
+        ]}))
         .await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    assert_eq!(body["type"], "Not Found Error");
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let details = body["details"][0].as_str().unwrap();
+    assert!(details.contains("readings[0]"), "got {details}");
+    assert!(details.contains("humidity"), "got {details}");
 }
 
 #[tokio::test]
 async fn ingesting_an_invalid_payload_is_rejected_with_the_offending_fields() {
     let app = test_app(fresh_db("ingest_invalid").await, vec!["eng"]).await;
     let (status, body) = app
-        .send_json(
-            "POST",
-            "/ingest",
-            None,
-            json!({ "type": "temperature", "buildingId": "b1", "roomId": "r1" }),
-        )
+        .ingest(json!({ "buildingId": "b1", "readings": [
+            { "type": "temperature", "roomId": "r1" }
+        ]}))
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(body["error"], "Payload validation failed.");
     let details = body["details"][0].as_str().unwrap();
     assert!(details.contains("timestamp"));
     assert!(details.contains("temperature"));
+}
+
+#[tokio::test]
+async fn a_batch_is_accepted_and_every_reading_is_readable_back() {
+    let app = test_app(fresh_db("batch_ok").await, vec!["eng"]).await;
+
+    let (status, body) = app
+        .ingest(batch(&[("r1", BASE_MS, 21.5), ("r2", BASE_MS, 19.0)]))
+        .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(body["readings"], 2);
+
+    let (status, listed) = app
+        .get("/temperature/entireBuilding?building=b1", Some(&customer()))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(listed["data"].as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn a_building_tick_is_published_as_a_single_message() {
+    let app = test_app(fresh_db("batch_one_message").await, vec!["eng"]).await;
+
+    app.ingest(batch(&[
+        ("r1", BASE_MS, 21.5),
+        ("r2", BASE_MS, 19.0),
+        ("r3", BASE_MS, 22.0),
+    ]))
+    .await;
+
+    assert_eq!(
+        app.fanout.batches.lock().unwrap().len(),
+        1,
+        "three rooms, one tick, one message"
+    );
+    assert_eq!(app.fanout.published.lock().unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn an_unsigned_batch_is_unauthorized() {
+    let app = test_app(fresh_db("batch_unsigned").await, vec!["eng"]).await;
+    let (status, _) = app
+        .send_json("POST", "/ingest", None, batch(&[("r1", BASE_MS, 21.5)]))
+        .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(app.fanout.published.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_batch_with_one_bad_reading_persists_nothing() {
+    let app = test_app(fresh_db("batch_partial").await, vec!["eng"]).await;
+
+    let (status, body) = app
+        .ingest(json!({
+            "buildingId": "b1",
+            "readings": [
+                { "type": "temperature", "roomId": "r1", "timestamp": BASE_MS, "temperature": 21.5 },
+                { "type": "temperature", "roomId": "r2", "timestamp": BASE_MS }
+            ]
+        }))
+        .await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body["details"][0].as_str().unwrap().contains("readings[1]"));
+
+    let (status, _) = app
+        .get(
+            "/temperature/latest?building=b1&roomId=r1",
+            Some(&customer()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "all-or-nothing");
+}
+
+#[tokio::test]
+async fn a_batch_cannot_smuggle_a_reading_for_another_building() {
+    let app = test_app(fresh_db("batch_smuggle").await, vec!["eng"]).await;
+
+    let (status, _) = app
+        .ingest(json!({
+            "buildingId": "b1",
+            "readings": [
+                { "type": "temperature", "buildingId": "b2", "roomId": "r1",
+                  "timestamp": BASE_MS, "temperature": 21.5 }
+            ]
+        }))
+        .await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn ingest_rejects_a_non_string_building_and_a_non_numeric_reading() {
+    let app = test_app(fresh_db("ingest_types").await, vec!["eng"]).await;
+
+    let (status, body) = app
+        .ingest(json!({ "buildingId": {}, "readings": [
+            { "type": "temperature", "roomId": 123, "timestamp": BASE_MS, "temperature": "warm" }
+        ]}))
+        .await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let details = body["details"][0].as_str().unwrap();
+    assert!(details.contains("buildingId"), "got {details}");
+    assert!(details.contains("roomId"), "got {details}");
+    assert!(details.contains("temperature"), "got {details}");
 }
 
 #[tokio::test]
@@ -145,8 +292,7 @@ async fn latest_with_no_data_is_not_found() {
 #[tokio::test]
 async fn a_reading_is_ingested_then_read_back() {
     let app = test_app(fresh_db("readback").await, vec!["eng"]).await;
-    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+    app.ingest(temperature("r1", BASE_MS, 21.5)).await;
 
     let (status, body) = app
         .get(
@@ -164,8 +310,7 @@ async fn a_reading_is_ingested_then_read_back() {
 async fn entire_building_returns_one_row_per_room() {
     let app = test_app(fresh_db("entire").await, vec!["eng"]).await;
     for (room, value) in [("r1", 21.0), ("r2", 19.0)] {
-        app.send_json("POST", "/ingest", None, temperature(room, BASE_MS, value))
-            .await;
+        app.ingest(temperature(room, BASE_MS, value)).await;
     }
 
     let (status, body) = app
@@ -178,13 +323,10 @@ async fn entire_building_returns_one_row_per_room() {
 #[tokio::test]
 async fn a_read_carries_the_same_flat_metric_fields_the_socket_event_does() {
     let app = test_app(fresh_db("read_shape").await, vec!["eng"]).await;
-    app.send_json(
-        "POST",
-        "/ingest",
-        None,
-        json!({ "type": "airQuality", "buildingId": "b1", "roomId": "r1",
-                "timestamp": BASE_MS, "pm25": 8.0, "co2": 700.0, "indoor_aqi": 42.5 }),
-    )
+    app.ingest(json!({ "buildingId": "b1", "readings": [
+        { "type": "airQuality", "roomId": "r1", "timestamp": BASE_MS,
+          "pm25": 8.0, "co2": 700.0, "indoor_aqi": 42.5 }
+    ]}))
     .await;
 
     let (status, body) = app
@@ -236,8 +378,7 @@ async fn a_custom_range_without_a_start_is_rejected() {
 #[tokio::test]
 async fn a_custom_range_with_an_explicit_start_and_end_works() {
     let app = test_app(fresh_db("w8_works").await, vec!["eng"]).await;
-    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+    app.ingest(temperature("r1", BASE_MS, 21.5)).await;
 
     let uri = format!(
         "/temperature/dashboard?building=b1&timeRange=custom&start={}&end={}",
@@ -304,13 +445,9 @@ async fn a_people_count_room_threshold_is_readable_back() {
         .await;
     assert_eq!(building["data"]["maxPeople"], 50);
 
-    app.send_json(
-        "POST",
-        "/ingest",
-        None,
-        json!({ "type": "peopleCount", "buildingId": "b1", "roomId": "r1",
-                "timestamp": BASE_MS, "peopleCount": 20 }),
-    )
+    app.ingest(json!({ "buildingId": "b1", "readings": [
+        { "type": "peopleCount", "roomId": "r1", "timestamp": BASE_MS, "peopleCount": 20 }
+    ]}))
     .await;
 
     let alerts = app.alerts.published.lock().unwrap();
@@ -406,7 +543,7 @@ async fn the_contract_advertises_metrics_and_their_actions() {
     assert_eq!(metrics.len(), 3);
     let temperature = metrics
         .iter()
-        .find(|metric| metric["key"] == "temperature")
+        .find(|metric| metric["metricKey"] == "temperature")
         .unwrap();
     assert_eq!(temperature["unit"], "C");
     assert_eq!(temperature["actions"].as_array().unwrap().len(), 3);
@@ -415,9 +552,35 @@ async fn the_contract_advertises_metrics_and_their_actions() {
 
     let people = metrics
         .iter()
-        .find(|metric| metric["key"] == "peopleCount")
+        .find(|metric| metric["metricKey"] == "peopleCount")
         .unwrap();
     assert_eq!(people["actions"], json!([]));
+}
+
+#[tokio::test]
+async fn the_catalog_deserialises_into_the_shape_contracts_service_parses() {
+    let app = test_app(fresh_db("contracts_seam").await, vec!["eng"]).await;
+    let (status, body) = app.get("/contracts", None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let discovered: MetricsDiscoveryResponse = serde_json::from_value(body).unwrap();
+    let MetricsDiscoveryResponse::ServiceContract(contract) = discovered else {
+        panic!("telemetry-service advertises a service-shaped catalog");
+    };
+    assert_eq!(contract.service, "telemetry-service");
+    assert!(
+        contract
+            .metrics
+            .iter()
+            .any(|metric| metric.metric_key == "temperature")
+    );
+    assert!(
+        contract
+            .metrics
+            .iter()
+            .flat_map(|metric| &metric.fields)
+            .any(|field| field.name == "buildingId")
+    );
 }
 
 #[tokio::test]
@@ -437,8 +600,7 @@ async fn health_answers_without_credentials() {
 #[tokio::test]
 async fn metrics_are_exposed_and_count_a_matched_route() {
     let app = test_app(fresh_db("metrics").await, vec!["eng"]).await;
-    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+    app.ingest(temperature("r1", BASE_MS, 21.5)).await;
 
     let response = app
         .send(
@@ -461,24 +623,39 @@ async fn metrics_are_exposed_and_count_a_matched_route() {
 }
 
 #[tokio::test]
-async fn ingest_without_a_type_is_rejected() {
-    let app = test_app(fresh_db("ingest_notype").await, vec!["eng"]).await;
+async fn a_body_that_is_not_an_envelope_is_rejected() {
+    let app = test_app(fresh_db("ingest_noenvelope").await, vec!["eng"]).await;
     let (status, _) = app
-        .send_json(
-            "POST",
-            "/ingest",
-            None,
-            json!({ "buildingId": "b1", "roomId": "r1", "timestamp": BASE_MS }),
+        .ingest(
+            json!({ "type": "temperature", "buildingId": "b1", "roomId": "r1",
+                        "timestamp": BASE_MS, "temperature": 21.5 }),
         )
         .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "a bare reading is not a batch"
+    );
+}
+
+#[tokio::test]
+async fn a_reading_without_a_type_names_its_index() {
+    let app = test_app(fresh_db("ingest_notype").await, vec!["eng"]).await;
+    let (status, body) = app
+        .ingest(json!({ "buildingId": "b1", "readings": [
+            { "roomId": "r1", "timestamp": BASE_MS, "temperature": 21.5 }
+        ]}))
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let details = body["details"][0].as_str().unwrap();
+    assert!(details.contains("readings[0]"), "got {details}");
+    assert!(details.contains("type"), "got {details}");
 }
 
 #[tokio::test]
 async fn the_type_field_is_not_stored_as_a_payload_extra() {
     let app = test_app(fresh_db("ingest_typestrip").await, vec!["eng"]).await;
-    app.send_json("POST", "/ingest", None, temperature("r1", BASE_MS, 21.5))
-        .await;
+    app.ingest(temperature("r1", BASE_MS, 21.5)).await;
 
     let payload: serde_json::Value = sqlx::query_scalar("select payload from readings")
         .fetch_one(&app.pool)
