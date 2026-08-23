@@ -23,6 +23,15 @@ components:
         Base64-encoded Stable Claims Contract injected by the edge after it
         verifies the internal RS256 JWT. Clients never set this header —
         the edge strips any client-supplied value and re-injects its own.
+    ingestSignature:
+      type: apiKey
+      in: header
+      name: x-signature
+      description: >
+        Lowercase-hex HMAC-SHA256 over the raw request body, keyed by
+        TELEMETRY_INGEST_SECRET. A sensor gateway has no user JWT, so this is
+        how it authenticates itself. The signature covers the exact bytes on
+        the wire — sign the string you send, never a re-serialised copy.
 
   parameters:
     SensorType:
@@ -194,7 +203,7 @@ components:
           items:
             type: object
             properties:
-              key: { type: string, example: "temperature" }
+              metricKey: { type: string, example: "temperature" }
               label: { type: string, example: "Temperature" }
               interfaceName: { type: string, example: "ITemperature" }
               unit: { type: [string, "null"], example: "C" }
@@ -204,7 +213,7 @@ components:
                   type: object
                   properties:
                     name: { type: string, example: "temperature" }
-                    kind: { type: string, example: "Finite" }
+                    type: { type: string, example: "Finite" }
                     required: { type: boolean }
               actions:
                 type: array
@@ -231,36 +240,62 @@ security:
 paths:
   /ingest:
     post:
-      summary: Ingest a sensor reading
+      summary: Ingest one building tick
       description: >
-        `type` selects the plugin and is stripped from the body; what remains is
-        the reading. Persistence, threshold evaluation and telemetry fan-out all
-        happen before the response. A threshold-evaluation failure is logged and
-        does not fail the ingest; a persistence failure does.
+        One building's readings for one instant, as one message: one HMAC, one
+        bulk insert, one fan-out event. A single device sends a `readings` array
+        of one — there is no separate single-reading route.
+
+        `buildingId` lives on the envelope and is stamped onto every reading; a
+        reading naming a different building is rejected, since a batch maps to
+        exactly one fan-out channel. `type` selects the plugin for each reading
+        and is stripped from it.
+
+        All-or-nothing: if any reading fails validation nothing is persisted and
+        nothing is published, and the response names the offending index. A
+        threshold-evaluation failure is logged and does not fail the ingest; a
+        persistence failure does.
+
+        Requires an `x-signature` HMAC over the raw body. The route carries no
+        user JWT and is ungated at the edge, but it is not open — an unsigned or
+        mis-signed request is rejected before the body is parsed.
       tags: [Ingestion]
-      security: []
+      security:
+        - ingestSignature: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/IngestionPayload"
+              type: object
+              required: [buildingId, readings]
+              properties:
+                buildingId: { type: string, example: "bldg-1" }
+                readings:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items:
+                    $ref: "#/components/schemas/IngestionPayload"
       responses:
         "202":
-          description: Accepted for processing
+          description: The whole tick was accepted
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   accepted: { type: boolean, example: true }
-                  type: { type: string, example: "temperature" }
-        "400":
-          description: Missing or invalid `type` field
-        "404":
-          description: No module registered for the given sensor type
+                  readings: { type: integer, example: 12 }
+        "401":
+          description: Missing, malformed or mismatched `x-signature`
+        "413":
+          description: Body exceeds the 1 MiB ingest limit
         "422":
-          description: Payload validation failed
+          description: >
+            Missing envelope fields, empty batch, more than 500 readings, an
+            unknown sensor type, or a reading that failed validation — `details`
+            names the offending index.
           content:
             application/json:
               schema:
@@ -270,7 +305,6 @@ paths:
                   details:
                     type: array
                     items: { type: string }
-
   /sensor:
     post:
       summary: Register a physical sensor
