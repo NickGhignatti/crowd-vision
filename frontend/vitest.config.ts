@@ -12,7 +12,6 @@ export default defineConfig((env) => {
         environment: 'happy-dom',
         exclude: [...configDefaults.exclude, 'e2e/**'],
         root: fileURLToPath(new URL('./', import.meta.url)),
-        setupFiles: ['./src/components/__tests__/setup.ts'],
         globals: true,
         mockReset: true,
         restoreMocks: true,
@@ -28,7 +27,7 @@ export default defineConfig((env) => {
         coverage: {
           provider: 'v8',
           include: ['src/**/*.{ts,vue}'],
-          exclude: ['src/main.ts', 'src/**/*.d.ts', 'src/assets/**', 'src/i18n.ts', '**/__tests__/**'],
+          exclude: ['src/main.ts', 'src/**/*.d.ts', 'src/assets/**', 'src/i18n.ts'],
           reporter: ['text-summary', 'json-summary', 'lcov'],
         }
       },
