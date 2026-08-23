@@ -187,7 +187,8 @@ mod tests {
 
     #[test]
     fn extracts_string_building_id_field() {
-        let raw = json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature", "value": 22 }] });
+        let raw =
+            json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(extract_building_id(&raw), Some("bldg-1"));
     }
 
@@ -217,7 +218,8 @@ mod tests {
     #[test]
     fn routes_allowed_metric_to_its_own_building_channel() {
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature", "value": 22 }] });
+        let raw =
+            json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(
             resolve_channel(&raw, &map),
             Some("telemetry:filtered:bldg-1".to_string())
@@ -229,7 +231,8 @@ mod tests {
         // The dashboard column set doesn't gate telemetry: an unlisted metric
         // is still forwarded (display filtering is the client's job).
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "buildingId": "bldg-1", "readings": [{ "type": "air_quality", "value": 5 }] });
+        let raw =
+            json!({ "buildingId": "bldg-1", "readings": [{ "type": "air_quality", "value": 5 }] });
         assert_eq!(
             resolve_channel(&raw, &map),
             Some("telemetry:filtered:bldg-1".to_string())
@@ -249,14 +252,16 @@ mod tests {
         // bldg-1 allows temperature; the event is for bldg-2 (which has no prefs).
         // The pre-fix bug fanned this out to bldg-1's channel — assert it does not.
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "buildingId": "bldg-2", "readings": [{ "type": "temperature", "value": 22 }] });
+        let raw =
+            json!({ "buildingId": "bldg-2", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(resolve_channel(&raw, &map), None);
     }
 
     #[test]
     fn routes_to_the_correct_building_when_multiple_are_subscribed() {
         let map = prefs(&[("bldg-1", &["temperature"]), ("bldg-2", &["temperature"])]);
-        let raw = json!({ "buildingId": "bldg-2", "readings": [{ "type": "temperature", "value": 22 }] });
+        let raw =
+            json!({ "buildingId": "bldg-2", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(
             resolve_channel(&raw, &map),
             Some("telemetry:filtered:bldg-2".to_string())
