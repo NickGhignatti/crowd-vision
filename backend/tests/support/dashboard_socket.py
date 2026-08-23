@@ -29,8 +29,15 @@ class DashboardSocket:
         )
 
     def wait_for_telemetry(self, timeout: float = 10.0) -> dict:
+        envelope = self.wait_for_tick(timeout=timeout)
+        readings = envelope["readings"]
+        assert len(readings) == 1, f"expected a single-reading tick, got {len(readings)}"
+        return readings[0]
+
+    def wait_for_tick(self, timeout: float = 10.0) -> dict:
         event, data = self._client.receive(timeout=timeout)
         assert event == "telemetry", f"expected a 'telemetry' event, got {event!r}"
+        assert "readings" in data, f"telemetry is always a tick, got {data!r}"
         return data
 
     def drain_telemetry(self, idle_timeout: float = 5.0) -> int:

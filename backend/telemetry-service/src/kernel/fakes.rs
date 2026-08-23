@@ -133,11 +133,14 @@ pub struct FakeReadings {
 
 #[async_trait]
 impl ReadingStore for FakeReadings {
-    async fn insert(&self, reading: &Reading) -> anyhow::Result<()> {
+    async fn insert(&self, readings: &[Reading]) -> anyhow::Result<()> {
         if self.refuse {
             anyhow::bail!("readings refused");
         }
-        self.inserted.lock().unwrap().push(reading.clone());
+        self.inserted
+            .lock()
+            .unwrap()
+            .extend(readings.iter().cloned());
         Ok(())
     }
 
@@ -498,12 +501,17 @@ impl BuildingDirectory for FakeDirectory {
 #[derive(Default)]
 pub struct FakeFanout {
     pub published: Mutex<Vec<TelemetryEvent>>,
+    pub batches: Mutex<Vec<Vec<TelemetryEvent>>>,
 }
 
 #[async_trait]
 impl Fanout for FakeFanout {
-    async fn publish_telemetry(&self, event: &TelemetryEvent) {
-        self.published.lock().unwrap().push(event.clone());
+    async fn publish_telemetry(&self, events: &[TelemetryEvent]) {
+        self.batches.lock().unwrap().push(events.to_vec());
+        self.published
+            .lock()
+            .unwrap()
+            .extend(events.iter().cloned());
     }
 }
 

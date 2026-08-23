@@ -103,18 +103,24 @@ static BOUNDS: &[BoundSpec] = &[
 
 ## Request Lifecycle
 
-**Ingestion** — `POST /ingest`, device-facing so no user JWT and still exempt from the edge gate, but not open: the caller signs the request itself.
+**Ingestion** — `POST /ingest`, device-facing so no user JWT and still exempt from the edge gate, but not open: the caller signs the request itself. The route takes a *batch*, always — a lone device sends one reading in the array, so there is no second route and no second code path.
 
 0. `X-Signature` must equal `HMAC-SHA256(TELEMETRY_INGEST_SECRET, raw_body)` in lowercase hex — missing, malformed or mismatched is `401` before any parsing, persistence or fanout. Bodies over 1 MiB are `413`.
-1. `type` is taken from the body and removed; the remainder is the payload.
-2. `PluginRegistry` resolves the plugin — unknown metric is `404`.
-3. `plugin.validate` runs `check_fields` — failures are `422` with a `details` array.
-4. The reading is written to Postgres.
-5. Thresholds resolve room-first, then building; a breach publishes to `alerts:<metric>`.
-6. The event is published to `telemetry:raw`.
-7. `202 {accepted, type}`.
+1. Envelope `{buildingId, readings[]}`, capped at 500 readings. Each reading carries its own `type`, which selects the plugin and is stripped; the envelope supplies `buildingId`. A reading naming a *different* building is rejected — a batch maps to exactly one fan-out channel.
+2. Every reading is validated before anything is written. All-or-nothing: one failure persists nothing, publishes nothing, and one `422` names every offending field, each reading's prefixed with its index (`readings[3]: ...`). An unknown metric is one of those errors, not a `404` — within a batch it is a bad element of a payload, not an unroutable request.
+3. One bulk insert, with the threshold lookups running alongside it.
+4. Thresholds resolve room-first, then building; each breach publishes to `alerts:<metric>` — but only once the write has committed.
+5. **One** `telemetry:raw` message for the whole tick.
+6. `202 {accepted, readings}`.
 
 The signature covers the exact bytes on the wire, so a re-serialised body fails: a signing client must send the same string it hashed.
+
+.box {Why a batch is one message, not N} type:{note}
+    A tick is a single observation of one building at one instant. Sent as N messages that fact is lost at the first hop and cannot be recovered downstream, so per-message overhead multiplies across every service. The fan-out envelope is `{buildingId, ingestedAt, readings[]}` — `contracts-service` keys the channel on `buildingId` and `socket-service` relays it opaquely.
+
+    The envelope carries no shape tag. Every message is a tick, so a constant `type: "batch"` would carry no information, and `type` already names the *metric* on each reading — one key with two meanings at two levels is the kind of thing a reader gets wrong once and then trusts.
+
+    There is deliberately no `/ingest/batch` alongside a single-reading `/ingest`. Two routes meant two kernel entry points, two store methods and two fan-out methods to keep in step — and a sub-path the edge does not ungate, since `Caddyfile` and the Istio policy exempt the exact path `/telemetry/ingest`. One route with N ≥ 1 removes both problems.
 
 .box {One shared secret, not one per building} type:{note}
     Every gateway currently signs with the same key, so a legitimate gateway could still post for a building that is not its own. That is bounded by there being no third-party gateways yet. Per-building keys are a store lookup behind the same header, with no wire change. Replay is likewise undefended — a captured body stays valid — which matches the mesh's documented "hard perimeter, guarded interior" posture, where an in-mesh attacker could forge `x-gateway-claims` regardless.

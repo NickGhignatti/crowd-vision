@@ -116,6 +116,16 @@ then a terminal `done` (or `error`) frame. Persist only on `done`, so an aborted
 leaves no half-written message. Pre-stream failures stay ordinary status codes. Needs
 `flush_interval -1` at Caddy. Detail: `backend/chat-service/CLAUDE.md`.
 
+**Telemetry batching**: a building tick is one message end to end. `/telemetry/ingest` takes
+**only** a batch — `{buildingId, readings[]}`, all-or-nothing; a lone device sends one reading
+in the array. telemetry-service bulk inserts and publishes one `telemetry:raw` envelope
+`{buildingId, ingestedAt, readings[]}`. No shape tag on the envelope: everything is a tick, so
+a constant `type` would say nothing — and `type` already means *metric* on each reading.
+contracts-service keys the channel on `buildingId` and gates on `readings`; socket-service
+relays opaquely. One route, not two: the edge
+ungates the exact path `/telemetry/ingest`, so a `/batch` sub-path would 401 for gateways.
+Detail: `backend/telemetry-service/CLAUDE.md`.
+
 **Breach alerts**: telemetry-service produces every threshold breach to the `alerts` Kafka topic;
 notification-service consumes and delivers. Redelivery-safe, absorbed by a Redis cooldown.
 Telemetry fan-out stays on Redis. Detail on each side in the two services' `CLAUDE.md`.
@@ -146,8 +156,11 @@ Violating one won't be accepted regardless of CI status (full detail:
 - **One bounded context per service** (`domain/strategic-design.qd`).
 - **Frontend stays lightweight.** No global store (Pinia/Vuex) unless required;
   composables/local state.
-- **Test what you change.** `__tests__/` (TS), `#[cfg(test)]`+`tests/` (Rust), `*_test.go`
-  (Go). `just test all` before PR.
+- **Test what you change.** `#[cfg(test)]`+`tests/` (Rust), `*_test.go` (Go), `tests/` (Python).
+  `just test all` before PR. **Frontend is the exception** — `src/**/__tests__/` was removed
+  deliberately; `frontend:test` runs vitest with `--passWithNoTests` and the config is kept so
+  a suite can come back without rewiring. Frontend behaviour is covered by `e2e/` and by the
+  cross-service acceptance suite (`just test integration`).
 - **Tools through mise/just only** — never ambient `PATH`.
 - **Never `git commit`/`git push`.** Hook-enforced. Stage, hand off.
 - **Docs sync same-change, not after.** Update this file + matching `.qd` page together.

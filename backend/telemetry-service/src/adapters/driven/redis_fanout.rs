@@ -53,10 +53,31 @@ fn telemetry_json(event: &TelemetryEvent) -> Value {
     Value::Object(body)
 }
 
+fn telemetry_batch_json(events: &[TelemetryEvent]) -> Value {
+    let building_id = events
+        .first()
+        .map(|event| event.building_id.clone())
+        .unwrap_or_default();
+    let ingested_at = events
+        .first()
+        .map(|event| event.ingested_at_ms)
+        .unwrap_or(0);
+    json!({
+        "buildingId": building_id,
+        "ingestedAt": ingested_at,
+        "readings": events.iter().map(telemetry_json).collect::<Vec<_>>(),
+    })
+}
+
 #[async_trait]
 impl Fanout for RedisFanout {
-    async fn publish_telemetry(&self, event: &TelemetryEvent) {
-        let outcome = self.publish(RAW_CHANNEL, &telemetry_json(event)).await;
+    async fn publish_telemetry(&self, events: &[TelemetryEvent]) {
+        if events.is_empty() {
+            return;
+        }
+        let outcome = self
+            .publish(RAW_CHANNEL, &telemetry_batch_json(events))
+            .await;
         metrics::record_telemetry_published(outcome);
     }
 }
@@ -102,6 +123,48 @@ mod tests {
         assert_eq!(body["buildingId"], "b1");
         assert_eq!(body["roomId"], "r1");
         assert_eq!(body["timestamp"], 1_699_999_000_000i64);
+    }
+
+    #[test]
+    fn a_batch_is_one_envelope_carrying_every_reading_of_the_tick() {
+        let body = telemetry_batch_json(&[
+            event("temperature", 21.5, json!({ "temperature": 21.5 })),
+            event("temperature", 19.0, json!({ "temperature": 19.0 })),
+        ]);
+
+        assert_eq!(body["buildingId"], "b1");
+        assert_eq!(body["ingestedAt"], 1_700_000_000_000i64);
+        assert_eq!(body["readings"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn every_reading_in_a_batch_keeps_the_single_event_wire_shape() {
+        let body =
+            telemetry_batch_json(&[event("temperature", 21.5, json!({ "temperature": 21.5 }))]);
+        let reading = &body["readings"][0];
+
+        assert_eq!(reading["type"], "temperature");
+        assert_eq!(reading["buildingId"], "b1");
+        assert_eq!(reading["roomId"], "r1");
+        assert_eq!(reading["value"], 21.5);
+    }
+
+    #[test]
+    fn the_envelope_carries_what_the_router_reads_and_nothing_that_shadows_a_reading() {
+        let body = telemetry_batch_json(&[event("temperature", 21.5, json!({}))]);
+        assert!(
+            body.get("buildingId").is_some(),
+            "the channel is keyed on it"
+        );
+        assert!(
+            body.get("readings").is_some(),
+            "contracts-service gates on it"
+        );
+        assert!(
+            body.get("type").is_none(),
+            "`type` names a metric and belongs only to a reading"
+        );
+        assert_eq!(body["readings"][0]["type"], "temperature");
     }
 
     #[test]

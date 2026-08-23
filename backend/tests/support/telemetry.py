@@ -52,11 +52,17 @@ def ingest_temperature(
     timestamp_ms: int | None = None,
 ) -> httpx.Response:
     body = {
-        "type": "temperature",
         "buildingId": building_id,
-        "roomId": room_id,
-        "timestamp": timestamp_ms if timestamp_ms is not None else int(time.time() * 1000),
-        "temperature": value,
+        "readings": [
+            {
+                "type": "temperature",
+                "roomId": room_id,
+                "timestamp": timestamp_ms
+                if timestamp_ms is not None
+                else int(time.time() * 1000),
+                "temperature": value,
+            }
+        ],
     }
     return post_reading(client, body)
 
