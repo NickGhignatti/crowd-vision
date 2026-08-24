@@ -28,7 +28,7 @@ services:
       context: ../..
       dockerfile: backend/telemetry-service/Dockerfile
       target: dev
-    command: ["bash", "/app/scripts/rust-integration-tests.sh"]
+    command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
     environment:
       - DATABASE_URL=postgres://postgres:telemetry@telemetry-db:5432/telemetrydb
       - REDIS_URL=redis://telemetry-redis:6379

@@ -19,7 +19,7 @@ COPY --from=planner /app/backend/twin-service/recipe.json recipe.json
 RUN cargo chef cook --recipe-path recipe.json
 COPY backend/auth-policy /app/backend/auth-policy
 COPY backend/auth-contracts /app/backend/auth-contracts
-COPY scripts/rust-integration-tests.sh /app/scripts/rust-integration-tests.sh
+COPY scripts/test/rust-integration-tests.sh /app/scripts/test/rust-integration-tests.sh
 COPY backend/twin-service .
 CMD ["cargo", "watch", "-x", "run"]
 

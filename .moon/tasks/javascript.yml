@@ -11,3 +11,8 @@ tasks:
       - 'package-lock.json'
     options:
       cache: false
+
+  relock:
+    script: 'rm -rf node_modules package-lock.json && npm install --package-lock-only --cpu=x64 --os=linux'
+    options:
+      cache: false

@@ -8,35 +8,28 @@ default:
 
 [doc("Generate .env (VAPID keys, local-dev eval JWT secret, Keycloak/Langfuse/control-plane config).")]
 env:
-    mise exec -- node scripts/env/create.js
-    mise exec -- node scripts/env/vapid.js
-    mise exec -- node scripts/env/token.js
-    mise exec -- node scripts/env/config.js
-    mise exec -- node scripts/env/langfuse.js
-    mise exec -- node scripts/env/keycloak.js
-    mise exec -- node scripts/env/controlplane.js
-    mise exec -- node scripts/env/gateway-key.js
-    mise exec -- node scripts/env/ingest-key.js
+    @mise exec -- sh scripts/env/create.sh
+    @mise exec -- sh scripts/env/vapid.sh
+    @mise exec -- sh scripts/env/token.sh
+    @mise exec -- sh scripts/env/config.sh
+    @mise exec -- sh scripts/env/langfuse.sh
+    @mise exec -- sh scripts/env/keycloak.sh
+    @mise exec -- sh scripts/env/controlplane.sh
+    @mise exec -- sh scripts/env/gateway-key.sh
+    @mise exec -- sh scripts/env/ingest-key.sh
+    @mise exec -- sh scripts/env/telemetry-db.sh
 
-[doc("Start dev stack. Use exclude= with space-separated substrings of folder names.")]
-dev exclude="": env
-    mise exec -- node scripts/compose/compose-run.mjs dev {{exclude}}
+[doc("Start dev stack. Flags: --build --no-agent --no-metrics --no-simulators --dry-run, or bare substrings.")]
+dev *args: env
+    @mise exec -- python3 scripts/compose/compose-run.py dev {{args}}
 
-[doc("Rebuild then start dev stack. Same exclude= syntax as dev.")]
-dev-build exclude="": env
-    mise exec -- node scripts/compose/compose-run.mjs dev-build {{exclude}}
-
-[doc("Start dev stack minus agent-service and its Langfuse/ClickHouse/MinIO tracing stack (lighter footprint). Alias for: dev exclude=\"agent\".")]
-dev-light: env
-    mise exec -- node scripts/compose/compose-run.mjs dev agent
-
-[doc("Start production stack (background). Use exclude= with space-separated substrings.")]
-start exclude="": env
-    mise exec -- node scripts/compose/compose-run.mjs start {{exclude}}
+[doc("Start production stack (background). Same flags as dev.")]
+start *args: env
+    @mise exec -- python3 scripts/compose/compose-run.py start {{args}}
 
 [doc("Stop all containers and remove orphans (always tears down everything).")]
-down:
-    mise exec -- node scripts/compose/compose-run.mjs down
+down *args:
+    @mise exec -- python3 scripts/compose/compose-run.py down {{args}}
 
 [doc("Follow logs for all services, or one: just stack logs twin-service.")]
 logs service="":

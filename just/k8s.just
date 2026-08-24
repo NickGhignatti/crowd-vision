@@ -35,7 +35,7 @@ istio-install:
 
 [doc("Create or update all Kubernetes secrets from your .env file.")]
 secrets:
-    mise exec -- node scripts/k8s/k8s-secrets.mjs
+    mise exec -- sh scripts/k8s/k8s-secrets.sh
 
 [doc("Validate all manifests without touching the cluster (dry run).")]
 validate:

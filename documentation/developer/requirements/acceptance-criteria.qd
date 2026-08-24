@@ -42,7 +42,7 @@ Both stories' performance criteria are implemented and asserted as numbers, not 
 
 ### BT-1 — where
 
-Suite: `backend/twin-service/tests/`. Cucumber features in `tests/features/`, their steps in `tests/steps/`, endpoint-level tests in `tests/api/`. Runner `just test twin-integration` — real MongoDB on a shared Docker network, no mocks at the boundary. CI runs it on every twin-service change (`tpl-rust-ci.yml` → `scripts/rust-integration-tests.sh`).
+Suite: `backend/twin-service/tests/`. Cucumber features in `tests/features/`, their steps in `tests/steps/`, endpoint-level tests in `tests/api/`. Runner `just test twin-integration` — real MongoDB on a shared Docker network, no mocks at the boundary. CI runs it on every twin-service change (`tpl-rust-ci.yml` → `scripts/test/rust-integration-tests.sh`).
 
 - **Twin exists and is viewable** — `tests/api/registration.rs`, `an_accepted_upload_becomes_a_viewable_twin`: `POST /register`, then `GET /building/:id` returns the declared name and room count.
 - **Appears in the organization's building list** — `tests/features/redelivery.feature`, "holds exactly one building", asserted against `GET /buildings/:domain`.

@@ -38,3 +38,8 @@ tasks:
       - 'uv.lock'
     options:
       cache: false
+
+  relock:
+    command: 'uv lock'
+    options:
+      cache: false

@@ -26,18 +26,22 @@ just stack dev
 Run a lighter stack by excluding services you are not working on:
 
 ```bash
-# Exclude by substring of folder name:
-just stack dev exclude="simulator"
+# Named flags for the common groups:
+just stack dev --no-simulators
+just stack dev --no-agent --no-metrics
 
-# Exclude multiple services (space-separated):
-just stack dev exclude="simulator frontend"
+# Raw substring for anything without a flag:
+just stack dev frontend
 
-# Exclude the frontend (useful when running it separately with Vite):
-just stack dev exclude="frontend"
+# Combine them:
+just stack dev --no-simulators frontend
+
+# See what would run, without running it:
+just stack dev --no-agent --dry-run
 ```
 
 .box type:{note}
-    Exclusion matches by **folder name substring**. `"simulator"` will skip `aq-simulator` and `sensor-simulator`\. Use a more specific substring to target a single service.
+    A raw substring matches **both folder names and compose service names**. `simulator` skips `aq-simulator` and `sensor-simulator`; use a longer substring (`aq`) to target one. `just stack dev --help` lists every flag.
 
 ### Accessing the Application (Docker mode)
 
@@ -268,10 +272,10 @@ mise exec -- moon run :audit --affected
    - What it does
 
 .tablebyrows {.headers}
-    - - `just stack dev [exclude="..."]`
-      - Full stack with hot-reloading. Optionally exclude services.
-    - - `just stack start [exclude="..."]`
-      - Full stack in detached/production mode.
+    - - `just stack dev [flags]`
+      - Full stack with hot-reloading. `--no-agent` / `--no-metrics` / `--no-simulators`, raw substrings, `--dry-run`.
+    - - `just stack start [flags]`
+      - Full stack in detached/production mode. Same flags as `dev`.
     - - `just stack down`
       - Graceful shutdown, removes orphan containers.
     - - `just stack logs [service]`
@@ -339,16 +343,19 @@ Run `just stack env` to fill any gaps. The script skips variables already presen
 
 ---
 
-### `just stack dev exclude="..."` is not excluding the service
+### A service is starting that I asked to exclude
 
-Exclusion works by matching the **folder name substring**. Examples:
+Check the spelling first — a mistyped **flag** is rejected outright (`unrecognized arguments: --no-metrcs`), but a mistyped **raw substring** matches nothing and is silently ignored. Prefer the flags where one exists:
 
 ```bash
-just stack dev exclude="simulator"         # skips aq-simulator and sensor-simulator
-just stack dev exclude="simulator frontend"  # also skips the Vue frontend
+just stack dev --no-simulators           # skips aq-simulator and sensor-simulator
+just stack dev --no-simulators frontend  # also skips the Vue frontend
+just stack dev --no-agent --dry-run      # confirm the service list before starting
 ```
 
-If exclusion suddenly stops working after editing the Justfile: verify that `dev` still takes only ONE parameter (`exclude=""`). Adding a second parameter before `exclude` in the recipe definition breaks named-argument resolution in `just`\.
+`down`, `integration`, and `build` deliberately ignore all exclusions and operate on the full set.
+
+If exclusion stops working after editing the Justfile: the `dev`, `start`, and `down` recipes must keep their variadic `*args` parameter, which is what forwards flags through to `compose-run.py`\.
 
 ---
 
