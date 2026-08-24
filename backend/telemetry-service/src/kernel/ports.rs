@@ -39,9 +39,8 @@ pub trait ThresholdStore: Send + Sync {
     async fn resolve(
         &self,
         building_id: &str,
-        metric: &str,
-        room_id: &str,
-    ) -> anyhow::Result<Option<Bounds>>;
+        keys: &[(&str, &str)],
+    ) -> anyhow::Result<Vec<Option<Bounds>>>;
 
     async fn building_bounds(
         &self,

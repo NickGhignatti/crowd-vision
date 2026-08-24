@@ -112,7 +112,9 @@ mod tests {
             .update_room("fake", "b1", "r1", &bounds(json!({ "maxFake": 30.0 })))
             .await
             .unwrap();
-        let resolved = h.store.resolve("b1", "fake", "r1").await.unwrap().unwrap();
+        let resolved = h.store.resolve("b1", &[("fake", "r1")]).await.unwrap()[0]
+            .clone()
+            .unwrap();
         assert_eq!(resolved["maxFake"], 30.0);
     }
 
@@ -135,7 +137,9 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(building["maxFake"], 25.0);
-        let other_room = h.store.resolve("b1", "fake", "r9").await.unwrap().unwrap();
+        let other_room = h.store.resolve("b1", &[("fake", "r9")]).await.unwrap()[0]
+            .clone()
+            .unwrap();
         assert_eq!(other_room["maxFake"], 25.0);
     }
 

@@ -108,7 +108,7 @@ static BOUNDS: &[BoundSpec] = &[
 0. `X-Signature` must equal `HMAC-SHA256(TELEMETRY_INGEST_SECRET, raw_body)` in lowercase hex — missing, malformed or mismatched is `401` before any parsing, persistence or fanout. Bodies over 1 MiB are `413`.
 1. Envelope `{buildingId, readings[]}`, capped at 500 readings. Each reading carries its own `type`, which selects the plugin and is stripped; the envelope supplies `buildingId`. A reading naming a *different* building is rejected — a batch maps to exactly one fan-out channel.
 2. Every reading is validated before anything is written. All-or-nothing: one failure persists nothing, publishes nothing, and one `422` names every offending field, each reading's prefixed with its index (`readings[3]: ...`). An unknown metric is one of those errors, not a `404` — within a batch it is a bad element of a payload, not an unroutable request.
-3. One bulk insert, with the threshold lookups running alongside it.
+3. One bulk insert, with one threshold lookup for the whole tick running alongside it.
 4. Thresholds resolve room-first, then building; each breach publishes to `alerts:<metric>` — but only once the write has committed.
 5. **One** `telemetry:raw` message for the whole tick.
 6. `202 {accepted, readings}`.

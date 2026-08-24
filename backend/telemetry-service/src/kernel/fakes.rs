@@ -260,15 +260,18 @@ impl ThresholdStore for FakeThresholds {
     async fn resolve(
         &self,
         building_id: &str,
-        metric: &str,
-        room_id: &str,
-    ) -> anyhow::Result<Option<Bounds>> {
+        keys: &[(&str, &str)],
+    ) -> anyhow::Result<Vec<Option<Bounds>>> {
         if self.refuse {
             anyhow::bail!("thresholds refused");
         }
-        Ok(self
-            .find(building_id, Some(room_id), metric)
-            .or_else(|| self.find(building_id, None, metric)))
+        Ok(keys
+            .iter()
+            .map(|(metric, room_id)| {
+                self.find(building_id, Some(room_id), metric)
+                    .or_else(|| self.find(building_id, None, metric))
+            })
+            .collect())
     }
 
     async fn building_bounds(
