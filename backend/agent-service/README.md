@@ -48,7 +48,7 @@ Commands marked **root** run from the repository root; the others run from
 | Task | Command |
 | --- | --- |
 | Start the development stack (**root**) | `just stack dev` |
-| Rebuild and start (**root**) | `just stack dev-build` |
+| Rebuild and start (**root**) | `just stack dev --build` |
 | Follow service logs (**root**) | `just stack logs agent-service` |
 | Re-ingest all documentation (**root**) | `just agent ingest` |
 | Clear all service databases, including the agent KB (**root**) | `just db clear` |

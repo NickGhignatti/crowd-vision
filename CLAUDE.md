@@ -43,7 +43,8 @@ independently.
 just setup install     # mise install + npm ci / uv sync / cargo fetch / go mod download, everywhere
 just stack env          # generate .env, prompts once
 just stack dev           # full compose stack, hot-reload
-just stack dev-light     # same, minus agent-service + tracing stack
+just stack dev --no-agent # same, minus agent-service + its Langfuse/ClickHouse/MinIO stack
+                          # also --no-metrics, --no-simulators, --dry-run, --help
 
 just test affected        # mirrors per-service CI legs
 just test all              # full suite
@@ -175,6 +176,10 @@ Violating one won't be accepted regardless of CI status (full detail:
   `feat(twin): …`. Scopes: gateway, tenancy, registry, provisioner, twin, telemetry,
   notification, socket, contracts, frontend, agent, ci, docs, k8s.
 - **Branches**: `<type>/<short-kebab>`, e.g. `feat/private-domains`.
+- **Tooling scripts**: `scripts/` is Node-free. POSIX sh for command sequences, Python
+  (stdlib only — no `pyproject.toml`, run via `mise exec -- python3`) for logic: JSON,
+  HTTP, concurrency, string escaping. Needs a data structure → Python. Per-project
+  repeated work → a moon task (`:deps`, `:relock`), not a script.
 - **Naming** (full: `naming-conventions.qd`): TS `camelCase` files/fns, `PascalCase` models
   (`I`-prefixed interfaces), `UPPER_SNAKE_CASE` consts. Vue `PascalCase` components,
   `View`-suffix pages, `use`-prefix composables. Rust `snake_case` fns, `PascalCase` types,

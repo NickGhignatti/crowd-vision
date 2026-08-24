@@ -78,4 +78,4 @@ eval models="" judge="":
 [doc("Run backend integration tests — only the services backend/tests actually exercises, not the full stack.")]
 integration:
     bash backend/tests/run-integration-tests.sh
-    mise exec -- node scripts/compose/compose-run.mjs down
+    @mise exec -- python3 scripts/compose/compose-run.py down

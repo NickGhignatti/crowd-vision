@@ -97,7 +97,7 @@ jobs:
           MONGO_URI: mongodb://localhost:27017
           DATABASE_URL: postgres://postgres:telemetry@localhost:5432/telemetrydb
           KAFKA_BROKERS: localhost:9092
-        run: bash "$GITHUB_WORKSPACE/scripts/rust-integration-tests.sh" --release
+        run: bash "$GITHUB_WORKSPACE/scripts/test/rust-integration-tests.sh" --release
 
       - name: Build Release Binary
         run: cargo build --release

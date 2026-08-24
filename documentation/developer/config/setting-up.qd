@@ -81,33 +81,37 @@ Run the interactive setup script. It skips any variable already present in `\.en
 just stack env
 ```
 
-This chains eight small, idempotent Node scripts (`scripts/env/*.js`), each responsible for one concern. Understanding the split helps when only one thing needs regenerating (see the per-script commands below).
+This chains ten small, idempotent POSIX-sh scripts (`scripts/env/*.sh`), each responsible for one concern. They shell out to `openssl` for every piece of key material; a shared `lib.sh` holds the `.env` read/append helpers. Understanding the split helps when only one thing needs regenerating (see the per-script commands below).
 
 .var {headers}
    - Script
    - What it writes
 
 .tablebyrows {.headers}
-    - - `create.js`
+    - - `create.sh`
       - Creates an empty `\.env` if none exists yet. Every other script appends to it.
-    - - `config.js`
+    - - `config.sh`
       - Core gateway config (table below) plus the one interactive prompt, `OPENROUTER_API_KEY`.
-    - - `token.js`
+    - - `token.sh`
       - `EVAL_JWT_SECRET` — a 256-bit hex secret.
-    - - `vapid.js`
+    - - `vapid.sh`
       - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — web push notification keys.
-    - - `langfuse.js`
+    - - `langfuse.sh`
       - Self-hosted Langfuse (LLM trace UI) provisioning secrets and the agent's OpenTelemetry exporter config.
-    - - `keycloak.js`
+    - - `keycloak.sh`
       - Keycloak admin credentials, its Postgres password, and the optional Google social-login client id/secret.
-    - - `controlplane.js`
+    - - `controlplane.sh`
       - Shared secrets for the Go control plane (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`).
-    - - `gateway-key.js`
+    - - `gateway-key.sh`
       - A stable RSA signing key for `claims-gateway`, written to `secrets/gateway-dev-key.pem` — **not** `\.env` (see below).
+    - - `ingest-key.sh`
+      - `TELEMETRY_INGEST_SECRET` — the HMAC key a gateway signs `/telemetry/ingest` bodies with. Deliberately distinct from `INTERNAL_SIGNING_SECRET`: it leaves the mesh and lives on customer premises.
+    - - `telemetry-db.sh`
+      - `TELEMETRY_DB_PASSWORD` — backs `telemetry-db`. Read only by the Kubernetes path (`just k8s secrets`); Compose hardcodes `telemetry` in `backend/telemetry-service/docker-compose.yml`.
 
 #### Core gateway config
 
-Written non-interactively by `config.js` (edit `\.env` to override):
+Written non-interactively by `config.sh` (edit `\.env` to override):
 
 .var {headers}
    - Variable
@@ -132,32 +136,34 @@ The only interactive prompt in the whole `just stack env` chain is the optional 
 
 #### Keycloak
 
-`keycloak.js` generates `KEYCLOAK_ADMIN_USER` (`admin`), a random `KEYCLOAK_ADMIN_PASSWORD`, and `KEYCLOAK_DB_PASSWORD`, then appends two empty placeholders, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Those two are optional — filling them in enables the "Continue with Google" button on the hosted login page (set up an OAuth 2.0 client in Google Cloud Console first; see `keycloak/README-google.md` for the exact steps). Keycloak's admin console is reachable at `http://localhost:8090` once the stack is up, using the generated admin credentials.
+`keycloak.sh` generates `KEYCLOAK_ADMIN_USER` (`admin`), a random `KEYCLOAK_ADMIN_PASSWORD`, and `KEYCLOAK_DB_PASSWORD`, then appends two empty placeholders, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Those two are optional — filling them in enables the "Continue with Google" button on the hosted login page (set up an OAuth 2.0 client in Google Cloud Console first; see `keycloak/README-google.md` for the exact steps). Keycloak's admin console is reachable at `http://localhost:8090` once the stack is up, using the generated admin credentials.
 
 #### Langfuse (LLM observability)
 
-`langfuse.js` generates the self-hosted Langfuse v3 provisioning secrets (`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`, `LANGFUSE_INIT_*`, salt/encryption keys) and the OpenTelemetry exporter config the agent-service uses to ship traces there. The project and API keys are provisioned headlessly on Langfuse's first boot — nothing to click through. Once the stack is running, the UI is at `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there — see [Docker Compose Orchestration](docker-compose.qd)), logging in with `admin@crowd-vision.local` / `langfuse-admin`.
+`langfuse.sh` generates the self-hosted Langfuse v3 provisioning secrets (`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`, `LANGFUSE_INIT_*`, salt/encryption keys) and the OpenTelemetry exporter config the agent-service uses to ship traces there. The project and API keys are provisioned headlessly on Langfuse's first boot — nothing to click through. Once the stack is running, the UI is at `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there — see [Docker Compose Orchestration](docker-compose.qd)), logging in with `admin@crowd-vision.local` / `langfuse-admin`.
 
 .box type:{note}
     Unset `OTEL_EXPORTER_OTLP_ENDPOINT` to fall back to compact console span output if you don't need a trace backend for local hacking.
 
 #### Control plane
 
-`controlplane.js` generates `INTERNAL_SIGNING_SECRET` — the shared HMAC key `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` use to authenticate their system-to-system calls, so it must be the same value across all four — plus `TENANCY_DB_PASSWORD` and `REGISTRY_DB_PASSWORD` for their respective Postgres instances.
+`controlplane.sh` generates `INTERNAL_SIGNING_SECRET` — the shared HMAC key `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` use to authenticate their system-to-system calls, so it must be the same value across all four — plus `TENANCY_DB_PASSWORD` and `REGISTRY_DB_PASSWORD` for their respective Postgres instances.
 
 #### Gateway signing key
 
-`gateway-key.js` is the one script that doesn't touch `\.env` at all: it writes a 2048-bit RSA private key to `secrets/gateway-dev-key.pem` (gitignored, mounted into the `claims-gateway` container as a file, since a multi-line PEM can't live in a `\.env` value). Without a stable key on disk, `claims-gateway` would generate a fresh ephemeral one on every restart, invalidating every existing session and churning the JWKS every other service caches. The write is atomic and skips silently if the file already exists.
+`gateway-key.sh` is the one script that doesn't touch `\.env` at all: it writes a 2048-bit RSA private key to `secrets/gateway-dev-key.pem` (gitignored, mounted into the `claims-gateway` container as a file, since a multi-line PEM can't live in a `\.env` value). Without a stable key on disk, `claims-gateway` would generate a fresh ephemeral one on every restart, invalidating every existing session and churning the JWKS every other service caches. The write is atomic and skips silently if the file already exists.
 
 ### Regenerating a single secret
 
 Each script is safe to run on its own — they all skip already-present values:
 
 ```bash
-node scripts/env/vapid.js       # just VAPID keys
-node scripts/env/langfuse.js    # just Langfuse/OTEL config
-node scripts/env/keycloak.js    # just Keycloak secrets
+sh scripts/env/vapid.sh       # just VAPID keys
+sh scripts/env/langfuse.sh    # just Langfuse/OTEL config
+sh scripts/env/keycloak.sh    # just Keycloak secrets
 ```
+
+Set `ENV_FILE` to write somewhere other than the repo-root `\.env`.
 
 To force a full regeneration of one secret, delete its line(s) from `\.env` (or the file at `secrets/gateway-dev-key.pem`) first, then re-run `just stack env` or the specific script.
 
@@ -176,8 +182,8 @@ This starts all services with hot-reloading. When you save a source file, the ch
 **Skip services you are not actively working on:**
 
 ```bash
-just stack dev exclude="simulator"   # skip the simulator containers
-just stack dev exclude="frontend"      # skip the Vue frontend (e.g. run it separately via Vite)
+just stack dev --no-simulators   # skip the simulator containers
+just stack dev frontend          # skip the Vue frontend (e.g. run it separately via Vite)
 ```
 
 See the [Running the Application](running.qd) page for the full Docker Compose reference.

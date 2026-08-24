@@ -23,13 +23,13 @@ services:
     build:
       context: .
       target: test
-    command: ["bash", "/app/scripts/rust-integration-tests.sh"]
+    command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
     environment:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017
       - KAFKA_BROKERS=notification-kafka:9092
     volumes:
-      - ../../scripts/rust-integration-tests.sh:/app/scripts/rust-integration-tests.sh:ro
+      - ../../scripts/test/rust-integration-tests.sh:/app/scripts/test/rust-integration-tests.sh:ro
     depends_on:
       - redis
       - notification-db

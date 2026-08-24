@@ -7,7 +7,7 @@ services:
       context: ../..
       dockerfile: backend/twin-service/Dockerfile
       target: dev
-    command: ["bash", "/app/scripts/rust-integration-tests.sh"]
+    command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
     environment:
       - MONGO_URI=mongodb://twin-db:27017
     depends_on:
