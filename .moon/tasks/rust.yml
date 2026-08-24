@@ -26,6 +26,14 @@ tasks:
       - 'Cargo.toml'
 
   deps:
+    command: 'cargo fetch'
+    inputs:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+    options:
+      cache: false
+
+  deps-check:
     command: 'cargo check'
     inputs:
       - 'src/**/*'

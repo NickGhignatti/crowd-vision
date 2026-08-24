@@ -19,19 +19,16 @@ CrowdVision is a polyglot monorepo: TypeScript services, a Python AI agent, a Ru
       - Per-project task orchestration — build, test, lint, audit, deps — with result caching and affected-detection.
       - `&#46;moon/`
 
-Underneath, two small Node scripts (`scripts/install.mjs`, `scripts/clean.mjs`) handle dependency installation, the one job that does not fit moon's model. Everything else is `mise` plus `moon`, fronted by `just`.
+Dependency installation is a moon task like any other (`:deps`, `:relock`). There is no separate script layer: everything is `mise` plus `moon`, fronted by `just`.
 
 .mermaid
     flowchart TD
       dev([Developer]) --> just["just (recipe)"]
       just --> mise["mise exec — injects pinned tools onto PATH"]
       mise --> moon["moon — task graph, caching, affected"]
-      mise --> scripts["scripts/install.mjs, clean.mjs"]
-      moon --> tasks["build, test, lint, audit, deps"]
-      scripts --> query["moon query projects"]
+      moon --> tasks["build, test, lint, audit, deps, deps-check, relock"]
       cfgA["mise.toml"] -->|versions| mise
       cfgB["moon/workspace.yml"] -->|package list| moon
-      cfgB -->|package list| query
 
 ---
 
@@ -95,21 +92,9 @@ mise can place those tools on the `PATH` in two ways. The project is designed to
 .box {Activation is optional} type:{note}
     You do not need to activate mise for `just` to work. Every recipe that calls a managed tool already wraps it in `mise exec --`, so a fresh clone with only `just` and `mise` installed runs immediately. Activation is purely a convenience for invoking tools by hand.
 
-### The same rule inside scripts
+### The same rule inside moon
 
-The Node scripts that `just` launches (`install`, `clean`) spawn tools of their own. They route those through the same gate with a small helper, `scripts/lib/mise.mjs`:
-
-```js
-// Resolve a command's tool through mise — unless a mise-provided environment is
-// already present (the Justfile launches scripts under `mise exec`, which exports
-// __MISE_DIFF), in which case we avoid wrapping it twice.
-export function withMise(cmd) {
-  const inside = process.env.__MISE_DIFF || process.env.MISE_SHELL;
-  return inside ? cmd : `mise exec -- ${cmd}`;
-}
-```
-
-A script therefore works both when launched via `just` (already under `mise exec`) and when run directly as `node scripts/install.mjs` on a shell that never activated mise.
+`just` launches moon as `mise exec -- moon …`, and `mise exec` exports the pinned tools onto `PATH` for the command *and every child process it spawns*. Every task moon runs — `npm ci`, `cargo fetch`, `uv sync` — therefore inherits the same resolved toolchain. moon's own toolchain management stays off: mise remains the single source of truth for versions.
 
 .box {Diagnosing "command not found"} type:{warning}
     If any tool reports "command not found" (classically `uv`), something bypassed mise. Run it through `mise exec -- <tool>`, or activate mise in your shell. The tool is installed; it is simply not on the un-activated `PATH`.
@@ -118,7 +103,7 @@ A script therefore works both when launched via `just` (already under `mise exec
 
 ## moon — the task orchestrator
 
-[moon](https://moonrepo.dev) runs the per-project tasks — `build`, `test`, `lint`, `lint-fix`, `audit`, `deps` — across the whole monorepo, with two capabilities a hand-rolled script set never had:
+[moon](https://moonrepo.dev) runs the per-project tasks — `build`, `test`, `lint`, `lint-fix`, `audit`, `deps`, `deps-check`, `relock` — across the whole monorepo, with two capabilities a hand-rolled script set never had:
 
 - **Caching** — a task's result is hashed by its inputs. If nothing it depends on changed, the cached result is replayed in milliseconds instead of re-running.
 - **Affected detection** — `--affected` runs a task only for the projects touched on the current branch.
@@ -151,19 +136,19 @@ Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon
 .tablebyrows {.headers}
     - - `&#46;moon/tasks/typescript.yml`
       - `language: typescript`
-      - `build`, `test`, `lint`, `lint-fix`, `deps`, `audit`
+      - `build`, `test`, `lint`, `lint-fix`, `deps`, `relock`, `audit`
     - - `&#46;moon/tasks/python.yml`
       - `language: python`
-      - `test`, `lint`, `lint-fix`, `deps`, `audit`
+      - `test`, `lint`, `lint-fix`, `deps`, `relock`, `audit`
     - - `&#46;moon/tasks/rust.yml`
       - `language: rust`
-      - `build`, `test`, `lint`, `deps`, `audit`
+      - `build`, `test`, `lint`, `deps` (`cargo fetch`), `deps-check` (`cargo check`), `audit`
     - - `&#46;moon/tasks/go.yml`
       - `language: go`
       - `build` (`go build ./...`), `test` (`go test ./...`), `lint` (`go vet ./...` — no `golangci-lint` in this environment yet), `deps` (`go mod download`). No `audit` task yet.
     - - `&#46;moon/tasks/javascript.yml`
       - `language: javascript`
-      - `deps` only — for support packages
+      - `deps`, `relock` only — for support packages
 
 A language file is scoped by its `inheritedBy` block:
 
@@ -200,7 +185,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
     - - `tooling`, `eslint-config`, `tests`
       - Tagged `language: 'javascript'` so they inherit only `deps`. (`backend/tests` holds an integration-only Jest suite that runs via `just test integration`, never as a moon `:test`.)
     - - `claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`
-      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in `\.mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)) — and `scripts/install.mjs` doesn't fetch Go modules during `just setup install` (they resolve lazily on first `build`/`test`).
+      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in `\.mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)). Modules are fetched by the inherited `deps` task (`go mod download`) like every other language.
 
 ### Inspecting the graph
 
@@ -229,17 +214,21 @@ The payoff of the design is that each fact lives in exactly one place.
       - `&#46;moon/workspace.yml`
     - - How is a TypeScript project tested, linted, or audited?
       - `&#46;moon/tasks/typescript.yml`
+    - - How are a project's dependencies installed or relocked?
+      - The same per-language file — its `deps` / `relock` tasks
 
-Crucially, `install` and `clean` derive their package list from moon rather than keeping a parallel hand-written list. `scripts/lib/workspaces.mjs` shells out to `moon query projects` and buckets the result by language:
+Crucially, `install` and `clean-install` are moon runs, not a parallel hand-written package list:
 
-```js
-const { projects } = JSON.parse(execSync(withMise('moon query projects')));
+```bash
+just setup install        # mise exec -- moon run :deps
+just setup clean-install  # mise exec -- moon run :relock, then :deps
+just setup deps-check     # mise exec -- moon run :deps :deps-check
 ```
 
-So `just setup install` installs exactly the packages moon knows about; no drift is possible.
+So `just setup install` installs exactly the packages moon knows about; no drift is possible, and unchanged projects are skipped by moon's affected-detection.
 
-.box {Why install and clean stay scripts} type:{note}
-    `install` and `clean` are scripts, not moon tasks, on purpose: `npm ci` wipes and reinstalls `node_modules`, which is not a cacheable artifact, and making moon manage installs would require enabling moon's own toolchain — downloading a second Node and conflicting with mise as the single source of truth. So moon owns build/test/lint/audit/deps; the scripts own install/clean; mise owns versions.
+.box {Why deps and relock aren't cached} type:{note}
+    Both carry `options.cache: false`: `npm ci` wipes and reinstalls `node_modules`, and `relock` rewrites a lockfile — neither is a cacheable artifact. They still get moon's fan-out, output grouping, and project graph. `relock` uses `script:` rather than `command:` because it chains `rm -rf` with `npm install`.
 
 ---
 
@@ -249,7 +238,7 @@ Thanks to the single registry, onboarding a package is a one-place change:
 
 1. Register it in `\.moon/workspace.yml` under `projects:`.
 2. Add a minimal `moon.yml` in the package with its `language:` (and any genuine task overrides).
-3. It now flows automatically into whichever tasks its language file defines (`:build` / `:test` / `:lint` / `:deps`, and `:audit` for every language except `go`), and — for `typescript`, `python`, and `rust` — into `just setup install` / `just setup clean-install` (both derive from `moon query projects`, but `scripts/install.mjs` doesn't have a `go` bucket, so a new Go package needs its modules fetched manually the first time; see [Setting Up the Environment](setting-up.qd)).
+3. It now flows automatically into whichever tasks its language file defines (`:build` / `:test` / `:lint` / `:deps`, and `:audit` for every language except `go`), and into `just setup install` / `just setup clean-install` via `:deps` / `:relock`. Nothing else to register.
 
 .box {Choose the language deliberately} type:{warning}
     `typescript` / `python` / `rust` / `go` each inherit their own full build/test/lint pipeline — use the one matching the package's actual scripts. Use `javascript` for support packages that need dependency installs but have no build/test/lint (such as `tooling`).
