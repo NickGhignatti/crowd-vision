@@ -79,7 +79,7 @@ Because twin's answer is unscoped, notification-service scopes it itself: the re
 ## Integration
 
 - Owns `notification-db`; no other service reads it.
-- Receives breach events from telemetry-service via the Kafka `alerts` topic (group `notification-service-alerts`, `auto.offset.reset=earliest`, records other than `type == "temperature"` skipped); publishes to the `notifications` Redis channel for socket-service to relay — see [Communication & Data Flow](data-flow.qd).
+- Receives breach events from telemetry-service via the Kafka `alerts` topic (group `notification-service-alerts`, `auto.offset.reset=earliest`; the payload is `telemetry_contracts::AlertEvent`, and a metric other than `temperature` has no delivery path — it is logged, counted `unsupported_metric` and settled); publishes to the `notifications` Redis channel for socket-service to relay — see [Communication & Data Flow](data-flow.qd).
 - Calls twin-service to resolve a building's domains — from the authenticated HTTP alert routes (`trigger`, `push_temperature`, forwarding the caller's own claims, then intersecting the answer with their memberships) and from the `alerts` event listener (using a fixed system identity, since there's no caller to forward).
 - Called by twin-service on a failed building provisioning (`POST /trigger`, system identity, in-mesh) — see [Digital Twin Service](../services/digital-twin.qd).
 

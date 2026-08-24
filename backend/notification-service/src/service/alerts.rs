@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use telemetry_contracts::AlertEvent;
+
 use crate::domain::{
     Audience, COOLDOWN_SECONDS, DomainError, ManualTemperatureAlert, Notification, PushPayload,
-    TEMPERATURE, TemperatureAlert, system_claims_header,
+    TEMPERATURE, breach_cooldown_key, breach_message, breach_push_title, system_claims_header,
 };
 use crate::service::ports::{Clock, Cooldown, DomainDirectory, NotificationBus};
 use crate::service::push::Push;
@@ -10,6 +12,7 @@ use crate::service::push::Push;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BreachOutcome {
     Invalid,
+    Unsupported,
     Failed,
     Suppressed,
     Delivered,
@@ -20,6 +23,7 @@ impl BreachOutcome {
     pub fn label(self) -> &'static str {
         match self {
             BreachOutcome::Invalid => "invalid",
+            BreachOutcome::Unsupported => "unsupported_metric",
             BreachOutcome::Failed => "failed",
             BreachOutcome::Suppressed => "suppressed",
             BreachOutcome::Delivered => "delivered",
@@ -53,16 +57,25 @@ impl Alerts {
         }
     }
 
-    pub async fn on_temperature_breach(&self, raw: &str) -> BreachOutcome {
-        let alert: TemperatureAlert = match serde_json::from_str(raw) {
+    pub async fn on_breach(&self, raw: &str) -> BreachOutcome {
+        let alert: AlertEvent = match serde_json::from_str(raw) {
             Ok(alert) => alert,
             Err(e) => {
-                log::error!("[Event] Failed to process temperature alert: {e}");
+                log::error!("[Event] Failed to process alert: {e}");
                 return BreachOutcome::Invalid;
             }
         };
 
-        let key = alert.cooldown_key();
+        if !alert.is_temperature() {
+            log::warn!(
+                "[Event] No delivery path for a {} breach in building {}, dropping",
+                alert.metric,
+                alert.building_id
+            );
+            return BreachOutcome::Unsupported;
+        }
+
+        let key = breach_cooldown_key(&alert);
         match self.cooldown.is_active(&key).await {
             Ok(true) => return BreachOutcome::Suppressed,
             Ok(false) => {}
@@ -72,31 +85,31 @@ impl Alerts {
             }
         }
 
-        let message = alert.message();
-        let building = alert.building_id.as_deref().filter(|b| !b.is_empty());
-        let domains = match building {
-            Some(building) => self
-                .domain_directory
-                .domains_for_building(building, &system_claims_header())
-                .await
-                .unwrap_or_else(|e| {
-                    log::error!("[Event] Failed to resolve domains for building {building}: {e:?}");
-                    Vec::new()
-                }),
-            None => Vec::new(),
-        };
+        let message = breach_message(&alert);
+        let building = alert.building_id.as_str();
+        let domains = self
+            .domain_directory
+            .domains_for_building(building, &system_claims_header())
+            .await
+            .unwrap_or_else(|e| {
+                log::error!("[Event] Failed to resolve domains for building {building}: {e:?}");
+                Vec::new()
+            });
 
         let outcome = if domains.is_empty() {
             log::error!(
-                "[Event] Temperature alert for building {} reached no domain: no web push was sent and only open sockets can receive it. Alert: {message}",
-                building.unwrap_or("<missing>")
+                "[Event] Temperature alert for building {building} reached no domain: no web push was sent and only open sockets can receive it. Alert: {message}"
             );
-            let at = alert.timestamp.unwrap_or_else(|| self.clock.now_millis());
-            self.publish(&message, "danger", None, at).await;
+            self.publish(&message, "danger", None, alert.ts_ms).await;
             BreachOutcome::Unroutable
         } else {
-            self.fan_out(&message, &alert.push_title(), &domains, Some(TEMPERATURE))
-                .await;
+            self.fan_out(
+                &message,
+                &breach_push_title(&alert),
+                &domains,
+                Some(TEMPERATURE),
+            )
+            .await;
             BreachOutcome::Delivered
         };
 
@@ -323,14 +336,20 @@ mod tests {
     }
 
     fn breach() -> String {
-        serde_json::json!({
-            "buildingId": "b1",
-            "roomId": "r1",
-            "temperature": 40,
-            "direction": "high",
-            "timestamp": 1_600_000_000_000i64,
+        breach_of("temperature", 40.0)
+    }
+
+    fn breach_of(metric: &str, value: f64) -> String {
+        serde_json::to_string(&AlertEvent {
+            building_id: "b1".to_string(),
+            room_id: "r1".to_string(),
+            metric: metric.to_string(),
+            value,
+            direction: telemetry_contracts::BoundDirection::Above,
+            threshold: 25.0,
+            ts_ms: 1_600_000_000_000,
         })
-        .to_string()
+        .unwrap()
     }
 
     fn published(fixture: &Fixture) -> Vec<Notification> {
@@ -349,7 +368,7 @@ mod tests {
     async fn a_breach_publishes_a_domain_scoped_alert_and_pushes_to_its_subscribers() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach(&breach()).await;
 
         let published = published(&fixture);
         assert_eq!(published.len(), 1);
@@ -360,10 +379,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_metric_with_no_delivery_path_is_dropped_and_said_so() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+
+        let outcome = fixture
+            .alerts
+            .on_breach(&breach_of("indoorAqi", 180.0))
+            .await;
+
+        assert_eq!(outcome, BreachOutcome::Unsupported);
+        assert_eq!(outcome.label(), "unsupported_metric");
+        assert!(published(&fixture).is_empty());
+        assert!(fixture.sender.endpoints().is_empty());
+        assert!(fixture.cooldown.started.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_alert_that_is_not_the_shape_the_producer_writes_is_invalid() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+
+        for raw in [
+            "not json",
+            r#"{"buildingId":"b1","roomId":"r1","type":"temperature"}"#,
+            r#"{"roomId":"r1","temperature":40,"type":"temperature","direction":"high","threshold":25,"timestamp":1}"#,
+        ] {
+            assert_eq!(fixture.alerts.on_breach(raw).await, BreachOutcome::Invalid);
+        }
+        assert!(published(&fixture).is_empty());
+    }
+
+    #[tokio::test]
     async fn a_breach_arms_a_five_minute_cooldown_keyed_by_building_and_room() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach(&breach()).await;
 
         assert_eq!(
             *fixture.cooldown.started.lock().unwrap(),
@@ -381,7 +430,7 @@ mod tests {
             .unwrap()
             .push("temp_alert:b1:r1".to_string());
 
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach(&breach()).await;
 
         assert!(fixture.directory.calls.lock().unwrap().is_empty());
         assert!(published(&fixture).is_empty());
@@ -392,7 +441,7 @@ mod tests {
     async fn an_alert_that_reaches_no_domain_is_reported_as_unroutable() {
         let fixture = fixture(StubDirectory::empty());
 
-        let outcome = fixture.alerts.on_temperature_breach(&breach()).await;
+        let outcome = fixture.alerts.on_breach(&breach()).await;
 
         assert_eq!(outcome, BreachOutcome::Unroutable);
     }
@@ -401,7 +450,7 @@ mod tests {
     async fn a_failed_lookup_is_also_reported_as_unroutable() {
         let fixture = fixture(StubDirectory::failing());
 
-        let outcome = fixture.alerts.on_temperature_breach(&breach()).await;
+        let outcome = fixture.alerts.on_breach(&breach()).await;
 
         assert_eq!(outcome, BreachOutcome::Unroutable);
     }
@@ -410,7 +459,7 @@ mod tests {
     async fn an_alert_fanned_out_to_a_domain_is_reported_as_delivered() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
-        let outcome = fixture.alerts.on_temperature_breach(&breach()).await;
+        let outcome = fixture.alerts.on_breach(&breach()).await;
 
         assert_eq!(outcome, BreachOutcome::Delivered);
     }
@@ -425,7 +474,7 @@ mod tests {
             .unwrap()
             .push("temp_alert:b1:r1".to_string());
 
-        let outcome = fixture.alerts.on_temperature_breach(&breach()).await;
+        let outcome = fixture.alerts.on_breach(&breach()).await;
 
         assert_eq!(outcome, BreachOutcome::Suppressed);
     }
@@ -434,7 +483,7 @@ mod tests {
     async fn a_malformed_message_is_reported_as_invalid() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
-        let outcome = fixture.alerts.on_temperature_breach("not-json").await;
+        let outcome = fixture.alerts.on_breach("not-json").await;
 
         assert_eq!(outcome, BreachOutcome::Invalid);
     }
@@ -443,7 +492,7 @@ mod tests {
     async fn a_failed_lookup_falls_back_to_an_unscoped_broadcast_and_still_arms_the_cooldown() {
         let fixture = fixture(StubDirectory::failing());
 
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach(&breach()).await;
 
         let published = published(&fixture);
         assert_eq!(published.len(), 1);
@@ -456,7 +505,7 @@ mod tests {
     async fn a_building_in_no_domain_also_falls_back_to_an_unscoped_broadcast() {
         let fixture = fixture(StubDirectory::empty());
 
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach(&breach()).await;
 
         assert_eq!(published(&fixture)[0].domain_name, None);
     }
@@ -465,7 +514,7 @@ mod tests {
     async fn the_unscoped_broadcast_carries_the_alerts_own_timestamp() {
         let fixture = fixture(StubDirectory::empty());
 
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach(&breach()).await;
 
         let published = published(&fixture);
         assert_eq!(published[0].timestamp, "2020-09-13T12:26:40.000Z");
@@ -476,7 +525,7 @@ mod tests {
     async fn the_lookup_uses_the_system_identity() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach(&breach()).await;
 
         let calls = fixture.directory.calls.lock().unwrap();
         assert_eq!(calls[0].0, "b1");
@@ -487,7 +536,7 @@ mod tests {
     async fn a_malformed_message_publishes_nothing_and_does_not_panic() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
-        fixture.alerts.on_temperature_breach("not-json").await;
+        fixture.alerts.on_breach("not-json").await;
 
         assert!(published(&fixture).is_empty());
         assert!(fixture.cooldown.started.lock().unwrap().is_empty());
@@ -497,8 +546,8 @@ mod tests {
     async fn the_listener_survives_a_malformed_message_and_handles_the_next_one() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
-        fixture.alerts.on_temperature_breach("not-json").await;
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach("not-json").await;
+        fixture.alerts.on_breach(&breach()).await;
 
         assert_eq!(published(&fixture).len(), 1);
     }
@@ -510,7 +559,7 @@ mod tests {
             &["domain-a", "domain-a", ""],
         ));
 
-        fixture.alerts.on_temperature_breach(&breach()).await;
+        fixture.alerts.on_breach(&breach()).await;
 
         assert_eq!(published(&fixture).len(), 1);
     }

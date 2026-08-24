@@ -91,7 +91,8 @@ mod tests {
     fn claims() -> GatewayClaims {
         GatewayClaims {
             payload: ClaimsPayload {
-                sub: "u1".to_string(),
+                sub: Some("u1".to_string()),
+                ..ClaimsPayload::default()
             },
         }
     }

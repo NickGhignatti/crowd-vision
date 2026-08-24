@@ -21,7 +21,6 @@ use crate::shell::twin::BuildingDomains;
 
 pub const PORT: u16 = 3000;
 const NOTIFICATIONS_CHANNEL: &str = "notifications";
-const TELEMETRY_PATTERN: &str = "telemetry:filtered:*";
 const DEFAULT_FRONTEND_URL: &str = "http://localhost:5173";
 const DEFAULT_TWIN_URL: &str = "http://twin-service:3000";
 const DEFAULT_MAX_LIFETIME: Duration = Duration::from_secs(15 * 60);
@@ -180,6 +179,8 @@ fn skip(channel: &str) {
 async fn connect_pubsub(url: &str) -> redis::RedisResult<redis::aio::PubSub> {
     let mut pubsub = redis::Client::open(url)?.get_async_pubsub().await?;
     pubsub.subscribe(NOTIFICATIONS_CHANNEL).await?;
-    pubsub.psubscribe(TELEMETRY_PATTERN).await?;
+    pubsub
+        .psubscribe(telemetry_contracts::FILTERED_CHANNEL_PATTERN)
+        .await?;
     Ok(pubsub)
 }

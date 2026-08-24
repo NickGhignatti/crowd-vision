@@ -87,8 +87,8 @@ The core/shell split is **test-enforced**, not a convention — `tests/architect
       - A pure function has nothing to await; async there is proof that I/O leaked in.
     - - The literals `"building:` and `"domain:` appear only in `core/rooms.rs`.
       - Room names are a wire contract with the browser. One source, or they drift.
-    - - The literal `x-gateway-claims` appears only in `core/auth.rs`.
-      - The header name is the trust boundary; it is referenced elsewhere through `CLAIMS_HEADER`.
+    - - The literal `x-gateway-claims` appears nowhere under `src/`.
+      - The header name is the trust boundary, owned by `claims-contracts` and re-exported by `core::auth` as `CLAIMS_HEADER`.
     - - `main.rs` reaches only `shell::server`.
       - It binds a port and installs signal handlers; wiring is `server.rs`'s job.
 

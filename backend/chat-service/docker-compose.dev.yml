@@ -13,11 +13,11 @@ services:
       watch:
         - action: sync
           path: ./src
-          target: /app/src
+          target: /app/backend/chat-service/src
         - action: rebuild
           path: ./Cargo.toml
     volumes:
-      - chat-target:/app/target
+      - chat-target:/app/backend/chat-service/target
       - cargo-registry:/usr/local/cargo/registry
 
   chat-db:

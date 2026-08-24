@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use rdkafka::ClientConfig;
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::producer::{FutureProducer, FutureRecord};
-use serde_json::json;
+use twin_contracts::{RegistrationRequest, RegistrationRoom};
 
 /// How long call wait in producer's local queue before giving up (not broker ack timeout or delivery timeout).
 const PRODUCE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -69,15 +69,24 @@ impl RegistrationEvents for KafkaEventProducer {
             return Ok(());
         };
 
-        let payload = json!({
-            "buildingId": building.id,
-            "name": building.name,
-            "rooms": building.rooms.iter().map(|r| json!({
-                "id": r.id,
-                "name": if r.name.trim().is_empty() { r.id.clone() } else { r.name.clone() },
-            })).collect::<Vec<_>>(),
+        let payload = serde_json::to_string(&RegistrationRequest {
+            building_id: Some(building.id.clone()),
+            name: building.name.clone(),
+            max_temperature: None,
+            rooms: building
+                .rooms
+                .iter()
+                .map(|room| RegistrationRoom {
+                    id: room.id.clone(),
+                    name: if room.name.trim().is_empty() {
+                        room.id.clone()
+                    } else {
+                        room.name.clone()
+                    },
+                })
+                .collect(),
         })
-        .to_string();
+        .expect("a registration request always serialises");
 
         producer
             .send(

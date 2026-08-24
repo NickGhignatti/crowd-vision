@@ -33,7 +33,10 @@ independently.
 | `backend/chat-service` | Rust / Axum / MongoDB | Chat sessions, SSE streaming, orchestrates `agent-service` |
 | `backend/agent-service` | Python / FastAPI / PostgreSQL+pgvector | RAG assistant, maintained separately |
 | `backend/auth-contracts`, `auth-middleware`, `auth-policy` | Go modules (+Rust/Python Cedar bindings) | Shared libs, embedded not deployed |
-| `backend/telemetry-contracts` | Rust crate | Metric-catalog wire types shared by telemetry-service + contracts-service |
+| `backend/telemetry-contracts` | Rust crate | Metric catalog, `alerts` topic, telemetry envelope + channel names (telemetry, contracts, notification, socket) |
+| `backend/claims-contracts` | Rust crate | `x-gateway-claims` wire types, shared by all six Rust services |
+| `backend/twin-contracts` | Rust crate | Building-registration Kafka payloads + topics (twin + telemetry) |
+| `backend/contracts-fixtures` | JSON | Cross-language conformance fixtures (Go + Rust + Python assert the same file) |
 | `simulators/*` | Python / Node | Synthetic telemetry generators |
 | `tooling/eslint-config` | Node | Shared flat ESLint config |
 
@@ -92,6 +95,29 @@ once, injects `x-gateway-claims` header. Downstream services decode header, trus
 re-verify. `claims-gateway` = only signature verifier. Session cookie `authentication_token` *is* the JWT, TTL 15min; `/gateway/refresh` slides it but needs a still-valid token. Frontend renews every 10min via `useSessionKeepAlive` (`App.vue`) — keep interval < `TokenTTL`. `agent-service` excluded from edge gate
 (own HS256 dev token) — both edges strip client-supplied `x-gateway-claims` on `/agent/*`.
 
+**Claims parsing**: one definition per language, not per service. Rust =
+`backend/claims-contracts` (path dep, six consumers); Go = `backend/auth-contracts`; Python =
+`agent-service/app/auth.py`. All three assert `backend/contracts-fixtures/standard-claims.json`,
+so a renamed claim fails in every language at once. Header decoding accepts all four base64
+alphabets; a malformed membership is dropped, not fatal. Requiring a field (`sub`,
+`accountName`) is the service's call, made in its own extractor — the crate parses, it does not
+police. `FromRequestParts` is foreign, so each service still owns its `GatewayClaims` wrapper.
+
+**Internal HMAC** (`X-Signature`, control-plane hops with no end user): one Go implementation,
+`authcontracts.Sign` / `RequireSignature` — `provisioner`, `claims-gateway` sign;
+`registry-service`, `tenancy-service` verify. Lives in `auth-contracts`, not `auth-middleware`,
+so registry/provisioner don't inherit the JWT deps. `telemetry-service`'s ingest verifier stays
+separate Rust (own key, device-facing) — both sides assert
+`backend/contracts-fixtures/internal-signature.json`.
+
+**Building registration**: twin publishes `building-registration-requested`, telemetry answers on
+`building-registration-completed`. Both payloads and both topic names are
+`backend/twin-contracts`. Rooms parse leniently (no id = dropped, no name = its id).
+`maxTemperature` is read by telemetry but never sent by twin, which syncs thresholds over HTTP —
+the field stays optional, not deleted. twin's `Building`/`Room` are **not** shared: no other Rust
+service parses them (`/domain/{id}` returns `Vec<String>`); the cross-language consumers
+(agent-service, frontend) are held in line by `contracts-fixtures/building.json`.
+
 **Cedar authz**: local, no remote PDP. Shared bundle `backend/auth-policy` (see its
 `CLAUDE.md`). **`in` = entity-hierarchy, `.contains()` = set membership — using `in` for the
 latter silently denies everything.**
@@ -122,14 +148,21 @@ leaves no half-written message. Pre-stream failures stay ordinary status codes. 
 in the array. telemetry-service bulk inserts and publishes one `telemetry:raw` envelope
 `{buildingId, ingestedAt, readings[]}`. No shape tag on the envelope: everything is a tick, so
 a constant `type` would say nothing — and `type` already means *metric* on each reading.
-contracts-service keys the channel on `buildingId` and gates on `readings`; socket-service
-relays opaquely. One route, not two: the edge
+One definition of the envelope, the reading and the channel names —
+`telemetry-contracts::{TelemetryEnvelope, TelemetryReading, RAW_CHANNEL, filtered_channel}`.
+Plugin fields ride in a flattened map, so a reading round-trips whatever its plugin emitted.
+contracts-service parses the envelope to key the channel on `buildingId`, then **republishes the
+bytes it received** rather than re-serialising; socket-service relays opaquely. One route, not
+two: the edge
 ungates the exact path `/telemetry/ingest`, so a `/batch` sub-path would 401 for gateways.
 Detail: `backend/telemetry-service/CLAUDE.md`.
 
 **Breach alerts**: telemetry-service produces every threshold breach to the `alerts` Kafka topic;
 notification-service consumes and delivers. Redelivery-safe, absorbed by a Redis cooldown.
-Telemetry fan-out stays on Redis. Detail on each side in the two services' `CLAUDE.md`.
+Telemetry fan-out stays on Redis. One definition of the payload — `telemetry-contracts::AlertEvent`
+(value keyed by its own metric name, every field required). **Only `temperature` has a delivery
+path**; other metrics are logged and counted `unsupported_metric`, not silently skipped. Detail on
+each side in the two services' `CLAUDE.md`.
 
 **Every outbound service-to-service HTTP call sets a timeout.** Neither `reqwest` nor Node
 `fetch` has one by default, and a hang is silent — no error, so no fallback path fires.

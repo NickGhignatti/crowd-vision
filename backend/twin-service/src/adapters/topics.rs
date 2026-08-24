@@ -1,2 +1,3 @@
-pub const BUILDING_REGISTRATION_COMPLETED_TOPIC: &str = "building-registration-completed";
-pub const BUILDING_REGISTRATION_REQUESTED_TOPIC: &str = "building-registration-requested";
+pub use twin_contracts::{
+    BUILDING_REGISTRATION_COMPLETED_TOPIC, BUILDING_REGISTRATION_REQUESTED_TOPIC,
+};

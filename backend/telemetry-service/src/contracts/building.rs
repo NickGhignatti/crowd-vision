@@ -19,20 +19,6 @@ pub struct RegisteredBuilding {
     pub rooms: Vec<Room>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Building {
-    pub id: String,
-    pub name: String,
-    pub rooms: Vec<Room>,
-    pub domains: Vec<String>,
-}
-
-impl PartialEq for Building {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -48,22 +34,5 @@ mod tests {
             name: "Room 2".to_string(),
         };
         assert_eq!(room1, room2);
-    }
-
-    #[test]
-    fn test_building_eq() {
-        let building1 = Building {
-            id: "building1".to_string(),
-            name: "Building 1".to_string(),
-            rooms: vec![],
-            domains: vec![],
-        };
-        let building2 = Building {
-            id: "building1".to_string(),
-            name: "Building 2".to_string(),
-            rooms: vec![],
-            domains: vec![],
-        };
-        assert_eq!(building1, building2);
     }
 }

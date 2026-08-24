@@ -4,7 +4,8 @@ services:
 
   socket-service-test:
     build:
-      context: .
+      context: ../..
+      dockerfile: backend/socket-service/Dockerfile
       target: test
     command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
     environment:

@@ -6,6 +6,24 @@
     "builds_binary": false
   },
   {
+    "key": "claims-contracts",
+    "dir": "backend/claims-contracts",
+    "lang": "rust",
+    "builds_binary": false
+  },
+  {
+    "key": "telemetry-contracts",
+    "dir": "backend/telemetry-contracts",
+    "lang": "rust",
+    "builds_binary": false
+  },
+  {
+    "key": "twin-contracts",
+    "dir": "backend/twin-contracts",
+    "lang": "rust",
+    "builds_binary": false
+  },
+  {
     "key": "auth-middleware",
     "dir": "backend/auth-middleware",
     "lang": "go",
@@ -54,7 +72,9 @@
     "dir": "backend/chat-service",
     "lang": "rust",
     "needs_mongo": true,
-    "image": "crowdvision-chat"
+    "image": "crowdvision-chat",
+    "cd_context": ".",
+    "dockerfile": "backend/chat-service/Dockerfile"
   },
   {
     "key": "notification",
@@ -63,7 +83,9 @@
     "needs_mongo": true,
     "needs_redis": true,
     "needs_kafka": true,
-    "image": "crowdvision-notification"
+    "image": "crowdvision-notification",
+    "cd_context": ".",
+    "dockerfile": "backend/notification-service/Dockerfile"
   },
   {
     "key": "telemetry",
@@ -82,7 +104,9 @@
     "lang": "rust",
     "needs_mongo": false,
     "needs_redis": true,
-    "image": "crowdvision-socket"
+    "image": "crowdvision-socket",
+    "cd_context": ".",
+    "dockerfile": "backend/socket-service/Dockerfile"
   },
   {
     "key": "twin",

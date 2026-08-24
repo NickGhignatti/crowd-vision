@@ -1,5 +1,6 @@
 FROM golang:1.25-bookworm AS base
 WORKDIR /app
+COPY backend/auth-contracts ./backend/auth-contracts
 COPY backend/registry-service ./backend/registry-service
 WORKDIR /app/backend/registry-service
 

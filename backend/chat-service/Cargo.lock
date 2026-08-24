@@ -221,6 +221,7 @@ dependencies = [
  "axum",
  "base64",
  "bytes",
+ "claims-contracts",
  "dashmap",
  "env_logger",
  "futures",
@@ -234,6 +235,15 @@ dependencies = [
  "tokio",
  "tower",
  "wiremock",
+]
+
+[[package]]
+name = "claims-contracts"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

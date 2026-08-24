@@ -21,7 +21,8 @@ services:
 
   notification-service-test:
     build:
-      context: .
+      context: ../..
+      dockerfile: backend/notification-service/Dockerfile
       target: test
     command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
     environment:

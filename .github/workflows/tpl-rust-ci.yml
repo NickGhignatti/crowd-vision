@@ -4,6 +4,7 @@ on:
     inputs:
       service_key: { required: true, type: string }
       working_directory: { required: true, type: string }
+      builds_binary: { required: false, type: boolean, default: true }
 
 jobs:
   test:
@@ -106,11 +107,13 @@ jobs:
       # "twin-service"), not the short service_key used for the artifact name.
       - name: Locate Release Binary
         id: bin
+        if: ${{ inputs.builds_binary }}
         run: echo "name=$(basename "$INPUTS_WORKING_DIRECTORY")" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_WORKING_DIRECTORY: ${{ inputs.working_directory }}
 
       - name: Upload Binary Artifact
+        if: ${{ inputs.builds_binary }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: binary-${{ inputs.service_key }}

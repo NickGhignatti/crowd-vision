@@ -10,21 +10,28 @@ ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
 # ── capture the dependency graph ────────────────────────────────────────
 FROM chef AS planner
+COPY backend/claims-contracts /app/backend/claims-contracts
+COPY backend/twin-contracts /app/backend/twin-contracts
 COPY backend/twin-service .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS dev
 RUN cargo install cargo-watch --locked
 COPY --from=planner /app/backend/twin-service/recipe.json recipe.json
+COPY backend/claims-contracts /app/backend/claims-contracts
+COPY backend/twin-contracts /app/backend/twin-contracts
 RUN cargo chef cook --recipe-path recipe.json
 COPY backend/auth-policy /app/backend/auth-policy
 COPY backend/auth-contracts /app/backend/auth-contracts
+COPY backend/contracts-fixtures /app/backend/contracts-fixtures
 COPY scripts/test/rust-integration-tests.sh /app/scripts/test/rust-integration-tests.sh
 COPY backend/twin-service .
 CMD ["cargo", "watch", "-x", "run"]
 
 FROM chef AS builder
 COPY --from=planner /app/backend/twin-service/recipe.json recipe.json
+COPY backend/claims-contracts /app/backend/claims-contracts
+COPY backend/twin-contracts /app/backend/twin-contracts
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY backend/auth-policy /app/backend/auth-policy
 COPY backend/auth-contracts /app/backend/auth-contracts

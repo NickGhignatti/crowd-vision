@@ -1,18 +1,4 @@
-use serde::Deserialize;
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Membership {
-    pub domain: String,
-    #[serde(default)]
-    pub role: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ClaimsPayload {
-    pub sub: String,
-    #[serde(default)]
-    pub memberships: Vec<Membership>,
-}
+pub use claims_contracts::{CLAIMS_HEADER, ClaimsPayload, Membership};
 
 #[derive(Debug, Clone)]
 pub struct GatewayClaims {

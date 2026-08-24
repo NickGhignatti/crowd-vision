@@ -9,7 +9,7 @@ import (
 // TestFixtureConforms is the drift detector: every consumer asserts against the same fixture
 // file, so a shape change that breaks a consumer fails here first, not in a production cookie.
 func TestFixtureConforms(t *testing.T) {
-	raw, err := os.ReadFile("fixtures/standard-claims.json")
+	raw, err := os.ReadFile("../contracts-fixtures/standard-claims.json")
 	if err != nil {
 		t.Fatalf("reading fixture: %v", err)
 	}

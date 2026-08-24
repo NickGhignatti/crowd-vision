@@ -3,15 +3,15 @@ use crate::adapters::topics::{
     ALERTS_TOPIC, BUILDING_REGISTRATION_COMPLETED_TOPIC, BUILDING_REGISTRATION_REQUESTED_TOPIC,
 };
 use crate::contracts::event::AlertPayload;
-use crate::contracts::plugin::BoundDirection;
 use crate::kernel::ports::{Alerts, RegistrationEvents};
 use async_trait::async_trait;
 use rdkafka::ClientConfig;
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::client::DefaultClientContext;
 use rdkafka::producer::{FutureProducer, FutureRecord};
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::time::Duration;
+use twin_contracts::RegistrationCompleted;
 
 const PRODUCE_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -71,26 +71,11 @@ pub async fn ensure_topics(brokers: &str) {
 }
 
 pub fn alert_key(alert: &AlertPayload) -> String {
-    format!("{}:{}", alert.building_id, alert.room_id)
+    alert.partition_key()
 }
 
 pub fn alert_json(alert: &AlertPayload) -> Value {
-    json!({
-        "buildingId": alert.building_id,
-        "roomId": alert.room_id,
-        alert.metric.clone(): alert.value,
-        "type": alert.metric,
-        "direction": direction_of(alert),
-        "threshold": alert.threshold,
-        "timestamp": alert.ts_ms,
-    })
-}
-
-fn direction_of(alert: &AlertPayload) -> &'static str {
-    match alert.direction {
-        BoundDirection::Above => "high",
-        BoundDirection::Below => "low",
-    }
+    serde_json::to_value(alert).expect("an alert always serialises")
 }
 
 #[async_trait]
@@ -104,13 +89,11 @@ impl RegistrationEvents for KafkaEvents {
             return Ok(());
         };
 
-        let payload = match &outcome {
-            Ok(()) => json!({ "buildingId": building_id, "status": "ready" }),
-            Err(error) => {
-                json!({ "buildingId": building_id, "status": "failed", "error": error })
-            }
-        }
-        .to_string();
+        let payload = serde_json::to_string(&match &outcome {
+            Ok(()) => RegistrationCompleted::ready(building_id),
+            Err(error) => RegistrationCompleted::failed(building_id, error),
+        })
+        .expect("a registration completion always serialises");
 
         let record = FutureRecord::to(BUILDING_REGISTRATION_COMPLETED_TOPIC)
             .key(building_id)
@@ -127,7 +110,7 @@ impl RegistrationEvents for KafkaEvents {
 #[async_trait]
 impl Alerts for KafkaEvents {
     async fn publish_breach(&self, alert: &AlertPayload) {
-        metrics::record_breach(&alert.metric, direction_of(alert));
+        metrics::record_breach(&alert.metric, alert.direction.wire_name());
 
         let Some(producer) = &self.producer else {
             metrics::record_alert_published(ALERTS_TOPIC, "disabled");
@@ -163,6 +146,7 @@ impl Alerts for KafkaEvents {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contracts::plugin::BoundDirection;
 
     fn alert(metric: &str, value: f64, direction: BoundDirection, threshold: f64) -> AlertPayload {
         AlertPayload {

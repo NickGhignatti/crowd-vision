@@ -26,7 +26,7 @@ different database and scaling profile — lives in its own service.
     - - `src/domain/conversation.rs`
       - The conversation model, validation, the history window, and auto-titling. Pure.
     - - `src/domain/identity.rs`
-      - The claims payload and the only place naming the `x-gateway-claims` header.
+      - The validated caller identity, and the re-export of the claims payload from `claims-contracts` (which owns the `x-gateway-claims` header name).
     - - `src/service/conversations.rs`
       - Use cases: ownership checks, the message cap, and the streaming exchange.
     - - `src/service/ports.rs`

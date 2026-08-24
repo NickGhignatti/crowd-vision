@@ -17,8 +17,12 @@ Test-enforced by `tests/architecture_fitness.rs`; `x-gateway-claims` literal onl
 
 ## Alerts consumer
 
-Group `notification-service-alerts`, `auto.offset.reset=earliest`, filters `type ==
-"temperature"` — a breach produced while it is down is processed on return. Concurrent handling
+Group `notification-service-alerts`, `auto.offset.reset=earliest` — a breach produced while it
+is down is processed on return. Payload is `telemetry_contracts::AlertEvent`, parsed once in
+`service/alerts.rs::on_breach`; every field is required, so a malformed record is `invalid` and
+parks rather than rendering half a notification. **Only `temperature` has a delivery path** —
+any other metric is `BreachOutcome::Unsupported`: logged with the metric name, counted
+`unsupported_metric`, settled. Adding one = a match arm + a message template, not archaeology. Concurrent handling
 (`IN_FLIGHT` 16) is deliberate: no record blocks the next. Duplicates are absorbed by the Redis
 cooldown (`temp_alert:<b>:<r>`, 300s).
 

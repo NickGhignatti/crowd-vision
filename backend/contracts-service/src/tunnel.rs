@@ -4,15 +4,8 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use log::info;
 use redis::aio::MultiplexedConnection;
-use serde_json::Value;
+use telemetry_contracts::{RAW_CHANNEL, TelemetryEnvelope};
 use tokio::task;
-
-const RAW_CHANNEL: &str = "telemetry:raw";
-
-/// Returns the `type` field of a telemetry JSON payload if it is present and a string.
-fn extract_readings(raw: &Value) -> Option<&Vec<Value>> {
-    raw.get("readings").and_then(|v| v.as_array())
-}
 
 /// Initializes the telemetry processing tunnel.
 pub async fn start_telemetry_tunnel(redis_url: &str, state: AppState) {
@@ -67,9 +60,10 @@ async fn listen_and_fanout(
             }
         };
 
-        let raw_data: Value = match serde_json::from_str(&payload) {
-            Ok(v) => v,
-            Err(_) => {
+        let envelope: TelemetryEnvelope = match serde_json::from_str(&payload) {
+            Ok(envelope) => envelope,
+            Err(e) => {
+                info!("Raw telemetry is not a tick envelope, skipping: {e}");
                 continue;
             }
         };
@@ -80,128 +74,77 @@ async fn listen_and_fanout(
         // Spawn a Tokio task for the fan-out.
         // This ensures the ingestion stream is NEVER blocked by processing time.
         task::spawn(async move {
-            process_and_publish(raw_data, state_clone, pub_conn_clone).await;
+            process_and_publish(envelope, payload, state_clone, pub_conn_clone).await;
         });
     }
 }
 
-fn extract_building_id(raw: &Value) -> Option<&str> {
-    raw.get("buildingId").and_then(|v| v.as_str())
-}
-
-fn extract_ingested_at(raw: &Value) -> Option<i64> {
-    raw.get("ingestedAt").and_then(|v| v.as_i64())
-}
-
-/// Decides which `telemetry:filtered:*` channel to forward a raw event to, or `None` to drop it.
+/// Decides which `telemetry:filtered:*` channel to forward a tick to, or `None` to drop it.
 fn resolve_channel(
-    raw: &Value,
+    envelope: &TelemetryEnvelope,
     building_preferences: &DashMap<String, Vec<String>>,
 ) -> Option<String> {
-    if extract_readings(raw).is_none() {
-        info!("Raw telemetry carries no 'readings' array, skipping");
-        return None;
-    }
-
-    let building_id = match extract_building_id(raw) {
-        Some(id) => id,
-        None => {
-            info!("Raw telemetry missing 'buildingId' field, skipping");
-            return None;
-        }
-    };
-
-    if !building_preferences.contains_key(building_id) {
+    if !building_preferences.contains_key(&envelope.building_id) {
         info!(
             "No preferences found for building {}, skipping",
-            building_id
+            envelope.building_id
         );
         return None;
     }
 
     // No metric filtering: every sensor metric a known building emits is forwarded;
     // which columns the dashboard displays is a client concern.
-    Some(format!("telemetry:filtered:{}", building_id))
+    Some(envelope.channel())
 }
 
 async fn process_and_publish(
-    raw_data: Value,
+    envelope: TelemetryEnvelope,
+    payload: String,
     state: AppState,
     mut publish_conn: MultiplexedConnection,
 ) {
     metrics::EVENTS_RECEIVED.inc();
 
-    let Some(channel) = resolve_channel(&raw_data, &state.building_preferences) else {
+    let Some(channel) = resolve_channel(&envelope, &state.building_preferences) else {
         return;
     };
 
-    let Ok(payload_str) = serde_json::to_string(&raw_data) else {
-        return;
-    };
+    // The tick is relayed exactly as telemetry-service published it: a reading's
+    // fields belong to whichever plugin produced them, and re-serialising here
+    // would put this service in the way of a shape it has no business knowing.
     let _: redis::RedisResult<()> = redis::cmd("PUBLISH")
         .arg(&channel)
-        .arg(payload_str)
+        .arg(payload)
         .query_async(&mut publish_conn)
         .await;
 
-    if let Some(ingested_at) = extract_ingested_at(&raw_data) {
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(ingested_at);
-        metrics::FANOUT_LATENCY_MS.observe((now_ms - ingested_at).max(0) as f64);
-    }
+    let ingested_at = envelope.ingested_at_ms;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(ingested_at);
+    metrics::FANOUT_LATENCY_MS.observe((now_ms - ingested_at).max(0) as f64);
 
     metrics::EVENTS_PUBLISHED.inc();
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_building_id, extract_readings, resolve_channel};
+    use super::resolve_channel;
     use dashmap::DashMap;
     use serde_json::json;
+    use telemetry_contracts::TelemetryEnvelope;
 
-    #[test]
-    fn extracts_the_readings_of_a_tick() {
-        let raw = json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature" }] });
-        assert_eq!(extract_readings(&raw).map(Vec::len), Some(1));
+    fn envelope(raw: serde_json::Value) -> TelemetryEnvelope {
+        serde_json::from_value(raw).expect("tick parses")
     }
 
-    #[test]
-    fn returns_none_when_readings_are_missing() {
-        let raw = json!({ "buildingId": "bldg-1" });
-        assert_eq!(extract_readings(&raw), None);
-    }
-
-    #[test]
-    fn returns_none_when_readings_is_not_an_array() {
-        let raw = json!({ "readings": 42 });
-        assert_eq!(extract_readings(&raw), None);
-    }
-
-    #[test]
-    fn returns_none_for_empty_json_object() {
-        let raw = json!({});
-        assert_eq!(extract_readings(&raw), None);
-    }
-
-    #[test]
-    fn extracts_string_building_id_field() {
-        let raw =
-            json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature", "value": 22 }] });
-        assert_eq!(extract_building_id(&raw), Some("bldg-1"));
-    }
-
-    #[test]
-    fn returns_none_when_building_id_field_missing() {
-        let raw = json!({ "readings": [{ "type": "temperature", "value": 22 }] });
-        assert_eq!(extract_building_id(&raw), None);
-    }
-
-    #[test]
-    fn returns_none_when_building_id_field_is_not_a_string() {
-        let raw = json!({ "buildingId": 42, "readings": [{ "type": "temperature" }] });
-        assert_eq!(extract_building_id(&raw), None);
+    fn tick(building_id: &str, metric: &str) -> TelemetryEnvelope {
+        envelope(json!({
+            "buildingId": building_id,
+            "ingestedAt": 1_700_000_000_000i64,
+            "readings": [{ "type": metric, "value": 22 }],
+        }))
     }
 
     fn prefs(entries: &[(&str, &[&str])]) -> DashMap<String, Vec<String>> {
@@ -216,12 +159,35 @@ mod tests {
     }
 
     #[test]
-    fn routes_allowed_metric_to_its_own_building_channel() {
+    fn a_tick_carries_its_building_its_time_and_its_readings() {
+        let parsed = tick("bldg-1", "temperature");
+        assert_eq!(parsed.building_id, "bldg-1");
+        assert_eq!(parsed.ingested_at_ms, 1_700_000_000_000);
+        assert_eq!(parsed.readings.len(), 1);
+    }
+
+    #[test]
+    fn a_message_that_is_not_a_tick_never_becomes_one() {
+        for raw in [
+            json!({ "buildingId": "bldg-1", "ingestedAt": 1 }),
+            json!({ "buildingId": "bldg-1", "ingestedAt": 1, "readings": 42 }),
+            json!({ "ingestedAt": 1, "readings": [] }),
+            json!({ "buildingId": 42, "ingestedAt": 1, "readings": [] }),
+            json!({ "buildingId": "bldg-1", "readings": [] }),
+            json!({}),
+        ] {
+            assert!(
+                serde_json::from_value::<TelemetryEnvelope>(raw.clone()).is_err(),
+                "{raw} must not parse as a tick"
+            );
+        }
+    }
+
+    #[test]
+    fn routes_a_tick_to_its_own_building_channel() {
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw =
-            json!({ "buildingId": "bldg-1", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(
-            resolve_channel(&raw, &map),
+            resolve_channel(&tick("bldg-1", "temperature"), &map),
             Some("telemetry:filtered:bldg-1".to_string())
         );
     }
@@ -231,54 +197,35 @@ mod tests {
         // The dashboard column set doesn't gate telemetry: an unlisted metric
         // is still forwarded (display filtering is the client's job).
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw =
-            json!({ "buildingId": "bldg-1", "readings": [{ "type": "air_quality", "value": 5 }] });
         assert_eq!(
-            resolve_channel(&raw, &map),
+            resolve_channel(&tick("bldg-1", "air_quality"), &map),
             Some("telemetry:filtered:bldg-1".to_string())
         );
     }
 
     #[test]
-    fn drops_event_for_building_with_no_preferences() {
+    fn drops_a_tick_for_a_building_with_no_preferences() {
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        // Event belongs to a building that never registered preferences.
-        let raw = json!({ "buildingId": "bldg-unknown", "readings": [{ "type": "temperature", "value": 22 }] });
-        assert_eq!(resolve_channel(&raw, &map), None);
+        assert_eq!(
+            resolve_channel(&tick("bldg-unknown", "temperature"), &map),
+            None
+        );
     }
 
     #[test]
-    fn does_not_leak_an_event_into_another_building_channel() {
-        // bldg-1 allows temperature; the event is for bldg-2 (which has no prefs).
+    fn does_not_leak_a_tick_into_another_building_channel() {
+        // bldg-1 allows temperature; the tick is for bldg-2 (which has no prefs).
         // The pre-fix bug fanned this out to bldg-1's channel — assert it does not.
         let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw =
-            json!({ "buildingId": "bldg-2", "readings": [{ "type": "temperature", "value": 22 }] });
-        assert_eq!(resolve_channel(&raw, &map), None);
+        assert_eq!(resolve_channel(&tick("bldg-2", "temperature"), &map), None);
     }
 
     #[test]
     fn routes_to_the_correct_building_when_multiple_are_subscribed() {
         let map = prefs(&[("bldg-1", &["temperature"]), ("bldg-2", &["temperature"])]);
-        let raw =
-            json!({ "buildingId": "bldg-2", "readings": [{ "type": "temperature", "value": 22 }] });
         assert_eq!(
-            resolve_channel(&raw, &map),
+            resolve_channel(&tick("bldg-2", "temperature"), &map),
             Some("telemetry:filtered:bldg-2".to_string())
         );
-    }
-
-    #[test]
-    fn drops_an_event_that_is_not_a_tick() {
-        let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "buildingId": "bldg-1", "value": 22 });
-        assert_eq!(resolve_channel(&raw, &map), None);
-    }
-
-    #[test]
-    fn drops_event_missing_building_id_field() {
-        let map = prefs(&[("bldg-1", &["temperature"])]);
-        let raw = json!({ "readings": [{ "type": "temperature", "value": 22 }] });
-        assert_eq!(resolve_channel(&raw, &map), None);
     }
 }

@@ -105,7 +105,7 @@ At startup the service connects a Redis subscriber and binds two channels to two
       - emit `telemetry` to room `building:{id}`
       - Only clients in that building's room.
 
-For the pattern subscription, the building id is recovered from the channel name (stripping the `telemetry:filtered:` prefix) and used to target the room. Each incoming message is JSON-parsed before emission; a message that fails to parse is logged and skipped, so one bad publish cannot take the relay down.
+For the pattern subscription, the building id is recovered from the channel name via `telemetry_contracts::building_of_filtered_channel` — the prefix is written by contracts-service and read here, so it is defined once — and used to target the room. Each incoming message is JSON-parsed before emission; a message that fails to parse is logged and skipped, so one bad publish cannot take the relay down.
 
 The subscriber runs in a **reconnect loop**: if the initial connection fails (Redis not up yet at pod start) or the subscription later drops (Redis restart, connection killed), it logs, waits one second, and reconnects — indefinitely. This is not optional polish. The Node implementation got it for free from `node-redis`, which auto-reconnects by default; a single-shot connect is a silent black hole, because `/health` keeps returning 200 while no telemetry reaches any browser.
 

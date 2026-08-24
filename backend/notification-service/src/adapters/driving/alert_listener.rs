@@ -9,7 +9,7 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::{ClientConfig, Offset, TopicPartitionList};
 
 use crate::adapters::metrics;
-use crate::domain::{ALERTS_DLQ_TOPIC, ALERTS_TOPIC, is_temperature_alert};
+use crate::domain::{ALERTS_DLQ_TOPIC, ALERTS_TOPIC};
 use crate::service::alerts::Alerts;
 
 pub const GROUP_ID: &str = "notification-service-alerts";
@@ -194,11 +194,7 @@ async fn handle(alerts: &Alerts, payload: Option<&[u8]>) -> Disposition {
         metrics::record_alert_consumed("undecodable");
         return Disposition::Park("undecodable");
     };
-    if !is_temperature_alert(raw) {
-        metrics::record_alert_consumed("skipped");
-        return Disposition::Settled;
-    }
-    let outcome = alerts.on_temperature_breach(raw).await;
+    let outcome = alerts.on_breach(raw).await;
     metrics::record_alert_consumed(outcome.label());
 
     match outcome.label() {

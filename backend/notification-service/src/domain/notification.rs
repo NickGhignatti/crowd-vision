@@ -1,20 +1,12 @@
 use serde::{Deserialize, Serialize};
+use telemetry_contracts::{AlertEvent, BoundDirection};
 use time::OffsetDateTime;
 use time::format_description::BorrowedFormatItem;
 use time::macros::format_description;
 
 pub const NOTIFICATIONS_CHANNEL: &str = "notifications";
-pub const ALERTS_TOPIC: &str = "alerts";
-pub const ALERTS_DLQ_TOPIC: &str = "alerts.dlq";
+pub use telemetry_contracts::{ALERTS_DLQ_TOPIC, ALERTS_TOPIC};
 pub const COOLDOWN_SECONDS: u64 = 300;
-
-pub fn is_temperature_alert(raw: &str) -> bool {
-    serde_json::from_str::<serde_json::Value>(raw)
-        .ok()
-        .and_then(|body| body["type"].as_str().map(str::to_owned))
-        .as_deref()
-        == Some(crate::domain::preference::TEMPERATURE)
-}
 
 const JS_ISO: &[BorrowedFormatItem] =
     format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z");
@@ -79,42 +71,23 @@ fn or_default(value: Option<&str>, fallback: &str) -> String {
         .to_string()
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct TemperatureAlert {
-    #[serde(rename = "buildingId", default)]
-    pub building_id: Option<String>,
-    #[serde(rename = "roomId", default)]
-    pub room_id: Option<String>,
-    #[serde(default)]
-    pub temperature: Option<f64>,
-    #[serde(default)]
-    pub direction: Option<String>,
-    #[serde(default)]
-    pub timestamp: Option<i64>,
+pub fn breach_message(alert: &AlertEvent) -> String {
+    let breach = match alert.direction {
+        BoundDirection::Above => " (above maximum)",
+        BoundDirection::Below => " (below minimum)",
+    };
+    format!(
+        "{} : {} is {}°C{breach}",
+        alert.building_id, alert.room_id, alert.value
+    )
 }
 
-impl TemperatureAlert {
-    pub fn message(&self) -> String {
-        let breach = match self.direction.as_deref() {
-            Some("high") => " (above maximum)",
-            Some("low") => " (below minimum)",
-            _ => "",
-        };
-        format!(
-            "{} : {} is {}°C{breach}",
-            js_str(&self.building_id),
-            js_str(&self.room_id),
-            js_num(self.temperature),
-        )
-    }
+pub fn breach_cooldown_key(alert: &AlertEvent) -> String {
+    temperature_cooldown_key(Some(&alert.building_id), Some(&alert.room_id))
+}
 
-    pub fn cooldown_key(&self) -> String {
-        temperature_cooldown_key(self.building_id.as_deref(), self.room_id.as_deref())
-    }
-
-    pub fn push_title(&self) -> String {
-        manual_push_title(self.building_id.as_deref())
-    }
+pub fn breach_push_title(alert: &AlertEvent) -> String {
+    manual_push_title(Some(&alert.building_id))
 }
 
 #[derive(Debug, Clone, Default)]
@@ -174,52 +147,27 @@ pub fn temperature_cooldown_key(building_id: Option<&str>, room_id: Option<&str>
     )
 }
 
-fn js_str(value: &Option<String>) -> &str {
-    value.as_deref().unwrap_or("undefined")
-}
-
-fn js_num(value: Option<f64>) -> String {
-    match value {
-        Some(n) => n.to_string(),
-        None => "undefined".to_string(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::{Value, json};
 
-    fn alert(direction: Option<&str>) -> TemperatureAlert {
-        TemperatureAlert {
-            building_id: Some("b1".into()),
-            room_id: Some("r1".into()),
-            temperature: Some(40.0),
-            direction: direction.map(str::to_string),
-            timestamp: Some(1_700_000_000_000),
+    fn alert(direction: BoundDirection) -> AlertEvent {
+        AlertEvent {
+            building_id: "b1".to_string(),
+            room_id: "r1".to_string(),
+            metric: "temperature".to_string(),
+            value: 40.0,
+            direction,
+            threshold: 25.0,
+            ts_ms: 1_700_000_000_000,
         }
-    }
-
-    #[test]
-    fn a_temperature_record_is_the_only_one_the_listener_acts_on() {
-        assert!(is_temperature_alert(
-            r#"{"type":"temperature","temperature":31.5}"#
-        ));
-        assert!(!is_temperature_alert(
-            r#"{"type":"peopleCount","peopleCount":20}"#
-        ));
-    }
-
-    #[test]
-    fn a_record_without_a_type_is_not_treated_as_a_temperature_breach() {
-        assert!(!is_temperature_alert(r#"{"temperature":31.5}"#));
-        assert!(!is_temperature_alert("not json"));
     }
 
     #[test]
     fn a_high_breach_reads_above_maximum() {
         assert_eq!(
-            alert(Some("high")).message(),
+            breach_message(&alert(BoundDirection::Above)),
             "b1 : r1 is 40°C (above maximum)"
         );
     }
@@ -227,43 +175,23 @@ mod tests {
     #[test]
     fn a_low_breach_reads_below_minimum() {
         assert_eq!(
-            alert(Some("low")).message(),
+            breach_message(&alert(BoundDirection::Below)),
             "b1 : r1 is 40°C (below minimum)"
         );
     }
 
     #[test]
-    fn an_unrecognised_direction_adds_no_breach_suffix() {
-        assert_eq!(alert(Some("sideways")).message(), "b1 : r1 is 40°C");
-    }
-
-    #[test]
-    fn an_absent_direction_adds_no_breach_suffix() {
-        assert_eq!(alert(None).message(), "b1 : r1 is 40°C");
-    }
-
-    #[test]
     fn a_fractional_temperature_keeps_its_decimals() {
-        let mut a = alert(Some("high"));
-        a.temperature = Some(21.5);
-        assert_eq!(a.message(), "b1 : r1 is 21.5°C (above maximum)");
+        let mut a = alert(BoundDirection::Above);
+        a.value = 21.5;
+        assert_eq!(breach_message(&a), "b1 : r1 is 21.5°C (above maximum)");
     }
 
     #[test]
-    fn missing_fields_render_as_undefined_like_the_node_service() {
-        let empty = TemperatureAlert {
-            building_id: None,
-            room_id: None,
-            temperature: None,
-            direction: None,
-            timestamp: None,
-        };
-        assert_eq!(empty.message(), "undefined : undefined is undefined°C");
-    }
-
-    #[test]
-    fn the_cooldown_key_is_scoped_by_building_and_room() {
-        assert_eq!(alert(None).cooldown_key(), "temp_alert:b1:r1");
+    fn a_breach_reuses_the_shared_cooldown_key_and_push_title() {
+        let a = alert(BoundDirection::Above);
+        assert_eq!(breach_cooldown_key(&a), "temp_alert:b1:r1");
+        assert_eq!(breach_push_title(&a), "Temperature Alert - b1");
     }
 
     #[test]
@@ -291,15 +219,8 @@ mod tests {
     }
 
     #[test]
-    fn the_push_title_carries_the_building_when_there_is_one() {
-        assert_eq!(alert(None).push_title(), "Temperature Alert - b1");
-    }
-
-    #[test]
     fn the_push_title_drops_the_suffix_without_a_building() {
-        let mut a = alert(None);
-        a.building_id = None;
-        assert_eq!(a.push_title(), "Temperature Alert");
+        assert_eq!(manual_push_title(None), "Temperature Alert");
     }
 
     #[test]

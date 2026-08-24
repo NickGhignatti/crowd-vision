@@ -3,14 +3,12 @@ package tenancyclient
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
+	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
 	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/reconciler"
 )
 
@@ -32,16 +30,12 @@ func (c *Client) CreateDomain(ctx context.Context, name, displayName, joinPolicy
 		return err
 	}
 
-	mac := hmac.New(sha256.New, c.secret)
-	mac.Write(body)
-	sig := hex.EncodeToString(mac.Sum(nil))
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/internal/domains", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Signature", sig)
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, body))
 
 	resp, err := c.http.Do(req)
 	if err != nil {

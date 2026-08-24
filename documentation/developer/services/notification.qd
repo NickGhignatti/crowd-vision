@@ -15,7 +15,7 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
 
 .tablebyrows {.headers}
     - - `src/domain/`
-      - Pure types and message formats: `notification` (payloads, cooldown key, ISO timestamp), `preference`, `subscription`, `identity` (`x-gateway-claims`, `belongs_to`/`domains`), `error`.
+      - Pure types and message formats: `notification` (payloads, cooldown key, ISO timestamp), `preference`, `subscription`, `identity` (`belongs_to`/`domains`/`is_system` over the `claims-contracts` payload), `error`.
     - - `src/service/ports.rs`
       - Outbound port traits: `SubscriptionStore`, `PreferenceStore`, `PushSender`, `NotificationBus`, `Cooldown`, `DomainDirectory`, `Clock`.
     - - `src/service/alerts.rs`

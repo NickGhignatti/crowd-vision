@@ -153,7 +153,8 @@ Started at boot, the tunnel opens a dedicated Redis PubSub connection and subscr
             T->>F: PUBLISH telemetry:filtered:{building_id} (full payload)
         end
 
-- Routing keys on the event's **own** `buildingId`: a reading is published to that one building's channel and no other, so it can never leak into another tenant's feed. The payload is forwarded intact (no field stripping).
+- The message is parsed as `telemetry_contracts::TelemetryEnvelope` — one shared definition with telemetry-service, which produces it. Anything that is not a tick (no `buildingId`, no `readings` array, no `ingestedAt`) is logged and dropped before routing.
+- Routing keys on the event's **own** `buildingId`: a reading is published to that one building's channel and no other, so it can never leak into another tenant's feed. The **exact bytes received** are republished — the envelope is parsed to route it, never to rebuild it, because a reading's fields belong to whichever plugin produced them.
 - There is **no metric-type gate**. Every metric a known building emits is forwarded; the building's `allowed_columns` only drive what the dashboard table displays (client-side). The `DashMap` is consulted just to confirm the building is known.
 - Each message is processed in its own `task::spawn`, so processing time never back-pressures the subscription stream.
 - The routing decision is a pure function (`resolve_channel`) so it is unit-tested in isolation; the worker increments received/published counters and observes fan-out latency, exported via `GET /metrics`.

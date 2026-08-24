@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
+
 	authmiddleware "github.com/NickGhignatti/crowd-vision/server/auth-middleware"
 	authpolicy "github.com/NickGhignatti/crowd-vision/server/auth-policy"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy-service/internal/service"
@@ -55,7 +57,7 @@ func Mount(r chi.Router, svc *service.Service, cfg Config) {
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Use(requireInternalSignature(cfg.InternalSecret))
+		r.Use(authcontracts.RequireSignature(cfg.InternalSecret))
 		r.Get("/internal/memberships", h.internalMemberships)
 		r.Post("/internal/provision", h.internalProvision)
 		r.Post("/internal/domains", h.internalCreateDomain)

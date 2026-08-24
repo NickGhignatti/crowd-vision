@@ -2,7 +2,9 @@ services:
   notification-service:
     cpus: "3"
     build:
-      context: .
+      # Repo-root context: the service needs its sibling ../claims-contracts during build.
+      context: ../..
+      dockerfile: backend/notification-service/Dockerfile
     environment:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017/notificationdb

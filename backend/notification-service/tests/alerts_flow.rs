@@ -156,7 +156,7 @@ async fn a_breach_produced_while_nobody_listens_is_still_delivered_on_return() {
     let (alerts, bus) = alerts(twin.uri()).await;
 
     produce(format!(
-        r#"{{"type":"temperature","buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high"}}"#
+        r#"{{"type":"temperature","buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high","threshold":25.0,"timestamp":1600000000000}}"#
     ))
     .await;
 
@@ -203,8 +203,8 @@ async fn a_second_breach_inside_the_cooldown_publishes_nothing() {
         .unwrap();
 
     alerts
-        .on_temperature_breach(&format!(
-            r#"{{"buildingId":"{building}","roomId":"r1","temperature":31.5}}"#
+        .on_breach(&format!(
+            r#"{{"type":"temperature","buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high","threshold":25.0,"timestamp":1600000000000}}"#
         ))
         .await;
 

@@ -1,18 +1,8 @@
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
-use base64::Engine;
-use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+use claims_contracts::decode_claims_header;
 
 use crate::domain::{CLAIMS_HEADER, ClaimsPayload, DomainError, GatewayClaims};
-
-/// Node's `Buffer.from(header, "base64")` accepts padded, unpadded and url-safe
-/// alphabets alike; the Rust engines do not, so every variant the edge might emit
-/// is tried rather than rejecting a token Node would have accepted.
-fn decode_claims_header(raw: &str) -> Option<Vec<u8>> {
-    [STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD]
-        .iter()
-        .find_map(|engine| engine.decode(raw).ok())
-}
 
 fn unauthorized(message: &str) -> DomainError {
     DomainError::Unauthorized(message.to_string())
@@ -48,6 +38,8 @@ impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
 mod tests {
     use super::*;
     use axum::http::Request;
+    use base64::Engine;
+    use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 
     async fn extract(header: Option<&str>) -> Result<GatewayClaims, DomainError> {
         let mut builder = Request::builder();

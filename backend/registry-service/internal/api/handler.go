@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
+
 	"github.com/NickGhignatti/crowd-vision/server/registry-service/internal/service"
 	"github.com/NickGhignatti/crowd-vision/server/registry-service/internal/store"
 )
@@ -17,7 +19,7 @@ func Mount(r chi.Router, svc *service.Service, internalSecret []byte) {
 	r.Post("/organizations", h.signup)
 
 	r.Group(func(r chi.Router) {
-		r.Use(requireInternalSignature(internalSecret))
+		r.Use(authcontracts.RequireSignature(internalSecret))
 		r.Get("/internal/organizations/pending", h.pending)
 		r.Post("/internal/organizations/{id}/status", h.setStatus)
 		r.Post("/internal/organizations/{id}/suspend", h.suspend)

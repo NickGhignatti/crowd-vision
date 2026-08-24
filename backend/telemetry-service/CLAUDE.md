@@ -59,7 +59,10 @@ See issue #346.
 
 `Fanout::publish_telemetry` publishes **one** `telemetry:raw` message per tick:
 `{buildingId, ingestedAt, readings[]}`. Each element keeps the flat reading shape, so a
-consumer walks `readings` and needs nothing else.
+consumer walks `readings` and needs nothing else. Both shapes and the channel name are
+`telemetry-contracts::{TelemetryEnvelope, TelemetryReading, RAW_CHANNEL}` — the envelope is a
+struct, not a hand-built `Map`. A plugin's own fields flatten in beside the envelope ones;
+`ENVELOPE_FIELDS` still keeps a plugin from overwriting `buildingId`/`roomId`/`timestamp`.
 
 **No `type` on the envelope.** Every message is a tick, so a constant tag carries no
 information — and `type` already names the *metric* on each reading, so a second meaning at
@@ -79,7 +82,9 @@ breach evaluation for the tick — the readings still land.
 
 Every threshold breach goes to the `alerts` Kafka topic, keyed `buildingId:roomId`, produced
 enqueue-only (`send_result`) so a broker outage never stalls `/telemetry/ingest`. Telemetry
-fan-out stays on Redis. Consumer side: `backend/notification-service/CLAUDE.md`.
+fan-out stays on Redis. Payload = `telemetry_contracts::AlertEvent` (`contracts::event::AlertPayload`
+is a re-export); `alert_json` serialises it, nobody hand-rolls the shape. Consumer side:
+`backend/notification-service/CLAUDE.md`.
 
 ## Tests
 

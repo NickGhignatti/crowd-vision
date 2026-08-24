@@ -27,7 +27,7 @@ There is no central session store and no per-request call back to an identity au
       - `claims-gateway` verifies the user once, mints a signed token; the mesh (Istio `RequestAuthentication` in k8s, Caddy `forward_auth` in compose) verifies it once more at the edge and injects the verified claims as one header. Every service downstream decodes that header instead of re-verifying a JWT, and if it calls another service, it forwards the **same header unchanged** — mTLS already authenticates the network hop itself, so the header only needs to carry *who the original caller was*, not prove the hop is legitimate.
     - - HMAC `X-Signature`, shared secret
       - The call is **control-plane, backend-only**, with no end user in the loop (organization provisioning).
-      - Caller computes `HMAC-SHA256(sharedSecret, requestBody)`, sends it as `X-Signature`; callee recomputes and compares with `hmac.Equal` (constant-time). There is no user identity to forward — this authenticates the *calling service itself*.
+      - Caller computes `HMAC-SHA256(sharedSecret, requestBody)`, sends it as `X-Signature`; callee recomputes and compares in constant time. There is no user identity to forward — this authenticates the *calling service itself*. Both halves are one implementation: `authcontracts.Sign` and `authcontracts.RequireSignature` in [Auth Contracts](../packages/auth-contracts.qd), asserted against golden vectors that `telemetry-service`'s independent Rust verifier asserts too.
 
 Both patterns exist for the same reason: nobody re-implements JWT verification or invents a second signing scheme per pair of services. Every mesh-claims consumer and every HMAC consumer reuses one shared convention, respectively — see [Identity & Tenancy Architecture](auth-architecture.qd) and [Service Mesh Architecture](service-mesh.qd) for the full verification mechanics.
 
@@ -168,11 +168,13 @@ Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a mess
     - - `building-registration-requested`
       - twin-service
       - telemetry-service
-      - `{ buildingId, name, rooms: [{ id, name }] }`, keyed by `buildingId`, published once the twin's own write has succeeded.
+      - `twin_contracts::RegistrationRequest` — `{ buildingId, name, rooms: [{ id, name }], maxTemperature? }`, keyed by `buildingId`, published once the twin's own write has succeeded. A room with no id is dropped on parse rather than failing the building.
     - - `building-registration-completed`
       - telemetry-service
       - twin-service
-      - `{ buildingId, status: "ready" | "failed", error? }`, keyed by `buildingId` — resolves the caller's tracking handle.
+      - `twin_contracts::RegistrationCompleted` — `{ buildingId, status: "ready" | "failed", error? }`, keyed by `buildingId` — resolves the caller's tracking handle.
+
+Both payloads and both topic names are defined once, in `backend/twin-contracts`, and each service re-exports them from its own `adapters/topics.rs` — see [Twin Contracts](../packages/twin-contracts.qd).
 
 Publishing is not blocking on either side: twin-service's worker returns as soon as the first message reaches the broker, and telemetry-service's consumer processes it on its own schedule. Both topics carry no `x-gateway-claims` — this is internal transport between two services already inside the trust perimeter, not a client-facing hop. See [Digital Twin Service](../services/digital-twin.qd) for the full sequence and the idempotency argument (every write either side makes is an upsert, so redelivery converges rather than duplicating).
 

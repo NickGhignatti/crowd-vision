@@ -32,6 +32,10 @@ jobs:
       auth_policy: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-policy') }}
       auth_contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-contracts') }}
       auth_middleware: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-middleware') }}
+      claims_contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'claims-contracts') }}
+      telemetry_contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'telemetry-contracts') }}
+      twin_contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'twin-contracts') }}
+      contracts_fixtures: ${{ contains(fromJSON(steps.filter.outputs.changes), 'contracts-fixtures') }}
       k8s: ${{ contains(fromJSON(steps.filter.outputs.changes), 'k8s') }}
       shared: ${{ contains(fromJSON(steps.filter.outputs.changes), 'shared') }}
       ci: ${{ contains(fromJSON(steps.filter.outputs.changes), 'ci') }}
@@ -57,6 +61,8 @@ jobs:
               - '.github/workflows/ci-k8s.yml'
             shared:
               - 'tooling/eslint-config/**'
+            contracts-fixtures:
+              - 'backend/contracts-fixtures/**'
             ci:
               - '.github/**'
             infra:
@@ -96,7 +102,7 @@ jobs:
 
   auth-contracts:
     needs: changes
-    if: needs.changes.outputs.auth_contracts == 'true'
+    if: needs.changes.outputs.auth_contracts == 'true' || needs.changes.outputs.contracts_fixtures == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-contracts
@@ -125,7 +131,7 @@ jobs:
 
   claims-gateway:
     needs: changes
-    if: needs.changes.outputs.claims_gateway == 'true'
+    if: needs.changes.outputs.claims_gateway == 'true' || needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: claims-gateway
@@ -133,7 +139,7 @@ jobs:
 
   provisioner:
     needs: changes
-    if: needs.changes.outputs.provisioner == 'true'
+    if: needs.changes.outputs.provisioner == 'true' || needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: provisioner
@@ -141,7 +147,7 @@ jobs:
 
   registry-service:
     needs: changes
-    if: needs.changes.outputs.registry == 'true'
+    if: needs.changes.outputs.registry == 'true' || needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: registry
@@ -149,15 +155,42 @@ jobs:
 
   tenancy-service:
     needs: changes
-    if: needs.changes.outputs.tenancy == 'true'
+    if: needs.changes.outputs.tenancy == 'true' || needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: tenancy
       working_directory: backend/tenancy-service
 
+  claims-contracts:
+    needs: changes
+    if: needs.changes.outputs.claims_contracts == 'true' || needs.changes.outputs.contracts_fixtures == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
+    with:
+      service_key: claims-contracts
+      working_directory: backend/claims-contracts
+      builds_binary: false
+
+  telemetry-contracts:
+    needs: changes
+    if: needs.changes.outputs.telemetry_contracts == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
+    with:
+      service_key: telemetry-contracts
+      working_directory: backend/telemetry-contracts
+      builds_binary: false
+
+  twin-contracts:
+    needs: changes
+    if: needs.changes.outputs.twin_contracts == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
+    with:
+      service_key: twin-contracts
+      working_directory: backend/twin-contracts
+      builds_binary: false
+
   chat:
     needs: changes
-    if: needs.changes.outputs.chat == 'true'
+    if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.claims_contracts == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: chat
@@ -165,7 +198,7 @@ jobs:
 
   notification:
     needs: changes
-    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true'
+    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.claims_contracts == 'true' || needs.changes.outputs.telemetry_contracts == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: notification
@@ -173,7 +206,7 @@ jobs:
 
   telemetry:
     needs: changes
-    if: needs.changes.outputs.telemetry == 'true'
+    if: needs.changes.outputs.telemetry == 'true' || needs.changes.outputs.claims_contracts == 'true' || needs.changes.outputs.contracts_fixtures == 'true' || needs.changes.outputs.telemetry_contracts == 'true' || needs.changes.outputs.twin_contracts == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: telemetry
@@ -181,7 +214,7 @@ jobs:
 
   socket:
     needs: changes
-    if: needs.changes.outputs.socket == 'true'
+    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.claims_contracts == 'true' || needs.changes.outputs.telemetry_contracts == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: socket
@@ -189,7 +222,7 @@ jobs:
 
   twin:
     needs: changes
-    if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
+    if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.claims_contracts == 'true' || needs.changes.outputs.twin_contracts == 'true' || needs.changes.outputs.contracts_fixtures == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: twin
@@ -197,7 +230,7 @@ jobs:
 
   contracts:
     needs: changes
-    if: needs.changes.outputs.contracts == 'true'
+    if: needs.changes.outputs.contracts == 'true' || needs.changes.outputs.claims_contracts == 'true' || needs.changes.outputs.telemetry_contracts == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: contracts
@@ -205,7 +238,7 @@ jobs:
 
   agent:
     needs: changes
-    if: needs.changes.outputs.agent == 'true'
+    if: needs.changes.outputs.agent == 'true' || needs.changes.outputs.contracts_fixtures == 'true'
     uses: ./.github/workflows/tpl-python-ci.yml
     with:
       service_key: agent

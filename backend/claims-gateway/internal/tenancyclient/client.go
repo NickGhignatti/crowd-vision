@@ -3,9 +3,6 @@ package tenancyclient
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,19 +24,13 @@ func New(baseURL string, secret []byte) *Client {
 	return &Client{baseURL: baseURL, secret: secret, http: &http.Client{Timeout: 5 * time.Second}}
 }
 
-func (c *Client) sign(body []byte) string {
-	mac := hmac.New(sha256.New, c.secret)
-	mac.Write(body)
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
 func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
 	u := c.baseURL + "/internal/memberships?" + url.Values{"accountId": {accountID}}.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-Signature", c.sign(nil))
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, nil))
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -70,7 +61,7 @@ func (c *Client) Provision(ctx context.Context, in service.ProvisionRequest) err
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Signature", c.sign(body))
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, body))
 
 	resp, err := c.http.Do(req)
 	if err != nil {

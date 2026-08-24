@@ -1,30 +1,11 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use serde::Deserialize;
 
-pub const CLAIMS_HEADER: &str = "x-gateway-claims";
+pub use claims_contracts::{CLAIMS_HEADER, ClaimsPayload, Membership};
 
 const SYSTEM_SUBJECT_PREFIX: &str = "system:";
 
 const ADMIN_ROLE: &str = "admin";
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Membership {
-    #[serde(default)]
-    pub domain: String,
-    #[serde(default)]
-    pub role: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ClaimsPayload {
-    #[serde(default)]
-    pub sub: Option<String>,
-    #[serde(rename = "accountName", default)]
-    pub account_name: Option<String>,
-    #[serde(default)]
-    pub memberships: Option<Vec<Membership>>,
-}
 
 #[derive(Debug, Clone)]
 pub struct GatewayClaims {
@@ -35,35 +16,29 @@ pub struct GatewayClaims {
 impl GatewayClaims {
     pub fn account_name(&self) -> &str {
         self.payload
-            .account_name
-            .as_deref()
+            .account()
             .expect("claims are only constructed with a non-empty accountName")
-    }
-
-    fn memberships(&self) -> &[Membership] {
-        self.payload.memberships.as_deref().unwrap_or_default()
     }
 
     pub fn is_system(&self) -> bool {
         self.payload
-            .sub
-            .as_deref()
+            .user_id()
             .is_some_and(|sub| sub.starts_with(SYSTEM_SUBJECT_PREFIX))
     }
 
     pub fn is_global_admin(&self) -> bool {
-        self.memberships().iter().any(|m| m.role == ADMIN_ROLE)
+        self.payload.has_role(ADMIN_ROLE)
     }
 
     pub fn belongs_to(&self, domain: &str) -> bool {
-        !domain.is_empty() && self.memberships().iter().any(|m| m.domain == domain)
+        self.payload.belongs_to(domain)
     }
 
     pub fn domains(&self) -> Vec<String> {
         let mut domains: Vec<String> = Vec::new();
-        for membership in self.memberships() {
-            if !membership.domain.is_empty() && !domains.contains(&membership.domain) {
-                domains.push(membership.domain.clone());
+        for domain in self.payload.domains() {
+            if !domain.is_empty() && !domains.iter().any(|seen| seen == domain) {
+                domains.push(domain.to_string());
             }
         }
         domains

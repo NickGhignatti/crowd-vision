@@ -7,7 +7,7 @@ services:
       watch:
         - action: sync
           path: ./src
-          target: /app/src
+          target: /app/backend/socket-service/src
         - action: rebuild
           path: ./Cargo.toml
     healthcheck:
@@ -17,7 +17,7 @@ services:
       retries: 3
       start_period: 60s
     volumes:
-      - socket-target:/app/target
+      - socket-target:/app/backend/socket-service/target
       - cargo-registry:/usr/local/cargo/registry
 
 volumes:

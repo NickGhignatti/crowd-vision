@@ -1,3 +1,5 @@
+pub use telemetry_contracts::BoundDirection;
+
 use crate::contracts::reading::Reading;
 use serde_json::Value;
 
@@ -13,12 +15,6 @@ pub struct FieldSpec {
     pub name: &'static str,
     pub kind: FieldKind,
     pub required: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BoundDirection {
-    Above,
-    Below,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

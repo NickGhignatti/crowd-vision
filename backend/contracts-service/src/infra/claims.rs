@@ -1,27 +1,8 @@
 use axum::extract::FromRequestParts;
 use axum::http::StatusCode;
 use axum::http::request::Parts;
-use base64::Engine;
-use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
-use serde::Deserialize;
+pub use claims_contracts::{CLAIMS_HEADER, ClaimsPayload};
 
-pub const CLAIMS_HEADER: &str = "x-gateway-claims";
-
-fn decode_claims_header(raw: &str) -> Option<Vec<u8>> {
-    [STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD]
-        .iter()
-        .find_map(|engine| engine.decode(raw).ok())
-}
-
-// sub/payload aren't read by any handler yet — GatewayClaims is only used to reject
-// requests with an absent or malformed claims header; routes don't scope by identity yet.
-#[derive(Debug, Clone, Deserialize)]
-pub struct ClaimsPayload {
-    #[allow(dead_code)]
-    pub sub: String,
-}
-
-// Trusts claims the mesh already verified at the edge and injected as x-gateway-claims.
 #[derive(Debug, Clone)]
 pub struct GatewayClaims {
     #[allow(dead_code)]
@@ -37,9 +18,10 @@ impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
             .get(CLAIMS_HEADER)
             .and_then(|value| value.to_str().ok())
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        let decoded = decode_claims_header(raw).ok_or(StatusCode::UNAUTHORIZED)?;
-        let payload: ClaimsPayload =
-            serde_json::from_slice(&decoded).map_err(|_| StatusCode::UNAUTHORIZED)?;
+        let payload = ClaimsPayload::decode(raw).ok_or(StatusCode::UNAUTHORIZED)?;
+        if payload.user_id().is_none() {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
         Ok(GatewayClaims { payload })
     }
 }
@@ -48,45 +30,50 @@ impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
 mod tests {
     use super::*;
     use axum::http::Request;
+    use base64::Engine;
+    use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 
-    fn header_value(payload: &str) -> String {
-        STANDARD.encode(payload)
+    async fn extract(header: Option<&str>) -> Result<GatewayClaims, StatusCode> {
+        let mut builder = Request::builder();
+        if let Some(header) = header {
+            builder = builder.header(CLAIMS_HEADER, header);
+        }
+        let (mut parts, _) = builder.body(()).unwrap().into_parts();
+        GatewayClaims::from_request_parts(&mut parts, &()).await
     }
 
     #[tokio::test]
     async fn extracts_valid_claims() {
-        let token = header_value(r#"{"sub":"u1","memberships":[{"domain":"eng"}]}"#);
-        let req = Request::builder()
-            .header(CLAIMS_HEADER, &token)
-            .body(())
-            .unwrap();
-        let (mut parts, _) = req.into_parts();
-        let claims = GatewayClaims::from_request_parts(&mut parts, &())
-            .await
-            .unwrap();
-        assert_eq!(claims.payload.sub, "u1");
+        let token = STANDARD.encode(r#"{"sub":"u1","memberships":[{"domain":"eng"}]}"#);
+        let claims = extract(Some(&token)).await.unwrap();
+        assert_eq!(claims.payload.user_id(), Some("u1"));
+    }
+
+    #[tokio::test]
+    async fn accepts_the_url_safe_alphabet_the_edge_may_emit() {
+        let token = URL_SAFE_NO_PAD.encode(r#"{"sub":"u1"}"#);
+        assert!(extract(Some(&token)).await.is_ok());
     }
 
     #[tokio::test]
     async fn rejects_missing_header() {
-        let req = Request::builder().body(()).unwrap();
-        let (mut parts, _) = req.into_parts();
-        let err = GatewayClaims::from_request_parts(&mut parts, &())
-            .await
-            .unwrap_err();
-        assert_eq!(err, StatusCode::UNAUTHORIZED);
+        assert_eq!(extract(None).await.unwrap_err(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]
     async fn rejects_malformed_header() {
-        let req = Request::builder()
-            .header(CLAIMS_HEADER, "not-valid-base64-json")
-            .body(())
-            .unwrap();
-        let (mut parts, _) = req.into_parts();
-        let err = GatewayClaims::from_request_parts(&mut parts, &())
-            .await
-            .unwrap_err();
-        assert_eq!(err, StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            extract(Some("not-valid-base64-json")).await.unwrap_err(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_claims_without_a_subject() {
+        let token = STANDARD.encode(r#"{"accountName":"ada"}"#);
+        assert_eq!(
+            extract(Some(&token)).await.unwrap_err(),
+            StatusCode::UNAUTHORIZED
+        );
     }
 }

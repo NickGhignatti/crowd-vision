@@ -125,18 +125,18 @@ fn subscription_ack_fields_are_built_only_in_subscription() {
 }
 
 #[test]
-fn the_claims_header_is_named_only_in_auth() {
+fn the_claims_header_is_named_only_by_the_shared_contract() {
     let files: Vec<PathBuf> = rust_files_under(CORE)
         .into_iter()
         .chain(rust_files_under(SHELL))
-        .filter(|f| f.file_name().unwrap() != "auth.rs")
         .collect();
 
     assert_absent(
         &files,
         &["x-gateway-claims"],
-        "the claims header name belongs to core::auth, via its CLAIMS_HEADER const",
+        "the claims header name belongs to claims-contracts, re-exported by core::auth",
     );
+    assert_eq!(claims_contracts::CLAIMS_HEADER, "x-gateway-claims");
 }
 
 #[test]

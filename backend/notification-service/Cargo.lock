@@ -407,6 +407,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "claims-contracts"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2142,6 +2151,7 @@ dependencies = [
  "async-trait",
  "axum",
  "base64 0.22.1",
+ "claims-contracts",
  "dashmap",
  "env_logger",
  "futures",
@@ -2153,6 +2163,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "telemetry-contracts",
  "time",
  "tokio",
  "tower",
@@ -3469,6 +3480,14 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+
+[[package]]
+name = "telemetry-contracts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "thiserror"

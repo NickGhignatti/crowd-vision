@@ -70,13 +70,13 @@ setup: create gateway-api istio-install
 [doc("Build all Docker images locally, tagged for GHCR.")]
 build:
     docker build -t ghcr.io/nickghignatti/crowdvision-frontend:latest ./frontend
-    docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest ./backend/chat-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-chat:latest -f backend/chat-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/twin-service/Dockerfile .
-    docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest ./backend/notification-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-notification:latest -f backend/notification-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-telemetry:latest -f backend/telemetry-service/Dockerfile .
-    docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest ./backend/socket-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-socket:latest -f backend/socket-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-agent:latest -f backend/agent-service/Dockerfile .
-    docker build -t ghcr.io/nickghignatti/crowdvision-contracts:latest ./backend/contracts-service
+    docker build -t ghcr.io/nickghignatti/crowdvision-contracts:latest -f backend/contracts-service/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-claims-gateway:latest -f backend/claims-gateway/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-provisioner:latest -f backend/provisioner/Dockerfile .
     docker build -t ghcr.io/nickghignatti/crowdvision-registry:latest -f backend/registry-service/Dockerfile .

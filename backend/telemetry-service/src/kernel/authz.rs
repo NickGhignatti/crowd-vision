@@ -189,14 +189,16 @@ mod tests {
     fn claims_with(memberships: Vec<(&str, &str)>) -> GatewayClaims {
         GatewayClaims {
             payload: ClaimsPayload {
-                sub: "u1".to_string(),
+                sub: Some("u1".to_string()),
                 memberships: memberships
                     .into_iter()
                     .map(|(domain, role)| Membership {
                         domain: domain.to_string(),
                         role: Some(role.to_string()),
+                        external_id: None,
                     })
                     .collect(),
+                ..ClaimsPayload::default()
             },
             raw: "raw".to_string(),
         }

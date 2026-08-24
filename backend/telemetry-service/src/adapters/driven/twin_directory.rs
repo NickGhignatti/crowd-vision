@@ -42,10 +42,7 @@ impl BuildingDirectory for TwinDirectory {
         let response = self
             .client
             .get(&url)
-            .header(
-                crate::adapters::driving::http_api::claims::CLAIMS_HEADER,
-                claims,
-            )
+            .header(crate::contracts::identity::CLAIMS_HEADER, claims)
             .send()
             .await?;
 

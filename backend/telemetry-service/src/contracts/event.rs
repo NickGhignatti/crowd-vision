@@ -1,4 +1,3 @@
-use crate::contracts::plugin::BoundDirection;
 use crate::contracts::reading::Reading;
 use serde_json::{Map, Value};
 
@@ -27,13 +26,4 @@ impl TelemetryEvent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct AlertPayload {
-    pub metric: String,
-    pub building_id: String,
-    pub room_id: String,
-    pub value: f64,
-    pub direction: BoundDirection,
-    pub threshold: f64,
-    pub ts_ms: i64,
-}
+pub use telemetry_contracts::AlertEvent as AlertPayload;

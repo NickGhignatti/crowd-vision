@@ -1,3 +1,4 @@
-pub const ALERTS_TOPIC: &str = "alerts";
-pub const BUILDING_REGISTRATION_COMPLETED_TOPIC: &str = "building-registration-completed";
-pub const BUILDING_REGISTRATION_REQUESTED_TOPIC: &str = "building-registration-requested";
+pub use telemetry_contracts::alerts::ALERTS_TOPIC;
+pub use twin_contracts::{
+    BUILDING_REGISTRATION_COMPLETED_TOPIC, BUILDING_REGISTRATION_REQUESTED_TOPIC,
+};

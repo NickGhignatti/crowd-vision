@@ -2,8 +2,10 @@ use crate::contracts::building::{RegisteredBuilding, Room};
 use crate::contracts::error::DomainError;
 use crate::contracts::threshold::Bounds;
 use crate::kernel::ports::{BuildingStore, RegistrationEvents, ThresholdStore};
+use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
+use twin_contracts::RegistrationRequest;
 
 pub struct Registration {
     pub buildings: Arc<dyn BuildingStore>,
@@ -13,29 +15,31 @@ pub struct Registration {
 
 impl Registration {
     pub async fn register(&self, building_id: &str, payload: &Value) -> Result<(), DomainError> {
-        let name = payload["name"]
-            .as_str()
-            .filter(|name| !name.is_empty())
-            .ok_or_else(|| {
-                DomainError::Validation("name: must be a non-empty string.".to_owned())
-            })?;
+        let request = RegistrationRequest::deserialize(payload)
+            .map_err(|error| DomainError::Validation(format!("registration payload: {error}.")))?;
 
-        let max_temperature = match &payload["maxTemperature"] {
-            Value::Null => None,
-            value => Some(value.as_f64().ok_or_else(|| {
-                DomainError::Validation("maxTemperature: must be a finite number.".to_owned())
-            })?),
-        };
+        if request.name.trim().is_empty() {
+            return Err(DomainError::Validation(
+                "name: must be a non-empty string.".to_owned(),
+            ));
+        }
 
         self.buildings
             .upsert(&RegisteredBuilding {
                 id: building_id.to_owned(),
-                name: name.to_owned(),
-                rooms: rooms(payload),
+                name: request.name,
+                rooms: request
+                    .rooms
+                    .into_iter()
+                    .map(|room| Room {
+                        id: room.id,
+                        name: room.name,
+                    })
+                    .collect(),
             })
             .await?;
 
-        if let Some(max_temperature) = max_temperature {
+        if let Some(max_temperature) = request.max_temperature {
             let mut patch = Bounds::new();
             patch.insert("maxTemp".to_owned(), max_temperature.into());
             self.thresholds
@@ -60,24 +64,6 @@ impl Registration {
         self.events.publish_completed(building_id, outcome).await?;
         Ok(registered)
     }
-}
-
-fn rooms(payload: &Value) -> Vec<Room> {
-    payload["rooms"]
-        .as_array()
-        .map(|rooms| {
-            rooms
-                .iter()
-                .filter_map(|room| {
-                    let id = room["id"].as_str().filter(|id| !id.is_empty())?;
-                    Some(Room {
-                        id: id.to_owned(),
-                        name: room["name"].as_str().unwrap_or(id).to_owned(),
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

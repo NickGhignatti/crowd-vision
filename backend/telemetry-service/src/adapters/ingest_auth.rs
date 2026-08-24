@@ -88,6 +88,30 @@ mod tests {
         IngestKey::new(SECRET).unwrap()
     }
 
+    const SIGNATURE_FIXTURE: &str =
+        include_str!("../../../contracts-fixtures/internal-signature.json");
+
+    #[test]
+    fn signatures_match_the_golden_vectors_the_go_services_assert() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(SIGNATURE_FIXTURE).expect("fixture parses");
+        let key = IngestKey::new(fixture["secret"].as_str().expect("fixture has a secret"))
+            .expect("the fixture secret is long enough");
+
+        let cases = fixture["cases"].as_array().expect("fixture has cases");
+        assert!(!cases.is_empty());
+        for case in cases {
+            let body = case["body"].as_str().expect("case has a body");
+            let expected = case["signature"].as_str().expect("case has a signature");
+            assert_eq!(
+                key.sign(body.as_bytes()),
+                expected,
+                "{}",
+                case["name"].as_str().unwrap_or_default()
+            );
+        }
+    }
+
     #[test]
     fn a_short_secret_is_rejected() {
         assert!(IngestKey::new("too-short").is_err());

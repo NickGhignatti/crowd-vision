@@ -2,7 +2,9 @@ services:
   socket-server:
     cpus: "3"
     build:
-      context: .
+      # Repo-root context: the service needs its sibling ../claims-contracts during build.
+      context: ../..
+      dockerfile: backend/socket-service/Dockerfile
     container_name: crowd-vision-socket
     environment:
       - PORT=3000

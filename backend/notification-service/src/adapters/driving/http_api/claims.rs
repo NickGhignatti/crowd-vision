@@ -1,15 +1,8 @@
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
-use base64::Engine;
-use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+use claims_contracts::decode_claims_header;
 
 use crate::domain::{CLAIMS_HEADER, ClaimsPayload, DomainError, GatewayClaims};
-
-fn decode_claims_header(raw: &str) -> Option<Vec<u8>> {
-    [STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD]
-        .iter()
-        .find_map(|engine| engine.decode(raw).ok())
-}
 
 fn unauthorized(message: &str) -> DomainError {
     DomainError::Unauthorized(message.to_string())
@@ -32,9 +25,9 @@ impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
         let payload: ClaimsPayload = serde_json::from_slice(&decoded)
             .map_err(|_| unauthorized("Invalid authentication token"))?;
 
-        match payload.account_name.as_deref() {
-            Some(account) if !account.trim().is_empty() => Ok(GatewayClaims { payload, raw }),
-            _ => Err(unauthorized("Authentication token is missing an account")),
+        match payload.account() {
+            Some(_) => Ok(GatewayClaims { payload, raw }),
+            None => Err(unauthorized("Authentication token is missing an account")),
         }
     }
 }
@@ -43,6 +36,8 @@ impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
 mod tests {
     use super::*;
     use axum::http::Request;
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
 
     async fn extract(header: Option<&str>) -> Result<GatewayClaims, DomainError> {
         let mut builder = Request::builder();

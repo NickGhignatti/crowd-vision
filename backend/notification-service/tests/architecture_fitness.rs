@@ -64,7 +64,7 @@ fn driving_adapters_do_not_reach_into_driven_adapters() {
 }
 
 #[test]
-fn the_claims_header_is_only_named_by_the_identity_domain() {
+fn the_claims_header_is_named_only_by_the_shared_contract() {
     let mut files = Vec::new();
     files_under(Path::new("src"), &mut files);
     let owners: Vec<PathBuf> = files
@@ -76,9 +76,9 @@ fn the_claims_header_is_only_named_by_the_identity_domain() {
         })
         .collect();
 
-    assert_eq!(
-        owners,
-        vec![PathBuf::from("src/domain/identity.rs")],
-        "the raw claims header literal must live only in the identity domain"
+    assert!(
+        owners.is_empty(),
+        "the claims header name belongs to claims-contracts, not to {owners:?}"
     );
+    assert_eq!(claims_contracts::CLAIMS_HEADER, "x-gateway-claims");
 }

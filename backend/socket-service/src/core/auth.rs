@@ -1,9 +1,5 @@
-use base64::Engine;
-use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
-use serde::Deserialize;
-use serde_json::Value;
-
-pub const CLAIMS_HEADER: &str = "x-gateway-claims";
+pub use claims_contracts::CLAIMS_HEADER;
+use claims_contracts::ClaimsPayload;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Identity {
@@ -12,38 +8,13 @@ pub struct Identity {
     pub domains: Vec<String>,
 }
 
-#[derive(Deserialize)]
-struct GatewayClaims {
-    sub: Option<String>,
-    #[serde(rename = "accountName")]
-    account_name: Option<String>,
-    #[serde(default)]
-    memberships: Option<Vec<Value>>,
-}
-
-/// Decodes a base64-encoded JWT header with 4 different versions of the engine.
-fn decode(header: &str) -> Option<Vec<u8>> {
-    [STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD]
-        .iter()
-        .find_map(|engine| engine.decode(header).ok())
-}
-
-fn domains_of(memberships: Option<Vec<Value>>) -> Vec<String> {
-    memberships
-        .unwrap_or_default()
-        .iter()
-        .filter_map(|m| m.get("domain")?.as_str().map(str::to_string))
-        .collect()
-}
-
 pub fn authenticate_claims_header(header: Option<&str>) -> Option<Identity> {
-    let decoded = decode(header?)?;
-    let claims: GatewayClaims = serde_json::from_slice(&decoded).ok()?;
+    let claims = ClaimsPayload::decode(header?)?;
 
     Some(Identity {
-        account_id: claims.sub?,
-        account_name: claims.account_name?,
-        domains: domains_of(claims.memberships),
+        account_id: claims.user_id()?.to_string(),
+        account_name: claims.account()?.to_string(),
+        domains: claims.domains().map(str::to_string).collect(),
     })
 }
 
@@ -56,6 +27,8 @@ pub fn may_read_building(identity: &Identity, building_domains: &[String]) -> bo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
 
     fn encoded(payload: &str) -> String {
         STANDARD.encode(payload)

@@ -1,22 +1,13 @@
 use std::sync::Arc;
 
+use crate::adapters::metrics::add_provision_duration;
+use crate::adapters::topics::BUILDING_REGISTRATION_COMPLETED_TOPIC;
+use crate::service::provisioning::Provisioning;
 use futures::StreamExt;
 use rdkafka::ClientConfig;
 use rdkafka::Message;
 use rdkafka::consumer::{Consumer, StreamConsumer};
-use serde::Deserialize;
-
-use crate::adapters::metrics::add_provision_duration;
-use crate::adapters::topics::BUILDING_REGISTRATION_COMPLETED_TOPIC;
-use crate::service::provisioning::Provisioning;
-
-#[derive(Deserialize)]
-struct RegistrationCompleted {
-    #[serde(rename = "buildingId")]
-    building_id: String,
-    status: String,
-    error: Option<String>,
-}
+use twin_contracts::RegistrationCompleted;
 
 pub fn spawn(brokers: &str, provisioning: Arc<Provisioning>) -> tokio::task::JoinHandle<()> {
     let brokers = brokers.to_string();
@@ -58,10 +49,7 @@ pub fn spawn(brokers: &str, provisioning: Arc<Provisioning>) -> tokio::task::Joi
                 }
             };
 
-            let error = match event.status.as_str() {
-                "ready" => None,
-                _ => Some(event.error.unwrap_or_else(|| event.status.clone())),
-            };
+            let error = event.failure();
             match provisioning
                 .resolve(&event.building_id, error.as_deref())
                 .await

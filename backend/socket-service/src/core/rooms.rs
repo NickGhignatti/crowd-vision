@@ -1,10 +1,4 @@
-const TELEMETRY_CHANNEL_PREFIX: &str = "telemetry:filtered:";
-
-pub fn building_id_from_channel(channel: &str) -> &str {
-    channel
-        .strip_prefix(TELEMETRY_CHANNEL_PREFIX)
-        .unwrap_or(channel)
-}
+pub use telemetry_contracts::building_of_filtered_channel as building_id_from_channel;
 
 pub fn room_for_building(building_id: &str) -> String {
     format!("building:{building_id}")

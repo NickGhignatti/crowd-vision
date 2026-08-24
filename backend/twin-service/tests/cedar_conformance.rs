@@ -41,15 +41,17 @@ fn cedar_conformance_fixture_matches_every_golden_case() {
     for case in &fixture.cases {
         let claims = GatewayClaims {
             payload: ClaimsPayload {
-                sub: "caller".to_string(),
+                sub: Some("caller".to_string()),
                 memberships: case
                     .memberships
                     .iter()
                     .map(|m| Membership {
                         domain: m.domain.clone(),
                         role: Some(m.role.clone()),
+                        external_id: None,
                     })
                     .collect(),
+                ..ClaimsPayload::default()
             },
             raw: String::new(),
         };

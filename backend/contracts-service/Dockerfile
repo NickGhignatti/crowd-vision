@@ -11,6 +11,7 @@ ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 # ── capture the dependency graph ────────────────────────────────────────
 FROM chef AS planner
 COPY backend/telemetry-contracts /app/backend/telemetry-contracts
+COPY backend/claims-contracts /app/backend/claims-contracts
 COPY backend/contracts-service .
 RUN cargo chef prepare --recipe-path recipe.json
 
@@ -18,6 +19,7 @@ FROM chef AS dev
 RUN cargo install cargo-watch --locked
 COPY --from=planner /app/backend/contracts-service/recipe.json recipe.json
 COPY backend/telemetry-contracts /app/backend/telemetry-contracts
+COPY backend/claims-contracts /app/backend/claims-contracts
 RUN cargo chef cook --recipe-path recipe.json
 COPY backend/contracts-service .
 CMD ["cargo", "watch", "-x", "run"]
@@ -25,6 +27,7 @@ CMD ["cargo", "watch", "-x", "run"]
 FROM chef AS builder
 COPY --from=planner /app/backend/contracts-service/recipe.json recipe.json
 COPY backend/telemetry-contracts /app/backend/telemetry-contracts
+COPY backend/claims-contracts /app/backend/claims-contracts
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY backend/contracts-service .
 RUN cargo build --release

@@ -2,7 +2,8 @@ mod support;
 
 use futures::StreamExt;
 use serde_json::json;
-use telemetry_service::adapters::driven::redis_fanout::{RAW_CHANNEL, RedisFanout};
+use telemetry_contracts::RAW_CHANNEL;
+use telemetry_service::adapters::driven::redis_fanout::RedisFanout;
 use telemetry_service::contracts::event::TelemetryEvent;
 use telemetry_service::kernel::ports::Fanout;
 

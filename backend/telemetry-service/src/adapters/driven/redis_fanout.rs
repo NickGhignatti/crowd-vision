@@ -5,9 +5,8 @@ use crate::kernel::ports::Fanout;
 use async_trait::async_trait;
 use redis::AsyncCommands;
 use redis::aio::MultiplexedConnection;
-use serde_json::{Map, Value, json};
-
-pub const RAW_CHANNEL: &str = "telemetry:raw";
+use serde_json::Value;
+use telemetry_contracts::{RAW_CHANNEL, TelemetryEnvelope, TelemetryReading};
 
 pub struct RedisFanout {
     connection: MultiplexedConnection,
@@ -38,35 +37,36 @@ impl RedisFanout {
 }
 
 fn telemetry_json(event: &TelemetryEvent) -> Value {
-    let mut body = Map::new();
-    body.insert("type".to_owned(), json!(event.metric));
-    body.insert("buildingId".to_owned(), json!(event.building_id));
-    body.insert("roomId".to_owned(), json!(event.room_id));
-    body.insert("timestamp".to_owned(), json!(event.ts_ms));
-    body.insert("value".to_owned(), json!(event.value));
-    for (key, value) in &event.payload {
-        if !ENVELOPE_FIELDS.contains(&key.as_str()) {
-            body.insert(key.clone(), value.clone());
-        }
-    }
-    body.insert("ingestedAt".to_owned(), json!(event.ingested_at_ms));
-    Value::Object(body)
+    let reading = TelemetryReading {
+        metric: event.metric.clone(),
+        building_id: event.building_id.clone(),
+        room_id: event.room_id.clone(),
+        ts_ms: event.ts_ms,
+        value: event.value,
+        ingested_at_ms: event.ingested_at_ms,
+        fields: event
+            .payload
+            .iter()
+            .filter(|(key, _)| !ENVELOPE_FIELDS.contains(&key.as_str()))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect(),
+    };
+    serde_json::to_value(reading).expect("a reading always serialises")
 }
 
 fn telemetry_batch_json(events: &[TelemetryEvent]) -> Value {
-    let building_id = events
-        .first()
-        .map(|event| event.building_id.clone())
-        .unwrap_or_default();
-    let ingested_at = events
-        .first()
-        .map(|event| event.ingested_at_ms)
-        .unwrap_or(0);
-    json!({
-        "buildingId": building_id,
-        "ingestedAt": ingested_at,
-        "readings": events.iter().map(telemetry_json).collect::<Vec<_>>(),
-    })
+    let envelope = TelemetryEnvelope {
+        building_id: events
+            .first()
+            .map(|event| event.building_id.clone())
+            .unwrap_or_default(),
+        ingested_at_ms: events
+            .first()
+            .map(|event| event.ingested_at_ms)
+            .unwrap_or(0),
+        readings: events.iter().map(telemetry_json).collect(),
+    };
+    serde_json::to_value(envelope).expect("an envelope always serialises")
 }
 
 #[async_trait]
@@ -85,6 +85,7 @@ impl Fanout for RedisFanout {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     fn event(metric: &str, value: f64, payload: Value) -> TelemetryEvent {
         TelemetryEvent {

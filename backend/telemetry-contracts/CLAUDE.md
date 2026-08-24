@@ -1,7 +1,14 @@
 # telemetry-contracts
 
-Wire types for the metric catalog, shared by `telemetry-service` (produces) and
-`contracts-service` (parses). Path dependency, embedded not deployed.
+Wire types shared between telemetry-service and its consumers. Path dependency, embedded not
+deployed. Two contracts, one crate:
+
+- `lib.rs` — metric catalog: `telemetry-service` `/contracts` produces, `contracts-service` parses.
+- `alerts.rs` — the `alerts` Kafka topic (and `ALERTS_TOPIC` / `ALERTS_DLQ_TOPIC`):
+  `telemetry-service` produces, `notification-service` consumes.
+- `telemetry.rs` — the Redis fan-out envelope and both channel names: `telemetry-service`
+  publishes on `telemetry:raw`, `contracts-service` republishes on `telemetry:filtered:{id}`,
+  `socket-service` reads the building back out of that name.
 
 ## Rules
 
@@ -21,5 +28,52 @@ Both build from **repo-root context** so the sibling path dep resolves —
 |---|---|
 | `telemetry-service` | `controllers::contracts` returns `ServiceMetricsContract` |
 | `contracts-service` | `models.rs` re-exports; `api/dashboard.rs` parses `MetricsDiscoveryResponse` |
+| `notification-service` | `service/alerts.rs` parses `AlertEvent`; `domain/notification.rs` renders it |
+| `socket-service` | `core/rooms.rs` re-exports `building_of_filtered_channel`; `shell/server.rs` psubscribes `FILTERED_CHANNEL_PATTERN` |
 
 Seam test: `telemetry-service/tests/api.rs::the_catalog_deserialises_into_the_shape_contracts_service_parses`.
+
+## AlertEvent
+
+Hand-written `Serialize`/`Deserialize`, not derives, because the wire shape puts the reading
+under a key named after its own metric:
+
+```json
+{"buildingId":"b1","roomId":"r1","temperature":40.0,"type":"temperature",
+ "direction":"high","threshold":25.0,"timestamp":1700000000000}
+```
+
+`type` is the metric; the value is under `<metric>`. A `type` naming a key the object does not
+carry is a parse error, not a `None`. Every field is required — the producer always sets all of
+them, so a missing one means a malformed record, which the consumer parks in the DLQ rather
+than delivering as a half-rendered notification.
+
+Keep the shape as it is unless both services ship together: this exact JSON is what sits in
+Kafka during a rollout.
+
+**Every metric's breaches reach the topic; only `temperature` has a delivery path.**
+notification-service answers `BreachOutcome::Unsupported` for anything else — logged, counted
+`unsupported_metric`, settled, not parked. Adding a metric is a match arm plus a message
+template, not archaeology.
+
+## TelemetryEnvelope
+
+```json
+{"buildingId":"b1","ingestedAt":1700000000500,
+ "readings":[{"type":"temperature","buildingId":"b1","roomId":"r1",
+              "timestamp":1700000000000,"value":21.5,"ingestedAt":1700000000500,
+              "...plugin fields":"flattened in"}]}
+```
+
+`readings` is `Vec<Value>` on the envelope on purpose: a reading's fields belong to the plugin
+that produced it, and this crate has no business enumerating them. `TelemetryReading` types the
+part that *is* fixed — the six names the browser reads — and flattens the rest, so it round-trips
+whatever a plugin emitted.
+
+**contracts-service parses the envelope to route it, then republishes the bytes it received.**
+It never re-serialises: routing is a decision about `buildingId`, not a licence to rebuild a
+payload it does not own.
+
+`ingestedAt` is **required**. It was optional before (used only for the fan-out latency metric,
+skipped when absent); one service produces this envelope and always sets it, so a missing one
+means a broken publisher, and forwarding a broken tick is the failure this crate exists to stop.

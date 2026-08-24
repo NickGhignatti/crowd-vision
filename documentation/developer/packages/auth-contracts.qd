@@ -148,16 +148,16 @@ func Can(principalRole, requiredRole string) bool {
 
 ## 3. The conformance fixture — a drift detector for the shape itself
 
-**Files:** `conformance_test.go`, `fixtures/standard-claims.json`
+**Files:** `conformance_test.go`, `../contracts-fixtures/standard-claims.json`
 
 ```go
-// TestFixtureConforms asserts fixtures/standard-claims.json unmarshals cleanly
+// TestFixtureConforms asserts the shared fixture unmarshals cleanly
 // into StandardClaims with every required field populated. This is the drift
 // detector: any consumer (Go today, others later) asserts against the same
 // fixture file, so a shape change that breaks a consumer fails here first,
 // not in a production cookie.
 func TestFixtureConforms(t *testing.T) {
-	raw, _ := os.ReadFile("fixtures/standard-claims.json")
+	raw, _ := os.ReadFile("../contracts-fixtures/standard-claims.json")
 	var claims StandardClaims
 	if err := json.Unmarshal(raw, &claims); err != nil {
 		t.Fatalf("fixture does not conform to StandardClaims: %v", err)
@@ -167,4 +167,55 @@ func TestFixtureConforms(t *testing.T) {
 }
 ```
 
-This is narrower than [Auth Policy](auth-policy.qd)'s cross-language conformance suite — today only this package's own Go test reads `fixtures/standard-claims.json`. Its purpose is to catch a `StandardClaims` field rename or removal against a realistic example token, before that change reaches `auth-middleware`'s decoder or `claims-gateway`'s signer.
+The fixture lives in `backend/contracts-fixtures/`, outside this module, because it is no longer only Go's: [Claims Contracts](claims-contracts.qd) (Rust) and `agent-service` (Python) assert the same file from their own decoders. A `StandardClaims` field rename or removal fails in all three languages at once, before it reaches `auth-middleware`'s decoder or `claims-gateway`'s signer.
+
+
+---
+
+## 4. `X-Signature` — the internal service-to-service credential
+
+**File:** `internalsig.go`
+
+Control-plane calls carry no end user, so there is no `x-gateway-claims` to forward — `provisioner` reconciling a pending organization is not acting for anybody. Those hops authenticate the *caller itself* with an HMAC over the exact request body:
+
+```go
+const SignatureHeader = "X-Signature"
+
+// Sign is the internal service-to-service convention: lowercase hex of
+// HMAC-SHA256 over the exact request body, empty body included.
+func Sign(secret, body []byte) string {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func Verify(secret, body []byte, signature string) bool {
+	return hmac.Equal([]byte(signature), []byte(Sign(secret, body)))
+}
+```
+
+`RequireSignature(secret)` is the verifying middleware. It reads the body once and puts it back on the request, so handlers behind it still see their payload:
+
+```go
+body, err := io.ReadAll(r.Body)
+// ...
+r.Body = io.NopCloser(bytes.NewReader(body))
+
+if !Verify(secret, body, signature) {
+	http.Error(w, "invalid signature", http.StatusForbidden)
+	return
+}
+```
+
+Six implementations of this one convention used to exist — two byte-identical verifying middlewares (`registry-service`, `tenancy-service`), three inline signers (`provisioner` × 2, `claims-gateway`), and `telemetry-service`'s Rust one. The five Go copies are now this package:
+
+| Caller | Callee | Signs with |
+|---|---|---|
+| `provisioner` | `registry-service` `/internal/organizations/*` | `authcontracts.Sign` |
+| `provisioner` | `tenancy-service` `/internal/domains` | `authcontracts.Sign` |
+| `claims-gateway` | `tenancy-service` `/internal/memberships`, `/internal/provision` | `authcontracts.Sign` |
+
+.callout {note}
+    **Why this lives in `auth-contracts` and not `auth-middleware`.** `registry-service` and `provisioner` need the convention but not JWT verification. Putting it in `auth-middleware` would drag `jwt`, `keyfunc` and `jwkset` into two modules that never verify a token; this package stays stdlib-only, so they gain one local `replace` and nothing else.
+
+`telemetry-service`'s ingest verifier stays a separate Rust implementation — it guards a device-facing endpoint with its own key (`TELEMETRY_INGEST_SECRET`), and a Go package cannot be imported into it anyway. What keeps the two honest is `backend/contracts-fixtures/internal-signature.json`: golden `(secret, body, signature)` vectors that `internalsig_test.go` and `telemetry-service`'s `ingest_auth.rs` both assert. A change to the algorithm on either side fails on both.
