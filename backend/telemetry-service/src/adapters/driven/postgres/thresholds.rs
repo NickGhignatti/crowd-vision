@@ -1,8 +1,10 @@
+use crate::contracts::threshold;
 use crate::contracts::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use crate::kernel::ports::ThresholdStore;
 use async_trait::async_trait;
 use serde_json::Value;
 use sqlx::{PgPool, Row};
+use std::collections::HashMap;
 
 pub struct PgThresholds {
     pool: PgPool,
@@ -23,20 +25,43 @@ impl ThresholdStore for PgThresholds {
     async fn resolve(
         &self,
         building_id: &str,
-        metric: &str,
-        room_id: &str,
-    ) -> anyhow::Result<Option<Bounds>> {
-        let row: Option<Value> = sqlx::query_scalar(
-            "select bounds from thresholds
-             where building_id = $1 and metric = $2 and (room_id = $3 or room_id is null)
-             order by room_id nulls last limit 1",
+        keys: &[(&str, &str)],
+    ) -> anyhow::Result<Vec<Option<Bounds>>> {
+        if keys.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let metrics: Vec<&str> = keys.iter().map(|(metric, _)| *metric).collect();
+        let rooms: Vec<&str> = keys.iter().map(|(_, room_id)| *room_id).collect();
+        let rows = sqlx::query(
+            "select metric, room_id, bounds from thresholds
+             where building_id = $1 and metric = any($2)
+               and (room_id is null or room_id = any($3))",
         )
         .bind(building_id)
-        .bind(metric)
-        .bind(room_id)
-        .fetch_optional(&self.pool)
+        .bind(&metrics)
+        .bind(&rooms)
+        .fetch_all(&self.pool)
         .await?;
-        Ok(row.map(as_bounds))
+
+        let mut scoped: HashMap<(String, Option<String>), Bounds> = HashMap::new();
+        for row in rows {
+            scoped.insert(
+                (row.get("metric"), row.get("room_id")),
+                as_bounds(row.get("bounds")),
+            );
+        }
+
+        Ok(keys
+            .iter()
+            .map(|(metric, room_id)| {
+                threshold::resolve(
+                    scoped.get(&((*metric).to_owned(), Some((*room_id).to_owned()))),
+                    scoped.get(&((*metric).to_owned(), None)),
+                )
+                .cloned()
+            })
+            .collect())
     }
 
     async fn building_bounds(

@@ -270,19 +270,16 @@ async fn a_room_threshold_and_a_building_threshold_coexist_and_room_wins() {
         .await
         .unwrap();
 
-    let room = thresholds
-        .resolve("b1", "temperature", "r1")
+    let resolved = thresholds
+        .resolve("b1", &[("temperature", "r1"), ("temperature", "r9")])
         .await
-        .unwrap()
         .unwrap();
-    assert_eq!(room["maxTemp"], 30.0);
-
-    let other_room = thresholds
-        .resolve("b1", "temperature", "r9")
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(other_room["maxTemp"], 25.0);
+    assert_eq!(resolved[0].as_ref().unwrap()["maxTemp"], 30.0);
+    assert_eq!(
+        resolved[1].as_ref().unwrap()["maxTemp"],
+        25.0,
+        "a room without its own row falls back to the building row"
+    );
 
     let building = thresholds
         .building_bounds("b1", "temperature")

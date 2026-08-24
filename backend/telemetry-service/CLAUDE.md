@@ -67,10 +67,13 @@ the envelope level shadows it. `contracts-service::resolve_channel` keys the cha
 `buildingId` alone and gates on `readings` being an array; socket-service relays opaquely.
 Frontend `stores/sensorData.ts` walks `readings`.
 
-`ReadingStore::insert` and `Fanout::publish_telemetry` both take slices — one implementation
-each, no single/batch pair to drift. `PgReadings::insert` is a `QueryBuilder::push_values` bulk
-insert, the hop where batching actually pays. The threshold lookups overlap the write via
-`tokio::join!`; alerts and fan-out both wait for it to commit.
+`ReadingStore::insert`, `ThresholdStore::resolve` and `Fanout::publish_telemetry` all take
+slices — one implementation each, no single/batch pair to drift. `PgReadings::insert` is a
+`QueryBuilder::push_values` bulk insert, the hop where batching actually pays.
+`PgThresholds::resolve` is one `metric = any / room_id = any` query per tick, room-over-building
+picked in memory by `contracts::threshold::resolve`. The threshold lookup overlaps the write via
+`tokio::join!`; alerts and fan-out both wait for it to commit. A failed lookup is logged and skips
+breach evaluation for the tick — the readings still land.
 
 ## Breach alerts
 

@@ -46,16 +46,20 @@ impl Ingest {
             return Err(DomainError::Validation(errors.join(" ")));
         }
 
+        let keys: Vec<(&str, &str)> = readings
+            .iter()
+            .map(|reading| (reading.metric.as_str(), reading.room_id.as_str()))
+            .collect();
         let (inserted, resolved) = tokio::join!(
             self.readings.insert(&readings),
-            futures::future::join_all(readings.iter().map(|reading| self.thresholds.resolve(
-                &reading.building_id,
-                &reading.metric,
-                &reading.room_id
-            ))),
+            self.thresholds.resolve(building_id, &keys),
         );
         inserted?;
 
+        let resolved = resolved.unwrap_or_else(|error| {
+            log::error!("threshold evaluation failed: {error}");
+            Vec::new()
+        });
         for (reading, bounds) in readings.iter().zip(resolved) {
             self.raise_breach(reading, bounds).await;
         }
@@ -105,27 +109,24 @@ impl Ingest {
             .map_err(|messages| messages.join(" "))
     }
 
-    async fn raise_breach(&self, reading: &Reading, resolved: anyhow::Result<Option<Bounds>>) {
+    async fn raise_breach(&self, reading: &Reading, resolved: Option<Bounds>) {
         let Some(plugin) = self.registry.get(&reading.metric) else {
             return;
         };
-        match resolved {
-            Ok(Some(bounds)) => {
-                if let Some(breach) = breach(plugin.bounds(), &bounds, reading.value) {
-                    let alert = AlertPayload {
-                        metric: reading.metric.clone(),
-                        building_id: reading.building_id.clone(),
-                        room_id: reading.room_id.clone(),
-                        value: reading.value,
-                        direction: breach.direction,
-                        threshold: breach.threshold,
-                        ts_ms: self.clock.now_ms(),
-                    };
-                    self.alerts.publish_breach(&alert).await;
-                }
-            }
-            Ok(None) => {}
-            Err(error) => log::error!("threshold evaluation failed: {error}"),
+        let Some(bounds) = resolved else {
+            return;
+        };
+        if let Some(breach) = breach(plugin.bounds(), &bounds, reading.value) {
+            let alert = AlertPayload {
+                metric: reading.metric.clone(),
+                building_id: reading.building_id.clone(),
+                room_id: reading.room_id.clone(),
+                value: reading.value,
+                direction: breach.direction,
+                threshold: breach.threshold,
+                ts_ms: self.clock.now_ms(),
+            };
+            self.alerts.publish_breach(&alert).await;
         }
     }
 }
