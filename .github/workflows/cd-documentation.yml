@@ -7,6 +7,8 @@ on:
       - master
     paths:
       - "documentation/**"
+      - "api/**"
+      - "just/docs.just"
 
 permissions:
   contents: write
@@ -38,11 +40,13 @@ jobs:
 
       - uses: quarkdown-labs/setup-quarkdown@7f1c7a66fd944e1717778356590e57469a525ca4
 
-      - name: Build user docs
-        run: quarkdown c documentation/user/main.qd --out landing-page/user
+      - name: Install just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
 
-      - name: Build dev docs
-        run: quarkdown c documentation/developer/main.qd --out landing-page/dev
+      # One definition of the build, in just/docs.just. Re-listing the steps here
+      # is how the portal and the OpenAPI specs silently stop being published.
+      - name: Build site
+        run: just docs build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453

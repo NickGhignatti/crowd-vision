@@ -25,10 +25,9 @@ graphify-out/
 # Compose runtime file
 compose.runtime.yml
 compose.integration-tests.runtime.yml
-# Documentation
-landing-page/user
-landing-page/dev
-landing-page/reports
+# Documentation — landing-page/ is entirely build output (just docs build).
+# Its sources live in documentation/ and api/.
+landing-page/
 output/
 # Build artifacts
 .moon/cache

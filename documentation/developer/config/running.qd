@@ -311,11 +311,11 @@ mise exec -- moon run :audit --affected
     - - `just setup clean-install`
       - Wipe all node_modules + lockfiles and regenerate them for Linux, then reinstall.
     - - `just docs build`
-      - Compile both Quarkdown guides to `landing-page/{user,dev}` (mirrors CI).
+      - Build the whole published site into `landing-page/`: both Quarkdown guides, the portal page, and the OpenAPI specs. CI runs this same recipe, so there is one definition of the build.
     - - `just docs preview [dir=...]`
       - Quarkdown live-reloading server for one guide while editing.
     - - `just docs serve`
-      - Build both guides, then live-serve the whole `landing-page/` site at `:8080`\.
+      - Build the site, then live-serve the whole `landing-page/` site at `:8080`\.
 
 ---
 

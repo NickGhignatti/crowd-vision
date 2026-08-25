@@ -12,6 +12,10 @@ Docs are the source of truth for architecture: `documentation/{user,developer}/*
 (Quarkdown, `just docs build`, published at https://nickghignatti.github.io/crowd-vision/).
 Read the matching `.qd` page before any non-trivial change; update it in the same change.
 
+Published-site sources: `documentation/**.qd` (guides), `documentation/site/index.html`
+(portal), `api/*.yaml` (OpenAPI, with `api/index.html` as their Swagger viewer).
+`landing-page/` is **build output only** — gitignored, never edit or commit anything there.
+
 ## Repository shape
 
 Polyglot monorepo. No root `package.json`, no workspaces — every package installs its own
@@ -58,7 +62,7 @@ just test <svc>-integration   # throwaway DB/broker, composed, then torn down
 just test integration    # full backend acceptance suite
 just setup deps-check    # lockfile sync gate (mirrors ci-deps)
 just setup audit         # npm/uv/cargo audit (mirrors ci-audit)
-just docs build          # Quarkdown → landing-page/{user,dev}
+just docs build          # guides + portal + api specs → landing-page/ (all generated)
 just db clear            # drop chat/twin/notification/agent DBs
 just k8s create          # local k3d + Istio ambient
 ```
