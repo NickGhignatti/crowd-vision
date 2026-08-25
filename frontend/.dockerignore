@@ -1,0 +1,26 @@
+# Build context for `context: .` builds (docker-compose.yml, ci-docker).
+# The image runs `npm install` itself, so nothing installed on the host belongs here -
+# a host node_modules is 437MB of the wrong platform's binaries.
+node_modules
+dist
+coverage
+
+# Test output and suites: the image only builds, it never runs them.
+e2e
+test-results
+playwright-report
+__screenshots__
+
+# Recipes and docs, never read by `npm run build`.
+Dockerfile
+docker-compose*.yml
+.dockerignore
+README.md
+_webgpu-*
+
+# Local-only
+.vscode
+*.local
+.env
+.env.*
+*.log
