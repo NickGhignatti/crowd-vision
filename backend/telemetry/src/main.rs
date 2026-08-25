@@ -7,6 +7,7 @@ use telemetry::adapters::driven::redis_fanout::RedisFanout;
 use telemetry::adapters::driven::threshold_cache::CachedThresholds;
 use telemetry::adapters::driven::twin_directory::TwinDirectory;
 use telemetry::adapters::driving::kafka_consumer;
+use telemetry::adapters::health::probe_exit_code;
 use telemetry::adapters::ingest_auth::IngestKey;
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::ingest::Ingest;
@@ -33,6 +34,13 @@ fn env_or(key: &str, fallback: &str) -> String {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
+
+    // `telemetry --health` is the container healthcheck: the image carries no shell and
+    // no probe binary, so the service probes itself. Runs before any connection is
+    // opened - a probe must not need the database to answer.
+    if let Some(code) = probe_exit_code(&env_or("PORT", "3000")).await {
+        std::process::exit(code);
+    }
 
     let database_url = std::env::var("DATABASE_URL")?;
     let ingest_key = IngestKey::new(&std::env::var("TELEMETRY_INGEST_SECRET")?)?;

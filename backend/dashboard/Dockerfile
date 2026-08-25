@@ -32,16 +32,11 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY backend/dashboard .
 RUN cargo build --release
 
-FROM debian:bookworm-slim AS production
-# Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
-# hadolint ignore=DL3005
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
+FROM gcr.io/distroless/cc-debian12:nonroot AS production
+# Distroless: no shell, no package manager, patched upstream - so the cd-registry Trivy
+# scan needs no apt-get upgrade step here. ca-certificates and libssl ship in the base
+# image; zlib does not.
 COPY --from=builder /app/backend/dashboard/target/release/dashboard /usr/local/bin/dashboard
 
 EXPOSE 3000
-CMD ["dashboard"]
+CMD ["/usr/local/bin/dashboard"]

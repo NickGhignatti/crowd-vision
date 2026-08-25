@@ -15,7 +15,7 @@ services:
       - PORT=3000
       - RUST_LOG=info
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      test: ["CMD", "/usr/local/bin/telemetry", "--health"]
       interval: 30s
       timeout: 5s
       retries: 3

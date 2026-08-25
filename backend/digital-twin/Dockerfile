@@ -39,16 +39,12 @@ COPY backend/libs/auth-contracts /app/backend/libs/auth-contracts
 COPY backend/digital-twin .
 RUN cargo build --release
 
-FROM debian:bookworm-slim AS production
-# Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
-# hadolint ignore=DL3005
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
+FROM gcr.io/distroless/cc-debian12:nonroot AS production
+# Distroless: no shell, no package manager, patched upstream - so the cd-registry Trivy
+# scan needs no apt-get upgrade step here. ca-certificates and libssl ship in the base
+# image; zlib does not.
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libz.so.1 /usr/lib/x86_64-linux-gnu/libz.so.1
 COPY --from=builder /app/backend/digital-twin/target/release/digital-twin /usr/local/bin/digital-twin
 
 EXPOSE 3000
-CMD ["digital-twin"]
+CMD ["/usr/local/bin/digital-twin"]

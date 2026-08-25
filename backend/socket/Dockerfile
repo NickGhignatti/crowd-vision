@@ -41,17 +41,13 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY backend/socket .
 RUN cargo build --release
 
-FROM debian:bookworm-slim AS production
-# Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
-# curl is the compose healthcheck probe; kubernetes uses its own httpGet probe instead.
-# hadolint ignore=DL3005
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
+FROM gcr.io/distroless/cc-debian12:nonroot AS production
+# Distroless: no shell, no package manager, patched upstream - so the cd-registry Trivy
+# scan needs no apt-get upgrade step here. The healthcheck runs `socket --health`, which
+# probes /health in-process, so the image needs no probe binary either.
+# ca-certificates and libssl ship in the base image; zlib does not.
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libz.so.1 /usr/lib/x86_64-linux-gnu/libz.so.1
 COPY --from=builder /app/backend/socket/target/release/socket /usr/local/bin/socket
 
 EXPOSE 3000
-CMD ["socket"]
+CMD ["/usr/local/bin/socket"]
