@@ -15,6 +15,8 @@ Read the matching `.qd` page before any non-trivial change; update it in the sam
 Published-site sources: `documentation/**.qd` (guides), `documentation/site/index.html`
 (portal), `api/*.yaml` (OpenAPI, with `api/index.html` as their Swagger viewer).
 `landing-page/` is **build output only** — gitignored, never edit or commit anything there.
+A new `.qd` page must be added to its guide's `_nav.qd`, and a new `api/*.yaml` to the
+portal, or it publishes unreachable — `just docs build` fails on either.
 
 ## Repository shape
 

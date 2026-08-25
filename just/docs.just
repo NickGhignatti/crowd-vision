@@ -12,6 +12,7 @@ default:
 # published site the way duplicated workflow steps would.
 [doc("Build the whole landing-page/ site: Quarkdown guides + portal + OpenAPI specs.")]
 build:
+    sh scripts/check-docs-links.sh
     quarkdown c documentation/user/main.qd --out landing-page/user
     quarkdown c documentation/developer/main.qd --out landing-page/dev
     mkdir -p landing-page/api

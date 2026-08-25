@@ -311,11 +311,14 @@ mise exec -- moon run :audit --affected
     - - `just setup clean-install`
       - Wipe all node_modules + lockfiles and regenerate them for Linux, then reinstall.
     - - `just docs build`
-      - Build the whole published site into `landing-page/`: both Quarkdown guides, the portal page, and the OpenAPI specs. CI runs this same recipe, so there is one definition of the build.
+      - Build the whole published site into `landing-page/`: both Quarkdown guides, the portal page, and the OpenAPI specs. CI runs this same recipe, so there is one definition of the build. Refuses to build if a spec or a guide page would publish unreachable — see the box below.
     - - `just docs preview [dir=...]`
       - Quarkdown live-reloading server for one guide while editing.
     - - `just docs serve`
       - Build the site, then live-serve the whole `landing-page/` site at `:8080`\.
+
+.box {The site's two navigation lists are hand-maintained} type:{note}
+    A new `.qd` page is **not** picked up by its guide's sidebar, and a new `api/*.yaml` is **not** linked from the portal — both lists are written by hand (`documentation/{user,developer}/_nav.qd`, `documentation/site/index.html`). Miss one and the file still compiles and still publishes; it is simply unreachable from the site, with a green build. `scripts/check-docs-links.sh` runs first in `just docs build` and fails the build instead.
 
 ---
 
