@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/building.schema.json",
+  "title": "Building",
+  "description": "digital-twin's building payload. Read by agent (Python) and the frontend (TypeScript), neither of which can share twin's Rust type.",
+  "type": "object",
+  "required": ["id", "name", "rooms", "domains"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "domains": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "rooms": { "type": "array", "items": { "$ref": "#/$defs/room" } }
+  },
+  "$defs": {
+    "room": {
+      "type": "object",
+      "required": ["id", "name", "capacity", "position", "dimensions"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "capacity": { "type": "number", "minimum": 0 },
+        "position": { "$ref": "#/$defs/coordinates" },
+        "dimensions": { "$ref": "#/$defs/dimensions" },
+        "color": { "type": "string", "description": "Optional. Absent means the client picks." }
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "required": ["x", "y", "z"],
+      "additionalProperties": false,
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } }
+    },
+    "dimensions": {
+      "type": "object",
+      "required": ["width", "height", "depth"],
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "depth": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}

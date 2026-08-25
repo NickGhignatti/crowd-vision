@@ -27,7 +27,7 @@ There is no central session store and no per-request call back to an identity au
       - `claims-gateway` verifies the user once, mints a signed token; the mesh (Istio `RequestAuthentication` in k8s, Caddy `forward_auth` in compose) verifies it once more at the edge and injects the verified claims as one header. Every service downstream decodes that header instead of re-verifying a JWT, and if it calls another service, it forwards the **same header unchanged** — mTLS already authenticates the network hop itself, so the header only needs to carry *who the original caller was*, not prove the hop is legitimate.
     - - HMAC `X-Signature`, shared secret
       - The call is **control-plane, backend-only**, with no end user in the loop (organization provisioning).
-      - Caller computes `HMAC-SHA256(sharedSecret, requestBody)`, sends it as `X-Signature`; callee recomputes and compares in constant time. There is no user identity to forward — this authenticates the *calling service itself*. Both halves are one implementation: `authcontracts.Sign` and `authcontracts.RequireSignature` in [Auth Contracts](../packages/auth-contracts.qd), asserted against golden vectors that `telemetry-service`'s independent Rust verifier asserts too.
+      - Caller computes `HMAC-SHA256(sharedSecret, requestBody)`, sends it as `X-Signature`; callee recomputes and compares in constant time. There is no user identity to forward — this authenticates the *calling service itself*. Both halves are one implementation: `authcontracts.Sign` and `authcontracts.RequireSignature` in [Auth Contracts](../packages/auth-contracts.qd), asserted against golden vectors that `telemetry`'s independent Rust verifier asserts too.
 
 Both patterns exist for the same reason: nobody re-implements JWT verification or invents a second signing scheme per pair of services. Every mesh-claims consumer and every HMAC consumer reuses one shared convention, respectively — see [Identity & Tenancy Architecture](auth-architecture.qd) and [Service Mesh Architecture](service-mesh.qd) for the full verification mechanics.
 
@@ -50,55 +50,55 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
    - Purpose
 
 .tablebyrows {.headers}
-    - - twin-service → telemetry-service
+    - - digital-twin → telemetry
       - `PUT /thresholds/buildings/{id}`
       - `x-gateway-claims` forwarded
       - On a *later* building/room edit, push an updated threshold baseline. Not used for registration — that goes over Kafka instead (see *Asynchronous Communication* below).
-    - - twin-service → telemetry-service
+    - - digital-twin → telemetry
       - `PATCH /thresholds/peopleCount/buildings/{id}/rooms/{id}`
       - `x-gateway-claims` forwarded
       - Seed a new room's people-count threshold.
-    - - twin-service → contracts-service
+    - - digital-twin → dashboard
       - `POST /preferences/init/{buildingId}`
       - **None**
       - Best-effort seed of a new building's default display preferences; failure is logged, never surfaced to the caller.
-    - - notification-service → twin-service
+    - - notification → digital-twin
       - `GET /domain/{buildingName}`
       - `x-gateway-claims` forwarded if present
       - Resolve which domain(s) a building belongs to, to select alert recipients.
-    - - contracts-service → telemetry-service / twin-service
+    - - dashboard → telemetry / digital-twin
       - `GET /contracts` (target from `*_METRICS_URL` env, not hardcoded)
       - **None**
       - Discover each service's self-describing metric catalog.
-    - - chat-service → agent-service
+    - - chat → agent
       - `POST /ask`
       - `x-gateway-claims` forwarded
       - Forward a user's chat message to the assistant, under the user's own identity.
-    - - agent-service → twin-service
+    - - agent → digital-twin
       - `GET /buildings/{domain}`
       - `x-gateway-claims` forwarded
       - Tool call: read live building data to answer a question.
-    - - agent-service → telemetry-service
+    - - agent → telemetry
       - `GET /{metric}/latest`, `/{metric}/entireBuilding`, `/{metric}/dashboard`, `/sensors/buildings/{id}[/rooms/{id}]`
       - `x-gateway-claims` forwarded
       - Tool calls: read live sensor readings to answer a question.
-    - - claims-gateway → tenancy-service
+    - - claims-gateway → tenancy
       - `POST /internal/provision`
       - HMAC `X-Signature`
       - Once per login (never per request): first-login-provision the caller's membership from their verified IdP claim.
-    - - claims-gateway → tenancy-service
+    - - claims-gateway → tenancy
       - `GET /internal/memberships`
       - HMAC `X-Signature`
       - Resolve the caller's existing memberships before minting the internal token.
-    - - provisioner → registry-service
+    - - provisioner → registry
       - `GET /internal/organizations/pending`
       - HMAC `X-Signature`
       - Reconcile loop: list organizations awaiting provisioning.
-    - - provisioner → registry-service
+    - - provisioner → registry
       - `POST /internal/organizations/{id}/status`
       - HMAC `X-Signature`
       - Report an organization back to `ready`/`failed`.
-    - - provisioner → tenancy-service
+    - - provisioner → tenancy
       - `POST /internal/domains`
       - HMAC `X-Signature`
       - Create the tenancy domain for a newly-approved organization (idempotent — tolerates `409` as success).
@@ -106,14 +106,14 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
 These calls are intentionally few. The design keeps the request path short and avoids synchronous chains on the hot path; anything high-frequency goes over the broker instead.
 
 .box {One outbound call carries no auth — by design, not by omission} type:{note}
-    `contracts-service`'s own outbound discovery calls send no header of any kind: they only *read* a metric catalog from `twin-service` and `telemetry-service`'s public `/contracts` endpoints, with no sensitive side effect for an unauthenticated caller to exploit. Every call that reads or writes something a specific user's authorization should gate carries `x-gateway-claims` — including the `twin-service → contracts-service` preferences-init call, which forwards the building creator's claims verbatim, the same as twin's other outbound calls. `contracts-service` now requires that header on all of its own inbound user-facing routes (dashboard schema and preferences), so those are no longer reachable anonymously.
+    `dashboard`'s own outbound discovery calls send no header of any kind: they only *read* a metric catalog from `digital-twin` and `telemetry`'s public `/contracts` endpoints, with no sensitive side effect for an unauthenticated caller to exploit. Every call that reads or writes something a specific user's authorization should gate carries `x-gateway-claims` — including the `digital-twin → dashboard` preferences-init call, which forwards the building creator's claims verbatim, the same as twin's other outbound calls. `dashboard` now requires that header on all of its own inbound user-facing routes (dashboard schema and preferences), so those are no longer reachable anonymously.
 
-.box {registry-service and tenancy-service never call out} type:{tip}
+.box {registry and tenancy never call out} type:{tip}
     Both are pure receivers of the calls above — neither has an outbound HTTP client for any peer service. Only `claims-gateway` talks to Keycloak (Admin API for user management, OIDC endpoints for token exchange/verification); no other service holds Keycloak credentials or configuration.
 
 ### Device Ingestion
 
-`POST /ingest` on `telemetry-service` — no user token (a sensor gateway has none to present), so it is exempt from the gateway's auth gate and carries its own credential instead: `X-Signature`, an HMAC-SHA256 over the raw body keyed by `TELEMETRY_INGEST_SECRET` — the same `X-Signature` scheme as the control-plane hops above, but a separate key, since this one leaves the mesh and lives on customer premises. Unsigned or mis-signed requests are `401` before any work. The endpoint validates, persists and evaluates thresholds before answering `202 Accepted`, so a `202` means the reading is durable and queryable.
+`POST /ingest` on `telemetry` — no user token (a sensor gateway has none to present), so it is exempt from the gateway's auth gate and carries its own credential instead: `X-Signature`, an HMAC-SHA256 over the raw body keyed by `TELEMETRY_INGEST_SECRET` — the same `X-Signature` scheme as the control-plane hops above, but a separate key, since this one leaves the mesh and lives on customer premises. Unsigned or mis-signed requests are `401` before any work. The endpoint validates, persists and evaluates thresholds before answering `202 Accepted`, so a `202` means the reading is durable and queryable.
 
 ---
 
@@ -129,34 +129,34 @@ Redis is the publish/subscribe backbone for everything high-frequency and fire-a
 
 .tablebyrows {.headers}
     - - `telemetry:raw` (pub/sub)
-      - telemetry-service
-      - contracts-service
+      - telemetry
+      - dashboard
       - Every accepted reading, as a normalized event.
     - - `telemetry:filtered:{buildingId}` (pub/sub)
-      - contracts-service
-      - socket-service
+      - dashboard
+      - socket
       - Every reading for that building, routed by the event's own `buildingId`.
     - - `alerts` (Kafka topic)
-      - telemetry-service
-      - notification-service
-      - Every threshold breach, keyed `buildingId:roomId`. Durable, unlike the pub/sub channels: a breach produced while notification-service is down is processed on its return. The consumer filters `type == "temperature"`.
+      - telemetry
+      - notification
+      - Every threshold breach, keyed `buildingId:roomId`. Durable, unlike the pub/sub channels: a breach produced while notification is down is processed on its return. The consumer filters `type == "temperature"`.
     - - `notifications` (pub/sub)
-      - notification-service
-      - socket-service
+      - notification
+      - socket
       - The resolved, recipient-scoped alert event (carries `domainName`), ready for in-app delivery.
     - - `account.deleted` (stream, consumer group)
       - *(no publisher found in this codebase — see the gap note below)*
-      - tenancy-service
+      - tenancy
       - `{accountId}` — triggers membership cleanup for a deleted Keycloak account.
 
 Publishers never know who (if anyone) is listening, and the broker absorbs bursts, so a slow or restarting consumer cannot back-pressure a sensor.
 
 .box {account.deleted has a consumer but no publisher} type:{warning}
-    `tenancy-service`'s consumer (`internal/events/account_deleted.go`) is fully implemented — consumer group, at-least-once redelivery on processing failure, idempotent reap — but no component in this codebase ever calls `XAdd` on this stream. It is presumably meant to come from a Keycloak event listener that does not yet exist. As things stand, deleting a Keycloak account does not currently clean up its memberships. See `claude/issues/issues.md` for tracking.
+    `tenancy`'s consumer (`internal/events/account_deleted.go`) is fully implemented — consumer group, at-least-once redelivery on processing failure, idempotent reap — but no component in this codebase ever calls `XAdd` on this stream. It is presumably meant to come from a Keycloak event listener that does not yet exist. As things stand, deleting a Keycloak account does not currently clean up its memberships. See `claude/issues/issues.md` for tracking.
 
 ### Kafka
 
-Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a message is produced still sees it once it comes back, which is why this is the transport for the one flow where twin-service and telemetry-service must eventually agree even if either one restarts mid-registration — not for anything high-frequency.
+Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a message is produced still sees it once it comes back, which is why this is the transport for the one flow where digital-twin and telemetry must eventually agree even if either one restarts mid-registration — not for anything high-frequency.
 
 .var {headers}
    - Topic
@@ -166,23 +166,23 @@ Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a mess
 
 .tablebyrows {.headers}
     - - `building-registration-requested`
-      - twin-service
-      - telemetry-service
-      - `twin_contracts::RegistrationRequest` — `{ buildingId, name, rooms: [{ id, name }], maxTemperature? }`, keyed by `buildingId`, published once the twin's own write has succeeded. A room with no id is dropped on parse rather than failing the building.
+      - digital-twin
+      - telemetry
+      - `twin_schema::RegistrationRequest` — `{ buildingId, name, rooms: [{ id, name }], maxTemperature? }`, keyed by `buildingId`, published once the twin's own write has succeeded. A room with no id is dropped on parse rather than failing the building.
     - - `building-registration-completed`
-      - telemetry-service
-      - twin-service
-      - `twin_contracts::RegistrationCompleted` — `{ buildingId, status: "ready" | "failed", error? }`, keyed by `buildingId` — resolves the caller's tracking handle.
+      - telemetry
+      - digital-twin
+      - `twin_schema::RegistrationCompleted` — `{ buildingId, status: "ready" | "failed", error? }`, keyed by `buildingId` — resolves the caller's tracking handle.
 
-Both payloads and both topic names are defined once, in `backend/twin-contracts`, and each service re-exports them from its own `adapters/topics.rs` — see [Twin Contracts](../packages/twin-contracts.qd).
+Both payloads and both topic names are defined once, in `schemas/twin-schema`, and each service re-exports them from its own `adapters/topics.rs` — see [Twin Schema](../packages/twin-schema.qd).
 
-Publishing is not blocking on either side: twin-service's worker returns as soon as the first message reaches the broker, and telemetry-service's consumer processes it on its own schedule. Both topics carry no `x-gateway-claims` — this is internal transport between two services already inside the trust perimeter, not a client-facing hop. See [Digital Twin Service](../services/digital-twin.qd) for the full sequence and the idempotency argument (every write either side makes is an upsert, so redelivery converges rather than duplicating).
+Publishing is not blocking on either side: digital-twin's worker returns as soon as the first message reaches the broker, and telemetry's consumer processes it on its own schedule. Both topics carry no `x-gateway-claims` — this is internal transport between two services already inside the trust perimeter, not a client-facing hop. See [Digital Twin Service](../services/digital-twin.qd) for the full sequence and the idempotency argument (every write either side makes is an upsert, so redelivery converges rather than duplicating).
 
 ---
 
 ## Browser-Facing Real-Time Channels
 
-### Socket.IO (socket-service)
+### Socket.IO (socket)
 
 .var {headers}
    - Direction
@@ -200,9 +200,9 @@ Publishing is not blocking on either side: twin-service's worker returns as soon
       - `notification`
       - Relayed from the Redis `notifications` channel to everyone in the resolved `domain:{name}` room; authenticated clients auto-join their domain room on connection.
 
-### Web Push (notification-service)
+### Web Push (notification)
 
-The client fetches the server's public VAPID key (`GET /notification/public-key`), calls the browser's `pushManager.subscribe()`, and registers the resulting subscription (`POST /notification/subscribe`). When an alert fires, `notification-service` sends a push payload (`{title, message, icon}`) via the `web-push` package directly to the browser's push service — this path does **not** go through Redis or socket-service, and works even if the user has no tab open. A service worker (`frontend/public/service-worker.js`) handles the `push` event to show an OS-level notification and `notificationclick` to focus/open the app.
+The client fetches the server's public VAPID key (`GET /notification/public-key`), calls the browser's `pushManager.subscribe()`, and registers the resulting subscription (`POST /notification/subscribe`). When an alert fires, `notification` sends a push payload (`{title, message, icon}`) via the `web-push` package directly to the browser's push service — this path does **not** go through Redis or socket, and works even if the user has no tab open. A service worker (`frontend/public/service-worker.js`) handles the `push` event to show an OS-level notification and `notificationclick` to focus/open the app.
 
 ---
 
@@ -213,10 +213,10 @@ The client fetches the server's public VAPID key (`GET /notification/public-key`
 .mermaid
     sequenceDiagram
         participant Sensor as Sensor source
-        participant SS as telemetry-service
+        participant SS as telemetry
         participant R as Redis
-        participant CS as contracts-service
-        participant WS as socket-service
+        participant CS as dashboard
+        participant WS as socket
         participant UI as Vue client
 
         Sensor->>SS: POST /ingest (X-Signature HMAC)
@@ -229,18 +229,18 @@ The client fetches the server's public VAPID key (`GET /notification/public-key`
         R-->>WS: telemetry:filtered:{buildingId} event
         WS->>UI: emit "telemetry" to room building:{id}
 
-`contracts-service` is the routing stage: it republishes each reading to its own building's channel (an O(1) lookup on the event's `buildingId`), so a reading reaches exactly one building's feed and never leaks into another's. It does **not** filter by metric type — every metric a building produces is forwarded, and the dashboard's column preferences only decide what the table *displays*, client-side.
+`dashboard` is the routing stage: it republishes each reading to its own building's channel (an O(1) lookup on the event's `buildingId`), so a reading reaches exactly one building's feed and never leaks into another's. It does **not** filter by metric type — every metric a building produces is forwarded, and the dashboard's column preferences only decide what the table *displays*, client-side.
 
 ### Path 2: Threshold Alert to the User
 
 .mermaid
     sequenceDiagram
-        participant SS as telemetry-service
+        participant SS as telemetry
         participant R as Redis
         participant K as Kafka
-        participant NS as notification-service
-        participant TW as twin-service
-        participant WS as socket-service
+        participant NS as notification
+        participant TW as digital-twin
+        participant WS as socket
         participant Push as Browser push service
         participant U as User
 
@@ -257,17 +257,17 @@ The client fetches the server's public VAPID key (`GET /notification/public-key`
         WS->>U: emit "notification" to room domain:{name}
         Push-->>U: service worker "push" → OS notification
 
-Unlike Path 1, this is a **two-hop async chain**, not one publish: `telemetry-service` never calls `notification-service` directly — the threshold trigger and the resolved, recipient-scoped notification are two distinct Redis events, with `notification-service` sitting in between doing the one synchronous call it needs (resolving domains from `twin-service`) and fanning out over both delivery paths — in-app (broker + socket) and Web Push (direct, works with no tab open).
+Unlike Path 1, this is a **two-hop async chain**, not one publish: `telemetry` never calls `notification` directly — the threshold trigger and the resolved, recipient-scoped notification are two distinct Redis events, with `notification` sitting in between doing the one synchronous call it needs (resolving domains from `digital-twin`) and fanning out over both delivery paths — in-app (broker + socket) and Web Push (direct, works with no tab open).
 
 ### Path 3: Assistant Tool-Calling
 
 .mermaid
     sequenceDiagram
         participant U as Browser
-        participant Chat as chat-service
-        participant Agent as agent-service
-        participant Twin as twin-service
-        participant Sensor as telemetry-service
+        participant Chat as chat
+        participant Agent as agent
+        participant Twin as digital-twin
+        participant Sensor as telemetry
 
         U->>Chat: POST /chat/... (x-gateway-claims via gateway)
         Chat->>Agent: POST /ask {question}, x-gateway-claims forwarded
@@ -279,7 +279,7 @@ Unlike Path 1, this is a **two-hop async chain**, not one publish: `telemetry-se
         Agent-->>Chat: answer
         Chat-->>U: chat response
 
-Every tool call `agent-service` makes carries the *original user's* `x-gateway-claims` header, forwarded across two hops (`chat-service → agent-service → twin-service`/`telemetry-service`) — so `twin-service` and `telemetry-service` apply the same Cedar authorization to an assistant-driven read as they would to a direct API call from that user. `chat-service` persists the conversation in its own MongoDB independently of this flow.
+Every tool call `agent` makes carries the *original user's* `x-gateway-claims` header, forwarded across two hops (`chat → agent → digital-twin`/`telemetry`) — so `digital-twin` and `telemetry` apply the same Cedar authorization to an assistant-driven read as they would to a direct API call from that user. `chat` persists the conversation in its own MongoDB independently of this flow.
 
 ### Path 4: Login & Identity Resolution
 
@@ -288,7 +288,7 @@ Every tool call `agent-service` makes carries the *original user's* `x-gateway-c
         participant U as User
         participant CG as claims-gateway
         participant KC as Keycloak
-        participant TS as tenancy-service
+        participant TS as tenancy
 
         U->>CG: POST /login (credentials or IdP redirect)
         CG->>KC: verify credentials / verify token
@@ -300,16 +300,16 @@ Every tool call `agent-service` makes carries the *original user's* `x-gateway-c
         end
         CG-->>U: signed internal token (StandardClaims)
 
-This is the **only** point where `tenancy-service` is consulted for identity — once per login, never per request. Every subsequent request in a session is authorized locally, from the token/header, with zero further network hops for auth. See [Identity & Tenancy Architecture](auth-architecture.qd) for how the membership itself is derived, and [Service Mesh Architecture](service-mesh.qd) for how the resulting token becomes the `x-gateway-claims` header at the mesh edge.
+This is the **only** point where `tenancy` is consulted for identity — once per login, never per request. Every subsequent request in a session is authorized locally, from the token/header, with zero further network hops for auth. See [Identity & Tenancy Architecture](auth-architecture.qd) for how the membership itself is derived, and [Service Mesh Architecture](service-mesh.qd) for how the resulting token becomes the `x-gateway-claims` header at the mesh edge.
 
 ### Path 5: Organization Signup & Provisioning
 
 .mermaid
     sequenceDiagram
         participant C as New customer
-        participant RS as registry-service
+        participant RS as registry
         participant P as provisioner
-        participant TS as tenancy-service
+        participant TS as tenancy
 
         C->>RS: POST /organizations (no auth — no credentials exist yet)
         RS-->>C: 201, status=provisioning
@@ -320,7 +320,7 @@ This is the **only** point where `tenancy-service` is consulted for identity —
         TS-->>P: 201 or 409 (both = success)
         P->>RS: POST /internal/organizations/{id}/status (HMAC)
 
-This is the control-plane path: no end user is authenticated mid-flow, so every internal hop uses the HMAC `X-Signature` scheme rather than a forwarded identity header. See [Overview](overview.qd) for what `registry-service`/`provisioner`/`tenancy-service` each own.
+This is the control-plane path: no end user is authenticated mid-flow, so every internal hop uses the HMAC `X-Signature` scheme rather than a forwarded identity header. See [Overview](overview.qd) for what `registry`/`provisioner`/`tenancy` each own.
 
 ---
 
@@ -343,7 +343,7 @@ This is the control-plane path: no end user is authenticated mid-flow, so every 
       - High volume, many consumers, and producers that must never block on a slow subscriber. No message needs to survive a restart — the next reading arrives in seconds regardless, and the dashboard re-fetches over REST on reconnect.
     - - Threshold alerts
       - Asynchronous, durable
-      - One logical consumer, and a breach that resolves while notification-service is down would otherwise be lost with no record anywhere. Kafka keeps it until it is read. The producer still never waits on the broker: records are enqueued, not awaited.
+      - One logical consumer, and a breach that resolves while notification is down would otherwise be lost with no record anywhere. Kafka keeps it until it is read. The producer still never waits on the broker: records are enqueued, not awaited.
     - - Building registration
       - Asynchronous, durable
       - Exactly one outcome matters, and it has to be known eventually even if either service restarts mid-flight — a property Redis pub/sub doesn't offer.

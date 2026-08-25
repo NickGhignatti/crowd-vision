@@ -1,0 +1,62 @@
+services:
+  # socket authorises subscribe_building against digital-twin
+  # (GET /domain/{building}); without an answer every subscription is
+  # rejected as lookup_failed and the LD-4 tests see no telemetry. LD-4 is
+  # about dashboard freshness, not building authz, so this stubs the answer
+  # rather than dragging twin provisioning into the suite.
+  digital-twin:
+    image: nginx:alpine
+    volumes:
+      - ./stubs/twin.conf:/etc/nginx/conf.d/default.conf:z
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  socket:
+    depends_on:
+      redis:
+        condition: service_healthy
+      digital-twin:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  dashboard:
+    environment:
+      - RUST_LOG=info
+    depends_on:
+      redis:
+        condition: service_healthy
+      telemetry:
+        condition: service_healthy
+
+  integration-tests:
+    image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+    working_dir: /workspace
+    # -s: the LD-4 tests print measured latency/throughput baselines (issue
+    # #340); pytest captures stdout of passing tests without it.
+    command: ["uv", "run", "pytest", "-v", "-s"]
+    environment:
+      - TELEMETRY_URL=http://telemetry:3000
+      - SOCKET_URL=http://socket:3000
+      - DASHBOARD_URL=http://dashboard:3000
+      - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
+    volumes:
+      # :z relabels the bind mount for SELinux-enforcing hosts (same reason
+      # the root compose file's gateway service does it for its own mounts)
+      # — without it the container can't read anything under /workspace.
+      - ./:/workspace:z
+    depends_on:
+      telemetry:
+        condition: service_healthy
+      socket:
+        condition: service_healthy
+      dashboard:
+        condition: service_started
+    restart: "no"

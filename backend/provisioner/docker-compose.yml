@@ -5,9 +5,9 @@ services:
       context: ../..
       dockerfile: backend/provisioner/Dockerfile
     environment:
-      - REGISTRY_URL=http://registry-service:3000
-      - TENANCY_URL=http://tenancy-service:3000
+      - REGISTRY_URL=http://registry:3000
+      - TENANCY_URL=http://tenancy:3000
       - INTERNAL_SIGNING_SECRET=${INTERNAL_SIGNING_SECRET}
     depends_on:
-      - registry-service
-      - tenancy-service
+      - registry
+      - tenancy

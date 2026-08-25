@@ -26,8 +26,8 @@ spec:
             - sh
             - -c
             - |
-              until nc -z registry-service 3000; do
-                echo "waiting for registry-service..."
+              until nc -z registry 3000; do
+                echo "waiting for registry..."
                 sleep 2
               done
           resources:
@@ -49,8 +49,8 @@ spec:
             - sh
             - -c
             - |
-              until nc -z tenancy-service 3000; do
-                echo "waiting for tenancy-service..."
+              until nc -z tenancy 3000; do
+                echo "waiting for tenancy..."
                 sleep 2
               done
           resources:
@@ -73,9 +73,9 @@ spec:
             - containerPort: 3000
           env:
             - name: REGISTRY_URL
-              value: "http://registry-service:3000"
+              value: "http://registry:3000"
             - name: TENANCY_URL
-              value: "http://tenancy-service:3000"
+              value: "http://tenancy:3000"
           envFrom:
             - secretRef:
                 name: provisioner-secret

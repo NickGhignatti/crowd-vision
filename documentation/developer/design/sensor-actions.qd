@@ -1,11 +1,11 @@
 .docname {Sensor Actions & the Device ACL}
 .include {docs}
 
-Telemetry flows **in**: sensors push readings, the service stores and republishes them. Actions are the one path that flows **out** — the user turns the boiler up, and telemetry-service has to speak to a physical device.
+Telemetry flows **in**: sensors push readings, the service stores and republishes them. Actions are the one path that flows **out** — the user turns the boiler up, and telemetry has to speak to a physical device.
 
 Devices do not agree on anything: field names, verbs, protocols, or even which operations exist. This page describes the three-layer split that keeps that disagreement out of the domain model.
 
-**Applies to:** `telemetry-service` — `POST /executeAction`.
+**Applies to:** `telemetry` — `POST /executeAction`.
 
 ---
 
@@ -281,7 +281,7 @@ Note what is **not** in that table: a tenant, a domain, or a building. It is a g
 The file comes first deliberately. Tier 2 needs a deploy regardless, and tier 1 changes are rare enough that a PR is the right amount of ceremony.
 
 .box {A tenant-editable endpoint is an SSRF primitive} type:{warning}
-    `/executeAction` makes telemetry-service fetch a URL with its own network identity. While the catalog is ops-owned, the `http(s)` scheme check is sufficient. The moment a binding or `sensors.endpoint` becomes editable through the API, a tenant can aim it at `http://169.254.169.254/` or any internal service and read the response path's behaviour. That case needs a **host allowlist per domain**, not a scheme check. Keep the catalog ops-owned until there is a concrete reason not to.
+    `/executeAction` makes telemetry fetch a URL with its own network identity. While the catalog is ops-owned, the `http(s)` scheme check is sufficient. The moment a binding or `sensors.endpoint` becomes editable through the API, a tenant can aim it at `http://169.254.169.254/` or any internal service and read the response path's behaviour. That case needs a **host allowlist per domain**, not a scheme check. Keep the catalog ops-owned until there is a concrete reason not to.
 
 These are egress calls into a customer's network. Under Istio ambient each reachable host needs a `ServiceEntry` — pair that list with the allowlist above, since it is the same list. See [Service Mesh Architecture](../architecture/service-mesh.qd).
 
@@ -304,9 +304,9 @@ These are egress calls into a customer's network. Under Istio ambient each reach
 
 .tablebyrows {.files}
     - - `ActionSpec`, `check_fields`
-      - `src/contracts/plugin.rs`
+      - `src/types/plugin.rs`
     - - `Command`
-      - `src/contracts/sensor.rs`
+      - `src/types/sensor.rs`
     - - per-metric action catalog
       - `src/plugins/temperature.rs`
     - - validation and error mapping

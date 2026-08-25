@@ -73,7 +73,7 @@ just stack dev --no-agent --dry-run
       - `http://localhost/notification-db-gui/`
       - Mongo Express for the notification database. Dev mode only.
     - - Contracts DB GUI
-      - `http://localhost/contracts-db-gui/`
+      - `http://localhost/dashboard-db-gui/`
       - Mongo Express for the contracts database. Dev mode only.
     - - Chat DB GUI
       - `http://localhost/chat-db-gui/`
@@ -103,7 +103,7 @@ just stack down
 just stack logs
 
 # Follow logs for one service:
-just stack logs twin-service
+just stack logs digital-twin
 
 # Wipe all databases (destructive — you will need to re-provision):
 just db clear
@@ -157,16 +157,16 @@ just k8s apply      # apply manifests
 
 ```bash
 # After code changes — rebuild the image, then rolling restart:
-docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/twin-service/Dockerfile .
+docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/digital-twin/Dockerfile .
 just k8s load
-just k8s restart twin-service
+just k8s restart digital-twin
 
 # Watch the rollout:
-just k8s rollout twin-service
+just k8s rollout digital-twin
 ```
 
 .box {Six of the twelve images build from the repo root, not their own directory} type:{note}
-    `twin-service`, `agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` all build with `-f backend/<service>/Dockerfile .` from the **repository root**, not `\./backend/<service>`\. Reason differs by language but is the same shape both times: `twin-service`/`agent-service` read the shared Cedar authorization policy bundle at `backend/auth-policy` and the role-weight ladder at `backend/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat-service`, `contracts-service`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
+    `digital-twin`, `agent`, `claims-gateway`, `tenancy`, `registry`, and `provisioner` all build with `-f backend/<service>/Dockerfile .` from the **repository root**, not `\./backend/<service>`\. Reason differs by language but is the same shape both times: `digital-twin`/`agent` read the shared Cedar authorization policy bundle at `backend/libs/auth-policy` and the role-weight ladder at `backend/libs/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat`, `dashboard`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
 
 ### Managing Cluster Lifecycle
 
@@ -201,7 +201,7 @@ kubectl get pvc -n crowdvision
 kubectl get gateway,httproute -n crowdvision
 
 # Tail logs for a service:
-just k8s logs twin-service
+just k8s logs digital-twin
 
 # Describe a pod for detailed events (useful for debugging):
 kubectl describe pod <pod-name> -n crowdvision
@@ -235,10 +235,10 @@ just test integration
 ```
 
 .box type:{note}
-    `just test all` and `just lint all` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test affected` / `just lint affected` on a feature branch to only process the services your changes actually touch. There is no `just test <service>` recipe for `contracts-service` or the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`) — they're still covered by `just test all` / `just test affected` (both run `moon run :test`, which includes every registered project regardless of language), just not individually by name.
+    `just test all` and `just lint all` both delegate to **moon**, which caches task results by input hash. If nothing in a service has changed since the last run, the cached result is replayed in milliseconds. Use `just test affected` / `just lint affected` on a feature branch to only process the services your changes actually touch. There is no `just test <service>` recipe for `dashboard` or the four Go control-plane services (`claims-gateway`, `provisioner`, `registry`, `tenancy`) — they're still covered by `just test all` / `just test affected` (both run `moon run :test`, which includes every registered project regardless of language), just not individually by name.
 
 .box {The agent's golden-dataset evaluation} type:{note}
-    `just test eval [models="..."] [judge="..."]` runs the agent's golden-dataset evaluation against your local stack, auto-minting the JWTs it needs. This isn't a pass/fail test — it scores model responses (optionally with an LLM judge) and is meant to be run manually when tuning prompts or comparing models, not as part of the regular test loop. See `backend/agent-service/evals/run_evals.py`\.
+    `just test eval [models="..."] [judge="..."]` runs the agent's golden-dataset evaluation against your local stack, auto-minting the JWTs it needs. This isn't a pass/fail test — it scores model responses (optionally with an LLM judge) and is meant to be run manually when tuning prompts or comparing models, not as part of the regular test loop. See `backend/agent/evals/run_evals.py`\.
 
 ---
 
@@ -261,7 +261,7 @@ mise exec -- moon run :audit --affected
     `just setup deps-check` is the fastest way to catch a lockfile drift before pushing (the classic `npm ci can only install packages when your package.json and package-lock.json are in sync`). If it fails, regenerate the offending lockfile with `just setup clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). The Rust `cargo audit` leg is marked **allow-failure**: if `cargo-audit` isn't installed it is reported but does not fail the run (`cargo install cargo-audit` to enable it).
 
 .box {Go projects aren't part of the audit sweep yet} type:{note}
-    `\.moon/tasks/go.yml` defines `build`, `test`, `lint` (`go vet`), and `deps` (`go mod download`) for the four Go control-plane services, but no `audit` task — so `just setup audit` silently skips them (moon only runs a task for projects that define it). There's no `govulncheck`-equivalent leg yet for `claims-gateway`, `tenancy-service`, `registry-service`, or `provisioner`\.
+    `\.moon/tasks/go.yml` defines `build`, `test`, `lint` (`go vet`), and `deps` (`go mod download`) for the four Go control-plane services, but no `audit` task — so `just setup audit` silently skips them (moon only runs a task for projects that define it). There's no `govulncheck`-equivalent leg yet for `claims-gateway`, `tenancy`, `registry`, or `provisioner`\.
 
 ---
 

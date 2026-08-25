@@ -1,0 +1,137 @@
+import logging
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import AliasChoices, Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.roles import ROLE_WEIGHTS
+
+LogFormat = Literal["auto", "console", "json"]
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=None, case_sensitive=False, extra="ignore")
+
+    # Database
+    postgres_url: str = Field(
+        default="postgresql+asyncpg://agent:agent@agent-db:5432/agentdb",
+        alias="POSTGRES_URL",
+    )
+
+    # LLM provider (any OpenAI-compatible endpoint). Legacy GOOGLE_API_KEY /
+    # DEEPSEEK_API_KEY names are accepted as fallbacks to avoid an env rename.
+    llm_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "OPENROUTER_API_KEY", "LLM_API_KEY", "DEEPSEEK_API_KEY", "GOOGLE_API_KEY"
+        ),
+    )
+    llm_base_url: str = Field(
+        default="https://openrouter.ai/api/v1",
+        validation_alias=AliasChoices("LLM_BASE_URL", "OPENROUTER_BASE_URL"),
+    )
+
+    # Gateway JWT is verified once at the mesh edge; this service only reads the
+    # already-verified x-gateway-claims header (see app/auth.py). No JWT material here.
+    jwt_cookie_name: str = Field(default="authentication_token", alias="JWT_COOKIE_NAME")
+    require_auth: bool = Field(default=True, alias="REQUIRE_AUTH")
+    # Local-dev-only bypass for evals/run_evals.py tokens; never set in any deployed
+    # env. Empty ⇒ disabled (see app/auth.py `_decode`).
+    eval_jwt_secret: str = Field(default="", alias="EVAL_JWT_SECRET")
+
+    # Models
+    embedding_model: str = Field(default="openai/text-embedding-3-small", alias="EMBEDDING_MODEL")
+    embedding_dim: int = Field(default=768, alias="EMBEDDING_DIM", gt=0)
+    answer_model: str = Field(
+        default="openai/gpt-4o-mini",
+        validation_alias=AliasChoices("ANSWER_MODEL", "CHAT_MODEL"),
+    )
+    llm_temperature: float = Field(default=0.2, alias="LLM_TEMPERATURE", ge=0, le=2)
+
+    # Retrieval
+    reranker: str = Field(default="noop", alias="RERANKER")
+    top_k_vector: int = Field(default=20, alias="TOP_K_VECTOR", gt=0)
+    top_k_keyword: int = Field(default=20, alias="TOP_K_KEYWORD", gt=0)
+    top_k_final: int = Field(default=6, alias="TOP_K_FINAL", gt=0)
+
+    # Agent execution
+    llm_timeout_seconds: float = Field(default=30.0, alias="LLM_TIMEOUT_SECONDS", gt=0)
+    embed_timeout_seconds: float = Field(default=15.0, alias="EMBED_TIMEOUT_SECONDS", gt=0)
+    twin_timeout_seconds: float = Field(default=10.0, alias="TWIN_TIMEOUT_SECONDS", gt=0)
+    telemetry_timeout_seconds: float = Field(default=10.0, alias="TELEMETRY_TIMEOUT_SECONDS", gt=0)
+    max_tool_hops: int = Field(default=6, alias="MAX_TOOL_HOPS", ge=1)
+    # Cap on generated tokens per call; also avoids OpenRouter's 402 "requires more
+    # credits" pre-check for models with huge default max output (e.g. Gemini's 65k).
+    max_output_tokens: int = Field(default=2048, alias="MAX_OUTPUT_TOKENS", gt=0)
+
+    # Per-request chat-model override (`/ask` model field) is privileged eval/ops only
+    # (spends shared balance); role-gated, and must be in allowlist when non-empty.
+    model_override_min_role: str = Field(default="business_admin", alias="MODEL_OVERRIDE_MIN_ROLE")
+    allowed_models: str = Field(default="", alias="ALLOWED_MODELS")
+
+    @property
+    def allowed_models_set(self) -> set[str]:
+        return {m.strip() for m in self.allowed_models.split(",") if m.strip()}
+
+    # Observability
+    otel_endpoint: str = Field(default="", alias="OTEL_EXPORTER_OTLP_ENDPOINT")
+    # "http/protobuf" routes to an OTLP/HTTP collector (e.g. Langfuse); anything else
+    # uses OTLP/gRPC. Endpoint/auth read from standard OTEL_EXPORTER_OTLP_* env vars.
+    otel_protocol: str = Field(default="", alias="OTEL_EXPORTER_OTLP_PROTOCOL")
+    observe_payloads: bool = Field(default=False, alias="OBSERVE_PAYLOADS")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # auto = pretty console when no OTLP endpoint (dev), JSON otherwise (prod).
+    # Force with "console" or "json".
+    log_format: LogFormat = Field(default="auto", alias="LOG_FORMAT")
+
+    # Networking
+    digital_twin_url: str = Field(default="http://digital-twin:3000", alias="DIGITAL_TWIN_URL")
+    telemetry_url: str = Field(
+        default="http://telemetry:3000", alias="TELEMETRY_URL"
+    )
+    cors_origins: str = Field(
+        default="http://localhost,http://localhost:80,http://localhost:8080,http://localhost:5173",
+        alias="CORS_ORIGINS",
+    )
+
+    @field_validator("llm_base_url", "digital_twin_url", "telemetry_url")
+    @classmethod
+    def validate_http_url(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("must start with http:// or https://")
+        return value
+
+    @field_validator("postgres_url")
+    @classmethod
+    def validate_postgres_url(cls, value: str) -> str:
+        if not value.startswith(("postgresql://", "postgresql+asyncpg://")):
+            raise ValueError("must start with postgresql:// or postgresql+asyncpg://")
+        return value
+
+    @field_validator("model_override_min_role")
+    @classmethod
+    def validate_model_override_min_role(cls, value: str) -> str:
+        if value not in ROLE_WEIGHTS:
+            allowed = ", ".join(ROLE_WEIGHTS)
+            raise ValueError(f"must be one of: {allowed}")
+        return value
+
+
+def validate_startup_settings(settings: Settings) -> None:
+    """Warn about missing runtime secrets rather than crash the process.
+
+    No LLM key means /ask fails per-request (the real place for that error) instead
+    of taking down the whole container — and everything depending on this service's
+    healthcheck along with it.
+    """
+    if not settings.llm_api_key:
+        logging.getLogger(__name__).warning(
+            "agent.no_llm_key: OPENROUTER_API_KEY/LLM_API_KEY not set — "
+            "/ask will fail until one is configured"
+        )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

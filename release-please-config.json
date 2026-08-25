@@ -14,29 +14,29 @@
       "component": "frontend",
       "skip-github-release": true
     },
-    "backend/chat-service": {
+    "backend/chat": {
       "release-type": "rust",
-      "component": "chat-service",
+      "component": "chat",
       "skip-github-release": true
     },
-    "backend/notification-service": {
+    "backend/notification": {
       "release-type": "rust",
-      "component": "notification-service",
+      "component": "notification",
       "skip-github-release": true
     },
-    "backend/telemetry-service": {
+    "backend/telemetry": {
       "release-type": "rust",
-      "component": "telemetry-service",
+      "component": "telemetry",
       "skip-github-release": true
     },
-    "backend/socket-service": {
+    "backend/socket": {
       "release-type": "rust",
-      "component": "socket-service",
+      "component": "socket",
       "skip-github-release": true
     },
-    "backend/agent-service": {
+    "backend/agent": {
       "release-type": "python",
-      "component": "agent-service",
+      "component": "agent",
       "skip-github-release": true
     },
     "backend/claims-gateway": {
@@ -49,39 +49,39 @@
       "component": "provisioner",
       "skip-github-release": true
     },
-    "backend/registry-service": {
+    "backend/registry": {
       "release-type": "go",
-      "component": "registry-service",
+      "component": "registry",
       "skip-github-release": true
     },
-    "backend/tenancy-service": {
+    "backend/tenancy": {
       "release-type": "go",
-      "component": "tenancy-service",
+      "component": "tenancy",
       "skip-github-release": true
     },
-    "backend/auth-contracts": {
+    "backend/libs/auth-contracts": {
       "release-type": "go",
       "component": "auth-contracts",
       "skip-github-release": true
     },
-    "backend/auth-middleware": {
+    "backend/libs/auth-middleware": {
       "release-type": "go",
       "component": "auth-middleware",
       "skip-github-release": true
     },
-    "backend/auth-policy": {
+    "backend/libs/auth-policy": {
       "release-type": "go",
       "component": "auth-policy",
       "skip-github-release": true
     },
-    "backend/twin-service": {
+    "backend/digital-twin": {
       "release-type": "rust",
-      "component": "twin-service",
+      "component": "digital-twin",
       "skip-github-release": true
     },
-    "backend/contracts-service": {
+    "backend/dashboard": {
       "release-type": "rust",
-      "component": "contracts-service",
+      "component": "dashboard",
       "skip-github-release": true
     }
   }

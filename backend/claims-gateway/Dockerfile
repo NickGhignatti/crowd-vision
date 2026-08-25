@@ -1,7 +1,7 @@
 FROM golang:1.25-bookworm AS base
 WORKDIR /app
-COPY backend/auth-contracts ./backend/auth-contracts
-COPY backend/auth-middleware ./backend/auth-middleware
+COPY backend/libs/auth-contracts ./backend/libs/auth-contracts
+COPY backend/libs/auth-middleware ./backend/libs/auth-middleware
 COPY backend/claims-gateway ./backend/claims-gateway
 WORKDIR /app/backend/claims-gateway
 

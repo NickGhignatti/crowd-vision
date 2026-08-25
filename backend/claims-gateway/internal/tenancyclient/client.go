@@ -34,12 +34,12 @@ func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authco
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("tenancy-service unreachable: %w", err)
+		return nil, fmt.Errorf("tenancy unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tenancy-service returned %d", resp.StatusCode)
+		return nil, fmt.Errorf("tenancy returned %d", resp.StatusCode)
 	}
 	var out []authcontracts.Membership
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -65,7 +65,7 @@ func (c *Client) Provision(ctx context.Context, in service.ProvisionRequest) err
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("tenancy-service unreachable: %w", err)
+		return fmt.Errorf("tenancy unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -76,7 +76,7 @@ func (c *Client) Provision(ctx context.Context, in service.ProvisionRequest) err
 		return service.ErrInviteOnly
 	default:
 		msg, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("tenancy-service returned %d: %s", resp.StatusCode, msg)
+		return fmt.Errorf("tenancy returned %d: %s", resp.StatusCode, msg)
 	}
 }
 

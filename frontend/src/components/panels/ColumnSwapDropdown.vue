@@ -82,7 +82,7 @@ const { t } = useI18n()
                     {{ METRIC_I18N_KEY[metric.metricKey] ? t(METRIC_I18N_KEY[metric.metricKey]!) : metric.label }}
                   </p>
                   <p class="text-xs text-slate-400 truncate">
-                    {{ metric.sourceService ?? 'telemetry-service' }}
+                    {{ metric.sourceService ?? 'telemetry' }}
                     <span v-if="metric.unit"> · {{ metric.unit }}</span>
                   </p>
                 </div>

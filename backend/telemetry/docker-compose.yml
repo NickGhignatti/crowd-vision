@@ -1,0 +1,47 @@
+services:
+  telemetry:
+    cpus: "3"
+    build:
+      # Repo-root context: telemetry needs its sibling ../auth-policy and
+      # ../auth-contracts (shared Cedar bundle) during build.
+      context: ../..
+      dockerfile: backend/telemetry/Dockerfile
+    environment:
+      - DATABASE_URL=postgres://telemetry:telemetry@telemetry-db:5432/telemetrydb
+      - REDIS_URL=redis://redis:6379
+      - KAFKA_BROKERS=kafka:9092
+      - DIGITAL_TWIN_URL=http://digital-twin:3000
+      - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
+      - PORT=3000
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      telemetry-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  telemetry-db:
+    cpus: "3"
+    image: timescale/timescaledb:2.17.2-pg17
+    environment:
+      - POSTGRES_USER=telemetry
+      - POSTGRES_PASSWORD=telemetry
+      - POSTGRES_DB=telemetrydb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U telemetry -d telemetrydb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - telemetry-data:/var/lib/postgresql/data
+
+volumes:
+  telemetry-data:

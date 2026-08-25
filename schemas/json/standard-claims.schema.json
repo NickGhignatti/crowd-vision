@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/standard-claims.schema.json",
+  "title": "Stable Claims Contract",
+  "description": "Payload of the x-gateway-claims header. Minted by claims-gateway, verified once at the edge, decoded (never re-verified) by every downstream service.",
+  "type": "object",
+  "required": ["sub", "accountName", "sid", "memberships"],
+  "additionalProperties": false,
+  "properties": {
+    "sub": { "type": "string", "minLength": 1, "description": "Account id. Stable across sessions." },
+    "accountName": { "type": "string", "minLength": 1 },
+    "sid": { "type": "string", "minLength": 1, "description": "Session id, one per login." },
+    "memberships": {
+      "type": "array",
+      "description": "One entry per domain the account belongs to. Roles are per-membership, never on the account.",
+      "items": {
+        "type": "object",
+        "required": ["domain", "role"],
+        "additionalProperties": false,
+        "properties": {
+          "domain": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "enum": ["admin", "business_admin", "business_staff", "standard_customer"] },
+          "externalId": { "type": "string", "description": "The source IdP's identifier, kept for audit and unlinking." }
+        }
+      }
+    }
+  }
+}

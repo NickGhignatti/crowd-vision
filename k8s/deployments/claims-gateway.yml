@@ -26,8 +26,8 @@ spec:
             - sh
             - -c
             - |
-              until nc -z tenancy-service 3000; do
-                echo "waiting for tenancy-service..."
+              until nc -z tenancy 3000; do
+                echo "waiting for tenancy..."
                 sleep 2
               done
           resources:
@@ -58,7 +58,7 @@ spec:
             - name: OIDC_CLIENT_ID
               value: "cv-web"
             - name: TENANCY_URL
-              value: "http://tenancy-service:3000"
+              value: "http://tenancy:3000"
             - name: GATEWAY_ISSUER
               value: "cv-gateway"
             - name: KEYCLOAK_REALM

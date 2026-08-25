@@ -36,13 +36,13 @@
     # ── Tenancy Service (domains, subdomains, invite codes) ─────────────────────
     handle_path /tenancy/* {
         import require_gateway_auth
-        reverse_proxy tenancy-service:3000
+        reverse_proxy tenancy:3000
     }
 
     # ── Digital Twin service ──────────────────────────────────────────────────
     handle_path /twin/* {
         import require_gateway_auth
-        reverse_proxy twin-service:3000
+        reverse_proxy digital-twin:3000
     }
 
     # ── Sensor Simulator (TP) ─────────────────────────────────────────────────
@@ -58,12 +58,12 @@
     # ── Notification service ──────────────────────────────────────────────────
     handle_path /notification/* {
         import require_gateway_auth
-        reverse_proxy notification-service:3000
+        reverse_proxy notification:3000
     }
 
     # ── Agent service ─────────────────────────────────────────────────────────
     handle_path /agent/* {
-        reverse_proxy agent-service:3000 {
+        reverse_proxy agent:3000 {
             header_up -X-Gateway-Claims
         }
     }
@@ -71,7 +71,7 @@
     # ── Chat service ──────────────────────────────────────────────────────────
     handle_path /chat/* {
         import require_gateway_auth
-        reverse_proxy chat-service:3000 {
+        reverse_proxy chat:3000 {
             # Chat answers stream back as SSE. Without this the proxy buffers the
             # whole response and the tokens arrive all at once, which is the exact
             # behaviour streaming exists to remove.
@@ -80,29 +80,29 @@
     }
 
     # ── Contracts Service ───────────────────────────────────────────────────────
-    handle_path /contracts {
+    handle_path /dashboard {
         import require_gateway_auth
-        reverse_proxy contracts-service:3000
+        reverse_proxy dashboard:3000
     }
-    handle_path /contracts/* {
+    handle_path /dashboard/* {
         import require_gateway_auth
-        reverse_proxy contracts-service:3000
+        reverse_proxy dashboard:3000
     }
 
     # ── Socket.IO server ──────────────────────────────────────────────────────
     handle /socket.io/* {
         import require_gateway_auth
-        reverse_proxy socket-server:3000
+        reverse_proxy socket:3000
     }
 
     # ── Telemetry service ────────────────────────────────────────────────────
     handle /telemetry/ingest {
         uri strip_prefix /telemetry
-        reverse_proxy telemetry-service:3000
+        reverse_proxy telemetry:3000
     }
     handle_path /telemetry/* {
         import require_gateway_auth
-        reverse_proxy telemetry-service:3000
+        reverse_proxy telemetry:3000
     }
 
     # ── Mongo Express GUIs ────────────────────────────────────────────────────
@@ -118,8 +118,8 @@
         reverse_proxy notification-db-express:8081
     }
 
-    handle /contracts-db-gui/* {
-        reverse_proxy contracts-service-db-express:8081
+    handle /dashboard-db-gui/* {
+        reverse_proxy dashboard-db-express:8081
     }
 
     handle /chat-db-gui/* {

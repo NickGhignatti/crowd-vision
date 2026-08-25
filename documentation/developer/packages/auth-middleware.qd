@@ -6,7 +6,7 @@
 Unlike the Node package, it exposes **two** distinct entry points, because the Go services that use it don't all receive requests the same way:
 
 - **`claims-gateway` has to verify a token for real.** It's the service that issues the token in the first place (see `internal/signer`), and in Kubernetes it's also what every other verifier — Istio included — ultimately relies on, since Istio's own signature check is configured to fetch its public key from claims-gateway. It can't outsource its own verification to a system whose verification depends on it. It's also the fallback in environments with no mesh at all: in local docker-compose development (no Istio), Caddy's `forward_auth` calls claims-gateway's own `/verify` endpoint directly, so claims-gateway has to be able to check a token completely on its own.
-- **Every other Go service only has to trust an already-checked header.** `tenancy-service` (confirmed; see the diagram below) never receives a raw token — only requests that have already passed through Istio's ingress, where `RequestAuthentication` verified the JWT once and rewrote the verified payload into the `x-gateway-claims` header. Re-checking that signature inside `tenancy-service` would just repeat work Istio already did.
+- **Every other Go service only has to trust an already-checked header.** `tenancy` (confirmed; see the diagram below) never receives a raw token — only requests that have already passed through Istio's ingress, where `RequestAuthentication` verified the JWT once and rewrote the verified payload into the `x-gateway-claims` header. Re-checking that signature inside `tenancy` would just repeat work Istio already did.
 
 .mermaid
     graph TD
@@ -18,7 +18,7 @@ Unlike the Node package, it exposes **two** distinct entry points, because the G
             RM["RequireMeshClaims()\ntrusts the x-gateway-claims header, no signature check"]
             FC["FromContext(ctx)\nretrieves claims either one attached"]
         end
-        subgraph "tenancy-service — only ever sees a pre-verified request"
+        subgraph "tenancy — only ever sees a pre-verified request"
             TS["internal/api/handler.go\nr.Use(RequireMeshClaims())"]
         end
 
@@ -27,9 +27,9 @@ Unlike the Node package, it exposes **two** distinct entry points, because the G
         RA -->|"context.WithValue"| FC
         RM -->|"context.WithValue"| FC
 
-The same split exists in every other language: see [Digital Twin Service](../services/digital-twin.qd) and [Chat Service](../services/chat.qd) for the Rust `GatewayClaims` extractors — they trust the same `x-gateway-claims` header rather than verifying anything themselves, for the same reason `tenancy-service` does here.
+The same split exists in every other language: see [Digital Twin Service](../services/digital-twin.qd) and [Chat Service](../services/chat.qd) for the Rust `GatewayClaims` extractors — they trust the same `x-gateway-claims` header rather than verifying anything themselves, for the same reason `tenancy` does here.
 
-Not every Go service uses this package for its inbound auth. `registry-service` and `provisioner` are control-plane-to-control-plane only: their `/internal/*` routes are protected by a separate HMAC-SHA256 request-signing scheme (`X-Signature`, checked against a shared internal secret), not a `StandardClaims` token at all, and `provisioner` has no inbound HTTP handlers to protect in the first place — it only ever makes outbound calls, signing its own requests with that same HMAC scheme. Neither service currently needs `auth-middleware`.
+Not every Go service uses this package for its inbound auth. `registry` and `provisioner` are control-plane-to-control-plane only: their `/internal/*` routes are protected by a separate HMAC-SHA256 request-signing scheme (`X-Signature`, checked against a shared internal secret), not a `StandardClaims` token at all, and `provisioner` has no inbound HTTP handlers to protect in the first place — it only ever makes outbound calls, signing its own requests with that same HMAC scheme. Neither service currently needs `auth-middleware`.
 
 ---
 

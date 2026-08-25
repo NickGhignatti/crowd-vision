@@ -19,67 +19,67 @@
       "addLabels": ["dependencies", "frontend"]
     },
     {
-      "matchFileNames": ["backend/auth-contracts/**"],
+      "matchFileNames": ["backend/libs/auth-contracts/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "auth-contracts",
       "addLabels": ["dependencies", "auth-contracts"]
     },
     {
-      "matchFileNames": ["backend/auth-middleware/**"],
+      "matchFileNames": ["backend/libs/auth-middleware/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "auth-middleware",
       "addLabels": ["dependencies", "auth-middleware"]
     },
     {
-      "matchFileNames": ["backend/auth-policy/**"],
+      "matchFileNames": ["backend/libs/auth-policy/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "auth-policy",
       "addLabels": ["dependencies", "auth-policy"]
     },
     {
-      "matchFileNames": ["backend/chat-service/**"],
+      "matchFileNames": ["backend/chat/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "chat-service",
-      "addLabels": ["dependencies", "chat-service"]
+      "groupName": "chat",
+      "addLabels": ["dependencies", "chat"]
     },
     {
-      "matchFileNames": ["backend/twin-service/**"],
+      "matchFileNames": ["backend/digital-twin/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "twin-service",
-      "addLabels": ["dependencies", "twin-service"]
+      "groupName": "digital-twin",
+      "addLabels": ["dependencies", "digital-twin"]
     },
     {
-      "matchFileNames": ["backend/notification-service/**"],
+      "matchFileNames": ["backend/notification/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "notification-service",
-      "addLabels": ["dependencies", "notification-service"]
+      "groupName": "notification",
+      "addLabels": ["dependencies", "notification"]
     },
     {
-      "matchFileNames": ["backend/telemetry-service/**"],
+      "matchFileNames": ["backend/telemetry/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "telemetry-service",
-      "addLabels": ["dependencies", "telemetry-service"]
+      "groupName": "telemetry",
+      "addLabels": ["dependencies", "telemetry"]
     },
     {
-      "matchFileNames": ["backend/socket-service/**"],
+      "matchFileNames": ["backend/socket/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "socket-service",
-      "addLabels": ["dependencies", "socket-service"]
+      "groupName": "socket",
+      "addLabels": ["dependencies", "socket"]
     },
     {
-      "matchFileNames": ["backend/agent-service/**"],
+      "matchFileNames": ["backend/agent/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "agent-service",
-      "addLabels": ["dependencies", "agent-service"]
+      "groupName": "agent",
+      "addLabels": ["dependencies", "agent"]
     },
     {
-      "matchFileNames": ["backend/contracts-service/**"],
+      "matchFileNames": ["backend/dashboard/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "contracts-service",
-      "addLabels": ["dependencies", "contracts-service"]
+      "groupName": "dashboard",
+      "addLabels": ["dependencies", "dashboard"]
     },
     {
-      "matchFileNames": ["backend/tests/**"],
+      "matchFileNames": ["backend/acceptance/**"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "backend-tests",
       "addLabels": ["dependencies", "backend-tests"]

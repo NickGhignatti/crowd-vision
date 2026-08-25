@@ -1,9 +1,9 @@
 .docname {Telemetry Storage & Retention}
 .include {docs}
 
-This page explains how telemetry-service keeps years of sensor readings without the database growing without bound. It is written to be readable without knowing Timescale — every mechanism is shown on a concrete row first.
+This page explains how telemetry keeps years of sensor readings without the database growing without bound. It is written to be readable without knowing Timescale — every mechanism is shown on a concrete row first.
 
-**Applies to:** `telemetry-service` (Rust / Postgres + TimescaleDB). Supersedes the MongoDB time-series collections used by the Node `sensor-service`.
+**Applies to:** `telemetry` (Rust / Postgres + TimescaleDB). Supersedes the MongoDB time-series collections used by the Node `sensor-service`.
 
 ---
 
@@ -64,7 +64,7 @@ Nothing is lost. `building_id`, `room_id` and `ts` are the columns; `value` is t
 The list is not hand-maintained: `MetricDescriptor.fields` names every field a metric declares, and the plugin names the one that became `value`. Everything else is what gets kept.
 
 .box {The trim affects storage only, not the wire} type:{note}
-    The Redis `telemetry:raw` event still carries the **full** payload. This changes what is written to disk, not what is published — `contracts-service` and the browser see no difference.
+    The Redis `telemetry:raw` event still carries the **full** payload. This changes what is written to disk, not what is published — `dashboard` and the browser see no difference.
 
 ---
 
@@ -195,9 +195,9 @@ Where Mongo was better: compression was immediate and unconditional, and typed s
 
 | concern | file |
 |---|---|
-| tables, hypertable, compression, retention | `backend/telemetry-service/migrations/0002_timescale.up.sql` |
-| hourly rollup | `backend/telemetry-service/migrations/0003_rollup.up.sql` |
-| payload trim on write, envelope re-inflation on read | `backend/telemetry-service/src/adapters/driven/postgres/readings.rs` |
-| bucket size per range | `backend/telemetry-service/src/contracts/query.rs` |
+| tables, hypertable, compression, retention | `backend/telemetry/migrations/0002_timescale.up.sql` |
+| hourly rollup | `backend/telemetry/migrations/0003_rollup.up.sql` |
+| payload trim on write, envelope re-inflation on read | `backend/telemetry/src/adapters/driven/postgres/readings.rs` |
+| bucket size per range | `backend/telemetry/src/types/query.rs` |
 
 See also [Communication & Data Flow](../architecture/data-flow.qd).

@@ -42,7 +42,7 @@ Both stories' performance criteria are implemented and asserted as numbers, not 
 
 ### BT-1 — where
 
-Suite: `backend/twin-service/tests/`. Cucumber features in `tests/features/`, their steps in `tests/steps/`, endpoint-level tests in `tests/api/`. Runner `just test twin-integration` — real MongoDB on a shared Docker network, no mocks at the boundary. CI runs it on every twin-service change (`tpl-rust-ci.yml` → `scripts/test/rust-integration-tests.sh`).
+Suite: `backend/digital-twin/tests/`. Cucumber features in `tests/features/`, their steps in `tests/steps/`, endpoint-level tests in `tests/api/`. Runner `just test twin-integration` — real MongoDB on a shared Docker network, no mocks at the boundary. CI runs it on every digital-twin change (`tpl-rust-ci.yml` → `scripts/test/rust-integration-tests.sh`).
 
 - **Twin exists and is viewable** — `tests/api/registration.rs`, `an_accepted_upload_becomes_a_viewable_twin`: `POST /register`, then `GET /building/:id` returns the declared name and room count.
 - **Appears in the organization's building list** — `tests/features/redelivery.feature`, "holds exactly one building", asserted against `GET /buildings/:domain`.
@@ -64,7 +64,7 @@ Suite: `backend/twin-service/tests/`. Cucumber features in `tests/features/`, th
 
 ### LD-4 — where
 
-Suite: `backend/tests/acceptance/ld4_dashboard_freshness/`, pytest against a composed stack (telemetry-service, socket-service, contracts-service and their infra), started by `backend/tests/run-integration-tests.sh` behind `just test integration`.
+Suite: `backend/acceptance/acceptance/ld4_dashboard_freshness/`, pytest against a composed stack (telemetry, socket, dashboard and their infra), started by `backend/acceptance/run-integration-tests.sh` behind `just test integration`.
 
 - **An ingested reading reaches an open dashboard** — `test_live_update.py`: ingest returns `202`, the subscribed socket client receives a `telemetry` event carrying the same building, room and value. Wire-level; the render step itself is Vue reactivity, not a backend concern.
 - **A reading ingested during an outage is not lost** — `test_reconnect_catchup.py`: a known pre-outage value, disconnect, ingest, reconnect, then assert the *new* value is what the dashboard reads back — so a stale leftover cannot pass. The client half of that recovery is `frontend/src/stores/sensorData.ts`, whose `connect` handler re-subscribes every building and refetches every bucket; `BuildingTable.vue` reaches it through `useBuildingSensor`.
@@ -76,5 +76,5 @@ Suite: `backend/tests/acceptance/ld4_dashboard_freshness/`, pytest against a com
 `test_performance.py`. 100 round trips across 20 threads, each with its own room, dashboard subscription and socket connection.
 
 - **The clock** — starts when the ingest call is issued, stops when that test's own socket client receives the `telemetry` event; `p99` over the 100 samples, same minimum-sample rule as BT-1.
-- **Both QA-P-01 checkpoints are asserted off that one number** — `≤ 1 s` for "inside the system" and `≤ 5 s` end to end. That is a proxy in both directions: a superset of "leaves socket-service" (the test client is the very next hop) and of "rendered" (Vue's re-render after a socket event is single-digit milliseconds against a 5-second budget).
-- **Why a proxy** — socket-service has no server-side timing on this path and never reads the `ingestedAt` field telemetry-service already stamps on every event. The inner `≤ 1 s` boundary is therefore not independently measured; instrumenting socket-service is what would make it one.
+- **Both QA-P-01 checkpoints are asserted off that one number** — `≤ 1 s` for "inside the system" and `≤ 5 s` end to end. That is a proxy in both directions: a superset of "leaves socket" (the test client is the very next hop) and of "rendered" (Vue's re-render after a socket event is single-digit milliseconds against a 5-second budget).
+- **Why a proxy** — socket has no server-side timing on this path and never reads the `ingestedAt` field telemetry already stamps on every event. The inner `≤ 1 s` boundary is therefore not independently measured; instrumenting socket is what would make it one.

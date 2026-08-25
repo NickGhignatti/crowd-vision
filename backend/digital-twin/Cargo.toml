@@ -1,0 +1,38 @@
+[package]
+name = "digital-twin"
+version = "0.4.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "matched-path", "tokio"] }
+base64 = "0.22"
+cedar-policy = "4"
+claims-schema = { path = "../../schemas/claims-schema" }
+dashmap = "6.2.1"
+env_logger = { version = "0.11.10", default-features = false, features = ["humantime"] }
+futures = "0.3.32"
+log = "0.4.32"
+mongodb = "3"
+reqwest = { version = "0.13.4", default-features = false, features = ["json"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+twin-schema = { path = "../../schemas/twin-schema" }
+tokio = { version = "1.52.3", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+prometheus = { version = "0.14", default-features = false }
+uuid = { version = "1", features = ["v4"] }
+urlencoding = "2"
+async-trait = "0.1.91"
+rdkafka = "0.39.0"
+
+[dev-dependencies]
+cucumber = "0.23.0"
+tower = { version = "0.5", features = ["util"] }
+wiremock = "0.6"
+
+[[test]]
+name = "cucumber"
+harness = false
+
+[profile.release]
+overflow-checks = true

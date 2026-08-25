@@ -31,11 +31,11 @@ func (c *Client) Pending(ctx context.Context) ([]reconciler.Organization, error)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("registry-service unreachable: %w", err)
+		return nil, fmt.Errorf("registry unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("registry-service returned %d", resp.StatusCode)
+		return nil, fmt.Errorf("registry returned %d", resp.StatusCode)
 	}
 
 	var raw []map[string]string
@@ -67,11 +67,11 @@ func (c *Client) setStatus(ctx context.Context, id string, body map[string]strin
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("registry-service unreachable: %w", err)
+		return fmt.Errorf("registry unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("registry-service returned %d", resp.StatusCode)
+		return fmt.Errorf("registry returned %d", resp.StatusCode)
 	}
 	return nil
 }

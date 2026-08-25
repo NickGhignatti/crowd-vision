@@ -1,4 +1,4 @@
-// Mirrors tenancy-service's domainResponse DTO (server/tenancy-service/internal/api/handler.go).
+// Mirrors tenancy's domainResponse DTO (server/tenancy/internal/api/handler.go).
 export interface Domain {
   id: string
   name: string

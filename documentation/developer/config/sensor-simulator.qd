@@ -74,7 +74,7 @@ The simulator sends data to CrowdVision's `/telemetry/ingest` endpoint via HTTP 
         participant UI as Vue Dashboard (Browser)
         participant Sim as Simulator Container (Docker)
         participant K8s as K8s Cluster (Istio ingress :80)
-        participant SS as telemetry-service Pod
+        participant SS as telemetry Pod
 
         UI->>Sim: POST http://localhost:3001/control/start\n{targetUrl: "http://localhost/telemetry", buildingId, roomIds}
         Sim->>Sim: Stores targetUrl, starts tick loop

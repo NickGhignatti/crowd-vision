@@ -95,7 +95,7 @@ Every Node service follows the same internal layout, so the file you want is alw
 
 ---
 
-## Rust — contracts-service & twin-service
+## Rust — dashboard & digital-twin
 
 Both Rust services follow idiomatic Rust style.
 
@@ -122,7 +122,7 @@ Both Rust services follow idiomatic Rust style.
 
 ## Go — Identity & Tenancy Control Plane
 
-`claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` follow idiomatic Go style (`gofmt`, checked by `go vet` in `just lint`).
+`claims-gateway`, `tenancy`, `registry`, and `provisioner` follow idiomatic Go style (`gofmt`, checked by `go vet` in `just lint`).
 
 .var {headers}
    - Artefact
@@ -147,9 +147,9 @@ Package layout follows the standard Go project layout: `internal/api` (HTTP hand
 
 ---
 
-## Python — agent-service
+## Python — agent
 
-The agent-service follows PEP 8: `snake_case` for modules, functions, and variables; `PascalCase` for classes; `SCREAMING_SNAKE_CASE` for constants. (The agent is maintained separately; these conventions are listed for completeness.)
+The agent follows PEP 8: `snake_case` for modules, functions, and variables; `PascalCase` for classes; `SCREAMING_SNAKE_CASE` for constants. (The agent is maintained separately; these conventions are listed for completeness.)
 
 ---
 
@@ -204,7 +204,7 @@ Common scopes: `gateway` (claims-gateway), `tenancy`, `registry`, `provisioner`,
 .tablebyrows {.headers}
     - - Environment variables
       - `UPPER_SNAKE_CASE`
-      - `GATEWAY_ISSUER`, `TELEMETRY_SERVICE_URL`
+      - `GATEWAY_ISSUER`, `TELEMETRY_URL`
     - - Docker images
       - `crowdvision-<service>` under the org namespace
       - `ghcr.io/nickghignatti/crowdvision-twin`

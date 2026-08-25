@@ -3,7 +3,7 @@
 
 Implementation reference for `provisioner`. For its architectural role, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
-`provisioner` is the only service in the platform with essentially no inbound HTTP API — it exposes `GET /health` and nothing else. Its entire job runs on a timer: poll [`registry-service`](registry-service.qd) for organizations awaiting provisioning, create the corresponding domain in [`tenancy-service`](tenancy-service.qd), and report the outcome back. It exists specifically to keep `registry-service`'s `POST /organizations` fast and simple — signup writes one row and returns immediately; whatever provisioning actually requires happens here, decoupled, on its own schedule.
+`provisioner` is the only service in the platform with essentially no inbound HTTP API — it exposes `GET /health` and nothing else. Its entire job runs on a timer: poll [`registry`](registry.qd) for organizations awaiting provisioning, create the corresponding domain in [`tenancy`](tenancy.qd), and report the outcome back. It exists specifically to keep `registry`'s `POST /organizations` fast and simple — signup writes one row and returns immediately; whatever provisioning actually requires happens here, decoupled, on its own schedule.
 
 ---
 
@@ -19,9 +19,9 @@ Implementation reference for `provisioner`. For its architectural role, see [Ide
     - - `internal/reconciler/reconciler.go`
       - The loop itself: list pending organizations, provision each, report status.
     - - `internal/registryfrontend/client.go`
-      - HMAC-signed calls to `registry-service`'s `/internal/*` routes.
+      - HMAC-signed calls to `registry`'s `/internal/*` routes.
     - - `internal/tenancyfrontend/client.go`
-      - HMAC-signed calls to `tenancy-service`'s `/internal/domains`.
+      - HMAC-signed calls to `tenancy`'s `/internal/domains`.
     - - `internal/config/config.go`
       - Env vars: both services' URLs and the shared HMAC secret.
 
@@ -30,8 +30,8 @@ Implementation reference for `provisioner`. For its architectural role, see [Ide
         MAIN["main.go\n15-second ticker"] --> REC["reconciler.go\nReconcileOnce()"]
         REC --> RC["registryclient\nPending() / MarkReady() / MarkFailed()"]
         REC --> TC["tenancyclient\nCreateDomain()"]
-        RC -.->|"HMAC-signed HTTP"| REGISTRY["registry-service\n/internal/organizations/*"]
-        TC -.->|"HMAC-signed HTTP"| TENANCY["tenancy-service\n/internal/domains"]
+        RC -.->|"HMAC-signed HTTP"| REGISTRY["registry\n/internal/organizations/*"]
+        TC -.->|"HMAC-signed HTTP"| TENANCY["tenancy\n/internal/domains"]
 
 ---
 
@@ -73,18 +73,18 @@ func (r *Reconciler) reconcileOne(ctx context.Context, org Organization) {
 
 Two failure-handling decisions worth calling out. First, one organization failing never stops the batch — `reconcileOne` reports its own failure and `ReconcileOnce`'s loop continues to the next organization, so one bad signup can't stall every other pending organization behind it. Second, only listing pending organizations in the first place is treated as fatal to the whole tick (it returns an error up to `main.go`, which logs it and simply waits for the next tick) — there's no per-organization retry backoff; a failed organization just stays `provisioning`... actually `failed`, and stays that way until someone or something acts on it again, since nothing currently re-queues a `failed` organization back to `provisioning`.
 
-Provisioning today does exactly one thing: create a domain. It does not seed default data, create Keycloak realm configuration, or provision anything in any other service — "provisioning an organization" currently *means* "create its `tenancy-service` domain," nothing more.
+Provisioning today does exactly one thing: create a domain. It does not seed default data, create Keycloak realm configuration, or provision anything in any other service — "provisioning an organization" currently *means* "create its `tenancy` domain," nothing more.
 
 .box {Only the `pooled` tier is supported} type:{note}
-    `dedicated` and `on-prem` organizations are accepted by `registry-service`'s signup (any tier in its check constraint passes), but `provisioner` immediately marks them `failed` with an explanatory detail message rather than attempting anything — this is a real, current limitation stated in the code's own logic, not an oversight this page is inferring.
+    `dedicated` and `on-prem` organizations are accepted by `registry`'s signup (any tier in its check constraint passes), but `provisioner` immediately marks them `failed` with an explanatory detail message rather than attempting anything — this is a real, current limitation stated in the code's own logic, not an oversight this page is inferring.
 
 ---
 
-## Calling registry-service And tenancy-service
+## Calling registry And tenancy
 
 **File:** `internal/registryfrontend/client.go`, `internal/tenancyfrontend/client.go`
 
-Both clients sign every request with the same HMAC-SHA256 scheme `registry-service`'s `internalauth.go` and `tenancy-service`'s equivalent check on the other end — but against **two different secrets**, since `provisioner` shares one secret with `registry-service` and (implicitly, via `tenancy-service`'s own `INTERNAL_SIGNING_SECRET`) a potentially different one for domain creation:
+Both clients sign every request with the same HMAC-SHA256 scheme `registry`'s `internalauth.go` and `tenancy`'s equivalent check on the other end — but against **two different secrets**, since `provisioner` shares one secret with `registry` and (implicitly, via `tenancy`'s own `INTERNAL_SIGNING_SECRET`) a potentially different one for domain creation:
 
 ```go
 func (c *Client) sign(body []byte) string {
@@ -108,7 +108,7 @@ func (c *Client) MarkFailed(ctx context.Context, id, detail string) error {
 }
 ```
 
-`tenancy-service`'s `CreateDomain` call treats both `201 Created` and `409 Conflict` as success:
+`tenancy`'s `CreateDomain` call treats both `201 Created` and `409 Conflict` as success:
 
 ```go
 // File: internal/tenancyfrontend/client.go
@@ -117,7 +117,7 @@ func (c *Client) MarkFailed(ctx context.Context, id, detail string) error {
 // just because a previous tick already created the domain.
 ```
 
-Treating a duplicate-domain conflict as success (rather than as an error to retry against) is what makes the whole loop safe to run every 15 seconds indefinitely: if `MarkReady` itself failed on a previous tick (network blip, `registry-service` briefly down) even though the domain was already created, the next tick re-attempts `CreateDomain`, gets `409`, and proceeds straight to `MarkReady` again — no organization gets stuck because provisioning "half succeeded."
+Treating a duplicate-domain conflict as success (rather than as an error to retry against) is what makes the whole loop safe to run every 15 seconds indefinitely: if `MarkReady` itself failed on a previous tick (network blip, `registry` briefly down) even though the domain was already created, the next tick re-attempts `CreateDomain`, gets `409`, and proceeds straight to `MarkReady` again — no organization gets stuck because provisioning "half succeeded."
 
 ---
 
@@ -131,10 +131,10 @@ Treating a duplicate-domain conflict as success (rather than as an error to retr
 .tablebyrows {.headers}
     - - `REGISTRY_URL`
       - required
-      - Base URL for `registry-service`.
+      - Base URL for `registry`.
     - - `TENANCY_URL`
       - required
-      - Base URL for `tenancy-service`.
+      - Base URL for `tenancy`.
     - - `INTERNAL_SIGNING_SECRET`
       - required
       - HMAC secret for both outbound clients.
@@ -145,4 +145,4 @@ The reconcile interval (15 seconds) and each HTTP client's timeout (5 seconds) a
 
 ## Why This Is A Separate Service At All
 
-Folding this reconcile loop into `registry-service` itself was a real option — it's the only thing that reads `registry-service`'s pending list. Keeping it separate means `registry-service` can stay a pure system-of-record (a database with a thin HTTP layer, no background goroutines, no scheduling) while the part of the system that actually *does* something on a timer — the part most likely to need new provisioning steps as the platform grows (Keycloak realm setup, seeding defaults, other tiers) — can change and redeploy independently, without touching the signup path at all.
+Folding this reconcile loop into `registry` itself was a real option — it's the only thing that reads `registry`'s pending list. Keeping it separate means `registry` can stay a pure system-of-record (a database with a thin HTTP layer, no background goroutines, no scheduling) while the part of the system that actually *does* something on a timer — the part most likely to need new provisioning steps as the platform grows (Keycloak realm setup, seeding defaults, other tiers) — can change and redeploy independently, without touching the signup path at all.

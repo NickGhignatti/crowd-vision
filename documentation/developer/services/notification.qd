@@ -1,7 +1,7 @@
 .docname {Notification Service}
 .include {docs}
 
-Implementation reference for the `notification-service`. For its architectural role, see [Notification Service Architecture](../architecture/notification-architecture.qd); for the domain model, see [Alerting](../domain/alerting.qd).
+Implementation reference for the `notification`. For its architectural role, see [Notification Service Architecture](../architecture/notification-architecture.qd); for the domain model, see [Alerting](../domain/alerting.qd).
 
 A Rust / Axum service in Ports & Adapters shape. It receives candidate alert events, debounces them, resolves recipients, and delivers through two channels: an in-app event over the Redis broker and a Web Push to registered devices.
 
@@ -15,7 +15,7 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
 
 .tablebyrows {.headers}
     - - `src/domain/`
-      - Pure types and message formats: `notification` (payloads, cooldown key, ISO timestamp), `preference`, `subscription`, `identity` (`belongs_to`/`domains`/`is_system` over the `claims-contracts` payload), `error`.
+      - Pure types and message formats: `notification` (payloads, cooldown key, ISO timestamp), `preference`, `subscription`, `identity` (`belongs_to`/`domains`/`is_system` over the `claims-schema` payload), `error`.
     - - `src/service/ports.rs`
       - Outbound port traits: `SubscriptionStore`, `PreferenceStore`, `PushSender`, `NotificationBus`, `Cooldown`, `DomainDirectory`, `Clock`.
     - - `src/service/alerts.rs`
@@ -29,7 +29,7 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
     - - `src/adapters/driving/alert_listener.rs`
       - Kafka consumer on the `alerts` topic.
     - - `src/adapters/driven/`
-      - Mongo stores, Redis bus + cooldown, `web-push` sender, twin-service domain lookup.
+      - Mongo stores, Redis bus + cooldown, `web-push` sender, digital-twin domain lookup.
 
 .mermaid
     graph TD
@@ -58,9 +58,9 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
     - - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`
       - empty
       - VAPID key pair. Both must be set or every push fails and is logged.
-    - - `TWIN_SERVICE_URL`
+    - - `DIGITAL_TWIN_URL`
       - `http://localhost:3000`
-      - twin-service base; resolves a building's domains.
+      - digital-twin base; resolves a building's domains.
     - - `MONGO_URI`
       - `mongodb://localhost:27017/notificationdb`
       - Database; the name is taken from the URI path.
@@ -141,7 +141,7 @@ Request bodies accept the canonical `domainName` field and the deprecated alias 
 
 Authentication is not enough: every route that names a domain also checks that the caller is a **member** of it, from `memberships` in the claims. Without this, any authenticated user of any tenant could subscribe themselves to another tenant's alert feed, or push arbitrary text to every opted-in user of a domain they have nothing to do with.
 
-`Audience::of` decides what a caller may reach: `Unrestricted` for a `system:` subject or a **global admin**, `Domains(...)` for everyone else. That mirrors `policy.cedar`'s `ReadWithAdminBypass` — domain membership **or** `maxRoleWeight >= 100` — so alerting is never narrower than twin-service's own read rule, where an admin may read any building.
+`Audience::of` decides what a caller may reach: `Unrestricted` for a `system:` subject or a **global admin**, `Domains(...)` for everyone else. That mirrors `policy.cedar`'s `ReadWithAdminBypass` — domain membership **or** `maxRoleWeight >= 100` — so alerting is never narrower than digital-twin's own read rule, where an admin may read any building.
 
 .var {headers}
    - Route
@@ -165,10 +165,10 @@ Authentication is not enough: every route that names a domain also checks that t
 `GET /preferences` needs no check — it reads by authenticated account and cannot name a domain at all.
 
 .box {Why the intersection, not a plain check} type:{note}
-    twin-service's `GET /domain/:building` authenticates the caller but does not scope the result (`_claims: GatewayClaims`, deliberately unused). Forwarding the caller's header therefore buys no authorization, so notification-service filters twin's answer itself rather than trusting it. A building spanning two tenants fans out only to the caller's own.
+    digital-twin's `GET /domain/:building` authenticates the caller but does not scope the result (`_claims: GatewayClaims`, deliberately unused). Forwarding the caller's header therefore buys no authorization, so notification filters twin's answer itself rather than trusting it. A building spanning two tenants fans out only to the caller's own.
 
 .box {The admin bypass is a role check, not Cedar} type:{note}
-    Unlike twin-service, this service does not embed the Cedar bundle — its Docker build context is its own directory, so `include_str!` cannot reach `auth-policy/`. `ReadWithAdminBypass`'s gate is `maxRoleWeight >= 100`, and `admin` tops `auth-contracts/roles.json` at exactly 100, so holding the `admin` role anywhere is equivalent. `the_admin_role_is_the_top_of_the_shared_ladder` reads `roles.json` at compile time and fails if a heavier role is ever added — that is the drift alarm. If one is, switch this service to Cedar rather than bumping a constant.
+    Unlike digital-twin, this service does not embed the Cedar bundle — its Docker build context is its own directory, so `include_str!` cannot reach `auth-policy/`. `ReadWithAdminBypass`'s gate is `maxRoleWeight >= 100`, and `admin` tops `auth-contracts/roles.json` at exactly 100, so holding the `admin` role anywhere is equivalent. `the_admin_role_is_the_top_of_the_shared_ladder` reads `roles.json` at compile time and fails if a heavier role is ever added — that is the drift alarm. If one is, switch this service to Cedar rather than bumping a constant.
 
 .box {The broker path is exempt} type:{note}
     `on_temperature_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger`/`push_temperature` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
@@ -177,15 +177,15 @@ Authentication is not enough: every route that names a domain also checks that t
 
 ## The Temperature-Alert Throttle
 
-The telemetry-service fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts` Kafka topic — and it is what absorbs the duplicates that at-least-once delivery allows.
+The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts` Kafka topic — and it is what absorbs the duplicates that at-least-once delivery allows.
 
 .mermaid
     sequenceDiagram
         autonumber
-        participant SS as telemetry-service
-        participant NS as notification-service
+        participant SS as telemetry
+        participant NS as notification
         participant R as Redis
-        participant TW as twin-service
+        participant TW as digital-twin
         SS->>NS: POST /push/temperature { buildingId, roomId, temperature }
         NS->>R: GET temp_alert:{buildingId}:{roomId}
         alt cooldown active
@@ -211,7 +211,7 @@ The key is `temp_alert:{buildingId}:{roomId}`; the cooldown is **300 seconds**. 
 
 - `to_domain(payload, domain_name, type)` queries the preferences collection for records in the domain whose `preferences` contain an enabled entry for `type` (`$elemMatch`), reduces to a unique set of account names, and delegates to `to_accounts`. An absent `type` matches every subscriber of the domain.
 - `to_accounts(payload, account_names)` loads every `WebPushSubscription` for those accounts and sends the encrypted payload to each endpoint concurrently — one dead endpoint never aborts the batch.
-- The in-app channel is independent: `NotificationBus::publish` posts `{ id, message, type, timestamp, domainName? }` to the Redis `notifications` channel, which the socket-service relays to browsers.
+- The in-app channel is independent: `NotificationBus::publish` posts `{ id, message, type, timestamp, domainName? }` to the Redis `notifications` channel, which the socket relays to browsers.
 
 ### Preference upserts
 

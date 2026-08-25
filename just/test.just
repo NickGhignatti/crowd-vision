@@ -14,57 +14,57 @@ all:
 affected:
     mise exec -- moon run :test --affected
 
-[doc("Unit tests for chat-service.")]
+[doc("Unit tests for chat.")]
 chat:
-    mise exec -- moon run chat-service:test
+    mise exec -- moon run chat:test
 
-[doc("Integration tests for chat-service — starts a throwaway MongoDB, runs tests/*.rs, tears it down.")]
+[doc("Integration tests for chat — starts a throwaway MongoDB, runs tests/*.rs, tears it down.")]
 chat-integration:
-    mise exec -- moon run chat-service:test-integration
+    mise exec -- moon run chat:test-integration
 
-[doc("Unit tests for telemetry-service.")]
+[doc("Unit tests for telemetry.")]
 telemetry:
-    mise exec -- moon run telemetry-service:test
+    mise exec -- moon run telemetry:test
 
-[doc("Integration tests for telemetry-service — throwaway TimescaleDB, runs tests/*.rs, tears it down.")]
+[doc("Integration tests for telemetry — throwaway TimescaleDB, runs tests/*.rs, tears it down.")]
 telemetry-integration:
-    mise exec -- moon run telemetry-service:test-integration
+    mise exec -- moon run telemetry:test-integration
 
-[doc("Unit tests for twin-service.")]
+[doc("Unit tests for digital-twin.")]
 twin:
-    mise exec -- moon run twin-service:test
+    mise exec -- moon run digital-twin:test
 
-[doc("Integration tests for twin-service — starts a throwaway MongoDB, runs tests/*.rs, tears it down.")]
+[doc("Integration tests for digital-twin — starts a throwaway MongoDB, runs tests/*.rs, tears it down.")]
 twin-integration:
-    mise exec -- moon run twin-service:test-integration
+    mise exec -- moon run digital-twin:test-integration
 
-[doc("Unit tests for notification-service.")]
+[doc("Unit tests for notification.")]
 notification:
-    mise exec -- moon run notification-service:test
+    mise exec -- moon run notification:test
 
-[doc("Integration tests for notification-service — starts a throwaway MongoDB and Redis, runs tests/*.rs, tears them down.")]
+[doc("Integration tests for notification — starts a throwaway MongoDB and Redis, runs tests/*.rs, tears them down.")]
 notification-integration:
-    mise exec -- moon run notification-service:test-integration
+    mise exec -- moon run notification:test-integration
 
-[doc("Unit tests for socket-service.")]
+[doc("Unit tests for socket.")]
 socket:
-    mise exec -- moon run socket-service:test
+    mise exec -- moon run socket:test
 
-[doc("Integration tests for socket-service — starts a throwaway Redis, runs tests/*.rs, tears it down.")]
+[doc("Integration tests for socket — starts a throwaway Redis, runs tests/*.rs, tears it down.")]
 socket-integration:
-    mise exec -- moon run socket-service:test-integration
+    mise exec -- moon run socket:test-integration
 
 [doc("Unit tests for the frontend.")]
 frontend:
     mise exec -- moon run frontend:test
 
-[doc("Unit tests for agent-service.")]
+[doc("Unit tests for agent.")]
 agent:
-    mise exec -- moon run agent-service:test
+    mise exec -- moon run agent:test
 
 [doc("Agent Python integration tests (separate suite from the docker-compose one).")]
 agent-integration:
-    mise exec -- uv run --directory backend/agent-service pytest tests/integration
+    mise exec -- uv run --directory backend/agent pytest tests/integration
 
 [doc("Run the agent golden-dataset evaluation against the local stack (auto-mints JWTs).")]
 eval models="" judge="":
@@ -73,9 +73,9 @@ eval models="" judge="":
     judge='{{judge}}'; judge="${judge#judge=}"
     args=(--report-only --models "$models")
     [ -n "$judge" ] && args+=(--judge-model "$judge")
-    mise exec -- uv run --directory backend/agent-service python evals/run_evals.py "${args[@]}"
+    mise exec -- uv run --directory backend/agent python evals/run_evals.py "${args[@]}"
 
-[doc("Run backend integration tests — only the services backend/tests actually exercises, not the full stack.")]
+[doc("Run backend integration tests — only the services backend/acceptance actually exercises, not the full stack.")]
 integration:
-    bash backend/tests/run-integration-tests.sh
+    bash backend/acceptance/run-integration-tests.sh
     @mise exec -- python3 scripts/compose/compose-run.py down

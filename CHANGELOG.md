@@ -118,7 +118,7 @@
 * model selection ([62c75b0](https://github.com/NickGhignatti/crowd-vision/commit/62c75b03feedf04be7d7cbeb1edab46cd02500c0))
 * moon installation registry ([#192](https://github.com/NickGhignatti/crowd-vision/issues/192)) ([52a5f17](https://github.com/NickGhignatti/crowd-vision/commit/52a5f17fc55e3969c8cbef948397caadb971ec19))
 * no more hardcoded pricing points ([f127cdd](https://github.com/NickGhignatti/crowd-vision/commit/f127cdd61a502703cf3c386fb658d31fad9b2acc))
-* **notification-service:** correct alert timestamp, high/low temperature direction, dead code & schema/interface mismatch ([#290](https://github.com/NickGhignatti/crowd-vision/issues/290)) ([ddaf8ab](https://github.com/NickGhignatti/crowd-vision/commit/ddaf8ab5f4685efff468adeb5e1aaf42b6deb804))
+* **notification:** correct alert timestamp, high/low temperature direction, dead code & schema/interface mismatch ([#290](https://github.com/NickGhignatti/crowd-vision/issues/290)) ([ddaf8ab](https://github.com/NickGhignatti/crowd-vision/commit/ddaf8ab5f4685efff468adeb5e1aaf42b6deb804))
 * now agent logs are no more super invasive ([25c8eff](https://github.com/NickGhignatti/crowd-vision/commit/25c8eff73fb2de57a717f7a56755761860f4b455))
 * old tooling system + consolidate dev tooling on mise + moon ([#262](https://github.com/NickGhignatti/crowd-vision/issues/262)) ([5c007c6](https://github.com/NickGhignatti/crowd-vision/commit/5c007c606cbe2588ef3d3cd1438ac7f3d4170627))
 * omit devDependencies for audit check in the CI ([#143](https://github.com/NickGhignatti/crowd-vision/issues/143)) ([48945cc](https://github.com/NickGhignatti/crowd-vision/commit/48945ccc53cc6b7edcc255fce7618f2e227fe58d))

@@ -45,7 +45,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: tenancy-service-route
+  name: tenancy-route
   namespace: crowdvision
 spec:
   parentRefs:
@@ -62,7 +62,7 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /
       backendRefs:
-        - name: tenancy-service
+        - name: tenancy
           port: 3000
       timeouts:
         request: 30s
@@ -71,7 +71,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: twin-service-route
+  name: digital-twin-route
   namespace: crowdvision
 spec:
   parentRefs:
@@ -88,7 +88,7 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /
       backendRefs:
-        - name: twin-service
+        - name: digital-twin
           port: 3000
       timeouts:
         request: 30s
@@ -97,7 +97,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: notification-service-route
+  name: notification-route
   namespace: crowdvision
 spec:
   parentRefs:
@@ -114,7 +114,7 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /
       backendRefs:
-        - name: notification-service
+        - name: notification
           port: 3000
       timeouts:
         request: 30s
@@ -123,7 +123,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: agent-service-route
+  name: agent-route
   namespace: crowdvision
 spec:
   parentRefs:
@@ -144,7 +144,7 @@ spec:
             remove:
               - x-gateway-claims
       backendRefs:
-        - name: agent-service
+        - name: agent
           port: 3000
       timeouts:
         request: 120s
@@ -153,7 +153,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: chat-service-route
+  name: chat-route
   namespace: crowdvision
 spec:
   parentRefs:
@@ -170,7 +170,7 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /
       backendRefs:
-        - name: chat-service
+        - name: chat
           port: 3000
       timeouts:
         request: 120s
@@ -179,7 +179,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: contracts-service-route
+  name: dashboard-route
   namespace: crowdvision
 spec:
   parentRefs:
@@ -188,7 +188,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /contracts
+            value: /dashboard
       filters:
         - type: URLRewrite
           urlRewrite:
@@ -196,7 +196,7 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /
       backendRefs:
-        - name: contracts-service
+        - name: dashboard
           port: 3000
       timeouts:
         request: 30s
@@ -205,7 +205,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: telemetry-service-route
+  name: telemetry-route
   namespace: crowdvision
 spec:
   parentRefs:
@@ -222,7 +222,7 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /
       backendRefs:
-        - name: telemetry-service
+        - name: telemetry
           port: 3000
       timeouts:
         request: 30s
@@ -231,7 +231,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: socket-service-route
+  name: socket-route
   namespace: crowdvision
 spec:
   parentRefs:
@@ -242,7 +242,7 @@ spec:
             type: PathPrefix
             value: /socket.io
       backendRefs:
-        - name: socket-service
+        - name: socket
           port: 3000
 
 ---

@@ -1,0 +1,40 @@
+services:
+  dashboard:
+    build:
+      target: dev
+    command: cargo watch -x run
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/backend/dashboard/src
+        - action: rebuild
+          path: ./Cargo.toml
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - contracts-target:/app/backend/dashboard/target
+      - cargo-registry:/usr/local/cargo/registry
+
+  dashboard-db:
+    ports:
+      - "27020:27017"
+
+  dashboard-db-express:
+    image: mongo-express:latest
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://dashboard-db:27017/
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=pass
+      - ME_CONFIG_SITE_BASEURL=/dashboard-db-gui/
+    depends_on:
+      - dashboard-db
+
+volumes:
+  contracts-target:
+  cargo-registry:

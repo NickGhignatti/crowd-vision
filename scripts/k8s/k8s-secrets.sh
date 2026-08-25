@@ -64,13 +64,13 @@ ghcr_token=$(env_get GHCR_TOKEN)
 echo "Creating secrets in namespace \"$NS\"..."
 echo
 
-apply generic chat-service-secret \
+apply generic chat-secret \
     --from-literal=MONGO_URI=mongodb://chat-db:27017/chatdb
 
-apply generic twin-service-secret \
+apply generic digital-twin-secret \
     --from-literal=MONGO_URI=mongodb://twin-db:27017/twindb
 
-apply generic telemetry-service-secret \
+apply generic telemetry-secret \
     --from-literal=DATABASE_URL="postgres://telemetry:$telemetry_db_password@telemetry-db:5432/telemetrydb" \
     --from-literal=TELEMETRY_INGEST_SECRET="$telemetry_ingest_secret"
 
@@ -79,12 +79,12 @@ apply generic telemetry-db-secret \
     --from-literal=POSTGRES_PASSWORD="$telemetry_db_password" \
     --from-literal=POSTGRES_DB=telemetrydb
 
-apply generic notification-service-secret \
+apply generic notification-secret \
     --from-literal=MONGO_URI=mongodb://notification-db:27017/notificationdb \
     --from-literal=VAPID_PUBLIC_KEY="$vapid_public_key" \
     --from-literal=VAPID_PRIVATE_KEY="$vapid_private_key"
 
-apply generic agent-service-secret \
+apply generic agent-secret \
     --from-literal=GOOGLE_API_KEY="$google_api_key" \
     --from-literal=DEEPSEEK_API_KEY="$deepseek_api_key" \
     --from-literal=POSTGRES_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agentdb
@@ -94,8 +94,8 @@ apply generic agent-db-secret \
     --from-literal=POSTGRES_PASSWORD=agent \
     --from-literal=POSTGRES_DB=agentdb
 
-apply generic contracts-service-secret \
-    --from-literal=MONGO_URI=mongodb://contracts-service-db:27017/contractsdb
+apply generic dashboard-secret \
+    --from-literal=MONGO_URI=mongodb://dashboard-db:27017/contractsdb
 
 apply generic registry-db-secret \
     --from-literal=POSTGRES_USER=registry \
@@ -107,11 +107,11 @@ apply generic tenancy-db-secret \
     --from-literal=POSTGRES_PASSWORD="$tenancy_db_password" \
     --from-literal=POSTGRES_DB=tenancy
 
-apply generic registry-service-secret \
+apply generic registry-secret \
     --from-literal=DATABASE_URL="postgres://registry:$registry_db_password@registry-db:5432/registry?sslmode=disable" \
     --from-literal=INTERNAL_SIGNING_SECRET="$internal_signing_secret"
 
-apply generic tenancy-service-secret \
+apply generic tenancy-secret \
     --from-literal=DATABASE_URL="postgres://tenancy:$tenancy_db_password@tenancy-db:5432/tenancy?sslmode=disable" \
     --from-literal=INTERNAL_SIGNING_SECRET="$internal_signing_secret"
 

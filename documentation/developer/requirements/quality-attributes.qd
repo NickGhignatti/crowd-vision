@@ -17,7 +17,7 @@ Where a scenario measures how well an [NFR](non-functional-requirements.qd) cons
 * **Artifact:** The Live Dashboard / 3D twin view.
 * **Environment:** Normal operation, view open in a user's browser.
 * **Response:** The updated value appears without a manual refresh, and a reading that breaches a threshold reaches every subscribed staff member's enrolled devices.
-* **Response Measure:** Two boundaries, because the system owns only one of them. **Inside the system — p99 ≤ 1s** from the reading being accepted at ingestion to the update being handed to the client's transport by `socket-service`, and likewise to the alert being handed to the push provider. **End to end — p99 ≤ 5s** from ingestion-accepted to the value being painted in the browser. **No reading is dropped** — every ingested reading is eventually rendered, including those ingested while a client's live connection was down — and **exactly one alert per breach event** is delivered.
+* **Response Measure:** Two boundaries, because the system owns only one of them. **Inside the system — p99 ≤ 1s** from the reading being accepted at ingestion to the update being handed to the client's transport by `socket`, and likewise to the alert being handed to the push provider. **End to end — p99 ≤ 5s** from ingestion-accepted to the value being painted in the browser. **No reading is dropped** — every ingested reading is eventually rendered, including those ingested while a client's live connection was down — and **exactly one alert per breach event** is delivered.
 
 *Grounded in **LD-4**, **AL-3**. Expressed as executable acceptance criteria in [Acceptance Criteria](acceptance-criteria.qd).*
 
@@ -77,7 +77,7 @@ Note also what this scenario does *not* promise. Unbounded acceptance is not ach
 
 *No user story grounds this: it is an operational quality owned by the Platform Administrator persona — the platform's own resilience to infrastructure churn, not a constraint tied to any single NFR.*
 
-**Not currently met, by construction.** Nothing in `k8s/` sets a replica count or an autoscaler, so every service runs a single instance and losing it is an outage, not a degradation. Satisfying this scenario needs `replicas ≥ 2` plus a `PodDisruptionBudget` per service — and, for `twin-service` specifically, moving the rate limiter's counters out of per-instance memory, since a limiter backed by an in-process `DashMap` multiplies its effective limit by the replica count.
+**Not currently met, by construction.** Nothing in `k8s/` sets a replica count or an autoscaler, so every service runs a single instance and losing it is an outage, not a degradation. Satisfying this scenario needs `replicas ≥ 2` plus a `PodDisruptionBudget` per service — and, for `digital-twin` specifically, moving the rate limiter's counters out of per-instance memory, since a limiter backed by an in-process `DashMap` multiplies its effective limit by the replica count.
 
 ---
 

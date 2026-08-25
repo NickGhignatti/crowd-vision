@@ -20,13 +20,13 @@ Shared code embedded directly into other services — not independently deployed
 
 .tablebyrows {.headers}
     - - auth-contracts
-      - Shared Kernel: the `StandardClaims`/`Membership` token shape and the role-weight ladder (`roles.json`). Consumed by auth-middleware, auth-policy, claims-gateway, tenancy-service.
+      - Shared Kernel: the `StandardClaims`/`Membership` token shape and the role-weight ladder (`roles.json`). Consumed by auth-middleware, auth-policy, claims-gateway, tenancy.
       - Go module
     - - auth-middleware
-      - Two verification strategies: `RequireAuthentication` (full JWT verify against JWKS) and `RequireMeshClaims` (trusts the mesh-injected `x-gateway-claims` header). Consumed by claims-gateway and tenancy-service (the only Go HTTP services).
+      - Two verification strategies: `RequireAuthentication` (full JWT verify against JWKS) and `RequireMeshClaims` (trusts the mesh-injected `x-gateway-claims` header). Consumed by claims-gateway and tenancy (the only Go HTTP services).
       - Go module
     - - auth-policy
-      - Cedar authorization bundle (`schema.cedarschema`, `policy.cedar`, `fixtures/conformance.json`) embedded and evaluated locally by each language: `cedar-go` (Go, tenancy-service), `cedar-policy` crate via `include_str!` at compile time (Rust, twin-service), `cedarpy` at runtime (Python, agent-service). One shared bundle, three independent embeddings — not a package import, a sibling directory each build copies in.
+      - Cedar authorization bundle (`schema.cedarschema`, `policy.cedar`, `fixtures/conformance.json`) embedded and evaluated locally by each language: `cedar-go` (Go, tenancy), `cedar-policy` crate via `include_str!` at compile time (Rust, digital-twin), `cedarpy` at runtime (Python, agent). One shared bundle, three independent embeddings — not a package import, a sibling directory each build copies in.
       - Go module + Rust/Python bindings
 
 ### Services
@@ -47,34 +47,34 @@ Independently deployable, each with its own container image.
     - - claims-gateway
       - Verifies the IdP token, resolves tenancy, mints the internal token every service trusts
       - Go
-    - - tenancy-service
+    - - tenancy
       - Domains & memberships — who belongs to which organization, with what role
       - Go / PostgreSQL
-    - - registry-service
+    - - registry
       - Organization signup & lifecycle (control plane; never deployed in a cell)
       - Go / PostgreSQL
     - - provisioner
       - Reconciles pending organizations into running tenancy (pooled tier today). No external route — internal reconcile loop only.
       - Go
-    - - twin-service
+    - - digital-twin
       - Building Management — the spatial model
       - Rust / Axum / MongoDB
-    - - telemetry-service
+    - - telemetry
       - Telemetry Ingestion — readings & thresholds
       - Rust / Axum / PostgreSQL + TimescaleDB
-    - - contracts-service
+    - - dashboard
       - Telemetry Distribution — per-building filtering
       - Rust / Axum / MongoDB
-    - - notification-service
+    - - notification
       - Alerting — push delivery
       - Rust / Axum / MongoDB
-    - - socket-service
+    - - socket
       - Real-time transport to the browser
       - Rust / Axum / socketioxide
-    - - chat-service
-      - Persists multi-turn chat sessions and orchestrates calls to agent-service
+    - - chat
+      - Persists multi-turn chat sessions and orchestrates calls to agent
       - Node.js / MongoDB
-    - - agent-service
+    - - agent
       - Assistant — maintained separately; see its [reference](../services/agent.qd)
       - Python / PostgreSQL (pgvector)
     - - client
@@ -91,9 +91,9 @@ Independently deployable, each with its own container image.
       - Redis
     - - Datastores
       - One database per stateful service
-      - MongoDB (chat-service, twin-service, contracts-service, notification-service — all Rust), PostgreSQL (telemetry-service — with TimescaleDB; agent-service, tenancy-service, registry-service, Keycloak)
+      - MongoDB (chat, digital-twin, dashboard, notification — all Rust), PostgreSQL (telemetry — with TimescaleDB; agent, tenancy, registry, Keycloak)
 
-The agent-service runs as part of the system but sits outside this guide's microservice set; it appears here for completeness only.
+The agent runs as part of the system but sits outside this guide's microservice set; it appears here for completeness only.
 
 ---
 
@@ -106,11 +106,11 @@ request-time calls between services, see [Communication & Data Flow](data-flow.q
   trees in the monorepo (`frontend/`, `backend/*`).
 - `auth-contracts` — Shared Kernel, dependency floor for every backend module.
 - `auth-middleware`, `auth-policy` depend on it, nothing else.
-- `claims-gateway`, `tenancy-service` pull in the Go auth libs. `twin-service`,
-  `agent-service` embed only `auth-policy`'s Cedar bundle (`include_str!` /
+- `claims-gateway`, `tenancy` pull in the Go auth libs. `digital-twin`,
+  `agent` embed only `auth-policy`'s Cedar bundle (`include_str!` /
   `cedarpy`, not a package import).
-- `registry-service`, `provisioner`, `telemetry-service`, `contracts-service`,
-  `notification-service`, `socket-service`, `chat-service` — no shared-lib
+- `registry`, `provisioner`, `telemetry`, `dashboard`,
+  `notification`, `socket`, `chat` — no shared-lib
   dependency, hang directly off `backend`.
 
 ![Module view diagram](images/module-view.png)
@@ -140,7 +140,7 @@ In Kubernetes mode, Caddy is replaced by an **Istio Gateway** (Gateway API, `gat
 
 A key difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it reaches the cluster through the load balancer's public port, just like a browser. See the [External Sensor Simulator](../config/sensor-simulator.qd) page. The cluster internals — StatefulSets, Secrets, Gateway API routes — are detailed in [Deployment & Kubernetes](deployment.qd); the mesh internals (ztunnel, `RequestAuthentication`, `AuthorizationPolicy`, Cedar) in [Service Mesh Architecture](service-mesh.qd).
 
-`agent-service` is deliberately excluded from the mesh's `AuthorizationPolicy`-enforced JWT gate: it also serves a local-dev evaluation bypass token that never holds a real gateway JWT, so it keeps checking for the mesh claims header first and falls back to its own token verification in-process.
+`agent` is deliberately excluded from the mesh's `AuthorizationPolicy`-enforced JWT gate: it also serves a local-dev evaluation bypass token that never holds a real gateway JWT, so it keeps checking for the mesh claims header first and falls back to its own token verification in-process.
 
 ---
 
@@ -158,32 +158,32 @@ The routing table is identical across both deployment models. Only the component
       - `claims-gateway`
       - Token exchange, `/me`, logout, JWKS.
     - - `/tenancy/`
-      - `tenancy-service`
+      - `tenancy`
       - Domains, subdomains, memberships, invite codes.
     - - `/twin/`
-      - `twin-service`
+      - `digital-twin`
       - Building models, room CRUD, spatial data.
     - - `/notification/`
-      - `notification-service`
+      - `notification`
       - Processing sensor events, triggering Web Push alerts.
     - - `/telemetry/`
-      - `telemetry-service`
-      - Ingesting time-series sensor readings (people count, temperature). `/telemetry/ingest` is exempt from the auth gate — it is device/simulator-facing and carries no user token, authenticating instead with an HMAC `X-Signature` over the raw body that telemetry-service verifies itself.
+      - `telemetry`
+      - Ingesting time-series sensor readings (people count, temperature). `/telemetry/ingest` is exempt from the auth gate — it is device/simulator-facing and carries no user token, authenticating instead with an HMAC `X-Signature` over the raw body that telemetry verifies itself.
     - - `/chat/`
-      - `chat-service`
-      - Persisted multi-turn chat sessions, forwarding to agent-service.
+      - `chat`
+      - Persisted multi-turn chat sessions, forwarding to agent.
     - - `/agent/`
-      - `agent-service`
+      - `agent`
       - Tool-calling assistant for live building data and documentation search. Not gated by the mesh/gateway JWT check — see the exclusion note above.
     - - `/contracts/`
-      - `contracts-service`
+      - `dashboard`
       - Per-building telemetry filtering preferences. Not gated by the auth check.
     - - `/socket.io/`
-      - `socket-service`
+      - `socket`
       - Maintaining persistent WebSocket connections to the frontend.
     - - `/`
       - `client`
       - Serves the Vue 3 SPA. Catch-all, must be defined last.
 
 .box {Dev Mode} type:{note}
-    Developer Mode Only: when running `just stack dev`, Caddy also exposes database GUIs at `/twin-db-gui/*`, `/telemetry-db-gui/*`, `/notification-db-gui/*`, `/contracts-db-gui/*`, and `/chat-db-gui/*`. These are not present in Kubernetes deployments for security reasons.
+    Developer Mode Only: when running `just stack dev`, Caddy also exposes database GUIs at `/twin-db-gui/*`, `/telemetry-db-gui/*`, `/notification-db-gui/*`, `/dashboard-db-gui/*`, and `/chat-db-gui/*`. These are not present in Kubernetes deployments for security reasons.

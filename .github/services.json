@@ -1,37 +1,37 @@
 [
   {
     "key": "auth-contracts",
-    "dir": "backend/auth-contracts",
+    "dir": "backend/libs/auth-contracts",
     "lang": "go",
     "builds_binary": false
   },
   {
-    "key": "claims-contracts",
-    "dir": "backend/claims-contracts",
+    "key": "claims-schema",
+    "dir": "schemas/claims-schema",
     "lang": "rust",
     "builds_binary": false
   },
   {
-    "key": "telemetry-contracts",
-    "dir": "backend/telemetry-contracts",
+    "key": "telemetry-schema",
+    "dir": "schemas/telemetry-schema",
     "lang": "rust",
     "builds_binary": false
   },
   {
-    "key": "twin-contracts",
-    "dir": "backend/twin-contracts",
+    "key": "twin-schema",
+    "dir": "schemas/twin-schema",
     "lang": "rust",
     "builds_binary": false
   },
   {
     "key": "auth-middleware",
-    "dir": "backend/auth-middleware",
+    "dir": "backend/libs/auth-middleware",
     "lang": "go",
     "builds_binary": false
   },
   {
     "key": "auth-policy",
-    "dir": "backend/auth-policy",
+    "dir": "backend/libs/auth-policy",
     "lang": "go",
     "builds_binary": false
   },
@@ -52,87 +52,87 @@
     "dockerfile": "backend/provisioner/Dockerfile"
   },
   {
-    "key": "registry-service",
-    "dir": "backend/registry-service",
+    "key": "registry",
+    "dir": "backend/registry",
     "lang": "go",
     "image": "crowdvision-registry",
     "cd_context": ".",
-    "dockerfile": "backend/registry-service/Dockerfile"
+    "dockerfile": "backend/registry/Dockerfile"
   },
   {
-    "key": "tenancy-service",
-    "dir": "backend/tenancy-service",
+    "key": "tenancy",
+    "dir": "backend/tenancy",
     "lang": "go",
     "image": "crowdvision-tenancy",
     "cd_context": ".",
-    "dockerfile": "backend/tenancy-service/Dockerfile"
+    "dockerfile": "backend/tenancy/Dockerfile"
   },
   {
     "key": "chat",
-    "dir": "backend/chat-service",
+    "dir": "backend/chat",
     "lang": "rust",
     "needs_mongo": true,
     "image": "crowdvision-chat",
     "cd_context": ".",
-    "dockerfile": "backend/chat-service/Dockerfile"
+    "dockerfile": "backend/chat/Dockerfile"
   },
   {
     "key": "notification",
-    "dir": "backend/notification-service",
+    "dir": "backend/notification",
     "lang": "rust",
     "needs_mongo": true,
     "needs_redis": true,
     "needs_kafka": true,
     "image": "crowdvision-notification",
     "cd_context": ".",
-    "dockerfile": "backend/notification-service/Dockerfile"
+    "dockerfile": "backend/notification/Dockerfile"
   },
   {
     "key": "telemetry",
-    "dir": "backend/telemetry-service",
+    "dir": "backend/telemetry",
     "lang": "rust",
     "image": "crowdvision-telemetry",
     "needs_redis": true,
     "needs_postgres": true,
     "needs_kafka": true,
     "cd_context": ".",
-    "dockerfile": "backend/telemetry-service/Dockerfile"
+    "dockerfile": "backend/telemetry/Dockerfile"
   },
   {
     "key": "socket",
-    "dir": "backend/socket-service",
+    "dir": "backend/socket",
     "lang": "rust",
     "needs_mongo": false,
     "needs_redis": true,
     "image": "crowdvision-socket",
     "cd_context": ".",
-    "dockerfile": "backend/socket-service/Dockerfile"
+    "dockerfile": "backend/socket/Dockerfile"
   },
   {
     "key": "twin",
-    "dir": "backend/twin-service",
+    "dir": "backend/digital-twin",
     "lang": "rust",
     "needs_mongo": true,
     "image": "crowdvision-twin",
     "cd_context": ".",
-    "dockerfile": "backend/twin-service/Dockerfile"
+    "dockerfile": "backend/digital-twin/Dockerfile"
   },
   {
-    "key": "contracts",
-    "dir": "backend/contracts-service",
+    "key": "dashboard",
+    "dir": "backend/dashboard",
     "lang": "rust",
     "needs_mongo": false,
-    "image": "crowdvision-contracts",
+    "image": "crowdvision-dashboard",
     "cd_context": ".",
-    "dockerfile": "backend/contracts-service/Dockerfile"
+    "dockerfile": "backend/dashboard/Dockerfile"
   },
   {
     "key": "agent",
-    "dir": "backend/agent-service",
+    "dir": "backend/agent",
     "lang": "python",
     "image": "crowdvision-agent",
     "cd_context": ".",
-    "dockerfile": "backend/agent-service/Dockerfile"
+    "dockerfile": "backend/agent/Dockerfile"
   },
   {
     "key": "frontend",

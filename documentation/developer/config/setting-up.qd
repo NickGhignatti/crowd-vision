@@ -18,7 +18,7 @@ Once `just` and `mise` are available, the remaining tools can be managed by `mis
 
 *   **Node.js v24**, **Python 3.12**, **Rust (stable)**, **`istioctl` 1.30.2** — handled by `mise install`.
 *   **uv** — handled by `mise install` (or manually at <https://docs.astral.sh/uv/>).
-*   **Go** (stable) — install manually at <https://go.dev/dl/>. Unlike the other four languages, Go is **not** pinned in `\.mise.toml`, so `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` rely on whatever `go` is already on your `PATH`. Needed only if you're working on one of those four services.
+*   **Go** (stable) — install manually at <https://go.dev/dl/>. Unlike the other four languages, Go is **not** pinned in `\.mise.toml`, so `claims-gateway`, `tenancy`, `registry`, and `provisioner` rely on whatever `go` is already on your `PATH`. Needed only if you're working on one of those four services.
 *   **Docker & Docker Compose** (for running the isolated databases and services)
 *   **Git**
 *   **A local Kubernetes cluster + kubectl** (only if you plan to deploy via k8s)
@@ -59,7 +59,7 @@ just setup clean-install   # wipes every node_modules + lock, regenerates for Li
 To regenerate just one service's lockfile (e.g. after adding a dependency) without the full wipe:
 
 ```bash
-npm install --prefix backend/twin-service --package-lock-only --cpu=x64 --os=linux
+npm install --prefix backend/digital-twin --package-lock-only --cpu=x64 --os=linux
 ```
 
 The `--cpu=x64 --os=linux` flags make npm record the Linux optional tree even when you run the command on another OS; `--package-lock-only` updates the lock without touching `node_modules`.
@@ -101,13 +101,13 @@ This chains ten small, idempotent POSIX-sh scripts (`scripts/env/*.sh`), each re
     - - `keycloak.sh`
       - Keycloak admin credentials, its Postgres password, and the optional Google social-login client id/secret.
     - - `controlplane.sh`
-      - Shared secrets for the Go control plane (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`).
+      - Shared secrets for the Go control plane (`claims-gateway`, `tenancy`, `registry`, `provisioner`).
     - - `gateway-key.sh`
       - A stable RSA signing key for `claims-gateway`, written to `secrets/gateway-dev-key.pem` — **not** `\.env` (see below).
     - - `ingest-key.sh`
       - `TELEMETRY_INGEST_SECRET` — the HMAC key a gateway signs `/telemetry/ingest` bodies with. Deliberately distinct from `INTERNAL_SIGNING_SECRET`: it leaves the mesh and lives on customer premises.
     - - `telemetry-db.sh`
-      - `TELEMETRY_DB_PASSWORD` — backs `telemetry-db`. Read only by the Kubernetes path (`just k8s secrets`); Compose hardcodes `telemetry` in `backend/telemetry-service/docker-compose.yml`.
+      - `TELEMETRY_DB_PASSWORD` — backs `telemetry-db`. Read only by the Kubernetes path (`just k8s secrets`); Compose hardcodes `telemetry` in `backend/telemetry/docker-compose.yml`.
 
 #### Core gateway config
 
@@ -129,7 +129,7 @@ Written non-interactively by `config.sh` (edit `\.env` to override):
       - `http://localhost`
       - Base URL of the gateway; combined with the ports to build public-facing URLs.
 
-The only interactive prompt in the whole `just stack env` chain is the optional `OPENROUTER_API_KEY` (leave empty to skip — the agent-service boots without it, but `/ask` fails on the first LLM/tool-calling hop; get a key at <https://openrouter.ai/keys>). Legacy `GOOGLE_API_KEY` / `DEEPSEEK_API_KEY` values already in `\.env` are still honoured as aliases.
+The only interactive prompt in the whole `just stack env` chain is the optional `OPENROUTER_API_KEY` (leave empty to skip — the agent boots without it, but `/ask` fails on the first LLM/tool-calling hop; get a key at <https://openrouter.ai/keys>). Legacy `GOOGLE_API_KEY` / `DEEPSEEK_API_KEY` values already in `\.env` are still honoured as aliases.
 
 .box type:{note}
     There is no `JWT_SECRET`/`INTERNAL_ADMIN_SECRET` anymore — those belonged to the now-deleted `auth-service`. See [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) for the current auth design.
@@ -140,14 +140,14 @@ The only interactive prompt in the whole `just stack env` chain is the optional 
 
 #### Langfuse (LLM observability)
 
-`langfuse.sh` generates the self-hosted Langfuse v3 provisioning secrets (`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`, `LANGFUSE_INIT_*`, salt/encryption keys) and the OpenTelemetry exporter config the agent-service uses to ship traces there. The project and API keys are provisioned headlessly on Langfuse's first boot — nothing to click through. Once the stack is running, the UI is at `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there — see [Docker Compose Orchestration](docker-compose.qd)), logging in with `admin@crowd-vision.local` / `langfuse-admin`.
+`langfuse.sh` generates the self-hosted Langfuse v3 provisioning secrets (`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`, `LANGFUSE_INIT_*`, salt/encryption keys) and the OpenTelemetry exporter config the agent uses to ship traces there. The project and API keys are provisioned headlessly on Langfuse's first boot — nothing to click through. Once the stack is running, the UI is at `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there — see [Docker Compose Orchestration](docker-compose.qd)), logging in with `admin@crowd-vision.local` / `langfuse-admin`.
 
 .box type:{note}
     Unset `OTEL_EXPORTER_OTLP_ENDPOINT` to fall back to compact console span output if you don't need a trace backend for local hacking.
 
 #### Control plane
 
-`controlplane.sh` generates `INTERNAL_SIGNING_SECRET` — the shared HMAC key `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` use to authenticate their system-to-system calls, so it must be the same value across all four — plus `TENANCY_DB_PASSWORD` and `REGISTRY_DB_PASSWORD` for their respective Postgres instances.
+`controlplane.sh` generates `INTERNAL_SIGNING_SECRET` — the shared HMAC key `claims-gateway`, `tenancy`, `registry`, and `provisioner` use to authenticate their system-to-system calls, so it must be the same value across all four — plus `TENANCY_DB_PASSWORD` and `REGISTRY_DB_PASSWORD` for their respective Postgres instances.
 
 #### Gateway signing key
 

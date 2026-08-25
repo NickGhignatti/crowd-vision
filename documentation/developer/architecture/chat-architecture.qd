@@ -1,15 +1,15 @@
 .docname {Chat Service Architecture}
 .include {docs}
 
-**Bounded context:** [Knowledge & Assistance](../domain/knowledge-assistance.qd) (shared with agent-service) · **Stack:** Rust / Axum / MongoDB · **Code-level walkthrough:** [Chat Service](../services/chat.qd)
+**Bounded context:** [Knowledge & Assistance](../domain/knowledge-assistance.qd) (shared with agent) · **Stack:** Rust / Axum / MongoDB · **Code-level walkthrough:** [Chat Service](../services/chat.qd)
 
-The chat-service owns conversations: it persists message history, enforces per-conversation limits, and forwards each question to `agent-service` for an answer. It holds no assistant logic itself — `agent-service` is stateless per request and never sees a conversation until chat-service sends it one.
+The chat owns conversations: it persists message history, enforces per-conversation limits, and forwards each question to `agent` for an answer. It holds no assistant logic itself — `agent` is stateless per request and never sees a conversation until chat sends it one.
 
 ---
 
 ## Architectural Style
 
-**Ports & Adapters**, the same shape as `twin-service` and `notification-service`, enforced by `tests/architecture_fitness.rs`. The service has exactly two things outside itself — the conversation store and the agent — so it has exactly two driven ports. `domain/` is pure; `service/conversations.rs` holds the use cases and depends only on `ConversationStore` and `AgentClient`; the adapters supply Mongo and the agent's SSE stream.
+**Ports & Adapters**, the same shape as `digital-twin` and `notification`, enforced by `tests/architecture_fitness.rs`. The service has exactly two things outside itself — the conversation store and the agent — so it has exactly two driven ports. `domain/` is pure; `service/conversations.rs` holds the use cases and depends only on `ConversationStore` and `AgentClient`; the adapters supply Mongo and the agent's SSE stream.
 
 .mermaid
     graph TD
@@ -33,31 +33,31 @@ The chat-service owns conversations: it persists message history, enforces per-c
         P -.->|"implemented by"| MONGO
         P -.->|"implemented by"| AG
         MONGO --> DB[(chat-db)]
-        AG -->|"POST /ask stream=true, x-gateway-claims forwarded"| AGENT[agent-service]
+        AG -->|"POST /ask stream=true, x-gateway-claims forwarded"| AGENT[agent]
 
 ### Components & Connectors diagram
 
-![Chat Service C&C diagram](images/cc-chat-service.svg)
+![Chat Service C&C diagram](images/cc-chat.svg)
 
 ---
 
 ## Key Architectural Decisions
 
-- **Conversation state lives here, not in agent-service.** `agent-service` answers one question at a time and remembers nothing between calls; chat-service is what makes a multi-turn conversation possible, by sending back a bounded slice of prior messages with every question.
-- **History sent to the assistant is capped, not the full conversation.** Only the last `HISTORY_MAX_MESSAGES` messages (10 by default) are sent to `agent-service` per question — a long conversation doesn't mean a growing prompt.
+- **Conversation state lives here, not in agent.** `agent` answers one question at a time and remembers nothing between calls; chat is what makes a multi-turn conversation possible, by sending back a bounded slice of prior messages with every question.
+- **History sent to the assistant is capped, not the full conversation.** Only the last `HISTORY_MAX_MESSAGES` messages (10 by default) are sent to `agent` per question — a long conversation doesn't mean a growing prompt.
 - **Hard limits everywhere a user writes.** A conversation caps at 100 messages, a message at 8000 characters, a title at 120 — all rejected at the service layer before anything is persisted, not enforced by the database schema.
 - **Every operation is ownership-scoped.** `ownedConversation` checks `userId` and `conversationId` together on every read, write, and delete; a valid id for someone else's conversation resolves to "not found," not "forbidden," so existence isn't leaked either.
 - **Auto-titling from the first exchange.** A new conversation starts titled "New chat"; the first question becomes the title (truncated to the limit) the moment the first exchange completes, with no separate naming step.
 - **Answers stream; they are not buffered.** `POST /conversations/{id}/messages` returns Server-Sent Events — `token` frames as the answer is generated, then a terminal `done` frame carrying the saved assistant message. Total generation time is unchanged; time-to-first-token drops from seconds to milliseconds. The edge must not buffer the response (Caddy: `flush_interval -1`).
 - **Failures split by whether the response has begun.** Validation, ownership, the message cap, and an unreachable agent are all knowable before the first token, so they stay ordinary status codes. Once the stream is open the status line is gone, and a failure arrives instead as a terminal `error` frame on a `200`.
 - **Nothing is persisted until the stream completes.** Tokens accumulate in memory; the exchange is written on the terminal frame and never before. An aborted generation therefore leaves no half-written answer and no retitled conversation — the conversation looks exactly as it did before the question.
-- **Identity forwarded, not re-verified.** the agent adapter passes the caller's `x-gateway-claims` header straight through to `agent-service` — the same mesh-injected header chat-service itself trusted, on the same trust chain every other migrated service uses.
+- **Identity forwarded, not re-verified.** the agent adapter passes the caller's `x-gateway-claims` header straight through to `agent` — the same mesh-injected header chat itself trusted, on the same trust chain every other migrated service uses.
 
 ---
 
 ## Integration
 
 - Owns `chat-db`; no other service reads it.
-- Calls `agent-service`'s `/ask` for every message, forwarding the caller's identity — see [Communication & Data Flow](data-flow.qd).
+- Calls `agent`'s `/ask` for every message, forwarding the caller's identity — see [Communication & Data Flow](data-flow.qd).
 
 For the conversation schema, the citation format, and the API, see the [Chat Service](../services/chat.qd) internals page.

@@ -1,0 +1,85 @@
+.docname {Telemetry Contracts}
+.include {docs}
+
+`telemetry-schema` is the crate the whole shared-contracts effort started from. It exists because of a bug: `telemetry` served a metric catalog with `{key, kind}` and `dashboard` parsed `{metricKey, type}`. The response type was an untagged enum, so neither variant matched, and the parse failure was treated as "that service is down, skip it" — an empty catalog returned with `200 OK`, and nobody could add or swap a dashboard column. No error anywhere.
+
+It now carries three contracts, each one a place where the same class of failure was possible.
+
+| Module | Shape | Producer | Consumers |
+|---|---|---|---|
+| `lib.rs` | Metric catalog (`ServiceMetricsContract`, `MetricContract`, …) | telemetry `/contracts` | dashboard |
+| `alerts.rs` | `AlertEvent` + `ALERTS_TOPIC` | telemetry | notification |
+| `telemetry.rs` | `TelemetryEnvelope`, `TelemetryReading`, both channel names | telemetry | dashboard, socket |
+
+---
+
+## 1. The metric catalog
+
+The original contract, unchanged: serde structs both services build from, with `rename_all = "camelCase"` and field names that `frontend/src/models/table.ts` also reads. The rule that came out of the incident is the one every module here follows — **the producer builds the struct; nobody hand-rolls `json!` for a shape another service parses.**
+
+The seam is covered by a test that lives on the producing side: `telemetry/tests/api.rs::the_catalog_deserialises_into_the_shape_dashboard_parses`.
+
+---
+
+## 2. `AlertEvent` — a value keyed by its own metric
+
+```json
+{"buildingId":"b1","roomId":"r1","temperature":40.0,"type":"temperature",
+ "direction":"high","threshold":25.0,"timestamp":1700000000000}
+```
+
+`type` names the metric; the reading sits under a key of that name. That is why `Serialize`/`Deserialize` are hand-written rather than derived — a derive cannot express "look up the key this other field names". A `type` naming a key the object does not carry is a parse error, not a silent `None`.
+
+Every field is required. The producer always sets all of them, so a missing one means a malformed record, which notification parks in the dead-letter topic rather than delivering as a half-rendered push. `threshold` is part of the type because it was already on the wire and being thrown away.
+
+.callout {note}
+    **Every metric's breaches reach the topic; only `temperature` has a delivery path.** notification answers `BreachOutcome::Unsupported` for anything else — logged with the metric name, counted `unsupported_metric`, settled. Before, this was an untyped `type == "temperature"` string compare whose failures were counted as `skipped`, which is how air-quality and people-count breaches disappeared without a trace.
+
+---
+
+## 3. `TelemetryEnvelope` — a tick, and the channels it travels on
+
+One building tick is one message, end to end:
+
+```json
+{"buildingId":"b1","ingestedAt":1700000000500,
+ "readings":[{"type":"temperature","buildingId":"b1","roomId":"r1",
+              "timestamp":1700000000000,"value":21.5,"ingestedAt":1700000000500}]}
+```
+
+```rust
+pub struct TelemetryReading {
+    pub metric: String,        // "type"
+    pub building_id: String,
+    pub room_id: String,
+    pub ts_ms: i64,            // "timestamp"
+    pub value: f64,
+    pub ingested_at_ms: i64,   // "ingestedAt"
+    #[serde(flatten)]
+    pub fields: Map<String, Value>,
+}
+```
+
+`readings` is `Vec<Value>` on the envelope, deliberately. A reading's fields belong to whichever plugin produced it — telemetry is a microkernel, and enumerating plugin fields in a shared crate would undo that. `TelemetryReading` types the part that *is* fixed (the six names the browser reads) and flattens the rest, so a reading round-trips whatever its plugin emitted.
+
+**dashboard parses the envelope to route it, then republishes the exact bytes it received.** Routing is a decision about `buildingId`; it is not a licence to rebuild a payload this service does not own. It used to deserialise to a `Value` and re-serialise, which was both slower and one refactor away from dropping a field.
+
+`ingestedAt` is now **required**. It was optional before — used only for the fan-out latency histogram, skipped when absent. One service produces this envelope and always sets it, so a missing one means a broken publisher, and forwarding a broken tick is precisely the failure this crate exists to stop.
+
+### The channel names
+
+```rust
+pub const RAW_CHANNEL: &str = "telemetry:raw";
+pub const FILTERED_CHANNEL_PATTERN: &str = "telemetry:filtered:*";
+
+pub fn filtered_channel(building_id: &str) -> String;
+pub fn building_of_filtered_channel(channel: &str) -> &str;
+```
+
+Four declaration sites across three services collapse into these. The pair matters more than it looks: dashboard *writes* `telemetry:filtered:{id}` and socket *reads the building back out of it*, so the prefix is a two-way contract, and a building id containing a colon (`site:b1`) has to survive the round trip. There is a test for exactly that.
+
+---
+
+## Building against it
+
+Every consumer builds from **repo-root context** so the sibling path dependency resolves. `.github/services.json` carries `cd_context: "."` and an explicit `dockerfile` for each, and every `Dockerfile` copies the crate before `cargo chef prepare` **and** before each `cargo chef cook` — cook restores the dependency graph, and a path dependency that is not on disk at that moment fails the build halfway through.

@@ -1,14 +1,14 @@
-# Restricts agent-service to the ingress gateway + chat-service, since it
+# Restricts agent to the ingress gateway + chat, since it
 # trusts the unsigned x-gateway-claims header (app/auth.py) without a signature check.
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
-  name: agent-service-callers
+  name: agent-callers
   namespace: crowdvision
 spec:
   selector:
     matchLabels:
-      app: agent-service
+      app: agent
   action: ALLOW
   rules:
     - from:
@@ -18,4 +18,4 @@ spec:
     - from:
         - source:
             principals:
-              - cluster.local/ns/crowdvision/sa/chat-service
+              - cluster.local/ns/crowdvision/sa/chat

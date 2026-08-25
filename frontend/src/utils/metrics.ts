@@ -37,7 +37,7 @@ export const METRIC_CELL_CLASS: Record<string, string> = {
   peopleCount:      'text-slate-900',
 }
 
-/** Builds a TableHeader from a raw metric key string (as stored in contracts-service preferences). */
+/** Builds a TableHeader from a raw metric key string (as stored in dashboard preferences). */
 export const metricKeyToHeader = (metricKey: string): TableHeader => ({
   key:       METRIC_DATA_KEY[metricKey] ?? metricKey,
   metricKey,

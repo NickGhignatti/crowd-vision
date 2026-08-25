@@ -1,7 +1,7 @@
 .docname {Real-Time Client Communication}
 .include {docs}
 
-This page documents how the Vue client talks to the backend over its **one** WebSocket connection — how that connection comes to exist, and how telemetry subscription is layered on top of it for components that need live sensor data. For how a reading gets from a physical sensor to the point where this connection receives it, see [Contracts Service Architecture](../architecture/contracts-architecture.qd) and [Socket Service Architecture](../architecture/socket-architecture.qd); this page starts where those leave off — the moment a `telemetry` event lands in the browser.
+This page documents how the Vue client talks to the backend over its **one** WebSocket connection — how that connection comes to exist, and how telemetry subscription is layered on top of it for components that need live sensor data. For how a reading gets from a physical sensor to the point where this connection receives it, see [Contracts Service Architecture](../architecture/dashboard-architecture.qd) and [Socket Service Architecture](../architecture/socket-architecture.qd); this page starts where those leave off — the moment a `telemetry` event lands in the browser.
 
 ---
 

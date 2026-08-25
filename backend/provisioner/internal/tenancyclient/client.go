@@ -39,14 +39,14 @@ func (c *Client) CreateDomain(ctx context.Context, name, displayName, joinPolicy
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("tenancy-service unreachable: %w", err)
+		return fmt.Errorf("tenancy unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusConflict {
 		return nil
 	}
-	return fmt.Errorf("tenancy-service returned %d", resp.StatusCode)
+	return fmt.Errorf("tenancy returned %d", resp.StatusCode)
 }
 
 var _ reconciler.TenancyClient = (*Client)(nil)

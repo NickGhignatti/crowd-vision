@@ -7,7 +7,7 @@ This page is the contract for working in the CrowdVision repository: how the mon
 
 ## The polyglot monorepo
 
-CrowdVision is a polyglot monorepo: a Vue frontend, one Node service in TypeScript (`chat`), five Rust services (`contracts-service`, `socket-service`, `twin-service`, `notification-service`, `telemetry-service`), a Python `agent-service`, and four Go services forming the identity/tenancy control plane (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) — orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`\. See [Naming Conventions](naming-conventions.qd) for the per-language style each of these follows.
+CrowdVision is a polyglot monorepo: a Vue frontend, one Node service in TypeScript (`chat`), five Rust services (`dashboard`, `socket`, `digital-twin`, `notification`, `telemetry`), a Python `agent`, and four Go services forming the identity/tenancy control plane (`claims-gateway`, `tenancy`, `registry`, `provisioner`) — orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`\. See [Naming Conventions](naming-conventions.qd) for the per-language style each of these follows.
 
 Two structural facts shape everything you do:
 
@@ -15,7 +15,7 @@ Two structural facts shape everything you do:
 - **Every package is registered once** in `\.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
 
 .box {Dependencies are not hoisted} type:{note}
-    When you add a Node dependency, install it inside that service's directory (`cd backend/chat-service && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-service `npm install --prefix backend/chat-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing. Rust and Go dependencies aren't hoisted either, but don't have this platform-resolution pitfall: `cargo add <crate>` / `go get <module>` inside the service directory is enough.
+    When you add a Node dependency, install it inside that service's directory (`cd backend/chat && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-service `npm install --prefix backend/chat --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing. Rust and Go dependencies aren't hoisted either, but don't have this platform-resolution pitfall: `cargo add <crate>` / `go get <module>` inside the service directory is enough.
 
 ---
 

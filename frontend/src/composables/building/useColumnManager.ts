@@ -29,7 +29,7 @@ export function useColumnManager(
     if (availableMetrics.value.length > 0) return
     isFetchingMetrics.value = true
     try {
-      const res = await makeRequest('/contracts')
+      const res = await makeRequest('/dashboard')
       if (res.ok) {
         const data = await res.json()
         availableMetrics.value = data.metrics ?? []
@@ -49,7 +49,7 @@ export function useColumnManager(
   watch(selectedBuildingId, async (buildingId) => {
     if (!buildingId) return
     try {
-      const res = await makeRequest(`/contracts/preferences/${buildingId}`)
+      const res = await makeRequest(`/dashboard/preferences/${buildingId}`)
       if (res.ok) {
         const data = await res.json()
         const cols: string[] = data.allowed_columns ?? []
@@ -131,7 +131,7 @@ export function useColumnManager(
     try {
       if (selectedBuildingId.value) {
         const allowedColumns = localHeaders.value.map(h => h.metricKey ?? h.key)
-        await makeRequest(`/contracts/preferences/${selectedBuildingId.value}`, 'POST', {
+        await makeRequest(`/dashboard/preferences/${selectedBuildingId.value}`, 'POST', {
           body: JSON.stringify({ allowed_columns: allowedColumns }),
         })
       }
@@ -148,7 +148,7 @@ export function useColumnManager(
     isEditMode.value = false
     if (selectedBuildingId.value) {
       try {
-        const res = await makeRequest(`/contracts/preferences/${selectedBuildingId.value}`)
+        const res = await makeRequest(`/dashboard/preferences/${selectedBuildingId.value}`)
         if (res.ok) {
           const data = await res.json()
           const cols: string[] = data.allowed_columns ?? []
