@@ -87,9 +87,7 @@ class Settings(BaseSettings):
 
     # Networking
     digital_twin_url: str = Field(default="http://digital-twin:3000", alias="DIGITAL_TWIN_URL")
-    telemetry_url: str = Field(
-        default="http://telemetry:3000", alias="TELEMETRY_URL"
-    )
+    telemetry_url: str = Field(default="http://telemetry:3000", alias="TELEMETRY_URL")
     cors_origins: str = Field(
         default="http://localhost,http://localhost:80,http://localhost:8080,http://localhost:5173",
         alias="CORS_ORIGINS",

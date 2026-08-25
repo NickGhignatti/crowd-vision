@@ -115,12 +115,24 @@ mod contracts_tests {
         let body = serde_json::to_value(contracts().await.0).unwrap();
         let metrics = body["metrics"].as_array().unwrap();
 
-        let keys: Vec<&str> = metrics.iter().map(|m| m["metricKey"].as_str().unwrap()).collect();
+        let keys: Vec<&str> = metrics
+            .iter()
+            .map(|m| m["metricKey"].as_str().unwrap())
+            .collect();
         assert_eq!(keys, vec!["roomName", "roomMaxOccupancy"]);
 
         for metric in metrics {
-            assert!(metric["interfaceName"].is_string(), "interfaceName missing: {metric}");
-            assert!(metric["fields"].as_array().unwrap().iter().all(|f| f["type"].is_string()));
+            assert!(
+                metric["interfaceName"].is_string(),
+                "interfaceName missing: {metric}"
+            );
+            assert!(
+                metric["fields"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|f| f["type"].is_string())
+            );
         }
     }
 

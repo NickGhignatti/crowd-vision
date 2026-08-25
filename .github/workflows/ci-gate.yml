@@ -261,6 +261,9 @@ jobs:
       - telemetry
       - socket
       - twin
+      - claims-schema
+      - telemetry-schema
+      - twin-schema
       - dashboard
       - agent
     if: needs.changes.outputs.has_images == 'true'
@@ -341,6 +344,9 @@ jobs:
       - telemetry
       - socket
       - twin
+      - claims-schema
+      - telemetry-schema
+      - twin-schema
       - dashboard
       - agent
       - docker
