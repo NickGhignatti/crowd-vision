@@ -261,7 +261,7 @@ jobs:
       - telemetry
       - socket
       - twin
-      - contracts
+      - dashboard
       - agent
     if: needs.changes.outputs.has_images == 'true'
     permissions:
@@ -341,7 +341,7 @@ jobs:
       - telemetry
       - socket
       - twin
-      - contracts
+      - dashboard
       - agent
       - docker
       - k8s
