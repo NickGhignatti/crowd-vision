@@ -1,23 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use uuid::Uuid;
-
 use crate::domain::identity::GatewayClaims;
-use crate::domain::{Building, DomainError, Room, normalize_building_name, normalize_room_name};
+use crate::domain::{Building, DomainError, normalize_building_name, normalize_room_name};
 use crate::service::authz;
 use crate::service::ports::{BuildingStore, DownstreamSync};
 
 const MAX_DOMAIN_NAMES: usize = 500;
-
-#[derive(Debug, Default, Clone)]
-pub struct RoomPatch {
-    pub name: Option<String>,
-    pub color: Option<String>,
-    pub capacity: Option<f64>,
-    pub position: Option<crate::domain::Coordinates>,
-    pub dimensions: Option<crate::domain::Dimensions>,
-}
 
 #[derive(Debug, Default, Clone)]
 pub struct BuildingPatch {
@@ -107,160 +96,6 @@ impl Buildings {
         Ok(building)
     }
 
-    pub async fn create_room(
-        &self,
-        building_id: &str,
-        room: Room,
-        claims: &GatewayClaims,
-    ) -> Result<Room, DomainError> {
-        let mut building = self
-            .get_building_by_id_for_edit(building_id, claims)
-            .await?;
-
-        let room = Room {
-            id: Uuid::new_v4().to_string(),
-            ..room
-        };
-        let room = Room {
-            name: normalize_room_name(Some(&room.name), &room.id),
-            ..room
-        };
-
-        building.rooms.push(room.clone());
-        self.store.upsert(&building).await?;
-        self.downstream
-            .clone_thresholds(&building, None, &claims.raw)
-            .await?;
-        self.downstream
-            .init_room_thresholds(building_id, &room.id, room.capacity, &claims.raw)
-            .await;
-
-        Ok(room)
-    }
-
-    pub async fn update_room(
-        &self,
-        building_id: &str,
-        room_id: &str,
-        patch: RoomPatch,
-        claims: &GatewayClaims,
-    ) -> Result<Room, DomainError> {
-        let mut building = self
-            .get_building_by_id_for_edit(building_id, claims)
-            .await?;
-
-        let room = building
-            .rooms
-            .iter_mut()
-            .find(|r| r.id == room_id)
-            .ok_or_else(|| missing_room(building_id, room_id))?;
-
-        if let Some(name) = patch.name {
-            room.name = name;
-        }
-        if let Some(color) = patch.color {
-            room.color = Some(color);
-        }
-        if let Some(capacity) = patch.capacity {
-            room.capacity = capacity;
-        }
-        if let Some(position) = patch.position {
-            room.position = position;
-        }
-        if let Some(dimensions) = patch.dimensions {
-            room.dimensions = dimensions;
-        }
-        let updated = room.clone();
-
-        self.store.upsert(&building).await?;
-        self.downstream
-            .clone_thresholds(&building, None, &claims.raw)
-            .await?;
-
-        Ok(updated)
-    }
-
-    pub async fn delete_room(
-        &self,
-        building_id: &str,
-        room_id: &str,
-        claims: &GatewayClaims,
-    ) -> Result<(), DomainError> {
-        let mut building = self
-            .get_building_by_id_for_edit(building_id, claims)
-            .await?;
-
-        if !building.rooms.iter().any(|r| r.id == room_id) {
-            return Err(missing_room(building_id, room_id));
-        }
-        if building.rooms.len() == 1 {
-            return Err(DomainError::Validation(
-                "Cannot delete the last room in a building".to_string(),
-            ));
-        }
-
-        building.rooms.retain(|r| r.id != room_id);
-        self.store.upsert(&building).await?;
-        self.downstream
-            .clone_thresholds(&building, None, &claims.raw)
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn replace_rooms(
-        &self,
-        building_id: &str,
-        rooms: Vec<Room>,
-        claims: &GatewayClaims,
-    ) -> Result<Building, DomainError> {
-        let mut building = self
-            .get_building_by_id_for_edit(building_id, claims)
-            .await?;
-
-        if rooms.is_empty() {
-            return Err(DomainError::Validation(
-                "'rooms' must be a non-empty array".to_string(),
-            ));
-        }
-
-        let mut seen = HashSet::with_capacity(rooms.len());
-        for room in &rooms {
-            let id = room.id.trim();
-            if id.is_empty() {
-                return Err(DomainError::Validation(
-                    "Every room must have a non-empty 'id'".to_string(),
-                ));
-            }
-            if !seen.insert(id.to_string()) {
-                return Err(DomainError::Validation(format!(
-                    "Duplicate room id \"{id}\""
-                )));
-            }
-        }
-
-        let previous: HashSet<&str> = building.rooms.iter().map(|r| r.id.as_str()).collect();
-        let added: Vec<Room> = rooms
-            .iter()
-            .filter(|r| !previous.contains(r.id.as_str()))
-            .cloned()
-            .collect();
-
-        building.rooms = rooms;
-        self.store.upsert(&building).await?;
-        self.downstream
-            .clone_thresholds(&building, None, &claims.raw)
-            .await?;
-
-        for room in &added {
-            self.downstream
-                .init_room_thresholds(building_id, &room.id, room.capacity, &claims.raw)
-                .await;
-        }
-
-        Ok(building)
-    }
-
     async fn get_building_by_id(&self, id: &str) -> Result<Building, DomainError> {
         let building = self.store.find_by_id(id).await?.ok_or_else(|| {
             DomainError::NotFound(format!("Building with id: \"{id}\" not found"))
@@ -305,16 +140,9 @@ impl Buildings {
     }
 }
 
-fn missing_room(building_id: &str, room_id: &str) -> DomainError {
-    DomainError::NotFound(format!(
-        "Room with id \"{room_id}\" in the building \"{building_id}\" not found"
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{Coordinates, Dimensions};
     use crate::service::fakes::{FakeStore, FakeSync, claims_with, room};
 
     fn buildings() -> (Buildings, Arc<FakeStore>, Arc<FakeSync>) {
@@ -449,7 +277,16 @@ mod tests {
         let customer = claims_with(vec![("eng", "standard_customer")]);
 
         assert!(matches!(
-            buildings.delete_room("b1", "r1", &customer).await,
+            buildings
+                .update(
+                    "b1",
+                    BuildingPatch {
+                        name: Some("Renamed".to_string()),
+                        ..BuildingPatch::default()
+                    },
+                    &customer,
+                )
+                .await,
             Err(DomainError::Forbidden(_))
         ));
     }
@@ -482,124 +319,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn creating_a_room_ignores_any_client_chosen_id() {
-        let (buildings, store, sync) = buildings();
-        seeded(&store, vec!["eng"]);
-        let admin = claims_with(vec![("eng", "business_admin")]);
-
-        let created = buildings
-            .create_room("b1", room("client-chosen"), &admin)
-            .await
-            .unwrap();
-
-        assert_ne!(created.id, "client-chosen");
-        assert_eq!(store.get("b1").unwrap().rooms.len(), 2);
-        assert_eq!(
-            *sync.seeded_rooms.lock().unwrap(),
-            std::slice::from_ref(&created.id)
-        );
-    }
-
-    #[tokio::test]
-    async fn updating_an_unknown_room_is_not_found() {
-        let (buildings, store, _) = buildings();
-        seeded(&store, vec!["eng"]);
-        let admin = claims_with(vec![("eng", "business_admin")]);
-
-        assert!(matches!(
-            buildings
-                .update_room("b1", "nope", RoomPatch::default(), &admin)
-                .await,
-            Err(DomainError::NotFound(_))
-        ));
-    }
-
-    #[tokio::test]
-    async fn updating_a_room_applies_only_the_fields_given() {
-        let (buildings, store, _) = buildings();
-        seeded(&store, vec!["eng"]);
-        let admin = claims_with(vec![("eng", "business_admin")]);
-
-        buildings
-            .update_room(
-                "b1",
-                "r1",
-                RoomPatch {
-                    capacity: Some(50.0),
-                    ..RoomPatch::default()
-                },
-                &admin,
-            )
-            .await
-            .unwrap();
-
-        let saved = &store.get("b1").unwrap().rooms[0];
-        assert_eq!(saved.capacity, 50.0);
-        assert_eq!(saved.name, "r1", "an omitted field must be left alone");
-    }
-
-    #[tokio::test]
-    async fn deleting_the_last_room_is_refused() {
-        let (buildings, store, _) = buildings();
-        seeded(&store, vec!["eng"]);
-        let admin = claims_with(vec![("eng", "business_admin")]);
-
-        assert!(matches!(
-            buildings.delete_room("b1", "r1", &admin).await,
-            Err(DomainError::Validation(_))
-        ));
-        assert_eq!(store.get("b1").unwrap().rooms.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn replacing_rooms_refuses_duplicate_ids_without_writing() {
-        let (buildings, store, _) = buildings();
-        seeded(&store, vec!["eng"]);
-        let admin = claims_with(vec![("eng", "business_admin")]);
-
-        let result = buildings
-            .replace_rooms("b1", vec![room("dup"), room("dup")], &admin)
-            .await;
-
-        assert!(matches!(result, Err(DomainError::Validation(_))));
-        assert_eq!(
-            store.get("b1").unwrap().rooms[0].id,
-            "r1",
-            "a refused bulk save must not partially apply"
-        );
-    }
-
-    #[tokio::test]
-    async fn replacing_rooms_seeds_thresholds_only_for_new_rooms() {
-        let (buildings, store, sync) = buildings();
-        seeded(&store, vec!["eng"]);
-        let admin = claims_with(vec![("eng", "business_admin")]);
-
-        buildings
-            .replace_rooms("b1", vec![room("r1"), room("r2")], &admin)
-            .await
-            .unwrap();
-
-        assert_eq!(
-            *sync.seeded_rooms.lock().unwrap(),
-            ["r2"],
-            "r1 already existed, so it must not be re-seeded"
-        );
-    }
-
-    #[tokio::test]
-    async fn replacing_rooms_refuses_an_empty_array() {
-        let (buildings, store, _) = buildings();
-        seeded(&store, vec!["eng"]);
-        let admin = claims_with(vec![("eng", "business_admin")]);
-
-        assert!(matches!(
-            buildings.replace_rooms("b1", vec![], &admin).await,
-            Err(DomainError::Validation(_))
-        ));
-    }
-
-    #[tokio::test]
     async fn a_refused_clone_fails_the_edit() {
         let store = Arc::new(FakeStore::default());
         let sync = Arc::new(FakeSync {
@@ -611,50 +330,16 @@ mod tests {
         let admin = claims_with(vec![("eng", "business_admin")]);
 
         let result = buildings
-            .update_room(
+            .update(
                 "b1",
-                "r1",
-                RoomPatch {
-                    capacity: Some(5.0),
-                    ..RoomPatch::default()
+                BuildingPatch {
+                    name: Some("Renamed".to_string()),
+                    ..BuildingPatch::default()
                 },
                 &admin,
             )
             .await;
 
         assert!(matches!(result, Err(DomainError::Internal(_))));
-    }
-
-    #[tokio::test]
-    async fn geometry_survives_a_round_trip_through_the_store() {
-        let (buildings, store, _) = buildings();
-        seeded(&store, vec!["eng"]);
-        let admin = claims_with(vec![("eng", "business_admin")]);
-
-        buildings
-            .update_room(
-                "b1",
-                "r1",
-                RoomPatch {
-                    position: Some(Coordinates {
-                        x: 1.5,
-                        y: 2.5,
-                        z: 3.5,
-                    }),
-                    dimensions: Some(Dimensions {
-                        width: 4.0,
-                        height: 5.0,
-                        depth: 6.0,
-                    }),
-                    ..RoomPatch::default()
-                },
-                &admin,
-            )
-            .await
-            .unwrap();
-
-        let saved = &store.get("b1").unwrap().rooms[0];
-        assert_eq!(saved.position.x, 1.5);
-        assert_eq!(saved.dimensions.depth, 6.0);
     }
 }

@@ -43,13 +43,5 @@ pub trait DownstreamSync: Send + Sync {
 
     async fn init_preferences(&self, building_id: &str, claims: &str);
 
-    async fn init_room_thresholds(
-        &self,
-        building_id: &str,
-        room_id: &str,
-        capacity: f64,
-        claims: &str,
-    );
-
     async fn notify_provisioning_failed(&self, building_id: &str, error: &str);
 }

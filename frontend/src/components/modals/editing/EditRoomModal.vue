@@ -14,39 +14,30 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'save', updates: Partial<Room>): void
+  (e: 'save', maxTemperature: number): void
 }>()
 
-const form = ref({
-  name: '',
-  capacity: 0,
-  maxTemperature: 27,
-  color: '#10b981',
-})
+// The room's own fields (name, capacity, colour, geometry) come from the
+// uploaded model and are read-only — only the alert threshold, which belongs
+// to telemetry rather than the twin, is editable here.
+const maxTemperature = ref(27)
 
 watch(
   () => props.room,
   (newRoom) => {
-    if (newRoom) {
-      form.value = {
-        name: newRoom.name || newRoom.id,
-        capacity: newRoom.capacity,
-        maxTemperature: newRoom.maxTemperature ?? 27,
-        color: newRoom.color || '#10b981',
-      }
-    }
+    if (newRoom) maxTemperature.value = newRoom.maxTemperature ?? 27
   },
   { immediate: true },
 )
 
 const save = () => {
   if (!props.room) return
-  emit('save', { ...form.value })
+  emit('save', maxTemperature.value)
   emit('close')
 }
 
 const headerStyle = computed(() => ({
-  background: `linear-gradient(135deg, ${form.value.color}22 0%, white 100%)`,
+  background: `linear-gradient(135deg, ${props.room?.color ?? '#10b981'}22 0%, white 100%)`,
 }))
 </script>
 
@@ -90,61 +81,21 @@ const headerStyle = computed(() => ({
 
         <!-- Body -->
         <div class="p-6 space-y-5">
-          <StandardInput :label="t('model.rooms.editRoom.name')" icon="ph-text-t">
+          <p class="text-sm text-slate-500">
+            {{ t('model.rooms.editRoom.readOnlyNotice') }}
+          </p>
+
+          <StandardInput
+            :label="t('model.rooms.editRoom.maxTemp')"
+            icon="ph-thermometer-hot"
+            icon-focus-class="group-focus-within:text-rose-500"
+          >
             <input
-              v-model="form.name"
-              type="text"
-              class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-semibold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-              :placeholder="t('model.rooms.editRoom.namePlaceholder')"
+              v-model.number="maxTemperature"
+              type="number"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
             />
           </StandardInput>
-
-          <div class="grid grid-cols-2 gap-5">
-            <StandardInput :label="t('model.rooms.editRoom.capacity')" icon="ph-users">
-              <input
-                v-model.number="form.capacity"
-                type="number"
-                min="1"
-                class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-              />
-            </StandardInput>
-
-            <StandardInput
-              :label="t('model.rooms.editRoom.maxTemp')"
-              icon="ph-thermometer-hot"
-              icon-focus-class="group-focus-within:text-rose-500"
-            >
-              <input
-                v-model.number="form.maxTemperature"
-                type="number"
-                class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-slate-700 font-bold focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-              />
-            </StandardInput>
-          </div>
-
-          <!-- Color picker: different enough structure to not use StandardInput -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">
-              {{ t('model.rooms.editRoom.themeColor') }}
-            </label>
-            <div class="flex gap-3 items-center p-2 border border-slate-200 rounded-xl bg-slate-50">
-              <div
-                class="relative w-12 h-10 overflow-hidden rounded-lg shadow-sm ring-1 ring-slate-200"
-              >
-                <input
-                  v-model="form.color"
-                  type="color"
-                  class="absolute inset-0 w-[150%] h-[150%] -top-1/4 -left-1/4 cursor-pointer p-0 border-0"
-                />
-              </div>
-              <input
-                v-model="form.color"
-                type="text"
-                class="flex-1 bg-transparent font-mono text-sm font-medium text-slate-600 outline-none uppercase"
-                maxlength="7"
-              />
-            </div>
-          </div>
         </div>
 
         <!-- Footer -->

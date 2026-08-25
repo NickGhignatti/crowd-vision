@@ -1,4 +1,4 @@
-use axum::routing::{get, patch, post, put};
+use axum::routing::{get, post};
 use axum::{Json, Router};
 
 pub mod adapters;
@@ -78,12 +78,6 @@ fn protected_routes() -> Router<AppState> {
         .route("/buildings/counts", post(get_building_counts))
         .route("/buildings/{domain}", get(get_building_by_domain))
         .route("/domain/{building}", get(get_domains_by_building))
-        .route(
-            "/building/{id}/room/{room_id}",
-            patch(update_room).delete(delete_room),
-        )
-        .route("/building/{id}/room", post(create_room))
-        .route("/building/{id}/rooms", put(replace_rooms))
 }
 
 pub fn build_router(state: AppState) -> Router {
