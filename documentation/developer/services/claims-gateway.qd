@@ -3,7 +3,7 @@
 
 Implementation reference for `claims-gateway`. For its architectural role, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd); for the domain model, see [Identity & Access Context](../domain/identity-access.qd).
 
-`claims-gateway` is the platform's only point of contact with Keycloak. Everything downstream — Istio's edge verification, every Go/Node/Rust/Python service that trusts the `x-gateway-claims` header — ultimately depends on this one service correctly exchanging a Keycloak identity for the platform's own `StandardClaims` token, signing it, and publishing the public key that lets everyone else verify it without calling back here. The service itself is **stateless**: it owns no database, and every piece of durable identity data lives either in Keycloak (credentials, profile) or in `tenancy-service` (memberships).
+`claims-gateway` is the platform's only point of contact with Keycloak. Everything downstream — Istio's edge verification, every Go/Node/Rust/Python service that trusts the `x-gateway-claims` header — ultimately depends on this one service correctly exchanging a Keycloak identity for the platform's own `StandardClaims` token, signing it, and publishing the public key that lets everyone else verify it without calling back here. The service itself is **stateless**: it owns no database, and every piece of durable identity data lives either in Keycloak (credentials, profile) or in `tenancy` (memberships).
 
 ---
 
@@ -33,7 +33,7 @@ Implementation reference for `claims-gateway`. For its architectural role, see [
     - - `internal/oidcverifier/verifier.go`
       - Verifies a Keycloak-issued ID token; handles OIDC discovery separately from the `jwks_uri` fetch (see the gotcha box below).
     - - `internal/tenancyfrontend/client.go`
-      - HMAC-signed calls to `tenancy-service`'s `/internal/*` routes: membership lookup and first-login provisioning.
+      - HMAC-signed calls to `tenancy`'s `/internal/*` routes: membership lookup and first-login provisioning.
 
 .mermaid
     graph TD
@@ -71,10 +71,10 @@ Implementation reference for `claims-gateway`. For its architectural role, see [
       - Keycloak's public client id, used to verify an ID token was issued for this app.
     - - `TENANCY_URL`
       - required
-      - Base URL for `tenancy-service`'s internal routes.
+      - Base URL for `tenancy`'s internal routes.
     - - `INTERNAL_SIGNING_SECRET`
       - required
-      - HMAC secret shared with `tenancy-service`, signs every `internal/tenancyclient` call.
+      - HMAC secret shared with `tenancy`, signs every `internal/tenancyclient` call.
     - - `KEYCLOAK_REALM`
       - required
       - The Keycloak realm this deployment authenticates against.
@@ -148,7 +148,7 @@ Three routes accept different inputs, but all three end at the same `Exchange()`
         participant C as Client
         participant GW as claims-gateway
         participant KC as Keycloak
-        participant T as tenancy-service
+        participant T as tenancy
         alt POST /exchange (browser already has a Keycloak ID token)
             C->>GW: idToken
         else POST /login (username + password)
@@ -182,7 +182,7 @@ func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrTenancyUnavailable, err)
 	}
-	// tenancy-service has no record but Keycloak's token names an organization
+	// tenancy has no record but Keycloak's token names an organization
 	if len(memberships) == 0 && kc.Organization != "" {
 		memberships, err = g.provisionOnFirstLogin(ctx, kc)
 		if err != nil {
@@ -259,7 +259,7 @@ Keeping verification, membership lookup, and signing in exactly one place means 
       - Copies the verified claims onto the `x-gateway-claims` header — this is the endpoint Caddy's `forward_auth` (docker-compose) calls; Istio's `RequestAuthentication` (Kubernetes) verifies independently instead of calling this route.
     - - `POST /refresh`
       - Cookie/Bearer
-      - Re-reads memberships from `tenancy-service` and re-signs the cookie — used after a membership changes (e.g. accepting an invite) so the client doesn't have to log out and back in.
+      - Re-reads memberships from `tenancy` and re-signs the cookie — used after a membership changes (e.g. accepting an invite) so the client doesn't have to log out and back in.
 
 Every "Cookie/Bearer" route runs behind [Auth Middleware](../packages/auth-middleware.qd)'s `RequireAuthentication` — the one place in the platform that does real RS256 signature verification, because this service is the trust root every other verifier's key material traces back to.
 
@@ -291,11 +291,11 @@ func (g *Gateway) ChangePassword(ctx context.Context, userID, currentPassword, n
 
 ---
 
-## Calling tenancy-service
+## Calling tenancy
 
 **File:** `internal/tenancyfrontend/client.go`
 
-Every call is HMAC-SHA256 signed with `INTERNAL_SIGNING_SECRET` — the same scheme [`registry-service`](registry-service.qd) and [`provisioner`](provisioner.qd) use for their own internal calls, though claims-gateway's secret is shared specifically with `tenancy-service`, not those two.
+Every call is HMAC-SHA256 signed with `INTERNAL_SIGNING_SECRET` — the same scheme [`registry`](registry.qd) and [`provisioner`](provisioner.qd) use for their own internal calls, though claims-gateway's secret is shared specifically with `tenancy`, not those two.
 
 ```go
 func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
@@ -306,7 +306,7 @@ func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authco
 }
 ```
 
-`Provision` is the first-login path: if Keycloak's token names an organization the account has no membership in yet, the gateway asks `tenancy-service` to create that membership before minting a token — `tenancy-service` can refuse with `403` if the domain isn't open for self-service join, which the gateway surfaces as `ErrInviteOnly` rather than silently granting access.
+`Provision` is the first-login path: if Keycloak's token names an organization the account has no membership in yet, the gateway asks `tenancy` to create that membership before minting a token — `tenancy` can refuse with `403` if the domain isn't open for self-service join, which the gateway surfaces as `ErrInviteOnly` rather than silently granting access.
 
 ---
 
@@ -315,6 +315,6 @@ func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authco
 `claims-gateway` owns no database and persists nothing between requests. The two systems of record it depends on are external to it:
 
 - **Keycloak** holds credentials, email, profile attributes, and the organization claim used for first-login provisioning.
-- **`tenancy-service`** holds the membership records (`domain`, `role`, `externalId`) that end up in every `StandardClaims` token.
+- **`tenancy`** holds the membership records (`domain`, `role`, `externalId`) that end up in every `StandardClaims` token.
 
 This statelessness is what makes the service trivially horizontally scalable — any instance can serve any request, since nothing but the (stateless) signing key and JWKS lives on the process.

@@ -1,7 +1,7 @@
 .docname {Telemetry Service}
 .include {docs}
 
-Implementation reference for `backend/telemetry-service`. For its architectural role, see [Telemetry Service Architecture](../architecture/telemetry-architecture.qd); for the domain model, see [Telemetry Ingestion](../domain/telemetry-ingestion.qd).
+Implementation reference for `backend/telemetry`. For its architectural role, see [Telemetry Service Architecture](../architecture/telemetry-architecture.qd); for the domain model, see [Telemetry Ingestion](../domain/telemetry-ingestion.qd).
 
 A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings from constrained hardware, persists them, publishes them for live distribution, manages per-building and per-room thresholds, and forwards commands to physical devices. Its design answers two pressures: adding a metric must not touch the core, and no I/O technology may reach the logic that decides what a reading means.
 
@@ -14,7 +14,7 @@ A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings fr
    - Holds
 
 .tablebyrows {.layout}
-    - - `src/contracts/`
+    - - `src/types/`
       - Pure types and traits: `SensorPlugin`, `MetricDescriptor`, `ActionSpec`, `Reading`, `Command`, threshold resolution, query/bucketing rules. Imports nothing from the rest of the crate.
     - - `src/kernel/`
       - Use cases — `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration` — plus `ports.rs`, `registry.rs`, `authz.rs`. Depends only on `contracts` and its own port traits.
@@ -50,8 +50,8 @@ A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings fr
     - - `KAFKA_BROKERS`
       - `kafka:9092`
       - Building-registration topics and the `alerts` breach topic. Unreachable at boot degrades to a disabled producer rather than failing — readings still land, breaches are counted but not delivered.
-    - - `TWIN_SERVICE_URL`
-      - `http://twin-service:3000`
+    - - `DIGITAL_TWIN_URL`
+      - `http://digital-twin:3000`
       - Building-to-domain lookups for authorization.
     - - `PORT`
       - `3000`
@@ -94,7 +94,7 @@ static BOUNDS: &[BoundSpec] = &[
 
 `GET /contracts`, `POST /ingest`, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.
 
-`GET /contracts` serialises that declaration into `ServiceMetricsContract` from the shared `backend/telemetry-contracts` crate — the same types `contracts-service` parses, so the two cannot drift.
+`GET /contracts` serialises that declaration into `ServiceMetricsContract` from the shared `schemas/telemetry-schema` crate — the same types `dashboard` parses, so the two cannot drift.
 
 .box {The declaration is the single source of truth} type:{note}
     In the Node predecessor the served catalog and the per-module `validate()` were two independent lists. They drifted: `airQuality` advertised eight required fields and checked two, and the catalog said `building` while every validator required `buildingId`. `MetricDescriptor.fields` now drives both, which makes that class of drift inexpressible.
@@ -116,7 +116,7 @@ static BOUNDS: &[BoundSpec] = &[
 The signature covers the exact bytes on the wire, so a re-serialised body fails: a signing client must send the same string it hashed.
 
 .box {Why a batch is one message, not N} type:{note}
-    A tick is a single observation of one building at one instant. Sent as N messages that fact is lost at the first hop and cannot be recovered downstream, so per-message overhead multiplies across every service. The fan-out envelope is `{buildingId, ingestedAt, readings[]}` — `contracts-service` keys the channel on `buildingId` and `socket-service` relays it opaquely.
+    A tick is a single observation of one building at one instant. Sent as N messages that fact is lost at the first hop and cannot be recovered downstream, so per-message overhead multiplies across every service. The fan-out envelope is `{buildingId, ingestedAt, readings[]}` — `dashboard` keys the channel on `buildingId` and `socket` relays it opaquely.
 
     The envelope carries no shape tag. Every message is a tick, so a constant `type: "batch"` would carry no information, and `type` already names the *metric* on each reading — one key with two meanings at two levels is the kind of thing a reader gets wrong once and then trusts.
 
@@ -127,7 +127,7 @@ The signature covers the exact bytes on the wire, so a re-serialised body fails:
 
 A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `telemetry_ingest_persist_failures_total`.
 
-**Reads** — `GET /{sensorType}/latest`, `/entireBuilding`, `/dashboard`. Each resolves the building's domains through twin-service and evaluates Cedar before touching data. `latest` on an empty room is `404`.
+**Reads** — `GET /{sensorType}/latest`, `/entireBuilding`, `/dashboard`. Each resolves the building's domains through digital-twin and evaluates Cedar before touching data. `latest` on an empty room is `404`.
 
 A read is served in the **same flat shape as the `telemetry` socket event**: envelope plus every metric field at the top level under its own name. The trimmed `payload` column is a storage detail — it is re-inflated on the way out and never appears in a response. A client that reads a REST snapshot and then live events must not have to handle two shapes; when it did, a dashboard column stayed blank until the first socket tick overwrote the row.
 

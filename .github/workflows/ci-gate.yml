@@ -20,18 +20,22 @@ jobs:
       chat: ${{ contains(fromJSON(steps.filter.outputs.changes), 'chat') }}
       agent: ${{ contains(fromJSON(steps.filter.outputs.changes), 'agent') }}
       frontend: ${{ contains(fromJSON(steps.filter.outputs.changes), 'frontend') || contains(fromJSON(steps.filter.outputs.changes), 'frontend_ci_workflow') }}
-      contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'contracts') }}
+      dashboard: ${{ contains(fromJSON(steps.filter.outputs.changes), 'dashboard') }}
       notification: ${{ contains(fromJSON(steps.filter.outputs.changes), 'notification') }}
       telemetry: ${{ contains(fromJSON(steps.filter.outputs.changes), 'telemetry') }}
       socket: ${{ contains(fromJSON(steps.filter.outputs.changes), 'socket') }}
       twin: ${{ contains(fromJSON(steps.filter.outputs.changes), 'twin') }}
       claims_gateway: ${{ contains(fromJSON(steps.filter.outputs.changes), 'claims-gateway') }}
-      tenancy: ${{ contains(fromJSON(steps.filter.outputs.changes), 'tenancy-service') }}
-      registry: ${{ contains(fromJSON(steps.filter.outputs.changes), 'registry-service') }}
+      tenancy: ${{ contains(fromJSON(steps.filter.outputs.changes), 'tenancy') }}
+      registry: ${{ contains(fromJSON(steps.filter.outputs.changes), 'registry') }}
       provisioner: ${{ contains(fromJSON(steps.filter.outputs.changes), 'provisioner') }}
       auth_policy: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-policy') }}
       auth_contracts: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-contracts') }}
       auth_middleware: ${{ contains(fromJSON(steps.filter.outputs.changes), 'auth-middleware') }}
+      claims_schema: ${{ contains(fromJSON(steps.filter.outputs.changes), 'claims-schema') }}
+      telemetry_schema: ${{ contains(fromJSON(steps.filter.outputs.changes), 'telemetry-schema') }}
+      twin_schema: ${{ contains(fromJSON(steps.filter.outputs.changes), 'twin-schema') }}
+      schema_fixtures: ${{ contains(fromJSON(steps.filter.outputs.changes), 'schema-fixtures') }}
       k8s: ${{ contains(fromJSON(steps.filter.outputs.changes), 'k8s') }}
       shared: ${{ contains(fromJSON(steps.filter.outputs.changes), 'shared') }}
       ci: ${{ contains(fromJSON(steps.filter.outputs.changes), 'ci') }}
@@ -57,6 +61,9 @@ jobs:
               - '.github/workflows/ci-k8s.yml'
             shared:
               - 'tooling/eslint-config/**'
+            schema-fixtures:
+              - 'schemas/fixtures/**'
+              - 'schemas/json/**'
             ci:
               - '.github/**'
             infra:
@@ -96,11 +103,11 @@ jobs:
 
   auth-contracts:
     needs: changes
-    if: needs.changes.outputs.auth_contracts == 'true'
+    if: needs.changes.outputs.auth_contracts == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-contracts
-      working_directory: backend/auth-contracts
+      working_directory: backend/libs/auth-contracts
       builds_binary: false
 
   auth-middleware:
@@ -111,7 +118,7 @@ jobs:
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-middleware
-      working_directory: backend/auth-middleware
+      working_directory: backend/libs/auth-middleware
       builds_binary: false
 
   auth-policy:
@@ -120,12 +127,12 @@ jobs:
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: auth-policy
-      working_directory: backend/auth-policy
+      working_directory: backend/libs/auth-policy
       builds_binary: false
 
   claims-gateway:
     needs: changes
-    if: needs.changes.outputs.claims_gateway == 'true'
+    if: needs.changes.outputs.claims_gateway == 'true' || needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: claims-gateway
@@ -133,83 +140,110 @@ jobs:
 
   provisioner:
     needs: changes
-    if: needs.changes.outputs.provisioner == 'true'
+    if: needs.changes.outputs.provisioner == 'true' || needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: provisioner
       working_directory: backend/provisioner
 
-  registry-service:
+  registry:
     needs: changes
-    if: needs.changes.outputs.registry == 'true'
+    if: needs.changes.outputs.registry == 'true' || needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: registry
-      working_directory: backend/registry-service
+      working_directory: backend/registry
 
-  tenancy-service:
+  tenancy:
     needs: changes
-    if: needs.changes.outputs.tenancy == 'true'
+    if: needs.changes.outputs.tenancy == 'true' || needs.changes.outputs.auth_contracts == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: tenancy
-      working_directory: backend/tenancy-service
+      working_directory: backend/tenancy
+
+  claims-schema:
+    needs: changes
+    if: needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
+    with:
+      service_key: claims-schema
+      working_directory: schemas/claims-schema
+      builds_binary: false
+
+  telemetry-schema:
+    needs: changes
+    if: needs.changes.outputs.telemetry_schema == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
+    with:
+      service_key: telemetry-schema
+      working_directory: schemas/telemetry-schema
+      builds_binary: false
+
+  twin-schema:
+    needs: changes
+    if: needs.changes.outputs.twin_schema == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
+    with:
+      service_key: twin-schema
+      working_directory: schemas/twin-schema
+      builds_binary: false
 
   chat:
     needs: changes
-    if: needs.changes.outputs.chat == 'true'
+    if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.claims_schema == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: chat
-      working_directory: backend/chat-service
+      working_directory: backend/chat
 
   notification:
     needs: changes
-    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true'
+    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: notification
-      working_directory: backend/notification-service
+      working_directory: backend/notification
 
   telemetry:
     needs: changes
-    if: needs.changes.outputs.telemetry == 'true'
+    if: needs.changes.outputs.telemetry == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true' || needs.changes.outputs.telemetry_schema == 'true' || needs.changes.outputs.twin_schema == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: telemetry
-      working_directory: backend/telemetry-service
+      working_directory: backend/telemetry
 
   socket:
     needs: changes
-    if: needs.changes.outputs.socket == 'true'
+    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: socket
-      working_directory: backend/socket-service
+      working_directory: backend/socket
 
   twin:
     needs: changes
-    if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true'
+    if: needs.changes.outputs.twin == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.twin_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: twin
-      working_directory: backend/twin-service
+      working_directory: backend/digital-twin
 
-  contracts:
+  dashboard:
     needs: changes
-    if: needs.changes.outputs.contracts == 'true'
+    if: needs.changes.outputs.dashboard == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
-      service_key: contracts
-      working_directory: backend/contracts-service
+      service_key: dashboard
+      working_directory: backend/dashboard
 
   agent:
     needs: changes
-    if: needs.changes.outputs.agent == 'true'
+    if: needs.changes.outputs.agent == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-python-ci.yml
     with:
       service_key: agent
-      working_directory: backend/agent-service
+      working_directory: backend/agent
 
   docker:
     needs:
@@ -220,14 +254,17 @@ jobs:
       - auth-policy
       - claims-gateway
       - provisioner
-      - registry-service
-      - tenancy-service
+      - registry
+      - tenancy
       - chat
       - notification
       - telemetry
       - socket
       - twin
-      - contracts
+      - claims-schema
+      - telemetry-schema
+      - twin-schema
+      - dashboard
       - agent
     if: needs.changes.outputs.has_images == 'true'
     permissions:
@@ -300,14 +337,17 @@ jobs:
       - auth-policy
       - claims-gateway
       - provisioner
-      - registry-service
-      - tenancy-service
+      - registry
+      - tenancy
       - chat
       - notification
       - telemetry
       - socket
       - twin
-      - contracts
+      - claims-schema
+      - telemetry-schema
+      - twin-schema
+      - dashboard
       - agent
       - docker
       - k8s

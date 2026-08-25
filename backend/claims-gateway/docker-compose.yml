@@ -11,7 +11,7 @@ services:
       # cv-web, not cv-gateway: the browser (public client, PKCE) presents ID tokens here,
       # so the gateway validates audience against it; cv-gateway is service-level testing only.
       - OIDC_CLIENT_ID=cv-web
-      - TENANCY_URL=http://tenancy-service:3000
+      - TENANCY_URL=http://tenancy:3000
       - INTERNAL_SIGNING_SECRET=${INTERNAL_SIGNING_SECRET}
       - GATEWAY_ISSUER=cv-gateway
       - KEYCLOAK_REALM=crowdvision
@@ -23,5 +23,5 @@ services:
     depends_on:
       keycloak:
         condition: service_healthy
-      tenancy-service:
+      tenancy:
         condition: service_started

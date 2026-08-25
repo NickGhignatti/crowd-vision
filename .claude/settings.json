@@ -1,13 +1,37 @@
 {
   "permissions": {
     "allow": [
-      "Bash(graphify query *)",
-      "Bash(graphify explain *)",
-      "Bash(graphify path *)",
-      "Bash(mise exec -- cargo test *)",
-      "Bash(mise exec -- cargo check *)",
-      "Bash(mise exec -- cargo clippy *)",
-      "Bash(mise exec -- npx jest *)"
+      "Bash(just test:*)",
+      "Bash(just lint:*)",
+      "Bash(just setup deps-check)",
+      "Bash(just setup audit)",
+      "Bash(just docs build)",
+      "Bash(mise exec -- moon run:*)",
+      "Bash(mise exec -- cargo test:*)",
+      "Bash(mise exec -- cargo check:*)",
+      "Bash(mise exec -- cargo clippy:*)",
+      "Bash(mise exec -- cargo fmt:*)",
+      "Bash(mise exec -- go test:*)",
+      "Bash(mise exec -- go vet:*)",
+      "Bash(mise exec -- gofmt:*)",
+      "Bash(mise exec -- uv run:*)",
+      "Bash(mise exec -- python3 scripts/:*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(jq:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose logs:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./secrets/**)",
+      "Read(./**/.env.*)"
     ]
   },
   "hooks": {
@@ -18,19 +42,6 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-git-write.sh\""
-          },
-          {
-            "type": "command",
-            "command": "rtk hook claude"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|Grep",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/nick/.local/bin/graphify hook-guard search"
           }
         ]
       }

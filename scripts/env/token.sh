@@ -10,7 +10,7 @@ echo "🔑 Generating secure eval JWT secret..."
 
 env_append <<EOF
 
-# Eval JWT Secret (Auto-Generated, 256-bit) — local-dev-only, see agent-service/CLAUDE.md
+# Eval JWT Secret (Auto-Generated, 256-bit) — local-dev-only, see agent/CLAUDE.md
 EVAL_JWT_SECRET=$(hex 32)
 EOF
 

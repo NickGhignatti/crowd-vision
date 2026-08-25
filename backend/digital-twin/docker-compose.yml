@@ -1,0 +1,28 @@
+services:
+  digital-twin:
+    cpus: "3"
+    build:
+      # Repo-root context: digital-twin needs to see its sibling ../auth-policy
+      # dir (shared Cedar policy bundle) during build.
+      context: ../..
+      dockerfile: backend/digital-twin/Dockerfile
+    environment:
+      - MONGO_URI=mongodb://twin-db:27017/twindb
+      - TELEMETRY_URL=http://telemetry:3000
+      - DASHBOARD_URL=http://dashboard:3000
+      - NOTIFICATION_URL=http://notification:3000
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      twin-db:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+
+  twin-db:
+    cpus: "3"
+    image: mongo:latest
+    volumes:
+      - twin-data:/data/db
+
+volumes:
+  twin-data:

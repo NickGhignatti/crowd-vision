@@ -12,16 +12,16 @@ services:
       claims-gateway:
         condition: service_started
         required: false
-      twin-service:
+      digital-twin:
         condition: service_started
         required: false
-      telemetry-service:
+      telemetry:
         condition: service_started
         required: false
-      socket-server:
+      socket:
         condition: service_started
         required: false
-      chat-service:
+      chat:
         condition: service_started
         required: false
 

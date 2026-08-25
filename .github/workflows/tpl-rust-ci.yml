@@ -4,6 +4,7 @@ on:
     inputs:
       service_key: { required: true, type: string }
       working_directory: { required: true, type: string }
+      builds_binary: { required: false, type: boolean, default: true }
 
 jobs:
   test:
@@ -72,13 +73,13 @@ jobs:
       # `npm audit --audit-level=high` gates and the noisier scan does not.
       #
       # RUSTSEC-2023-0071 (rsa, Marvin timing sidechannel) has no fixed release.
-      # notification-service reaches it through web-push -> jwt-simple ->
+      # notification reaches it through web-push -> jwt-simple ->
       # superboring. Drop this flag the moment rsa ships a fix.
       - name: Audit Dependencies
         run: cargo audit --ignore RUSTSEC-2023-0071
 
       # `--lib` errors outright on a bin-only crate (no lib.rs, e.g.
-      # contracts-service) instead of skipping, so pick the target kind that
+      # dashboard) instead of skipping, so pick the target kind that
       # actually exists.
       - name: Run Unit Tests
         run: |
@@ -102,15 +103,17 @@ jobs:
       - name: Build Release Binary
         run: cargo build --release
 
-      # The compiled binary is named after the crate (backend/twin-service ->
-      # "twin-service"), not the short service_key used for the artifact name.
+      # The compiled binary is named after the crate (backend/digital-twin ->
+      # "digital-twin"), not the short service_key used for the artifact name.
       - name: Locate Release Binary
         id: bin
+        if: ${{ inputs.builds_binary }}
         run: echo "name=$(basename "$INPUTS_WORKING_DIRECTORY")" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_WORKING_DIRECTORY: ${{ inputs.working_directory }}
 
       - name: Upload Binary Artifact
+        if: ${{ inputs.builds_binary }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: binary-${{ inputs.service_key }}

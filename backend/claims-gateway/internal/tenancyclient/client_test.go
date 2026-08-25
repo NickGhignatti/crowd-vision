@@ -104,6 +104,6 @@ func TestMembershipsFor_NetworkFailureIsAnError(t *testing.T) {
 	c := tenancyclient.New("http://127.0.0.1:1", []byte(secret)) // nothing listening
 	_, err := c.MembershipsFor(context.Background(), "acc-1")
 	if err == nil {
-		t.Fatal("expected an error when tenancy-service is unreachable")
+		t.Fatal("expected an error when tenancy is unreachable")
 	}
 }

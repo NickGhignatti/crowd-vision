@@ -38,7 +38,7 @@ See the [Developer Setup Guide](documentation/developer/config/setting-up.qd) fo
 
 ## 🔑 AI Agent API Keys
 
-The agent-service uses one OpenAI-compatible provider for chat, tool calling, and
+The agent uses one OpenAI-compatible provider for chat, tool calling, and
 embeddings. OpenRouter is the default:
 
 ```env

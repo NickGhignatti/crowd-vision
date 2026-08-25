@@ -5,7 +5,7 @@ import type { DomainMembership, Domain } from '@/models/domain'
 import type { DomainRow, DomainToAddWithVisibilityPayload } from '@/interfaces/domain'
 
 // Roles a business_admin can mint an invite code for — mirrors auth-contracts' role ladder
-// minus platform-level "admin". tenancy-service enforces actual redemption; this only gates the QR tabs offered.
+// minus platform-level "admin". tenancy enforces actual redemption; this only gates the QR tabs offered.
 const INVITABLE_ROLES = ['business_admin', 'business_staff', 'standard_customer']
 
 export const useDomainsStore = defineStore('domains', {
@@ -113,7 +113,7 @@ export const useDomainsStore = defineStore('domains', {
       return this._allDomainsPromise
     },
 
-    // No network call: tenancy-service's GET /domains already embeds each
+    // No network call: tenancy's GET /domains already embeds each
     // domain's live member count, so fetchAll has everything this needs.
     async fetchMemberCounts() {
       const counts: Record<string, number> = {}
@@ -162,7 +162,7 @@ export const useDomainsStore = defineStore('domains', {
       })
 
       if (!response.ok) {
-        // tenancy-service's error body is plain text (http.Error), not JSON.
+        // tenancy's error body is plain text (http.Error), not JSON.
         const message = await response.text().catch(() => '')
         throw new Error(message || 'Failed to create domain')
       }
@@ -200,7 +200,7 @@ export const useDomainsStore = defineStore('domains', {
 
       if (!response.ok) {
         const error = new Error(`Failed to unsubscribe from ${domainName}`)
-        // 409 = tenancy-service blocked removing the domain's last admin.
+        // 409 = tenancy blocked removing the domain's last admin.
         if (response.status === 409) (error as Error & { code?: string }).code = 'LAST_ADMIN'
         throw error
       }

@@ -31,6 +31,6 @@ start *args: env
 down *args:
     @mise exec -- python3 scripts/compose/compose-run.py down {{args}}
 
-[doc("Follow logs for all services, or one: just stack logs twin-service.")]
+[doc("Follow logs for all services, or one: just stack logs digital-twin.")]
 logs service="":
     docker compose -f compose.runtime.yml logs -f {{service}}

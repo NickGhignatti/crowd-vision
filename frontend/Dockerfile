@@ -9,11 +9,13 @@ ARG VITE_KEYCLOAK_URL
 ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL
 RUN npm run build
 
-FROM node:lts-alpine AS production-stage
-# apk upgrade patches base-image OS CVEs so the cd-registry Trivy scan (OS-scoped) stays green.
-RUN apk upgrade --no-cache && npm install -g serve@14.2.6 && npm cache clean --force
-WORKDIR /app
-COPY package*.json ./
-COPY --from=build-stage /app/dist ./dist
+FROM nginx:alpine AS production-stage
+# Static files need a static server: nginx:alpine is ~64MB against node:lts-alpine's
+# ~167MB, and starts in milliseconds instead of booting Node to run `serve`.
+# apk upgrade patches base-image OS CVEs so the cd-registry Trivy scan stays green.
+RUN apk upgrade --no-cache
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=build-stage /app/dist /usr/share/nginx/html
+
 EXPOSE 8080
-CMD [ "npm", "run", "start" ]
+CMD ["nginx", "-g", "daemon off;"]

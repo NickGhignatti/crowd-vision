@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Ingest documentation into the agent-service knowledge base: mints a short-lived
-HS256 token (see backend/agent-service/CLAUDE.md) and POSTs each file to {AGENT_URL}/agent/ingest."""
+"""Ingest documentation into the agent knowledge base: mints a short-lived
+HS256 token (see backend/agent/CLAUDE.md) and POSTs each file to {AGENT_URL}/agent/ingest."""
 
 import base64
 import hashlib
@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ENV_PATH = ROOT / ".env"
-AGENT_URL = os.environ.get("AGENT_SERVICE_URL", "http://localhost/agent")
+AGENT_URL = os.environ.get("AGENT_URL", "http://localhost/agent")
 READY_TIMEOUT_S = float(os.environ.get("READY_TIMEOUT_MS", 60000)) / 1000
 HEALTH_TIMEOUT_S = 5
 INGEST_TIMEOUT_S = 120
@@ -73,7 +73,7 @@ def wait_for_ready():
             last_error = str(error)
         time.sleep(1.5)
     raise RuntimeError(
-        f"agent-service did not become ready at {AGENT_URL} within "
+        f"agent did not become ready at {AGENT_URL} within "
         f"{int(READY_TIMEOUT_S * 1000)}ms (last: {last_error})"
     )
 
@@ -125,7 +125,7 @@ def main():
         secret,
     )
 
-    print(f"Waiting for agent-service at {AGENT_URL} ...")
+    print(f"Waiting for agent at {AGENT_URL} ...")
     wait_for_ready()
     print(f"Ingesting {len(files)} file(s) into {AGENT_URL} ...")
 

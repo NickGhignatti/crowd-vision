@@ -1,0 +1,22 @@
+{
+  "header": "X-Signature",
+  "algorithm": "hex(HMAC-SHA256(secret, raw request body))",
+  "secret": "an-internal-secret-that-is-at-least-32-bytes",
+  "cases": [
+    {
+      "name": "empty body",
+      "body": "",
+      "signature": "52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7"
+    },
+    {
+      "name": "json body",
+      "body": "{\"buildingId\":\"bldg-1\",\"status\":\"ready\"}",
+      "signature": "bd3ae57b5d5672d04b5c376ddd2b2fe60a348a9c5d151d631d6fd38241772418"
+    },
+    {
+      "name": "body with a unicode payload",
+      "body": "{\"name\":\"Aula Magna — Cesena\"}",
+      "signature": "2ec44f607e6209a0e51f0a4a93258e249afe904f6a68fb12a641d189bb6307a4"
+    }
+  ]
+}

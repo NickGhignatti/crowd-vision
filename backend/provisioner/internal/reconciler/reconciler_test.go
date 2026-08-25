@@ -169,6 +169,6 @@ func TestReconcileOnce_PropagatesRegistryUnavailable(t *testing.T) {
 	rec := reconciler.New(registry, &fakeTenancy{})
 
 	if err := rec.ReconcileOnce(context.Background()); err == nil {
-		t.Fatal("expected an error when registry-service is unreachable")
+		t.Fatal("expected an error when registry is unreachable")
 	}
 }

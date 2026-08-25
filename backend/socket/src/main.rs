@@ -1,0 +1,44 @@
+use std::time::Duration;
+
+use socket::shell::health::probe_exit_code;
+use socket::shell::server::{PORT, max_socket_lifetime, redis_url, serve, twin_url};
+use tokio::signal::unix::{SignalKind, signal};
+
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(10);
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
+    // `socket --health` is the container healthcheck: the image carries no shell and
+    // no probe binary, so the service probes itself.
+    if let Some(code) = probe_exit_code(PORT).await {
+        std::process::exit(code);
+    }
+
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", PORT)).await?;
+    serve(
+        listener,
+        redis_url(),
+        twin_url(),
+        max_socket_lifetime(),
+        shutdown_signal(),
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn shutdown_signal() {
+    let mut terminate = signal(SignalKind::terminate()).expect("SIGTERM handler is installable");
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = terminate.recv() => {}
+    }
+
+    tokio::spawn(async {
+        tokio::time::sleep(SHUTDOWN_GRACE).await;
+        std::process::exit(1);
+    });
+}

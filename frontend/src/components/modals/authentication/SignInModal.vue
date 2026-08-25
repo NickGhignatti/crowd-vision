@@ -30,7 +30,7 @@ const handleGoogleSignUp = () => beginRegister(window.location.pathname, 'google
 // logs it in within that same request — the browser never talks to
 // Keycloak directly for this flow, unlike the Google button below. Joining
 // an existing organization via an invite code is a separate, post-login
-// action (tenancy-service's /invite-codes/{code}/redeem), not bundled here.
+// action (tenancy's /invite-codes/{code}/redeem), not bundled here.
 async function handleSubmit() {
   errorKey.value = null
   isSubmitting.value = true

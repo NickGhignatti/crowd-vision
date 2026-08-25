@@ -23,6 +23,6 @@ require (
 	github.com/NickGhignatti/crowd-vision/server/auth-middleware v0.0.0
 )
 
-replace github.com/NickGhignatti/crowd-vision/server/auth-contracts => ../auth-contracts
+replace github.com/NickGhignatti/crowd-vision/server/auth-contracts => ../libs/auth-contracts
 
-replace github.com/NickGhignatti/crowd-vision/server/auth-middleware => ../auth-middleware
+replace github.com/NickGhignatti/crowd-vision/server/auth-middleware => ../libs/auth-middleware

@@ -1,0 +1,15 @@
+services:
+  socket:
+    cpus: "3"
+    build:
+      # Repo-root context: the service needs its sibling ../claims-contracts during build.
+      context: ../..
+      dockerfile: backend/socket/Dockerfile
+    container_name: crowd-vision-socket
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - FRONTEND_URL=${DEV_URL}:${FRONTEND_PORT}
+      - DIGITAL_TWIN_URL=http://digital-twin:3000
+    depends_on:
+      - redis

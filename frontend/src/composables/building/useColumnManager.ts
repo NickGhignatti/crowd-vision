@@ -25,16 +25,23 @@ export function useColumnManager(
   const availableMetrics = ref<MetricContract[]>([])
   const isFetchingMetrics = ref(false)
 
+  // A failed fetch and a genuinely empty catalog must not look the same: the panel
+  // renders "every column is already shown" for an empty list, so a 2xx with an
+  // unparseable body used to read as "nothing to add" with only a console error.
+  const metricsFailed = ref(false)
+
   const fetchAvailableMetrics = async () => {
     if (availableMetrics.value.length > 0) return
     isFetchingMetrics.value = true
+    metricsFailed.value = false
     try {
-      const res = await makeRequest('/contracts')
-      if (res.ok) {
-        const data = await res.json()
-        availableMetrics.value = data.metrics ?? []
-      }
+      const res = await makeRequest('/dashboard')
+      if (!res.ok) throw new Error(`catalog request failed: ${res.status}`)
+      const body = await res.text()
+      if (body.trim() === '') throw new Error('catalog request returned an empty body')
+      availableMetrics.value = JSON.parse(body).metrics ?? []
     } catch (e) {
+      metricsFailed.value = true
       console.error('[useColumnManager] Failed to fetch metrics catalog:', e)
     } finally {
       isFetchingMetrics.value = false
@@ -49,9 +56,11 @@ export function useColumnManager(
   watch(selectedBuildingId, async (buildingId) => {
     if (!buildingId) return
     try {
-      const res = await makeRequest(`/contracts/preferences/${buildingId}`)
+      const res = await makeRequest(`/dashboard/preferences/${buildingId}`)
       if (res.ok) {
-        const data = await res.json()
+        const body = await res.text()
+        if (body.trim() === '') throw new Error('preferences request returned an empty body')
+        const data = JSON.parse(body)
         const cols: string[] = data.allowed_columns ?? []
         if (cols.length > 0) {
           localHeaders.value = cols.map(metricKeyToHeader)
@@ -131,7 +140,7 @@ export function useColumnManager(
     try {
       if (selectedBuildingId.value) {
         const allowedColumns = localHeaders.value.map(h => h.metricKey ?? h.key)
-        await makeRequest(`/contracts/preferences/${selectedBuildingId.value}`, 'POST', {
+        await makeRequest(`/dashboard/preferences/${selectedBuildingId.value}`, 'POST', {
           body: JSON.stringify({ allowed_columns: allowedColumns }),
         })
       }
@@ -148,7 +157,7 @@ export function useColumnManager(
     isEditMode.value = false
     if (selectedBuildingId.value) {
       try {
-        const res = await makeRequest(`/contracts/preferences/${selectedBuildingId.value}`)
+        const res = await makeRequest(`/dashboard/preferences/${selectedBuildingId.value}`)
         if (res.ok) {
           const data = await res.json()
           const cols: string[] = data.allowed_columns ?? []
@@ -188,11 +197,16 @@ export function useColumnManager(
     isEditMode,
     isSavingPreferences,
     availableMetrics,
+    metricsFailed,
     isFetchingMetrics,
     activeHeaderKey,
     dropdownPos,
     showAddPanel,
     addableMetrics,
+    retryMetrics: async () => {
+      availableMetrics.value = []
+      await fetchAvailableMetrics()
+    },
     swappableMetrics,
     activeHeader,
     handleColumnClick,

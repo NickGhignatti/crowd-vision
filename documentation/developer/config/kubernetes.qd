@@ -26,7 +26,7 @@ just k8s delete
     `just k8s delete` removes the namespace and every PersistentVolumeClaim in it — all database data is permanently lost, with no undo. To pause without losing data, use `just k8s stop` and later `just k8s start`\.
 
 .box {Istio's Gateway API is the only k8s ingress} type:{note}
-    `just k8s apply` applies the full Istio path — `k8s/istio-peer-authentication.yml` (namespace STRICT mTLS), `k8s/istio-gateway.yml` (the `Gateway` + per-service `HTTPRoute`s), `k8s/istio-request-authentication.yml` (edge JWT verification + `AuthorizationPolicy`), and `k8s/istio-agent-authz.yml` (restricts `agent-service` to its two legitimate in-mesh callers by workload identity) — no manual `kubectl apply` afterward. There is no nginx `Ingress` anymore: it had no edge authentication, so after the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header. Istio's `RequestAuthentication` is the only path that actually verifies tokens at the edge, so it's the ingress for every environment — local k3d and production alike.
+    `just k8s apply` applies the full Istio path — `k8s/istio-peer-authentication.yml` (namespace STRICT mTLS), `k8s/istio-gateway.yml` (the `Gateway` + per-service `HTTPRoute`s), `k8s/istio-request-authentication.yml` (edge JWT verification + `AuthorizationPolicy`), and `k8s/istio-agent-authz.yml` (restricts `agent` to its two legitimate in-mesh callers by workload identity) — no manual `kubectl apply` afterward. There is no nginx `Ingress` anymore: it had no edge authentication, so after the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header. Istio's `RequestAuthentication` is the only path that actually verifies tokens at the edge, so it's the ingress for every environment — local k3d and production alike.
 
 ---
 
@@ -51,10 +51,10 @@ Manifests must be applied in dependency order, because a service crashes if its 
       - MongoDB for `chat`, `contracts`, `notification`, and `twin`; Postgres for `agent` (pgvector), `registry`, `tenancy`, and `telemetry` (TimescaleDB); plus Redis. Must be `Running` before the services start.
     - - 4. Deployments
       - `k8s/deployments/`
-      - The stateless application services and the client, including the four Go control-plane services (`claims-gateway`, `provisioner`, `registry-service`, `tenancy-service`).
+      - The stateless application services and the client, including the four Go control-plane services (`claims-gateway`, `provisioner`, `registry`, `tenancy`).
     - - 5. Mesh ingress and monitoring
       - `k8s/istio-peer-authentication.yml`, `k8s/istio-gateway.yml`, `k8s/istio-request-authentication.yml`, `k8s/istio-agent-authz.yml`, `k8s/monitoring/`
-      - STRICT mTLS for the namespace, the `Gateway` + per-service `HTTPRoute`s, edge JWT verification + `AuthorizationPolicy`, the `agent-service` caller restriction, and the Prometheus/Grafana stack. The gateway is applied before the two `AuthorizationPolicy` manifests because both select the gateway workload by name; `istio-agent-authz.yml` also depends on `chat-service`'s `ServiceAccount` from step 4.
+      - STRICT mTLS for the namespace, the `Gateway` + per-service `HTTPRoute`s, edge JWT verification + `AuthorizationPolicy`, the `agent` caller restriction, and the Prometheus/Grafana stack. The gateway is applied before the two `AuthorizationPolicy` manifests because both select the gateway workload by name; `istio-agent-authz.yml` also depends on `chat`'s `ServiceAccount` from step 4.
 
 ```bash
 kubectl apply -f k8s/namespace.yml
@@ -72,7 +72,7 @@ kubectl apply -f k8s/monitoring/
 
 ## Secrets
 
-Secrets are created directly on the cluster from your local `\.env` (plus one file on disk) and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, and the control-plane secrets (`INTERNAL_SIGNING_SECRET`, `REGISTRY_DB_PASSWORD`, `TENANCY_DB_PASSWORD`), and `TELEMETRY_DB_PASSWORD`, and creates the corresponding Secret objects — one per service, plus `registry-db-secret`/`tenancy-db-secret` for their StatefulSets. It is idempotent — safe to re-run after rotating a key. Every required value is resolved *before* the first `kubectl apply`, so a missing key aborts without leaving a half-applied set of secrets. Note `agent-service-secret` carries `POSTGRES_URL`, not `DATABASE_URL` — both `app/config.py` and `alembic/env.py` read that name. There is no `JWT_SECRET` anymore — Phase 2 of the mesh migration moved JWT verification to Istio's edge `RequestAuthentication` (`k8s/istio-request-authentication.yml`), so individual services no longer hold JWKS config at all; see [Service Mesh Architecture](../architecture/service-mesh.qd) and [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+Secrets are created directly on the cluster from your local `\.env` (plus one file on disk) and are never committed. `just k8s secrets` reads values such as `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, the agent provider keys, and the control-plane secrets (`INTERNAL_SIGNING_SECRET`, `REGISTRY_DB_PASSWORD`, `TENANCY_DB_PASSWORD`), and `TELEMETRY_DB_PASSWORD`, and creates the corresponding Secret objects — one per service, plus `registry-db-secret`/`tenancy-db-secret` for their StatefulSets. It is idempotent — safe to re-run after rotating a key. Every required value is resolved *before* the first `kubectl apply`, so a missing key aborts without leaving a half-applied set of secrets. Note `agent-secret` carries `POSTGRES_URL`, not `DATABASE_URL` — both `app/config.py` and `alembic/env.py` read that name. There is no `JWT_SECRET` anymore — Phase 2 of the mesh migration moved JWT verification to Istio's edge `RequestAuthentication` (`k8s/istio-request-authentication.yml`), so individual services no longer hold JWKS config at all; see [Service Mesh Architecture](../architecture/service-mesh.qd) and [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
 
 .box {Namespace before secrets} type:{warning}
     The namespace must exist before secrets can be created. Run `kubectl apply -f k8s/namespace.yml` (or the full `just k8s setup`) before `just k8s secrets` if invoking it in isolation.
@@ -84,7 +84,7 @@ Secrets are created directly on the cluster from your local `\.env` (plus one fi
     `crowdvision-*` packages on GHCR are public, so anonymous pulls already work — `just k8s secrets` only creates `ghcr-pull-secret` when `GHCR_USERNAME`/`GHCR_TOKEN` are present in `\.env`, and skips it otherwise. Set them only if you're pulling from a private fork/registry. Supplying a placeholder or wrong token is worse than omitting them: GHCR 403s on invalid credentials rather than falling back to anonymous, which would break pulls of an otherwise-public image.
 
 .box {Agent provider key naming} type:{warning}
-    The current `agent-service-secret` generator forwards the legacy `GOOGLE_API_KEY` and `DEEPSEEK_API_KEY` names, while the recommended provider setup uses `OPENROUTER_API_KEY`\. Before deploying the agent, confirm the generated secret contains a key compatible with its configured `LLM_BASE_URL`\. Kubernetes also does not deploy the documentation ingester or Langfuse — see the [Agent Service](../services/agent.qd) guide.
+    The current `agent-secret` generator forwards the legacy `GOOGLE_API_KEY` and `DEEPSEEK_API_KEY` names, while the recommended provider setup uses `OPENROUTER_API_KEY`\. Before deploying the agent, confirm the generated secret contains a key compatible with its configured `LLM_BASE_URL`\. Kubernetes also does not deploy the documentation ingester or Langfuse — see the [Agent Service](../services/agent.qd) guide.
 
 ---
 
@@ -92,17 +92,17 @@ Secrets are created directly on the cluster from your local `\.env` (plus one fi
 
 ```bash
 just k8s status                 # pods, deployments, services, StatefulSets
-just k8s logs twin-service      # tail logs (works for Deployments and StatefulSets)
-just k8s restart twin-service   # rolling restart one service (picks up a new :latest)
+just k8s logs digital-twin      # tail logs (works for Deployments and StatefulSets)
+just k8s restart digital-twin   # rolling restart one service (picks up a new :latest)
 just k8s restart-all            # restart every deployment (e.g. after rotating secrets)
-just k8s rollout twin-service   # watch a rolling update to completion
+just k8s rollout digital-twin   # watch a rolling update to completion
 just k8s validate               # dry-run every manifest without touching the cluster
 ```
 
 A rolling restart starts new pods and waits for their readiness probe to pass before terminating the old ones, so a healthy service never goes fully down. If a rollout misbehaves, roll back instantly:
 
 ```bash
-kubectl rollout undo deployment/twin-service -n crowdvision
+kubectl rollout undo deployment/digital-twin -n crowdvision
 ```
 
 ---
@@ -158,13 +158,13 @@ kubectl apply -f k8s/namespace.yml
 kubectl apply -f k8s/istio-peer-authentication.yml
 kubectl apply -f k8s/istio-gateway.yml
 kubectl apply -f k8s/istio-request-authentication.yml
-kubectl apply -f k8s/istio-agent-authz.yml   # needs chat-service's ServiceAccount (k8s/deployments/) applied first
+kubectl apply -f k8s/istio-agent-authz.yml   # needs chat's ServiceAccount (k8s/deployments/) applied first
 ```
 
-`k8s/istio-gateway.yml` defines one Istio `Gateway` (class `istio`, which auto-provisions an Envoy `Deployment`/`Service` named `<name>-istio`) plus one `HTTPRoute` per service, mirroring the Caddyfile's routes. Services that use `handle_path` in the Caddyfile (path prefix stripped before forwarding) get a matching Gateway API `URLRewrite`/`ReplacePrefixMatch` filter; `contracts-service`'s route needs this too even though its Caddyfile comment claims otherwise — the comment is stale, the directive (`handle_path`) always strips.
+`k8s/istio-gateway.yml` defines one Istio `Gateway` (class `istio`, which auto-provisions an Envoy `Deployment`/`Service` named `<name>-istio`) plus one `HTTPRoute` per service, mirroring the Caddyfile's routes. Services that use `handle_path` in the Caddyfile (path prefix stripped before forwarding) get a matching Gateway API `URLRewrite`/`ReplacePrefixMatch` filter; `dashboard`'s route needs this too even though its Caddyfile comment claims otherwise — the comment is stale, the directive (`handle_path`) always strips.
 
-.box {claims-gateway and agent/chat-service are expected to fail in this cluster} type:{note}
-    Three services are known-blocked in the local k3d cluster, independent of any mesh work: `claims-gateway` fails its OIDC discovery at boot because Keycloak runs only in the docker-compose dev stack, not in-cluster (it reaches for it at `host.k3d.internal:8090`, which is only live if you've started Keycloak via `docker compose`); `agent-service` needs a real embedding-provider API key (`OPENROUTER_API_KEY`, or one of the legacy aliases — see the box above) that isn't set by default; `chat-service`'s init container waits on `agent-service` and is blocked transitively. None of this is caused by Istio — it reproduces identically without the mesh.
+.box {claims-gateway and agent/chat are expected to fail in this cluster} type:{note}
+    Three services are known-blocked in the local k3d cluster, independent of any mesh work: `claims-gateway` fails its OIDC discovery at boot because Keycloak runs only in the docker-compose dev stack, not in-cluster (it reaches for it at `host.k3d.internal:8090`, which is only live if you've started Keycloak via `docker compose`); `agent` needs a real embedding-provider API key (`OPENROUTER_API_KEY`, or one of the legacy aliases — see the box above) that isn't set by default; `chat`'s init container waits on `agent` and is blocked transitively. None of this is caused by Istio — it reproduces identically without the mesh.
 
 ---
 

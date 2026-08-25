@@ -1,13 +1,13 @@
 .docname {Agent Service}
 .include {docs}
 
-The Python `agent-service` is CrowdVision's tool-calling assistant. It answers questions
+The Python `agent` is CrowdVision's tool-calling assistant. It answers questions
 by combining a permission-filtered documentation knowledge base with live building and
-room data from `twin-service`\.
+room data from `digital-twin`\.
 
 It is built on **FastAPI** — an async Python web framework chosen because the agent spends
 most of its time waiting on network I/O (the language-model provider, the database, the
-twin-service), and an async stack lets one worker handle many in-flight requests instead of
+digital-twin), and an async stack lets one worker handle many in-flight requests instead of
 blocking a thread per call. For local commands and troubleshooting, see the service
 `README.md`\. For writing a new tool, see [Adding an Agent Tool](../contributing/adding-agent-tools.qd).
 
@@ -140,7 +140,7 @@ estimated/provider-reported cost, an `idk` flag, and a final decision.
     as that same header (`downstream.py`'s `auth_headers`) so the read happens as the asking user.
     Authorization is checked **twice, independently**: `access.py`'s `can_access_domain` /
     `accessible_domains` run a Cedar `ReadWithAdminBypass` check against the tool's own
-    `ToolContext` before the result is trusted, on top of whatever twin-service and telemetry-service
+    `ToolContext` before the result is trusted, on top of whatever digital-twin and telemetry
     enforce on their own routes — neither layer assumes the other already did it. Do not add
     sensitive or write-capable tools without the same explicit authorization, confirmation, and
     audit behavior.
@@ -154,17 +154,17 @@ readings list.
 
 Given a `building_id` and an optional `room_id`, the tool:
 
-1. Fetches the building from **twin-service** (forwarding the caller's `x-gateway-claims` header) and rejects
+1. Fetches the building from **digital-twin** (forwarding the caller's `x-gateway-claims` header) and rejects
    inaccessible or unknown buildings without revealing whether they exist; an unknown `room_id`
    is rejected before any sensor request is made.
-2. Calls **telemetry-service** `GET /sensors/buildings/{buildingId}` — or
+2. Calls **telemetry** `GET /sensors/buildings/{buildingId}` — or
    `…/rooms/{roomId}` when a room is given — again as the asking user. Telemetry-service reads its
    Postgres-backed device registry (`buildingId`, `roomId`, `sensorId`, `sensorType`).
 3. Filters the response to rooms that actually belong to the authorized building (downstream
    data is untrusted) and projects each device to `sensor_id`, `sensor_type`, `room_id`, and the
    room name resolved from the twin.
 
-Two services are involved: twin-service for authorization and room names, telemetry-service for the
+Two services are involved: digital-twin for authorization and room names, telemetry for the
 device registry itself. The tool is read-only and returns an inventory, never measurements — the
 system prompt steers the model to `get_latest_sensor_data` / `get_sensor_history` for those.
 
@@ -266,7 +266,7 @@ depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
 `require_user` (`app/auth.py`) checks the mesh-injected `x-gateway-claims` header first: Istio's
 `RequestAuthentication` (or, in docker-compose dev, Caddy's `forward_auth` against
 claims-gateway's `/verify`) verifies the gateway JWT once at the edge and injects the validated
-payload as this base64 header — agent-service trusts it rather than re-verifying a JWT itself,
+payload as this base64 header — agent trusts it rather than re-verifying a JWT itself,
 the same trust model as every other service behind the edge (see
 [Identity & Tenancy Architecture](../architecture/auth-architecture.qd)). There is no JWKS
 material anywhere in this service's configuration.
@@ -377,7 +377,7 @@ that its marker is now stale and should be removed so the row goes back to guard
 behavior normally.
 
 For the dataset schema, the scoring and exit-code contract, model sweeps, and how to configure
-the judge, see the agent-service `README.md`\.
+the judge, see the agent `README.md`\.
 
 ---
 
@@ -439,9 +439,9 @@ Kubernetes manifests.
       - Not deployed
     - - Provider configuration
       - `OPENROUTER_API_KEY` and model variables forwarded by Compose
-      - Verify `agent-service-secret`; current secret generation still uses legacy key names
+      - Verify `agent-secret`; current secret generation still uses legacy key names
 
-The source of truth for runtime settings is `backend/agent-service/app/config.py`\.
+The source of truth for runtime settings is `backend/agent/app/config.py`\.
 `LLM_TEMPERATURE` controls the default generation temperature, while `TWIN_TIMEOUT_SECONDS`
 controls live-data request timeouts. Invalid numeric bounds, unsupported model-override roles
 or log formats, and malformed service URL schemes fail during settings loading. Startup also

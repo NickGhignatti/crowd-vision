@@ -49,7 +49,7 @@ jobs:
               echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/app-binary" >> "$GITHUB_OUTPUT"
               ;;
             rust)
-              # cargo names the binary after the crate (backend/twin-service -> "twin-service"),
+              # cargo names the binary after the crate (backend/digital-twin -> "digital-twin"),
               # which is also the basename of matrix.context.
               bin=$(basename "${MATRIX_CONTEXT}")
               echo "context=." >> "$GITHUB_OUTPUT"
@@ -69,7 +69,7 @@ jobs:
             python)
               # No pre-built artifact — build from the service's own real
               # Dockerfile, with the repo root as context so it can still
-              # COPY sibling directories (e.g. agent-service <- auth-policy).
+              # COPY sibling directories (e.g. agent <- auth-policy).
               echo "context=." >> "$GITHUB_OUTPUT"
               echo "file=${MATRIX_CONTEXT}/Dockerfile" >> "$GITHUB_OUTPUT"
               echo "args=" >> "$GITHUB_OUTPUT"

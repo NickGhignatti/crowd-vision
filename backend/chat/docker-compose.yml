@@ -1,0 +1,22 @@
+services:
+  chat:
+    cpus: "3"
+    build:
+      # Repo-root context: the service needs its sibling ../claims-contracts during build.
+      context: ../..
+      dockerfile: backend/chat/Dockerfile
+    environment:
+      - MONGO_URI=mongodb://chat-db:27017/chatdb
+      - AGENT_URL=http://agent:3000
+      - HISTORY_MAX_MESSAGES=10
+    depends_on:
+      - chat-db
+
+  chat-db:
+    cpus: "3"
+    image: mongo:latest
+    volumes:
+      - chat-data:/data/db
+
+volumes:
+  chat-data:

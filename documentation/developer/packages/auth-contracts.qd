@@ -1,7 +1,7 @@
 .docname {Auth Contracts}
 .include {docs}
 
-`auth-contracts` is the frozen shape of the identity token every Go service trusts, plus the one role-weight comparison every domain-scoped check reduces to. It has **zero external dependencies** — that's deliberate. Its whole reason to exist is to be imported by code that does very different jobs — `claims-gateway`, which signs the token; `auth-middleware`, which verifies it; and `auth-policy` and `tenancy-service`, which make authorization decisions from it — and none of those imports should have to drag in anything beyond this one small, stable shape.
+`auth-contracts` is the frozen shape of the identity token every Go service trusts, plus the one role-weight comparison every domain-scoped check reduces to. It has **zero external dependencies** — that's deliberate. Its whole reason to exist is to be imported by code that does very different jobs — `claims-gateway`, which signs the token; `auth-middleware`, which verifies it; and `auth-policy` and `tenancy`, which make authorization decisions from it — and none of those imports should have to drag in anything beyond this one small, stable shape.
 
 ---
 
@@ -13,9 +13,9 @@
         SIGN["claims-gateway/internal/signer\nmints the token"]
         MW["auth-middleware\nverifies the token"]
         AP["auth-policy\npre-expands memberships for Cedar"]
-        TS["tenancy-service\nclaims.CanIn(domain, role)"]
-        RS["rust: twin-service\nincludes roles.json at compile time"]
-        PY["python: agent-service\nreads roles.json at import time"]
+        TS["tenancy\nclaims.CanIn(domain, role)"]
+        RS["rust: digital-twin\nincludes roles.json at compile time"]
+        PY["python: agent\nreads roles.json at import time"]
 
         SIGN --> AC
         MW --> AC
@@ -24,7 +24,7 @@
         AC -.->|"roles.json, read directly\n(no Go dependency)"| RS
         AC -.->|"roles.json, read directly\n(no Go dependency)"| PY
 
-`claims-gateway`'s signer *produces* a `StandardClaims` value; `auth-middleware`, `auth-policy`, and `tenancy-service` *consume* it. Two non-Go services — `twin-service` (Rust) and `agent-service` (Python) — read `roles.json` directly off disk rather than depending on this package, since there's no Go module boundary to cross for a static JSON file (see [Auth Policy](auth-policy.qd) for how that split plays out for the Cedar bundle too).
+`claims-gateway`'s signer *produces* a `StandardClaims` value; `auth-middleware`, `auth-policy`, and `tenancy` *consume* it. Two non-Go services — `digital-twin` (Rust) and `agent` (Python) — read `roles.json` directly off disk rather than depending on this package, since there's no Go module boundary to cross for a static JSON file (see [Auth Policy](auth-policy.qd) for how that split plays out for the Cedar bundle too).
 
 ---
 
@@ -84,7 +84,7 @@ func (c StandardClaims) Tenants() []string {
 }
 ```
 
-`CanIn` is what `tenancy-service` calls directly for its own domain-scoped checks — it doesn't need Cedar's generality for a plain "is this role at least this powerful, in this domain" question. The same question asked with admin-bypass or resource-type nuance goes through [Auth Policy](auth-policy.qd) instead.
+`CanIn` is what `tenancy` calls directly for its own domain-scoped checks — it doesn't need Cedar's generality for a plain "is this role at least this powerful, in this domain" question. The same question asked with admin-bypass or resource-type nuance goes through [Auth Policy](auth-policy.qd) instead.
 
 A real test makes the domain-scoping explicit rather than leaving it implied:
 
@@ -148,16 +148,16 @@ func Can(principalRole, requiredRole string) bool {
 
 ## 3. The conformance fixture — a drift detector for the shape itself
 
-**Files:** `conformance_test.go`, `fixtures/standard-claims.json`
+**Files:** `conformance_test.go`, `../schemas/fixtures/standard-claims.json`
 
 ```go
-// TestFixtureConforms asserts fixtures/standard-claims.json unmarshals cleanly
+// TestFixtureConforms asserts the shared fixture unmarshals cleanly
 // into StandardClaims with every required field populated. This is the drift
 // detector: any consumer (Go today, others later) asserts against the same
 // fixture file, so a shape change that breaks a consumer fails here first,
 // not in a production cookie.
 func TestFixtureConforms(t *testing.T) {
-	raw, _ := os.ReadFile("fixtures/standard-claims.json")
+	raw, _ := os.ReadFile("../schemas/fixtures/standard-claims.json")
 	var claims StandardClaims
 	if err := json.Unmarshal(raw, &claims); err != nil {
 		t.Fatalf("fixture does not conform to StandardClaims: %v", err)
@@ -167,4 +167,55 @@ func TestFixtureConforms(t *testing.T) {
 }
 ```
 
-This is narrower than [Auth Policy](auth-policy.qd)'s cross-language conformance suite — today only this package's own Go test reads `fixtures/standard-claims.json`. Its purpose is to catch a `StandardClaims` field rename or removal against a realistic example token, before that change reaches `auth-middleware`'s decoder or `claims-gateway`'s signer.
+The fixture lives in `schemas/fixtures/`, outside this module, because it is no longer only Go's: [Claims Schema](claims-schema.qd) (Rust) and `agent` (Python) assert the same file from their own decoders. A `StandardClaims` field rename or removal fails in all three languages at once, before it reaches `auth-middleware`'s decoder or `claims-gateway`'s signer.
+
+
+---
+
+## 4. `X-Signature` — the internal service-to-service credential
+
+**File:** `internalsig.go`
+
+Control-plane calls carry no end user, so there is no `x-gateway-claims` to forward — `provisioner` reconciling a pending organization is not acting for anybody. Those hops authenticate the *caller itself* with an HMAC over the exact request body:
+
+```go
+const SignatureHeader = "X-Signature"
+
+// Sign is the internal service-to-service convention: lowercase hex of
+// HMAC-SHA256 over the exact request body, empty body included.
+func Sign(secret, body []byte) string {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func Verify(secret, body []byte, signature string) bool {
+	return hmac.Equal([]byte(signature), []byte(Sign(secret, body)))
+}
+```
+
+`RequireSignature(secret)` is the verifying middleware. It reads the body once and puts it back on the request, so handlers behind it still see their payload:
+
+```go
+body, err := io.ReadAll(r.Body)
+// ...
+r.Body = io.NopCloser(bytes.NewReader(body))
+
+if !Verify(secret, body, signature) {
+	http.Error(w, "invalid signature", http.StatusForbidden)
+	return
+}
+```
+
+Six implementations of this one convention used to exist — two byte-identical verifying middlewares (`registry`, `tenancy`), three inline signers (`provisioner` × 2, `claims-gateway`), and `telemetry`'s Rust one. The five Go copies are now this package:
+
+| Caller | Callee | Signs with |
+|---|---|---|
+| `provisioner` | `registry` `/internal/organizations/*` | `authcontracts.Sign` |
+| `provisioner` | `tenancy` `/internal/domains` | `authcontracts.Sign` |
+| `claims-gateway` | `tenancy` `/internal/memberships`, `/internal/provision` | `authcontracts.Sign` |
+
+.box {Why this lives in auth-contracts and not auth-middleware} type:{note}
+    `registry` and `provisioner` need the convention but not JWT verification. Putting it in `auth-middleware` would drag `jwt`, `keyfunc` and `jwkset` into two modules that never verify a token; this package stays stdlib-only, so they gain one local `replace` and nothing else.
+
+`telemetry`'s ingest verifier stays a separate Rust implementation — it guards a device-facing endpoint with its own key (`TELEMETRY_INGEST_SECRET`), and a Go package cannot be imported into it anyway. What keeps the two honest is `schemas/fixtures/internal-signature.json`: golden `(secret, body, signature)` vectors that `internalsig_test.go` and `telemetry`'s `ingest_auth.rs` both assert. A change to the algorithm on either side fails on both.

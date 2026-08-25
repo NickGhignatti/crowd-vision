@@ -6,11 +6,13 @@ import { METRIC_I18N_KEY } from '@/utils/metrics.ts'
 defineProps<{
   metrics: MetricContract[]
   isFetching: boolean
+  failed?: boolean
 }>()
 
 const emit = defineEmits<{
   select: [metric: MetricContract]
   close: []
+  retry: []
 }>()
 
 const { t } = useI18n()
@@ -34,6 +36,17 @@ const { t } = useI18n()
     <div v-if="isFetching" class="flex items-center gap-2 text-slate-400 text-sm">
       <i class="ph-bold ph-spinner animate-spin"></i>
       {{ t('dashboard.table.loadingMetrics') }}
+    </div>
+
+    <div v-else-if="failed" class="flex items-center gap-2 text-sm text-rose-600">
+      <i class="ph-bold ph-warning-circle"></i>
+      {{ t('dashboard.table.metricsUnavailable') }}
+      <button
+        @click="emit('retry')"
+        class="ml-1 px-2 py-1 rounded-md border border-rose-300 text-rose-700 text-xs font-semibold hover:bg-rose-50 transition-colors"
+      >
+        {{ t('dashboard.table.retry') }}
+      </button>
     </div>
 
     <p v-else-if="metrics.length === 0" class="text-sm text-slate-400 italic">

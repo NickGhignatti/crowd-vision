@@ -1,0 +1,36 @@
+# This file REPLACES the root .dockerignore for agent's build (podman and BuildKit both
+# honour <Dockerfile>.dockerignore and do not merge it), so it must repeat the heavy
+# exclusions - .moon/cache alone is >1GB.
+.git
+.github
+.moon/cache
+**/target
+**/dist
+**/coverage
+**/node_modules
+node_modules
+
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+
+frontend
+landing-page
+documentation
+simulators
+k8s
+grafana
+keycloak
+graphify-out
+**/*.md
+
+.env
+**/.env
+**/.env.*
+secrets
+.claude
+.zed

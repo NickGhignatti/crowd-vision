@@ -1,15 +1,39 @@
 .git
-node_modules
-**/node_modules
-**/dist
+.github
+
+# Build caches. .moon/cache/outputs alone is >1GB of task-output tarballs and was
+# the whole reason every service build streamed hundreds of MB to the daemon.
+.moon/cache
 **/target
+**/dist
 **/coverage
-graphify-out
+**/node_modules
+node_modules
+
+# Python: virtualenvs are hundreds of MB and are rebuilt inside the image anyway.
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+
+# Not part of any service build.
 frontend
 landing-page
 documentation
 simulators
 k8s
+grafana
+keycloak
+graphify-out
 **/*.md
+
+# Secrets and local state never belong in a build context.
 .env
 **/.env
+**/.env.*
+secrets
+.claude
+.zed

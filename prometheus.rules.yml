@@ -18,8 +18,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "twin-service HTTP error rate above 5%"
-          description: "{{ $value | humanizePercentage }} of twin-service requests have errored over the last 5 minutes."
+          summary: "digital-twin HTTP error rate above 5%"
+          description: "{{ $value | humanizePercentage }} of digital-twin requests have errored over the last 5 minutes."
 
       - alert: ChatServiceHighErrorRate
         expr: (sum(rate(chat_http_error_requests_total[5m])) / sum(rate(chat_http_requests_total[5m]))) > 0.05
@@ -27,8 +27,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "chat-service HTTP error rate above 5%"
-          description: "{{ $value | humanizePercentage }} of chat-service requests have errored over the last 5 minutes."
+          summary: "chat HTTP error rate above 5%"
+          description: "{{ $value | humanizePercentage }} of chat requests have errored over the last 5 minutes."
 
       - alert: TwinServiceHighLatency
         expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
@@ -36,8 +36,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "twin-service p95 latency above 1s"
-          description: "twin-service's 95th percentile request duration has been above 1 second for 5 minutes."
+          summary: "digital-twin p95 latency above 1s"
+          description: "digital-twin's 95th percentile request duration has been above 1 second for 5 minutes."
 
       - alert: ChatServiceHighLatency
         expr: histogram_quantile(0.95, sum(rate(chat_http_request_duration_seconds_bucket[5m])) by (le)) > 1
@@ -45,8 +45,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "chat-service p95 latency above 1s"
-          description: "chat-service's 95th percentile request duration has been above 1 second for 5 minutes."
+          summary: "chat p95 latency above 1s"
+          description: "chat's 95th percentile request duration has been above 1 second for 5 minutes."
 
       - alert: ContractsServiceFanoutLatencyHigh
         expr: histogram_quantile(0.95, sum(rate(telemetry_fanout_latency_ms_bucket[5m])) by (le)) > 500
@@ -54,8 +54,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "contracts-service fan-out latency above 500ms"
-          description: "contracts-service's 95th percentile sensor-ingestion-to-fan-out latency has been above 500ms for 5 minutes."
+          summary: "dashboard fan-out latency above 500ms"
+          description: "dashboard's 95th percentile sensor-ingestion-to-fan-out latency has been above 500ms for 5 minutes."
 
       - alert: SensorIngestPersistFailures
         expr: sum(rate(telemetry_ingest_persist_failures_total[5m])) > 0
@@ -63,7 +63,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "telemetry-service is losing readings behind a 202"
+          summary: "telemetry is losing readings behind a 202"
           description: "Readings are being accepted and then failing to persist. Clients already received 202 and will not retry, so this is silent data loss."
 
       - alert: SensorIngestStalled
@@ -72,7 +72,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "telemetry-service has accepted no readings for 15 minutes"
+          summary: "telemetry has accepted no readings for 15 minutes"
           description: "No telemetry has been accepted for 15 minutes. Simulators or devices have stopped, or the ingest route is unreachable."
 
       - alert: SensorTelemetryFanoutFailing
@@ -81,7 +81,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "telemetry-service cannot publish to Redis"
+          summary: "telemetry cannot publish to Redis"
           description: "Telemetry events are failing to reach telemetry:raw. Live dashboards are dark even though ingestion is succeeding."
 
       - alert: SensorServiceHighErrorRate
@@ -90,8 +90,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "telemetry-service HTTP error rate above 5%"
-          description: "{{ $value | humanizePercentage }} of telemetry-service requests have errored over the last 5 minutes."
+          summary: "telemetry HTTP error rate above 5%"
+          description: "{{ $value | humanizePercentage }} of telemetry requests have errored over the last 5 minutes."
 
       - alert: SensorServiceHighLatency
         expr: histogram_quantile(0.95, sum(rate(telemetry_http_request_duration_seconds_bucket[5m])) by (le)) > 1
@@ -99,5 +99,5 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "telemetry-service p95 latency above 1s"
-          description: "telemetry-service's 95th percentile request duration has been above 1 second for 5 minutes."
+          summary: "telemetry p95 latency above 1s"
+          description: "telemetry's 95th percentile request duration has been above 1 second for 5 minutes."

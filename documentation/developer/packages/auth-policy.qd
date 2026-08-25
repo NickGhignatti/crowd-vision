@@ -9,7 +9,7 @@
 
 .mermaid
     graph TD
-        subgraph "backend/auth-policy — source of truth"
+        subgraph "backend/libs/auth-policy — source of truth"
             SCHEMA["schema.cedarschema"]
             POLICY["policy.cedar"]
             CONF["fixtures/conformance.json\ngolden test cases"]
@@ -18,10 +18,10 @@
             GOEMBED["policy.go\n//go:embed"]
             GOAPI["authz.go\nCanRead · CanEdit · CanManageDomain · ..."]
         end
-        subgraph "Rust — twin-service"
+        subgraph "Rust — digital-twin"
             RSEMBED["service/authz.rs\ninclude_str! macro, relative path"]
         end
-        subgraph "Python — agent-service"
+        subgraph "Python — agent"
             PYEMBED["cedar_authz.py\nreads the files directly at import time"]
         end
 
@@ -35,7 +35,7 @@
         CONF -.->|"same cases, same expected outcome"| RSEMBED
         CONF -.->|"same cases, same expected outcome"| PYEMBED
 
-Go consumes this as a real module dependency (`go.mod`). Rust and Python don't — there's no package registry spanning Go modules, Cargo crates, and Python packages, so `twin-service` and `agent-service` instead read `policy.cedar`/`schema.cedarschema` directly off disk by relative path, at compile time (Rust's `include_str!`) or process start (Python's `Path.read_text()`). It's a plain-text file; there was nothing to gain from inventing a distribution mechanism for three ecosystems just to move it.
+Go consumes this as a real module dependency (`go.mod`). Rust and Python don't — there's no package registry spanning Go modules, Cargo crates, and Python packages, so `digital-twin` and `agent` instead read `policy.cedar`/`schema.cedarschema` directly off disk by relative path, at compile time (Rust's `include_str!`) or process start (Python's `Path.read_text()`). It's a plain-text file; there was nothing to gain from inventing a distribution mechanism for three ecosystems just to move it.
 
 ---
 
@@ -100,7 +100,7 @@ func accountEntity(memberships []authcontracts.Membership) cedar.Entity {
 
 `domainsAsStandardCustomer` ends up holding *every* domain the caller belongs to, regardless of role — "standard customer" here means "any role at all," the floor of the ladder. A `business_admin` in a domain appears in all four sets simultaneously; the policy picks whichever set matches the privilege the action requires.
 
-Every language does its own version of this expansion against [Auth Contracts](auth-contracts.qd)' `RoleWeights` — Go's is `accountEntity` above; `agent-service`'s Python only ever populates `domainsAsStandardCustomer` and `maxRoleWeight`, because its `AuthUser` has always kept roles and domains as two unpaired lists (a real fact about that service, not a bug — see [Agent Service Architecture](../architecture/agent-architecture.qd)).
+Every language does its own version of this expansion against [Auth Contracts](auth-contracts.qd)' `RoleWeights` — Go's is `accountEntity` above; `agent`'s Python only ever populates `domainsAsStandardCustomer` and `maxRoleWeight`, because its `AuthUser` has always kept roles and domains as two unpaired lists (a real fact about that service, not a bug — see [Agent Service Architecture](../architecture/agent-architecture.qd)).
 
 ---
 
@@ -113,13 +113,13 @@ Every language does its own version of this expansion against [Auth Contracts](a
 // entity-hierarchy membership (is this entity a descendant of that one), not
 // a general "is this value in this set" test.
 
-// Read: plain domain membership, any role. Matches twin-service's
+// Read: plain domain membership, any role. Matches digital-twin's
 // isMemberOf — deliberately NO admin bypass here.
 permit(principal, action == Action::"Read", resource)
 when { principal.domainsAsStandardCustomer.contains(resource.domain) };
 
 // ReadWithAdminBypass: domain membership, OR a global admin role anywhere.
-// Matches agent-service's can_access_domain (the twin RAG tool).
+// Matches agent's can_access_domain (the twin RAG tool).
 permit(principal, action == Action::"ReadWithAdminBypass", resource)
 when {
   principal.domainsAsStandardCustomer.contains(resource.domain) ||
@@ -127,11 +127,11 @@ when {
 };
 
 // Edit: business_staff role or higher in the resource's domain. Matches
-// twin-service's geometry-mutating routes (move/resize/add/delete rooms).
+// digital-twin's geometry-mutating routes (move/resize/add/delete rooms).
 permit(principal, action == Action::"Edit", resource)
 when { principal.domainsAsBusinessStaff.contains(resource.domain) };
 
-// ManageDomain: business_admin role or higher. Matches tenancy-service's
+// ManageDomain: business_admin role or higher. Matches tenancy's
 // invite/createSubdomain/createInviteCode, and removing a member other than
 // yourself (self-removal is checked before Cedar is even called).
 permit(principal, action == Action::"ManageDomain", resource)
@@ -179,17 +179,17 @@ func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeig
 }
 ```
 
-`CanOverrideModelWeight` is the one exported function with no real Go caller today — `agent-service`'s Python is the only language that actually gates a model override. It stays in the Go API anyway, purely so the conformance suite below can prove the *rule itself* behaves identically everywhere, ahead of any Go service needing it.
+`CanOverrideModelWeight` is the one exported function with no real Go caller today — `agent`'s Python is the only language that actually gates a model override. It stays in the Go API anyway, purely so the conformance suite below can prove the *rule itself* behaves identically everywhere, ahead of any Go service needing it.
 
 ---
 
 ## 4. The golden conformance suite — identical outcomes, not identical code
 
-**Files:** `fixtures/conformance.json`, `conformance_test.go` (Go) — with equivalent runners in `twin-service/tests/cedar_conformance.rs` and `agent-service/tests/unit/test_cedar_conformance.py`\.
+**Files:** `fixtures/conformance.json`, `conformance_test.go` (Go) — with equivalent runners in `digital-twin/tests/cedar_conformance.rs` and `agent/tests/unit/test_cedar_conformance.py`\.
 
 ```json
 {
-  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds backend/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy).",
+  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds backend/libs/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy).",
   "cases": [
     { "name": "read: member of the domain, any role, is allowed",
       "memberships": [{ "domain": "eng", "role": "standard_customer" }],
@@ -230,4 +230,4 @@ This is the guarantee that justifies having one shared policy bundle at all rath
 
 ## 5. Distribution — no package manager, just files
 
-Unlike [Auth Contracts](auth-contracts.qd) and [Auth Middleware](auth-middleware.qd), which are real Go modules with `go.mod` dependency edges, `auth-policy`'s cross-language reach works because Cedar's own inputs — a schema, a policy file, a JSON fixture — are plain text. `twin-service` bakes them into its binary at compile time (`include_str!`, so a missing file is a build failure, not a runtime one); `agent-service` reads them once at process start and keeps `_POLICY`/`_SCHEMA` as module-level constants. Neither needed a real package dependency, a registry, or a build step of its own — the relative path from `backend/<service>` back to `backend/auth-policy` is stable because both live in the same monorepo.
+Unlike [Auth Contracts](auth-contracts.qd) and [Auth Middleware](auth-middleware.qd), which are real Go modules with `go.mod` dependency edges, `auth-policy`'s cross-language reach works because Cedar's own inputs — a schema, a policy file, a JSON fixture — are plain text. `digital-twin` bakes them into its binary at compile time (`include_str!`, so a missing file is a build failure, not a runtime one); `agent` reads them once at process start and keeps `_POLICY`/`_SCHEMA` as module-level constants. Neither needed a real package dependency, a registry, or a build step of its own — the relative path from `backend/<service>` back to `backend/libs/auth-policy` is stable because both live in the same monorepo.

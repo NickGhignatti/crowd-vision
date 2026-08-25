@@ -1,9 +1,9 @@
 .docname {Chat Service}
 .include {docs}
 
-The `chat-service` is the conversation layer in front of the agent. The [Agent Service](agent.qd)
+The `chat` is the conversation layer in front of the agent. The [Agent Service](agent.qd)
 is intentionally **stateless** — each `POST /ask` is an independent call that takes an optional
-`history` array but stores nothing. The chat-service is what turns that into a real chat
+`history` array but stores nothing. The chat is what turns that into a real chat
 product: it persists conversations, owns them per user, and feeds the recent history back into
 each agent call.
 
@@ -26,7 +26,7 @@ different database and scaling profile — lives in its own service.
     - - `src/domain/conversation.rs`
       - The conversation model, validation, the history window, and auto-titling. Pure.
     - - `src/domain/identity.rs`
-      - The claims payload and the only place naming the `x-gateway-claims` header.
+      - The validated caller identity, and the re-export of the claims payload from `claims-schema` (which owns the `x-gateway-claims` header name).
     - - `src/service/conversations.rs`
       - Use cases: ownership checks, the message cap, and the streaming exchange.
     - - `src/service/ports.rs`
@@ -36,7 +36,7 @@ different database and scaling profile — lives in its own service.
     - - `src/adapters/driven/persistence/conversations.rs`
       - MongoDB store. The only place that knows what an `ObjectId` is.
     - - `src/adapters/driven/agent.rs`
-      - Calls `agent-service` `/ask` and parses its SSE stream into domain events.
+      - Calls `agent` `/ask` and parses its SSE stream into domain events.
 
 .mermaid
     graph TD
@@ -46,7 +46,7 @@ different database and scaling profile — lives in its own service.
         PORTS -.-> MONGO["adapters/driven/persistence"]
         PORTS -.-> AG["adapters/driven/agent.rs"]
         MONGO --> DB[("chat-db")]
-        AG -->|"x-gateway-claims forwarded"| AGENT["agent-service /ask"]
+        AG -->|"x-gateway-claims forwarded"| AGENT["agent /ask"]
 
 ---
 
@@ -82,7 +82,7 @@ pub struct ChatMessage {
 ```
 
 `Citation` keeps snake_case field names (`chunk_id`, `document_id`, `source`, `section_path`):
-they are agent-service's Python payload, stored and returned unchanged.
+they are agent's Python payload, stored and returned unchanged.
 
 Citations are persisted on the assistant message so that reopening an old conversation shows
 the same grounded sources the agent originally returned, without re-querying.
@@ -123,7 +123,7 @@ revealing that the conversation exists.
 
 ## Sending A Message
 
-`POST /conversations/:id/messages` is where the chat-service orchestrates the agent. It loads
+`POST /conversations/:id/messages` is where the chat orchestrates the agent. It loads
 the conversation, takes the last `HISTORY_MAX_MESSAGES` turns as history, opens a stream to the
 agent, relays each token to the browser as it arrives, and persists the exchange once the
 stream completes.
@@ -146,9 +146,9 @@ The response is **Server-Sent Events**, not JSON:
     sequenceDiagram
         autonumber
         participant C as Client (ChatWidget)
-        participant CH as chat-service
+        participant CH as chat
         participant DB as chat-db
-        participant A as agent-service
+        participant A as agent
         C->>CH: POST /conversations/:id/messages { content }
         CH->>DB: load conversation by { _id, userId }
         Note over CH: validate, check the cap, take last HISTORY_MAX_MESSAGES turns
@@ -179,7 +179,7 @@ Design points worth calling out:
 - **The caller's `x-gateway-claims` header is forwarded to the agent verbatim**, not a service
   account. This means the agent runs `/ask` under the *user's* identity, so its
   permission-filtered retrieval only returns documents that user is allowed to see. The
-  chat-service never widens access.
+  chat never widens access.
 - **History is truncated** to the last `HISTORY_MAX_MESSAGES` turns before being sent. This
   bounds the prompt size (and therefore cost and latency) the agent has to process, and the
   agent already treats prior messages as untrusted context rather than instructions.
@@ -197,8 +197,8 @@ so a freshly created chat gets a meaningful name without a separate request.
    - Purpose
 
 .tablebyrows {.headers}
-    - - `AGENT_SERVICE_URL`
-      - `http://agent-service:3000`
+    - - `AGENT_URL`
+      - `http://agent:3000`
       - Where to reach the agent's `/ask` endpoint.
     - - `MONGO_URI`
       - —
@@ -217,7 +217,7 @@ in-code limits that bound document growth and reject oversized input.
 A `GatewayClaims` extractor decodes the mesh-injected `x-gateway-claims` header — Istio's
 `RequestAuthentication` already verified the gateway JWT once, at the ingress — and takes the
 `sub` claim as the owning `userId`. There is no signature verification here at all;
-chat-service trusts the header rather than re-checking a JWT itself. The raw header is kept and
+chat trusts the header rather than re-checking a JWT itself. The raw header is kept and
 forwarded verbatim to the agent. A failure to reach the agent surfaces as a `502 Bad Gateway`,
 distinguishing an upstream agent problem from a client error.
 

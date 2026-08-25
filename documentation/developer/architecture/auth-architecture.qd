@@ -3,7 +3,7 @@
 
 **Bounded context:** [Identity & Access](../domain/identity-access.qd) · **Stack:** Keycloak (identity provider) + Go (control plane)
 
-Keycloak owns authentication for every tier; `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` (all Go) own everything else — token exchange, membership resolution, organization lifecycle, and provisioning, respectively. Nothing on this page is code — see [Auth Middleware](../packages/auth-middleware.qd), [Auth Contracts](../packages/auth-contracts.qd), and [Auth Policy](../packages/auth-policy.qd) for the implementation-level walkthroughs. Every service on the other side of claims-gateway trusts its output rather than re-verifying it; see [Service Mesh Architecture](service-mesh.qd) for why.
+Keycloak owns authentication for every tier; `claims-gateway`, `tenancy`, `registry`, and `provisioner` (all Go) own everything else — token exchange, membership resolution, organization lifecycle, and provisioning, respectively. Nothing on this page is code — see [Auth Middleware](../packages/auth-middleware.qd), [Auth Contracts](../packages/auth-contracts.qd), and [Auth Policy](../packages/auth-policy.qd) for the implementation-level walkthroughs. Every service on the other side of claims-gateway trusts its output rather than re-verifying it; see [Service Mesh Architecture](service-mesh.qd) for why.
 
 ---
 
@@ -16,15 +16,15 @@ Keycloak owns authentication for every tier; `claims-gateway`, `tenancy-service`
         Browser -->|"1: OIDC login (PKCE)"| KC["Keycloak"]
         Browser -->|"2: POST idToken → /exchange"| GW["claims-gateway"]
         GW -->|verify id token| KC
-        GW -->|"3: resolve/JIT-provision memberships, once per login"| TS["tenancy-service"]
+        GW -->|"3: resolve/JIT-provision memberships, once per login"| TS["tenancy"]
         GW -->|"4: session cookie, RS256 internal JWT"| Browser
 
         Browser -->|"5: request, cookie attached"| EDGE["Edge: Caddy forward_auth (compose)\nIstio RequestAuthentication (k8s)"]
         EDGE -->|"/verify — the only per-request JWKS check"| GW
-        EDGE -->|"6: inject x-gateway-claims header"| SVC["twin · telemetry · notification\nsocket · chat · tenancy-service"]
-        SVC -->|"Cedar, evaluated locally — tenancy-service only"| Cedar["auth-policy (Cedar)"]
+        EDGE -->|"6: inject x-gateway-claims header"| SVC["twin · telemetry · notification\nsocket · chat · tenancy"]
+        SVC -->|"Cedar, evaluated locally — tenancy only"| Cedar["auth-policy (Cedar)"]
 
-        REG["registry-service"] -->|"organizations: tier, status"| PRV["provisioner"]
+        REG["registry"] -->|"organizations: tier, status"| PRV["provisioner"]
         PRV -->|"poll every N seconds, pooled tier only"| REG
         PRV -->|"create domain when org is ready"| TS
         Browser -.->|"signup"| REG
@@ -35,7 +35,7 @@ Keycloak owns authentication for every tier; `claims-gateway`, `tenancy-service`
 
 ### System Level
 
-**Microservices.** Each of the four Go services is deployed, scaled, and released independently, and each owns its own data: `tenancy-service` and `registry-service` hold a private Postgres schema; `claims-gateway` and `provisioner` are stateless. The topology diagram above is the real call graph between separately running processes.
+**Microservices.** Each of the four Go services is deployed, scaled, and released independently, and each owns its own data: `tenancy` and `registry` hold a private Postgres schema; `claims-gateway` and `provisioner` are stateless. The topology diagram above is the real call graph between separately running processes.
 
 ### Service Level
 
@@ -79,9 +79,9 @@ The **Authentication Gateway**. Its one job is exchanging an external IdP token 
 
 ![Claims Gateway C&C diagram](images/cc-claims-gateway.svg)
 
-#### tenancy-service
+#### tenancy
 
-**Code-level walkthrough:** [Tenancy Service](../services/tenancy-service.qd)
+**Code-level walkthrough:** [Tenancy Service](../services/tenancy.qd)
 
 Owns authorization: Cedar (`auth-policy`) is called directly from `internal/api`'s handlers, at the HTTP boundary, evaluated locally against a policy bundle compiled into the binary — not through the core, and not behind a port, the same way the driving adapter itself calls the core directly. The core's only outbound port is `store.Store`, satisfied by a Postgres adapter in production and a fake adapter in tests; `internal/events` (the `account.deleted` consumer) is a second driving adapter into the same core, alongside HTTP.
 
@@ -109,11 +109,11 @@ Owns authorization: Cedar (`auth-policy`) is called directly from `internal/api`
         PORT -.->|implements| PG
         PORT -.->|implements| FAKE
 
-![Tenancy Service C&C diagram](images/cc-tenancy-service.svg)
+![Tenancy Service C&C diagram](images/cc-tenancy.svg)
 
-#### registry-service
+#### registry
 
-**Code-level walkthrough:** [Registry Service](../services/registry-service.qd)
+**Code-level walkthrough:** [Registry Service](../services/registry.qd)
 
 The plainest of the four: a `Store`-backed core behind an HTTP driving adapter, with no dependency on any other service. `provisioner` polls it; it never calls out.
 
@@ -137,7 +137,7 @@ The plainest of the four: a `Store`-backed core behind an HTTP driving adapter, 
         PORT -.->|implements| PG
         PORT -.->|implements| FAKE
 
-![Registry Service C&C diagram](images/cc-registry-service.svg)
+![Registry Service C&C diagram](images/cc-registry.svg)
 
 #### provisioner
 
@@ -195,16 +195,16 @@ Every service downstream of the edge trusts exactly one thing: a header called `
 
 Downstream of either path, the receiving service does the same thing: decode `x-gateway-claims`, trust it, done — no JWKS, no crypto, no network call. `claims-gateway` is therefore the **only** service in the whole platform that ever verifies a raw JWT signature; every other service is a pure consumer of an already-verified identity.
 
-.box {agent-service is the deliberate exception} type:{note}
-    `/agent/*` is not gated by `require_gateway_auth` in the Caddyfile, and has no equivalent `AuthorizationPolicy` requirement at the Istio edge. `evals/run_evals.py`'s local-dev bypass token is HS256-signed with a secret claims-gateway never sees — it was never going to pass gateway verification, by design. `agent-service` checks for the mesh claims header first and falls back to its own eval-token verification (`app/auth.py`). Since the edge can't *inject* a verified `x-gateway-claims` on an ungated route, both edges **strip** any client-supplied one on `/agent` (agent decodes that header without a signature check, so an ungated caller could otherwise forge it); real user traffic reaches agent through `chat-service`, which forwards mesh-verified claims internally.
+.box {agent is the deliberate exception} type:{note}
+    `/agent/*` is not gated by `require_gateway_auth` in the Caddyfile, and has no equivalent `AuthorizationPolicy` requirement at the Istio edge. `evals/run_evals.py`'s local-dev bypass token is HS256-signed with a secret claims-gateway never sees — it was never going to pass gateway verification, by design. `agent` checks for the mesh claims header first and falls back to its own eval-token verification (`app/auth.py`). Since the edge can't *inject* a verified `x-gateway-claims` on an ungated route, both edges **strip** any client-supplied one on `/agent` (agent decodes that header without a signature check, so an ungated caller could otherwise forge it); real user traffic reaches agent through `chat`, which forwards mesh-verified claims internally.
 
-The internal HMAC-signed contract used for `claims-gateway` → `tenancy-service` and `provisioner` → `registry-service`/`tenancy-service` calls is the same convention across the whole Go control plane — see each service's `internal/api/internalauth.go` for the `X-Signature` implementation.
+The internal HMAC-signed contract used for `claims-gateway` → `tenancy` and `provisioner` → `registry`/`tenancy` calls is the same convention across the whole Go control plane — see each service's `internal/api/internalauth.go` for the `X-Signature` implementation.
 
 ---
 
 ## Client Integration
 
-The Vue frontend authenticates against Keycloak (authorization code + PKCE) and calls `claims-gateway`'s `/exchange`, `/me`, `/refresh`, `/logout` for session lifecycle, and `tenancy-service`'s `/domains`, `/me/memberships`, `/domains/{domain}/subdomains`, join/leave, and invite-code endpoints for all domain-management UI.
+The Vue frontend authenticates against Keycloak (authorization code + PKCE) and calls `claims-gateway`'s `/exchange`, `/me`, `/refresh`, `/logout` for session lifecycle, and `tenancy`'s `/domains`, `/me/memberships`, `/domains/{domain}/subdomains`, join/leave, and invite-code endpoints for all domain-management UI.
 
 ### Session lifetime
 
@@ -222,11 +222,11 @@ The `authentication_token` cookie *is* the internal JWT — HttpOnly, `Secure`, 
 
 ---
 
-## Authorization: Cedar in tenancy-service
+## Authorization: Cedar in tenancy
 
-Membership and role decisions — who can read, edit, or manage a domain — are not baked into the identity layer at all. `tenancy-service` is the only one of the four services that imports `backend/auth-policy` and evaluates Cedar locally, in-process. `claims-gateway`, `registry-service`, and `provisioner` have no Cedar dependency: the gateway only authenticates, and the control-plane services (`registry-service`, `provisioner`) operate on organizations, a concept Cedar's tenant/domain model doesn't cover.
+Membership and role decisions — who can read, edit, or manage a domain — are not baked into the identity layer at all. `tenancy` is the only one of the four services that imports `backend/libs/auth-policy` and evaluates Cedar locally, in-process. `claims-gateway`, `registry`, and `provisioner` have no Cedar dependency: the gateway only authenticates, and the control-plane services (`registry`, `provisioner`) operate on organizations, a concept Cedar's tenant/domain model doesn't cover.
 
-**Roles are pre-expanded before Cedar ever runs.** Cedar's `\.contains()` checks set membership, but it can't compare role *weights* — there's no way to ask it "does this role outrank that one." So the weight math happens once, in `tenancy-service`, before calling Cedar: every membership `{domain, role}` is expanded into which role tiers it qualifies for in that domain, and the *result* — flat per-tier domain sets — is what the `Account` entity carries:
+**Roles are pre-expanded before Cedar ever runs.** Cedar's `\.contains()` checks set membership, but it can't compare role *weights* — there's no way to ask it "does this role outrank that one." So the weight math happens once, in `tenancy`, before calling Cedar: every membership `{domain, role}` is expanded into which role tiers it qualifies for in that domain, and the *result* — flat per-tier domain sets — is what the `Account` entity carries:
 
 ```typescript
 entity Account = {
@@ -251,12 +251,12 @@ The role required to override the assistant's model on `/ask` is operator-config
 
 ## Provisioning: The Reconcile Loop
 
-`registry-service` and `provisioner` implement organization signup as a poll-based reconcile loop rather than a synchronous provisioning call — deliberately, since standing up a domain is not instant and a browser request shouldn't block on it.
+`registry` and `provisioner` implement organization signup as a poll-based reconcile loop rather than a synchronous provisioning call — deliberately, since standing up a domain is not instant and a browser request shouldn't block on it.
 
-1. **Signup** writes a row to `registry-service`'s `organizations` table with `status = 'provisioning'`, a `tier` (`pooled` / `dedicated` / `on-prem`), and an `identity_mode` (`platform` / `byo-idp`).
-2. **`provisioner`** runs an internal ticker (interval set by `cfg.ReconcileInterval`, no external scheduler) that, on every tick, asks `registry-service` for all organizations still `provisioning` and reconciles each one independently:
+1. **Signup** writes a row to `registry`'s `organizations` table with `status = 'provisioning'`, a `tier` (`pooled` / `dedicated` / `on-prem`), and an `identity_mode` (`platform` / `byo-idp`).
+2. **`provisioner`** runs an internal ticker (interval set by `cfg.ReconcileInterval`, no external scheduler) that, on every tick, asks `registry` for all organizations still `provisioning` and reconciles each one independently:
    - If `tier` isn't `pooled`, the organization is immediately marked `failed` with an explanatory detail — `provisioner` **only implements the pooled tier today**; dedicated/on-prem provisioning is real, separately-sized future work (see `backend/provisioner/CLAUDE.md`).
-   - Otherwise, it derives a `join_policy` for the new domain — `open-via-idp` if the organization is `byo-idp` (self-service join, since membership can be verified against the org's own IdP), `invite-only` otherwise — and calls `tenancy-service` to create the domain with that policy.
+   - Otherwise, it derives a `join_policy` for the new domain — `open-via-idp` if the organization is `byo-idp` (self-service join, since membership can be verified against the org's own IdP), `invite-only` otherwise — and calls `tenancy` to create the domain with that policy.
    - On success the organization is marked `ready`; on failure at any step it's marked `failed` with the underlying error, never left silently stuck.
 3. `provisioner` exposes `/health` for its own liveness/readiness probes and nothing else — it has no public API; the reconcile loop is its entire job.
 
@@ -266,12 +266,12 @@ This is why an organization can sit visibly "provisioning" for up to one reconci
 
 ## Key Architectural Decisions
 
-- **Separate authentication, authorization, and tenancy.** Keycloak authenticates; `tenancy-service` authorizes via Cedar, evaluated locally; `registry-service` and `provisioner` own organization lifecycle and provisioning. No component does more than one of these jobs.
+- **Separate authentication, authorization, and tenancy.** Keycloak authenticates; `tenancy` authorizes via Cedar, evaluated locally; `registry` and `provisioner` own organization lifecycle and provisioning. No component does more than one of these jobs.
 - **Keycloak for every tier.** Pooled uses Keycloak's *Organizations* feature; dedicated uses realm-per-org; on-prem brokers to the customer's own IdP — same code path for all three.
 - **RS256-signed Stable Claims Contract.** `claims-gateway` mints a fixed-shape internal token (`{sub, accountName, sid, memberships}`), frozen by `auth-contracts`; every consumer verifies against the public JWKS, directly or via a trusted header.
-- **Lazy JIT membership provisioning.** A membership is never written at registration — it's a projection derived on first login, avoiding a distributed write across Keycloak and `tenancy-service`\. A stale session is fixed via `claims-gateway`'s `/refresh`, not a fresh IdP verification.
-- **Database-per-service.** `tenancy-service` and `registry-service` each own a private Postgres schema; no foreign keys cross the boundary — cross-service consistency is event-driven, not transactional.
-- **Organization and domain as separate entities.** `registry-service`'s organization (billing, tier, license) and `tenancy-service`'s domain (tenant, memberships) are kept apart even though today's relationship is 1:1, because that relationship isn't guaranteed to stay 1:1.
+- **Lazy JIT membership provisioning.** A membership is never written at registration — it's a projection derived on first login, avoiding a distributed write across Keycloak and `tenancy`\. A stale session is fixed via `claims-gateway`'s `/refresh`, not a fresh IdP verification.
+- **Database-per-service.** `tenancy` and `registry` each own a private Postgres schema; no foreign keys cross the boundary — cross-service consistency is event-driven, not transactional.
+- **Organization and domain as separate entities.** `registry`'s organization (billing, tier, license) and `tenancy`'s domain (tenant, memberships) are kept apart even though today's relationship is 1:1, because that relationship isn't guaranteed to stay 1:1.
 - **Cedar evaluated locally, not via a remote PDP.** Every language embeds Cedar and evaluates one shared policy bundle in-process — microsecond decisions, no hot-path network hop, at the cost of keeping the bundle in sync across every embedding language.
 
 ---
@@ -279,13 +279,13 @@ This is why an organization can sit visibly "provisioning" for up to one reconci
 ## Known Gaps
 
 .box {No CI coverage for the Go identity/tenancy stack} type:{warning}
-    None of the four services (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) appear anywhere in `\.github/workflows/` — no lint, test, or build gate runs on them in CI today. This is a real, still-open gap, unrelated to the Kubernetes work below.
+    None of the four services (`claims-gateway`, `tenancy`, `registry`, `provisioner`) appear anywhere in `\.github/workflows/` — no lint, test, or build gate runs on them in CI today. This is a real, still-open gap, unrelated to the Kubernetes work below.
 
-.box {Only claims-gateway and tenancy-service are exposed at the edge} type:{note}
-    All four services have `Deployment`/`Service` manifests and are reachable in-cluster, plus Postgres StatefulSets for `registry-db`/`tenancy-db`\. The Istio gateway (`k8s/istio-gateway.yml`) routes `/gateway` → `claims-gateway` and `/tenancy` → `tenancy-service`; `registry-service` and `provisioner` have no external route by design — they're control-plane-internal, reached only over the mesh via HMAC-signed calls (see [Deployment & Kubernetes](deployment.qd)).
+.box {Only claims-gateway and tenancy are exposed at the edge} type:{note}
+    All four services have `Deployment`/`Service` manifests and are reachable in-cluster, plus Postgres StatefulSets for `registry-db`/`tenancy-db`\. The Istio gateway (`k8s/istio-gateway.yml`) routes `/gateway` → `claims-gateway` and `/tenancy` → `tenancy`; `registry` and `provisioner` have no external route by design — they're control-plane-internal, reached only over the mesh via HMAC-signed calls (see [Deployment & Kubernetes](deployment.qd)).
 
 .box {Enterprise self-registration and per-domain BYO-OIDC are not currently supported} type:{note}
-    Neither `claims-gateway` nor `tenancy-service` exposes an equivalent of enterprise self-registration or per-domain BYO-OIDC. Building either would need a fresh design against Keycloak's Organizations/identity-brokering features.
+    Neither `claims-gateway` nor `tenancy` exposes an equivalent of enterprise self-registration or per-domain BYO-OIDC. Building either would need a fresh design against Keycloak's Organizations/identity-brokering features.
 
 ---
 

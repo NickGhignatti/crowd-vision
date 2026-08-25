@@ -7,7 +7,7 @@ This page covers how CrowdVision is deployed on Kubernetes: how the cluster is s
 
 ## 🗂️ Manifest Structure
 
-All Kubernetes configuration lives in the `k8s/` directory. All 12 application services now have manifests — identity/tenancy (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) is no longer docker-compose-only:
+All Kubernetes configuration lives in the `k8s/` directory. All 12 application services now have manifests — identity/tenancy (`claims-gateway`, `tenancy`, `registry`, `provisioner`) is no longer docker-compose-only:
 
 ```bash
 k8s/
@@ -24,7 +24,7 @@ k8s/
 │   ├── notification-db.yml    # MongoDB
 │   ├── telemetry-db.yml       # PostgreSQL + TimescaleDB
 │   ├── chat-db.yml            # MongoDB
-│   ├── contracts-service-db.yml  # MongoDB
+│   ├── dashboard-db.yml  # MongoDB
 │   ├── registry-db.yml        # PostgreSQL
 │   ├── tenancy-db.yml         # PostgreSQL
 │   ├── agent-db.yml           # PostgreSQL
@@ -33,16 +33,16 @@ k8s/
 │   ├── prometheus.yml
 │   └── grafana.yml
 └── deployments/                # Stateless application services (12)
-    ├── twin-service.yml
-    ├── telemetry-service.yml
-    ├── notification-service.yml
-    ├── socket-service.yml
-    ├── chat-service.yml
-    ├── agent-service.yml
-    ├── contracts-service.yml
+    ├── digital-twin.yml
+    ├── telemetry.yml
+    ├── notification.yml
+    ├── socket.yml
+    ├── chat.yml
+    ├── agent.yml
+    ├── dashboard.yml
     ├── claims-gateway.yml
-    ├── tenancy-service.yml
-    ├── registry-service.yml
+    ├── tenancy.yml
+    ├── registry.yml
     ├── provisioner.yml
     └── client.yml
 ```
@@ -59,9 +59,9 @@ Kubernetes separates configuration into two object types based on sensitivity.
 data:
   PORT: "3000"
   REDIS_URL: "redis://redis:6379"
-  TELEMETRY_SERVICE_URL: "http://telemetry-service:3000"
-  TWIN_SERVICE_URL: "http://twin-service:3000"
-  CONTRACTS_SERVICE_URL: "http://contracts-service:3000"
+  TELEMETRY_URL: "http://telemetry:3000"
+  DIGITAL_TWIN_URL: "http://digital-twin:3000"
+  DASHBOARD_URL: "http://dashboard:3000"
   GATEWAY_URL: "http://crowdvision.local"
   PUBLIC_URL: "http://crowdvision.local"
   FRONTEND_URL: "http://crowdvision.local"
@@ -80,9 +80,9 @@ There is no `GATEWAY_JWKS_URI`/`GATEWAY_ISSUER` here — that was true when each
 
 CrowdVision uses two different Kubernetes workload types depending on whether the service needs persistent identity.
 
-**Deployments** are used for all 12 stateless application services (`twin-service`, `telemetry-service`, `client`, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.
+**Deployments** are used for all 12 stateless application services (`digital-twin`, `telemetry`, `client`, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.
 
-**StatefulSets** are used for every database and Redis — 9 in total, and not a single engine: four MongoDB StatefulSets (`twin-db`, `notification-db`, `chat-db`, `contracts-service-db`), four PostgreSQL StatefulSets (`registry-db`, `tenancy-db`, `agent-db`, and `telemetry-db` — the latter on TimescaleDB), and one Redis. StatefulSets give each pod:
+**StatefulSets** are used for every database and Redis — 9 in total, and not a single engine: four MongoDB StatefulSets (`twin-db`, `notification-db`, `chat-db`, `dashboard-db`), four PostgreSQL StatefulSets (`registry-db`, `tenancy-db`, `agent-db`, and `telemetry-db` — the latter on TimescaleDB), and one Redis. StatefulSets give each pod:
 - A **stable, predictable name** — `twin-db-0`, `twin-db-1` (never random hashes).
 - A **dedicated PersistentVolumeClaim (PVC)** — the storage is bound to `twin-db-0` specifically. If the pod is rescheduled to a different node, Kubernetes remounts the same volume there.
 - A **headless Service** (`clusterIP: None`) — enables direct per-pod DNS (`twin-db-0.twin-db.crowdvision.svc.cluster.local`).
@@ -101,7 +101,7 @@ CrowdVision uses two different Kubernetes workload types depending on whether th
 
 Kubernetes ingress is Istio's Gateway API. `k8s/istio-gateway.yml` defines one `Gateway` (class `istio`, which auto-provisions its own Envoy Deployment/Service named `crowdvision-gateway-istio`) plus one `HTTPRoute` per service, fronting the Istio ambient mesh. It's the single k8s ingress for every environment — local k3d and production alike. There is no nginx `Ingress`: it had no edge authentication, so once the mesh migration deleted every per-service JWT verifier it would have trusted a forged `x-gateway-claims` header outright (see [Service Mesh Architecture](service-mesh.qd)).
 
-**Per-service routes.** Each API route gets a `URLRewrite`/`ReplacePrefixMatch` filter that strips the service prefix before forwarding — so `/twin/buildings` reaches `twin-service` as `/buildings`\. `socket-service`'s route and the client's `/` catch-all forward the path unrewritten; `/grafana` is forwarded intact to Grafana, which owns that subpath. Gateway API matches by path specificity, so the client catch-all is evaluated last regardless of file order. The routes cover every service including `claims-gateway` (`/gateway`) and `tenancy-service` (`/tenancy`).
+**Per-service routes.** Each API route gets a `URLRewrite`/`ReplacePrefixMatch` filter that strips the service prefix before forwarding — so `/twin/buildings` reaches `digital-twin` as `/buildings`\. `socket`'s route and the client's `/` catch-all forward the path unrewritten; `/grafana` is forwarded intact to Grafana, which owns that subpath. Gateway API matches by path specificity, so the client catch-all is evaluated last regardless of file order. The routes cover every service including `claims-gateway` (`/gateway`) and `tenancy` (`/tenancy`).
 
 **Edge security.** The Gateway runs with Istio ambient enrollment underneath it — `ztunnel` L4 mTLS, `PeerAuthentication: STRICT`, and edge `RequestAuthentication` verifying the gateway JWT once and injecting the validated claims as `x-gateway-claims`\. An `AuthorizationPolicy` requires a verified JWT principal on the protected service paths (`/twin`, `/telemetry`, `/notification`, `/chat`, `/socket.io`, `/tenancy`, `/contracts`); `/gateway`, `/agent`, `/telemetry/ingest`, `/grafana`, and the client SPA are deliberately open. `docker-compose` + Caddy's `forward_auth` mirrors this exactly for the dev loop. See [Service Mesh Architecture](service-mesh.qd) for the full migration and [Kubernetes Configuration](../config/kubernetes.qd#istio-ambient-mesh) for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).
 
@@ -109,7 +109,7 @@ Kubernetes ingress is Istio's Gateway API. `k8s/istio-gateway.yml` defines one `
 
 ## 🚀 Deployment Startup Order
 
-Services have dependencies — `twin-service` must not start before `twin-db` is accepting connections. CrowdVision uses `initContainers` in each Deployment to enforce this ordering without any cluster-level dependency management:
+Services have dependencies — `digital-twin` must not start before `twin-db` is accepting connections. CrowdVision uses `initContainers` in each Deployment to enforce this ordering without any cluster-level dependency management:
 
 ```yaml
 initContainers:
@@ -121,13 +121,13 @@ initContainers:
       - until nc -z twin-db 27017; do echo "waiting..."; sleep 2; done
 ```
 
-The `initContainer` runs before the main container. It polls `twin-db:27017` every 2 seconds using `netcat`\. Only when the TCP connection succeeds does Kubernetes start the main `twin-service` container. The pod shows `Init:0/1` (or `Init:N/M` with multiple init containers) in `kubectl get pods` during this wait.
+The `initContainer` runs before the main container. It polls `twin-db:27017` every 2 seconds using `netcat`\. Only when the TCP connection succeeds does Kubernetes start the main `digital-twin` container. The pod shows `Init:0/1` (or `Init:N/M` with multiple init containers) in `kubectl get pods` during this wait.
 
 The same pattern gates on other **services**, not just databases, wherever there's a real startup-order dependency:
 
-- `tenancy-service` has two init containers in sequence — `wait-for-db` (`tenancy-db:5432`) and `wait-for-redis` (`redis:6379`).
-- `provisioner` waits on `registry-service:3000` and `tenancy-service:3000` directly, since it calls both over HTTP at signup time and has no database of its own.
-- `claims-gateway` waits on `tenancy-service:3000`\.
+- `tenancy` has two init containers in sequence — `wait-for-db` (`tenancy-db:5432`) and `wait-for-redis` (`redis:6379`).
+- `provisioner` waits on `registry:3000` and `tenancy:3000` directly, since it calls both over HTTP at signup time and has no database of its own.
+- `claims-gateway` waits on `tenancy:3000`\.
 
 ---
 
@@ -135,20 +135,20 @@ The same pattern gates on other **services**, not just databases, wherever there
 
 Every application container in `k8s/deployments/*.yml` sets `imagePullPolicy: IfNotPresent`, in every environment — not just local k3d. This wasn't the original design (`Always` is the more natural default for a `:latest`-tagged VPS deployment), but the `ghcr.io/nickghignatti/*` pull token doesn't currently have pull access in the environments this has been tested against, and `Always` would fail every deployment outright with a 403 rather than degrade gracefully. Init containers (`busybox`) and the StatefulSet database images (`postgres`, `mongo`) are unaffected and still use `Always`\. If you rely on GHCR-published images instead of `just k8s load`, override `imagePullPolicy` per-deployment rather than reverting it globally.
 
-When you run `kubectl rollout restart deployment/twin-service`, Kubernetes creates a new pod, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down. All application containers also carry `securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }` plus explicit `resources.requests`/`limits`, with an `emptyDir` volume mounted at `/tmp` for the services that write there despite the read-only root filesystem.
+When you run `kubectl rollout restart deployment/digital-twin`, Kubernetes creates a new pod, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down. All application containers also carry `securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }` plus explicit `resources.requests`/`limits`, with an `emptyDir` volume mounted at `/tmp` for the services that write there despite the read-only root filesystem.
 
 .box type:{note}
     **Local k3d development:** `just k8s load` imports images built locally straight into k3d's containerd. Since every application container already defaults to `IfNotPresent`, this works out of the box — Kubernetes uses the locally-imported image without attempting a GHCR pull.
 
 ```bash
 # Roll out a single service
-kubectl rollout restart deployment/twin-service -n crowdvision
+kubectl rollout restart deployment/digital-twin -n crowdvision
 
 # Watch the transition
-kubectl rollout status deployment/twin-service -n crowdvision
+kubectl rollout status deployment/digital-twin -n crowdvision
 
 # Something broke — instant rollback to the previous version
-kubectl rollout undo deployment/twin-service -n crowdvision
+kubectl rollout undo deployment/digital-twin -n crowdvision
 ```
 
 ---
@@ -161,7 +161,7 @@ kubectl rollout undo deployment/twin-service -n crowdvision
     # Look at the Events section at the bottom — shows OOMKilled, probe failures, etc.
 
     # View live logs
-    kubectl logs deployment/twin-service -n crowdvision
+    kubectl logs deployment/digital-twin -n crowdvision
 
     # View logs from the previous crashed container
     kubectl logs <pod-name> -n crowdvision --previous
@@ -173,7 +173,7 @@ kubectl rollout undo deployment/twin-service -n crowdvision
     kubectl exec -it <pod-name> -n crowdvision -- sh
 
     # Decode a secret value to verify it stored correctly
-    kubectl get secret twin-service-secret -n crowdvision \
+    kubectl get secret digital-twin-secret -n crowdvision \
       -o jsonpath='{.data.MONGO_URI}' | base64 --decode
 
     # Recent cluster events sorted by time

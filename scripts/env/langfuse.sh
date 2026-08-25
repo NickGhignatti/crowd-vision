@@ -24,8 +24,8 @@ LANGFUSE_PUBLIC_KEY=$public_key
 LANGFUSE_SECRET_KEY=$secret_key
 LANGFUSE_INIT_ORG_ID=crowd-vision
 LANGFUSE_INIT_ORG_NAME=Crowd-Vision
-LANGFUSE_INIT_PROJECT_ID=agent-service
-LANGFUSE_INIT_PROJECT_NAME=agent-service
+LANGFUSE_INIT_PROJECT_ID=agent
+LANGFUSE_INIT_PROJECT_NAME=agent
 LANGFUSE_INIT_USER_EMAIL=admin@crowd-vision.local
 LANGFUSE_INIT_USER_NAME=Admin
 LANGFUSE_INIT_USER_PASSWORD=langfuse-admin
@@ -35,7 +35,7 @@ LANGFUSE_NEXTAUTH_SECRET=$(hex 16)
 LANGFUSE_CLICKHOUSE_PASSWORD=$(hex 12)
 LANGFUSE_MINIO_ROOT_PASSWORD=$(hex 12)
 
-# ── OpenTelemetry → Langfuse (agent-service exporter) ─────────────────────────
+# ── OpenTelemetry → Langfuse (agent exporter) ─────────────────────────
 # Unset OTEL_EXPORTER_OTLP_ENDPOINT to fall back to compact console span output
 # (no trace backend required for local hacking).
 OTEL_EXPORTER_OTLP_ENDPOINT=http://langfuse-web:3000/api/public/otel

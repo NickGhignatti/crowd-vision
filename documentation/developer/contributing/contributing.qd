@@ -7,15 +7,15 @@ This page is the contract for working in the CrowdVision repository: how the mon
 
 ## The polyglot monorepo
 
-CrowdVision is a polyglot monorepo: a Vue frontend, one Node service in TypeScript (`chat`), five Rust services (`contracts-service`, `socket-service`, `twin-service`, `notification-service`, `telemetry-service`), a Python `agent-service`, and four Go services forming the identity/tenancy control plane (`claims-gateway`, `tenancy-service`, `registry-service`, `provisioner`) — orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`\. See [Naming Conventions](naming-conventions.qd) for the per-language style each of these follows.
+CrowdVision is a polyglot monorepo: a Vue frontend, six Rust services (`chat`, `dashboard`, `socket`, `digital-twin`, `notification`, `telemetry`), a Python `agent`, and four Go services forming the identity/tenancy control plane (`claims-gateway`, `tenancy`, `registry`, `provisioner`) — orchestrated by **moon** (task caching and affected-detection) behind a root `Justfile`\. See [Naming Conventions](naming-conventions.qd) for the per-language style each of these follows.
 
 Two structural facts shape everything you do:
 
-- **There is no root `package.json` and no npm workspaces.** Each Node service installs its own `node_modules`\. `tooling/` holds only the shared ESLint flat config, `@crowdvision/eslint-config`, at `tooling/eslint-config/`\.
+- **There is no root `package.json` and no npm workspaces.** Each Node package — `frontend`, `simulators/sensor-simulator`, `tooling/eslint-config` — installs its own `node_modules`\. `tooling/` holds only the shared ESLint flat config, `@crowdvision/eslint-config`, at `tooling/eslint-config/`\.
 - **Every package is registered once** in `\.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
 
 .box {Dependencies are not hoisted} type:{note}
-    When you add a Node dependency, install it inside that service's directory (`cd backend/chat-service && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-service `npm install --prefix backend/chat-service --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing. Rust and Go dependencies aren't hoisted either, but don't have this platform-resolution pitfall: `cargo add <crate>` / `go get <module>` inside the service directory is enough.
+    When you add a Node dependency, install it inside that package's directory (`cd frontend && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-package `npm install --prefix frontend --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing. Rust and Go dependencies aren't hoisted either, but don't have this platform-resolution pitfall: `cargo add <crate>` / `go get <module>` inside the service directory is enough.
 
 ---
 
@@ -29,7 +29,7 @@ These rules preserve the boundaries the architecture depends on. A contribution 
 
 .tablebyrows {.headers}
     - - Respect the database-per-service boundary
-      - A service never opens a connection to another service's database. If a service needs data it does not own, it reads it from the verified identity token, asks the owning service over its API, or reacts to a broker event. Never configure a cross-database Mongoose connection.
+      - A service never opens a connection to another service's database. If a service needs data it does not own, it reads it from the verified identity token, asks the owning service over its API, or reacts to a broker event. Never point a service's database client at another service's database.
     - - Keep services stateless
       - Hold no session state in a service; all caller authority travels in the signed token, so any instance can serve any request. Durable state belongs only in databases and the broker.
     - - One bounded context per service
@@ -37,7 +37,7 @@ These rules preserve the boundaries the architecture depends on. A contribution 
     - - Keep the frontend lightweight
       - Avoid adding a global store (Pinia/Vuex) unless genuinely necessary; prefer composables and local state.
     - - Test what you change
-      - Every backend service has a test suite in its language's idiomatic location (`__tests__/` for the TypeScript services, in-module `#[cfg(test)]` plus `tests/` for the Rust services, `*_test.go` alongside the code for the Go services). New behaviour must be covered, and `just test all` must pass before you open a pull request.
+      - Every backend service has a test suite in its language's idiomatic location (in-module `#[cfg(test)]` plus `tests/` for the Rust services, `*_test.go` alongside the code for the Go services, `tests/` for the Python `agent`). The frontend has no unit suite by design: its behaviour is covered by `frontend/e2e/` and the cross-service suite in `backend/acceptance/`. New behaviour must be covered, and `just test all` must pass before you open a pull request.
     - - Route every tool through mise
       - Never rely on the ambient `PATH`\. Use `just` recipes (which wrap `mise exec --`) or `mise exec -- <tool>` directly. Register any new package in `&#46;moon/workspace.yml`\.
 

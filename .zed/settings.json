@@ -38,18 +38,18 @@
   },
 
   "lsp": {
-    // contracts-service and twin-service are two independent crates (no
+    // dashboard and digital-twin are two independent crates (no
     // workspace Cargo.toml ties them together), so rust-analyzer needs to be
     // told about both explicitly or it will only pick up whichever one the
     // active buffer happens to be under.
     "rust-analyzer": {
       "initialization_options": {
         "linkedProjects": [
-          "backend/contracts-service/Cargo.toml",
-          "backend/twin-service/Cargo.toml",
-          "backend/socket-service/Cargo.toml",
-          "backend/notification-service/Cargo.toml",
-          "backend/telemetry-service/Cargo.toml",
+          "backend/dashboard/Cargo.toml",
+          "backend/digital-twin/Cargo.toml",
+          "backend/socket/Cargo.toml",
+          "backend/notification/Cargo.toml",
+          "backend/telemetry/Cargo.toml",
         ],
         "cargo": {
           "allFeatures": false,

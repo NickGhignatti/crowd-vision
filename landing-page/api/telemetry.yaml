@@ -181,7 +181,7 @@ components:
           example: { step: 1 }
 
     ThresholdClone:
-      description: Building clone pushed by the twin-service on registration/update.
+      description: Building clone pushed by the digital-twin on registration/update.
       type: object
       properties:
         name: { type: string }
@@ -197,7 +197,7 @@ components:
     MetricContract:
       type: object
       properties:
-        service: { type: string, example: "telemetry-service" }
+        service: { type: string, example: "telemetry" }
         metrics:
           type: array
           items:
@@ -232,7 +232,7 @@ components:
                           required: { type: boolean }
 
 # All endpoints are JWT-protected (browser cookie, or a bearer forwarded by the
-# twin-service) except the device-facing ingest hot path and the public
+# digital-twin) except the device-facing ingest hot path and the public
 # discovery endpoints, which override this with `security: []`.
 security:
   - gatewayClaims: []
@@ -551,7 +551,7 @@ paths:
       - $ref: "#/components/parameters/BuildingId"
     put:
       summary: Register/update a building clone
-      description: Called by the twin-service to seed threshold records for every registered module.
+      description: Called by the digital-twin to seed threshold records for every registered module.
       tags: [Thresholds]
       requestBody:
         required: true

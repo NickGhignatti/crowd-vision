@@ -28,7 +28,7 @@ paths:
         field in the request body. The generated `id` is returned in the
         response and must be used for all subsequent operations.
 
-        After registration the twin-service synchronises a lightweight copy
+        After registration the digital-twin synchronises a lightweight copy
         of the building to the Sensor Service.
       tags:
         - Buildings
@@ -245,7 +245,7 @@ paths:
   /contracts:
     get:
       summary: Get metric contracts
-      description: Returns the list of metric types exposed by this service for use by the contracts-service dashboard column configuration.
+      description: Returns the list of metric types exposed by this service for use by the dashboard dashboard column configuration.
       tags:
         - Observability
       responses:
@@ -430,7 +430,7 @@ components:
       properties:
         service:
           type: string
-          example: "twin-service"
+          example: "digital-twin"
         metrics:
           type: array
           items:

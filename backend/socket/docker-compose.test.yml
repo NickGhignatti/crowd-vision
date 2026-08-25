@@ -1,0 +1,16 @@
+services:
+  redis:
+    image: redis:alpine
+
+  socket-test:
+    build:
+      context: ../..
+      dockerfile: backend/socket/Dockerfile
+      target: test
+    command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ../../scripts/test/rust-integration-tests.sh:/app/scripts/test/rust-integration-tests.sh:ro
+    depends_on:
+      - redis

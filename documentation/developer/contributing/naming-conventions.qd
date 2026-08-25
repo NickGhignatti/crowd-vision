@@ -5,6 +5,50 @@ Consistent naming lets a reader infer an artefact's role from its name alone. Cr
 
 ---
 
+## Services and repository layout
+
+A service carries **one short name** across every surface it appears in — no `-service` suffix anywhere. The suffix is redundant inside `backend/`, and having it on some surfaces but not others is how a `service_key` ends up disagreeing with a directory.
+
+.var {headers}
+   - Surface
+   - Example
+
+.tablebyrows {.headers}
+    - - Directory
+      - `backend/telemetry`, `backend/digital-twin`
+    - - Cargo crate and compiled binary
+      - `telemetry`, `digital-twin`
+    - - Docker image
+      - `crowdvision-telemetry`
+    - - Container name / hostname other services resolve
+      - `telemetry:3000`
+    - - Environment variable
+      - `TELEMETRY_URL`, `DIGITAL_TWIN_URL`
+    - - `&#46;github/services&#46;json` key, moon project, CI leg
+      - `telemetry`
+    - - Kubernetes manifest, documentation page
+      - `k8s/deployments/telemetry&#46;yml`, `services/telemetry&#46;qd`
+
+`claims-gateway` and `provisioner` are named for what they *are* — a gateway, a reconciler — rather than `<noun>-service`. That is deliberate, not an oversight.
+
+Top-level placement follows the same principle: the directory says what kind of thing it holds.
+
+.var {headers}
+   - Path
+   - Holds
+
+.tablebyrows {.headers}
+    - - `backend/<name>/`
+      - A deployable service.
+    - - `backend/libs/`
+      - Shared Go modules embedded into services, never deployed.
+    - - `backend/acceptance/`
+      - The cross-service acceptance suite. Each service keeps its own `tests/` for its own suite.
+    - - `schemas/`
+      - Every shape that crosses a service boundary: `json/` specs, `fixtures/`, and the Rust binding crates.
+
+---
+
 ## Files and directories
 
 Every Node service follows the same internal layout, so the file you want is always in the same place.
@@ -95,7 +139,7 @@ Every Node service follows the same internal layout, so the file you want is alw
 
 ---
 
-## Rust — contracts-service & twin-service
+## Rust — dashboard & digital-twin
 
 Both Rust services follow idiomatic Rust style.
 
@@ -122,7 +166,7 @@ Both Rust services follow idiomatic Rust style.
 
 ## Go — Identity & Tenancy Control Plane
 
-`claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` follow idiomatic Go style (`gofmt`, checked by `go vet` in `just lint`).
+`claims-gateway`, `tenancy`, `registry`, and `provisioner` follow idiomatic Go style (`gofmt`, checked by `go vet` in `just lint`).
 
 .var {headers}
    - Artefact
@@ -147,9 +191,9 @@ Package layout follows the standard Go project layout: `internal/api` (HTTP hand
 
 ---
 
-## Python — agent-service
+## Python — agent
 
-The agent-service follows PEP 8: `snake_case` for modules, functions, and variables; `PascalCase` for classes; `SCREAMING_SNAKE_CASE` for constants. (The agent is maintained separately; these conventions are listed for completeness.)
+The agent follows PEP 8: `snake_case` for modules, functions, and variables; `PascalCase` for classes; `SCREAMING_SNAKE_CASE` for constants. (The agent is maintained separately; these conventions are listed for completeness.)
 
 ---
 
@@ -204,7 +248,7 @@ Common scopes: `gateway` (claims-gateway), `tenancy`, `registry`, `provisioner`,
 .tablebyrows {.headers}
     - - Environment variables
       - `UPPER_SNAKE_CASE`
-      - `GATEWAY_ISSUER`, `TELEMETRY_SERVICE_URL`
+      - `GATEWAY_ISSUER`, `TELEMETRY_URL`
     - - Docker images
       - `crowdvision-<service>` under the org namespace
       - `ghcr.io/nickghignatti/crowdvision-twin`
@@ -214,3 +258,26 @@ Common scopes: `gateway` (claims-gateway), `tenancy`, `registry`, `provisioner`,
     - - Documentation pages
       - `kebab-case` `&#46;qd`
       - `building-data.qd`, `naming-conventions.qd`
+
+---
+
+## Renaming carries data with it
+
+A rename is never only a rename: several identifiers derived from a service's name own state, and changing one silently starts from empty rather than failing.
+
+.var {headers}
+   - Identifier
+   - What a rename actually does
+
+.tablebyrows {.headers}
+    - - Compose volume
+      - Compose derives the real volume name from the project plus the declared name, so renaming `contracts-data` to `dashboard-data` mounts a **new, empty** volume and leaves the old one orphaned with all the data still in it. Migrate the contents in the same change, or the service comes up looking healthy and blank. This is what happened to the dashboard's saved column preferences when `contracts` became `dashboard`.
+    - - Kafka consumer group
+      - A group with no committed offsets plus `auto.offset.reset=earliest` re-reads the whole topic — a replay, not a reset. Idempotent for the registration groups; for `alerts` it re-delivers historical breaches, collapsed only by the Redis cooldown.
+    - - Database name
+      - Renaming a database is a migration. `chatdb`, `twindb` and `contractsdb` keep their names for that reason, and none carried a `-service` suffix to begin with.
+    - - System identity at a trust boundary
+      - `system:notification-service` keeps the old name on purpose: it is pinned byte-for-byte by a test, and it reads as a stable source in a central log regardless of the directory name.
+
+.box {Check the orphans after a rename} type:{warning}
+    `docker volume ls` lists every volume for the project. Anything whose name no longer appears in a `docker-compose*&#46;yml` is orphaned — either migrate it or delete it deliberately, but do not leave it to be rediscovered as "the data disappeared".

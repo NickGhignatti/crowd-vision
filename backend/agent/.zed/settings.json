@@ -1,0 +1,21 @@
+// agent is its own Python project (uv-managed, .venv/ at this
+// directory) — separate from simulators/aq-simulator's venv. Pyright/ruff
+// config itself lives in pyproject.toml ([tool.pyright] / [tool.ruff]).
+{
+  "lsp": {
+    "basedpyright": {
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    },
+    "pyright": {
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    }
+  }
+}

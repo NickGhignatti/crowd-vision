@@ -29,7 +29,7 @@ Before writing code, answer four questions:
     The twin tools (`app/agent/tools/twin.py`) are the reference pattern for a sensitive tool:
     each one calls `can_access_domain(ctx.user, args.domain)` before touching data, and forwards
     the caller's identity downstream via `auth_headers(ctx.user)` rather than calling
-    twin-service with no identity at all. Follow the same shape for any new tool that reads or
+    digital-twin with no identity at all. Follow the same shape for any new tool that reads or
     writes real data — authorize against `ctx.user` first, and forward it to whatever backend
     the tool calls.
 
@@ -39,7 +39,7 @@ Before writing code, answer four questions:
 
 - **Single tool, focused domain** → a new file in `app/agent/tools/<name>.py`.
 - **Cluster of related tools sharing a backend** → group them in one file (see
-  `app/agent/tools/twin.py` — four tools sharing the same twin-service backend and client
+  `app/agent/tools/twin.py` — four tools sharing the same digital-twin backend and client
   factory).
 
 Use `# ─── tool_name ──...` divider comments inside multi-tool files to keep them scannable.
@@ -142,7 +142,7 @@ async def run(self, args: GetRoomArgs, ctx: ToolContext) -> ToolResult:
     if r.status_code == 404:
         return ToolResult(content=f"building {args.building_id} not found", is_error=True)
     if r.status_code >= 400:
-        return ToolResult(content=f"twin-service error {r.status_code}: {r.text}", is_error=True)
+        return ToolResult(content=f"digital-twin error {r.status_code}: {r.text}", is_error=True)
     ...
     return ToolResult(content=room)
 ```

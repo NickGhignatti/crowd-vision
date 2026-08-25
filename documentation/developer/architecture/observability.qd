@@ -1,7 +1,7 @@
 .docname {Observability}
 .include {docs}
 
-This page covers metrics — what's instrumented, what scrapes it, and where the gaps are. CrowdVision has no centralized logging or distributed tracing today; each service logs to its own stdout, and the only tracing in the system is `agent-service`'s optional OpenTelemetry export to Langfuse for LLM call inspection, which is unrelated to the Prometheus stack described here — see [Agent Service](../services/agent.qd) for that.
+This page covers metrics — what's instrumented, what scrapes it, and where the gaps are. CrowdVision has no centralized logging or distributed tracing today; each service logs to its own stdout, and the only tracing in the system is `agent`'s optional OpenTelemetry export to Langfuse for LLM call inspection, which is unrelated to the Prometheus stack described here — see [Agent Service](../services/agent.qd) for that.
 
 ---
 
@@ -61,10 +61,10 @@ Both stacks load the same seven alerting rules — see **Alerting rules** below.
 .box {No Alertmanager — these only populate Prometheus's own Alerts page} type:{warning}
     Neither stack deploys Alertmanager, so a firing alert is visible in Prometheus's `/alerts` UI and exposed as the `ALERTS` metric, but nothing routes it anywhere — no email, Slack, or PagerDuty notification is sent. Someone still has to be looking at the page. Wiring up Alertmanager (and a receiver) is a separate piece of work from defining the rules themselves.
 
-.box {contracts-service has no error-rate/latency alert of its own} type:{note}
-    `contracts-service` has no HTTP-shaped error counter to alert on (only the fan-out latency histogram above); it would need new instrumentation (an error counter, a request-duration histogram) before a matching alert could be written.
+.box {dashboard has no error-rate/latency alert of its own} type:{note}
+    `dashboard` has no HTTP-shaped error counter to alert on (only the fan-out latency histogram above); it would need new instrumentation (an error counter, a request-duration histogram) before a matching alert could be written.
 
-    `socket-service` is a WebSocket relay with no request/response HTTP metrics either, but it now exports two failure counters that *are* alertable — `relay_messages_skipped_total` (a publisher is emitting malformed JSON, so readings are silently not reaching browsers) and `socket_connections_rejected_total` (handshakes refused for a missing or malformed claims header, which spikes if the mesh stops injecting it). Neither has an alert rule written yet.
+    `socket` is a WebSocket relay with no request/response HTTP metrics either, but it now exports two failure counters that *are* alertable — `relay_messages_skipped_total` (a publisher is emitting malformed JSON, so readings are silently not reaching browsers) and `socket_connections_rejected_total` (handshakes refused for a missing or malformed claims header, which spikes if the mesh stops injecting it). Neither has an alert rule written yet.
 
 ---
 
@@ -78,25 +78,25 @@ Of the 11 backend services, only 4 expose a `/metrics` endpoint:
    - Key metrics
 
 .tablebyrows {.headers}
-    - - twin-service (Rust)
+    - - digital-twin (Rust)
       - `prometheus` crate
       - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — labeled `{method, route, status_code}`, using the route template (not the raw URL) so cardinality stays bounded even with real ids in the path
-    - - contracts-service (Rust)
+    - - dashboard (Rust)
       - `prometheus` crate
       - `telemetry_fanout_latency_ms`, `telemetry_events_received_total`, `telemetry_events_published_total` — business metrics specific to its sensor-data fan-out role, not generic HTTP counters
-    - - socket-service (Rust)
+    - - socket (Rust)
       - `prometheus` crate
       - `telemetry_relayed_total`, `notifications_relayed_total{scope}`, `relay_payload_bytes_total{channel}`, `relay_messages_skipped_total{channel}`, `socket_connections_rejected_total`, `socket_connected_clients` — no default process metrics; the `nodejs_*` series ended with the Rust rewrite
-    - - notification-service (Rust)
+    - - notification (Rust)
       - `prometheus` crate
-      - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service
-    - - chat-service (Rust)
+      - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — same `{method, route, status_code}` shape as digital-twin
+    - - chat (Rust)
       - `prometheus` crate
-      - `chat_http_requests_total`, `chat_http_error_requests_total`, `chat_http_request_duration_seconds` — same `{method, route, status_code}` shape as twin-service. The `chat_` prefix survives the Rust rewrite because `prometheus.rules.yml` alerts on these exact names. No default process metrics: the last `nodejs_*` series, and the `NodeEventLoopLagHigh` alert that read them, went with the rewrite.
+      - `chat_http_requests_total`, `chat_http_error_requests_total`, `chat_http_request_duration_seconds` — same `{method, route, status_code}` shape as digital-twin. The `chat_` prefix survives the Rust rewrite because `prometheus.rules.yml` alerts on these exact names. No default process metrics: the last `nodejs_*` series, and the `NodeEventLoopLagHigh` alert that read them, went with the rewrite.
 
-`agent-service`, `claims-gateway`, `tenancy-service`, `registry-service`, and `provisioner` have no metrics instrumentation at all — no `prom-client`, `prometheus_client`, or `promhttp`, no `/metrics` route.
+`agent`, `claims-gateway`, `tenancy`, `registry`, and `provisioner` have no metrics instrumentation at all — no `prom-client`, `prometheus_client`, or `promhttp`, no `/metrics` route.
 
-`twin-service`, `telemetry-service`, `contracts-service`, `socket-service`, `notification-service`, and `chat-service` carry `prometheus.io/scrape: "true"` / `prometheus.io/port: "3000"` pod annotations in their `Deployment` manifests, so Kubernetes' `kubernetes-pods` autodiscovery job (below) picks them up automatically — no per-service Prometheus config needed. The other 5 services stay unscraped in Kubernetes until they gain a `/metrics` endpoint and the matching annotations.
+`digital-twin`, `telemetry`, `dashboard`, `socket`, `notification`, and `chat` carry `prometheus.io/scrape: "true"` / `prometheus.io/port: "3000"` pod annotations in their `Deployment` manifests, so Kubernetes' `kubernetes-pods` autodiscovery job (below) picks them up automatically — no per-service Prometheus config needed. The other 5 services stay unscraped in Kubernetes until they gain a `/metrics` endpoint and the matching annotations.
 
 ---
 

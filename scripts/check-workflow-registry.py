@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail when ci-gate.yml and .github/services.json disagree about the service list.
+"""Fail when the workflows and .github/services.json disagree, or when a job waits on nothing.
 
 `needs:` cannot be an expression in GitHub Actions, so ci-gate.yml has to spell out
 every service job by name three times: once as the job, once in `docker.needs`, and
@@ -18,6 +18,35 @@ import yaml
 
 REGISTRY = Path(".github/services.json")
 GATE = Path(".github/workflows/ci-gate.yml")
+WORKFLOWS = Path(".github/workflows")
+
+
+def dangling_needs() -> list[str]:
+    """A `needs:` naming a job that does not exist makes GitHub reject the whole
+    workflow before any job starts - the run fails in 0s with no logs, and every
+    check inside that file (including this one) never executes. Renaming a service
+    is how it happens, so the check has to run outside CI too."""
+    problems: list[str] = []
+    for workflow in sorted(WORKFLOWS.glob("*.yml")):
+        try:
+            doc = yaml.safe_load(workflow.read_text()) or {}
+        except yaml.YAMLError as error:
+            problems.append(f"{workflow} is not valid YAML: {error}")
+            continue
+        jobs = doc.get("jobs") or {}
+        for name, job in jobs.items():
+            needs = job.get("needs") or []
+            if isinstance(needs, str):
+                needs = [needs]
+            problems += [
+                f"{workflow} job '{name}' needs '{need}', which is not a job in that file"
+                for need in needs
+                if need not in jobs
+            ]
+            uses = job.get("uses")
+            if isinstance(uses, str) and uses.startswith("./") and not Path(uses[2:]).exists():
+                problems.append(f"{workflow} job '{name}' uses '{uses}', which does not exist")
+    return problems
 
 
 def main() -> int:
@@ -25,7 +54,7 @@ def main() -> int:
     gate = yaml.safe_load(GATE.read_text())
     jobs = gate["jobs"]
 
-    problems: list[str] = []
+    problems: list[str] = dangling_needs()
 
     missing_jobs = sorted(services - set(jobs))
     if missing_jobs:
@@ -47,7 +76,11 @@ def main() -> int:
         )
         return 1
 
-    print(f"ok: {len(services)} services consistent across {REGISTRY} and {GATE}")
+    workflows = len(list(WORKFLOWS.glob("*.yml")))
+    print(
+        f"ok: {len(services)} services consistent across {REGISTRY} and {GATE}; "
+        f"{workflows} workflows have no dangling needs/uses"
+    )
     return 0
 
 

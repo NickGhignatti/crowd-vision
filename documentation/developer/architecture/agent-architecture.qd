@@ -1,9 +1,9 @@
 .docname {Agent Service Architecture}
 .include {docs}
 
-**Bounded context:** [Knowledge & Assistance](../domain/knowledge-assistance.qd) (shared with chat-service) · **Stack:** Python / FastAPI · **Code-level walkthrough:** [Agent Service](../services/agent.qd)
+**Bounded context:** [Knowledge & Assistance](../domain/knowledge-assistance.qd) (shared with chat) · **Stack:** Python / FastAPI · **Code-level walkthrough:** [Agent Service](../services/agent.qd)
 
-The agent-service answers one question at a time: it retrieves relevant documentation, decides whether to call a tool for live platform data, and produces a cited natural-language answer. It holds no conversation state — that's chat-service's job — and it never trusts its own judgement about what it's allowed to cite or access without checking.
+The agent answers one question at a time: it retrieves relevant documentation, decides whether to call a tool for live platform data, and produces a cited natural-language answer. It holds no conversation state — that's chat's job — and it never trusts its own judgement about what it's allowed to cite or access without checking.
 
 ---
 
@@ -11,7 +11,7 @@ The agent-service answers one question at a time: it retrieves relevant document
 
 Three real interface-based ports, Python's `Protocol` standing in for what the Go services do with explicit interfaces: `LLMClient` (`agent/llm/base.py`) is implemented by `OpenAICompatClient`; `Embedder` (`embeddings/base.py`) is implemented by an OpenAI embeddings adapter; `Reranker` (`retrieval/reranker/base.py`) is implemented by a no-op reranker today. Each port is swappable without touching the code that depends on it.
 
-Tools follow the same microkernel shape telemetry-service uses for metrics: `Tool[ArgsT]` (`agent/tools/base.py`) is a generic `Protocol` — `search_docs`, `sensor`, `twin`, and `downstream` each implement it and register themselves in a `ToolRegistry` (`agent/tools/registry.py`). The agentic loop never branches on which tool it's calling; it asks the registry for JSON schemas to hand the LLM, and looks up whichever tool the LLM decided to call by name.
+Tools follow the same microkernel shape telemetry uses for metrics: `Tool[ArgsT]` (`agent/tools/base.py`) is a generic `Protocol` — `search_docs`, `sensor`, `twin`, and `downstream` each implement it and register themselves in a `ToolRegistry` (`agent/tools/registry.py`). The agentic loop never branches on which tool it's calling; it asks the registry for JSON schemas to hand the LLM, and looks up whichever tool the LLM decided to call by name.
 
 .mermaid
     graph LR
@@ -61,7 +61,7 @@ Vector and keyword search both take the caller's permissions as an argument and 
 
 ### Components & Connectors diagram
 
-![Agent C&C diagram](images/cc-agent-service.svg)
+![Agent C&C diagram](images/cc-agent.svg)
 
 ---
 
@@ -70,19 +70,19 @@ Vector and keyword search both take the caller's permissions as an argument and 
 - **The tool loop is bounded, not indefinite.** `max_tool_hops` caps how many times the model can call a tool before the loop gives up and returns a fixed "I don't know" marker — a model stuck calling tools in a cycle can't consume unbounded time or cost.
 - **A citation must point at something actually retrieved.** The model's claimed citations are checked against the real retrieved-chunk set after the fact; anything that doesn't match is stripped from the answer rather than shown to the user.
 - **Permission filtering happens twice, on purpose.** Retrieval filters by the caller's permissions before ranking; tools that fetch live data (buildings, sensors) check again through Cedar. Neither layer trusts the other to have already done it.
-- **`AuthUser` keeps roles and domains as two unpaired lists — a real fact, not a bug.** Unlike the Go services, agent-service never needed to know which role applied to which domain; its only two checks are "is this domain in my domain list, or am I admin anywhere" and a pure global role-weight check. Its Cedar `Account` entity only ever populates `domainsAsStandardCustomer` and `maxRoleWeight` — the per-tier domain sets other languages compute are left empty because agent-service never makes the checks they'd back.
-- **Auth-disabled anonymous access is a settings check, not a policy decision.** When `REQUIRE_AUTH` is off (dev/test), the anonymous caller gets full access — checked before Cedar is ever called, the same pattern tenancy-service uses for its own self-removal check.
+- **`AuthUser` keeps roles and domains as two unpaired lists — a real fact, not a bug.** Unlike the Go services, agent never needed to know which role applied to which domain; its only two checks are "is this domain in my domain list, or am I admin anywhere" and a pure global role-weight check. Its Cedar `Account` entity only ever populates `domainsAsStandardCustomer` and `maxRoleWeight` — the per-tier domain sets other languages compute are left empty because agent never makes the checks they'd back.
+- **Auth-disabled anonymous access is a settings check, not a policy decision.** When `REQUIRE_AUTH` is off (dev/test), the anonymous caller gets full access — checked before Cedar is ever called, the same pattern tenancy uses for its own self-removal check.
 - **A per-request model override is a privileged, gated action.** Overriding the configured model on `/ask` spends the shared provider balance, so it requires a Cedar role check (`MODEL_OVERRIDE_MIN_ROLE`) plus, if configured, an explicit allowlist — a caller without the role gets a plain `403`, not a silent fallback to the default model.
 - **Streaming and buffered answers share one loop.** `_run` is the only tool loop; `stream=True` swaps each hop's model call for its streaming twin and forwards text deltas on the way through, while everything else — hop limit, citation checking, tracing, usage accounting — is the same code either way, so the two paths cannot drift. The `done` event carries an `answer` field that is authoritative over the streamed tokens, because the loop strips hallucinated citations after generation and a pre-tool-call preamble may already have been streamed.
-- **Every hop and every tool call is traced.** `agent.answer`, each `agent.hop.N`, and each `tool.<name>` gets its own OpenTelemetry span, tagged with tokens, cost, and the model used, exported to Langfuse — this is separate from the platform's Prometheus metrics (see [Observability](observability.qd)); agent-service has neither a `/metrics` endpoint nor Prometheus instrumentation of its own.
+- **Every hop and every tool call is traced.** `agent.answer`, each `agent.hop.N`, and each `tool.<name>` gets its own OpenTelemetry span, tagged with tokens, cost, and the model used, exported to Langfuse — this is separate from the platform's Prometheus metrics (see [Observability](observability.qd)); agent has neither a `/metrics` endpoint nor Prometheus instrumentation of its own.
 
 ---
 
 ## Integration
 
-- Calls twin-service and telemetry-service through tools, forwarding the caller's identity for authorization on the other end.
+- Calls digital-twin and telemetry through tools, forwarding the caller's identity for authorization on the other end.
 - Calls an external LLM provider (OpenAI-compatible) and an embeddings provider for retrieval.
 - Exports traces to Langfuse; owns its own Postgres database for document chunks and embeddings.
-- Serves `chat-service`'s `/ask` calls — see [Chat Service Architecture](chat-architecture.qd) and [Communication & Data Flow](data-flow.qd).
+- Serves `chat`'s `/ask` calls — see [Chat Service Architecture](chat-architecture.qd) and [Communication & Data Flow](data-flow.qd).
 
 For the ingestion pipeline, the chunking strategy, evals, and the API, see the [Agent Service](../services/agent.qd) internals page.

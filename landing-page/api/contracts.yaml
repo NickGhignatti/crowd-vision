@@ -60,7 +60,7 @@ components:
               label: { type: string, example: "Temperature" }
               interfaceName: { type: string, example: "ITemperature" }
               unit: { type: string, example: "C" }
-              sourceService: { type: string, example: "telemetry-service" }
+              sourceService: { type: string, example: "telemetry" }
               fields:
                 type: array
                 items: { type: object }
@@ -125,7 +125,7 @@ paths:
       description: >
         Idempotently inserts the default columns (`roomName`,
         `roomMaxOccupancy`) when the building has no entry yet. Safe to call
-        repeatedly. Invoked by the twin-service on building creation.
+        repeatedly. Invoked by the digital-twin on building creation.
       tags: [Preferences]
       parameters:
         - $ref: "#/components/parameters/BuildingId"

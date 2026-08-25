@@ -50,10 +50,10 @@ spec:
               - /socket.io/*
               - /tenancy
               - /tenancy/*
-              - /contracts
-              - /contracts/*
+              - /dashboard
+              - /dashboard/*
     # Device/simulator telemetry carries no user JWT — it is HMAC-signed and
-    # verified inside telemetry-service, so allow this exact path with no principal.
+    # verified inside telemetry, so allow this exact path with no principal.
     - to:
         - operation:
             paths:
@@ -76,5 +76,5 @@ spec:
               - /socket.io/*
               - /tenancy
               - /tenancy/*
-              - /contracts
-              - /contracts/*
+              - /dashboard
+              - /dashboard/*

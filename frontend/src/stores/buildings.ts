@@ -7,7 +7,7 @@ const PROVISIONING_POLL_MS = 500
 const PROVISIONING_TIMEOUT_MS = 30_000
 
 // Waits for an accepted upload to become a twin. `ready` also means the sensor
-// threshold clone landed -- twin-service fails the upload if that call is
+// threshold clone landed -- digital-twin fails the upload if that call is
 // refused -- so there is nothing left for the browser to initialise afterwards.
 async function awaitProvisioned(buildingId: string): Promise<void> {
   const deadline = Date.now() + PROVISIONING_TIMEOUT_MS
