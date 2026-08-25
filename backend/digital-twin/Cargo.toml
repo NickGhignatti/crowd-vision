@@ -17,6 +17,7 @@ mongodb = "3"
 reqwest = { version = "0.13.4", default-features = false, features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
+telemetry-schema = { path = "../../schemas/telemetry-schema" }
 twin-schema = { path = "../../schemas/twin-schema" }
 tokio = { version = "1.52.3", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 prometheus = { version = "0.14", default-features = false }

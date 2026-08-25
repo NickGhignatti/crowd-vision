@@ -25,16 +25,23 @@ export function useColumnManager(
   const availableMetrics = ref<MetricContract[]>([])
   const isFetchingMetrics = ref(false)
 
+  // A failed fetch and a genuinely empty catalog must not look the same: the panel
+  // renders "every column is already shown" for an empty list, so a 2xx with an
+  // unparseable body used to read as "nothing to add" with only a console error.
+  const metricsFailed = ref(false)
+
   const fetchAvailableMetrics = async () => {
     if (availableMetrics.value.length > 0) return
     isFetchingMetrics.value = true
+    metricsFailed.value = false
     try {
       const res = await makeRequest('/dashboard')
-      if (res.ok) {
-        const data = await res.json()
-        availableMetrics.value = data.metrics ?? []
-      }
+      if (!res.ok) throw new Error(`catalog request failed: ${res.status}`)
+      const body = await res.text()
+      if (body.trim() === '') throw new Error('catalog request returned an empty body')
+      availableMetrics.value = JSON.parse(body).metrics ?? []
     } catch (e) {
+      metricsFailed.value = true
       console.error('[useColumnManager] Failed to fetch metrics catalog:', e)
     } finally {
       isFetchingMetrics.value = false
@@ -51,7 +58,9 @@ export function useColumnManager(
     try {
       const res = await makeRequest(`/dashboard/preferences/${buildingId}`)
       if (res.ok) {
-        const data = await res.json()
+        const body = await res.text()
+        if (body.trim() === '') throw new Error('preferences request returned an empty body')
+        const data = JSON.parse(body)
         const cols: string[] = data.allowed_columns ?? []
         if (cols.length > 0) {
           localHeaders.value = cols.map(metricKeyToHeader)
@@ -188,11 +197,16 @@ export function useColumnManager(
     isEditMode,
     isSavingPreferences,
     availableMetrics,
+    metricsFailed,
     isFetchingMetrics,
     activeHeaderKey,
     dropdownPos,
     showAddPanel,
     addableMetrics,
+    retryMetrics: async () => {
+      availableMetrics.value = []
+      await fetchAvailableMetrics()
+    },
     swappableMetrics,
     activeHeader,
     handleColumnClick,

@@ -53,6 +53,8 @@ const {
   isEditMode,
   isSavingPreferences,
   isFetchingMetrics,
+  metricsFailed,
+  retryMetrics,
   activeHeaderKey,
   dropdownPos,
   showAddPanel,
@@ -118,7 +120,7 @@ const { isAutoPlaying, toggleAutoPlay } = useAutoPlay(() => {
       enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-150 ease-in"
       leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
       <AddColumnPanel v-if="showAddPanel && isEditMode" :metrics="addableMetrics" :is-fetching="isFetchingMetrics"
-        @select="handleAddColumn" @close="showAddPanel = false" />
+        :failed="metricsFailed" @select="handleAddColumn" @close="showAddPanel = false" @retry="retryMetrics" />
     </Transition>
 
     <div class="flex-1 min-h-0 overflow-auto bg-white relative">

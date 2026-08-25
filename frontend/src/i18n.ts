@@ -129,6 +129,16 @@ const messages = {
     },
     dashboard: {
       table: {
+      addColumn: 'Add column',
+      removeColumn: 'Remove column',
+      replaceWith: 'Replace with',
+      currentColumn: 'Current column',
+      alreadyInTableNote: 'Already in the table',
+      loadingMetrics: 'Loading available columns…',
+      allMetricsDisplayed: 'Every available column is already shown',
+      noOtherMetrics: 'No other column is available',
+      metricsUnavailable: 'Could not load the available columns',
+      retry: 'Retry',
         headers: {
           room: 'Room',
           status: 'Status',
@@ -488,6 +498,16 @@ const messages = {
     },
     dashboard: {
       table: {
+      addColumn: 'Aggiungi colonna',
+      removeColumn: 'Rimuovi colonna',
+      replaceWith: 'Sostituisci con',
+      currentColumn: 'Colonna attuale',
+      alreadyInTableNote: 'Già presente nella tabella',
+      loadingMetrics: 'Caricamento delle colonne disponibili…',
+      allMetricsDisplayed: 'Tutte le colonne disponibili sono già mostrate',
+      noOtherMetrics: 'Nessun\'altra colonna disponibile',
+      metricsUnavailable: 'Impossibile caricare le colonne disponibili',
+      retry: 'Riprova',
         headers: {
           room: 'Stanza',
           status: 'Stato',

@@ -258,3 +258,26 @@ Common scopes: `gateway` (claims-gateway), `tenancy`, `registry`, `provisioner`,
     - - Documentation pages
       - `kebab-case` `&#46;qd`
       - `building-data.qd`, `naming-conventions.qd`
+
+---
+
+## Renaming carries data with it
+
+A rename is never only a rename: several identifiers derived from a service's name own state, and changing one silently starts from empty rather than failing.
+
+.var {headers}
+   - Identifier
+   - What a rename actually does
+
+.tablebyrows {.headers}
+    - - Compose volume
+      - Compose derives the real volume name from the project plus the declared name, so renaming `contracts-data` to `dashboard-data` mounts a **new, empty** volume and leaves the old one orphaned with all the data still in it. Migrate the contents in the same change, or the service comes up looking healthy and blank. This is what happened to the dashboard's saved column preferences when `contracts` became `dashboard`.
+    - - Kafka consumer group
+      - A group with no committed offsets plus `auto.offset.reset=earliest` re-reads the whole topic — a replay, not a reset. Idempotent for the registration groups; for `alerts` it re-delivers historical breaches, collapsed only by the Redis cooldown.
+    - - Database name
+      - Renaming a database is a migration. `chatdb`, `twindb` and `contractsdb` keep their names for that reason, and none carried a `-service` suffix to begin with.
+    - - System identity at a trust boundary
+      - `system:notification-service` keeps the old name on purpose: it is pinned byte-for-byte by a test, and it reads as a stable source in a central log regardless of the directory name.
+
+.box {Check the orphans after a rename} type:{warning}
+    `docker volume ls` lists every volume for the project. Anything whose name no longer appears in a `docker-compose*&#46;yml` is orphaned — either migrate it or delete it deliberately, but do not leave it to be rediscovered as "the data disappeared".

@@ -158,6 +158,7 @@ Full text: `contributing/contributing.qd`. A change violating one is rejected re
 - **Commits**: Conventional Commits. Scope = service: `feat(twin): …`. Scopes: gateway, tenancy, registry, provisioner, twin, telemetry, dashboard, notification, socket, chat, frontend, agent, ci, docs, k8s. Not CI-enforced — release-please silently treats a malformed message as no-release.
 - **Branches**: `<type>/<short-kebab>` — `feat/private-domains`.
 - **Service names carry no `-service` suffix** on any surface: directory, crate, binary, image, hostname, env var, moon project, doc page. Full rules: `contributing/naming-conventions.qd`.
+- **Renaming a service renames its compose volume**, which mounts an empty one and orphans the old — migrate the data in the same change (`docker volume ls` shows the orphans). Database names and `system:` identities are deliberately *not* renamed.
 - **Kafka consumer groups are named after what they consume**, not who consumes it (`alerts`, `building-registrations`). Renaming one is a replay, not a reset: a group with no committed offsets re-reads the whole topic.
 - **`system:notification-service` keeps the old name on purpose** — it is an identity at a trust boundary, pinned byte-for-byte by a test.
 - **`scripts/` is Node-free**: POSIX sh for command sequences, stdlib Python for logic (JSON, HTTP, concurrency). Repeated per-project work belongs in a moon task, not a script.

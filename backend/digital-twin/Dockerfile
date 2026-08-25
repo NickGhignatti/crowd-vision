@@ -12,6 +12,7 @@ ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 FROM chef AS planner
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/twin-schema /app/schemas/twin-schema
+COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY backend/digital-twin .
 RUN cargo chef prepare --recipe-path recipe.json
 
@@ -20,6 +21,7 @@ RUN cargo install cargo-watch --locked
 COPY --from=planner /app/backend/digital-twin/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/twin-schema /app/schemas/twin-schema
+COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 RUN cargo chef cook --recipe-path recipe.json
 COPY backend/libs/auth-policy /app/backend/libs/auth-policy
 COPY backend/libs/auth-contracts /app/backend/libs/auth-contracts
@@ -33,6 +35,7 @@ FROM chef AS builder
 COPY --from=planner /app/backend/digital-twin/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/twin-schema /app/schemas/twin-schema
+COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY backend/libs/auth-policy /app/backend/libs/auth-policy
 COPY backend/libs/auth-contracts /app/backend/libs/auth-contracts
