@@ -26,7 +26,7 @@ Whether you are a user learning how to navigate the dashboard, or a developer lo
 
 ## 🚀 Quick Start
 
-CrowdVision is a polyglot monorepo (JavaScript, Python, Rust, and Go) orchestrated by [`just`](https://just.systems/). There is no root `package.json` — each service manages its own dependencies; shared JS dev tooling lives in `tooling/`. Go isn't pinned in `.mise.toml` and its modules are fetched on demand — see the [Developer Setup Guide](documentation/developer/config/setting-up.qd) for details.
+CrowdVision is a polyglot monorepo (JavaScript, Python, Rust, and Go) orchestrated by [`just`](https://just.systems/). There is no root `package.json` — each service manages its own dependencies; shared JS dev tooling lives in `tooling/`. Go isn't pinned in `.mise.toml` and its modules are fetched on demand — see the [Developer Setup Guide](documentation/config/setting-up.qd) for details.
 
 ```bash
 just setup install    # install all dependencies (npm per-service + Python uv + Rust cargo)
@@ -34,7 +34,7 @@ just stack env        # generate .env (prompts for secrets, skips existing value
 just stack dev        # start the full dev stack with hot-reload
 ```
 
-See the [Developer Setup Guide](documentation/developer/config/setting-up.qd) for full instructions.
+See the [Developer Setup Guide](documentation/config/setting-up.qd) for full instructions.
 
 ## 🔑 AI Agent API Keys
 
@@ -52,7 +52,7 @@ EMBEDDING_MODEL=openai/text-embedding-3-small
 but the key must belong to the configured endpoint. You can leave the provider key empty if
 you do not plan to use the agent; the service boots, but model and embedding requests fail.
 
-For the full reference, see the [Agent Service Guide](documentation/developer/services/agent.qd).
+For the full reference, see the [Agent Service Guide](documentation/services/agent.qd).
 
 ---
 

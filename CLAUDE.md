@@ -8,15 +8,17 @@ building model, alerting, multi-tenant, RAG assistant.
 Source-available, **not** open source (`LICENSE`, `CONTRIBUTING.md`). Single owner, no
 external PRs.
 
-Docs are the source of truth for architecture: `documentation/{user,developer}/**.qd`
-(Quarkdown, `just docs build`, published at https://nickghignatti.github.io/crowd-vision/).
-Read the matching `.qd` page before any non-trivial change; update it in the same change.
+Docs are the source of truth for architecture: `documentation/**.qd` (Quarkdown,
+`just docs build`, published at https://nickghignatti.github.io/crowd-vision/).
+One guide, developer-facing, served at the site root. Read the matching `.qd` page
+before any non-trivial change; update it in the same change.
 
-Published-site sources: `documentation/**.qd` (guides), `documentation/site/index.html`
-(portal), `api/*.yaml` (OpenAPI, with `api/index.html` as their Swagger viewer).
-`landing-page/` is **build output only** — gitignored, never edit or commit anything there.
-A new `.qd` page must be added to its guide's `_nav.qd`, and a new `api/*.yaml` to the
-portal, or it publishes unreachable — `just docs build` fails on either.
+Published-site sources: `documentation/**.qd` (the guide) and `api/*.yaml` (OpenAPI,
+with `api/index.html` as their Swagger viewer). `landing-page/` is **build output
+only** — gitignored, never edit or commit anything there. A new `.qd` page must be
+added to `documentation/_nav.qd`, and a new `api/*.yaml` to
+`documentation/reference/api-reference.qd`, or it publishes unreachable —
+`just docs build` fails on either.
 
 ## Repository shape
 
@@ -64,7 +66,7 @@ just test <svc>-integration   # throwaway DB/broker, composed, then torn down
 just test integration    # full backend acceptance suite
 just setup deps-check    # lockfile sync gate (mirrors ci-deps)
 just setup audit         # npm/uv/cargo audit (mirrors ci-audit)
-just docs build          # guides + portal + api specs → landing-page/ (all generated)
+just docs build          # guide + api specs → landing-page/ (all generated)
 just db clear            # drop chat/twin/notification/agent DBs
 just k8s create          # local k3d + Istio ambient
 ```

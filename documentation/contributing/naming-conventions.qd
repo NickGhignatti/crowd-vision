@@ -28,6 +28,8 @@ A service carries **one short name** across every surface it appears in — no `
       - `telemetry`
     - - Kubernetes manifest, documentation page
       - `k8s/deployments/telemetry&#46;yml`, `services/telemetry&#46;qd`
+    - - Diagram asset
+      - `architecture/images/cc-telemetry&#46;svg`, `architecture/images/cc-digital-twin&#46;svg`
 
 `claims-gateway` and `provisioner` are named for what they *are* — a gateway, a reconciler — rather than `<noun>-service`. That is deliberate, not an oversight.
 

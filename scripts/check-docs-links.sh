@@ -1,29 +1,39 @@
 #!/bin/sh
-# Both lists the published site navigates by are hand-maintained: the portal's
-# OpenAPI links (documentation/site/index.html) and each guide's _nav.qd. Add a
-# spec or a page without touching them and the build still goes green -- the
-# file publishes, and nothing on the site links to it. This turns that silent
-# drift into a failed build.
+# Guards the two ways content reaches the published site but nobody can get to it.
+#
+# 1. Both navigation lists are hand-maintained: the sidebar (documentation/_nav.qd)
+#    and the API Reference page's spec table. Add a page or a spec without
+#    touching them and the build still goes green -- the file publishes, and
+#    nothing on the site links to it.
+#
+# 2. Quarkdown names each output directory after the page's FILENAME, and the
+#    OpenAPI specs are copied in afterwards. A page named api.qd therefore builds
+#    to <root>/api/ and is then overwritten by the specs -- silently, mid-build.
 set -eu
 
 cd "$(dirname "$0")/.."
 
+nav='documentation/_nav.qd'
+apiref='documentation/reference/api-reference.qd'
+specdir='api'
 missing=''
 
-for spec in api/*.yaml; do
+for spec in "$specdir"/*.yaml; do
     [ -e "$spec" ] || continue
-    grep -q "spec=$(basename "$spec")" documentation/site/index.html ||
+    grep -q "spec=$(basename "$spec")" "$apiref" ||
         missing="${missing}
-  not linked from the portal: ${spec}"
+  not linked from ${apiref}: ${spec}"
 done
 
-for guide in user developer; do
-    nav="documentation/${guide}/_nav.qd"
-    for page in $(find "documentation/${guide}" -name '*.qd' ! -name 'main.qd' ! -name '_*.qd'); do
-        grep -q "${page#documentation/${guide}/}" "$nav" ||
-            missing="${missing}
+for page in $(find documentation -name '*.qd' ! -name 'main.qd' ! -name '_*.qd'); do
+    grep -q "${page#documentation/}" "$nav" ||
+        missing="${missing}
   missing from ${nav}: ${page}"
-    done
+
+    if [ "$(basename "$page" .qd)" = "$specdir" ]; then
+        missing="${missing}
+  ${page} builds to <root>/${specdir}/, which the ${specdir}/ specs overwrite -- rename the file"
+    fi
 done
 
 [ -z "$missing" ] && exit 0

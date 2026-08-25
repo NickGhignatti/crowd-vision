@@ -230,4 +230,4 @@ In the frontend, the assistant is the floating `ChatWidget.vue`, driven by the
 an empty assistant message optimistically, grows that message as `token` frames arrive, and
 replaces it with the saved one on `done`; a failure removes both again, so a broken stream
 never leaves a partial answer on screen. For what the assistant can
-and cannot answer from a user's perspective, see *Using the Assistant* in the user guide.
+and cannot answer from a user's perspective.

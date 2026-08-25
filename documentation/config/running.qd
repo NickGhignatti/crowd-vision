@@ -311,14 +311,18 @@ mise exec -- moon run :audit --affected
     - - `just setup clean-install`
       - Wipe all node_modules + lockfiles and regenerate them for Linux, then reinstall.
     - - `just docs build`
-      - Build the whole published site into `landing-page/`: both Quarkdown guides, the portal page, and the OpenAPI specs. CI runs this same recipe, so there is one definition of the build. Refuses to build if a spec or a guide page would publish unreachable — see the box below.
-    - - `just docs preview [dir=...]`
-      - Quarkdown live-reloading server for one guide while editing.
+      - Build the whole published site into `landing-page/`: the Quarkdown guide at the site root, plus the OpenAPI specs under `api/`\. CI runs this same recipe, so there is one definition of the build. Refuses to build if a page or a spec would publish unreachable — see the box below.
+    - - `just docs preview`
+      - Quarkdown live-reloading server for the guide while editing.
     - - `just docs serve`
       - Build the site, then live-serve the whole `landing-page/` site at `:8080`\.
 
-.box {The site's two navigation lists are hand-maintained} type:{note}
-    A new `.qd` page is **not** picked up by its guide's sidebar, and a new `api/*.yaml` is **not** linked from the portal — both lists are written by hand (`documentation/{user,developer}/_nav.qd`, `documentation/site/index.html`). Miss one and the file still compiles and still publishes; it is simply unreachable from the site, with a green build. `scripts/check-docs-links.sh` runs first in `just docs build` and fails the build instead.
+.box {Two ways content publishes but stays unreachable} type:{note}
+    **The navigation lists are hand-maintained.** A new `.qd` page is not picked up by the sidebar, and a new `api/*.yaml` is not linked from the API Reference page — both lists are written by hand (`documentation/_nav.qd`, `documentation/reference/api-reference.qd`).
+
+    **Output directories are named after the page's file, not its `.docname`.** A page at `documentation/**/api.qd` therefore builds to `<root>/api/` and is then overwritten by the OpenAPI specs copied in afterwards.
+
+    Either one compiles green and publishes something nobody can reach. `scripts/check-docs-links.sh` runs first in `just docs build` and fails the build on both.
 
 ---
 

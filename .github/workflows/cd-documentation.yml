@@ -9,6 +9,7 @@ on:
       - "documentation/**"
       - "api/**"
       - "just/docs.just"
+      - "scripts/check-docs-links.sh"
 
 permissions:
   contents: write

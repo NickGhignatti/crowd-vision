@@ -3,7 +3,7 @@
 Rust / Axum / MongoDB. Two jobs: serve the per-building column preferences the dashboard UI
 renders, and filter the telemetry stream down to what a building actually subscribed to.
 Route `/dashboard*`, gated at the edge.
-Docs: `documentation/developer/architecture/dashboard-architecture.qd`,
+Docs: `documentation/architecture/dashboard-architecture.qd`,
 `design/tunneling.qd`.
 
 ## Layout

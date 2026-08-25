@@ -32,7 +32,6 @@ Treat ingestion as a privileged, testable document-lifecycle operation rather th
 authenticated endpoint:
 
 - Restrict `/ingest` to an administrator role or dedicated ingester service credential.
-- Make the repository `agent-ingester` ingest only `documentation/user`.
 - Upsert transactionally by stable source: replace the source's old document and chunks when its
   content changes.
 - Delete indexed sources that no longer exist in the configured ingestion corpus.

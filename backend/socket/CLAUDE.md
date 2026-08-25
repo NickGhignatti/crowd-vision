@@ -3,7 +3,7 @@
 Rust / Axum / socketioxide / Redis. The only real-time transport to the browser: subscribes
 to Redis, decides which room a message belongs to, relays it. Owns no data.
 Route `/socket.io/*`, gated at the edge.
-Docs: `documentation/developer/architecture/socket-architecture.qd`.
+Docs: `documentation/architecture/socket-architecture.qd`.
 
 ## Layout
 

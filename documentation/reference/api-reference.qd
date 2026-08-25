@@ -1,0 +1,38 @@
+.docname {API Reference}
+.include {docs}
+
+Every service's HTTP surface, as an OpenAPI 3 document rendered by Swagger UI. The specs are **sources in this repository**, at `api/*.yaml`, and are published alongside this guide — so a spec change ships in the same commit as the handler it describes.
+
+---
+
+## The specs
+
+.var {headers}
+   - Spec
+   - Covers
+
+.tablebyrows {.headers}
+    - - [Auth Service API](../api/index.html?spec=auth.yaml)
+      - `claims-gateway`: Keycloak token exchange, the internal RS256 JWT, `/verify` for the edge.
+    - - [Twin Service API](../api/index.html?spec=twin.yaml)
+      - `digital-twin`: building upload, provisioning status, per-domain reads.
+    - - [Telemetry Service API](../api/index.html?spec=telemetry.yaml)
+      - `telemetry`: batch ingest, thresholds, device actions.
+    - - [Notification Service API](../api/index.html?spec=notification.yaml)
+      - `notification`: alert delivery and Web Push subscriptions.
+    - - [Contracts Service API](../api/index.html?spec=contracts.yaml)
+      - The per-service metric catalogs the dashboard reads.
+    - - [Common Error Responses](../api/index.html?spec=error.yaml)
+      - The shared error shape every service returns, referenced by the specs above.
+
+.box {Adding a spec} type:{note}
+    Drop the `.yaml` into `api/`, then add a row above. `just docs build` refuses to build a spec that no page links (`scripts/check-docs-links.sh`) — otherwise it would publish and be reachable only by guessing the URL.
+
+---
+
+## What these specs are not
+
+They document the **edge-facing** surface: what a browser or a device calls through Caddy (local) or Istio (prod). Two things deliberately fall outside them.
+
+- **Internal service-to-service hops.** Control-plane calls signed with `X-Signature`, and the Kafka topics services use to reach each other, are contracts between services rather than a public API. They live in `schemas/` — see [Packages](../packages/claims-schema.qd).
+- **Payload shapes that cross a service boundary.** A shape two services must agree on is owned by a crate in `schemas/`, not by whichever spec happens to mention it. See [Contributing & Golden Rules](../contributing/contributing.qd).
