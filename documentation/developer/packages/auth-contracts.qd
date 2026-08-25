@@ -215,7 +215,7 @@ Six implementations of this one convention used to exist — two byte-identical 
 | `provisioner` | `tenancy` `/internal/domains` | `authcontracts.Sign` |
 | `claims-gateway` | `tenancy` `/internal/memberships`, `/internal/provision` | `authcontracts.Sign` |
 
-.callout {note}
-    **Why this lives in `auth-contracts` and not `auth-middleware`.** `registry` and `provisioner` need the convention but not JWT verification. Putting it in `auth-middleware` would drag `jwt`, `keyfunc` and `jwkset` into two modules that never verify a token; this package stays stdlib-only, so they gain one local `replace` and nothing else.
+.box {Why this lives in auth-contracts and not auth-middleware} type:{note}
+    `registry` and `provisioner` need the convention but not JWT verification. Putting it in `auth-middleware` would drag `jwt`, `keyfunc` and `jwkset` into two modules that never verify a token; this package stays stdlib-only, so they gain one local `replace` and nothing else.
 
 `telemetry`'s ingest verifier stays a separate Rust implementation — it guards a device-facing endpoint with its own key (`TELEMETRY_INGEST_SECRET`), and a Go package cannot be imported into it anyway. What keeps the two honest is `schemas/fixtures/internal-signature.json`: golden `(secret, body, signature)` vectors that `internalsig_test.go` and `telemetry`'s `ingest_auth.rs` both assert. A change to the algorithm on either side fails on both.

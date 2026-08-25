@@ -5,6 +5,50 @@ Consistent naming lets a reader infer an artefact's role from its name alone. Cr
 
 ---
 
+## Services and repository layout
+
+A service carries **one short name** across every surface it appears in — no `-service` suffix anywhere. The suffix is redundant inside `backend/`, and having it on some surfaces but not others is how a `service_key` ends up disagreeing with a directory.
+
+.var {headers}
+   - Surface
+   - Example
+
+.tablebyrows {.headers}
+    - - Directory
+      - `backend/telemetry`, `backend/digital-twin`
+    - - Cargo crate and compiled binary
+      - `telemetry`, `digital-twin`
+    - - Docker image
+      - `crowdvision-telemetry`
+    - - Container name / hostname other services resolve
+      - `telemetry:3000`
+    - - Environment variable
+      - `TELEMETRY_URL`, `DIGITAL_TWIN_URL`
+    - - `&#46;github/services&#46;json` key, moon project, CI leg
+      - `telemetry`
+    - - Kubernetes manifest, documentation page
+      - `k8s/deployments/telemetry&#46;yml`, `services/telemetry&#46;qd`
+
+`claims-gateway` and `provisioner` are named for what they *are* — a gateway, a reconciler — rather than `<noun>-service`. That is deliberate, not an oversight.
+
+Top-level placement follows the same principle: the directory says what kind of thing it holds.
+
+.var {headers}
+   - Path
+   - Holds
+
+.tablebyrows {.headers}
+    - - `backend/<name>/`
+      - A deployable service.
+    - - `backend/libs/`
+      - Shared Go modules embedded into services, never deployed.
+    - - `backend/acceptance/`
+      - The cross-service acceptance suite. Each service keeps its own `tests/` for its own suite.
+    - - `schemas/`
+      - Every shape that crosses a service boundary: `json/` specs, `fixtures/`, and the Rust binding crates.
+
+---
+
 ## Files and directories
 
 Every Node service follows the same internal layout, so the file you want is always in the same place.

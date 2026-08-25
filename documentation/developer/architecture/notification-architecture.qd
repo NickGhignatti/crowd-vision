@@ -55,6 +55,8 @@ Because twin's answer is unscoped, notification scopes it itself: the resolved d
 .box {System callers bypass the membership filter} type:{note}
     An in-mesh caller has no memberships, so intersecting would drop every domain and silently kill digital-twin's provisioning-failure alert — which never inspects the response status. `Audience::of` therefore returns `Unrestricted` for any subject prefixed `system:`, and `Domains(...)` for everyone else. The prefix is only as trustworthy as the mesh perimeter: the edge strips client-supplied `x-gateway-claims` and re-injects verified claims, so an external caller cannot mint one, while any in-mesh workload can — the same accepted trust boundary described in [Service Mesh Architecture](service-mesh.qd).
 
+    The subject itself — `system:notification-service` — keeps the pre-rename name on purpose. It is an identity presented at a trust boundary, pinned byte-for-byte by `system_header_matches_the_node_service_byte_for_byte` against the predecessor Node service, and it reads as a stable source in a central log regardless of what the service's directory is called today.
+
 .box {The event-listener path degrades gracefully instead of failing loudly} type:{note}
     `push_temperature` returns a `Validation` error (400) if no domain can be determined — reasonable for a synchronous HTTP call, where silence would be bad UX. The event-listener path can't do that (there's no HTTP response to fail), so if the digital-twin lookup errors or resolves to zero domains, it falls back to an unscoped broadcast straight to the `notifications` channel rather than dropping the alert entirely. The 5-minute cooldown still applies either way, so a building that can't be resolved doesn't flood the channel.
 

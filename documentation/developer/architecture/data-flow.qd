@@ -176,6 +176,30 @@ Unlike Redis, a Kafka topic is a durable log: a consumer that's down when a mess
 
 Both payloads and both topic names are defined once, in `schemas/twin-schema`, and each service re-exports them from its own `adapters/topics.rs` — see [Twin Schema](../packages/twin-schema.qd).
 
+**Consumer groups are named after what they consume**, not after the service consuming them, so a group name stays right even if the service is renamed.
+
+.var {headers}
+   - Group
+   - Consumer
+   - Topic
+
+.tablebyrows {.headers}
+    - - `alerts`
+      - notification
+      - `alerts`
+    - - `building-registrations`
+      - telemetry
+      - `building-registration-requested`
+    - - `building-registrations-completed`
+      - digital-twin
+      - `building-registration-completed`
+
+.box {Two services must never share a group id} type:{warning}
+    A consumer group is a work-sharing unit: Kafka assigns each partition to exactly *one* member. These topics have a single partition, so putting digital-twin and telemetry in one group would hand that partition to one of them and leave the other silent — and which one wins depends on rebalance order, so it can pass in dev and fail in production. Different services that each need every message need different group ids. The same group id is for *replicas of one service*, which is why two notification pods would correctly share `alerts` and split the load.
+
+.box {Renaming a consumer group is a replay, not a reset} type:{warning}
+    A group with no committed offsets combined with `auto&#46;offset&#46;reset=earliest` reads the topic from the beginning, so the first deploy after a rename re-consumes every retained record. Harmless for the registration groups — every write either side makes is an upsert, so a replay converges. Not harmless for `alerts`: it re-delivers historical breaches as real Web Push notifications, collapsed per `building:room` by the 300s Redis cooldown but not otherwise suppressed. On a live cluster, let the topic age past its retention first, or seek the new group to `latest` once before starting the consumer.
+
 Publishing is not blocking on either side: digital-twin's worker returns as soon as the first message reaches the broker, and telemetry's consumer processes it on its own schedule. Both topics carry no `x-gateway-claims` — this is internal transport between two services already inside the trust perimeter, not a client-facing hop. See [Digital Twin Service](../services/digital-twin.qd) for the full sequence and the idempotency argument (every write either side makes is an upsert, so redelivery converges rather than duplicating).
 
 ---

@@ -67,8 +67,8 @@ fn usable_rooms<'de, D>(deserializer: D) -> Result<Vec<RegistrationRoom>, D::Err
 
 A room with no id cannot be stored or addressed, so it is dropped; a room with no name takes its id. Failing the whole building over one unusable room would deny a building for a room nobody asked about.
 
-.callout {note}
-    **`maxTemperature` is read but never sent.** telemetry seeds a building temperature bound from it. digital-twin does not populate it — it syncs thresholds over HTTP (`service/buildings.rs::clone_thresholds`) instead. Typing the payload is what made that visible; the field stays `Option` rather than being deleted, because the consumer's behaviour is unchanged and a replayed older message may still carry it.
+.box {maxTemperature is read but never sent} type:{note}
+    telemetry seeds a building temperature bound from it. digital-twin does not populate it — it syncs thresholds over HTTP (`service/buildings.rs::clone_thresholds`) instead. Typing the payload is what made that visible; the field stays `Option` rather than being deleted, because the consumer's behaviour is unchanged and a replayed older message may still carry it.
 
 `name` is `#[serde(default)]` rather than required, so an empty one reaches telemetry's own check and produces its exact message — `name: must be a non-empty string.` That message is not decoration: it travels back on the completion event and becomes the failure reason on the user's upload.
 

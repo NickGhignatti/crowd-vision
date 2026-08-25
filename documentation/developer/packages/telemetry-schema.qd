@@ -32,8 +32,8 @@ The seam is covered by a test that lives on the producing side: `telemetry/tests
 
 Every field is required. The producer always sets all of them, so a missing one means a malformed record, which notification parks in the dead-letter topic rather than delivering as a half-rendered push. `threshold` is part of the type because it was already on the wire and being thrown away.
 
-.callout {note}
-    **Every metric's breaches reach the topic; only `temperature` has a delivery path.** notification answers `BreachOutcome::Unsupported` for anything else — logged with the metric name, counted `unsupported_metric`, settled. Before, this was an untyped `type == "temperature"` string compare whose failures were counted as `skipped`, which is how air-quality and people-count breaches disappeared without a trace.
+.box {Every metric's breaches reach the topic; only temperature has a delivery path} type:{note}
+    notification answers `BreachOutcome::Unsupported` for anything else — logged with the metric name, counted `unsupported_metric`, settled. Before, this was an untyped `type == "temperature"` string compare whose failures were counted as `skipped`, which is how air-quality and people-count breaches disappeared without a trace.
 
 ---
 
