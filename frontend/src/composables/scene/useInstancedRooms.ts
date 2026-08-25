@@ -1,4 +1,4 @@
-import { computed, type ComputedRef } from 'vue'
+import { computed, type Ref } from 'vue'
 import { Color, Matrix4, Quaternion, Vector3, type InstancedMesh } from 'three'
 import type { Room } from '@/models/building.ts'
 
@@ -75,9 +75,9 @@ export function applyRoomColors(
 }
 
 export function useInstancedRooms(
-  visibleRooms: ComputedRef<Room[]>,
-  selectedRoomId: ComputedRef<string | null>,
-  explodedRoomId: ComputedRef<string | null>,
+  visibleRooms: Ref<Room[]>,
+  selectedRoomId: Ref<string | null>,
+  explodedRoomId: Ref<string | null>,
 ) {
   const partition = computed<RoomPartition>(() =>
     partitionRooms(visibleRooms.value, selectedRoomId.value, explodedRoomId.value),

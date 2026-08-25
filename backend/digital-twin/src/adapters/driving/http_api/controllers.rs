@@ -9,7 +9,7 @@ use crate::domain::{
     Building, DimensionsInput, DomainError, PositionInput, Room, normalize_building_name,
     normalize_room_name, validate_capacity,
 };
-use crate::service::buildings::{BuildingPatch, RoomPatch};
+use crate::service::buildings::BuildingPatch;
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -165,121 +165,5 @@ pub async fn update_building(
     };
     Ok(Json(
         state.buildings.update(&building_id, patch, &claims).await?,
-    ))
-}
-
-#[derive(Deserialize)]
-pub struct UpdateRoomRequest {
-    #[serde(default)]
-    pub name: Option<String>,
-    #[serde(default)]
-    pub color: Option<String>,
-    #[serde(default)]
-    pub capacity: Option<f64>,
-    #[serde(default)]
-    pub position: Option<PositionInput>,
-    #[serde(default)]
-    pub dimensions: Option<DimensionsInput>,
-}
-
-pub async fn update_room(
-    State(state): State<AppState>,
-    Path((building_id, room_id)): Path<(String, String)>,
-    claims: GatewayClaims,
-    Json(body): Json<UpdateRoomRequest>,
-) -> Result<Json<Room>, DomainError> {
-    let patch = RoomPatch {
-        name: body.name,
-        color: body.color,
-        capacity: body.capacity,
-        position: body
-            .position
-            .as_ref()
-            .map(PositionInput::to_coordinates)
-            .transpose()?,
-        dimensions: body
-            .dimensions
-            .as_ref()
-            .map(DimensionsInput::to_dimensions)
-            .transpose()?,
-    };
-
-    Ok(Json(
-        state
-            .buildings
-            .update_room(&building_id, &room_id, patch, &claims)
-            .await?,
-    ))
-}
-
-#[derive(Deserialize)]
-pub struct CreateRoomRequest {
-    #[serde(default)]
-    pub name: Option<String>,
-    #[serde(default)]
-    pub capacity: Option<f64>,
-    pub position: PositionInput,
-    pub dimensions: DimensionsInput,
-    #[serde(default)]
-    pub color: Option<String>,
-}
-
-pub async fn create_room(
-    State(state): State<AppState>,
-    Path(building_id): Path<String>,
-    claims: GatewayClaims,
-    Json(body): Json<CreateRoomRequest>,
-) -> Result<(StatusCode, Json<Room>), DomainError> {
-    let room = Room {
-        id: String::new(),
-        name: body.name.unwrap_or_default(),
-        capacity: validate_capacity(body.capacity)?,
-        position: body.position.to_coordinates()?,
-        dimensions: body.dimensions.to_dimensions()?,
-        color: body.color,
-    };
-
-    let created = state
-        .buildings
-        .create_room(&building_id, room, &claims)
-        .await?;
-    Ok((StatusCode::CREATED, Json(created)))
-}
-
-pub async fn delete_room(
-    State(state): State<AppState>,
-    Path((building_id, room_id)): Path<(String, String)>,
-    claims: GatewayClaims,
-) -> Result<StatusCode, DomainError> {
-    state
-        .buildings
-        .delete_room(&building_id, &room_id, &claims)
-        .await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-#[derive(Deserialize)]
-pub struct ReplaceRoomsRequest {
-    #[serde(default)]
-    pub rooms: Vec<RoomWireInput>,
-}
-
-pub async fn replace_rooms(
-    State(state): State<AppState>,
-    Path(building_id): Path<String>,
-    claims: GatewayClaims,
-    Json(body): Json<ReplaceRoomsRequest>,
-) -> Result<Json<Building>, DomainError> {
-    let rooms = body
-        .rooms
-        .into_iter()
-        .map(RoomWireInput::into_room)
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(Json(
-        state
-            .buildings
-            .replace_rooms(&building_id, rooms, &claims)
-            .await?,
     ))
 }

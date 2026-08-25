@@ -1,6 +1,6 @@
 use axum::Router;
 use axum::http::StatusCode;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::support::fixtures::{mock_building, token};
 use crate::support::http_client::send;
@@ -52,21 +52,4 @@ pub async fn register(router: &Router, payload: Value) -> String {
 
 pub async fn register_building(router: Router) -> String {
     register(&router, mock_building()).await
-}
-
-pub async fn register_building_with_two_rooms(router: Router) -> String {
-    let mut payload = mock_building();
-    let mut rooms = payload["rooms"].as_array().unwrap().clone();
-    rooms.push(json!({
-        "id": "Room-102",
-        "name": "Room 102",
-        "capacity": 10,
-        "position": { "x": 10, "y": 0, "z": 0 },
-        "dimensions": { "width": 5, "height": 5, "depth": 5 }
-    }));
-    payload
-        .as_object_mut()
-        .unwrap()
-        .insert("rooms".to_string(), json!(rooms));
-    register(&router, payload).await
 }

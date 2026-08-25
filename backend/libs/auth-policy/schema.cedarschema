@@ -47,7 +47,7 @@ action ReadWithAdminBypass appliesTo {
 };
 
 // business_staff role or higher in the resource's domain — digital-twin's
-// geometry-mutating routes (move/resize/add/delete rooms).
+// building-mutating routes (rename/re-domain, resync).
 action Edit appliesTo {
   principal: [Account],
   resource: [Resource],

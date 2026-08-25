@@ -24,7 +24,8 @@ when {
 };
 
 // Edit: business_staff role or higher in the resource's domain. Matches
-// digital-twin's geometry-mutating routes (move/resize/add/delete rooms).
+// digital-twin's building-mutating routes (rename/re-domain, resync). The
+// room set itself is write-once — the upload creates it, nothing edits it.
 permit(principal, action == Action::"Edit", resource)
 when { principal.domainsAsBusinessStaff.contains(resource.domain) };
 

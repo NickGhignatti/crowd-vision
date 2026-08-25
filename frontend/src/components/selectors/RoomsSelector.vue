@@ -105,11 +105,15 @@ const handleOpenEdit = (room: Room) => {
   isEditModalOpen.value = true
 }
 
-const saveRoomConfig = async (updates: Partial<Room>) => {
+const saveRoomThreshold = async (maxTemperature: number) => {
   if (!props.buildingModel || !editingRoom.value) return
   try {
-    await buildingsStore.updateRoomConfig(props.buildingModel.id, editingRoom.value.id, updates)
-    Object.assign(editingRoom.value, updates)
+    await buildingsStore.updateRoomThreshold(
+      props.buildingModel.id,
+      editingRoom.value.id,
+      maxTemperature,
+    )
+    editingRoom.value.maxTemperature = maxTemperature
     isEditModalOpen.value = false
   } catch (e) {
     console.error(e)
@@ -189,7 +193,7 @@ const saveRoomConfig = async (updates: Partial<Room>) => {
     :is-open="isEditModalOpen"
     :room="editingRoom"
     @close="isEditModalOpen = false"
-    @save="saveRoomConfig"
+    @save="saveRoomThreshold"
   />
 </template>
 

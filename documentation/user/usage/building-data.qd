@@ -115,7 +115,9 @@ Rooms are placed by their `position` (centre) and `dimensions` (size). The origi
 To place rooms side by side without overlap, offset `x` or `z` by at least `width / 2 + neighbour_width / 2`\.
 
 .box {Thresholds are set after upload} type:{note}
-    Temperature limits are **not** part of the JSON. Set them per room or per building after upload, through Edit Room / Edit Building (see [The Digital Twin](twin.qd)).
+    Temperature limits are **not** part of the JSON. Set them per room or per building after upload (see [The Digital Twin](twin.qd)).
+
+Everything else in the JSON — room names, capacities, colours, positions, sizes — **is** the model, and is read-only once uploaded. Correcting the shape of a building means uploading a corrected description, not editing it in the viewer.
 
 ---
 

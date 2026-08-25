@@ -3,7 +3,7 @@
 
 Implementation reference for the `digital-twin`\. For its architectural role, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd); for the domain model, see [Building Management](../domain/building-management.qd).
 
-A Rust / Axum service. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services — asynchronously over Kafka for registration, synchronously over REST for later edits (see *Downstream Synchronisation* below).
+A Rust / Axum service. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services — asynchronously over Kafka for registration, synchronously over REST for later edits (see *Downstream Synchronisation* below). The room set is **write-once**: the upload creates it and nothing edits it afterwards, so the twin cannot drift from the model it was built from.
 
 ---
 
@@ -19,7 +19,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/main.rs`
       - Reads env config, connects Mongo, spawns the provisioning worker, starts the Axum server with graceful shutdown.
     - - `src/adapters/driving/http_api/controllers.rs`
-      - Every building/room HTTP handler. Each one does the same three things: turn wire input into domain types, call a use case, map the result back to HTTP. No handler reaches a database or a downstream service.
+      - Every building HTTP handler. Each one does the same three things: turn wire input into domain types, call a use case, map the result back to HTTP. No handler reaches a database or a downstream service.
     - - `src/adapters/driving/http_api/claims.rs`
       - The Axum `FromRequestParts` extractor that decodes the base64 `x-gateway-claims` header into the core's `GatewayClaims`\. Decoding is delivery-specific; the identity it produces is not.
     - - `src/adapters/driving/http_api/exceptions.rs`
@@ -29,7 +29,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/service/ports.rs`
       - The four traits the use cases require of the outside world: `BuildingStore`, `UploadQueue`, `DownstreamSync`, `RegistrationEvents`\. Defined by the core, implemented in `adapters/driven/`\.
     - - `src/service/buildings.rs`
-      - Every use case that acts on an existing twin — read, list, count, resolve domains, update, and the four room operations. Rooms live here rather than in a module of their own because a room is not an aggregate: it is part of a building, and every room operation is "load the building, change it, save it, tell downstream".
+      - Every use case that acts on an existing twin — read, list, count, resolve domains, update. Rooms have no use cases of their own: they are part of a building, written once by the upload and read-only afterwards.
     - - `src/service/authz.rs`
       - Cedar authorization (`is_member_of`, `can_edit_domains`, `scope_to_memberships`) against the shared `backend/libs/auth-policy` bundle. In the core, not in `adapters/driven/`: whether a caller may edit a building is a rule, and Cedar is a pure embedded evaluator with no I/O.
     - - `src/service/fakes.rs`
@@ -45,7 +45,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/adapters/driven/persistence/jobs.rs`
       - `MongoUploadQueue`, the `UploadQueue` adapter over `pending_uploads`: lease-based `claim`, `mark_ready`/`mark_failed`, status lookup. The lease and attempt counters live in the document, never in the core.
     - - `src/adapters/driven/outbound.rs`
-      - Fire-and-forget/best-effort REST calls: default-preference seeding on dashboard, the threshold clone on telemetry for every *later* edit (not registration, which moved to Kafka), and the provisioning-failure alert on notification (`POST /trigger`, as a system caller — no end user to forward claims from). `OutboundConfig` is itself the `DownstreamSync` adapter.
+      - Fire-and-forget/best-effort REST calls: default-preference seeding on dashboard, the threshold clone on telemetry for a *later* building update (not registration, which moved to Kafka), and the provisioning-failure alert on notification (`POST /trigger`, as a system caller — no end user to forward claims from). `OutboundConfig` is itself the `DownstreamSync` adapter.
     - - `src/adapters/driven/kafka_producer.rs`
       - `KafkaEventProducer`, the `RegistrationEvents` adapter: publishes `building-registration-requested`, ensuring both registration topics exist first (auto-created topics are lazy — the first-ever produce/subscribe against one can otherwise race the broker's own creation of it).
     - - `src/adapters/metrics.rs`
@@ -71,14 +71,14 @@ For the conceptual view — which module is core, which is a port, which is an a
             ROUTER["lib.rs\nbuild_router assembles the Router"]
             MW["adapters/metrics.rs · ratelimit.rs\nRouter::layer, cross-cutting"]
             EXTRACT["adapters/driving/http_api/claims.rs\nFromRequestParts for GatewayClaims"]
-            HANDLERS["adapters/driving/http_api/controllers.rs\n11 handlers"]
+            HANDLERS["adapters/driving/http_api/controllers.rs\n8 handlers"]
             ERRMAP["adapters/driving/http_api/exceptions.rs\nIntoResponse for DomainError"]
             WORKER["adapters/driving/worker.rs\nspawn: loop over provision_next"]
             KCONS["adapters/driving/kafka_consumer.rs\nspawn: consume, call resolve"]
         end
 
         subgraph l2["LAYER 2 — core, use cases (service/)"]
-            UCB["Buildings\nget · list_for_domain · counts · domains_of\nupdate · create_room · update_room\ndelete_room · replace_rooms"]
+            UCB["Buildings\nget · list_for_domain · counts · domains_of\nupdate"]
             UCP["Provisioning\naccept · provision_next · resolve · status"]
             AUTHZ["authz.rs\nis_member_of · can_edit_domains\nscope_to_memberships"]
         end
@@ -192,7 +192,7 @@ struct Building {
 }
 
 struct Room {
-    id: String,         // client-supplied on /register and PUT rooms; server-generated on POST room
+    id: String,         // client-supplied on /register
     name: String,
     capacity: f64,
     position: Coordinates,     // { x, y, z }
@@ -201,7 +201,7 @@ struct Room {
 }
 ```
 
-- `id` is generated server-side on `POST /register` and `POST /building/:id/room`; a client-supplied `id` there is ignored. `PUT /building/:id/rooms` (bulk replace) takes client-supplied room ids.
+- The building `id` is generated server-side on `POST /register`; a client-supplied one is ignored. Room ids are client-supplied and come from the uploaded description — they are the only ids a client chooses, and there is no later route to change them.
 - The Mongo collection carries a unique index on `id` and a non-unique index on `domains` (`Building.find({ domains: X })` stays an index seek).
 - No internal database fields (`_id`, a document version, timestamps) leak into API responses — the `Building`/`Room` structs only carry fields a client actually reads.
 
@@ -230,27 +230,19 @@ struct Room {
       - Return the flattened list of domains for buildings matching the name. Used by notification for recipient resolution.
     - - `PATCH /building/:buildingId`
       - Update `name` and/or `domains` (and an optional `maxTemperature` forwarded to the clone). Requires an editing role in one of the building's own domains. Re-syncs.
-    - - `PATCH /building/:buildingId/room/:roomId`
-      - Update a room's `name`, `color`, `capacity`, `position`, and/or `dimensions`\. Re-syncs.
-    - - `POST /building/:buildingId/room`
-      - Create a room with a server-assigned id. Re-syncs, then best-effort seeds default sensor thresholds.
-    - - `DELETE /building/:buildingId/room/:roomId`
-      - Delete a room; blocked if it's the building's last room (`400`).
-    - - `PUT /building/:buildingId/rooms`
-      - Atomically replace the whole rooms array — the editor's bulk-save path. Validates every room before writing any of them (no partial write on a bad room).
     - - `GET /contracts`
       - Return this service's metric catalog (`roomName`, `roomMaxOccupancy`). **Public.**
     - - `GET /health`, `GET /metrics`
       - Liveness and Prometheus metrics. **Public.** Registered both with and without a trailing slash — see the gotcha box on [Kubernetes Configuration](../config/kubernetes.qd).
 
-.box {Every building/room route requires the mesh-verified claims header} type:{note}
+.box {Every building route requires the mesh-verified claims header} type:{note}
     Istio's `RequestAuthentication` verifies the caller's JWT once at the ingress and injects the payload as the base64 `x-gateway-claims` header (`outputPayloadToHeader`) — digital-twin never verifies a JWT itself. Every protected handler takes a `GatewayClaims` argument (an Axum extractor, `src/adapters/driving/http_api/claims.rs`); extraction itself 401s the request if the header is missing or malformed, so there's no separate auth middleware layer to wire in — the type signature *is* the auth gate. Geometry-mutating routes additionally require `can_edit_domains` (Cedar `Edit` action) against the target building's own domains, not just any domain membership.
 
 .box {Re-registering a building downstream} type:{note}
     A consumer that lost its state — a rebuilt telemetry database, a service that was down, a rewrite that started with an empty schema — cannot replay the topic: the registration consumer runs with `auto.offset.reset=latest` and so never sees messages published before it joined. `POST /building/:id/sync` is the answer: it reads the stored building and publishes exactly the payload provisioning would have published, so every consumer re-registers it. It is not a repair for a *missing* twin — the building must already exist here.
 
 .box {Registration validates room geometry} type:{note}
-    `/register` validates every room's `position`, `dimensions`, and `capacity` before persisting, the same validation every other geometry-writing route (`createRoom`, `updateRoom`, `replaceRooms`) applies — a malformed room is rejected with a `400 Validation Error`, never silently stored. Validation deliberately stays **synchronous**, ahead of the `202`: a description the service would refuse must never be acknowledged as accepted. Only the work that can't fail on the caller's input moves to the worker.
+    `/register` validates every room's `position`, `dimensions`, and `capacity` before persisting — a malformed room is rejected with a `400 Validation Error`, never silently stored. It is the **only** route that writes rooms, so this is the only place that validation has to happen. Validation deliberately stays **synchronous**, ahead of the `202`: a description the service would refuse must never be acknowledged as accepted. Only the work that can't fail on the caller's input moves to the worker.
 
 ---
 
@@ -266,7 +258,7 @@ Free functions in `src/domain/building.rs`\.
 
 ## Downstream Synchronisation
 
-A building's structure is mirrored to telemetry and dashboard, but not the same way: **registration** announces over Kafka and waits on telemetry's own outcome; **every later edit** (update, create/update/delete room, replace rooms) still calls telemetry directly over REST, synchronously, in-request. Contracts-service preference seeding is REST and best-effort in both cases.
+A building's structure is mirrored to telemetry and dashboard, but not the same way: **registration** announces over Kafka and waits on telemetry's own outcome; **a later building update** (rename, re-domain, max-temperature) still calls telemetry directly over REST, synchronously, in-request. Contracts-service preference seeding is REST and best-effort in both cases.
 
 .mermaid
     sequenceDiagram
@@ -300,7 +292,7 @@ A building's structure is mirrored to telemetry and dashboard, but not the same 
 
 - **Registration announcement** (`KafkaEventProducer::publish_requested`, `src/adapters/driven/kafka_producer.rs`): publishes `building-registration-requested` keyed by `buildingId`, carrying `{ buildingId, name, rooms: [{ id, name }] }`\. A publish failure fails the *provisioning job* the same way a REST failure used to; a successful publish does **not** — the upload stays `pending` until telemetry's own completion event resolves it.
 - **Registration resolution** (`adapters/driving/kafka_consumer.rs`): consumes `building-registration-completed`, calling `resolve(buildingId, error)`, which is what actually marks the upload `ready` or `failed`. Idempotent under redelivery — resolving the same id twice sets the same status twice.
-- **Sensor threshold clone on later edits** (`sync_building_clone`, `src/adapters/driven/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the mutating request itself, since these routes are already synchronous. Forwards the caller's `x-gateway-claims` header verbatim — telemetry reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
+- **Sensor threshold clone on a building update** (`sync_building_clone`, `src/adapters/driven/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the mutating request itself, since the route is already synchronous. Forwards the caller's `x-gateway-claims` header verbatim — telemetry reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
 - **Contracts preference seeding** (`init_building_preferences`): a `POST`, best-effort — logged and swallowed on any error, never blocks building creation.
 - **Provisioning-failure cleanup and alert** (`Provisioning::fail`, private, called by both `provision_next` and `resolve`): marks the job `failed`, calls notification's `POST /trigger` (`notify_provisioning_failed`, `src/adapters/driven/outbound.rs`) as a fixed system caller — same pattern as notification's own event-listener path, see [Notification Service Architecture](../architecture/notification-architecture.qd) — then deletes the twin (`BuildingStore::delete`). Both steps are skipped unless `mark_failed` actually claimed a still-`pending` upload — a failure reported for an upload that was already resolved is logged and dropped, so a re-announced building (`POST /building/:id/sync`) that a consumer rejects can never delete a live twin. Notify happens *before* delete: `/trigger` resolves the building's domains by calling back into digital-twin's `/domain/:building`, so the twin must still exist when that call lands. The HTTP call is best-effort — logged and swallowed on error, never blocks the failure resolution itself.
 

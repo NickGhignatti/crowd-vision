@@ -33,6 +33,10 @@ answers `building-registration-completed`; `resolve` on that answer is what actu
 the upload ready or failed. Topics and payloads come from `twin_schema` and are re-exported
 by `adapters/topics.rs` — never write the topic string here.
 
+**The room set is write-once.** Rooms are created by the upload and never edited afterwards:
+there is no room-level write route, and the building's own `PATCH` only touches `name`,
+`domains` and the max-temperature clone. `tests/api/rooms.rs` pins both halves.
+
 **`resync` republishes the request for a building that already exists** (needs an editing
 role). Use it when telemetry lost a registration, instead of re-uploading.
 

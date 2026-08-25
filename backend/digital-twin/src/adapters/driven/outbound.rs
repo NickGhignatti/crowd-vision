@@ -40,16 +40,6 @@ impl DownstreamSync for OutboundConfig {
         init_building_preferences(self, building_id, Some(claims)).await
     }
 
-    async fn init_room_thresholds(
-        &self,
-        building_id: &str,
-        room_id: &str,
-        capacity: f64,
-        claims: &str,
-    ) {
-        init_room_thresholds(self, building_id, room_id, capacity, Some(claims)).await
-    }
-
     async fn notify_provisioning_failed(&self, building_id: &str, error: &str) {
         notify_provisioning_failed(self, building_id, error).await
     }
@@ -106,38 +96,6 @@ pub async fn sync_building_clone(
         anyhow::bail!("Failed to sync sensor threshold clone: {status} {details}");
     }
     Ok(())
-}
-
-pub async fn init_room_thresholds(
-    config: &OutboundConfig,
-    building_id: &str,
-    room_id: &str,
-    capacity: f64,
-    claims_header: Option<&str>,
-) {
-    if !config.sync_enabled {
-        return;
-    }
-    let url = format!(
-        "{}/thresholds/peopleCount/buildings/{}/rooms/{}",
-        config.telemetry_url,
-        urlencoding::encode(building_id),
-        urlencoding::encode(room_id)
-    );
-    let result = config
-        .client
-        .patch(&url)
-        .headers(auth_headers(claims_header))
-        .json(&json!({ "maxPeople": capacity }))
-        .send()
-        .await;
-
-    if let Err(err) = result {
-        log::error!(
-            "[sensors] failed to init thresholds for room: {:?} {err}",
-            room_id
-        );
-    }
 }
 
 pub async fn init_building_preferences(
@@ -299,7 +257,6 @@ mod tests {
         sync_building_clone(&cfg, &building(), None, None)
             .await
             .unwrap();
-        init_room_thresholds(&cfg, "b1", "r1", 10.0, None).await;
         init_building_preferences(&cfg, "b1", None).await;
         notify_provisioning_failed(&cfg, "b1", "boom").await;
     }
@@ -316,18 +273,6 @@ mod tests {
 
         let cfg = config(&server).await;
         init_building_preferences(&cfg, "b1", Some("tok-123")).await;
-    }
-
-    #[tokio::test]
-    async fn init_room_thresholds_never_fails_the_caller_on_transport_error() {
-        let cfg = OutboundConfig {
-            telemetry_url: "http://127.0.0.1:1".to_string(),
-            dashboard_url: "http://127.0.0.1:1".to_string(),
-            notification_url: "http://127.0.0.1:1".to_string(),
-            sync_enabled: true,
-            client: reqwest::Client::new(),
-        };
-        init_room_thresholds(&cfg, "b1", "r1", 10.0, None).await;
     }
 
     #[tokio::test]
