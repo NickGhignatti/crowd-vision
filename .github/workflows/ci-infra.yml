@@ -37,6 +37,24 @@ jobs:
           done
           exit $status
 
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      # scripts/test_*.py are stdlib-only self-checks that ran nowhere until now,
+      # so a regression in e.g. the coverage merge stayed invisible until the
+      # published badge looked wrong.
+      - name: Run script self-checks
+        run: |
+          status=0
+          files=$(git ls-files 'scripts/test_*.py' || true)
+          for f in $files; do
+            echo "--- $f"
+            python3 "$f" || { echo "::error file=$f::self-check failed"; status=1; }
+          done
+          exit $status
+
       - name: Install just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
 

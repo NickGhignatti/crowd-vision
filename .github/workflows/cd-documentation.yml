@@ -10,6 +10,7 @@ on:
       - "api/**"
       - "just/docs.just"
       - "scripts/check-docs-links.sh"
+      - ".mise.toml"
 
 permissions:
   contents: write
@@ -39,7 +40,22 @@ jobs:
 
       - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
 
+      # setup-quarkdown installs "latest" when given no version, so an upstream
+      # release could change the generated DOM the theme styles without any
+      # change here. One number, in .mise.toml, read by CI and by just docs build.
+      - name: Read the pinned Quarkdown version
+        id: quarkdown
+        run: |
+          version=$(sed -n 's/^QUARKDOWN_VERSION = "\(.*\)"$/\1/p' .mise.toml)
+          if [ -z "$version" ]; then
+            echo "::error::QUARKDOWN_VERSION not found in .mise.toml"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - uses: quarkdown-labs/setup-quarkdown@7f1c7a66fd944e1717778356590e57469a525ca4
+        with:
+          quarkdown-version: ${{ steps.quarkdown.outputs.version }}
 
       - name: Install just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3

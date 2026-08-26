@@ -1,0 +1,40 @@
+name: CI Docs
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-documentation:
+    name: docs build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      # Same install and same recipe as cd-documentation.yml, so a docs change
+      # that breaks the build fails on the pull request instead of on master,
+      # where the only signal is a failed deploy.
+      - name: Read the pinned Quarkdown version
+        id: quarkdown
+        run: |
+          version=$(sed -n 's/^QUARKDOWN_VERSION = "\(.*\)"$/\1/p' .mise.toml)
+          if [ -z "$version" ]; then
+            echo "::error::QUARKDOWN_VERSION not found in .mise.toml"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: quarkdown-labs/setup-quarkdown@7f1c7a66fd944e1717778356590e57469a525ca4
+        with:
+          quarkdown-version: ${{ steps.quarkdown.outputs.version }}
+
+      - name: Install just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
+
+      - name: Build site
+        run: just docs build

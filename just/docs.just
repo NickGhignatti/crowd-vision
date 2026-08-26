@@ -13,8 +13,24 @@ default:
 #
 # Quarkdown always writes into <out>/<docname>/, but the guide IS the site here —
 # so it builds into a staging dir and its contents are lifted to the root.
+# The skin styles Quarkdown's generated DOM (page-margin-*, .box > header,
+# .codespan-content, pre.mermaid). A version bump can rename those without
+# failing the build, so drift is caught here rather than on the published site.
+[private]
+check-version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pinned=$(sed -n 's/^QUARKDOWN_VERSION = "\(.*\)"$/\1/p' .mise.toml)
+    have=$(quarkdown --version | awk '{print $NF}')
+    if [ "$have" != "$pinned" ]; then
+        echo "quarkdown $have installed, but .mise.toml pins $pinned." >&2
+        echo "Install the pinned build, or change QUARKDOWN_VERSION in .mise.toml" >&2
+        echo "and re-check the theme in documentation/theme/crowdvision.css." >&2
+        exit 1
+    fi
+
 [doc("Build the whole landing-page/ site: the guide at the root + the OpenAPI specs.")]
-build:
+build: check-version
     sh scripts/check-docs-links.sh
     rm -rf landing-page
     quarkdown c documentation/main.qd --out landing-page/.stage --allow native-content

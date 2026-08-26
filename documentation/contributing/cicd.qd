@@ -142,6 +142,11 @@ Every service CI workflow now measures **code coverage** as part of its test run
 
 The Node and Rust services write a coverage summary into the GitHub **job summary** (rendered from the report with `jq`); the agent surfaces its figures directly in the `pytest` log via `--cov-report=term-missing`\.
 
+`cd-coverage.yml` aggregates these on every push to `master`, for changed services only, and force-pushes `badge.json`, `summary.json` and `coverage-counts.json` to the orphan `coverage-data` branch — the source the [Coverage](../reference/coverage.qd) page reads live.
+
+.box {The baseline is pruned against the registry} type:{warning}
+    A partial run merges the previous `coverage-counts.json` forward so unchanged services keep their numbers. Left unfiltered, that also carries a **renamed or deleted** service forward indefinitely: its old key never ages out, and the weighted badge counts it alongside whatever replaced it. `merge_baseline()` drops any key absent from `.github/services.json` and logs what it pruned. This is not hypothetical — `contracts`, `registry-service`, `sensor` and `tenancy-service` had accumulated there, understating the badge by four points.
+
 .box {The coverage summary runs always} type:{note}
     The step that publishes the coverage table is guarded by **`if: always()`**, so it runs **even when a test fails** — by default a failed step skips every step after it, yet the coverage of a red run is often exactly when you want to read it. This does **not** weaken the gate: `always()` governs only that one reporting step, so a failing test still fails the job. Coverage is **report-only for now** — no minimum threshold is enforced, so it surfaces the numbers on every run but cannot itself block a merge.
 
@@ -185,6 +190,8 @@ These legs validate properties that span the codebase rather than a single servi
       - A job defined inline in `ci-gate.yml` that validates the workflow files themselves whenever anything under the \.`github/` tree changes. **actionlint** (digest-pinned container) catches malformed expressions and invalid action inputs; shellcheck is bundled but disabled (`-shellcheck=`) until its `run:`-block findings are triaged. **zizmor** (pinned version, run `--offline --min-severity medium`) then audits for security smells actionlint misses: template injection in `run:` blocks, credential persistence (it is why every read-only checkout sets `persist-credentials: false`), over-broad token permissions, and dangerous triggers.
     - - `ci-infra.yml`
       - The `infra` leg. Cheap, real validation for repo scripts whenever `scripts/` or `tooling/` change: `node --check` parses every tracked \.`mjs`/\.`js`, and `bash -n` checks every shell script. Keeps routine script edits green automatically.
+    - - `ci-docs.yml`
+      - The `docs` leg. Builds the published site with the same `just docs build` recipe `cd-documentation` uses, whenever `documentation/`, `api/`, the docs recipe, the link guard or the Quarkdown pin changes. Without it the first sign of a broken docs change is a failed deploy on `master`, since nothing else compiles the guide.
     - - `ci-dependency-review.yml`
       - The `dependency-review` leg. On any PR that changes a dependency manifest or lockfile, it fails if the PR **introduces** a dependency carrying a known high/critical advisory (`fail-on-severity: high`). It complements the per-service audit steps: those see the merged lockfile state, whereas this diffs exactly what the PR adds, catching a vulnerable package at the moment it is introduced. Requires the repository's dependency graph (on by default for public repos).
 
@@ -198,6 +205,13 @@ These legs validate properties that span the codebase rather than a single servi
 ### cd-release
 
 Triggered on every push to `master`\. Runs `googleapis/release-please-action`, which reads commits since the last tag and either opens/updates a release pull request (CHANGELOG.md + every version manifest) or, if its own release PR was just merged, tags the repository and publishes a GitHub Release. A concurrency guard prevents duplicate runs. The full mechanics are in [Commits & Release Please](release-please.qd).
+
+### cd-documentation
+
+Triggered on push to `master` when `documentation/`, `api/`, `just/docs.just`, `scripts/check-docs-links.sh` or `.mise.toml` changes. Runs `just docs build` — the same recipe as the `docs` PR leg, so the deploy cannot drift from what the pull request validated — and publishes `landing-page/` to GitHub Pages.
+
+.box {The Quarkdown version is pinned, and the pin is read, not repeated} type:{note}
+    `setup-quarkdown` installs the **latest** release when given no version. The site's theme styles Quarkdown's generated DOM directly, so an upstream release can rename a class and quietly break the layout while the build stays green. `QUARKDOWN_VERSION` in `.mise.toml` is the single source: the workflows read it with `sed` before installing, and `just docs build` refuses to run when the locally installed CLI disagrees with it. Quarkdown cannot be a mise `[tools]` entry — its release asset is a zip containing a bundled JRE, and the ubi/github backends keep only the launcher script, which then cannot find its own classes.
 
 ### cd-registry
 
