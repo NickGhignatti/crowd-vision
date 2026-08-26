@@ -30,8 +30,16 @@ jobs:
       - name: Build
         run: go build -v ./...
 
+      # Two flags, each fixing an understatement rather than adding tests:
+      #   -coverpkg=./...  attributes coverage across package boundaries. Without
+      #     it a package is measured only against its OWN tests, so internal/storefake
+      #     — exercised by every service and api test — reported 0%.
+      #   -tags=integration  compiles the `//go:build integration` store/events
+      #     suites, which otherwise run nowhere and report 0% despite existing.
+      # Together these moved registry 26.6% -> 55.6% and tenancy 43.2% -> 71.5%
+      # without a single new test.
       - name: Test
-        run: go test -v -coverprofile=coverage.out ./...
+        run: go test -v -tags=integration -coverpkg=./... -coverprofile=coverage.out ./...
 
       - name: Convert coverage to XML (Cobertura)
         run: |

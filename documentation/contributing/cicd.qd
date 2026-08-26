@@ -137,7 +137,7 @@ Every service CI workflow now measures **code coverage** as part of its test run
       - `pytest --cov`
       - Cobertura `coverage.xml`
     - - Go services
-      - `go test`
+      - `go test -tags=integration -coverpkg=./...`
       - Cobertura `coverage.xml`
 
 The Node and Rust services write a coverage summary into the GitHub **job summary** (rendered from the report with `jq`); the agent surfaces its figures directly in the `pytest` log via `--cov-report=term-missing`\.
@@ -146,6 +146,14 @@ The Node and Rust services write a coverage summary into the GitHub **job summar
 
 .box {The baseline is pruned against the registry} type:{warning}
     A partial run merges the previous `coverage-counts.json` forward so unchanged services keep their numbers. Left unfiltered, that also carries a **renamed or deleted** service forward indefinitely: its old key never ages out, and the weighted badge counts it alongside whatever replaced it. `merge_baseline()` drops any key absent from `.github/services.json` and logs what it pruned. This is not hypothetical — `contracts`, `registry-service`, `sensor` and `tenancy-service` had accumulated there, understating the badge by four points.
+
+.box {Both Go flags exist to stop the number lying} type:{warning}
+    A plain `go test -coverprofile ./...` understates every Go module with a support package or a tagged suite, and it did so by a lot.
+
+    - `-coverpkg=./...` attributes coverage **across package boundaries**\. Without it each package is measured only against its own `_test.go` files, so `internal/storefake` — exercised by every `service` and `api` test — reported 0%.
+    - `-tags=integration` compiles the `//go:build integration` suites (`internal/store` in registry and tenancy, `internal/events` in tenancy). They are real testcontainers tests against a real Postgres; without the tag they compile nowhere, run nowhere, and report 0%.
+
+    Applying both moved `registry` from 26.6% to 55.6% and `tenancy` from 43.2% to 71.5% **without adding a single test**\. The same tag now runs in `tpl-go-ci.yml`, so a broken integration suite fails the PR rather than silently never running. Locally: `just test registry-integration` / `just test tenancy-integration`\.
 
 .box {The coverage summary runs always} type:{note}
     The step that publishes the coverage table is guarded by **`if: always()`**, so it runs **even when a test fails** — by default a failed step skips every step after it, yet the coverage of a red run is often exactly when you want to read it. This does **not** weaken the gate: `always()` governs only that one reporting step, so a failing test still fails the job. Coverage is **report-only for now** — no minimum threshold is enforced, so it surfaces the numbers on every run but cannot itself block a merge.

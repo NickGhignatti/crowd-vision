@@ -54,6 +54,14 @@ socket:
 socket-integration:
     mise exec -- moon run socket:test-integration
 
+[doc("Integration tests for registry — testcontainers Postgres behind the `integration` build tag.")]
+registry-integration:
+    mise exec -- moon run registry:test-integration
+
+[doc("Integration tests for tenancy — testcontainers Postgres plus the account-deleted consumer.")]
+tenancy-integration:
+    mise exec -- moon run tenancy:test-integration
+
 [doc("Unit tests for the frontend.")]
 frontend:
     mise exec -- moon run frontend:test
