@@ -36,3 +36,16 @@ func TestRoleWeights_MatchesKnownLadder(t *testing.T) {
 		}
 	}
 }
+
+// The ladder is consulted twice — for the role the caller has and for the role the
+// route requires — and only the first lookup was asserted. A required role that is
+// not on the ladder is a typo in a call site, and it must deny: resolving an
+// unknown requirement to weight 0 would let every caller through.
+func TestCan_UnknownRequiredRoleDenied(t *testing.T) {
+	if Can("business_admin", "not-a-role") {
+		t.Fatal("an unrecognised required role must deny, not resolve to zero weight")
+	}
+	if Can("not-a-role", "also-not-a-role") {
+		t.Fatal("two unrecognised roles must still deny")
+	}
+}

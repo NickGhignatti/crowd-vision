@@ -2,6 +2,7 @@ package authcontracts
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -104,5 +105,31 @@ func TestRequireSignature_ForbidsAMissingOrWrongSignature(t *testing.T) {
 	}
 	if code := signedRequest(t, f.Secret, c.Body, f.Cases[0].Signature).Code; code != http.StatusForbidden {
 		t.Fatalf("signature of another body: got %d, want %d", code, http.StatusForbidden)
+	}
+}
+
+// errorReader stands in for a connection that dies mid-body.
+type errorReader struct{}
+
+func (errorReader) Read([]byte) (int, error) { return 0, errors.New("connection reset") }
+
+// A body that cannot be read is the caller's problem (400), not a rejected
+// identity (403). Collapsing it into the signature failure would tell an in-mesh
+// service its shared secret is wrong when the transport simply broke.
+func TestRequireSignature_UnreadableBodyIs400NotForbidden(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/internal/thing", errorReader{})
+	req.Header.Set(SignatureHeader, "does-not-matter-we-never-get-there")
+
+	called := false
+	rec := httptest.NewRecorder()
+	RequireSignature([]byte("secret"))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	})).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400", rec.Code)
+	}
+	if called {
+		t.Fatal("next handler ran on a body that could not be read")
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
@@ -106,4 +107,61 @@ func TestMembershipsFor_NetworkFailureIsAnError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error when tenancy is unreachable")
 	}
+}
+
+// Memberships drive every downstream authorization decision, so a failure to fetch
+// them must never look like "this account belongs to nothing" — that would mint a
+// session with no tenancy and silently strip the caller's access.
+func TestMembershipsFor_FailuresAreErrorsNotAnEmptyList(t *testing.T) {
+	t.Run("non-200 names the status", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer srv.Close()
+
+		ms, err := tenancyclient.New(srv.URL, []byte(secret)).MembershipsFor(context.Background(), "acc-1")
+
+		if err == nil {
+			t.Fatalf("got nil error and %v, want a failure", ms)
+		}
+		if !strings.Contains(err.Error(), "tenancy returned 500") {
+			t.Fatalf("got %q, want it to name the status", err)
+		}
+	})
+
+	t.Run("undecodable body", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte("not json"))
+		}))
+		defer srv.Close()
+
+		_, err := tenancyclient.New(srv.URL, []byte(secret)).MembershipsFor(context.Background(), "acc-1")
+
+		if err == nil || !strings.Contains(err.Error(), "decoding memberships") {
+			t.Fatalf("got %v, want a decode error", err)
+		}
+	})
+
+	t.Run("unparseable base URL", func(t *testing.T) {
+		_, err := tenancyclient.New("http://\x7f-control-char", []byte(secret)).MembershipsFor(context.Background(), "acc-1")
+		if err == nil {
+			t.Fatal("got nil, want a request-construction error")
+		}
+	})
+}
+
+func TestProvision_TransportFailuresAreReported(t *testing.T) {
+	t.Run("unreachable", func(t *testing.T) {
+		err := tenancyclient.New("http://127.0.0.1:1", []byte(secret)).Provision(context.Background(), service.ProvisionRequest{AccountID: "acc-1"})
+		if err == nil || !strings.Contains(err.Error(), "tenancy unreachable") {
+			t.Fatalf("got %v, want it wrapped as \"tenancy unreachable\"", err)
+		}
+	})
+
+	t.Run("unparseable base URL", func(t *testing.T) {
+		err := tenancyclient.New("http://\x7f-control-char", []byte(secret)).Provision(context.Background(), service.ProvisionRequest{AccountID: "acc-1"})
+		if err == nil {
+			t.Fatal("got nil, want a request-construction error")
+		}
+	})
 }
