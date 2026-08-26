@@ -12,13 +12,13 @@ Don't worry — we have provided scripts to automate the hardest parts.
 **Install these two tools first — everything else depends on them:**
 
 *   **`just`** (cross-platform task runner — install at <https://just.systems/>)
-*   **`mise`** — multi-language toolchain manager. The repo root contains a \.`mise.toml` that pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning and all tools are at the correct versions on any OS. Install at <https://mise.jdx.dev/>.
+*   **`mise`** — multi-language toolchain manager. The repo root contains a `.mise.toml` that pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning and all tools are at the correct versions on any OS. Install at <https://mise.jdx.dev/>.
 
 Once `just` and `mise` are available, the remaining tools can be managed by `mise` automatically or installed manually:
 
 *   **Node.js v24**, **Python 3.12**, **Rust (stable)**, **`istioctl` 1.30.2** — handled by `mise install`.
 *   **uv** — handled by `mise install` (or manually at <https://docs.astral.sh/uv/>).
-*   **Go** (stable) — install manually at <https://go.dev/dl/>. Unlike the other four languages, Go is **not** pinned in \.`mise.toml`, so `claims-gateway`, `tenancy`, `registry`, and `provisioner` rely on whatever `go` is already on your `PATH`. Needed only if you're working on one of those four services.
+*   **Go** (stable) — install manually at <https://go.dev/dl/>. Unlike the other four languages, Go is **not** pinned in `.mise.toml`, so `claims-gateway`, `tenancy`, `registry`, and `provisioner` rely on whatever `go` is already on your `PATH`. Needed only if you're working on one of those four services.
 *   **Docker & Docker Compose** (for running the isolated databases and services)
 *   **Git**
 *   **A local Kubernetes cluster + kubectl** (only if you plan to deploy via k8s)
@@ -39,12 +39,12 @@ mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires 
 just setup install
 ```
 
-`just setup install` runs `moon run :deps`, installing every language's dependencies **in parallel**: Node deps for `tooling/eslint-config/` (the shared `@crowdvision/eslint-config` ESLint package), the frontend, every TypeScript backend service, and the sensor simulator; plus the Python, Rust, and Go services' dependencies. The set of packages **is** moon's project registry (\.`moon/workspace.yml`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. `tooling/` holds only the shared ESLint flat config, `@crowdvision/eslint-config`, at `tooling/eslint-config/`.
+`just setup install` runs `moon run :deps`, installing every language's dependencies **in parallel**: Node deps for `tooling/eslint-config/` (the shared `@crowdvision/eslint-config` ESLint package), the frontend, every TypeScript backend service, and the sensor simulator; plus the Python, Rust, and Go services' dependencies. The set of packages **is** moon's project registry (`.moon/workspace.yml`), so the install list can never drift from the rest of the tooling — see [The Toolchain: mise & moon](toolchain.qd) for the full picture. There is no root `package.json` — each service manages its own `node_modules`. `tooling/` holds only the shared ESLint flat config, `@crowdvision/eslint-config`, at `tooling/eslint-config/`.
 
 The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked`, Rust `cargo fetch`, Go `go mod download`. Cap parallelism with moon's `MOON_CONCURRENCY`: `MOON_CONCURRENCY=2 just setup install`.
 
 .box {Go needs a Go toolchain on PATH} type:{note}
-    The `language: 'go'` projects inherit `deps` (`go mod download`) like every other language, but **Go itself isn't pinned in \.`mise.toml`** — install it yourself first, or `just setup install` fails on those projects.
+    The `language: 'go'` projects inherit `deps` (`go mod download`) like every other language, but **Go itself isn't pinned in `.mise.toml`** — install it yourself first, or `just setup install` fails on those projects.
 
 ### Lockfiles & Cross-Platform Regeneration
 
@@ -71,11 +71,11 @@ The `--cpu=x64 --os=linux` flags make npm record the Linux optional tree even wh
 
 ## 3. Environment Variables & Secrets
 
-Microservices require secrets to communicate securely, encrypt tokens, and send push notifications. **Never commit \.`env` files to version control.**
+Microservices require secrets to communicate securely, encrypt tokens, and send push notifications. **Never commit `.env` files to version control.**
 
 ### Automatic Setup (Recommended)
 
-Run the interactive setup script. It skips any variable already present in \.`env`, so it is safe to re-run at any time — e.g. after pulling a change that introduces a new secret:
+Run the interactive setup script. It skips any variable already present in `.env`, so it is safe to re-run at any time — e.g. after pulling a change that introduces a new secret:
 
 ```bash
 just stack env
@@ -111,7 +111,7 @@ This chains ten small, idempotent POSIX-sh scripts (`scripts/env/*.sh`), each re
 
 #### Core gateway config
 
-Written non-interactively by `config.sh` (edit \.`env` to override):
+Written non-interactively by `config.sh` (edit `.env` to override):
 
 .var {headers}
    - Variable
@@ -129,7 +129,7 @@ Written non-interactively by `config.sh` (edit \.`env` to override):
       - `http://localhost`
       - Base URL of the gateway; combined with the ports to build public-facing URLs.
 
-The only interactive prompt in the whole `just stack env` chain is the optional `OPENROUTER_API_KEY` (leave empty to skip — the agent boots without it, but `/ask` fails on the first LLM/tool-calling hop; get a key at <https://openrouter.ai/keys>). Legacy `GOOGLE_API_KEY` / `DEEPSEEK_API_KEY` values already in \.`env` are still honoured as aliases.
+The only interactive prompt in the whole `just stack env` chain is the optional `OPENROUTER_API_KEY` (leave empty to skip — the agent boots without it, but `/ask` fails on the first LLM/tool-calling hop; get a key at <https://openrouter.ai/keys>). Legacy `GOOGLE_API_KEY` / `DEEPSEEK_API_KEY` values already in `.env` are still honoured as aliases.
 
 .box type:{note}
     There is no `JWT_SECRET`/`INTERNAL_ADMIN_SECRET` anymore — those belonged to the now-deleted `auth-service`. See [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) for the current auth design.
@@ -151,7 +151,7 @@ The only interactive prompt in the whole `just stack env` chain is the optional 
 
 #### Gateway signing key
 
-`gateway-key.sh` is the one script that doesn't touch \.`env` at all: it writes a 2048-bit RSA private key to `secrets/gateway-dev-key.pem` (gitignored, mounted into the `claims-gateway` container as a file, since a multi-line PEM can't live in a \.`env` value). Without a stable key on disk, `claims-gateway` would generate a fresh ephemeral one on every restart, invalidating every existing session and churning the JWKS every other service caches. The write is atomic and skips silently if the file already exists.
+`gateway-key.sh` is the one script that doesn't touch `.env` at all: it writes a 2048-bit RSA private key to `secrets/gateway-dev-key.pem` (gitignored, mounted into the `claims-gateway` container as a file, since a multi-line PEM can't live in a `.env` value). Without a stable key on disk, `claims-gateway` would generate a fresh ephemeral one on every restart, invalidating every existing session and churning the JWKS every other service caches. The write is atomic and skips silently if the file already exists.
 
 ### Regenerating a single secret
 
@@ -163,15 +163,15 @@ sh scripts/env/langfuse.sh    # just Langfuse/OTEL config
 sh scripts/env/keycloak.sh    # just Keycloak secrets
 ```
 
-Set `ENV_FILE` to write somewhere other than the repo-root \.`env`.
+Set `ENV_FILE` to write somewhere other than the repo-root `.env`.
 
-To force a full regeneration of one secret, delete its line(s) from \.`env` (or the file at `secrets/gateway-dev-key.pem`) first, then re-run `just stack env` or the specific script.
+To force a full regeneration of one secret, delete its line(s) from `.env` (or the file at `secrets/gateway-dev-key.pem`) first, then re-run `just stack env` or the specific script.
 
 ---
 
 ## 4. Running Locally with Docker Compose
 
-With your \.`env` set up, start the full development stack:
+With your `.env` set up, start the full development stack:
 
 ```bash
 just stack dev
@@ -237,9 +237,9 @@ Open your hosts file as Administrator and add that line:
 *   Windows: `C:\Windows\System32\drivers\etc\hosts`
 *   Linux/Mac: `/etc/hosts`
 
-### Step 3: Add GHCR Credentials to \.`env`
+### Step 3: Add GHCR Credentials to `.env`
 
-The cluster needs credentials to pull images from GitHub Container Registry. Add to your \.`env`:
+The cluster needs credentials to pull images from GitHub Container Registry. Add to your `.env`:
 
 ```bash
 GHCR_USERNAME=nickghignatti
@@ -258,7 +258,7 @@ This single command runs in order:
 1. Creates the k3d cluster (`just k8s create` — skip if you already did Step 1).
 2. Installs the Gateway API CRDs, then Istio in ambient mode (`istiod`, `ztunnel`, `istio-cni`) — see [Kubernetes Configuration](kubernetes.qd) for why ambient mode and the k3d-specific CNI flags matter.
 3. Creates the `crowdvision` namespace — already carrying the `istio.io/dataplane-mode=ambient` label declared in `k8s/namespace.yml`, so ztunnel enrollment happens the moment the namespace exists.
-4. Runs `just k8s secrets` — creates all Kubernetes Secret objects from your \.`env`.
+4. Runs `just k8s secrets` — creates all Kubernetes Secret objects from your `.env`.
 5. Applies ConfigMaps, StatefulSets (databases), Deployments, the Istio mesh manifests (`istio-peer-authentication.yml`, `istio-gateway.yml`, `istio-request-authentication.yml` — the `Gateway`/`HTTPRoute`s that make `http://crowdvision.local` work, STRICT mTLS, and edge JWT verification), and monitoring.
 
 .box type:{warning}

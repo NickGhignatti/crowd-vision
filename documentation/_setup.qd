@@ -1,8 +1,129 @@
 .docdescription {CrowdVision developer guide}
 .doclang {English}
-.theme {paperwhite} layout:{hyperlegible}
+.theme {paperwhite} layout:{minimal}
 
 .pagemargin {topleft}
-    Developer Guide
+    [CrowdVision](./main.qd)
 
-.pageformat width:{1000} 
+.pagemargin {topright}
+    [Documentation](./main.qd) [OpenAPI spec](./reference/api-reference.qd) [Coverage](./reference/coverage.qd)
+
+.html
+    <div class="cv-actions">
+      <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+              aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+      <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+              aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+      <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+         title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+      <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+    </div>
+    <script>
+    (function () {
+      var root = document.documentElement;
+      var KEY = "cv-panels-hidden";
+      var PANELS = ["left", "right"];
+      function attr(side) { return "data-" + side + "-nav"; }
+      function hidden() {
+        try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+        catch (e) { return new Set(); }
+      }
+      function paint(side, isHidden) {
+        if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+        else { root.removeAttribute(attr(side)); }
+        var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+        if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+      }
+      var state = hidden();
+      PANELS.forEach(function (side) { paint(side, state.has(side)); });
+      document.addEventListener("click", function (e) {
+        var b = e.target.closest(".cv-icon[data-panel]");
+        if (!b) return;
+        var side = b.getAttribute("data-panel");
+        var next = !state.has(side);
+        if (next) { state.add(side); } else { state.delete(side); }
+        paint(side, next);
+        try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+        catch (err) {}
+      });
+    })();
+    </script>
+    <script>
+    (function () {
+      var KEY = "cv-nav-collapsed";
+      function norm(u) {
+        return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+      }
+      function load() {
+        try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+        catch (e) { return new Set(); }
+      }
+      function save(set) {
+        try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+        catch (e) {}
+      }
+      function init() {
+        var nav = document.querySelector('nav[data-role="page-list"]');
+        if (!nav) return;
+        var closed = load();
+        var here = norm(location.pathname);
+        Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+          var list = h.nextElementSibling;
+          if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+          var id = h.id || h.textContent.trim();
+          // Quarkdown stamps aria-current after post-rendering, so match on the
+          // URL instead of racing it: the open page's section always starts open.
+          var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+            try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+            catch (e) { return false; }
+          });
+          set(h, closed.has(id) && !holdsCurrent);
+          h.setAttribute("role", "button");
+          h.setAttribute("tabindex", "0");
+          h.addEventListener("click", function () { flip(h, id, closed); });
+          h.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+          });
+        });
+      }
+      function set(h, isClosed) {
+        h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+      }
+      function flip(h, id, closed) {
+        var next = h.getAttribute("data-collapsed") !== "true";
+        set(h, next);
+        if (next) { closed.add(id); } else { closed.delete(id); }
+        save(closed);
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+    })();
+    </script>
+    <script>
+    (function () {
+      var root = document.documentElement;
+      var KEY = "cv-theme";
+      function paint(mode) {
+        root.setAttribute("data-theme", mode);
+        var i = document.querySelector("#cv-theme i");
+        if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+      }
+      var saved;
+      try { saved = localStorage.getItem(KEY); } catch (e) {}
+      paint(saved === "dark" ? "dark" : "light");
+      document.addEventListener("click", function (e) {
+        if (!e.target.closest("#cv-theme")) return;
+        var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        paint(next);
+        try { localStorage.setItem(KEY, next); } catch (e) {}
+      });
+    })();
+    </script>
+
+.footer
+    CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti
+
+.pageformat width:{768}

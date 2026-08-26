@@ -7,7 +7,7 @@ CrowdVision uses a fully automated CI/CD pipeline on GitHub Actions. Every pull 
 
 ## Workflow naming
 
-All workflow files live in \.`github/workflows/` and use a three-prefix convention that mirrors their purpose.
+All workflow files live in `.github/workflows/` and use a three-prefix convention that mirrors their purpose.
 
 .var {headers}
    - Prefix
@@ -113,7 +113,7 @@ The **frontend** splits into a `quality` job (lint, type-check, audit), a `test`
     Every Node service runs the audit twice. **`npm audit --audit-level=high --omit=dev`** is **blocking** — a fixable high/critical vulnerability in a *production* dependency fails the build. **`npm audit --audit-level=high`** (the full tree, including dev deps) runs straight after with `continue-on-error: true`, so dev-only advisories are surfaced in the log without blocking a merge. The split keeps the gate honest about what ships to users while still reporting everything.
 
 .box {The four Go services don't have an audit step yet} type:{note}
-    Unlike every other language here, there's no `govulncheck`-equivalent step in the four Go CI workflows — \.`moon/tasks/go.yml` doesn't define an `audit` task either, so `just setup audit` silently skips them too (see [The Toolchain](../config/toolchain.qd)). Build/lint/test coverage is in place; dependency vulnerability scanning for Go is still open.
+    Unlike every other language here, there's no `govulncheck`-equivalent step in the four Go CI workflows — `.moon/tasks/go.yml` doesn't define an `audit` task either, so `just setup audit` silently skips them too (see [The Toolchain](../config/toolchain.qd)). Build/lint/test coverage is in place; dependency vulnerability scanning for Go is still open.
 
 ---
 
@@ -216,7 +216,7 @@ The workflow does **not** rebuild every image on every push. A `changes` job det
 
 The Trivy scan is deliberately scoped to **OS packages only** (`vuln-type: os`). Application dependencies are not re-scanned here because they are already gated pre-merge by the per-service audits. The division of labour is: **the service CI workflows own language dependencies at PR time; `cd-registry` Trivy owns the base-OS layer at push time** — the part the dependency audits cannot see.
 
-To keep the OS scan green, every production image upgrades its base-OS packages at build time (`apk upgrade` on Alpine images, `apt-get upgrade` on the Debian-based contracts, agent, and aq-simulator images). The Debian upgrade lines carry `# hadolint ignore=DL3005`\. Any residual fixable CVE that cannot be patched in-build is waived in the repo-root \.`trivyignore`, where each entry must carry a justifying comment.
+To keep the OS scan green, every production image upgrades its base-OS packages at build time (`apk upgrade` on Alpine images, `apt-get upgrade` on the Debian-based contracts, agent, and aq-simulator images). The Debian upgrade lines carry `# hadolint ignore=DL3005`\. Any residual fixable CVE that cannot be patched in-build is waived in the repo-root `.trivyignore`, where each entry must carry a justifying comment.
 
 ---
 

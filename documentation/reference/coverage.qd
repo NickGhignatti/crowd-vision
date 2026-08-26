@@ -1,0 +1,41 @@
+.docname {Coverage}
+.include {.pathtoroot/_standalone.qd}
+
+Line and branch coverage per service, read live from the `coverage-data` branch. `cd-coverage.yml` recomputes it on every push to `master` — for changed services only — and force-pushes `summary.json`, `badge.json` and `coverage-counts.json` to that orphan branch. Nothing is committed to `master`, so this page is always the branch's current state, not a snapshot taken at docs-build time.
+
+Coverage is produced per language by `tpl-{rust,go,node,python}-coverage.yml`. Branch coverage is only reported where the language's tooling emits it; `0.0` in that column means not measured, not uncovered.
+
+---
+
+## Current coverage
+
+.html
+    <div id="cv-coverage">Loading coverage from the <code>coverage-data</code> branch…</div>
+    <script>
+    (function () {
+      var URL = "https://raw.githubusercontent.com/nickghignatti/crowd-vision/coverage-data/summary.json";
+      var host = document.getElementById("cv-coverage");
+      if (!host) return;
+      fetch(URL, { cache: "no-store" })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (data) {
+          var names = Object.keys(data).sort();
+          if (!names.length) { host.textContent = "No coverage published yet."; return; }
+          var rows = names.map(function (n) {
+            var d = data[n] || {};
+            var lines = typeof d.lines === "number" ? d.lines : null;
+            var branches = typeof d.branches === "number" ? d.branches : null;
+            var tone = lines === null ? "" : lines >= 80 ? "cv-good" : lines >= 60 ? "cv-ok" : "cv-low";
+            return "<tr><td><code>" + n + "</code></td>"
+              + "<td class='" + tone + "'>" + (lines === null ? "—" : lines.toFixed(2) + "%") + "</td>"
+              + "<td>" + (branches ? branches.toFixed(2) + "%" : "—") + "</td></tr>";
+          }).join("");
+          host.innerHTML = "<table class='cv-coverage-table'><thead><tr><th>Service</th>"
+            + "<th>Lines</th><th>Branches</th></tr></thead><tbody>" + rows + "</tbody></table>";
+        })
+        .catch(function (e) {
+          host.innerHTML = "Could not load coverage (" + e.message + "). "
+            + "The data lives at <code>coverage-data:summary.json</code>.";
+        });
+    })();
+    </script>

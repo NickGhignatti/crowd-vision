@@ -17,15 +17,16 @@ default:
 build:
     sh scripts/check-docs-links.sh
     rm -rf landing-page
-    quarkdown c documentation/main.qd --out landing-page/.stage
+    quarkdown c documentation/main.qd --out landing-page/.stage --allow native-content
     cp -r landing-page/.stage/*/. landing-page/
     rm -rf landing-page/.stage
+    cat documentation/theme/crowdvision.css >> landing-page/theme/theme.css
     mkdir -p landing-page/api
     cp api/index.html api/*.yaml landing-page/api/
 
 [doc("Live-reloading preview server for the guide while editing.")]
 preview:
-    quarkdown c documentation/main.qd --out landing-page/.stage --preview --watch
+    quarkdown c documentation/main.qd --out landing-page/.stage --allow native-content --preview --watch
 
 # Builds the whole site, then live-serves
 [doc("Build the site then live-serve the whole landing-page/ site at :8080.")]

@@ -15,8 +15,11 @@ before any non-trivial change; update it in the same change.
 
 Published-site sources: `documentation/**.qd` (the guide) and `api/*.yaml` (OpenAPI,
 with `api/index.html` as their Swagger viewer). `landing-page/` is **build output
-only** — gitignored, never edit or commit anything there. A new `.qd` page must be
-added to `documentation/_nav.qd`, and a new `api/*.yaml` to
+only** — gitignored, never edit or commit anything there. A new `.qd` page must be linked from
+one of the two navigations — `documentation/_nav.qd` (sidebar) or
+`documentation/_setup.qd` (top nav; `reference/` pages live here, deliberately
+out of the sidebar, and include `_standalone.qd` instead of `docs` so they render
+with no side menus) — and a new `api/*.yaml` from
 `documentation/reference/api-reference.qd`, or it publishes unreachable —
 `just docs build` fails on either.
 

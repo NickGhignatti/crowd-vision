@@ -1,10 +1,14 @@
 #!/bin/sh
 # Guards the two ways content reaches the published site but nobody can get to it.
 #
-# 1. Both navigation lists are hand-maintained: the sidebar (documentation/_nav.qd)
-#    and the API Reference page's spec table. Add a page or a spec without
-#    touching them and the build still goes green -- the file publishes, and
-#    nothing on the site links to it.
+# 1. Every navigation list is hand-maintained: the sidebar (documentation/_nav.qd),
+#    the top nav (documentation/_setup.qd) and the API Reference page's spec
+#    table. Add a page or a spec without touching them and the build still goes
+#    green -- the file publishes, and nothing on the site links to it.
+#
+#    A page needs to appear in exactly one of the two navigations, not both:
+#    reference/ pages are deliberately kept out of the sidebar and reached from
+#    the top nav instead.
 #
 # 2. Quarkdown names each output directory after the page's FILENAME, and the
 #    OpenAPI specs are copied in afterwards. A page named api.qd therefore builds
@@ -14,6 +18,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 nav='documentation/_nav.qd'
+navbar='documentation/_setup.qd'
 apiref='documentation/reference/api-reference.qd'
 specdir='api'
 missing=''
@@ -26,9 +31,11 @@ for spec in "$specdir"/*.yaml; do
 done
 
 for page in $(find documentation -name '*.qd' ! -name 'main.qd' ! -name '_*.qd'); do
-    grep -q "${page#documentation/}" "$nav" ||
+    rel="${page#documentation/}"
+    if ! grep -q "$rel" "$nav" && ! grep -q "$rel" "$navbar"; then
         missing="${missing}
-  missing from ${nav}: ${page}"
+  linked from neither ${nav} (sidebar) nor ${navbar} (top nav): ${page}"
+    fi
 
     if [ "$(basename "$page" .qd)" = "$specdir" ]; then
         missing="${missing}

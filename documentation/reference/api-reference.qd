@@ -1,5 +1,5 @@
 .docname {API Reference}
-.include {docs}
+.include {.pathtoroot/_standalone.qd}
 
 Every service's HTTP surface, as an OpenAPI 3 document rendered by Swagger UI. The specs are **sources in this repository**, at `api/*.yaml`, and are published alongside this guide — so a spec change ships in the same commit as the handler it describes.
 
