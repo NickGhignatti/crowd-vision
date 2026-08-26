@@ -14,10 +14,10 @@ CrowdVision is a polyglot monorepo: TypeScript services, a Python AI agent, a Ru
       - `Justfile`
     - - `mise`
       - Tool versions. The single source of truth for which Node, Python, Rust, uv, and moon you run, on every platform.
-      - `&#46;mise.toml`
+      - \.`mise.toml`
     - - `moon`
       - Per-project task orchestration — build, test, lint, audit, deps — with result caching and affected-detection.
-      - `&#46;moon/`
+      - \.`moon/`
 
 Dependency installation is a moon task like any other (`:deps`, `:relock`). There is no separate script layer: everything is `mise` plus `moon`, fronted by `just`.
 
@@ -59,7 +59,7 @@ Run `just --list` to see every recipe. The recipe catalogue is documented in [Ru
 
 ## mise — the toolchain manager
 
-[mise](https://mise.jdx.dev/) pins every language runtime and CLI to an exact version, per project, across platforms. The pins live in `\.mise.toml` at the repository root:
+[mise](https://mise.jdx.dev/) pins every language runtime and CLI to an exact version, per project, across platforms. The pins live in \.`mise.toml` at the repository root:
 
 ```toml
 [tools]
@@ -87,7 +87,7 @@ mise can place those tools on the `PATH` in two ways. The project is designed to
       - `mise activate pwsh | Out-String | Invoke-Expression` (PowerShell), or `mise activate bash`/`zsh`. Added to a shell profile, the pinned tools are then on `PATH` directly.
     - - `mise exec --`
       - Scripts, CI, and the `Justfile` — anywhere that must work without assuming activation.
-      - `mise exec -- <command>` resolves the tool from `&#46;mise.toml` and runs it, injecting the pinned tools onto `PATH` for that command and every child process it spawns.
+      - `mise exec -- <command>` resolves the tool from \.`mise.toml` and runs it, injecting the pinned tools onto `PATH` for that command and every child process it spawns.
 
 .box {Activation is optional} type:{note}
     You do not need to activate mise for `just` to work. Every recipe that calls a managed tool already wraps it in `mise exec --`, so a fresh clone with only `just` and `mise` installed runs immediately. Activation is purely a convenience for invoking tools by hand.
@@ -110,7 +110,7 @@ mise can place those tools on the `PATH` in two ways. The project is designed to
 
 ### One project registry
 
-Every package is registered once in `\.moon/workspace.yml`. This is the single list of packages in the repository; nothing else maintains a parallel copy.
+Every package is registered once in \.`moon/workspace.yml`. This is the single list of packages in the repository; nothing else maintains a parallel copy.
 
 ```yaml
 projects:
@@ -126,7 +126,7 @@ projects:
 
 ### Tasks defined once per language
 
-Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon.yml` files, the pipeline is defined once per language in `\.moon/tasks/*.yml`, each scoped with `inheritedBy` so it applies only to projects of that language.
+Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon.yml` files, the pipeline is defined once per language in \.`moon/tasks/*.yml`, each scoped with `inheritedBy` so it applies only to projects of that language.
 
 .var {headers}
    - File
@@ -134,19 +134,19 @@ Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon
    - Tasks defined
 
 .tablebyrows {.headers}
-    - - `&#46;moon/tasks/typescript.yml`
+    - - \.`moon/tasks/typescript.yml`
       - `language: typescript`
       - `build`, `test`, `lint`, `lint-fix`, `deps`, `relock`, `audit`
-    - - `&#46;moon/tasks/python.yml`
+    - - \.`moon/tasks/python.yml`
       - `language: python`
       - `test`, `lint`, `lint-fix`, `deps`, `relock`, `audit`
-    - - `&#46;moon/tasks/rust.yml`
+    - - \.`moon/tasks/rust.yml`
       - `language: rust`
       - `build`, `test`, `lint`, `deps` (`cargo fetch`), `deps-check` (`cargo check`), `audit`
-    - - `&#46;moon/tasks/go.yml`
+    - - \.`moon/tasks/go.yml`
       - `language: go`
       - `build` (`go build ./...`), `test` (`go test ./...`), `lint` (`go vet ./...` — no `golangci-lint` in this environment yet), `deps` (`go mod download`). No `audit` task yet.
-    - - `&#46;moon/tasks/javascript.yml`
+    - - \.`moon/tasks/javascript.yml`
       - `language: javascript`
       - `deps`, `relock` only — for support packages
 
@@ -185,7 +185,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
     - - `tooling`, `eslint-config`, `tests`
       - Tagged `language: 'javascript'` so they inherit only `deps`. (`backend/acceptance` holds an integration-only Jest suite that runs via `just test integration`, never as a moon `:test`.)
     - - `claims-gateway`, `tenancy`, `registry`, `provisioner`
-      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in `\.mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)). Modules are fetched by the inherited `deps` task (`go mod download`) like every other language.
+      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in \.`mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)). Modules are fetched by the inherited `deps` task (`go mod download`) like every other language.
 
 ### Inspecting the graph
 
@@ -209,11 +209,11 @@ The payoff of the design is that each fact lives in exactly one place.
 
 .tablebyrows {.headers}
     - - Which version of Node, uv, or Rust?
-      - `&#46;mise.toml`
+      - \.`mise.toml`
     - - Which packages exist in the repository?
-      - `&#46;moon/workspace.yml`
+      - \.`moon/workspace.yml`
     - - How is a TypeScript project tested, linted, or audited?
-      - `&#46;moon/tasks/typescript.yml`
+      - \.`moon/tasks/typescript.yml`
     - - How are a project's dependencies installed or relocked?
       - The same per-language file — its `deps` / `relock` tasks
 
@@ -236,7 +236,7 @@ So `just setup install` installs exactly the packages moon knows about; no drift
 
 Thanks to the single registry, onboarding a package is a one-place change:
 
-1. Register it in `\.moon/workspace.yml` under `projects:`.
+1. Register it in \.`moon/workspace.yml` under `projects:`.
 2. Add a minimal `moon.yml` in the package with its `language:` (and any genuine task overrides).
 3. It now flows automatically into whichever tasks its language file defines (`:build` / `:test` / `:lint` / `:deps`, and `:audit` for every language except `go`), and into `just setup install` / `just setup clean-install` via `:deps` / `:relock`. Nothing else to register.
 
@@ -259,4 +259,4 @@ Thanks to the single registry, onboarding a package is a one-place change:
     - - `just test all` / `just lint all` re-runs everything
       - Expected on the first run. The second run replays from moon's cache. Use `--affected` to scope to changed projects.
     - - A new service is not tested or installed
-      - It is not registered in `&#46;moon/workspace.yml`, or its `moon.yml` is missing or has the wrong `language`. Verify with `mise exec -- moon query projects`.
+      - It is not registered in \.`moon/workspace.yml`, or its `moon.yml` is missing or has the wrong `language`. Verify with `mise exec -- moon query projects`.

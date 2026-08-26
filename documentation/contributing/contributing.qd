@@ -12,7 +12,7 @@ CrowdVision is a polyglot monorepo: a Vue frontend, six Rust services (`chat`, `
 Two structural facts shape everything you do:
 
 - **There is no root `package.json` and no npm workspaces.** Each Node package — `frontend`, `simulators/sensor-simulator`, `tooling/eslint-config` — installs its own `node_modules`\. `tooling/` holds only the shared ESLint flat config, `@crowdvision/eslint-config`, at `tooling/eslint-config/`\.
-- **Every package is registered once** in `\.moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
+- **Every package is registered once** in \.`moon/workspace.yml`, and the toolchain derives everything else from it. See [The Toolchain](../config/toolchain.qd).
 
 .box {Dependencies are not hoisted} type:{note}
     When you add a Node dependency, install it inside that package's directory (`cd frontend && npm install <pkg>`). Because that `npm install` resolves the lockfile for your operating system, regenerate it for Linux before committing — `just setup clean-install`, or per-package `npm install --prefix frontend --package-lock-only --cpu=x64 --os=linux` — otherwise CI's `npm ci` fails on missing Linux optional packages. Run `just setup deps-check` before pushing. Rust and Go dependencies aren't hoisted either, but don't have this platform-resolution pitfall: `cargo add <crate>` / `go get <module>` inside the service directory is enough.
@@ -39,7 +39,7 @@ These rules preserve the boundaries the architecture depends on. A contribution 
     - - Test what you change
       - Every backend service has a test suite in its language's idiomatic location (in-module `#[cfg(test)]` plus `tests/` for the Rust services, `*_test.go` alongside the code for the Go services, `tests/` for the Python `agent`). The frontend has no unit suite by design: its behaviour is covered by `frontend/e2e/` and the cross-service suite in `backend/acceptance/`. New behaviour must be covered, and `just test all` must pass before you open a pull request.
     - - Route every tool through mise
-      - Never rely on the ambient `PATH`\. Use `just` recipes (which wrap `mise exec --`) or `mise exec -- <tool>` directly. Register any new package in `&#46;moon/workspace.yml`\.
+      - Never rely on the ambient `PATH`\. Use `just` recipes (which wrap `mise exec --`) or `mise exec -- <tool>` directly. Register any new package in \.`moon/workspace.yml`\.
 
 ---
 
@@ -88,4 +88,4 @@ just setup audit           # mirrors ci-audit (npm / uv / cargo audit — no Go 
 
 Release-time version bumps across every manifest are applied by `release-please-config.json`'s `extra-files` glob patterns (see [Commits & Release Please](release-please.qd)), rather than Lerna or npm workspaces.
 
-Lerna 9 dropped its own package-discovery field and now delegates entirely to npm workspaces. npm workspaces cannot point upward with `\../` — workspace paths must be strict descendants of the directory owning the `package.json`\. Because `tooling/` sits inside the repository rather than above the services, a `tooling/package.json` declaring `"workspaces": ["../frontend", "../backend/*"]` is rejected by npm outright. Tracking a single `release-type: simple` package at the repo root and listing every other manifest as a glob-matched `extra-file` sidesteps the constraint entirely — no workspaces, no Lerna discovery involved.
+Lerna 9 dropped its own package-discovery field and now delegates entirely to npm workspaces. npm workspaces cannot point upward with \.`./` — workspace paths must be strict descendants of the directory owning the `package.json`\. Because `tooling/` sits inside the repository rather than above the services, a `tooling/package.json` declaring `"workspaces": ["../frontend", "../backend/*"]` is rejected by npm outright. Tracking a single `release-type: simple` package at the repo root and listing every other manifest as a glob-matched `extra-file` sidesteps the constraint entirely — no workspaces, no Lerna discovery involved.

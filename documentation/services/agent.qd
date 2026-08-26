@@ -173,7 +173,7 @@ system prompt steers the model to `get_latest_sensor_data` / `get_sensor_history
 ## Knowledge Base And Retrieval
 
 In Docker Compose, the one-shot `agent-ingester` waits for the service to become healthy,
-then ingests `\.qd`, `\.md`, and `\.markdown` files from `documentation`\.
+then ingests \.`qd`, \.`md`, and \.`markdown` files from `documentation`\.
 
 ```bash
 just agent ingest

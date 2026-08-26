@@ -16,7 +16,7 @@ just stack dev
 ```
 
 **What happens:**
-1. `just stack env` runs first to verify your `\.env` and generate any missing keys (see [Setting Up the Environment](setting-up.qd) for the full list of what it generates).
+1. `just stack env` runs first to verify your \.`env` and generate any missing keys (see [Setting Up the Environment](setting-up.qd) for the full list of what it generates).
 2. A runtime compose file is generated that includes all service compose files.
 3. Docker Compose launches with `--watch` — saving a file triggers an instant hot-reload inside the running container.
 4. All services start: Caddy proxy, Redis, Keycloak, every service's own database (MongoDB or Postgres, depending on the service), all backend microservices, and the Vue frontend.
@@ -166,7 +166,7 @@ just k8s rollout digital-twin
 ```
 
 .box {Six of the twelve images build from the repo root, not their own directory} type:{note}
-    `digital-twin`, `agent`, `claims-gateway`, `tenancy`, `registry`, and `provisioner` all build with `-f backend/<service>/Dockerfile .` from the **repository root**, not `\./backend/<service>`\. Reason differs by language but is the same shape both times: `digital-twin`/`agent` read the shared Cedar authorization policy bundle at `backend/libs/auth-policy` and the role-weight ladder at `backend/libs/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat`, `dashboard`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
+    `digital-twin`, `agent`, `claims-gateway`, `tenancy`, `registry`, and `provisioner` all build with `-f backend/<service>/Dockerfile .` from the **repository root**, not \.`/backend/<service>`\. Reason differs by language but is the same shape both times: `digital-twin`/`agent` read the shared Cedar authorization policy bundle at `backend/libs/auth-policy` and the role-weight ladder at `backend/libs/auth-contracts/roles.json`, both siblings of their own directory; the four Go control-plane services depend on sibling Go modules (`auth-contracts`, `auth-middleware`, `auth-policy`) via a local `replace` directive rather than a registry, which only resolves if those siblings are inside the build context. `chat`, `dashboard`, and the rest build from their own directory as shown above for the general case. `just k8s build` already gets every one of the twelve images right — see `just/k8s.just` for the exact command per service.
 
 ### Managing Cluster Lifecycle
 
@@ -261,7 +261,7 @@ mise exec -- moon run :audit --affected
     `just setup deps-check` is the fastest way to catch a lockfile drift before pushing (the classic `npm ci can only install packages when your package.json and package-lock.json are in sync`). If it fails, regenerate the offending lockfile with `just setup clean-install` (see [Setting Up the Environment](setting-up.qd) → *Lockfiles & Cross-Platform Regeneration*). The Rust `cargo audit` leg is marked **allow-failure**: if `cargo-audit` isn't installed it is reported but does not fail the run (`cargo install cargo-audit` to enable it).
 
 .box {Go projects aren't part of the audit sweep yet} type:{note}
-    `\.moon/tasks/go.yml` defines `build`, `test`, `lint` (`go vet`), and `deps` (`go mod download`) for the four Go control-plane services, but no `audit` task — so `just setup audit` silently skips them (moon only runs a task for projects that define it). There's no `govulncheck`-equivalent leg yet for `claims-gateway`, `tenancy`, `registry`, or `provisioner`\.
+    \.`moon/tasks/go.yml` defines `build`, `test`, `lint` (`go vet`), and `deps` (`go mod download`) for the four Go control-plane services, but no `audit` task — so `just setup audit` silently skips them (moon only runs a task for projects that define it). There's no `govulncheck`-equivalent leg yet for `claims-gateway`, `tenancy`, `registry`, or `provisioner`\.
 
 ---
 
@@ -333,7 +333,7 @@ mise exec -- moon run :audit --affected
 The Caddy proxy forwards to the service container but nothing is listening. Most common causes:
 
 **1. The `dev` script in `package.json` points to a non-existent file.**
-Every Node.js/TypeScript service must reference `src/index.ts` via `ts-node/esm`, not a compiled `\.js` file. Check the service's `package.json`:
+Every Node.js/TypeScript service must reference `src/index.ts` via `ts-node/esm`, not a compiled \.`js` file. Check the service's `package.json`:
 
 ```bash
 # Correct pattern (all TypeScript services):
@@ -345,7 +345,7 @@ If it says `src/index.js` and that file does not exist, nodemon exits silently a
 **2. Environment variable is empty or wrong.**
 Open the service logs: `just stack logs <service-name>`\. Look for connection errors to MongoDB or Redis at startup.
 
-**3. Missing `\.env` variable.**
+**3. Missing \.`env` variable.**
 Run `just stack env` to fill any gaps. The script skips variables already present, so it is safe to re-run.
 
 ---

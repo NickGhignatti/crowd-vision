@@ -24,12 +24,12 @@ A service carries **one short name** across every surface it appears in — no `
       - `telemetry:3000`
     - - Environment variable
       - `TELEMETRY_URL`, `DIGITAL_TWIN_URL`
-    - - `&#46;github/services&#46;json` key, moon project, CI leg
+    - - \.`github/services.json` key, moon project, CI leg
       - `telemetry`
     - - Kubernetes manifest, documentation page
-      - `k8s/deployments/telemetry&#46;yml`, `services/telemetry&#46;qd`
+      - `k8s/deployments/telemetry.yml`, `services/telemetry.qd`
     - - Diagram asset
-      - `architecture/images/cc-telemetry&#46;svg`, `architecture/images/cc-digital-twin&#46;svg`
+      - `architecture/images/cc-telemetry.svg`, `architecture/images/cc-digital-twin.svg`
 
 `claims-gateway` and `provisioner` are named for what they *are* — a gateway, a reconciler — rather than `<noun>-service`. That is deliberate, not an oversight.
 
@@ -255,10 +255,10 @@ Common scopes: `gateway` (claims-gateway), `tenancy`, `registry`, `provisioner`,
       - `crowdvision-<service>` under the org namespace
       - `ghcr.io/nickghignatti/crowdvision-twin`
     - - Workflow files
-      - `<category>-<name>&#46;yml` (`ci-`, `cd-`, `maint-`)
+      - `<category>-<name>` with a `yml` extension (`ci-`, `cd-`, `maint-`)
       - `ci-twin.yml`, `cd-release.yml`, `maint-cleanup.yml`
     - - Documentation pages
-      - `kebab-case` `&#46;qd`
+      - `kebab-case` with a `qd` extension
       - `building-data.qd`, `naming-conventions.qd`
 
 ---
@@ -282,4 +282,4 @@ A rename is never only a rename: several identifiers derived from a service's na
       - `system:notification-service` keeps the old name on purpose: it is pinned byte-for-byte by a test, and it reads as a stable source in a central log regardless of the directory name.
 
 .box {Check the orphans after a rename} type:{warning}
-    `docker volume ls` lists every volume for the project. Anything whose name no longer appears in a `docker-compose*&#46;yml` is orphaned — either migrate it or delete it deliberately, but do not leave it to be rediscovered as "the data disappeared".
+    `docker volume ls` lists every volume for the project. Anything whose name no longer appears in a `docker-compose` YAML file is orphaned — either migrate it or delete it deliberately, but do not leave it to be rediscovered as "the data disappeared".

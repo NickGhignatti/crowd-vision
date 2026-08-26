@@ -83,7 +83,7 @@ The kernel **never names a plugin**. Every metric-specific decision is reached t
         K --> RD
         K --> KP
         K --> DEV
-        HTTP -.authz.-> TW
+        HTTP -.->|authz| TW
 
 ### Components & Connectors diagram
 

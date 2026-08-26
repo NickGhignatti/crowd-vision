@@ -64,7 +64,7 @@ BREAKING CHANGE: clients must migrate to /gateway. The v1 routes are gone.
 
 ## The release pipeline
 
-Releases are gated by a pull request rather than pushed straight to `master`\. On every push to `master`, the `cd-release` workflow runs `googleapis/release-please-action`, configured by the repo-root `release-please-config.json` and `\.release-please-manifest.json`\.
+Releases are gated by a pull request rather than pushed straight to `master`\. On every push to `master`, the `cd-release` workflow runs `googleapis/release-please-action`, configured by the repo-root `release-please-config.json` and \.`release-please-manifest.json`\.
 
 .mermaid
     flowchart TD
@@ -97,7 +97,7 @@ backend/*/pyproject.toml
 These globs (in `release-please-config.json`'s `extra-files`) are resolved fresh on every run, so a new Node/Rust/Python service under `backend/` is picked up automatically — no config edit needed to add one. `backend/acceptance/package.json` also matches the `backend/*/package.json` glob but has no `version` field, so release-please leaves it untouched.
 
 .box {Why one shared version instead of one per package} type:{note}
-    None of these per-service version fields are read at runtime — no service exposes a `/version` endpoint or bakes its `package.json` version into a binary. They exist purely so `npm ci` doesn't reject a `package.json`/`package-lock.json` pair with mismatched versions. Rather than version each service independently, the repo tracks a single version at `\.` (`release-type: simple`, no manifest of its own) and stamps it into every other file via `extra-files` — matching how the whole monorepo has always shipped as one release, not fourteen.
+    None of these per-service version fields are read at runtime — no service exposes a `/version` endpoint or bakes its `package.json` version into a binary. They exist purely so `npm ci` doesn't reject a `package.json`/`package-lock.json` pair with mismatched versions. Rather than version each service independently, the repo tracks a single version at \.`` (`release-type: simple`, no manifest of its own) and stamps it into every other file via `extra-files` — matching how the whole monorepo has always shipped as one release, not fourteen.
 
 ---
 

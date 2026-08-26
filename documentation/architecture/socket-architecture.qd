@@ -77,13 +77,13 @@ The core/shell split is **test-enforced**, not a convention — `tests/architect
    - Why it matters
 
 .tablebyrows {.headers}
-    - - Every `.rs` under `src/` lives in `src/core/` or `src/shell/` (only `lib.rs` and `main.rs` are exempt).
+    - - Every Rust source file under `src/` lives in `src/core/` or `src/shell/` (only `lib.rs` and `main.rs` are exempt).
       - Without this, a new file added at `src/` level is silently exempt from every rule below. This is the rule that keeps the others honest as the service grows.
     - - Nothing under `src/core/` imports an I/O crate — no `axum`, `redis`, `socketioxide`, `tokio`, `tower_http`, `prometheus`.
       - The moment a socket type reaches the core, its logic stops being testable without infrastructure.
     - - Nothing under `src/core/` names `crate::shell`.
       - Dependencies point inward. The shell calls the core, never the reverse.
-    - - No `async fn` or `.await` under `src/core/`.
+    - - No `async fn` or `await` under `src/core/`.
       - A pure function has nothing to await; async there is proof that I/O leaked in.
     - - The literals `"building:` and `"domain:` appear only in `core/rooms.rs`.
       - Room names are a wire contract with the browser. One source, or they drift.
