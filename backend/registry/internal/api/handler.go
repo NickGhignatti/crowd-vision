@@ -83,9 +83,21 @@ func (h *handler) setStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad body", http.StatusBadRequest)
 		return
 	}
-	err := h.svc.MarkReady(r.Context(), chi.URLParam(r, "id"))
-	if body.Status == "failed" {
-		err = h.svc.MarkFailed(r.Context(), chi.URLParam(r, "id"), body.Detail)
+	// An allowlist, and a branch rather than an overwrite. The provisioner is the
+	// only caller and reports exactly these two outcomes; treating anything else
+	// as "ready" would mark a tenant live off a typo, and marking ready on the way
+	// to failed would publish a state the organization was never in (and discard
+	// MarkReady's error whenever the second call succeeded).
+	id := chi.URLParam(r, "id")
+	var err error
+	switch body.Status {
+	case "ready":
+		err = h.svc.MarkReady(r.Context(), id)
+	case "failed":
+		err = h.svc.MarkFailed(r.Context(), id, body.Detail)
+	default:
+		http.Error(w, `status must be "ready" or "failed"`, http.StatusBadRequest)
+		return
 	}
 	if errors.Is(err, service.ErrNotFound) {
 		http.Error(w, "not found", http.StatusNotFound)

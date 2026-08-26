@@ -125,3 +125,37 @@ func TestSuspend_SetsBothLicenseAndOrgStatus(t *testing.T) {
 		t.Fatalf("got %+v, want both status fields suspended", got)
 	}
 }
+
+// Suspend is two writes and the licence goes first. If that write fails the org
+// must keep its current status: a row reading "suspended" whose licence is still
+// "active" would suspend a paying tenant with nothing recording why.
+func TestSuspend_DoesNotChangeStatusWhenTheLicenceWriteFails(t *testing.T) {
+	svc, fake := newSvc()
+	org, err := svc.Signup(context.Background(), service.SignupInput{Name: "unibo", DisplayName: "UniBO", Tier: "pooled"})
+	if err != nil {
+		t.Fatalf("signup: %v", err)
+	}
+	fake.SetLicenseStatusErr = errors.New("connection refused")
+	fake.StatusWrites = nil
+
+	if err := svc.Suspend(context.Background(), org.ID); err == nil {
+		t.Fatal("got nil error, want the licence write's failure")
+	}
+	if len(fake.StatusWrites) != 0 {
+		t.Fatalf("status writes = %v, want none after a failed licence write", fake.StatusWrites)
+	}
+	got, err := fake.Get(context.Background(), org.ID)
+	if err != nil {
+		t.Fatalf("fake.Get: %v", err)
+	}
+	if got.Status != "provisioning" {
+		t.Fatalf("got status %q, want it left at provisioning", got.Status)
+	}
+}
+
+func TestSuspend_ReturnsNotFoundForUnknownOrg(t *testing.T) {
+	svc, _ := newSvc()
+	if err := svc.Suspend(context.Background(), "org-does-not-exist"); !errors.Is(err, service.ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}

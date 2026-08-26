@@ -164,7 +164,7 @@ func requireInternalSignature(secret []byte) func(http.Handler) http.Handler {
       - Every organization with `status = 'provisioning'` — `provisioner`'s poll target.
     - - `POST /internal/organizations/:id/status`
       - HMAC
-      - Sets `status` to `ready` or `failed` (with a `detail` message); called by `provisioner` after it attempts to provision one organization.
+      - Sets `status` to `ready` or `failed` (with a `detail` message); called by `provisioner` after it attempts to provision one organization. Those two values are the only ones accepted — any other, or a missing `status`, is `400` with nothing written.
     - - `POST /internal/organizations/:id/suspend`
       - HMAC
       - Sets both `status` and `license_status` to `suspended`.
