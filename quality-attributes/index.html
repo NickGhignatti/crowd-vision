@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Quality Attributes</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="performance" data-depth="2"><a href="#performance">Performance</a><ol><li data-target-id="qa-p-01-live-data-freshness" data-depth="3"><a href="#qa-p-01-live-data-freshness">QA-P-01: Live Data Freshness</a></li><li data-target-id="qa-p-02-tenancy-check-latency" data-depth="3"><a href="#qa-p-02-tenancy-check-latency">QA-P-02: Tenancy Check Latency</a></li><li data-target-id="qa-p-03-building-upload" data-depth="3"><a href="#qa-p-03-building-upload">QA-P-03: Building Upload</a></li><li data-target-id="qa-p-04-upload-burst" data-depth="3"><a href="#qa-p-04-upload-burst">QA-P-04: Upload Burst</a></li></ol></li><li data-target-id="availability" data-depth="2"><a href="#availability">Availability</a><ol><li data-target-id="qa-a-01-instance-loss" data-depth="3"><a href="#qa-a-01-instance-loss">QA-A-01: Instance Loss</a></li></ol></li><li data-target-id="scalability" data-depth="2"><a href="#scalability">Scalability</a><ol><li data-target-id="qa-s-01-organization-growth" data-depth="3"><a href="#qa-s-01-organization-growth">QA-S-01: Organization Growth</a></li></ol></li><li data-target-id="recoverability" data-depth="2"><a href="#recoverability">Recoverability</a><ol><li data-target-id="qa-r-01-deployment-rollback" data-depth="3"><a href="#qa-r-01-deployment-rollback">QA-R-01: Deployment Rollback</a></li></ol></li><li data-target-id="observability" data-depth="2"><a href="#observability">Observability</a><ol><li data-target-id="qa-o-01-incident-detection-amp-diagnosis" data-depth="3"><a href="#qa-o-01-incident-detection-amp-diagnosis">QA-O-01: Incident Detection &amp; Diagnosis</a></li></ol></li><li data-target-id="usability" data-depth="2"><a href="#usability">Usability</a><ol><li data-target-id="qa-u-01-trustworthy-uncertainty" data-depth="3"><a href="#qa-u-01-trustworthy-uncertainty">QA-U-01: Trustworthy Uncertainty</a></li></ol></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-panels-hidden";
+  var PANELS = ["left", "right"];
+  function attr(side) { return "data-" + side + "-nav"; }
+  function hidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function paint(side, isHidden) {
+    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+    else { root.removeAttribute(attr(side)); }
+    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  var state = hidden();
+  PANELS.forEach(function (side) { paint(side, state.has(side)); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    if (!b) return;
+    var side = b.getAttribute("data-panel");
+    var next = !state.has(side);
+    if (next) { state.add(side); } else { state.delete(side); }
+    paint(side, next);
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+    catch (err) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEY = "cv-nav-collapsed";
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  function load() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function save(set) {
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+    catch (e) {}
+  }
+  function init() {
+    var nav = document.querySelector('nav[data-role="page-list"]');
+    if (!nav) return;
+    var closed = load();
+    var here = norm(location.pathname);
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+      var id = h.id || h.textContent.trim();
+      // Quarkdown stamps aria-current after post-rendering, so match on the
+      // URL instead of racing it: the open page's section always starts open.
+      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+        catch (e) { return false; }
+      });
+      set(h, closed.has(id) && !holdsCurrent);
+      h.setAttribute("role", "button");
+      h.setAttribute("tabindex", "0");
+      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+      });
+    });
+  }
+  function set(h, isClosed) {
+    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+  }
+  function flip(h, id, closed) {
+    var next = h.getAttribute("data-collapsed") !== "true";
+    set(h, next);
+    if (next) { closed.add(id); } else { closed.delete(id); }
+    save(closed);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes" aria-current="page">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="performance" data-depth="2"><a href="#performance">Performance</a><ol><li data-target-id="qa-p-01-live-data-freshness" data-depth="3"><a href="#qa-p-01-live-data-freshness">QA-P-01: Live Data Freshness</a></li><li data-target-id="qa-p-02-tenancy-check-latency" data-depth="3"><a href="#qa-p-02-tenancy-check-latency">QA-P-02: Tenancy Check Latency</a></li><li data-target-id="qa-p-03-building-upload" data-depth="3"><a href="#qa-p-03-building-upload">QA-P-03: Building Upload</a></li><li data-target-id="qa-p-04-upload-burst" data-depth="3"><a href="#qa-p-04-upload-burst">QA-P-04: Upload Burst</a></li></ol></li><li data-target-id="availability" data-depth="2"><a href="#availability">Availability</a><ol><li data-target-id="qa-a-01-instance-loss" data-depth="3"><a href="#qa-a-01-instance-loss">QA-A-01: Instance Loss</a></li></ol></li><li data-target-id="scalability" data-depth="2"><a href="#scalability">Scalability</a><ol><li data-target-id="qa-s-01-organization-growth" data-depth="3"><a href="#qa-s-01-organization-growth">QA-S-01: Organization Growth</a></li></ol></li><li data-target-id="recoverability" data-depth="2"><a href="#recoverability">Recoverability</a><ol><li data-target-id="qa-r-01-deployment-rollback" data-depth="3"><a href="#qa-r-01-deployment-rollback">QA-R-01: Deployment Rollback</a></li></ol></li><li data-target-id="observability" data-depth="2"><a href="#observability">Observability</a><ol><li data-target-id="qa-o-01-incident-detection-amp-diagnosis" data-depth="3"><a href="#qa-o-01-incident-detection-amp-diagnosis">QA-O-01: Incident Detection &amp; Diagnosis</a></li></ol></li><li data-target-id="usability" data-depth="2"><a href="#usability">Usability</a><ol><li data-target-id="qa-u-01-trustworthy-uncertainty" data-depth="3"><a href="#qa-u-01-trustworthy-uncertainty">QA-U-01: Trustworthy Uncertainty</a></li></ol></li></ol></nav></div><h1 id="quality-attributes" data-decorative="">Quality Attributes</h1><p>Quality Attributes are the measurable <em>how well</em> — as opposed to the <a href="../non-functional-requirements">Non-Functional Requirements</a>, which are binary must/must-not constraints. Each is written as a <strong>Quality Attribute Scenario</strong>: a six-part structure — Source of stimulus, Stimulus, Artifact, Environment, Response, Response Measure — that turns a vague &quot;-ility&rdquo; into something testable.</p><p><strong>The Response Measure is where every number lives.</strong> A scenario whose measure reads &ldquo;perceived as instantaneous&rdquo; is not testable, and a target duplicated onto the <a href="../user-stories">User Stories</a> it grounds is a target that drifts on one of the two pages. Quality Attributes are architecture characteristics, developed downstream to satisfy an expectation a story already states in plain language — so the stories say what must be true and how it should feel (&ldquo;quickly&rdquo;, &ldquo;instantly&rdquo;), this page turns that feeling into a number and cites the stories it answers, never the reverse. Each measure below is written so a load or integration test can decide it without further interpretation.</p><p>Where a scenario measures how well an <a href="../non-functional-requirements">NFR</a> constraint is satisfied, that relationship is called out rather than restated.</p><hr /><h2 id="performance">Performance</h2><h3 id="qa-p-01-live-data-freshness">QA-P-01: Live Data Freshness</h3><ul><li><strong>Source of stimulus:</strong> A sensor.</li><li><strong>Stimulus:</strong> A new reading is ingested for a room currently shown on a building&rsquo;s dashboard or 3D view.</li><li><strong>Artifact:</strong> The Live Dashboard / 3D twin view.</li><li><strong>Environment:</strong> Normal operation, view open in a user&rsquo;s browser.</li><li><strong>Response:</strong> The updated value appears without a manual refresh, and a reading that breaches a threshold reaches every subscribed staff member&rsquo;s enrolled devices.</li><li><strong>Response Measure:</strong> Two boundaries, because the system owns only one of them. <strong>Inside the system — p99 ≤ 1s</strong> from the reading being accepted at ingestion to the update being handed to the client&rsquo;s transport by <span class="codespan-content"><code>socket</code></span>, and likewise to the alert being handed to the push provider. <strong>End to end — p99 ≤ 5s</strong> from ingestion-accepted to the value being painted in the browser. <strong>No reading is dropped</strong> — every ingested reading is eventually rendered, including those ingested while a client&rsquo;s live connection was down — and <strong>exactly one alert per breach event</strong> is delivered.</li></ul><p><em>Grounded in **LD-4</em>, <strong>AL-3</strong>. Expressed as executable acceptance criteria in <a href="../acceptance-criteria">Acceptance Criteria</a>.*</p><p>The split is deliberate. The 1s boundary is the one that becomes a production <strong>SLO</strong>: it is measured entirely from server-side signals, and every hop inside it is a hop CrowdVision controls. The 5s boundary covers the last hop — the client&rsquo;s network and render — which the platform cannot control and therefore must not promise in production; it is asserted in the end-to-end acceptance test instead, where the client is part of the harness and its network is a known quantity. Reporting only the inner boundary would let the dashboard stay green while a user on a degraded connection reads stale values, so both are stated, each measured where it is honest to measure it.</p><h3 id="qa-p-02-tenancy-check-latency">QA-P-02: Tenancy Check Latency</h3><ul><li><strong>Source of stimulus:</strong> A user with memberships in multiple organizations.</li><li><strong>Stimulus:</strong> The user switches organization, or opens any organization-scoped screen.</li><li><strong>Artifact:</strong> The tenancy check performed on every request.</li><li><strong>Environment:</strong> Normal operation, any number of organizations the user belongs to.</li><li><strong>Response:</strong> The correct, tenant-scoped data is returned.</li><li><strong>Response Measure:</strong> <strong>p95 ≤ 10ms</strong> for the authorization decision itself — measured in-process, excluding the I/O of the request it gates — and <strong>flat with membership count</strong> up to 50 memberships per principal: the p95 at 50 memberships is within 20% of the p95 at 1.</li></ul><p><em>Grounded in **AA-5</em>, <strong>BT-4</strong>, <strong>AI-4</strong>. This is the measurable counterpart of <a href="../non-functional-requirements#_1-decentralized-authorization-evaluation">NFR-1</a>, Decentralized Authorization Evaluation — that constraint is what makes this response measure achievable.*</p><h3 id="qa-p-03-building-upload">QA-P-03: Building Upload</h3><ul><li><strong>Source of stimulus:</strong> A Domain Administrator.</li><li><strong>Stimulus:</strong> Uploads a building description to provision its digital twin.</li><li><strong>Artifact:</strong> The twin-provisioning path — validation, durable acceptance, and the worker that builds the twin.</li><li><strong>Environment:</strong> Normal operation, 100 concurrent uploads, buildings of <strong>≤ 200 rooms</strong>.</li><li><strong>Response:</strong> A well-formed upload is durably accepted and acknowledged straight away, with a handle the administrator can watch; the twin follows shortly after and becomes available for viewing and editing. A malformed upload is refused outright, before it is ever accepted.</li><li><strong>Response Measure:</strong> Two stages, measured separately. <strong>Acceptance — p99 ≤ 1s</strong> from the upload request to a durable acknowledgement carrying a tracking handle. <strong>Completion — p99 ≤ 10s</strong> from acknowledgement to the twin being viewable and editable. A description that fails validation is <strong>rejected whole and synchronously</strong> — never acknowledged, never queued — with <strong>0 partial twins persisted</strong> and a rejection naming the failing element.</li></ul><p><em>Grounded in **BT-1</em>. Expressed as executable acceptance criteria in <a href="../acceptance-criteria">Acceptance Criteria</a>.*</p><p>Validation staying <strong>synchronous, ahead of acceptance</strong>, is the load-bearing part of this scenario rather than an implementation detail. Once an upload has been acknowledged it is the system&rsquo;s responsibility to complete, so anything that can be known to be impossible must be discovered before the acknowledgement is issued — otherwise a malformed description is accepted, fails in a worker minutes later, and BT-1&rsquo;s edge case (the administrator learns <em>what</em> failed, at the moment they upload) becomes unimplementable. Structural validation is cheap and local; provisioning is neither. The boundary belongs exactly between them.</p><h3 id="qa-p-04-upload-burst">QA-P-04: Upload Burst</h3><ul><li><strong>Source of stimulus:</strong> Many Domain Administrators at once — an onboarding wave, a semester rollover, a customer migrating a whole portfolio in an afternoon.</li><li><strong>Stimulus:</strong> Building uploads arrive at roughly <strong>10× the nominal rate</strong>, sustained for <strong>5 minutes</strong>.</li><li><strong>Artifact:</strong> The twin-provisioning path and the admission control in front of it.</li><li><strong>Environment:</strong> Peak load — beyond the envelope QA-P-03 is measured in.</li><li><strong>Response:</strong> Every accepted upload is eventually provisioned — exactly once, completely, however long the burst lasts. Only load beyond <em>durable</em> capacity is refused, and it is refused explicitly rather than dropped.</li><li><strong>Response Measure:</strong> Split into an invariant and a target, because they are different kinds of promise.<ul><li><strong>Invariant — 100%.</strong> Every upload the system acknowledged is eventually provisioned: <strong>0 models lost</strong>, <strong>0 partial twins</strong>, <strong>0 duplicate buildings</strong>. This has no error budget; a single violation is a defect, not a spent allowance.</li><li><strong>Target — 99.9%</strong> of accepted uploads are viewable <strong>within 30s</strong>, measured over the burst window, against <strong>p99 ≤ 10s</strong> at nominal load.</li><li><strong>Backpressure —</strong> uploads are refused only once durable capacity is exhausted, and every refusal is a <span class="codespan-content"><code>429</code></span> carrying <span class="codespan-content"><code>Retry-After</code></span>: <strong>0 timeouts, 0 <span class="codespan-content"><code>5xx</code></span>, 0 silently discarded uploads.</strong></li><li><strong>Recovery —</strong> the backlog drains to zero and completion returns to its nominal p99 <strong>within 60s</strong> of the burst ending; <strong>dead-letter depth stays 0</strong> throughout.</li></ul></li></ul><p><em>Grounded in **BT-1</em>, under stress. Expressed as executable acceptance criteria in <a href="../acceptance-criteria">Acceptance Criteria</a>.*</p><p>The invariant is what dictates the design, so it is worth being explicit about what has to be true for it to hold. Three things, together: the upload is <strong>appended durably before it is acknowledged</strong> (an acknowledgement issued ahead of the write is a promise the system cannot keep across a crash); the worker <strong>acknowledges the queue only after the twin is committed</strong>, so a worker dying mid-provision redelivers rather than silently drops; and the upload carries an <strong>idempotency key</strong>, so that redelivery reconciles onto the same building instead of creating a second one. Delivery is at-least-once — no broker offers more — and it is the idempotent write, not the transport, that makes the effect exactly-once.</p><p>Note also what this scenario does <em>not</em> promise. Unbounded acceptance is not achievable: the queue is finite, so a burst large enough or long enough will still be refused. What changes against a synchronous design is where that threshold sits and what a crossing means — refusal happens at durable capacity rather than at in-flight request capacity, and an upload that got past it is guaranteed, not merely likely, to be provisioned.</p><hr /><h2 id="availability">Availability</h2><h3 id="qa-a-01-instance-loss">QA-A-01: Instance Loss</h3><ul><li><strong>Source of stimulus:</strong> Infrastructure — a node failure, an OOM kill, or a rolling deploy draining a pod.</li><li><strong>Stimulus:</strong> One instance of a service disappears, with requests in flight.</li><li><strong>Artifact:</strong> The affected service and every request routed to it.</li><li><strong>Environment:</strong> Normal production operation.</li><li><strong>Response:</strong> Remaining instances keep serving; the mesh stops routing to the lost instance once it fails its readiness probe; the instance is rescheduled without an operator touching anything.</li><li><strong>Response Measure:</strong> <strong>≥ 99.5% successful-request ratio per service, measured monthly</strong> (≈ 3h 39m of budget), <strong>0 requests lost during a rolling restart</strong>, and <strong>≤ 30s</strong> from instance loss to traffic being served entirely by healthy instances, with <strong>0 manual operator actions</strong>.</li></ul><p><em>No user story grounds this: it is an operational quality owned by the Platform Administrator persona — the platform&rsquo;s own resilience to infrastructure churn, not a constraint tied to any single NFR.</em></p><p><strong>Not currently met, by construction.</strong> Nothing in <span class="codespan-content"><code>k8s/</code></span> sets a replica count or an autoscaler, so every service runs a single instance and losing it is an outage, not a degradation. Satisfying this scenario needs <span class="codespan-content"><code>replicas &ge; 2</code></span> plus a <span class="codespan-content"><code>PodDisruptionBudget</code></span> per service — and, for <span class="codespan-content"><code>digital-twin</code></span> specifically, moving the rate limiter&rsquo;s counters out of per-instance memory, since a limiter backed by an in-process <span class="codespan-content"><code>DashMap</code></span> multiplies its effective limit by the replica count.</p><hr /><h2 id="scalability">Scalability</h2><h3 id="qa-s-01-organization-growth">QA-S-01: Organization Growth</h3><ul><li><strong>Source of stimulus:</strong> A prospective customer.</li><li><strong>Stimulus:</strong> A new organization self-registers a domain.</li><li><strong>Artifact:</strong> The platform as a whole.</li><li><strong>Environment:</strong> Any number of organizations already onboarded.</li><li><strong>Response:</strong> The new organization becomes fully usable — sign-in, building creation, dashboard, alerts all work — without degrading existing tenants.</li><li><strong>Response Measure:</strong> <strong>p95 ≤ 60s</strong> from domain creation to the organization being fully usable, <strong>0 manual provisioning steps</strong> by a Platform Administrator, and <strong>≤ 5% p95 latency increase</strong> for tenants already onboarded.</li></ul><p><em>Grounded in **AA-7</em>, <strong>LD-5</strong>.*</p><hr /><h2 id="recoverability">Recoverability</h2><h3 id="qa-r-01-deployment-rollback">QA-R-01: Deployment Rollback</h3><ul><li><strong>Source of stimulus:</strong> The Platform Administrator.</li><li><strong>Stimulus:</strong> A newly deployed release is found to be faulty.</li><li><strong>Artifact:</strong> The running system.</li><li><strong>Environment:</strong> Production, after a release has already gone live.</li><li><strong>Response:</strong> The previous known-good version is restored.</li><li><strong>Response Measure:</strong> <strong>≤ 5 minutes</strong> from the decision to roll back to the previous version serving all traffic, <strong>0 manual data repair steps</strong>, and <strong>0 requests lost</strong> during the rollback itself — the old and new versions overlap rather than cut over.</li></ul><p><em>No user story grounds this: it is an operational quality owned by the Platform Administrator persona — recovering from a bad release, not a constraint tied to any single NFR.</em></p><hr /><h2 id="observability">Observability</h2><h3 id="qa-o-01-incident-detection-amp-diagnosis">QA-O-01: Incident Detection &amp; Diagnosis</h3><ul><li><strong>Source of stimulus:</strong> A fault anywhere in the system.</li><li><strong>Stimulus:</strong> A request fails, or a component becomes unhealthy.</li><li><strong>Artifact:</strong> The affected component and every component the failing request passed through.</li><li><strong>Environment:</strong> Normal production operation.</li><li><strong>Response:</strong> The Platform Administrator is made aware of the fault and can trace the failing request across every component it touched.</li><li><strong>Response Measure:</strong> <strong>≤ 1 minute</strong> from the first failed request to the fault being surfaced by an alert — ahead of any user report — and <strong>100% of failing requests carry an end-to-end trace</strong> spanning every service they passed through, correlated by a single trace identifier.</li></ul><p><em>No user story grounds this: it is an operational quality owned by the Platform Administrator persona, and the mechanism that satisfies it is described in <a href="../observability">Observability</a>.</em></p><hr /><h2 id="usability">Usability</h2><h3 id="qa-u-01-trustworthy-uncertainty">QA-U-01: Trustworthy Uncertainty</h3><ul><li><strong>Source of stimulus:</strong> A user.</li><li><strong>Stimulus:</strong> Asks the AI assistant a question the platform&rsquo;s recorded knowledge and live data cannot answer.</li><li><strong>Artifact:</strong> The AI Assistant.</li><li><strong>Environment:</strong> Normal operation, any Inquiry.</li><li><strong>Response:</strong> The assistant states plainly that it doesn&rsquo;t know, instead of producing an unsupported answer.</li><li><strong>Response Measure:</strong> <strong>100% of claims carry a citation</strong> resolving to real source material, and <strong>0 ungrounded claims</strong> are presented as fact — an answer that cannot be grounded is an explicit &ldquo;I don&rsquo;t know&rdquo;, measured over the assistant&rsquo;s evaluation set.</li></ul><p><em>Grounded in **AI-2</em>, <strong>AI-5</strong>.*</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

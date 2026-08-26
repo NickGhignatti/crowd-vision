@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Agent Service Architecture</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a><ol><li data-target-id="components-amp-connectors-diagram" data-depth="3"><a href="#components-amp-connectors-diagram">Components &amp; Connectors diagram</a></li></ol></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-panels-hidden";
+  var PANELS = ["left", "right"];
+  function attr(side) { return "data-" + side + "-nav"; }
+  function hidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function paint(side, isHidden) {
+    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+    else { root.removeAttribute(attr(side)); }
+    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  var state = hidden();
+  PANELS.forEach(function (side) { paint(side, state.has(side)); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    if (!b) return;
+    var side = b.getAttribute("data-panel");
+    var next = !state.has(side);
+    if (next) { state.add(side); } else { state.delete(side); }
+    paint(side, next);
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+    catch (err) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEY = "cv-nav-collapsed";
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  function load() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function save(set) {
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+    catch (e) {}
+  }
+  function init() {
+    var nav = document.querySelector('nav[data-role="page-list"]');
+    if (!nav) return;
+    var closed = load();
+    var here = norm(location.pathname);
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+      var id = h.id || h.textContent.trim();
+      // Quarkdown stamps aria-current after post-rendering, so match on the
+      // URL instead of racing it: the open page's section always starts open.
+      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+        catch (e) { return false; }
+      });
+      set(h, closed.has(id) && !holdsCurrent);
+      h.setAttribute("role", "button");
+      h.setAttribute("tabindex", "0");
+      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+      });
+    });
+  }
+  function set(h, isClosed) {
+    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+  }
+  function flip(h, id, closed) {
+    var next = h.getAttribute("data-collapsed") !== "true";
+    set(h, next);
+    if (next) { closed.add(id); } else { closed.delete(id); }
+    save(closed);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture" aria-current="page">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a><ol><li data-target-id="components-amp-connectors-diagram" data-depth="3"><a href="#components-amp-connectors-diagram">Components &amp; Connectors diagram</a></li></ol></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav></div><h1 id="agent-service-architecture" data-decorative="">Agent Service Architecture</h1><p><strong>Bounded context:</strong> <a href="../knowledge-assistance">Knowledge &amp; Assistance</a> (shared with chat) · <strong>Stack:</strong> Python / FastAPI · <strong>Code-level walkthrough:</strong> <a href="../agent">Agent Service</a></p><p>The agent answers one question at a time: it retrieves relevant documentation, decides whether to call a tool for live platform data, and produces a cited natural-language answer. It holds no conversation state — that&rsquo;s chat&rsquo;s job — and it never trusts its own judgement about what it&rsquo;s allowed to cite or access without checking.</p><hr /><h2 id="architectural-style">Architectural Style</h2><p>Three real interface-based ports, Python&rsquo;s <span class="codespan-content"><code>Protocol</code></span> standing in for what the Go services do with explicit interfaces: <span class="codespan-content"><code>LLMClient</code></span> (<span class="codespan-content"><code>agent/llm/base.py</code></span>) is implemented by <span class="codespan-content"><code>OpenAICompatClient</code></span>; <span class="codespan-content"><code>Embedder</code></span> (<span class="codespan-content"><code>embeddings/base.py</code></span>) is implemented by an OpenAI embeddings adapter; <span class="codespan-content"><code>Reranker</code></span> (<span class="codespan-content"><code>retrieval/reranker/base.py</code></span>) is implemented by a no-op reranker today. Each port is swappable without touching the code that depends on it.</p><p>Tools follow the same microkernel shape telemetry uses for metrics: <span class="codespan-content"><code>Tool[ArgsT]</code></span> (<span class="codespan-content"><code>agent/tools/base.py</code></span>) is a generic <span class="codespan-content"><code>Protocol</code></span> — <span class="codespan-content"><code>search_docs</code></span>, <span class="codespan-content"><code>sensor</code></span>, <span class="codespan-content"><code>twin</code></span>, and <span class="codespan-content"><code>downstream</code></span> each implement it and register themselves in a <span class="codespan-content"><code>ToolRegistry</code></span> (<span class="codespan-content"><code>agent/tools/registry.py</code></span>). The agentic loop never branches on which tool it&rsquo;s calling; it asks the registry for JSON schemas to hand the LLM, and looks up whichever tool the LLM decided to call by name.</p><figure><pre class="mermaid">graph LR
+    subgraph Driving
+        ASK[&quot;routes/ask.py&quot;]
+    end
+    subgraph &quot;Core &mdash; agent/loop.py&quot;
+        LOOP[&quot;Agent.answer\nbounded by max_tool_hops&quot;]
+    end
+    subgraph &quot;Ports&quot;
+        P1{{&quot;LLMClient&quot;}}
+        P2{{&quot;Tool[ArgsT]&quot;}}
+    end
+    subgraph &quot;Adapters&quot;
+        LLM[&quot;OpenAICompatClient&quot;]
+        T1[&quot;search_docs&quot;]
+        T2[&quot;sensor&quot;]
+        T3[&quot;twin&quot;]
+        T4[&quot;downstream&quot;]
+    end
+    REG[&quot;ToolRegistry\nagent/tools/registry.py&quot;]
+    ASK --&gt;|&quot;direct call &mdash; no port&quot;| LOOP
+    LOOP --&gt; P1
+    P1 -.-&gt;|implements| LLM
+    LOOP --&gt;|&quot;schemas() &middot; get(name)&quot;| REG
+    REG --&gt; P2
+    P2 -.-&gt;|implements| T1
+    P2 -.-&gt;|implements| T2
+    P2 -.-&gt;|implements| T3
+    P2 -.-&gt;|implements| T4</pre></figure><p>Each hop of the loop is one call to the LLM with the current message history and every registered tool&rsquo;s schema. If the model calls no tool, the loop returns the answer; if it calls one or more, the loop runs them, appends their results as <span class="codespan-content"><code>tool</code></span> messages, and starts another hop — up to <span class="codespan-content"><code>max_tool_hops</code></span>, so a model that keeps calling tools can&rsquo;t run forever. Citations are checked against what was actually retrieved (<span class="codespan-content"><code>extract_citations</code></span>/<span class="codespan-content"><code>strip_hallucinated</code></span> in <span class="codespan-content"><code>citations.py</code></span>) before the answer goes out — a citation the model invented rather than pulled from a real retrieved chunk gets stripped, not trusted.</p><p>Retrieval is a separate pipeline the loop calls into through the <span class="codespan-content"><code>search_docs</code></span> tool, not something the loop orchestrates directly:</p><figure><pre class="mermaid">graph LR
+    Q[&quot;question&quot;] --&gt; EMB[&quot;embed_query &mdash; Embedder port&quot;]
+    EMB --&gt; VEC[&quot;vector_search&quot;]
+    Q --&gt; KW[&quot;keyword_search&quot;]
+    VEC --&gt; RRF[&quot;Reciprocal Rank Fusion merge&quot;]
+    KW --&gt; RRF
+    RRF --&gt; RR[&quot;Reranker port\n(no-op today)&quot;]
+    RR --&gt; CHUNKS[&quot;top_k_final chunks&quot;]</pre></figure><p>Vector and keyword search both take the caller&rsquo;s permissions as an argument and filter at the query level — an inaccessible chunk never reaches the merge step, let alone the reranker or the model. Authorization here is enforced twice, independently: once at retrieval (which chunks the model is even allowed to see) and once at the tool level (which live platform data a tool call is allowed to return).</p><h3 id="components-amp-connectors-diagram">Components &amp; Connectors diagram</h3><figure><img src="media/cc-agent@-279084721.svg" alt="Agent C&amp;C diagram" /></figure><hr /><h2 id="key-architectural-decisions">Key Architectural Decisions</h2><ul><li><strong>The tool loop is bounded, not indefinite.</strong> <span class="codespan-content"><code>max_tool_hops</code></span> caps how many times the model can call a tool before the loop gives up and returns a fixed &ldquo;I don&rsquo;t know&rdquo; marker — a model stuck calling tools in a cycle can&rsquo;t consume unbounded time or cost.</li><li><strong>A citation must point at something actually retrieved.</strong> The model&rsquo;s claimed citations are checked against the real retrieved-chunk set after the fact; anything that doesn&rsquo;t match is stripped from the answer rather than shown to the user.</li><li><strong>Permission filtering happens twice, on purpose.</strong> Retrieval filters by the caller&rsquo;s permissions before ranking; tools that fetch live data (buildings, sensors) check again through Cedar. Neither layer trusts the other to have already done it.</li><li><strong><span class="codespan-content"><code>AuthUser</code></span> keeps roles and domains as two unpaired lists — a real fact, not a bug.</strong> Unlike the Go services, agent never needed to know which role applied to which domain; its only two checks are &ldquo;is this domain in my domain list, or am I admin anywhere&rdquo; and a pure global role-weight check. Its Cedar <span class="codespan-content"><code>Account</code></span> entity only ever populates <span class="codespan-content"><code>domainsAsStandardCustomer</code></span> and <span class="codespan-content"><code>maxRoleWeight</code></span> — the per-tier domain sets other languages compute are left empty because agent never makes the checks they&rsquo;d back.</li><li><strong>Auth-disabled anonymous access is a settings check, not a policy decision.</strong> When <span class="codespan-content"><code>REQUIRE_AUTH</code></span> is off (dev/test), the anonymous caller gets full access — checked before Cedar is ever called, the same pattern tenancy uses for its own self-removal check.</li><li><strong>A per-request model override is a privileged, gated action.</strong> Overriding the configured model on <span class="codespan-content"><code>/ask</code></span> spends the shared provider balance, so it requires a Cedar role check (<span class="codespan-content"><code>MODEL_OVERRIDE_MIN_ROLE</code></span>) plus, if configured, an explicit allowlist — a caller without the role gets a plain <span class="codespan-content"><code>403</code></span>, not a silent fallback to the default model.</li><li><strong>Streaming and buffered answers share one loop.</strong> <span class="codespan-content"><code>_run</code></span> is the only tool loop; <span class="codespan-content"><code>stream=True</code></span> swaps each hop&rsquo;s model call for its streaming twin and forwards text deltas on the way through, while everything else — hop limit, citation checking, tracing, usage accounting — is the same code either way, so the two paths cannot drift. The <span class="codespan-content"><code>done</code></span> event carries an <span class="codespan-content"><code>answer</code></span> field that is authoritative over the streamed tokens, because the loop strips hallucinated citations after generation and a pre-tool-call preamble may already have been streamed.</li><li><strong>Every hop and every tool call is traced.</strong> <span class="codespan-content"><code>agent.answer</code></span>, each <span class="codespan-content"><code>agent.hop.N</code></span>, and each <span class="codespan-content"><code>tool.&lt;name&gt;</code></span> gets its own OpenTelemetry span, tagged with tokens, cost, and the model used, exported to Langfuse — this is separate from the platform&rsquo;s Prometheus metrics (see <a href="observability.qd)">Observability</a>; agent has neither a <span class="codespan-content"><code>/metrics</code></span> endpoint nor Prometheus instrumentation of its own.</li></ul><hr /><h2 id="integration">Integration</h2><ul><li>Calls digital-twin and telemetry through tools, forwarding the caller&rsquo;s identity for authorization on the other end.</li><li>Calls an external LLM provider (OpenAI-compatible) and an embeddings provider for retrieval.</li><li>Exports traces to Langfuse; owns its own Postgres database for document chunks and embeddings.</li><li>Serves <span class="codespan-content"><code>chat</code></span>&rsquo;s <span class="codespan-content"><code>/ask</code></span> calls — see <a href="../chat-architecture">Chat Service Architecture</a> and <a href="../data-flow">Communication &amp; Data Flow</a>.</li></ul><p>For the ingestion pipeline, the chunking strategy, evals, and the API, see the <a href="../agent">Agent Service</a> internals page.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

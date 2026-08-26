@@ -1,0 +1,935 @@
+@import url('global.css');
+@import url('layout/minimal/minimal.css');
+@import url('color/paperwhite/paperwhite.css');/* CrowdVision docs theme — Material 3 tokens over Quarkdown's `docs` doctype.
+ *
+ * Restyles the shell Quarkdown already renders; it adds no structure of its own
+ * except the icon bar. Slot map, read this next to _setup.qd:
+ *   header > aside:first-child   .pagemargin {topleft}     brand
+ *   header > aside:last-child    .pagemargin {topright}    centred nav links
+ *   header > main                (native)                  search, pushed right
+ *   .cv-actions                  .html                     icon bar, far right
+ *   content-wrapper > aside:first .navigation              sidebar
+ *   content-wrapper > aside:last  .tableofcontents         "on this page"
+ *   main > footer                .footer                   footer
+ *
+ * Two rules of engagement with the base theme:
+ *   1. Override a --qd-* variable wherever one exists rather than out-specifying
+ *      the rule that reads it — the cascade stays shallow.
+ *   2. Where a rule must be beaten, match its own prefix. Quarkdown walls the
+ *      docs layout behind `body.quarkdown.quarkdown-docs > :is(...) > aside`
+ *      and the minimap behind `.sidebar.sidebar.sidebar.sidebar`; a plain
+ *      `.quarkdown-docs > ...` selector loses silently.
+ *
+ * Light is the default and is never chosen for the reader: the palette below is
+ * unconditional, and dark applies only when the header toggle sets data-theme.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  --cv-surface: #ffffff;
+  --cv-surface-low: #f9fafb;
+  --cv-surface-container: #f2f4f6;
+  --cv-surface-high: #eceef0;
+  --cv-surface-variant: #e4e7ea;
+  --cv-on-surface: #191c1e;
+  --cv-on-surface-variant: #424656;
+  --cv-outline: #737688;
+  --cv-outline-variant: #dfe2e8;
+  --cv-primary: #0a6b39;
+  --cv-primary-wash: #e6f4ec;
+  --cv-primary-fixed-dim: #7fd6a0;
+  --cv-on-primary-fixed-variant: #054d28;
+  --cv-secondary-fixed: #cfe9d9;
+  --cv-inverse-surface: #2d3133;
+  --cv-inverse-on-surface: #eff1f3;
+  --cv-tertiary: #992d00;
+  --cv-error: #ba1a1a;
+  --cv-good: #1f7a52;
+  --cv-warn: #8a6100;
+
+  --cv-note-bg: #eaf5ee;
+  --cv-warn-bg: #fbf0ec;
+  --cv-error-bg: #fdeceb;
+
+  --cv-radius: 0.25rem;
+  --cv-radius-lg: 0.5rem;
+  --cv-radius-pill: 0.75rem;
+  --cv-gutter: 24px;
+  --cv-section-gap: 48px;
+  --cv-topbar: 64px;
+
+  --qd-background-color: var(--cv-surface);
+  --qd-main-color: var(--cv-on-surface);
+  --qd-main-color-muted: var(--cv-on-surface-variant);
+  --qd-main-font: "Inter", system-ui, sans-serif;
+  --qd-heading-font: "Inter", system-ui, sans-serif;
+  --qd-box-heading-font: "Inter", system-ui, sans-serif;
+  --qd-code-font: "JetBrains Mono", ui-monospace, monospace;
+  --qd-main-font-size: 16px;
+  --qd-heading-color: var(--cv-on-surface);
+  --qd-link-color: var(--cv-primary);
+  --qd-docs-header-height: var(--cv-topbar);
+  --qd-docs-header-vertical-padding: 0px;
+  --qd-docs-header-background-color: var(--cv-surface);
+  --qd-docs-separator-border-color: var(--cv-outline-variant);
+  --qd-docs-search-border-color: var(--cv-outline-variant);
+  --qd-docs-search-focused-border: 1px solid var(--cv-primary);
+  --qd-code-border-radius: var(--cv-radius-lg);
+  --qd-code-block-font-size: 14px;
+  --qd-code-line-height: 22px;
+  --qd-note-background-color: var(--cv-note-bg);
+  --qd-tip-background-color: var(--cv-note-bg);
+  --qd-warning-background-color: var(--cv-warn-bg);
+  --qd-error-background-color: var(--cv-error-bg);
+  --qd-callout-background-color: var(--cv-surface-container);
+  --qd-important-background-color: var(--cv-note-bg);
+  --qd-box-header-background-color: transparent;
+  --qd-box-border-radius: var(--cv-radius-lg);
+  --qd-box-section-padding: 0 24px;
+  --qd-box-content-vertical-padding: 16px;
+  --qd-mermaid-node-background-color: var(--cv-surface-container);
+}
+
+:root[data-theme="dark"] {
+  --cv-surface: #111416;
+  --cv-surface-low: #16191b;
+  --cv-surface-container: #1d2022;
+  --cv-surface-high: #272a2c;
+  --cv-surface-variant: #343839;
+  --cv-on-surface: #e2e2e5;
+  --cv-on-surface-variant: #c3c5d9;
+  --cv-outline: #8d90a1;
+  --cv-outline-variant: #343839;
+  --cv-primary: #7fd6a0;
+  --cv-primary-wash: #12301f;
+  --cv-on-primary-fixed-variant: #c8f0d8;
+  --cv-secondary-fixed: #1f4433;
+  --cv-inverse-surface: #05070a;
+  --cv-inverse-on-surface: #e2e2e5;
+  --cv-tertiary: #ffb59e;
+  --cv-error: #ffb4ab;
+  --cv-good: #6ddc95;
+  --cv-warn: #e5bd6a;
+
+  --cv-note-bg: #12281c;
+  --cv-warn-bg: #2c1d16;
+  --cv-error-bg: #33191a;
+
+  color-scheme: dark;
+}
+
+body.quarkdown {
+  -webkit-font-smoothing: antialiased;
+  line-height: 24px;
+}
+
+/* The `minimal` layout sets this on the body element, so a :root override
+ * never reaches it. Kills the rail on nested TOC entries. */
+body.quarkdown.quarkdown-docs {
+  --qd-nested-navigation-line-color: transparent;
+}
+
+/* ---------- top bar ---------- */
+
+body.quarkdown.quarkdown-docs > header {
+  border-bottom: 1px solid var(--cv-outline-variant);
+  align-items: center;
+  padding: 0;
+}
+
+/* The base theme pins main at `min-width: min(100%, --qd-content-width)` and
+ * gives every aside a 32px outer margin, which together overflow the container
+ * and shrink the two navs instead. Fixed rails, flexible middle. */
+body.quarkdown.quarkdown-docs > .content-wrapper > aside {
+  --aside-outer-margin: 0px;
+  flex: 0 0 auto;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > main {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Visual order is brand · links · search · icons; the DOM order is
+ * aside · main(search) · aside, so the trailing aside is reordered ahead. */
+body.quarkdown.quarkdown-docs.quarkdown-docs > header > aside {
+  --aside-width: auto;
+  width: auto;
+  max-width: none;
+  flex: 0 0 auto;
+  padding-left: 0;
+  display: flex;
+  align-items: center;
+}
+
+body.quarkdown.quarkdown-docs.quarkdown-docs > header > aside:first-child {
+  order: 1;
+  padding-left: var(--cv-gutter);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+body.quarkdown.quarkdown-docs > header > aside:first-child a {
+  color: var(--cv-primary);
+  font-weight: 700;
+  font-size: 20px;
+  border-bottom: none;
+}
+
+body.quarkdown.quarkdown-docs.quarkdown-docs > header > aside:last-child {
+  order: 2;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+body.quarkdown.quarkdown-docs > header > aside:last-child p {
+  display: flex;
+  gap: 32px;
+  margin: 0;
+}
+
+body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
+  order: 3;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: none;
+  width: 320px;
+  margin-right: 196px;
+}
+
+body.quarkdown.quarkdown-docs > header a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cv-on-surface-variant);
+  text-decoration: none;
+  white-space: nowrap;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+body.quarkdown.quarkdown-docs > header a:hover {
+  color: var(--cv-primary);
+  border-bottom-color: var(--cv-primary);
+}
+
+body.quarkdown.quarkdown-docs .search-field {
+  background-color: var(--cv-surface-low);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-pill);
+  padding: 6px 16px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+body.quarkdown.quarkdown-docs .search-field:focus-within {
+  border-color: var(--cv-primary);
+  box-shadow: 0 0 0 2px var(--cv-primary-wash);
+}
+
+/* ---------- icon bar ---------- */
+
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+/* ---------- standalone pages ---------- */
+
+/* api-reference and coverage include _standalone.qd: same doctype and top bar,
+ * no nav or TOC page-margins. The doctype still emits the aside shells, and
+ * Quarkdown relocates margin content with JS after parse, so the marker is set
+ * inline rather than inferred from the DOM. */
+:root[data-standalone] body.quarkdown.quarkdown-docs > .content-wrapper > aside {
+  display: none;
+}
+
+:root[data-standalone] body.quarkdown.quarkdown-docs > .content-wrapper > main {
+  max-width: 1240px;
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+/* ---------- collapsible panels ---------- */
+
+/* The header toggles stamp data-*-nav on <html>; hiding an aside frees flex
+ * space that `main` already claims, and the cap rises so the gain becomes
+ * reading width instead of margin. */
+:root[data-left-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child,
+:root[data-right-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
+  display: none;
+}
+
+:root[data-left-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > main,
+:root[data-right-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > main {
+  max-width: 1120px;
+}
+
+:root[data-left-nav="hidden"][data-right-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > main {
+  max-width: 1240px;
+}
+
+.cv-icon[aria-pressed="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* ---------- sidebar ---------- */
+
+/* The theme's floating tick-mark minimap duplicates the right-hand TOC in this
+ * doctype and the design has no equivalent. Match its specificity wall. */
+.quarkdown nav.sidebar.sidebar.sidebar.sidebar {
+  display: none;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child {
+  background-color: var(--cv-surface-low);
+  border-right: 1px solid var(--cv-outline-variant);
+  --aside-width: 280px;
+  padding: 24px 16px 32px 8px;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside nav ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+/* The sidebar is `<h3>Section</h3><ul><li><a>Page</a></li></ul>` repeated, so a
+ * counter reset on each heading numbers the pages that follow it. Section is the
+ * loud level; the page links sit under it. */
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav {
+  counter-reset: cv-section;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav li {
+  counter-increment: cv-page;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--cv-on-surface-variant);
+  text-decoration: none;
+  padding: 6px 16px;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--cv-radius) var(--cv-radius) 0;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a::before {
+  content: counter(cv-section) "." counter(cv-page);
+  flex: 0 0 auto;
+  min-width: 34px;
+  color: var(--cv-outline);
+  font-variant-numeric: tabular-nums;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a:hover {
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface);
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a.active,
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a[aria-current],
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav .current > a,
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav li.active > a {
+  color: var(--cv-primary);
+  font-weight: 700;
+  border-left-color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4) {
+  counter-increment: cv-section;
+  counter-reset: cv-page;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: -0.01em;
+  color: var(--cv-on-surface);
+  margin: 28px 0 6px 0;
+  padding: 4px 12px 4px 16px;
+  border-radius: var(--cv-radius);
+}
+
+/* The script stamps data-collapsed only on headings that actually own a list,
+ * so the affordance appears exactly where it works. */
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)[data-collapsed] {
+  cursor: pointer;
+  user-select: none;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)[data-collapsed]:hover {
+  background-color: var(--cv-surface-container);
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)[data-collapsed]::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-right: 2px solid var(--cv-outline);
+  border-bottom: 2px solid var(--cv-outline);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.15s;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)[data-collapsed="true"]::after {
+  transform: translateY(1px) rotate(-45deg);
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)[data-collapsed="true"] + :is(ul, ol) {
+  display: none;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)::before {
+  content: counter(cv-section) ".";
+  flex: 0 0 auto;
+  min-width: 34px;
+  color: var(--cv-outline);
+  font-variant-numeric: tabular-nums;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4):first-child {
+  margin-top: 4px;
+}
+
+/* ---------- "on this page" ---------- */
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
+  --aside-width: 272px;
+  padding: 48px var(--cv-gutter) 32px 32px;
+  border-left: none;
+}
+
+/* The TOC nests one <ol> per heading level, so counters() joins them into
+ * 1, 1.1, 1.2 … at whatever depth the page happens to go. */
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child nav ol {
+  counter-reset: cv-toc;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child nav li {
+  counter-increment: cv-toc;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child a {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--cv-on-surface-variant);
+  text-decoration: none;
+  padding: 6px 0;
+  transition: color 0.15s;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child nav a::before {
+  content: counters(cv-toc, ".");
+  flex: 0 0 auto;
+  min-width: 28px;
+  color: var(--cv-outline);
+  font-variant-numeric: tabular-nums;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child a:hover {
+  color: var(--cv-primary);
+}
+
+/* ---------- content ---------- */
+
+body.quarkdown.quarkdown-docs > .content-wrapper > main {
+  padding: var(--cv-section-gap) 40px 0;
+}
+
+main h1 {
+  font-size: 36px;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+main h2 {
+  font-size: 30px;
+  line-height: 38px;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+  margin-top: var(--cv-section-gap);
+  margin-bottom: 24px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+}
+
+main h3 {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  margin-top: 32px;
+  margin-bottom: 16px;
+}
+
+main h4 {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+main p,
+main li {
+  color: var(--cv-on-surface-variant);
+}
+
+main > p:first-of-type {
+  font-size: 18px;
+  line-height: 28px;
+}
+
+main a {
+  color: var(--cv-primary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+main a:hover {
+  border-bottom-color: var(--cv-primary);
+}
+
+/* ---------- code ---------- */
+
+.codespan-content code {
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  padding: 2px 6px;
+  font-size: 14px;
+}
+
+main pre:not(.mermaid) {
+  background-color: var(--cv-inverse-surface);
+  border-radius: var(--cv-radius-lg);
+  padding: 24px;
+  overflow-x: auto;
+}
+
+main pre.mermaid {
+  background: transparent;
+  padding: 0;
+}
+
+main pre:not(.mermaid) code,
+main pre:not(.mermaid) code.hljs {
+  background: transparent;
+  color: var(--cv-inverse-on-surface);
+  font-size: 14px;
+  line-height: 22px;
+  padding: 0;
+}
+
+/* highlight.js Default is a light theme; these repaint its tokens for the dark
+ * code slab. Keep the selectors flat — they only ever apply inside `main pre`. */
+main pre .hljs-comment,
+main pre .hljs-quote,
+main pre .hljs-meta {
+  color: #8b949e;
+}
+
+main pre .hljs-keyword,
+main pre .hljs-selector-tag,
+main pre .hljs-literal,
+main pre .hljs-doctag,
+main pre .hljs-name {
+  color: #ff7b72;
+}
+
+main pre .hljs-string,
+main pre .hljs-addition,
+main pre .hljs-regexp,
+main pre .hljs-attribute {
+  color: #a5d6ff;
+}
+
+main pre .hljs-number,
+main pre .hljs-built_in,
+main pre .hljs-type,
+main pre .hljs-class,
+main pre .hljs-symbol,
+main pre .hljs-bullet {
+  color: #79c0ff;
+}
+
+main pre .hljs-attr,
+main pre .hljs-variable,
+main pre .hljs-template-variable,
+main pre .hljs-selector-attr {
+  color: #ffa657;
+}
+
+main pre .hljs-title,
+main pre .hljs-function,
+main pre .hljs-section {
+  color: #d2a8ff;
+}
+
+main pre .hljs-punctuation,
+main pre .hljs-operator,
+main pre .hljs-subst {
+  color: #c9d1d9;
+}
+
+main pre .hljs-deletion {
+  background-color: #67060c;
+  color: #ffdcd7;
+}
+
+main pre .hljs-ln-numbers {
+  color: #6e7681;
+  opacity: 1;
+}
+
+/* ---------- tables ---------- */
+
+main table:not(.hljs-ln) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 24px 0;
+}
+
+main table:not(.hljs-ln) th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--cv-on-surface);
+  background-color: var(--cv-surface-container);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+}
+
+main table:not(.hljs-ln) td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  vertical-align: top;
+}
+
+main table:not(.hljs-ln) tbody tr:hover {
+  background-color: var(--cv-surface-low);
+}
+
+/* ---------- callouts ---------- */
+
+.quarkdown main .box {
+  border: none;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: 0 var(--cv-radius-lg) var(--cv-radius-lg) 0;
+  margin: 24px 0;
+}
+
+/* `minimal.css` rules `.quarkdown.quarkdown-docs header` as a descendant, so its
+ * top-bar divider also lands under every callout title. Only the page header
+ * should carry one. */
+.quarkdown main .box > header {
+  padding-top: 16px;
+  border-bottom: none;
+}
+
+.quarkdown main .box > header h4 {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--cv-on-primary-fixed-variant);
+  gap: 8px;
+}
+
+.quarkdown main .box > .box-content {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.quarkdown main .box.warning {
+  border-left-color: var(--cv-tertiary);
+}
+
+.quarkdown main .box.warning > header h4 {
+  color: var(--cv-tertiary);
+}
+
+.quarkdown main .box.error {
+  border-left-color: var(--cv-error);
+}
+
+.quarkdown main .box.error > header h4 {
+  color: var(--cv-error);
+}
+
+/* ---------- reference tables ---------- */
+
+/* On a standalone reference page the table is the page, so it gets a heavier
+ * treatment than an inline table inside prose. */
+:root[data-standalone] main table:not(.hljs-ln) {
+  font-size: 15px;
+  margin-top: 32px;
+}
+
+:root[data-standalone] main table:not(.hljs-ln) th {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cv-outline);
+  background-color: transparent;
+  padding: 10px 16px;
+}
+
+:root[data-standalone] main table:not(.hljs-ln) td {
+  padding: 18px 16px;
+}
+
+:root[data-standalone] main table:not(.hljs-ln) td:first-child {
+  width: 34%;
+  white-space: nowrap;
+}
+
+:root[data-standalone] main table:not(.hljs-ln) td:first-child a {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* ---------- coverage page ---------- */
+
+/* Bands mirror _color() in scripts/coverage-summary.py, so a bar and the
+ * shields.io badge can never disagree about what "healthy" means. */
+.cv-good { color: var(--cv-good); }
+.cv-ok { color: var(--cv-warn); }
+.cv-low { color: var(--cv-error); }
+
+.cv-cov-track {
+  height: 8px;
+  border-radius: 999px;
+  background-color: var(--cv-surface-container);
+  overflow: hidden;
+}
+
+.cv-cov-fill {
+  height: 100%;
+  border-radius: 999px;
+  background-color: currentColor;
+  transition: width 0.4s ease;
+}
+
+.cv-cov-overall {
+  margin: 0 0 40px;
+  padding: 24px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+
+.cv-cov-overall-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.cv-cov-overall-pct {
+  font-size: 40px;
+  line-height: 44px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cv-cov-overall-label {
+  font-size: 14px;
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-cov-overall .cv-cov-track {
+  height: 12px;
+}
+
+/* Two services per row. Fixed at two rather than auto-fit, which would slip to
+ * three once both side panels are collapsed and the column reaches 1240px. */
+.cv-cov-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 28px;
+}
+
+/* name | bar | percentage, with the counts note tucked under the bar. */
+.cv-cov-row {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) 1fr auto;
+  grid-template-areas: "name bar pct" ". note .";
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--cv-radius-lg);
+  transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cv-cov-row .cv-cov-track,
+.cv-cov-row .cv-cov-pct {
+  transition: height 0.18s ease, font-size 0.18s ease;
+}
+
+.cv-cov-row:hover {
+  transform: scale(1.01);
+  background-color: var(--cv-surface-low);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 7%);
+}
+
+.cv-cov-row:hover .cv-cov-track {
+  height: 12px;
+}
+
+.cv-cov-row:hover .cv-cov-pct {
+  font-size: 16px;
+}
+
+/* The row grows on hover; for anyone who has asked the OS to stop moving
+ * things, keep the highlight and drop the motion. */
+@media (prefers-reduced-motion: reduce) {
+  .cv-cov-row,
+  .cv-cov-row .cv-cov-track,
+  .cv-cov-row .cv-cov-pct,
+  .cv-cov-fill {
+    transition: none;
+  }
+
+  .cv-cov-row:hover {
+    transform: none;
+  }
+}
+
+.cv-cov-name {
+  grid-area: name;
+  min-width: 0;
+}
+
+.cv-cov-name code {
+  font-size: 12px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cv-cov-row .cv-cov-track {
+  grid-area: bar;
+}
+
+.cv-cov-pct {
+  grid-area: pct;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+  text-align: right;
+}
+
+.cv-cov-note {
+  grid-area: note;
+  font-size: 12px;
+  color: var(--cv-outline);
+}
+
+@media screen and (max-width: 900px) {
+  .cv-cov-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cov-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "name pct" "bar bar" "note note";
+  }
+}
+
+/* ---------- footer ---------- */
+
+body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
+  margin-top: var(--cv-section-gap);
+  padding: 32px 0;
+  border-top: 1px solid var(--cv-outline-variant);
+  font-size: 14px;
+  color: var(--cv-on-surface-variant);
+}
+
+/* ---------- narrow ---------- */
+
+@media screen and (max-width: 1200px) {
+  body.quarkdown.quarkdown-docs > .content-wrapper > main {
+    padding: 32px 16px 0;
+  }
+
+  body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child {
+    background-color: transparent;
+    border-right: none;
+  }
+
+  body.quarkdown.quarkdown-docs > header > aside:last-child {
+    display: none;
+  }
+
+  body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
+    width: 240px;
+    margin-right: 184px;
+  }
+}

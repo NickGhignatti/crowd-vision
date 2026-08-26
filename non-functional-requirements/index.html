@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Non Functional Requirements</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-decentralized-authorization-evaluation" data-depth="3"><a href="#_1-decentralized-authorization-evaluation">1. Decentralized Authorization Evaluation</a></li><li data-target-id="_2-strict-tenant-data-isolation" data-depth="3"><a href="#_2-strict-tenant-data-isolation">2. Strict Tenant Data Isolation</a></li><li data-target-id="_3-complete-access-audit-trail" data-depth="3"><a href="#_3-complete-access-audit-trail">3. Complete Access Audit Trail</a></li><li data-target-id="_4-accessible-interface-conformance" data-depth="3"><a href="#_4-accessible-interface-conformance">4. Accessible Interface Conformance</a></li><li data-target-id="_5-eu-data-residency" data-depth="3"><a href="#_5-eu-data-residency">5. EU Data Residency</a></li><li data-target-id="_6-no-hardcoded-secrets" data-depth="3"><a href="#_6-no-hardcoded-secrets">6. No Hardcoded Secrets</a></li><li data-target-id="_7-graceful-degradation" data-depth="3"><a href="#_7-graceful-degradation">7. Graceful Degradation</a></li><li data-target-id="_8-internationalization" data-depth="3"><a href="#_8-internationalization">8. Internationalization</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-panels-hidden";
+  var PANELS = ["left", "right"];
+  function attr(side) { return "data-" + side + "-nav"; }
+  function hidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function paint(side, isHidden) {
+    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+    else { root.removeAttribute(attr(side)); }
+    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  var state = hidden();
+  PANELS.forEach(function (side) { paint(side, state.has(side)); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    if (!b) return;
+    var side = b.getAttribute("data-panel");
+    var next = !state.has(side);
+    if (next) { state.add(side); } else { state.delete(side); }
+    paint(side, next);
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+    catch (err) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEY = "cv-nav-collapsed";
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  function load() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function save(set) {
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+    catch (e) {}
+  }
+  function init() {
+    var nav = document.querySelector('nav[data-role="page-list"]');
+    if (!nav) return;
+    var closed = load();
+    var here = norm(location.pathname);
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+      var id = h.id || h.textContent.trim();
+      // Quarkdown stamps aria-current after post-rendering, so match on the
+      // URL instead of racing it: the open page's section always starts open.
+      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+        catch (e) { return false; }
+      });
+      set(h, closed.has(id) && !holdsCurrent);
+      h.setAttribute("role", "button");
+      h.setAttribute("tabindex", "0");
+      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+      });
+    });
+  }
+  function set(h, isClosed) {
+    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+  }
+  function flip(h, id, closed) {
+    var next = h.getAttribute("data-collapsed") !== "true";
+    set(h, next);
+    if (next) { closed.add(id); } else { closed.delete(id); }
+    save(closed);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements" aria-current="page">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-decentralized-authorization-evaluation" data-depth="3"><a href="#_1-decentralized-authorization-evaluation">1. Decentralized Authorization Evaluation</a></li><li data-target-id="_2-strict-tenant-data-isolation" data-depth="3"><a href="#_2-strict-tenant-data-isolation">2. Strict Tenant Data Isolation</a></li><li data-target-id="_3-complete-access-audit-trail" data-depth="3"><a href="#_3-complete-access-audit-trail">3. Complete Access Audit Trail</a></li><li data-target-id="_4-accessible-interface-conformance" data-depth="3"><a href="#_4-accessible-interface-conformance">4. Accessible Interface Conformance</a></li><li data-target-id="_5-eu-data-residency" data-depth="3"><a href="#_5-eu-data-residency">5. EU Data Residency</a></li><li data-target-id="_6-no-hardcoded-secrets" data-depth="3"><a href="#_6-no-hardcoded-secrets">6. No Hardcoded Secrets</a></li><li data-target-id="_7-graceful-degradation" data-depth="3"><a href="#_7-graceful-degradation">7. Graceful Degradation</a></li><li data-target-id="_8-internationalization" data-depth="3"><a href="#_8-internationalization">8. Internationalization</a></li></ol></nav></div><h1 id="non-functional-requirements" data-decorative="">Non Functional Requirements</h1><p>Non-functional requirements here are <strong>constraints</strong>: rules the system has to satisfy, independent of any particular technology choice. Each carries a <a href="https://en.wikipedia.org/wiki/MoSCoW_method">MoSCoW</a> priority — <strong>Must</strong>, <strong>Should</strong>, or <strong>Could</strong> — reflecting what&rsquo;s load-bearing (Must), valuable but not essential (Should), or nice-to-have (Could). They are distinct from <a href="../quality-attributes">Quality Attributes</a> — the measurable <em>how well</em> (performance, scalability, availability) — which are documented separately. Each is traced back to <a href="../user-stories">User Stories</a> or <a href="../business-requirements">Business Requirements</a> that require it.</p><hr /><h3 id="_1-decentralized-authorization-evaluation">1. Decentralized Authorization Evaluation</h3><ul><li><span class="codespan-content"><code>Must</code></span> <strong>The Requirement:</strong> The system shall evaluate authorization decisions locally without requiring a network round-trip to a central authority.</li><li><strong>Why this is required:</strong> A central authority queried on every decision becomes a bottleneck and single point of failure — its latency and uptime cap the latency and uptime of everything that depends on it. Grounded in <strong>AA-5</strong> (switch organizations without re-authenticating) and every &ldquo;instant&rdquo; story (<strong>LD-4</strong>, <strong>AL-3</strong>) where per-request latency cannot be hidden.</li></ul><h3 id="_2-strict-tenant-data-isolation">2. Strict Tenant Data Isolation</h3><ul><li><span class="codespan-content"><code>Must</code></span> <strong>The Requirement:</strong> The system shall ensure data belonging to one tenant is never readable by a principal outside it, regardless of any other access path in the system.</li><li><strong>Why this is required:</strong> The platform holds data for independent organizations; a single cross-tenant leak breaks the trust the entire multi-tenant model depends on. Grounded in <strong>BT-4</strong> (see only my organizations&rsquo; buildings), <strong>AA-6</strong> (private, invite-only domains), and <strong>AI-4</strong> (assistant scoped to accessible organizations).</li></ul><h3 id="_3-complete-access-audit-trail">3. Complete Access Audit Trail</h3><ul><li><span class="codespan-content"><code>Must</code></span> <strong>The Requirement:</strong> The system shall log every access to tenant data (who, what, when) in an immutable log that cannot be altered or deleted after creation.</li><li><strong>Why this is required:</strong> GDPR requires proving who accessed what and when; an audit trail that can be edited after the fact proves nothing. Required by EU data protection obligations stated in Business Requirements.</li></ul><h3 id="_4-accessible-interface-conformance">4. Accessible Interface Conformance</h3><ul><li><span class="codespan-content"><code>Must</code></span> <strong>The Requirement:</strong> The system shall ensure every user-facing interface conforms to WCAG 2.1 AA accessibility standards.</li><li><strong>Why this is required:</strong> A dashboard or twin that only works by sight excludes a screen-reader user from the platform entirely — that&rsquo;s not a degraded experience, it&rsquo;s no access at all. Grounded in <strong>LD-7</strong> (dashboard data available through accessible markup) and inclusive design principles.</li></ul><h3 id="_5-eu-data-residency">5. EU Data Residency</h3><ul><li><span class="codespan-content"><code>Must</code></span> <strong>The Requirement:</strong> The system shall ensure all data belonging to EU tenants resides exclusively in EU infrastructure; no default transfer to non-EU regions.</li><li><strong>Why this is required:</strong> Required by Business Requirements (European market focus, GDPR compliance, Italy data residency preferences). Cross-border data transfer requires explicit legal basis and tenant consent.</li></ul><h3 id="_6-no-hardcoded-secrets">6. No Hardcoded Secrets</h3><ul><li><span class="codespan-content"><code>Must</code></span> <strong>The Requirement:</strong> The system shall not store credentials, API keys, tokens, or other secrets in code, configuration files, or logs; all secrets must be stored in a secure external system and rotated regularly.</li><li><strong>Why this is required:</strong> Required by Business Requirements (SaaS security table-stakes) and GDPR obligation to protect personal data in transit and at rest. Hardcoded secrets are the fastest path to a data breach.</li></ul><h3 id="_7-graceful-degradation">7. Graceful Degradation</h3><ul><li><span class="codespan-content"><code>Should</code></span> <strong>The Requirement:</strong> The system shall degrade gracefully when non-critical services fail: show stale or partial data with a warning rather than crashing the critical path.</li><li><strong>Why this is required:</strong> Sensor service outage should not make the dashboard unusable; it should show last-known values and indicate staleness. Improves resilience and user trust in partial failures. Grounded in <strong>LD-4</strong>&rsquo;s outage criterion — a dashboard that goes silently stale while disconnected is exactly the crash-the-critical-path failure this rules out.</li></ul><h3 id="_8-internationalization">8. Internationalization</h3><ul><li><span class="codespan-content"><code>Could</code></span> <strong>The Requirement:</strong> The system shall support English and Italian at minimum in the UI; no user-facing text shall be hardcoded without localization keys.</li><li><strong>Why this is required:</strong> Supports Business Requirements&rsquo; European market focus (Italy priority). Enables fast expansion to other languages without code changes.</li></ul><hr /><p><strong>Traceability:</strong> NFRs 1–2, 4, 7 trace to specific User Stories. NFRs 3, 5, 6 derive from Business Requirements (GDPR compliance, EU data strategy, SaaS security table-stakes). NFR 8 is an operational/strategic priority (market expansion).</p><p>The measurable <em>how well</em> counterpart to these constraints — performance, scalability, availability — is covered separately in <a href="../quality-attributes">Quality Attributes</a>.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

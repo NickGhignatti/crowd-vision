@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>API Reference</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference" aria-current="page">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-panels-hidden";
+  var PANELS = ["left", "right"];
+  function attr(side) { return "data-" + side + "-nav"; }
+  function hidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function paint(side, isHidden) {
+    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+    else { root.removeAttribute(attr(side)); }
+    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  var state = hidden();
+  PANELS.forEach(function (side) { paint(side, state.has(side)); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    if (!b) return;
+    var side = b.getAttribute("data-panel");
+    var next = !state.has(side);
+    if (next) { state.add(side); } else { state.delete(side); }
+    paint(side, next);
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+    catch (err) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEY = "cv-nav-collapsed";
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  function load() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function save(set) {
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+    catch (e) {}
+  }
+  function init() {
+    var nav = document.querySelector('nav[data-role="page-list"]');
+    if (!nav) return;
+    var closed = load();
+    var here = norm(location.pathname);
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+      var id = h.id || h.textContent.trim();
+      // Quarkdown stamps aria-current after post-rendering, so match on the
+      // URL instead of racing it: the open page's section always starts open.
+      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+        catch (e) { return false; }
+      });
+      set(h, closed.has(id) && !holdsCurrent);
+      h.setAttribute("role", "button");
+      h.setAttribute("tabindex", "0");
+      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+      });
+    });
+  }
+  function set(h, isClosed) {
+    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+  }
+  function flip(h, id, closed) {
+    var next = h.getAttribute("data-collapsed") !== "true";
+    set(h, next);
+    if (next) { closed.add(id); } else { closed.delete(id); }
+    save(closed);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><script>document.documentElement.setAttribute("data-standalone", "");</script><h1 id="api-reference" data-decorative="">API Reference</h1><p>Every service&rsquo;s HTTP surface, as an OpenAPI 3 document rendered by Swagger UI. The specs are <strong>sources in this repository</strong>, at <span class="codespan-content"><code>api/*.yaml</code></span>, and are published alongside this guide — so a spec change ships in the same commit as the handler it describes. They document the edge-facing surface only: internal service-to-service hops and cross-boundary payload shapes are contracts in <span class="codespan-content"><code>schemas/</code></span>, not public APIs.</p><table><thead><tr><th>Spec</th><th>Covers</th></tr></thead><tbody><tr><td><a href="../api/index.html?spec=auth.yaml">Auth Service API</a></td><td><span class="codespan-content"><code>claims-gateway</code></span>: Keycloak token exchange, the internal RS256 JWT, <span class="codespan-content"><code>/verify</code></span> for the edge.</td></tr><tr><td><a href="../api/index.html?spec=twin.yaml">Twin Service API</a></td><td><span class="codespan-content"><code>digital-twin</code></span>: building upload, provisioning status, per-domain reads.</td></tr><tr><td><a href="../api/index.html?spec=telemetry.yaml">Telemetry Service API</a></td><td><span class="codespan-content"><code>telemetry</code></span>: batch ingest, thresholds, device actions.</td></tr><tr><td><a href="../api/index.html?spec=notification.yaml">Notification Service API</a></td><td><span class="codespan-content"><code>notification</code></span>: alert delivery and Web Push subscriptions.</td></tr><tr><td><a href="../api/index.html?spec=contracts.yaml">Contracts Service API</a></td><td>The per-service metric catalogs the dashboard reads.</td></tr><tr><td><a href="../api/index.html?spec=error.yaml">Common Error Responses</a></td><td>The shared error shape every service returns, referenced by the specs above.</td></tr></tbody></table>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

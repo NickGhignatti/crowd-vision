@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Naming Conventions</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="services-and-repository-layout" data-depth="2"><a href="#services-and-repository-layout">Services and repository layout</a></li><li data-target-id="files-and-directories" data-depth="2"><a href="#files-and-directories">Files and directories</a></li><li data-target-id="backend--nodejs--typescript" data-depth="2"><a href="#backend--nodejs--typescript">Backend — Node.js / TypeScript</a></li><li data-target-id="frontend--vue-3--tresjs" data-depth="2"><a href="#frontend--vue-3--tresjs">Frontend — Vue 3 / TresJS</a></li><li data-target-id="rust--dashboard-amp-digital-twin" data-depth="2"><a href="#rust--dashboard-amp-digital-twin">Rust — dashboard &amp; digital-twin</a></li><li data-target-id="go--identity-amp-tenancy-control-plane" data-depth="2"><a href="#go--identity-amp-tenancy-control-plane">Go — Identity &amp; Tenancy Control Plane</a></li><li data-target-id="python--agent" data-depth="2"><a href="#python--agent">Python — agent</a></li><li data-target-id="branches" data-depth="2"><a href="#branches">Branches</a></li><li data-target-id="commit-scopes" data-depth="2"><a href="#commit-scopes">Commit scopes</a></li><li data-target-id="other-identifiers" data-depth="2"><a href="#other-identifiers">Other identifiers</a></li><li data-target-id="renaming-carries-data-with-it" data-depth="2"><a href="#renaming-carries-data-with-it">Renaming carries data with it</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-panels-hidden";
+  var PANELS = ["left", "right"];
+  function attr(side) { return "data-" + side + "-nav"; }
+  function hidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function paint(side, isHidden) {
+    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+    else { root.removeAttribute(attr(side)); }
+    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  var state = hidden();
+  PANELS.forEach(function (side) { paint(side, state.has(side)); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    if (!b) return;
+    var side = b.getAttribute("data-panel");
+    var next = !state.has(side);
+    if (next) { state.add(side); } else { state.delete(side); }
+    paint(side, next);
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+    catch (err) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEY = "cv-nav-collapsed";
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  function load() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function save(set) {
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+    catch (e) {}
+  }
+  function init() {
+    var nav = document.querySelector('nav[data-role="page-list"]');
+    if (!nav) return;
+    var closed = load();
+    var here = norm(location.pathname);
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+      var id = h.id || h.textContent.trim();
+      // Quarkdown stamps aria-current after post-rendering, so match on the
+      // URL instead of racing it: the open page's section always starts open.
+      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+        catch (e) { return false; }
+      });
+      set(h, closed.has(id) && !holdsCurrent);
+      h.setAttribute("role", "button");
+      h.setAttribute("tabindex", "0");
+      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+      });
+    });
+  }
+  function set(h, isClosed) {
+    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+  }
+  function flip(h, id, closed) {
+    var next = h.getAttribute("data-collapsed") !== "true";
+    set(h, next);
+    if (next) { closed.add(id); } else { closed.delete(id); }
+    save(closed);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions" aria-current="page">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="services-and-repository-layout" data-depth="2"><a href="#services-and-repository-layout">Services and repository layout</a></li><li data-target-id="files-and-directories" data-depth="2"><a href="#files-and-directories">Files and directories</a></li><li data-target-id="backend--nodejs--typescript" data-depth="2"><a href="#backend--nodejs--typescript">Backend — Node.js / TypeScript</a></li><li data-target-id="frontend--vue-3--tresjs" data-depth="2"><a href="#frontend--vue-3--tresjs">Frontend — Vue 3 / TresJS</a></li><li data-target-id="rust--dashboard-amp-digital-twin" data-depth="2"><a href="#rust--dashboard-amp-digital-twin">Rust — dashboard &amp; digital-twin</a></li><li data-target-id="go--identity-amp-tenancy-control-plane" data-depth="2"><a href="#go--identity-amp-tenancy-control-plane">Go — Identity &amp; Tenancy Control Plane</a></li><li data-target-id="python--agent" data-depth="2"><a href="#python--agent">Python — agent</a></li><li data-target-id="branches" data-depth="2"><a href="#branches">Branches</a></li><li data-target-id="commit-scopes" data-depth="2"><a href="#commit-scopes">Commit scopes</a></li><li data-target-id="other-identifiers" data-depth="2"><a href="#other-identifiers">Other identifiers</a></li><li data-target-id="renaming-carries-data-with-it" data-depth="2"><a href="#renaming-carries-data-with-it">Renaming carries data with it</a></li></ol></nav></div><h1 id="naming-conventions" data-decorative="">Naming Conventions</h1><p>Consistent naming lets a reader infer an artefact&rsquo;s role from its name alone. CrowdVision spans several languages and layers, so the conventions are defined per layer below. They are enforced partly by ESLint and partly by review; treat them as mandatory.</p><hr /><h2 id="services-and-repository-layout">Services and repository layout</h2><p>A service carries <strong>one short name</strong> across every surface it appears in — no <span class="codespan-content"><code>-service</code></span> suffix anywhere. The suffix is redundant inside <span class="codespan-content"><code>backend/</code></span>, and having it on some surfaces but not others is how a <span class="codespan-content"><code>service_key</code></span> ends up disagreeing with a directory.</p><table><thead><tr><th>Surface</th><th>Example</th></tr></thead><tbody><tr><td>Directory</td><td><span class="codespan-content"><code>backend/telemetry</code></span>, <span class="codespan-content"><code>backend/digital-twin</code></span></td></tr><tr><td>Cargo crate and compiled binary</td><td><span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>digital-twin</code></span></td></tr><tr><td>Docker image</td><td><span class="codespan-content"><code>crowdvision-telemetry</code></span></td></tr><tr><td>Container name / hostname other services resolve</td><td><span class="codespan-content"><code>telemetry:3000</code></span></td></tr><tr><td>Environment variable</td><td><span class="codespan-content"><code>TELEMETRY_URL</code></span>, <span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td></tr><tr><td>.<span class="codespan-content"><code>github/services.json</code></span> key, moon project, CI leg</td><td><span class="codespan-content"><code>telemetry</code></span></td></tr><tr><td>Kubernetes manifest, documentation page</td><td><span class="codespan-content"><code>k8s/deployments/telemetry.yml</code></span>, <span class="codespan-content"><code>services/telemetry.qd</code></span></td></tr><tr><td>Diagram asset</td><td><span class="codespan-content"><code>architecture/images/cc-telemetry.svg</code></span>, <span class="codespan-content"><code>architecture/images/cc-digital-twin.svg</code></span></td></tr></tbody></table><p><span class="codespan-content"><code>claims-gateway</code></span> and <span class="codespan-content"><code>provisioner</code></span> are named for what they <em>are</em> — a gateway, a reconciler — rather than <span class="codespan-content"><code>&lt;noun&gt;-service</code></span>. That is deliberate, not an oversight.</p><p>Top-level placement follows the same principle: the directory says what kind of thing it holds.</p><table><thead><tr><th>Path</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>backend/&lt;name&gt;/</code></span></td><td>A deployable service.</td></tr><tr><td><span class="codespan-content"><code>backend/libs/</code></span></td><td>Shared Go modules embedded into services, never deployed.</td></tr><tr><td><span class="codespan-content"><code>backend/acceptance/</code></span></td><td>The cross-service acceptance suite. Each service keeps its own <span class="codespan-content"><code>tests/</code></span> for its own suite.</td></tr><tr><td><span class="codespan-content"><code>schemas/</code></span></td><td>Every shape that crosses a service boundary: <span class="codespan-content"><code>json/</code></span> specs, <span class="codespan-content"><code>fixtures/</code></span>, and the Rust binding crates.</td></tr></tbody></table><hr /><h2 id="files-and-directories">Files and directories</h2><p>Every Node service follows the same internal layout, so the file you want is always in the same place.</p><table><thead><tr><th>Path</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/router.ts</code></span></td><td>Route declarations.</td></tr><tr><td><span class="codespan-content"><code>src/controller/</code></span></td><td>HTTP adapters (one file per concern).</td></tr><tr><td><span class="codespan-content"><code>src/services/</code></span></td><td>Business logic.</td></tr><tr><td><span class="codespan-content"><code>src/models/</code></span></td><td>Schemas and shared types.</td></tr><tr><td><span class="codespan-content"><code>src/middlewares/</code></span></td><td>Cross-cutting middleware.</td></tr><tr><td><span class="codespan-content"><code>src/config/</code></span></td><td>Environment accessors and client setup.</td></tr><tr><td><span class="codespan-content"><code>__tests__/</code></span></td><td>The service&rsquo;s test suite.</td></tr></tbody></table><hr /><h2 id="backend--nodejs--typescript">Backend — Node.js / TypeScript</h2><table><thead><tr><th>Artefact</th><th>Convention</th><th>Recommended</th><th>Avoid</th></tr></thead><tbody><tr><td>Controller / service files</td><td><span class="codespan-content"><code>camelCase</code></span>, layer as suffix where it adds clarity</td><td><span class="codespan-content"><code>buildings.ts</code></span>, <span class="codespan-content"><code>notificationService.ts</code></span></td><td><span class="codespan-content"><code>twin_ctrl.ts</code></span>, <span class="codespan-content"><code>Notification.ts</code></span></td></tr><tr><td>Model files</td><td><span class="codespan-content"><code>camelCase</code></span> file name</td><td><span class="codespan-content"><code>account.ts</code></span>, <span class="codespan-content"><code>buildingThreshold.ts</code></span></td><td><span class="codespan-content"><code>Account.ts</code></span>, <span class="codespan-content"><code>building_threshold.ts</code></span></td></tr><tr><td>Exported model and interface</td><td><span class="codespan-content"><code>PascalCase</code></span>; interfaces prefixed <span class="codespan-content"><code>I</code></span></td><td><span class="codespan-content"><code>export interface IAccount</code></span>, <span class="codespan-content"><code>export const Account = model(...)</code></span></td><td><span class="codespan-content"><code>export const account</code></span>, <span class="codespan-content"><code>export interface Account</code></span></td></tr><tr><td>Functions and variables</td><td><span class="codespan-content"><code>camelCase</code></span></td><td><span class="codespan-content"><code>generateStandardToken</code></span>, <span class="codespan-content"><code>allowedColumns</code></span></td><td><span class="codespan-content"><code>GenerateToken</code></span>, <span class="codespan-content"><code>allowed_columns</code></span></td></tr><tr><td>Constants</td><td><span class="codespan-content"><code>UPPER_SNAKE_CASE</code></span></td><td><span class="codespan-content"><code>ROLE_WEIGHTS</code></span>, <span class="codespan-content"><code>COOKIE_NAME</code></span></td><td><span class="codespan-content"><code>roleWeights</code></span></td></tr><tr><td>Database collections</td><td>plural, lowercase</td><td><span class="codespan-content"><code>accounts</code></span>, <span class="codespan-content"><code>buildings</code></span></td><td><span class="codespan-content"><code>Account</code></span>, <span class="codespan-content"><code>building</code></span></td></tr></tbody></table><hr /><h2 id="frontend--vue-3--tresjs">Frontend — Vue 3 / TresJS</h2><table><thead><tr><th>Artefact</th><th>Convention</th><th>Recommended</th><th>Avoid</th></tr></thead><tbody><tr><td>Components</td><td><span class="codespan-content"><code>PascalCase</code></span>, multi-word (to avoid clashing with HTML elements), file and tag</td><td><span class="codespan-content"><code>BuildingCard.vue</code></span>, <span class="codespan-content"><code>NotificationDropdown.vue</code></span>, <span class="codespan-content"><code>LeftMenu.vue</code></span></td><td><span class="codespan-content"><code>card.vue</code></span>, <span class="codespan-content"><code>header.vue</code></span></td></tr><tr><td>Views / pages (top-level routes)</td><td><span class="codespan-content"><code>PascalCase</code></span> with a <span class="codespan-content"><code>View</code></span> suffix</td><td><span class="codespan-content"><code>DashboardView.vue</code></span>, <span class="codespan-content"><code>AdministrationView.vue</code></span></td><td><span class="codespan-content"><code>Dashboard.vue</code></span></td></tr><tr><td>Composables</td><td><span class="codespan-content"><code>camelCase</code></span>, prefixed <span class="codespan-content"><code>use</code></span></td><td><span class="codespan-content"><code>useBuildingModel.ts</code></span>, <span class="codespan-content"><code>useAuth.ts</code></span>, <span class="codespan-content"><code>useSceneControls.ts</code></span></td><td><span class="codespan-content"><code>buildingModel.ts</code></span>, <span class="codespan-content"><code>getAuth.ts</code></span></td></tr><tr><td>Utilities / helpers</td><td><span class="codespan-content"><code>camelCase</code></span></td><td><span class="codespan-content"><code>metrics.ts</code></span>, <span class="codespan-content"><code>formatTimestamp.ts</code></span></td><td><span class="codespan-content"><code>Metrics.ts</code></span></td></tr></tbody></table><hr /><h2 id="rust--dashboard-amp-digital-twin">Rust — dashboard &amp; digital-twin</h2><p>Both Rust services follow idiomatic Rust style.</p><table><thead><tr><th>Artefact</th><th>Convention</th><th>Example</th></tr></thead><tbody><tr><td>Modules and files</td><td><span class="codespan-content"><code>snake_case</code></span></td><td><span class="codespan-content"><code>tunnel.rs</code></span>, <span class="codespan-content"><code>discovery.rs</code></span></td></tr><tr><td>Functions</td><td><span class="codespan-content"><code>snake_case</code></span></td><td><span class="codespan-content"><code>start_telemetry_tunnel</code></span>, <span class="codespan-content"><code>metric_is_allowed</code></span></td></tr><tr><td>Types (structs, enums)</td><td><span class="codespan-content"><code>PascalCase</code></span></td><td><span class="codespan-content"><code>AppState</code></span>, <span class="codespan-content"><code>PreferenceDocument</code></span></td></tr><tr><td>Constants</td><td><span class="codespan-content"><code>SCREAMING_SNAKE_CASE</code></span></td><td><span class="codespan-content"><code>RAW_CHANNEL</code></span>, <span class="codespan-content"><code>DEFAULT_COLUMNS</code></span></td></tr></tbody></table><hr /><h2 id="go--identity-amp-tenancy-control-plane">Go — Identity &amp; Tenancy Control Plane</h2><p><span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, and <span class="codespan-content"><code>provisioner</code></span> follow idiomatic Go style (<span class="codespan-content"><code>gofmt</code></span>, checked by <span class="codespan-content"><code>go vet</code></span> in <span class="codespan-content"><code>just lint</code></span>).</p><table><thead><tr><th>Artefact</th><th>Convention</th><th>Example</th></tr></thead><tbody><tr><td>Packages and files</td><td><span class="codespan-content"><code>snake_case</code></span> or single lowercase word, matching the package name</td><td><span class="codespan-content"><code>internal/api/handler.go</code></span>, <span class="codespan-content"><code>internal/store/</code></span></td></tr><tr><td>Exported functions and types</td><td><span class="codespan-content"><code>PascalCase</code></span></td><td><span class="codespan-content"><code>func Mount(...)</code></span>, <span class="codespan-content"><code>type Config struct</code></span></td></tr><tr><td>Unexported functions, types, and variables</td><td><span class="codespan-content"><code>camelCase</code></span> (Go&rsquo;s own export rule: capitalisation <em>is</em> visibility, not a separate style choice)</td><td><span class="codespan-content"><code>func writeDomain(...)</code></span>, <span class="codespan-content"><code>type handler struct</code></span>, <span class="codespan-content"><code>func isValidAccountID(...)</code></span></td></tr><tr><td>Constants</td><td><span class="codespan-content"><code>PascalCase</code></span> or <span class="codespan-content"><code>camelCase</code></span> per Go convention (no <span class="codespan-content"><code>SCREAMING_SNAKE_CASE</code></span> — that&rsquo;s not idiomatic Go)</td><td>as appropriate to exported/unexported</td></tr></tbody></table><p>Package layout follows the standard Go project layout: <span class="codespan-content"><code>internal/api</code></span> (HTTP handlers), <span class="codespan-content"><code>internal/service</code></span> (business logic), <span class="codespan-content"><code>internal/store</code></span> (persistence, often with a <span class="codespan-content"><code>storefake</code></span> sibling for tests), <span class="codespan-content"><code>internal/events</code></span> (Redis Stream consumers/producers), <span class="codespan-content"><code>internal/config</code></span>.</p><hr /><h2 id="python--agent">Python — agent</h2><p>The agent follows PEP 8: <span class="codespan-content"><code>snake_case</code></span> for modules, functions, and variables; <span class="codespan-content"><code>PascalCase</code></span> for classes; <span class="codespan-content"><code>SCREAMING_SNAKE_CASE</code></span> for constants. (The agent is maintained separately; these conventions are listed for completeness.)</p><hr /><h2 id="branches">Branches</h2><p>Branch names mirror the commit types, so the branch announces its intent.</p><pre><code class="language-text">&lt;type&gt;/&lt;short-kebab-description&gt;</code></pre><table><thead><tr><th>Type</th><th>Example</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>feat</code></span></td><td><span class="codespan-content"><code>feat/private-domains</code></span></td></tr><tr><td><span class="codespan-content"><code>fix</code></span></td><td><span class="codespan-content"><code>fix/jwt-expiry-off-by-one</code></span></td></tr><tr><td><span class="codespan-content"><code>chore</code></span></td><td><span class="codespan-content"><code>chore/bump-dependencies</code></span></td></tr><tr><td><span class="codespan-content"><code>docs</code></span></td><td><span class="codespan-content"><code>docs/telemetry-api-reference</code></span></td></tr><tr><td><span class="codespan-content"><code>refactor</code></span></td><td><span class="codespan-content"><code>refactor/extract-token-service</code></span></td></tr></tbody></table><hr /><h2 id="commit-scopes">Commit scopes</h2><p>Conventional-commit scopes use the service or area name, so history can be filtered by component.</p><pre><code class="language-text">feat(twin): add per-room colour overrides
+fix(gateway): reject expired refresh tokens
+docs(telemetry): document the ingestion fast path
+chore(ci): pin the kubeconform version</code></pre><p>Common scopes: <span class="codespan-content"><code>gateway</code></span> (claims-gateway), <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span>, <span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>contracts</code></span>, <span class="codespan-content"><code>client</code></span>, <span class="codespan-content"><code>agent</code></span>, <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>docs</code></span>, <span class="codespan-content"><code>k8s</code></span>. The full commit format is covered in <a href="../release-please">Commits &amp; Release Please</a>.</p><hr /><h2 id="other-identifiers">Other identifiers</h2><table><thead><tr><th>Artefact</th><th>Convention</th><th>Example</th></tr></thead><tbody><tr><td>Environment variables</td><td><span class="codespan-content"><code>UPPER_SNAKE_CASE</code></span></td><td><span class="codespan-content"><code>GATEWAY_ISSUER</code></span>, <span class="codespan-content"><code>TELEMETRY_URL</code></span></td></tr><tr><td>Docker images</td><td><span class="codespan-content"><code>crowdvision-&lt;service&gt;</code></span> under the org namespace</td><td><span class="codespan-content"><code>ghcr.io/nickghignatti/crowdvision-twin</code></span></td></tr><tr><td>Workflow files</td><td><span class="codespan-content"><code>&lt;category&gt;-&lt;name&gt;</code></span> with a <span class="codespan-content"><code>yml</code></span> extension (<span class="codespan-content"><code>ci-</code></span>, <span class="codespan-content"><code>cd-</code></span>, <span class="codespan-content"><code>maint-</code></span>)</td><td><span class="codespan-content"><code>ci-twin.yml</code></span>, <span class="codespan-content"><code>cd-release.yml</code></span>, <span class="codespan-content"><code>maint-cleanup.yml</code></span></td></tr><tr><td>Documentation pages</td><td><span class="codespan-content"><code>kebab-case</code></span> with a <span class="codespan-content"><code>qd</code></span> extension</td><td><span class="codespan-content"><code>building-data.qd</code></span>, <span class="codespan-content"><code>naming-conventions.qd</code></span></td></tr></tbody></table><hr /><h2 id="renaming-carries-data-with-it">Renaming carries data with it</h2><p>A rename is never only a rename: several identifiers derived from a service&rsquo;s name own state, and changing one silently starts from empty rather than failing.</p><table><thead><tr><th>Identifier</th><th>What a rename actually does</th></tr></thead><tbody><tr><td>Compose volume</td><td>Compose derives the real volume name from the project plus the declared name, so renaming <span class="codespan-content"><code>contracts-data</code></span> to <span class="codespan-content"><code>dashboard-data</code></span> mounts a <strong>new, empty</strong> volume and leaves the old one orphaned with all the data still in it. Migrate the contents in the same change, or the service comes up looking healthy and blank. This is what happened to the dashboard&rsquo;s saved column preferences when <span class="codespan-content"><code>contracts</code></span> became <span class="codespan-content"><code>dashboard</code></span>.</td></tr><tr><td>Kafka consumer group</td><td>A group with no committed offsets plus <span class="codespan-content"><code>auto.offset.reset=earliest</code></span> re-reads the whole topic — a replay, not a reset. Idempotent for the registration groups; for <span class="codespan-content"><code>alerts</code></span> it re-delivers historical breaches, collapsed only by the Redis cooldown.</td></tr><tr><td>Database name</td><td>Renaming a database is a migration. <span class="codespan-content"><code>chatdb</code></span>, <span class="codespan-content"><code>twindb</code></span> and <span class="codespan-content"><code>contractsdb</code></span> keep their names for that reason, and none carried a <span class="codespan-content"><code>-service</code></span> suffix to begin with.</td></tr><tr><td>System identity at a trust boundary</td><td><span class="codespan-content"><code>system:notification-service</code></span> keeps the old name on purpose: it is pinned byte-for-byte by a test, and it reads as a stable source in a central log regardless of the directory name.</td></tr></tbody></table><div class="box warning"><header><h4>Check the orphans after a rename</h4></header><div class="box-content"><p><span class="codespan-content"><code>docker volume ls</code></span> lists every volume for the project. Anything whose name no longer appears in a <span class="codespan-content"><code>docker-compose</code></span> YAML file is orphaned — either migrate it or delete it deliberately, but do not leave it to be rediscovered as &ldquo;the data disappeared&rdquo;.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

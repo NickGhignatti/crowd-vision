@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Telemetry Service</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="adding-a-metric" data-depth="2"><a href="#adding-a-metric">Adding a Metric</a></li><li data-target-id="request-lifecycle" data-depth="2"><a href="#request-lifecycle">Request Lifecycle</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="testing" data-depth="2"><a href="#testing">Testing</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-panels-hidden";
+  var PANELS = ["left", "right"];
+  function attr(side) { return "data-" + side + "-nav"; }
+  function hidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function paint(side, isHidden) {
+    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+    else { root.removeAttribute(attr(side)); }
+    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  var state = hidden();
+  PANELS.forEach(function (side) { paint(side, state.has(side)); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    if (!b) return;
+    var side = b.getAttribute("data-panel");
+    var next = !state.has(side);
+    if (next) { state.add(side); } else { state.delete(side); }
+    paint(side, next);
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+    catch (err) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEY = "cv-nav-collapsed";
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  function load() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function save(set) {
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+    catch (e) {}
+  }
+  function init() {
+    var nav = document.querySelector('nav[data-role="page-list"]');
+    if (!nav) return;
+    var closed = load();
+    var here = norm(location.pathname);
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+      var id = h.id || h.textContent.trim();
+      // Quarkdown stamps aria-current after post-rendering, so match on the
+      // URL instead of racing it: the open page's section always starts open.
+      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+        catch (e) { return false; }
+      });
+      set(h, closed.has(id) && !holdsCurrent);
+      h.setAttribute("role", "button");
+      h.setAttribute("tabindex", "0");
+      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+      });
+    });
+  }
+  function set(h, isClosed) {
+    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+  }
+  function flip(h, id, closed) {
+    var next = h.getAttribute("data-collapsed") !== "true";
+    set(h, next);
+    if (next) { closed.add(id); } else { closed.delete(id); }
+    save(closed);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry" aria-current="page">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="adding-a-metric" data-depth="2"><a href="#adding-a-metric">Adding a Metric</a></li><li data-target-id="request-lifecycle" data-depth="2"><a href="#request-lifecycle">Request Lifecycle</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="testing" data-depth="2"><a href="#testing">Testing</a></li></ol></nav></div><h1 id="telemetry-service" data-decorative="">Telemetry Service</h1><p>Implementation reference for <span class="codespan-content"><code>backend/telemetry</code></span>. For its architectural role, see <a href="../telemetry-architecture">Telemetry Service Architecture</a>; for the domain model, see <a href="../telemetry-ingestion">Telemetry Ingestion</a>.</p><p>A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings from constrained hardware, persists them, publishes them for live distribution, manages per-building and per-room thresholds, and forwards commands to physical devices. Its design answers two pressures: adding a metric must not touch the core, and no I/O technology may reach the logic that decides what a reading means.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/types/</code></span></td><td>Pure types and traits: <span class="codespan-content"><code>SensorPlugin</code></span>, <span class="codespan-content"><code>MetricDescriptor</code></span>, <span class="codespan-content"><code>ActionSpec</code></span>, <span class="codespan-content"><code>Reading</code></span>, <span class="codespan-content"><code>Command</code></span>, threshold resolution, query/bucketing rules. Imports nothing from the rest of the crate.</td></tr><tr><td><span class="codespan-content"><code>src/kernel/</code></span></td><td>Use cases — <span class="codespan-content"><code>ingest</code></span>, <span class="codespan-content"><code>readings</code></span>, <span class="codespan-content"><code>thresholds</code></span>, <span class="codespan-content"><code>sensors</code></span>, <span class="codespan-content"><code>actions</code></span>, <span class="codespan-content"><code>registration</code></span> — plus <span class="codespan-content"><code>ports.rs</code></span>, <span class="codespan-content"><code>registry.rs</code></span>, <span class="codespan-content"><code>authz.rs</code></span>. Depends only on <span class="codespan-content"><code>contracts</code></span> and its own port traits.</td></tr><tr><td><span class="codespan-content"><code>src/plugins/</code></span></td><td>One file per metric: <span class="codespan-content"><code>temperature.rs</code></span>, <span class="codespan-content"><code>people_count.rs</code></span>, <span class="codespan-content"><code>air_quality.rs</code></span>, plus <span class="codespan-content"><code>common.rs</code></span>. No plugin imports another.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/</code></span></td><td><span class="codespan-content"><code>postgres/</code></span>, <span class="codespan-content"><code>redis_fanout.rs</code></span>, <span class="codespan-content"><code>kafka_producer.rs</code></span>, <span class="codespan-content"><code>twin_directory.rs</code></span>, <span class="codespan-content"><code>dispatch.rs</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driving/</code></span></td><td><span class="codespan-content"><code>http_api/</code></span> (claims, controllers, error mapping), <span class="codespan-content"><code>kafka_consumer.rs</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/state.rs</code></span>, <span class="codespan-content"><code>src/main.rs</code></span></td><td>Shared handler state; composition root.</td></tr><tr><td><span class="codespan-content"><code>migrations/</code></span></td><td><span class="codespan-content"><code>0001_init</code></span>, <span class="codespan-content"><code>0002_timescale</code></span>, <span class="codespan-content"><code>0003_rollup</code></span>. Embedded with <span class="codespan-content"><code>sqlx::migrate!</code></span> and applied at startup.</td></tr><tr><td><span class="codespan-content"><code>tests/</code></span></td><td><span class="codespan-content"><code>architecture.rs</code></span> (fitness), <span class="codespan-content"><code>persistence.rs</code></span>, <span class="codespan-content"><code>api.rs</code></span>, <span class="codespan-content"><code>fanout.rs</code></span>, <span class="codespan-content"><code>registration.rs</code></span>.</td></tr></tbody></table><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td><em>(required)</em></td><td>Postgres + TimescaleDB connection string. Migrations run at startup.</td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td><span class="codespan-content"><code>redis://redis:6379</code></span></td><td>Telemetry fan-out and breach alerts.</td></tr><tr><td><span class="codespan-content"><code>KAFKA_BROKERS</code></span></td><td><span class="codespan-content"><code>kafka:9092</code></span></td><td>Building-registration topics and the <span class="codespan-content"><code>alerts</code></span> breach topic. Unreachable at boot degrades to a disabled producer rather than failing — readings still land, breaches are counted but not delivered.</td></tr><tr><td><span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td><td><span class="codespan-content"><code>http://digital-twin:3000</code></span></td><td>Building-to-domain lookups for authorization.</td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP listener.</td></tr><tr><td><span class="codespan-content"><code>RUST_LOG</code></span></td><td>—</td><td><span class="codespan-content"><code>env_logger</code></span> filter.</td></tr></tbody></table><hr /><h2 id="adding-a-metric">Adding a Metric</h2><p>Three steps, none of which touch the kernel.</p><p><strong>1. Declare it.</strong> A new file in <span class="codespan-content"><code>src/plugins/</code></span>:</p><pre><code class="language-rust">static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    key: &quot;humidity&quot;,
+    value_field: &quot;humidity&quot;,
+    label: &quot;Humidity&quot;,
+    interface_name: &quot;IHumidity&quot;,
+    unit: Some(&quot;%&quot;),
+    fields: &amp;[
+        FieldSpec { name: &quot;buildingId&quot;, kind: FieldKind::NonEmptyString, required: true },
+        FieldSpec { name: &quot;roomId&quot;,     kind: FieldKind::NonEmptyString, required: true },
+        FieldSpec { name: &quot;timestamp&quot;,  kind: FieldKind::Finite,         required: true },
+        FieldSpec { name: &quot;humidity&quot;,   kind: FieldKind::Finite,         required: true },
+    ],
+};
+
+static BOUNDS: &amp;[BoundSpec] = &amp;[
+    BoundSpec { key: &quot;maxHumidity&quot;, direction: BoundDirection::Above },
+];</code></pre><p><strong>2. Implement <span class="codespan-content"><code>SensorPlugin</code></span>.</strong> <span class="codespan-content"><code>validate</code></span> is <span class="codespan-content"><code>check_fields</code></span> plus reading the value; <span class="codespan-content"><code>actions()</code></span> defaults to <span class="codespan-content"><code>&amp;[]</code></span> and is only overridden for metrics with an actuator.</p><p><strong>3. Register it</strong> in <span class="codespan-content"><code>main.rs</code></span>&rsquo;s <span class="codespan-content"><code>PluginRegistry::new(vec![&hellip;])</code></span>.</p><p><span class="codespan-content"><code>GET /contracts</code></span>, <span class="codespan-content"><code>POST /ingest</code></span>, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.</p><p><span class="codespan-content"><code>GET /contracts</code></span> serialises that declaration into <span class="codespan-content"><code>ServiceMetricsContract</code></span> from the shared <span class="codespan-content"><code>schemas/telemetry-schema</code></span> crate — the same types <span class="codespan-content"><code>dashboard</code></span> parses, so the two cannot drift.</p><div class="box note"><header><h4>The declaration is the single source of truth</h4></header><div class="box-content"><p>In the Node predecessor the served catalog and the per-module <span class="codespan-content"><code>validate()</code></span> were two independent lists. They drifted: <span class="codespan-content"><code>airQuality</code></span> advertised eight required fields and checked two, and the catalog said <span class="codespan-content"><code>building</code></span> while every validator required <span class="codespan-content"><code>buildingId</code></span>. <span class="codespan-content"><code>MetricDescriptor.fields</code></span> now drives both, which makes that class of drift inexpressible.</p></div></div><hr /><h2 id="request-lifecycle">Request Lifecycle</h2><p><strong>Ingestion</strong> — <span class="codespan-content"><code>POST /ingest</code></span>, device-facing so no user JWT and still exempt from the edge gate, but not open: the caller signs the request itself. The route takes a <em>batch</em>, always — a lone device sends one reading in the array, so there is no second route and no second code path.</p><ol start="0"><li><span class="codespan-content"><code>X-Signature</code></span> must equal <span class="codespan-content"><code>HMAC-SHA256(TELEMETRY_INGEST_SECRET, raw_body)</code></span> in lowercase hex — missing, malformed or mismatched is <span class="codespan-content"><code>401</code></span> before any parsing, persistence or fanout. Bodies over 1 MiB are <span class="codespan-content"><code>413</code></span>.</li><li>Envelope <span class="codespan-content"><code>{buildingId, readings[]}</code></span>, capped at 500 readings. Each reading carries its own <span class="codespan-content"><code>type</code></span>, which selects the plugin and is stripped; the envelope supplies <span class="codespan-content"><code>buildingId</code></span>. A reading naming a <em>different</em> building is rejected — a batch maps to exactly one fan-out channel.</li><li>Every reading is validated before anything is written. All-or-nothing: one failure persists nothing, publishes nothing, and one <span class="codespan-content"><code>422</code></span> names every offending field, each reading&rsquo;s prefixed with its index (<span class="codespan-content"><code>readings[3]: ...</code></span>). An unknown metric is one of those errors, not a <span class="codespan-content"><code>404</code></span> — within a batch it is a bad element of a payload, not an unroutable request.</li><li>One bulk insert, with one threshold lookup for the whole tick running alongside it.</li><li>Thresholds resolve room-first, then building; each breach publishes to <span class="codespan-content"><code>alerts:&lt;metric&gt;</code></span> — but only once the write has committed.</li><li><strong>One</strong> <span class="codespan-content"><code>telemetry:raw</code></span> message for the whole tick.</li><li><span class="codespan-content"><code>202 {accepted, readings}</code></span>.</li></ol><p>The signature covers the exact bytes on the wire, so a re-serialised body fails: a signing client must send the same string it hashed.</p><div class="box note"><header><h4>Why a batch is one message, not N</h4></header><div class="box-content"><p>A tick is a single observation of one building at one instant. Sent as N messages that fact is lost at the first hop and cannot be recovered downstream, so per-message overhead multiplies across every service. The fan-out envelope is <span class="codespan-content"><code>{buildingId, ingestedAt, readings[]}</code></span> — <span class="codespan-content"><code>dashboard</code></span> keys the channel on <span class="codespan-content"><code>buildingId</code></span> and <span class="codespan-content"><code>socket</code></span> relays it opaquely.</p><p>The envelope carries no shape tag. Every message is a tick, so a constant <span class="codespan-content"><code>type: &quot;batch&quot;</code></span> would carry no information, and <span class="codespan-content"><code>type</code></span> already names the <em>metric</em> on each reading — one key with two meanings at two levels is the kind of thing a reader gets wrong once and then trusts.</p><p>There is deliberately no <span class="codespan-content"><code>/ingest/batch</code></span> alongside a single-reading <span class="codespan-content"><code>/ingest</code></span>. Two routes meant two kernel entry points, two store methods and two fan-out methods to keep in step — and a sub-path the edge does not ungate, since <span class="codespan-content"><code>Caddyfile</code></span> and the Istio policy exempt the exact path <span class="codespan-content"><code>/telemetry/ingest</code></span>. One route with N ≥ 1 removes both problems.</p></div></div><div class="box note"><header><h4>One shared secret, not one per building</h4></header><div class="box-content"><p>Every gateway currently signs with the same key, so a legitimate gateway could still post for a building that is not its own. That is bounded by there being no third-party gateways yet. Per-building keys are a store lookup behind the same header, with no wire change. Replay is likewise undefended — a captured body stays valid — which matches the mesh&rsquo;s documented &ldquo;hard perimeter, guarded interior&rdquo; posture, where an in-mesh attacker could forge <span class="codespan-content"><code>x-gateway-claims</code></span> regardless.</p></div></div><p>A threshold-evaluation failure is logged and does <strong>not</strong> fail the ingest; a persistence failure does, and is counted by <span class="codespan-content"><code>telemetry_ingest_persist_failures_total</code></span>.</p><p><strong>Reads</strong> — <span class="codespan-content"><code>GET /{sensorType}/latest</code></span>, <span class="codespan-content"><code>/entireBuilding</code></span>, <span class="codespan-content"><code>/dashboard</code></span>. Each resolves the building&rsquo;s domains through digital-twin and evaluates Cedar before touching data. <span class="codespan-content"><code>latest</code></span> on an empty room is <span class="codespan-content"><code>404</code></span>.</p><p>A read is served in the <strong>same flat shape as the <span class="codespan-content"><code>telemetry</code></span> socket event</strong>: envelope plus every metric field at the top level under its own name. The trimmed <span class="codespan-content"><code>payload</code></span> column is a storage detail — it is re-inflated on the way out and never appears in a response. A client that reads a REST snapshot and then live events must not have to handle two shapes; when it did, a dashboard column stayed blank until the first socket tick overwrote the row.</p><p><strong>Actions</strong> — <span class="codespan-content"><code>POST /executeAction</code></span>. The kernel validates the command against the plugin&rsquo;s <span class="codespan-content"><code>ActionSpec</code></span>; the dispatch adapter translates it into the device&rsquo;s own vocabulary. See <a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a>.</p><hr /><h2 id="data-model">Data Model</h2><p>Five tables. Full retention and compression design in <a href="../telemetry-storage">Telemetry Storage &amp; Retention</a>.</p><table><thead><tr><th>Table</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>readings</code></span></td><td>Hypertable. <span class="codespan-content"><code>building_id, room_id, metric, ts, value, payload</code></span>. Compressed after 7 days, dropped after 14 — <span class="codespan-content"><code>readings_hourly</code></span> keeps the summaries.</td></tr><tr><td><span class="codespan-content"><code>thresholds</code></span></td><td><span class="codespan-content"><code>building_id, room_id, metric, bounds jsonb</code></span>. <span class="codespan-content"><code>room_id NULL</code></span> = building-level; room-level wins.</td></tr><tr><td><span class="codespan-content"><code>sensors</code></span></td><td><span class="codespan-content"><code>building_id, room_id, sensor_id, sensor_type, driver, endpoint</code></span>.</td></tr><tr><td><span class="codespan-content"><code>buildings</code></span> / <span class="codespan-content"><code>building_rooms</code></span></td><td>Registration output. <span class="codespan-content"><code>building_rooms</code></span> is what lets the threshold clone view report rooms that have no bounds.</td></tr></tbody></table><hr /><h2 id="testing">Testing</h2><p><span class="codespan-content"><code>just test telemetry</code></span> runs the unit and fitness suites — the whole kernel proven against in-memory fakes, with no database. <span class="codespan-content"><code>just test telemetry-integration</code></span> stands up TimescaleDB, Redis and Kafka in a throwaway compose project and runs <span class="codespan-content"><code>tests/*.rs</code></span> against them, each test on its own freshly created database.</p><p><span class="codespan-content"><code>tests/architecture.rs</code></span> is a gate, not a formality: it fails if the kernel gains an I/O import, if a plugin imports a sibling, or if <span class="codespan-content"><code>contracts</code></span> grows a dependency.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

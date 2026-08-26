@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Telemetry Contracts</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-the-metric-catalog" data-depth="2"><a href="#_1-the-metric-catalog">1. The metric catalog</a></li><li data-target-id="_2-alertevent--a-value-keyed-by-its-own-metric" data-depth="2"><a href="#_2-alertevent--a-value-keyed-by-its-own-metric">2. AlertEvent — a value keyed by its own metric</a></li><li data-target-id="_3-telemetryenvelope--a-tick-and-the-channels-it-travels-on" data-depth="2"><a href="#_3-telemetryenvelope--a-tick-and-the-channels-it-travels-on">3. TelemetryEnvelope — a tick, and the channels it travels on</a><ol><li data-target-id="the-channel-names" data-depth="3"><a href="#the-channel-names">The channel names</a></li></ol></li><li data-target-id="building-against-it" data-depth="2"><a href="#building-against-it">Building against it</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-panels-hidden";
+  var PANELS = ["left", "right"];
+  function attr(side) { return "data-" + side + "-nav"; }
+  function hidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function paint(side, isHidden) {
+    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+    else { root.removeAttribute(attr(side)); }
+    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  var state = hidden();
+  PANELS.forEach(function (side) { paint(side, state.has(side)); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    if (!b) return;
+    var side = b.getAttribute("data-panel");
+    var next = !state.has(side);
+    if (next) { state.add(side); } else { state.delete(side); }
+    paint(side, next);
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+    catch (err) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEY = "cv-nav-collapsed";
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  function load() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function save(set) {
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+    catch (e) {}
+  }
+  function init() {
+    var nav = document.querySelector('nav[data-role="page-list"]');
+    if (!nav) return;
+    var closed = load();
+    var here = norm(location.pathname);
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+      var id = h.id || h.textContent.trim();
+      // Quarkdown stamps aria-current after post-rendering, so match on the
+      // URL instead of racing it: the open page's section always starts open.
+      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+        catch (e) { return false; }
+      });
+      set(h, closed.has(id) && !holdsCurrent);
+      h.setAttribute("role", "button");
+      h.setAttribute("tabindex", "0");
+      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+      });
+    });
+  }
+  function set(h, isClosed) {
+    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+  }
+  function flip(h, id, closed) {
+    var next = h.getAttribute("data-collapsed") !== "true";
+    set(h, next);
+    if (next) { closed.add(id); } else { closed.delete(id); }
+    save(closed);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema" aria-current="page">Telemetry Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-the-metric-catalog" data-depth="2"><a href="#_1-the-metric-catalog">1. The metric catalog</a></li><li data-target-id="_2-alertevent--a-value-keyed-by-its-own-metric" data-depth="2"><a href="#_2-alertevent--a-value-keyed-by-its-own-metric">2. AlertEvent — a value keyed by its own metric</a></li><li data-target-id="_3-telemetryenvelope--a-tick-and-the-channels-it-travels-on" data-depth="2"><a href="#_3-telemetryenvelope--a-tick-and-the-channels-it-travels-on">3. TelemetryEnvelope — a tick, and the channels it travels on</a><ol><li data-target-id="the-channel-names" data-depth="3"><a href="#the-channel-names">The channel names</a></li></ol></li><li data-target-id="building-against-it" data-depth="2"><a href="#building-against-it">Building against it</a></li></ol></nav></div><h1 id="telemetry-contracts" data-decorative="">Telemetry Contracts</h1><p><span class="codespan-content"><code>telemetry-schema</code></span> is the crate the whole shared-contracts effort started from. It exists because of a bug: <span class="codespan-content"><code>telemetry</code></span> served a metric catalog with <span class="codespan-content"><code>{key, kind}</code></span> and <span class="codespan-content"><code>dashboard</code></span> parsed <span class="codespan-content"><code>{metricKey, type}</code></span>. The response type was an untagged enum, so neither variant matched, and the parse failure was treated as &ldquo;that service is down, skip it&rdquo; — an empty catalog returned with <span class="codespan-content"><code>200 OK</code></span>, and nobody could add or swap a dashboard column. No error anywhere.</p><p>It now carries three contracts, each one a place where the same class of failure was possible.</p><table><thead><tr><th>Module</th><th>Shape</th><th>Producer</th><th>Consumers</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>lib.rs</code></span></td><td>Metric catalog (<span class="codespan-content"><code>ServiceMetricsContract</code></span>, <span class="codespan-content"><code>MetricContract</code></span>, …)</td><td>telemetry <span class="codespan-content"><code>/contracts</code></span></td><td>dashboard</td></tr><tr><td><span class="codespan-content"><code>alerts.rs</code></span></td><td><span class="codespan-content"><code>AlertEvent</code></span> + <span class="codespan-content"><code>ALERTS_TOPIC</code></span></td><td>telemetry</td><td>notification</td></tr><tr><td><span class="codespan-content"><code>telemetry.rs</code></span></td><td><span class="codespan-content"><code>TelemetryEnvelope</code></span>, <span class="codespan-content"><code>TelemetryReading</code></span>, both channel names</td><td>telemetry</td><td>dashboard, socket</td></tr></tbody></table><hr /><h2 id="_1-the-metric-catalog">1. The metric catalog</h2><p>The original contract, unchanged: serde structs both services build from, with <span class="codespan-content"><code>rename_all = &quot;camelCase&quot;</code></span> and field names that <span class="codespan-content"><code>frontend/src/models/table.ts</code></span> also reads. The rule that came out of the incident is the one every module here follows — <strong>the producer builds the struct; nobody hand-rolls <span class="codespan-content"><code>json!</code></span> for a shape another service parses.</strong></p><p>The seam is covered by a test that lives on the producing side: <span class="codespan-content"><code>telemetry/tests/api.rs::the_catalog_deserialises_into_the_shape_dashboard_parses</code></span>.</p><hr /><h2 id="_2-alertevent--a-value-keyed-by-its-own-metric">2. <span class="codespan-content"><code>AlertEvent</code></span> — a value keyed by its own metric</h2><pre><code class="language-json">{&quot;buildingId&quot;:&quot;b1&quot;,&quot;roomId&quot;:&quot;r1&quot;,&quot;temperature&quot;:40.0,&quot;type&quot;:&quot;temperature&quot;,
+ &quot;direction&quot;:&quot;high&quot;,&quot;threshold&quot;:25.0,&quot;timestamp&quot;:1700000000000}</code></pre><p><span class="codespan-content"><code>type</code></span> names the metric; the reading sits under a key of that name. That is why <span class="codespan-content"><code>Serialize</code></span>/<span class="codespan-content"><code>Deserialize</code></span> are hand-written rather than derived — a derive cannot express &ldquo;look up the key this other field names&rdquo;. A <span class="codespan-content"><code>type</code></span> naming a key the object does not carry is a parse error, not a silent <span class="codespan-content"><code>None</code></span>.</p><p>Every field is required. The producer always sets all of them, so a missing one means a malformed record, which notification parks in the dead-letter topic rather than delivering as a half-rendered push. <span class="codespan-content"><code>threshold</code></span> is part of the type because it was already on the wire and being thrown away.</p><div class="box note"><header><h4>Every metric&rsquo;s breaches reach the topic; only temperature has a delivery path</h4></header><div class="box-content"><p>notification answers <span class="codespan-content"><code>BreachOutcome::Unsupported</code></span> for anything else — logged with the metric name, counted <span class="codespan-content"><code>unsupported_metric</code></span>, settled. Before, this was an untyped <span class="codespan-content"><code>type == &quot;temperature&quot;</code></span> string compare whose failures were counted as <span class="codespan-content"><code>skipped</code></span>, which is how air-quality and people-count breaches disappeared without a trace.</p></div></div><hr /><h2 id="_3-telemetryenvelope--a-tick-and-the-channels-it-travels-on">3. <span class="codespan-content"><code>TelemetryEnvelope</code></span> — a tick, and the channels it travels on</h2><p>One building tick is one message, end to end:</p><pre><code class="language-json">{&quot;buildingId&quot;:&quot;b1&quot;,&quot;ingestedAt&quot;:1700000000500,
+ &quot;readings&quot;:[{&quot;type&quot;:&quot;temperature&quot;,&quot;buildingId&quot;:&quot;b1&quot;,&quot;roomId&quot;:&quot;r1&quot;,
+              &quot;timestamp&quot;:1700000000000,&quot;value&quot;:21.5,&quot;ingestedAt&quot;:1700000000500}]}</code></pre><pre><code class="language-rust">pub struct TelemetryReading {
+    pub metric: String,        // &quot;type&quot;
+    pub building_id: String,
+    pub room_id: String,
+    pub ts_ms: i64,            // &quot;timestamp&quot;
+    pub value: f64,
+    pub ingested_at_ms: i64,   // &quot;ingestedAt&quot;
+    #[serde(flatten)]
+    pub fields: Map&lt;String, Value&gt;,
+}</code></pre><p><span class="codespan-content"><code>readings</code></span> is <span class="codespan-content"><code>Vec&lt;Value&gt;</code></span> on the envelope, deliberately. A reading&rsquo;s fields belong to whichever plugin produced it — telemetry is a microkernel, and enumerating plugin fields in a shared crate would undo that. <span class="codespan-content"><code>TelemetryReading</code></span> types the part that <em>is</em> fixed (the six names the browser reads) and flattens the rest, so a reading round-trips whatever its plugin emitted.</p><p><strong>dashboard parses the envelope to route it, then republishes the exact bytes it received.</strong> Routing is a decision about <span class="codespan-content"><code>buildingId</code></span>; it is not a licence to rebuild a payload this service does not own. It used to deserialise to a <span class="codespan-content"><code>Value</code></span> and re-serialise, which was both slower and one refactor away from dropping a field.</p><p><span class="codespan-content"><code>ingestedAt</code></span> is now <strong>required</strong>. It was optional before — used only for the fan-out latency histogram, skipped when absent. One service produces this envelope and always sets it, so a missing one means a broken publisher, and forwarding a broken tick is precisely the failure this crate exists to stop.</p><h3 id="the-channel-names">The channel names</h3><pre><code class="language-rust">pub const RAW_CHANNEL: &amp;str = &quot;telemetry:raw&quot;;
+pub const FILTERED_CHANNEL_PATTERN: &amp;str = &quot;telemetry:filtered:*&quot;;
+
+pub fn filtered_channel(building_id: &amp;str) -&gt; String;
+pub fn building_of_filtered_channel(channel: &amp;str) -&gt; &amp;str;</code></pre><p>Four declaration sites across three services collapse into these. The pair matters more than it looks: dashboard <em>writes</em> <span class="codespan-content"><code>telemetry:filtered:{id}</code></span> and socket <em>reads the building back out of it</em>, so the prefix is a two-way contract, and a building id containing a colon (<span class="codespan-content"><code>site:b1</code></span>) has to survive the round trip. There is a test for exactly that.</p><hr /><h2 id="building-against-it">Building against it</h2><p>Every consumer builds from <strong>repo-root context</strong> so the sibling path dependency resolves. <span class="codespan-content"><code>.github/services.json</code></span> carries <span class="codespan-content"><code>cd_context: &quot;.&quot;</code></span> and an explicit <span class="codespan-content"><code>dockerfile</code></span> for each, and every <span class="codespan-content"><code>Dockerfile</code></span> copies the crate before <span class="codespan-content"><code>cargo chef prepare</code></span> <strong>and</strong> before each <span class="codespan-content"><code>cargo chef cook</code></span> — cook restores the dependency graph, and a path dependency that is not on disk at that moment fails the build halfway through.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

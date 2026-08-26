@@ -1,0 +1,192 @@
+@import url("lato/index.css");
+@import url("inter/index.css");
+@import url("noto-sans-mono/index.css");
+:root {
+  --qd-main-font: "Lato", sans-serif;
+  --qd-heading-font: "Inter", sans-serif;
+  --qd-heading-margin: 60px 0 30px 0;
+  --qd-code-font: "Noto Sans Mono", monospace;
+  --qd-slides-code-block-font-size: 1.3em;
+  --qd-code-span-font-size: 0.9em;
+  --qd-caption-font-size: 0.8em;
+  --qd-caption-font-style: italic;
+  --qd-block-margin: 1.8em;
+  --qd-line-height: 1.6;
+  --qd-code-line-height: 1.85;
+  --qd-heading-label-suffix: "";
+  --qd-box-border-radius: 10px;
+  --qd-box-icon-baseline: 0.1em;
+}
+
+.quarkdown-slides {
+  --qd-line-height: 1.8;
+}
+
+.quarkdown h1 {
+  --h-font-scale: 3.25;
+  font-size: 3.25em;
+}
+.quarkdown h2 {
+  --h-font-scale: 2.21;
+  font-size: 2.21em;
+}
+.quarkdown h3 {
+  --h-font-scale: 1.82;
+  font-size: 1.82em;
+}
+.quarkdown h4 {
+  --h-font-scale: 1.56;
+  font-size: 1.56em;
+}
+.quarkdown h5, .quarkdown h6 {
+  --h-font-scale: 1.3;
+  font-size: 1.3em;
+}
+.quarkdown h1 {
+  line-height: calc(3.25em / var(--h-font-scale, 1.5));
+  margin-bottom: calc(2.025em / var(--h-font-scale, 1.5));
+}
+.quarkdown h2 {
+  line-height: calc(2em / var(--h-font-scale, 1.5));
+  margin-top: calc(3em / var(--h-font-scale, 1.5));
+}
+.quarkdown h3 {
+  margin-top: calc(2.5em / var(--h-font-scale, 1.5));
+}
+.quarkdown h4 {
+  margin-top: calc(2em / var(--h-font-scale, 1.5));
+}
+.quarkdown h5 {
+  margin-top: calc(1.8em / var(--h-font-scale, 1.5));
+}
+.quarkdown h6 {
+  margin-top: calc(2.5rem / var(--h-font-scale, 1.5));
+}
+.quarkdown h3, .quarkdown h4, .quarkdown h5, .quarkdown h6 {
+  line-height: calc(1.625em / var(--h-font-scale, 1.5));
+}
+.quarkdown h1 + h2 {
+  margin-top: calc(1.625em / var(--h-font-scale, 1.5));
+}
+.quarkdown h2 + h3,
+.quarkdown h3 + h4,
+.quarkdown h4 + h5 {
+  margin-top: calc(0.8em / var(--h-font-scale, 1.5));
+}
+.quarkdown h5 + h6 {
+  margin-top: calc(0.8rem / var(--h-font-scale, 1.5));
+}
+.quarkdown h2, .quarkdown h3, .quarkdown h4, .quarkdown h5, .quarkdown h6 {
+  margin-bottom: calc(1.2em / var(--h-font-scale, 1.5));
+}
+.quarkdown table:not(pre table) {
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+.quarkdown table:not(pre table) th, .quarkdown table:not(pre table) td {
+  padding: 0.5em 1em !important;
+  border: 1px solid;
+}
+.quarkdown table:not(pre table) tr:first-child th {
+  border-top: 0;
+}
+.quarkdown table:not(pre table) tr:last-child td {
+  border-bottom: 0;
+}
+.quarkdown table:not(pre table) tr th:first-child, .quarkdown table:not(pre table) tr td:first-child {
+  border-left: 0;
+}
+.quarkdown table:not(pre table) tr th:last-child, .quarkdown table:not(pre table) tr td:last-child {
+  border-right: 0;
+}
+.quarkdown nav ul, .quarkdown nav ol {
+  list-style-type: none;
+  margin: 0;
+  padding-left: 12px;
+}
+.quarkdown nav ul ul, .quarkdown nav ul ol, .quarkdown nav ol ul, .quarkdown nav ol ol {
+  border-left: 2px solid var(--qd-nested-navigation-line-color);
+  border-radius: 2px;
+  margin-left: 1px;
+  padding: 0 0 0 var(--qd-nested-navigation-padding-left);
+}
+.quarkdown nav li {
+  margin: 4px 0;
+}
+.quarkdown nav [data-location]::before {
+  opacity: 0.5;
+}
+.quarkdown.quarkdown-slides nav > :is(ul, ol) {
+  margin-left: auto;
+}
+.quarkdown.quarkdown-slides nav, .quarkdown.quarkdown-slides h1#table-of-contents {
+  margin-left: 44px;
+}
+.quarkdown.quarkdown-docs {
+  --qd-nested-navigation-line-color: var(--qd-docs-separator-border-color);
+}
+.quarkdown .page-margin-bottom-center > * {
+  padding: 12px;
+  margin: 0 !important;
+  border-top: 2px solid;
+  border-color: inherit;
+}
+.quarkdown .page-margin-bottom-center > *:first-child {
+  margin-left: 64px !important;
+}
+.quarkdown .page-margin-bottom-center > *:last-child {
+  margin-right: 64px !important;
+}
+.quarkdown .page-margin-bottom-center > p {
+  line-height: 1;
+}
+.quarkdown.quarkdown-docs h1 {
+  border-bottom: 1px solid var(--qd-docs-separator-border-color);
+  padding-bottom: 24px;
+}
+.quarkdown.quarkdown-docs aside nav[data-role=page-list] {
+  margin-left: 0.4em;
+}
+.quarkdown.quarkdown-docs aside nav[data-role=page-list] a {
+  padding: 0.2em 0.4em;
+  transform: translateX(-0.4em);
+  border-radius: 4px;
+}
+.quarkdown.quarkdown-docs aside nav[data-role=page-list] a[aria-current] {
+  background-color: var(--qd-link-color);
+  color: var(--qd-background-color);
+}
+.quarkdown ul, .quarkdown ol {
+  line-height: 1.5;
+}
+.quarkdown blockquote {
+  font-style: italic;
+  border-left: 0.4em solid;
+  padding-left: 1em;
+  padding-right: 1em;
+}
+.quarkdown figure img {
+  margin-bottom: 0.5em !important;
+}
+.quarkdown .box > header > h4 {
+  font-size: 1em;
+}
+.quarkdown .codespan-content {
+  margin: 0 0.3em;
+}
+.quarkdown .codespan-content .color-preview {
+  border-radius: 3px;
+}
+.quarkdown .cross-reference {
+  font-style: italic;
+}
+.quarkdown [data-location]:is(h1, h2, h3, h4, h5, h6, li)::before {
+  opacity: 0.3;
+  font-weight: normal;
+  margin-right: 0.4em;
+}
+.quarkdown.quarkdown-docs header {
+  border-bottom: 1px solid var(--qd-docs-separator-border-color);
+}
+
+/*# sourceMappingURL=minimal.css.map */

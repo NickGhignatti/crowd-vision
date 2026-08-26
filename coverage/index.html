@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Coverage</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides .reveal {
+    width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="current-coverage" data-depth="2"><a href="#current-coverage">Current coverage</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage" aria-current="page">Coverage</a></p></div><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-panels-hidden";
+  var PANELS = ["left", "right"];
+  function attr(side) { return "data-" + side + "-nav"; }
+  function hidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function paint(side, isHidden) {
+    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+    else { root.removeAttribute(attr(side)); }
+    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  var state = hidden();
+  PANELS.forEach(function (side) { paint(side, state.has(side)); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    if (!b) return;
+    var side = b.getAttribute("data-panel");
+    var next = !state.has(side);
+    if (next) { state.add(side); } else { state.delete(side); }
+    paint(side, next);
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+    catch (err) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEY = "cv-nav-collapsed";
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  function load() {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+  function save(set) {
+    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
+    catch (e) {}
+  }
+  function init() {
+    var nav = document.querySelector('nav[data-role="page-list"]');
+    if (!nav) return;
+    var closed = load();
+    var here = norm(location.pathname);
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
+      var id = h.id || h.textContent.trim();
+      // Quarkdown stamps aria-current after post-rendering, so match on the
+      // URL instead of racing it: the open page's section always starts open.
+      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
+        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
+        catch (e) { return false; }
+      });
+      set(h, closed.has(id) && !holdsCurrent);
+      h.setAttribute("role", "button");
+      h.setAttribute("tabindex", "0");
+      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+      });
+    });
+  }
+  function set(h, isClosed) {
+    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
+  }
+  function flip(h, id, closed) {
+    var next = h.getAttribute("data-collapsed") !== "true";
+    set(h, next);
+    if (next) { closed.add(id); } else { closed.delete(id); }
+    save(closed);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><script>document.documentElement.setAttribute("data-standalone", "");</script><h1 id="coverage" data-decorative="">Coverage</h1><p>Line and branch coverage per service, read live from the <span class="codespan-content"><code>coverage-data</code></span> branch. <span class="codespan-content"><code>cd-coverage.yml</code></span> recomputes it on every push to <span class="codespan-content"><code>master</code></span> — for changed services only — and force-pushes <span class="codespan-content"><code>summary.json</code></span>, <span class="codespan-content"><code>badge.json</code></span> and <span class="codespan-content"><code>coverage-counts.json</code></span> to that orphan branch. Nothing is committed to <span class="codespan-content"><code>master</code></span>, so this page is always the branch&rsquo;s current state, not a snapshot taken at docs-build time.</p><p>Coverage is produced per language by <span class="codespan-content"><code>tpl-{rust,go,node,python}-coverage.yml</code></span>. Bands match the badge thresholds in <span class="codespan-content"><code>scripts/coverage-summary.py</code></span>: <strong>80% and above</strong> is healthy, <strong>60% to 80%</strong> needs attention, <strong>below 60%</strong> is thin. Services are ordered by line coverage, weakest last. Branch coverage is only reported where the language&rsquo;s tooling emits it.</p><hr /><h2 id="current-coverage">Current coverage</h2><div id="cv-coverage">Loading coverage from the <code>coverage-data</code> branch…</div>
+<script>
+(function () {
+  var BASE = "https://raw.githubusercontent.com/nickghignatti/crowd-vision/coverage-data/";
+  var host = document.getElementById("cv-coverage");
+  if (!host) return;
+
+  function band(pct) { return pct >= 80 ? "good" : pct >= 60 ? "ok" : "low"; }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function bar(pct, cls) {
+    var track = el("div", "cv-cov-track");
+    var fill = el("div", "cv-cov-fill cv-" + cls);
+    fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    track.appendChild(fill);
+    return track;
+  }
+  function grab(name, optional) {
+    return fetch(BASE + name, { cache: "no-store" }).then(function (r) {
+      if (r.ok) return r.json();
+      if (optional) return null;
+      throw new Error("HTTP " + r.status);
+    }).catch(function (e) {
+      if (optional) return null;
+      throw e;
+    });
+  }
+
+  Promise.all([grab("summary.json", false), grab("coverage-counts.json", true)])
+    .then(function (res) {
+      var summary = res[0] || {};
+      var counts = res[1] || {};
+      var names = Object.keys(summary);
+      if (!names.length) { host.textContent = "No coverage published yet."; return; }
+
+      // Weighted the same way scripts/coverage-summary.py builds the badge:
+      // total covered lines over total lines, not a mean of per-service rates.
+      var cov = 0, tot = 0;
+      names.forEach(function (n) {
+        var c = counts[n];
+        if (c && typeof c.lines_total === "number") {
+          cov += c.lines_covered || 0;
+          tot += c.lines_total;
+        }
+      });
+
+      var frag = document.createDocumentFragment();
+
+      if (tot > 0) {
+        var overall = Math.round((1000 * cov) / tot) / 10;
+        var card = el("div", "cv-cov-overall");
+        var headRow = el("div", "cv-cov-overall-head");
+        headRow.appendChild(el("span", "cv-cov-overall-pct cv-" + band(overall), overall.toFixed(1) + "%"));
+        headRow.appendChild(el("span", "cv-cov-overall-label",
+          "overall line coverage · " + cov.toLocaleString() + " of " + tot.toLocaleString() + " lines"));
+        card.appendChild(headRow);
+        card.appendChild(bar(overall, band(overall)));
+        frag.appendChild(card);
+      }
+
+      names.sort(function (a, b) {
+        return (summary[b].lines || 0) - (summary[a].lines || 0) || a.localeCompare(b);
+      });
+
+      var list = el("div", "cv-cov-list");
+      names.forEach(function (n) {
+        var lines = typeof summary[n].lines === "number" ? summary[n].lines : 0;
+        var branches = summary[n].branches;
+        var c = counts[n];
+
+        var row = el("div", "cv-cov-row");
+        var name = el("div", "cv-cov-name");
+        name.appendChild(el("code", null, n));
+        row.appendChild(name);
+        row.appendChild(bar(lines, band(lines)));
+        row.appendChild(el("div", "cv-cov-pct cv-" + band(lines), lines.toFixed(2) + "%"));
+
+        var note = [];
+        if (c && c.lines_total) { note.push(c.lines_covered + "/" + c.lines_total + " lines"); }
+        if (typeof branches === "number" && branches > 0) { note.push(branches.toFixed(1) + "% branches"); }
+        row.appendChild(el("div", "cv-cov-note", note.join(" · ")));
+        list.appendChild(row);
+      });
+      frag.appendChild(list);
+
+      host.textContent = "";
+      host.appendChild(frag);
+    })
+    .catch(function (e) {
+      host.textContent = "Could not load coverage (" + e.message
+        + "). The data lives at coverage-data:summary.json.";
+    });
+})();
+</script>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>
