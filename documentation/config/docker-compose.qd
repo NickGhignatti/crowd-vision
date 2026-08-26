@@ -71,7 +71,6 @@ A single-path entry becomes one sub-project; a multi-path entry merges a service
 1. Always include the root `docker-compose.yml`\.
 2. Walk `backend/` (skipping `tests/`) and `simulators/`, adding each folder's `docker-compose.yml` and — in development modes — its `docker-compose.dev.yml` if present.
 3. Add `frontend` unless excluded.
-4. For the integration mode, also include `backend/acceptance/docker-compose.integration.yml`\.
 
 ### Excluding services
 
