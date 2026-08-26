@@ -130,9 +130,6 @@ The first argument to the orchestrator selects the `docker compose` invocation. 
     - - `just stack down`
       - `down`
       - `down --remove-orphans` — stop and remove everything.
-    - - `just test integration`
-      - `integration`
-      - `up --build --exit-code-from integration-tests --abort-on-container-exit`\.
     - - (CI) `compose-run.py build`
       - `build`
       - `build` only — used by the `ci-docker` workflow to validate the whole stack builds.
@@ -141,6 +138,49 @@ The orchestrator runs `docker compose` with `COMPOSE_BAKE=true`, which delegates
 
 .box {Same assembly in CI} type:{note}
     The `ci-docker` workflow builds the stack through the very same orchestrator (`build` mode). Path resolution in CI is therefore identical to local development, so "it builds on my machine" and "it builds in CI" cannot diverge over compose path handling.
+
+---
+
+## The acceptance suite composes its own stack
+
+`just test integration` does **not** go through the orchestrator. It runs `backend/acceptance/run-integration-tests.sh`, which writes its own runtime file under its own project name (`crowdvision-integration-tests`), so it never collides with a running `just stack dev` and tears down independently.
+
+Fragments are listed in `include:` order, and the order is load-bearing — the last one overrides those above it:
+
+.var {headers}
+   - Fragment
+   - Provides
+
+.tablebyrows {.headers}
+    - - `backend/acceptance/docker-compose.infra.yml`
+      - Redis and Kafka. Named `infra` rather than being the folder's bare `docker-compose.yml` because it is not a base file — it substitutes for the root stack's infra, which this assembly deliberately does not include.
+    - - `backend/telemetry`, `backend/socket`, `backend/dashboard`
+      - Each service's own `docker-compose.yml`, built from source.
+    - - `backend/acceptance/docker-compose.integration.yml`
+      - Included **last**, so it overrides the fragments above: healthchecks, `depends_on` wiring, the stub containers, `gateway`, and the `integration-tests` runner.
+
+### What is stubbed, and why
+
+.var {headers}
+   - Container
+   - Stub
+   - Reason
+
+.tablebyrows {.headers}
+    - - `digital-twin`
+      - nginx, `stubs/twin.conf`
+      - socket authorises `subscribe_building` against `GET /domain/{building}`\. LD-4 is about dashboard freshness, not building authz.
+    - - `claims-gateway`
+      - nginx, `stubs/claims-gateway.conf`
+      - The real one needs Keycloak and tenancy to boot. `/verify` returns a flat `401` carrying a marker string, which is how a test tells an edge rejection apart from a service-level one — both are `401`\.
+    - - `gateway`
+      - **Not stubbed.** Real Caddy, mounting the repo-root `Caddyfile` itself
+      - A trimmed copy would stop being the file that ships. It boots with `tenancy`/`chat`/`agent` absent because `reverse_proxy` resolves upstream DNS per request, not at config load.
+
+The `gateway` container is what makes `backend/acceptance/edge/` possible: every other test in the suite addresses a service directly, so Caddy is otherwise never in the path.
+
+.box {A new test package is invisible until it is listed} type:{warning}
+    `backend/acceptance/pyproject.toml`'s `testpaths` is an allowlist, not a discovery root. A new folder of tests is collected only once added there — until then the suite passes without ever running it.
 
 ---
 
@@ -173,6 +213,6 @@ just stack down                # tear it all down
     - - `just db clear-telemetry`
       - Drop only the sensor database.
     - - `just test integration`
-      - Bring up the full stack plus the integration test container, exit with its status, then tear down.
+      - Compose the acceptance suite's own stack, run it, exit with its status, then tear down. See [The acceptance suite composes its own stack](#the-acceptance-suite-composes-its-own-stack).
 
 For the production-grade orchestration (StatefulSets, ingress, secrets), see [Kubernetes Configuration](kubernetes.qd); for the runtime topology and gateway routing, see the [Architecture Overview](../architecture/overview.qd).
