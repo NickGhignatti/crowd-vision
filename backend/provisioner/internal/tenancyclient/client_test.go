@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/tenancyclient"
@@ -66,5 +67,26 @@ func TestCreateDomain_ServerErrorIsAnError(t *testing.T) {
 	c := tenancyclient.New(srv.URL, []byte(secret))
 	if err := c.CreateDomain(context.Background(), "unibo", "UniBO", "open-via-idp"); err == nil {
 		t.Fatal("expected an error on 500")
+	}
+}
+
+func TestCreateDomain_UnreachableTenancyIsWrapped(t *testing.T) {
+	c := tenancyclient.New("http://127.0.0.1:1", []byte(secret))
+
+	err := c.CreateDomain(context.Background(), "unibo", "UniBO", "open-via-idp")
+
+	if err == nil {
+		t.Fatal("got nil, want a transport error")
+	}
+	if !strings.Contains(err.Error(), "tenancy unreachable") {
+		t.Fatalf("got %q, want it wrapped as \"tenancy unreachable\"", err)
+	}
+}
+
+func TestCreateDomain_UnparseableBaseURLFailsBeforeAnyRequest(t *testing.T) {
+	c := tenancyclient.New("http://\x7f-control-char", []byte(secret))
+
+	if err := c.CreateDomain(context.Background(), "unibo", "UniBO", "open-via-idp"); err == nil {
+		t.Fatal("got nil, want a request-construction error")
 	}
 }
