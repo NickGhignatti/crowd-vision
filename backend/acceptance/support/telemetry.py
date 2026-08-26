@@ -9,6 +9,10 @@ import httpx
 from support import config
 from support.claims import claims_header
 
+# Full endpoint, not a base: the edge tests need to aim at a sub-path
+# (/ingest/batch) as well as at /ingest itself.
+INGEST_URL = f"{config.TELEMETRY_URL}/ingest"
+
 
 def new_room(
     building_id: str | None = None, room_id: str | None = None
@@ -50,6 +54,7 @@ def ingest_temperature(
     room_id: str,
     value: float,
     timestamp_ms: int | None = None,
+    ingest_url: str = INGEST_URL,
 ) -> httpx.Response:
     body = {
         "buildingId": building_id,
@@ -64,10 +69,12 @@ def ingest_temperature(
             }
         ],
     }
-    return post_reading(client, body)
+    return post_reading(client, body, ingest_url)
 
 
-def post_reading(client: httpx.Client, body: dict) -> httpx.Response:
+def post_reading(
+    client: httpx.Client, body: dict, ingest_url: str = INGEST_URL
+) -> httpx.Response:
     """Signed exactly like a real gateway: HMAC-SHA256 over the bytes on the wire,
     so the body is serialised here rather than by httpx's json= encoder.
     """
@@ -76,7 +83,7 @@ def post_reading(client: httpx.Client, body: dict) -> httpx.Response:
         config.TELEMETRY_INGEST_SECRET.encode(), raw, hashlib.sha256
     ).hexdigest()
     return client.post(
-        f"{config.TELEMETRY_URL}/ingest",
+        ingest_url,
         content=raw,
         headers={"content-type": "application/json", "x-signature": signature},
     )
