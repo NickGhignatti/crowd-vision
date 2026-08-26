@@ -145,7 +145,7 @@ Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon
       - `build`, `test`, `lint`, `deps` (`cargo fetch`), `deps-check` (`cargo check`), `audit`
     - - \.`moon/tasks/go.yml`
       - `language: go`
-      - `build` (`go build ./...`), `test` (`go test ./...`), `lint` (`go vet ./...` — no `golangci-lint` in this environment yet), `deps` (`go mod download`). No `audit` task yet.
+      - `build` (`go build ./...`), `test` (`go test ./...`), `lint` (a `gofmt -l` check then `go vet ./...` — no `golangci-lint` in this environment yet), `deps` (`go mod download`). `registry` and `tenancy` add their own `test-integration` (`go test -tags=integration`, testcontainers). No `audit` task yet.
     - - \.`moon/tasks/javascript.yml`
       - `language: javascript`
       - `deps`, `relock` only — for support packages

@@ -11,11 +11,11 @@ import (
 type org = reconciler.Organization
 
 type fakeRegistry struct {
-	pending      []org
-	pendingErr   error
-	ready        []string
-	failed       map[string]string
-	markReadyErr error
+	pending       []org
+	pendingErr    error
+	ready         []string
+	failed        map[string]string
+	markReadyErr  error
 	markFailedErr error
 }
 

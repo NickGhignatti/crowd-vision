@@ -18,8 +18,13 @@ tasks:
       - 'go.mod'
 
   # Swap to golangci-lint if/when it's adopted.
+  # Formatting first, matching tpl-go-ci.yml so `just lint` fails on exactly what
+  # CI fails on. `gofmt -l` exits 0 even when it lists files, hence the test -z.
   lint:
-    command: 'go vet ./...'
+    command: 'sh'
+    args:
+      - '-c'
+      - 'test -z "$(gofmt -l .)" || { echo "not gofmt-formatted:"; gofmt -l .; echo "fix: gofmt -w ."; exit 1; }; go vet ./...'
     inputs:
       - '**/*.go'
       - 'go.mod'
