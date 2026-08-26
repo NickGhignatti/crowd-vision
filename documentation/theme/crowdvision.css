@@ -713,6 +713,38 @@ main table:not(.hljs-ln) tbody tr:hover {
   color: var(--cv-error);
 }
 
+/* ---------- reference tables ---------- */
+
+/* On a standalone reference page the table is the page, so it gets a heavier
+ * treatment than an inline table inside prose. */
+:root[data-standalone] main table:not(.hljs-ln) {
+  font-size: 15px;
+  margin-top: 32px;
+}
+
+:root[data-standalone] main table:not(.hljs-ln) th {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cv-outline);
+  background-color: transparent;
+  padding: 10px 16px;
+}
+
+:root[data-standalone] main table:not(.hljs-ln) td {
+  padding: 18px 16px;
+}
+
+:root[data-standalone] main table:not(.hljs-ln) td:first-child {
+  width: 34%;
+  white-space: nowrap;
+}
+
+:root[data-standalone] main table:not(.hljs-ln) td:first-child a {
+  font-size: 16px;
+  font-weight: 600;
+}
+
 /* ---------- coverage page ---------- */
 
 /* Bands mirror _color() in scripts/coverage-summary.py, so a bar and the
