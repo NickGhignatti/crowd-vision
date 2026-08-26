@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -29,14 +30,17 @@ func NewConsumer(rdb *redis.Client, svc *service.Service, name string) *Consumer
 // the first event) and tolerates BUSYGROUP on restart.
 func (c *Consumer) EnsureGroup(ctx context.Context) error {
 	err := c.rdb.XGroupCreateMkStream(ctx, Stream, Group, "0").Err()
-	if err != nil && !isBusyGroup(err) {
+	if err != nil && !IsBusyGroup(err) {
 		return err
 	}
 	return nil
 }
 
-func isBusyGroup(err error) bool {
-	return err != nil && len(err.Error()) >= 9 && err.Error()[:9] == "BUSYGROUP"
+// IsBusyGroup reports whether err is Redis's "this consumer group already exists"
+// reply, which EnsureGroup treats as success on restart. Exported so the predicate
+// can be asserted directly — it is the whole of that restart tolerance.
+func IsBusyGroup(err error) bool {
+	return err != nil && strings.HasPrefix(err.Error(), "BUSYGROUP")
 }
 
 func (c *Consumer) Run(ctx context.Context) {

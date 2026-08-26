@@ -283,3 +283,168 @@ func TestPostgres_DeleteMembershipsForAccount_ReapsAcrossDomains(t *testing.T) {
 		t.Fatalf("got %d rows, want 0", len(rows))
 	}
 }
+
+// Leaving one domain must not touch memberships in another: the delete is keyed on
+// the pair, and dropping the domain_id predicate would reap an account everywhere.
+func TestPostgres_DeleteMembership_RemovesOnlyThatPair(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	left, _ := st.CreateDomain(ctx, store.Domain{Name: "acme", DisplayName: "Acme", JoinPolicy: "invite-only"})
+	kept, _ := st.CreateDomain(ctx, store.Domain{Name: "unibo", DisplayName: "UniBO", JoinPolicy: "invite-only"})
+	accountID := uuidFor(7)
+
+	for _, d := range []store.Domain{left, kept} {
+		if err := st.UpsertMembership(ctx, store.Membership{
+			AccountID: accountID, DomainID: d.ID, Role: "standard_customer", JoinedVia: "invite",
+		}); err != nil {
+			t.Fatalf("upsert: %v", err)
+		}
+	}
+
+	if err := st.DeleteMembership(ctx, accountID, left.ID); err != nil {
+		t.Fatalf("delete membership: %v", err)
+	}
+
+	rows, err := st.MembershipsFor(ctx, accountID)
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	if len(rows) != 1 || rows[0].DomainID != kept.ID {
+		t.Fatalf("got %+v, want only the membership in %q", rows, kept.Name)
+	}
+}
+
+// Deleting a membership that isn't there is a no-op, not an error — leave is
+// driven by user action and can arrive twice.
+func TestPostgres_DeleteMembership_UnknownPairIsNotAnError(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	d, _ := st.CreateDomain(ctx, store.Domain{Name: "acme", DisplayName: "Acme", JoinPolicy: "invite-only"})
+
+	if err := st.DeleteMembership(ctx, uuidFor(8), d.ID); err != nil {
+		t.Fatalf("deleting a membership that does not exist: %v", err)
+	}
+}
+
+func TestPostgres_MembersOf_ListsOnlyThatDomainsMembers(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	acme, _ := st.CreateDomain(ctx, store.Domain{Name: "acme", DisplayName: "Acme", JoinPolicy: "invite-only"})
+	other, _ := st.CreateDomain(ctx, store.Domain{Name: "unibo", DisplayName: "UniBO", JoinPolicy: "invite-only"})
+
+	_ = st.UpsertMembership(ctx, store.Membership{AccountID: uuidFor(1), DomainID: acme.ID, Role: "business_admin", JoinedVia: "invite"})
+	_ = st.UpsertMembership(ctx, store.Membership{AccountID: uuidFor(2), DomainID: acme.ID, Role: "standard_customer", JoinedVia: "invite"})
+	_ = st.UpsertMembership(ctx, store.Membership{AccountID: uuidFor(3), DomainID: other.ID, Role: "standard_customer", JoinedVia: "invite"})
+
+	rows, err := st.MembersOf(ctx, acme.ID)
+	if err != nil {
+		t.Fatalf("members of: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d members, want 2", len(rows))
+	}
+	// The join onto domains is what supplies DomainName; without it every row
+	// comes back blank and callers cannot tell which domain they are looking at.
+	for _, m := range rows {
+		if m.DomainName != "acme" {
+			t.Fatalf("got domain name %q, want acme (the domains join)", m.DomainName)
+		}
+	}
+}
+
+func TestPostgres_MembersOf_EmptyDomainReturnsNoRows(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	d, _ := st.CreateDomain(ctx, store.Domain{Name: "acme", DisplayName: "Acme", JoinPolicy: "invite-only"})
+
+	rows, err := st.MembersOf(ctx, d.ID)
+	if err != nil {
+		t.Fatalf("members of: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("got %d rows, want none", len(rows))
+	}
+}
+
+// parent_id is nullable, so both queries that select it read into a *string and
+// dereference only when set. A subdomain is the case that exercises the non-nil
+// side; without it a nested domain comes back claiming it has no parent.
+func TestPostgres_DomainByName_PopulatesParentIDForASubdomain(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	parent, _ := st.CreateDomain(ctx, store.Domain{Name: "acme", DisplayName: "Acme", JoinPolicy: "invite-only"})
+	if _, err := st.CreateDomain(ctx, store.Domain{
+		Name: "eng", DisplayName: "Eng", JoinPolicy: "invite-only", ParentID: parent.ID,
+	}); err != nil {
+		t.Fatalf("create subdomain: %v", err)
+	}
+
+	got, err := st.DomainByName(ctx, "eng")
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	if got.ParentID != parent.ID {
+		t.Fatalf("got parent %q, want %q", got.ParentID, parent.ID)
+	}
+
+	top, err := st.DomainByName(ctx, "acme")
+	if err != nil {
+		t.Fatalf("lookup parent: %v", err)
+	}
+	if top.ParentID != "" {
+		t.Fatalf("got parent %q for a top-level domain, want empty", top.ParentID)
+	}
+}
+
+func TestPostgres_PublicDomains_PopulatesParentIDForAPublicSubdomain(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	parent, _ := st.CreateDomain(ctx, store.Domain{Name: "acme", DisplayName: "Acme", JoinPolicy: "open-via-idp", IsPublic: true})
+	if _, err := st.CreateDomain(ctx, store.Domain{
+		Name: "eng", DisplayName: "Eng", JoinPolicy: "open-via-idp", ParentID: parent.ID, IsPublic: true,
+	}); err != nil {
+		t.Fatalf("create public subdomain: %v", err)
+	}
+
+	domains, err := st.PublicDomains(ctx)
+	if err != nil {
+		t.Fatalf("public domains: %v", err)
+	}
+	byName := map[string]store.Domain{}
+	for _, d := range domains {
+		byName[d.Name] = d
+	}
+	if byName["eng"].ParentID != parent.ID {
+		t.Fatalf("got parent %q for eng, want %q", byName["eng"].ParentID, parent.ID)
+	}
+	if byName["acme"].ParentID != "" {
+		t.Fatalf("got parent %q for a top-level domain, want empty", byName["acme"].ParentID)
+	}
+}
+
+// Every list query returns its driver error rather than an empty slice: a caller
+// that cannot tell "no rows" from "the database is gone" will render an empty
+// directory to the user and call it success.
+func TestPostgres_ListQueries_ReturnTheDriverErrorWhenThePoolIsClosed(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	d, _ := st.CreateDomain(ctx, store.Domain{Name: "acme", DisplayName: "Acme", JoinPolicy: "invite-only"})
+	st.Pool().Close()
+
+	cases := []struct {
+		name string
+		call func() error
+	}{
+		{"SubdomainsOf", func() error { _, err := st.SubdomainsOf(ctx, d.ID); return err }},
+		{"PublicDomains", func() error { _, err := st.PublicDomains(ctx); return err }},
+		{"MembershipsFor", func() error { _, err := st.MembershipsFor(ctx, uuidFor(1)); return err }},
+		{"MembersOf", func() error { _, err := st.MembersOf(ctx, d.ID); return err }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := tc.call(); err == nil {
+				t.Fatal("got nil error against a closed pool, want the driver's failure")
+			}
+		})
+	}
+}

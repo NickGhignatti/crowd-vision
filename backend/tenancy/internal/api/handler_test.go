@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -531,5 +532,257 @@ func TestLeaveDomain_CannotRemoveSomeoneElseWithoutBusinessAdmin(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("got %d, want 403", rec.Code)
+	}
+}
+
+// --- rejected input and store failures ---
+//
+// Every handler that decodes a body has a 400 branch and every one that touches
+// the store has a 500 branch; both were unexercised. A malformed body arriving as
+// a 500 (or a store outage arriving as a 400) tells the caller to do the opposite
+// of the right thing, so the two are asserted apart rather than "not 2xx".
+
+const admin = "11111111-1111-1111-1111-111111111111"
+
+func adminOf(domain string) []map[string]string {
+	return []map[string]string{{"domain": domain, "role": "business_admin"}}
+}
+
+func userRequest(t *testing.T, method, path, accountID string, memberships []map[string]string, body []byte) *http.Request {
+	t.Helper()
+	req := httptest.NewRequest(method, path, bytes.NewReader(body))
+	req.Header.Set("x-gateway-claims", signUser(t, accountID, memberships))
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
+func do(r http.Handler, req *http.Request) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestInternalCreateDomain_RejectsMalformedBody(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, signedInternalRequest(t, http.MethodPost, "/internal/domains", []byte("{not json")))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400", rec.Code)
+	}
+}
+
+func TestInternalCreateDomain_StoreFailureIs500(t *testing.T) {
+	r, fake := newTestServer(t)
+	fake.FailOn = map[string]error{"CreateDomain": errors.New("connection refused")}
+	body, _ := json.Marshal(map[string]string{"name": "unibo", "displayName": "UniBO", "joinPolicy": "open-via-idp"})
+
+	rec := do(r, signedInternalRequest(t, http.MethodPost, "/internal/domains", body))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("got %d, want 500: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestInternalProvision_RejectsMalformedBody(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, signedInternalRequest(t, http.MethodPost, "/internal/provision", []byte("{not json")))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400", rec.Code)
+	}
+}
+
+func TestInternalMemberships_StoreFailureIs500(t *testing.T) {
+	r, fake := newTestServer(t)
+	fake.FailOn = map[string]error{"MembershipsFor": errors.New("connection refused")}
+
+	rec := do(r, signedInternalRequest(t, http.MethodGet, "/internal/memberships?accountId="+admin, nil))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("got %d, want 500: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateOwnDomain_RejectsMalformedBody(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, userRequest(t, http.MethodPost, "/domains", admin, nil, []byte("{not json")))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400", rec.Code)
+	}
+}
+
+func TestCreateOwnDomain_RequiresNameAndDisplayName(t *testing.T) {
+	r, _ := newTestServer(t)
+	for _, body := range []string{`{"displayName":"UniBO"}`, `{"name":"unibo"}`, `{}`} {
+		rec := do(r, userRequest(t, http.MethodPost, "/domains", admin, nil, []byte(body)))
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("body %s: got %d, want 400", body, rec.Code)
+		}
+	}
+}
+
+func TestCreateOwnDomain_StoreFailureIs500(t *testing.T) {
+	r, fake := newTestServer(t)
+	fake.FailOn = map[string]error{"CreateDomain": errors.New("connection refused")}
+	body := []byte(`{"name":"unibo","displayName":"UniBO"}`)
+
+	rec := do(r, userRequest(t, http.MethodPost, "/domains", admin, nil, body))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("got %d, want 500: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestListPublicDomains_StoreFailureIs500(t *testing.T) {
+	r, fake := newTestServer(t)
+	fake.FailOn = map[string]error{"PublicDomains": errors.New("connection refused")}
+
+	rec := do(r, userRequest(t, http.MethodGet, "/domains", admin, nil, nil))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("got %d, want 500: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestMyMemberships_StoreFailureIs500(t *testing.T) {
+	r, fake := newTestServer(t)
+	fake.FailOn = map[string]error{"MembershipsFor": errors.New("connection refused")}
+
+	rec := do(r, userRequest(t, http.MethodGet, "/me/memberships", admin, nil, nil))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("got %d, want 500: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// The authz check runs before the body is read, so a non-admin sending rubbish
+// must still be told "forbidden" — the 400 branch is only reachable once past it.
+func TestInviteMember_RejectsMalformedBodyOnceAuthorised(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, userRequest(t, http.MethodPost, "/domains/acme/invite", admin, adminOf("acme"), []byte("{not json")))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestInviteMember_RejectsMalformedAccountID(t *testing.T) {
+	r, _ := newTestServer(t)
+	body := []byte(`{"accountId":"not-a-uuid","role":"standard_customer"}`)
+	rec := do(r, userRequest(t, http.MethodPost, "/domains/acme/invite", admin, adminOf("acme"), body))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateSubdomain_RejectsMalformedBody(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, userRequest(t, http.MethodPost, "/domains/acme/subdomains", admin, adminOf("acme"), []byte("{not json")))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateSubdomain_RequiresNameAndDisplayName(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, userRequest(t, http.MethodPost, "/domains/acme/subdomains", admin, adminOf("acme"), []byte(`{"name":"eng"}`)))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateInviteCode_RejectsMalformedBody(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, userRequest(t, http.MethodPost, "/domains/acme/invite-codes", admin, adminOf("acme"), []byte("{not json")))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// The identity check ("am I removing myself?") compares against the URL segment,
+// so a non-UUID must be rejected before it is ever compared to the caller's sub.
+func TestLeaveDomain_RejectsMalformedAccountID(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, userRequest(t, http.MethodDelete, "/domains/acme/members/not-a-uuid", admin, adminOf("acme"), nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestListSubdomains_UnknownDomainIs404(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, userRequest(t, http.MethodGet, "/domains/no-such-domain/subdomains", admin, nil, nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("got %d, want 404: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestJoinDomain_UnknownDomainIs404(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, userRequest(t, http.MethodPost, "/domains/no-such-domain/join", admin, nil, []byte(`{}`)))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("got %d, want 404: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// The last admin leaving would strand the domain with nobody able to manage it.
+// The service refuses; this asserts the route surfaces that as 409 rather than
+// 500 — the caller can act on a conflict, but not on an internal error.
+func TestLeaveDomain_LastAdminIs409(t *testing.T) {
+	r, _ := newTestServer(t)
+	create := []byte(`{"name":"acme","displayName":"Acme"}`)
+	if rec := do(r, userRequest(t, http.MethodPost, "/domains", admin, nil, create)); rec.Code != http.StatusCreated {
+		t.Fatalf("create domain: got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec := do(r, userRequest(t, http.MethodDelete, "/domains/acme/members/"+admin, admin, adminOf("acme"), nil))
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("got %d, want 409: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TenancyEnabled is the kill switch for the whole feature: with it off nothing is
+// mounted at all, so a deployment that has not enabled tenancy cannot be reached
+// through routes that would otherwise answer.
+func TestMount_MountsNothingWhenTenancyIsDisabled(t *testing.T) {
+	r := chi.NewRouter()
+	api.Mount(r, service.New(storefake.New()), api.Config{
+		InternalSecret: []byte(internalSecret),
+		TenancyEnabled: false,
+	})
+
+	for _, path := range []string{"/domains", "/me/memberships", "/internal/memberships"} {
+		rec := do(r, userRequest(t, http.MethodGet, path, admin, nil, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s: got %d, want 404 with tenancy disabled", path, rec.Code)
+		}
+	}
+}
+
+func TestInternalMemberships_RejectsEmptyAccountID(t *testing.T) {
+	r, _ := newTestServer(t)
+	rec := do(r, signedInternalRequest(t, http.MethodGet, "/internal/memberships?accountId=", nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// The three admin-gated writes each surface a service error through writeErr;
+// an unknown domain must reach the caller as 404, not as a 500.
+func TestAdminWrites_UnknownDomainIs404(t *testing.T) {
+	cases := []struct {
+		name, method, path string
+		body               []byte
+	}{
+		{"invite", http.MethodPost, "/domains/no-such-domain/invite", []byte(`{"accountId":"` + admin + `","role":"standard_customer"}`)},
+		{"create subdomain", http.MethodPost, "/domains/no-such-domain/subdomains", []byte(`{"name":"eng","displayName":"Eng"}`)},
+		{"create invite code", http.MethodPost, "/domains/no-such-domain/invite-codes", []byte(`{"role":"standard_customer"}`)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r, _ := newTestServer(t)
+			rec := do(r, userRequest(t, tc.method, tc.path, admin, adminOf("no-such-domain"), tc.body))
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("got %d, want 404: %s", rec.Code, rec.Body.String())
+			}
+		})
 	}
 }

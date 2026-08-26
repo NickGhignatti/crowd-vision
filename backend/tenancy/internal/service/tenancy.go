@@ -46,9 +46,20 @@ func (s *Service) CreateDomain(ctx context.Context, in CreateDomainInput) (store
 	if policy == "" {
 		policy = "invite-only"
 	}
-	return s.store.CreateDomain(ctx, store.Domain{
+	d, err := s.store.CreateDomain(ctx, store.Domain{
 		Name: in.Name, DisplayName: in.DisplayName, JoinPolicy: policy,
 	})
+	// The existence check above and this insert are separate statements, so a
+	// concurrent creator can win in between and the unique constraint fires here
+	// instead. Same outcome, later: report it as the name being taken, like
+	// CreateOwnDomain and CreateSubdomain do. Leaving it as the raw store error
+	// makes writeErr answer 500, and provisioner treats anything but 201/409 as a
+	// failed reconcile (tenancyclient/client.go) — so a race would mark an
+	// organization failed over a domain that exists.
+	if errors.Is(err, store.ErrAlreadyExists) {
+		return store.Domain{}, ErrDomainNameTaken
+	}
+	return d, err
 }
 
 type CreateOwnDomainInput struct {
