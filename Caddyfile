@@ -96,6 +96,13 @@
     }
 
     # ── Telemetry service ────────────────────────────────────────────────────
+    # Exact path, deliberately: `handle`, not `handle_path /telemetry/ingest/*`.
+    # A sub-path (/telemetry/ingest/batch) falls through to the gated block below
+    # and 401s every gateway, which carries no user JWT to present. The same exact
+    # path is listed by hand in k8s/istio-request-authentication.yml's
+    # no-principal rule — add one here without adding it there and the route is
+    # ungated locally but gated in production. Both are asserted by
+    # backend/acceptance/edge/test_edge_routing.py.
     handle /telemetry/ingest {
         uri strip_prefix /telemetry
         reverse_proxy telemetry:3000

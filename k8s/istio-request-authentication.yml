@@ -54,6 +54,10 @@ spec:
               - /dashboard/*
     # Device/simulator telemetry carries no user JWT — it is HMAC-signed and
     # verified inside telemetry, so allow this exact path with no principal.
+    # Exact, not a prefix, and mirrored by hand in the Caddyfile's
+    # `handle /telemetry/ingest` — a path added to one list and not the other is
+    # ungated in exactly one environment. backend/acceptance/edge/ asserts the
+    # Caddy side; nothing exercises Istio locally, so this half stays manual.
     - to:
         - operation:
             paths:
