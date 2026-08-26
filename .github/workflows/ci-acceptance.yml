@@ -1,0 +1,36 @@
+name: CI Acceptance
+
+on:
+  workflow_call:
+
+jobs:
+  edge-and-acceptance:
+    name: Cross-service acceptance suite
+    runs-on: ubuntu-latest
+    # Composes redis, kafka, timescale, mongo, caddy and two nginx stubs, and
+    # builds telemetry/socket/dashboard from source. Slower than any other leg,
+    # which is why ci-gate path-filters it rather than running it on every PR.
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      # run-integration-tests.sh generates TELEMETRY_INGEST_SECRET into .env via
+      # `mise exec -- sh scripts/env/ingest-key.sh`; telemetry refuses to boot
+      # without it and the test client signs with the same value.
+      - name: Install mise
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        with:
+          install: true
+          cache: true
+
+      - name: Run acceptance suite
+        run: bash backend/acceptance/run-integration-tests.sh
+
+      # The script tears its own project down on the way out, but a build that
+      # dies before that leaves containers holding the runner's disk.
+      - name: Tear down stragglers
+        if: always()
+        run: docker compose -p crowdvision-integration-tests down --remove-orphans --volumes || true
