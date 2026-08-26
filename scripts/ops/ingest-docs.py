@@ -113,7 +113,7 @@ def main():
         print("EVAL_JWT_SECRET not found in .env — run `just stack env` first.", file=sys.stderr)
         sys.exit(1)
 
-    dirs = sys.argv[1:] or [str(ROOT / "documentation/user"), str(ROOT / "documentation/developer")]
+    dirs = sys.argv[1:] or [str(ROOT / "documentation")]
     files = [f for d in dirs if os.path.exists(d) for f in walk(d)]
     if not files:
         print("No .qd/.md files found in:", ", ".join(dirs), file=sys.stderr)

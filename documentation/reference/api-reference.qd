@@ -1,0 +1,22 @@
+.docname {API Reference}
+.include {.pathtoroot/_standalone.qd}
+
+Every service's HTTP surface, as an OpenAPI 3 document rendered by Swagger UI. The specs are **sources in this repository**, at `api/*.yaml`, and are published alongside this guide — so a spec change ships in the same commit as the handler it describes. They document the edge-facing surface only: internal service-to-service hops and cross-boundary payload shapes are contracts in `schemas/`, not public APIs.
+
+.var {headers}
+   - Spec
+   - Covers
+
+.tablebyrows {.headers}
+    - - [Auth Service API](../api/index.html?spec=auth.yaml)
+      - `claims-gateway`: Keycloak token exchange, the internal RS256 JWT, `/verify` for the edge.
+    - - [Twin Service API](../api/index.html?spec=twin.yaml)
+      - `digital-twin`: building upload, provisioning status, per-domain reads.
+    - - [Telemetry Service API](../api/index.html?spec=telemetry.yaml)
+      - `telemetry`: batch ingest, thresholds, device actions.
+    - - [Notification Service API](../api/index.html?spec=notification.yaml)
+      - `notification`: alert delivery and Web Push subscriptions.
+    - - [Contracts Service API](../api/index.html?spec=contracts.yaml)
+      - The per-service metric catalogs the dashboard reads.
+    - - [Common Error Responses](../api/index.html?spec=error.yaml)
+      - The shared error shape every service returns, referenced by the specs above.

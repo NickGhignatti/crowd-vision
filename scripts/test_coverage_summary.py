@@ -53,15 +53,66 @@ def test_unchanged_service_survives_a_merge_with_a_partial_fresh_run():
             "branches_total": 10,
         }
     }
-    merged = {**baseline, **fresh}
+    merged, dropped = coverage_summary.merge_baseline(baseline, fresh, {"twin", "sensor"})
     badge, summary = coverage_summary.render(merged)
     assert "twin" in summary, "unchanged service must not drop out of the report"
     assert summary["twin"]["lines"] == 80.0
     assert summary["sensor"]["lines"] == 100.0
+    assert dropped == []
     assert badge["message"] == "86.7%", badge  # (80 + 50) / (100 + 50)
+
+
+def test_service_missing_from_the_registry_is_pruned_from_the_baseline():
+    """A renamed service leaves its old key in the baseline forever otherwise, and
+    both keys get weighed into the badge."""
+    baseline = {
+        "telemetry": {
+            "lines_covered": 90,
+            "lines_total": 100,
+            "branches_covered": 0,
+            "branches_total": 0,
+        },
+        # the pre-rename name of the same service, no longer in services.json
+        "sensor": {
+            "lines_covered": 10,
+            "lines_total": 100,
+            "branches_covered": 0,
+            "branches_total": 0,
+        },
+    }
+    merged, dropped = coverage_summary.merge_baseline(baseline, {}, {"telemetry"})
+
+    assert dropped == ["sensor"]
+    assert "sensor" not in merged, "a key absent from the registry must not survive the merge"
+    badge, summary = coverage_summary.render(merged)
+    assert "sensor" not in summary
+    assert badge["message"] == "90.0%", badge  # not 50.0% — the dead key no longer dilutes it
+
+
+def test_a_fresh_run_still_wins_over_the_baseline():
+    baseline = {
+        "twin": {
+            "lines_covered": 10,
+            "lines_total": 100,
+            "branches_covered": 0,
+            "branches_total": 0,
+        }
+    }
+    fresh = {
+        "twin": {
+            "lines_covered": 75,
+            "lines_total": 100,
+            "branches_covered": 0,
+            "branches_total": 0,
+        }
+    }
+    merged, _ = coverage_summary.merge_baseline(baseline, fresh, {"twin"})
+    assert merged["twin"]["lines_covered"] == 75, "the rerun result must replace the baseline"
 
 
 if __name__ == "__main__":
     test_render_computes_percentages_and_weighted_overall()
     test_unchanged_service_survives_a_merge_with_a_partial_fresh_run()
+    test_service_missing_from_the_registry_is_pruned_from_the_baseline()
+    test_a_fresh_run_still_wins_over_the_baseline()
     print("ok")

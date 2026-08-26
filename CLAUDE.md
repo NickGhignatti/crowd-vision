@@ -8,9 +8,20 @@ building model, alerting, multi-tenant, RAG assistant.
 Source-available, **not** open source (`LICENSE`, `CONTRIBUTING.md`). Single owner, no
 external PRs.
 
-Docs are the source of truth for architecture: `documentation/{user,developer}/**.qd`
-(Quarkdown, `just docs build`, published at https://nickghignatti.github.io/crowd-vision/).
-Read the matching `.qd` page before any non-trivial change; update it in the same change.
+Docs are the source of truth for architecture: `documentation/**.qd` (Quarkdown,
+`just docs build`, published at https://nickghignatti.github.io/crowd-vision/).
+One guide, developer-facing, served at the site root. Read the matching `.qd` page
+before any non-trivial change; update it in the same change.
+
+Published-site sources: `documentation/**.qd` (the guide) and `api/*.yaml` (OpenAPI,
+with `api/index.html` as their Swagger viewer). `landing-page/` is **build output
+only** — gitignored, never edit or commit anything there. A new `.qd` page must be linked from
+one of the two navigations — `documentation/_nav.qd` (sidebar) or
+`documentation/_setup.qd` (top nav; `reference/` pages live here, deliberately
+out of the sidebar, and include `_standalone.qd` instead of `docs` so they render
+with no side menus) — and a new `api/*.yaml` from
+`documentation/reference/api-reference.qd`, or it publishes unreachable —
+`just docs build` fails on either.
 
 ## Repository shape
 
@@ -58,7 +69,7 @@ just test <svc>-integration   # throwaway DB/broker, composed, then torn down
 just test integration    # full backend acceptance suite
 just setup deps-check    # lockfile sync gate (mirrors ci-deps)
 just setup audit         # npm/uv/cargo audit (mirrors ci-audit)
-just docs build          # Quarkdown → landing-page/{user,dev}
+just docs build          # guide + api specs → landing-page/ (all generated)
 just db clear            # drop chat/twin/notification/agent DBs
 just k8s create          # local k3d + Istio ambient
 ```

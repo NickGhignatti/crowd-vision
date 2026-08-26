@@ -1,0 +1,58 @@
+.docname {Contracts Service Architecture}
+.include {docs}
+
+**Bounded context:** [Telemetry Distribution](../domain/telemetry-distribution.qd) · **Stack:** Rust / Axum · **Code-level walkthrough:** [Dashboard Service](../services/dashboard.qd)
+
+The dashboard realises the [Telemetry Distribution](../domain/telemetry-distribution.qd) context. It sits between the raw reading stream and the browser feed, routing each reading to its building's live feed. It is the one service written in Rust, chosen for throughput on a hot path that inspects every reading.
+
+---
+
+## Architectural Style
+
+There isn't a named pattern here worth reaching for — it's two Tokio tasks in one process, sharing one piece of state. `AppState` (`state.rs`) is exactly two fields: `Arc<DashMap<String, Vec<String>>>` mapping a building ID to its allowed metric keys, and a handle to the MongoDB preferences collection. The Axum HTTP server (`api/`) reads and writes that map when preferences change; the background task (`tunnel.rs`) reads it on every single incoming reading, to decide what to keep. Both hold a clone of the same `Arc`, so a preference change made through the API is visible to the very next reading the tunnel processes — `DashMap` gives lock-free concurrent reads, so that visibility doesn't cost a database round trip.
+
+.mermaid
+    graph TD
+        subgraph "HTTP — api/"
+            DASH["dashboard.rs: get_dashboard_tables"]
+            DATA["data.rs: get_preferences, update_preferences"]
+            INIT["init.rs: init_building_preferences"]
+        end
+        subgraph "Background worker — tunnel.rs"
+            TUNNEL["reads the raw-reading broker,\nfilters each event through AppState,\nrepublishes per building"]
+        end
+        subgraph "Shared state — state.rs"
+            CACHE["AppState:\nDashMap (buildingId to allowedMetricKeys)\n+ Mongo collection handle"]
+        end
+        subgraph "infra/"
+            DBMOD["db.rs"]
+            DISC["discovery.rs — catalog gathering"]
+            MET["metrics.rs"]
+        end
+        DATA --> CACHE
+        INIT --> CACHE
+        TUNNEL --> CACHE
+        DASH --> DISC
+        CACHE -.-> DBMOD
+        DBMOD -.-> MONGO[(MongoDB)]
+        BR1[(broker: raw readings)] --> TUNNEL
+        TUNNEL --> BR2[(broker: per-building feeds)]
+
+---
+
+## Key Architectural Decisions
+
+- **Rust on the hot path.** The router inspects a high-frequency stream; the language choice is an architectural decision to keep that path cheap and predictable.
+- **In-memory projection.** The set of known buildings (and their column preferences) is read on every reading but changed rarely, so it is held in a concurrent in-memory structure for lock-free reads; the database is touched only on startup (hydration) and on change (cold path).
+- **Route by building.** A reading is forwarded to its own building's feed, keyed on the event's `buildingId` — one O(1) lookup, never a cross-building fan-out. Metric type is **not** gated: the dashboard's column preferences are display-only and no longer decide what telemetry flows, so views like the 3D model stay live regardless of the table's columns.
+- **Gather, do not define, the catalog.** The service discovers each upstream service's self-describing metric catalog and aggregates it, so new metrics appear without any change here — an Open Host Service consuming each upstream's Published Language.
+- **One shared map, two readers.** `api/` and `tunnel.rs` never talk to each other directly — the only thing they share is a clone of the same `AppState`. Neither knows the other exists.
+
+---
+
+## Integration
+
+- Subscribes to the raw-reading channel and publishes per-building feeds on the broker — see [Communication & Data Flow](data-flow.qd).
+- Discovers metric catalogs from telemetry and digital-twin; receives default preferences seeded by digital-twin.
+
+For the concurrency model, the tunnel internals, persistence status, and the API, see the [Dashboard Service](../services/dashboard.qd) internals page.

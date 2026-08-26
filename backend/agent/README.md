@@ -25,8 +25,7 @@ curl http://localhost/agent/health
 ```
 
 `just stack dev` generates `.env`, starts `agent` + pgvector, runs Alembic migrations,
-and runs the one-shot `agent-ingester` over `documentation/user` and
-`documentation/developer`.
+and runs the one-shot `agent-ingester` over `documentation`.
 
 For direct-process debugging while Postgres and downstream services are already running,
 run from `server/agent`:
@@ -74,9 +73,9 @@ and troubleshooting. The design-level documentation lives in the Quarkdown **Dev
 
 | Topic | Source |
 | --- | --- |
-| Agent architecture, retrieval, citations, auth, observability | `documentation/developer/services/agent.qd` |
-| Chat-service and the end-to-end chat flow | `documentation/developer/services/chat.qd` |
-| Implementing, registering, and testing a new tool | `documentation/developer/contributing/adding-agent-tools.qd` |
+| Agent architecture, retrieval, citations, auth, observability | `documentation/services/agent.qd` |
+| Chat-service and the end-to-end chat flow | `documentation/services/chat.qd` |
+| Implementing, registering, and testing a new tool | `documentation/contributing/adding-agent-tools.qd` |
 
 ## API
 
@@ -142,7 +141,7 @@ available to every authenticated user. `/ingest` currently requires authenticati
 does not enforce an administrator role; treat it as an internal endpoint.
 
 The repository ingester loads `.qd`, `.md`, and `.markdown` files from
-`documentation/user` and `documentation/developer`. Re-ingestion is content-hash
+`documentation`. Re-ingestion is content-hash
 idempotent, but it does not delete older versions when a source file changes. For a clean
 knowledge-base rebuild, clear the agent tables before ingesting again.
 
@@ -155,7 +154,7 @@ In short: `/ask` runs a tool-calling loop — the model picks tools from generat
 the loop runs them and feeds results back until the model answers or hits `MAX_TOOL_HOPS`,
 retrieval is filtered against the caller's JWT roles/domains, and invented citation markers are
 stripped. For the full design — request lifecycle, hybrid retrieval and RRF, citation
-validation, auth, and observability — see `documentation/developer/services/agent.qd`.
+validation, auth, and observability — see `documentation/services/agent.qd`.
 
 ## Project Structure
 
@@ -182,15 +181,15 @@ tests/integration/        Postgres/testcontainers integration tests
 ```
 
 To add an agent capability, implement and register a tool under `app/agent/tools/`. See
-`documentation/developer/contributing/adding-agent-tools.qd` for the complete contract and
-checklist, and `documentation/developer/services/agent.qd` for deeper system internals.
+`documentation/contributing/adding-agent-tools.qd` for the complete contract and
+checklist, and `documentation/services/agent.qd` for deeper system internals.
 
 ## Evaluation
 
 `evals/dataset.json` is a **golden dataset**: "hand-written" questions, each paired with the
 behavior expected of the agent. `evals/run_evals.py` sends every row to the real `/ask` and
 grades the response. For the design rationale (why a golden dataset, deterministic vs.
-LLM-judge), see `documentation/developer/services/agent.qd`; this section is the operational
+LLM-judge), see `documentation/services/agent.qd`; this section is the operational
 reference. Evals need a running, already-ingested stack and make real provider calls.
 
 ```bash

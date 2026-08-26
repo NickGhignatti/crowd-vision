@@ -42,6 +42,7 @@ jobs:
       infra: ${{ contains(fromJSON(steps.filter.outputs.changes), 'infra') }}
       simulators: ${{ contains(fromJSON(steps.filter.outputs.changes), 'simulators') }}
       deps: ${{ contains(fromJSON(steps.filter.outputs.changes), 'deps') }}
+      docs: ${{ contains(fromJSON(steps.filter.outputs.changes), 'docs') }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
       has_images: ${{ steps.docker.outputs.has_images }}
     steps:
@@ -74,6 +75,13 @@ jobs:
             simulators:
               - 'simulators/**'
               - '.github/workflows/ci-simulators.yml'
+            docs:
+              - 'documentation/**'
+              - 'api/**'
+              - 'just/docs.just'
+              - 'scripts/check-docs-links.sh'
+              - '.mise.toml'
+              - '.github/workflows/ci-docs.yml'
             deps:
               - '**/package.json'
               - '**/package-lock.json'
@@ -325,6 +333,11 @@ jobs:
     if: needs.changes.outputs.deps == 'true'
     uses: ./.github/workflows/ci-dependency-review.yml
 
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    uses: ./.github/workflows/ci-docs.yml
+
   ci-passed:
     name: CI Passed
     runs-on: ubuntu-latest
@@ -355,6 +368,7 @@ jobs:
       - infra
       - simulators
       - dependency-review
+      - docs
     if: always()
     steps:
       - name: Verify every job succeeded or legitimately skipped

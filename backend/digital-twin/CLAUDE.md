@@ -2,7 +2,7 @@
 
 Rust / Axum / MongoDB / Kafka. Owns the building spatial model: upload, provisioning,
 rooms, per-domain access. Route `/twin/*`, gated at the edge.
-Docs: `documentation/developer/architecture/twin-architecture.qd`.
+Docs: `documentation/architecture/twin-architecture.qd`.
 
 ## Layout
 

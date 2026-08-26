@@ -51,4 +51,4 @@ rather than failing the first message with a `500`.
 
 The design — data model, the send-message orchestration, the streaming contract,
 claims-header forwarding, and the end-to-end client → chat → agent flow — lives in
-the Quarkdown Developer Guide: `documentation/developer/services/chat.qd`.
+the Quarkdown Developer Guide: `documentation/services/chat.qd`.

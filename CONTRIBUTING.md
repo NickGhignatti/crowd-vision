@@ -28,7 +28,7 @@ change is documented in the Developer Guide:
 - [Naming Conventions](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/naming-conventions/)
 - [Commits & Release Please](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/release-please/)
 
-(Source: `documentation/developer/contributing/`.)
+(Source: `documentation/contributing/`.)
 
 ---
 

@@ -5,3 +5,11 @@ rust = "1.98.0"
 "ubi:moonrepo/moon" = "2.4.5"
 uv = "0.11.32"
 istioctl = "1.30.2"
+
+# Quarkdown is not a mise tool: its release asset is a 92MB zip containing a
+# bundled JRE, and the ubi/github backends keep only the launcher script, which
+# then cannot find its own classes. It is installed separately (see
+# just/docs.just) — the version lives here so `just docs build` and
+# cd-documentation.yml read one number instead of drifting apart.
+[env]
+QUARKDOWN_VERSION = "2.4.1"

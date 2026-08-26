@@ -158,6 +158,23 @@ def render(merged_counts: CountsBySvc) -> tuple[dict, dict]:
     return badge, summary
 
 
+def merge_baseline(
+    baseline: CountsBySvc, fresh: CountsBySvc, known: set[str]
+) -> tuple[CountsBySvc, list[str]]:
+    """Carry unchanged services forward, minus any the registry no longer lists.
+
+    The baseline is merged forward on every run, so without this a renamed or
+    deleted service keeps its last numbers indefinitely - and is weighed into the
+    overall alongside whatever replaced it, dragging the badge toward the dead
+    entry's old score. Pruning against the registry is what stops `sensor` and
+    `telemetry`, or `contracts` and `dashboard`, both counting.
+    """
+    dropped = sorted(set(baseline) - known)
+    merged = {key: counts for key, counts in baseline.items() if key in known}
+    merged.update(fresh)
+    return merged, dropped
+
+
 def main(argv: list[str]) -> int:
     root = Path(argv[1]) if len(argv) > 1 else Path("coverage-artifacts")
     out_dir = Path(argv[2]) if len(argv) > 2 else Path(".")
@@ -167,10 +184,16 @@ def main(argv: list[str]) -> int:
     services = _load_services(REPO_ROOT / ".github" / "services.json")
     fresh = collect_counts(root, services)
 
-    merged: CountsBySvc = {}
+    baseline: CountsBySvc = {}
     if baseline_path and baseline_path.exists():
-        merged.update(json.loads(baseline_path.read_text()))
-    merged.update(fresh)
+        baseline = json.loads(baseline_path.read_text())
+    merged, dropped = merge_baseline(baseline, fresh, set(services))
+    if dropped:
+        print(
+            f"pruned {len(dropped)} service(s) absent from .github/services.json: "
+            f"{', '.join(dropped)}",
+            file=sys.stderr,
+        )
 
     if not merged:
         print("error: no coverage reports found, refusing to write empty output", file=sys.stderr)

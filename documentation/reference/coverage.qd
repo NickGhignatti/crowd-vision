@@ -1,0 +1,110 @@
+.docname {Coverage}
+.include {.pathtoroot/_standalone.qd}
+
+Line and branch coverage per service, read live from the `coverage-data` branch. `cd-coverage.yml` recomputes it on every push to `master` — for changed services only — and force-pushes `summary.json`, `badge.json` and `coverage-counts.json` to that orphan branch. Nothing is committed to `master`, so this page is always the branch's current state, not a snapshot taken at docs-build time.
+
+Coverage is produced per language by `tpl-{rust,go,node,python}-coverage.yml`. Bands match the badge thresholds in `scripts/coverage-summary.py`: **80% and above** is healthy, **60% to 80%** needs attention, **below 60%** is thin. Services are ordered by line coverage, weakest last. Branch coverage is only reported where the language's tooling emits it.
+
+---
+
+## Current coverage
+
+.html
+    <div id="cv-coverage">Loading coverage from the <code>coverage-data</code> branch…</div>
+    <script>
+    (function () {
+      var BASE = "https://raw.githubusercontent.com/nickghignatti/crowd-vision/coverage-data/";
+      var host = document.getElementById("cv-coverage");
+      if (!host) return;
+
+      function band(pct) { return pct >= 80 ? "good" : pct >= 60 ? "ok" : "low"; }
+      function el(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text !== undefined) n.textContent = text;
+        return n;
+      }
+      function bar(pct, cls) {
+        var track = el("div", "cv-cov-track");
+        var fill = el("div", "cv-cov-fill cv-" + cls);
+        fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+        track.appendChild(fill);
+        return track;
+      }
+      function grab(name, optional) {
+        return fetch(BASE + name, { cache: "no-store" }).then(function (r) {
+          if (r.ok) return r.json();
+          if (optional) return null;
+          throw new Error("HTTP " + r.status);
+        }).catch(function (e) {
+          if (optional) return null;
+          throw e;
+        });
+      }
+
+      Promise.all([grab("summary.json", false), grab("coverage-counts.json", true)])
+        .then(function (res) {
+          var summary = res[0] || {};
+          var counts = res[1] || {};
+          var names = Object.keys(summary);
+          if (!names.length) { host.textContent = "No coverage published yet."; return; }
+
+          // Weighted the same way scripts/coverage-summary.py builds the badge:
+          // total covered lines over total lines, not a mean of per-service rates.
+          var cov = 0, tot = 0;
+          names.forEach(function (n) {
+            var c = counts[n];
+            if (c && typeof c.lines_total === "number") {
+              cov += c.lines_covered || 0;
+              tot += c.lines_total;
+            }
+          });
+
+          var frag = document.createDocumentFragment();
+
+          if (tot > 0) {
+            var overall = Math.round((1000 * cov) / tot) / 10;
+            var card = el("div", "cv-cov-overall");
+            var headRow = el("div", "cv-cov-overall-head");
+            headRow.appendChild(el("span", "cv-cov-overall-pct cv-" + band(overall), overall.toFixed(1) + "%"));
+            headRow.appendChild(el("span", "cv-cov-overall-label",
+              "overall line coverage · " + cov.toLocaleString() + " of " + tot.toLocaleString() + " lines"));
+            card.appendChild(headRow);
+            card.appendChild(bar(overall, band(overall)));
+            frag.appendChild(card);
+          }
+
+          names.sort(function (a, b) {
+            return (summary[b].lines || 0) - (summary[a].lines || 0) || a.localeCompare(b);
+          });
+
+          var list = el("div", "cv-cov-list");
+          names.forEach(function (n) {
+            var lines = typeof summary[n].lines === "number" ? summary[n].lines : 0;
+            var branches = summary[n].branches;
+            var c = counts[n];
+
+            var row = el("div", "cv-cov-row");
+            var name = el("div", "cv-cov-name");
+            name.appendChild(el("code", null, n));
+            row.appendChild(name);
+            row.appendChild(bar(lines, band(lines)));
+            row.appendChild(el("div", "cv-cov-pct cv-" + band(lines), lines.toFixed(2) + "%"));
+
+            var note = [];
+            if (c && c.lines_total) { note.push(c.lines_covered + "/" + c.lines_total + " lines"); }
+            if (typeof branches === "number" && branches > 0) { note.push(branches.toFixed(1) + "% branches"); }
+            row.appendChild(el("div", "cv-cov-note", note.join(" · ")));
+            list.appendChild(row);
+          });
+          frag.appendChild(list);
+
+          host.textContent = "";
+          host.appendChild(frag);
+        })
+        .catch(function (e) {
+          host.textContent = "Could not load coverage (" + e.message
+            + "). The data lives at coverage-data:summary.json.";
+        });
+    })();
+    </script>

@@ -2,7 +2,7 @@
 
 Rust / Axum / MongoDB. Owns conversations and messages; the answer itself comes from
 `agent`, which chat drives and relays. Route `/chat/*`, gated at the edge.
-Docs: `documentation/developer/architecture/chat-architecture.qd`.
+Docs: `documentation/architecture/chat-architecture.qd`.
 
 ## Layout
 

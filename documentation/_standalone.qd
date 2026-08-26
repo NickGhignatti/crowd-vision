@@ -1,0 +1,8 @@
+.doctype {docs}
+
+.include {.pathtoroot/_setup.qd}
+
+.html
+    <script>document.documentElement.setAttribute("data-standalone", "");</script>
+
+#! .docname

@@ -2,7 +2,7 @@
 
 Every shape that crosses a service boundary. One file for the whole directory — the three
 crates are one `lib.rs` each, and their rules only make sense together.
-Docs: `documentation/developer/packages/{claims,telemetry,twin}-schema.qd`.
+Docs: `documentation/packages/{claims,telemetry,twin}-schema.qd`.
 
 ## What belongs here
 

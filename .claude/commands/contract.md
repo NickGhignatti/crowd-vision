@@ -22,7 +22,7 @@ languages from silently disagreeing.
    - `mise exec -- go test ./...` in `backend/libs/auth-contracts` and `backend/libs/auth-policy`
    - `just test agent`
 7. **Update the docs in the same change**: `schemas/CLAUDE.md`, the affected service's
-   `CLAUDE.md`, and `documentation/developer/packages/*.qd`.
+   `CLAUDE.md`, and `documentation/packages/*.qd`.
 
 Watch for:
 
