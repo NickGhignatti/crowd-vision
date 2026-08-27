@@ -70,6 +70,27 @@ mod tests {
         assert!(text.contains("telemetry_events_published_total"));
     }
 
+    /// FANOUT_LATENCY_MS is only ever touched by the tunnel, so its registration
+    /// ran nowhere under test. `register_histogram!` panics on a duplicate or
+    /// malformed metric name, and that panic would first appear in the hot path
+    /// on the first tick after a deploy.
+    #[tokio::test]
+    async fn registers_the_fanout_latency_histogram() {
+        FANOUT_LATENCY_MS.observe(12.0);
+
+        let text = rendered_body().await;
+
+        assert!(text.contains("telemetry_fanout_latency_ms"));
+        // The buckets are the SLO boundaries this histogram exists to report on.
+        assert!(text.contains("telemetry_fanout_latency_ms_bucket"));
+    }
+
+    #[tokio::test]
+    async fn health_reports_ok() {
+        let response = health().await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
     #[tokio::test]
     async fn serves_prometheus_text_content_type() {
         let response = metrics_handler().await.into_response();
