@@ -7,9 +7,9 @@ import (
 )
 
 type Config struct {
-	RegistryURL      string
-	TenancyURL       string
-	InternalSecret   []byte
+	RegistryURL       string
+	TenancyURL        string
+	InternalSecret    []byte
 	ReconcileInterval time.Duration
 }
 

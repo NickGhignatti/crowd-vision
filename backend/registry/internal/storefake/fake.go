@@ -11,6 +11,19 @@ import (
 type Fake struct {
 	orgs   map[string]store.Organization
 	nextID int
+
+	// Error hooks: set one to force the corresponding method to fail, so a test
+	// can reach the handlers' 500 branches without a real broken database.
+	CreateErr           error
+	GetErr              error
+	PendingErr          error
+	SetStatusErr        error
+	SetLicenseStatusErr error
+
+	// Every status written, in order. Recorded because some behaviour is only
+	// visible in the sequence, not the final row — a provisioner reporting
+	// failure must write "failed" once, not "ready" and then "failed".
+	StatusWrites []string
 }
 
 func New() *Fake {
@@ -18,6 +31,9 @@ func New() *Fake {
 }
 
 func (f *Fake) Create(_ context.Context, org store.Organization) (store.Organization, error) {
+	if f.CreateErr != nil {
+		return store.Organization{}, f.CreateErr
+	}
 	for _, existing := range f.orgs {
 		if existing.Name == org.Name {
 			return store.Organization{}, fmt.Errorf("organization %q already exists", org.Name)
@@ -30,6 +46,9 @@ func (f *Fake) Create(_ context.Context, org store.Organization) (store.Organiza
 }
 
 func (f *Fake) Get(_ context.Context, id string) (store.Organization, error) {
+	if f.GetErr != nil {
+		return store.Organization{}, f.GetErr
+	}
 	org, ok := f.orgs[id]
 	if !ok {
 		return store.Organization{}, store.ErrNotFound
@@ -38,6 +57,9 @@ func (f *Fake) Get(_ context.Context, id string) (store.Organization, error) {
 }
 
 func (f *Fake) Pending(_ context.Context) ([]store.Organization, error) {
+	if f.PendingErr != nil {
+		return nil, f.PendingErr
+	}
 	var out []store.Organization
 	for _, org := range f.orgs {
 		if org.Status == "provisioning" {
@@ -48,6 +70,10 @@ func (f *Fake) Pending(_ context.Context) ([]store.Organization, error) {
 }
 
 func (f *Fake) SetStatus(_ context.Context, id, status, detail string) error {
+	if f.SetStatusErr != nil {
+		return f.SetStatusErr
+	}
+	f.StatusWrites = append(f.StatusWrites, status)
 	org, ok := f.orgs[id]
 	if !ok {
 		return store.ErrNotFound
@@ -58,6 +84,9 @@ func (f *Fake) SetStatus(_ context.Context, id, status, detail string) error {
 }
 
 func (f *Fake) SetLicenseStatus(_ context.Context, id, licenseStatus string) error {
+	if f.SetLicenseStatusErr != nil {
+		return f.SetLicenseStatusErr
+	}
 	org, ok := f.orgs[id]
 	if !ok {
 		return store.ErrNotFound

@@ -121,7 +121,7 @@ projects:
   sensor-simulator: "simulators/sensor-simulator"
   # Support packages: deps-only, no build/test/lint
   eslint-config: "tooling/eslint-config"
-  tests: "backend/acceptance"
+  acceptance: "backend/acceptance"
 ```
 
 ### Tasks defined once per language
@@ -145,7 +145,7 @@ Rather than repeat the same `build`/`test`/`lint` configuration in a dozen `moon
       - `build`, `test`, `lint`, `deps` (`cargo fetch`), `deps-check` (`cargo check`), `audit`
     - - \.`moon/tasks/go.yml`
       - `language: go`
-      - `build` (`go build ./...`), `test` (`go test ./...`), `lint` (`go vet ./...` — no `golangci-lint` in this environment yet), `deps` (`go mod download`). No `audit` task yet.
+      - `build` (`go build ./...`), `test` (`go test ./...`), `lint` (a `gofmt -l` check then `go vet ./...` — no `golangci-lint` in this environment yet), `deps` (`go mod download`). `registry` and `tenancy` add their own `test-integration` (`go test -tags=integration`, testcontainers). No `audit` task yet.
     - - \.`moon/tasks/javascript.yml`
       - `language: javascript`
       - `deps`, `relock` only — for support packages
@@ -182,8 +182,8 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
       - Uses Vite/Vitest: overrides `build` inputs and `test` (to `npm run test:unit`), with `mergeArgs: replace` / `mergeInputs: replace` so the overrides replace the inherited values rather than appending.
     - - `sensor-simulator`
       - Has no unit suite wired into CI, so it excludes the inherited `test` task.
-    - - `tooling`, `eslint-config`, `tests`
-      - Tagged `language: 'javascript'` so they inherit only `deps`. (`backend/acceptance` holds an integration-only Jest suite that runs via `just test integration`, never as a moon `:test`.)
+    - - `tooling`, `eslint-config`
+      - Tagged `language: 'javascript'` so they inherit only `deps`. (`acceptance` is `language: 'python'` and excludes the inherited `test`/`lint` tasks: its pytest suite runs via `just test integration` against a composed stack, never as a moon `:test`.)
     - - `claims-gateway`, `tenancy`, `registry`, `provisioner`
       - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in \.`mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)). Modules are fetched by the inherited `deps` task (`go mod download`) like every other language.
 

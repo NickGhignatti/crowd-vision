@@ -21,7 +21,11 @@ def pg_container():
         yield url
 
 
-@pytest_asyncio.fixture(scope="session")
+# The engine is session-scoped, so its connections belong to the session event
+# loop. Its consumers must run on that same loop -- without matching loop_scope
+# the second test in a session gets a fresh loop and asyncpg raises
+# "attached to a different loop".
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def engine(pg_container):
     eng = create_async_engine(pg_container, pool_pre_ping=True)
     from alembic.config import Config
@@ -39,7 +43,7 @@ async def engine(pg_container):
     await eng.dispose()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def session(engine) -> AsyncIterator[AsyncSession]:
     maker = async_sessionmaker(engine, expire_on_commit=False)
     async with maker() as s:

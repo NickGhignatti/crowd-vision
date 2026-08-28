@@ -7,13 +7,7 @@ use log::{error, info};
 use std::env;
 use tokio::net::TcpListener;
 
-mod api;
-mod infra;
-mod models;
-mod state;
-mod tunnel;
-
-use state::AppState;
+use dashboard::{api, infra, state::AppState, tunnel};
 
 async fn shutdown_signal() {
     let ctrl_c = async {

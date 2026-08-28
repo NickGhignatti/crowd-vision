@@ -1,3 +1,9 @@
+# Redis and Kafka only — the infra the root docker-compose.yml would otherwise
+# provide. run-integration-tests.sh composes this suite standalone, without the
+# root stack, so it has to supply them itself; the name says "infra" rather than
+# being the folder's bare docker-compose.yml because there is nothing base-like
+# about it, and everything in this folder is integration testing either way.
+
 services:
   redis:
     cpus: "3"

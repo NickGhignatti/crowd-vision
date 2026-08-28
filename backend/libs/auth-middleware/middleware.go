@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -99,7 +100,15 @@ func RequireMeshClaims() func(http.Handler) http.Handler {
 }
 
 func decodeClaims(m jwt.MapClaims, out *authcontracts.StandardClaims) error {
+	// Parsing does not police (auth-contracts stays permissive), but this is the
+	// extractor, and Sub is the one field it must insist on: every downstream
+	// authorization decision keys off it, so an empty one is an anonymous caller
+	// carrying a valid signature. RequireMeshClaims refuses the same thing on the
+	// header path — the two are documented as one contract and must reject alike.
 	sub, _ := m["sub"].(string)
+	if sub == "" {
+		return errors.New("claims: sub is required")
+	}
 	name, _ := m["accountName"].(string)
 	sid, _ := m["sid"].(string)
 	out.Sub, out.AccountName, out.SID = sub, name, sid

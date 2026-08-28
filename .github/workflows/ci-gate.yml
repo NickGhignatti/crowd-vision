@@ -41,6 +41,7 @@ jobs:
       ci: ${{ contains(fromJSON(steps.filter.outputs.changes), 'ci') }}
       infra: ${{ contains(fromJSON(steps.filter.outputs.changes), 'infra') }}
       simulators: ${{ contains(fromJSON(steps.filter.outputs.changes), 'simulators') }}
+      acceptance: ${{ contains(fromJSON(steps.filter.outputs.changes), 'acceptance') }}
       deps: ${{ contains(fromJSON(steps.filter.outputs.changes), 'deps') }}
       docs: ${{ contains(fromJSON(steps.filter.outputs.changes), 'docs') }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
@@ -75,6 +76,16 @@ jobs:
             simulators:
               - 'simulators/**'
               - '.github/workflows/ci-simulators.yml'
+            acceptance:
+              - 'backend/acceptance/**'
+              # The routing pair the suite exists to keep honest, and the service
+              # whose route table the #374 near-miss actually moved.
+              - 'Caddyfile'
+              - 'k8s/istio-request-authentication.yml'
+              - 'backend/telemetry/**'
+              - 'backend/socket/**'
+              - 'backend/dashboard/**'
+              - '.github/workflows/ci-acceptance.yml'
             docs:
               - 'documentation/**'
               - 'api/**'
@@ -328,6 +339,11 @@ jobs:
     if: needs.changes.outputs.simulators == 'true'
     uses: ./.github/workflows/ci-simulators.yml
 
+  acceptance:
+    needs: changes
+    if: needs.changes.outputs.acceptance == 'true'
+    uses: ./.github/workflows/ci-acceptance.yml
+
   dependency-review:
     needs: changes
     if: needs.changes.outputs.deps == 'true'
@@ -367,6 +383,7 @@ jobs:
       - workflows-lint
       - infra
       - simulators
+      - acceptance
       - dependency-review
       - docs
     if: always()

@@ -123,3 +123,41 @@ func TestPostgres_SetStatus_NotFound(t *testing.T) {
 		t.Fatalf("got %v, want ErrNotFound", err)
 	}
 }
+
+func TestPostgres_SetLicenseStatus_PersistsAndLeavesStatusAlone(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	created, err := st.Create(ctx, store.Organization{
+		Name: "unibo", DisplayName: "UniBO", Tier: "pooled",
+		IdentityMode: "platform", LicenseStatus: "active", Status: "provisioning",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if err := st.SetLicenseStatus(ctx, created.ID, "suspended"); err != nil {
+		t.Fatalf("set licence status: %v", err)
+	}
+
+	got, err := st.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.LicenseStatus != "suspended" {
+		t.Fatalf("got licence status %q, want suspended", got.LicenseStatus)
+	}
+	// The two columns are written by separate statements; this one must not touch
+	// the other, or suspending a licence would silently reset provisioning state.
+	if got.Status != "provisioning" {
+		t.Fatalf("got status %q, want it untouched at provisioning", got.Status)
+	}
+}
+
+func TestPostgres_SetLicenseStatus_NotFound(t *testing.T) {
+	st := newTestStore(t)
+	err := st.SetLicenseStatus(context.Background(), "00000000-0000-0000-0000-000000000000", "suspended")
+	if err != store.ErrNotFound {
+		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}

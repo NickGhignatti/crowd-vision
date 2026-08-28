@@ -13,3 +13,12 @@ services:
       - DIGITAL_TWIN_URL=http://digital-twin:3000
     depends_on:
       - redis
+    # The image carries no shell, so the binary probes itself (see
+    # core/health.rs). Defined here, not in an acceptance-only override:
+    # compose refuses to override a service it imported via `include:`.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/socket", "--health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s

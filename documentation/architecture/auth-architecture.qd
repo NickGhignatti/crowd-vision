@@ -198,6 +198,9 @@ Downstream of either path, the receiving service does the same thing: decode `x-
 .box {agent is the deliberate exception} type:{note}
     `/agent/*` is not gated by `require_gateway_auth` in the Caddyfile, and has no equivalent `AuthorizationPolicy` requirement at the Istio edge. `evals/run_evals.py`'s local-dev bypass token is HS256-signed with a secret claims-gateway never sees — it was never going to pass gateway verification, by design. `agent` checks for the mesh claims header first and falls back to its own eval-token verification (`app/auth.py`). Since the edge can't *inject* a verified `x-gateway-claims` on an ungated route, both edges **strip** any client-supplied one on `/agent` (agent decodes that header without a signature check, so an ungated caller could otherwise forge it); real user traffic reaches agent through `chat`, which forwards mesh-verified claims internally.
 
+.box {telemetry ingest is the other ungated route — and it is an exact path} type:{warning}
+    Devices and simulators carry no user JWT, so `/telemetry/ingest` is ungated at both edges: `handle` (not `handle_path …/*`) in the `Caddyfile`, and a no-principal `paths:` entry in `k8s/istio-request-authentication.yml`\. Both are **exact paths, kept in sync by hand** — an ingest sub-path such as `/telemetry/ingest/batch` falls through to the gated rule and returns `401` to every gateway. The request is HMAC-verified inside telemetry instead (`adapters/ingest_auth.rs`). `backend/acceptance/edge/` asserts the Caddy half; nothing exercises Istio locally, so the Kubernetes half stays manual.
+
 The internal HMAC-signed contract used for `claims-gateway` → `tenancy` and `provisioner` → `registry`/`tenancy` calls is the same convention across the whole Go control plane — see each service's `internal/api/internalauth.go` for the `X-Signature` implementation.
 
 ---

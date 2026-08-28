@@ -96,8 +96,48 @@ fn push_unique_metric(possible_metrics: &mut Vec<MetricContract>, metric: Metric
 
 #[cfg(test)]
 mod tests {
-    use super::push_unique_metric;
+    use super::{get_dashboard_tables, push_unique_metric};
+    use crate::infra::claims::GatewayClaims;
+    use axum::body::to_bytes;
+    use axum::extract::FromRequestParts;
+    use axum::http::Request;
+    use axum::response::IntoResponse;
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+
+    use crate::infra::claims::CLAIMS_HEADER;
     use crate::models::MetricContract;
+
+    async fn authenticated_claims() -> GatewayClaims {
+        let token = STANDARD.encode(r#"{"sub":"u1","memberships":[{"domain":"eng"}]}"#);
+        let (mut parts, _) = Request::builder()
+            .header(CLAIMS_HEADER, token)
+            .body(())
+            .unwrap()
+            .into_parts();
+        GatewayClaims::from_request_parts(&mut parts, &())
+            .await
+            .expect("claims extract")
+    }
+
+    /// The catalog endpoint itself, not just the merge helper beneath it. With no
+    /// *_METRICS_URL variables set there is nothing to discover, and the contract
+    /// is still a `metrics` array — a client that special-cases a missing key
+    /// would break the moment a service is unset.
+    #[tokio::test]
+    async fn returns_a_metrics_array_even_with_no_services_discovered() {
+        let response = get_dashboard_tables(authenticated_claims().await)
+            .await
+            .into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(
+            body.get("metrics").and_then(|m| m.as_array()).is_some(),
+            "expected a metrics array, got {body}"
+        );
+    }
 
     /// Creates a metric with a fixed metric_key and interface_name, varying only source_service.
     fn metric(source_service: &str) -> MetricContract {

@@ -13,3 +13,8 @@ TELEMETRY_URL = _env("TELEMETRY_URL", "http://telemetry:3000")
 SOCKET_URL = _env("SOCKET_URL", "http://socket:3000")
 DASHBOARD_URL = _env("DASHBOARD_URL", "http://dashboard:3000")
 TELEMETRY_INGEST_SECRET = _env("TELEMETRY_INGEST_SECRET", "integration-ingest-secret-0123456789")
+
+# The Caddy container, mounting the repo-root Caddyfile itself. Every constant
+# above addresses a service directly, so the edge is not in their path — see
+# backend/acceptance/edge/ for the tests that deliberately go through it.
+EDGE_URL = _env("EDGE_URL", "http://gateway")

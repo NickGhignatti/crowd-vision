@@ -360,7 +360,7 @@ just stack dev --no-simulators frontend  # also skips the Vue frontend
 just stack dev --no-agent --dry-run      # confirm the service list before starting
 ```
 
-`down`, `integration`, and `build` deliberately ignore all exclusions and operate on the full set.
+`down` and `build` deliberately ignore all exclusions and operate on the full set.
 
 If exclusion stops working after editing the Justfile: the `dev`, `start`, and `down` recipes must keep their variadic `*args` parameter, which is what forwards flags through to `compose-run.py`\.
 

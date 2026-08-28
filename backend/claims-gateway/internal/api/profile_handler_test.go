@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -224,5 +225,140 @@ func TestChangePasswordHandler_RequiresAuthentication(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("got %d, want 401", rec.Code)
+	}
+}
+
+// POST /refresh re-mints the session cookie with current memberships. The frontend
+// calls it every 10 minutes against a 15-minute TTL, so a regression here logs
+// every user out mid-session rather than failing loudly.
+func TestRefreshHandler_ReMintsTheSessionCookie(t *testing.T) {
+	gw, key := gatewayWithProfileManagement(&fakeProfileReader{}, &fakeProfileUpdater{}, &fakePasswordChanger{})
+	r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, authedRequest(t, http.MethodPost, "/refresh", "", key))
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("got %d, want 204: %s", rec.Code, rec.Body.String())
+	}
+	var session *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == api.CookieName {
+			session = c
+		}
+	}
+	if session == nil {
+		t.Fatal("no session cookie set — the caller's token would expire on schedule")
+	}
+	if session.Value == "" || !session.HttpOnly || !session.Secure || session.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("got %+v, want a non-empty HttpOnly/Secure/Lax cookie", session)
+	}
+}
+
+func TestRefreshHandler_RequiresAuthentication(t *testing.T) {
+	gw, key := gatewayWithProfileManagement(&fakeProfileReader{}, &fakeProfileUpdater{}, &fakePasswordChanger{})
+	r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/refresh", nil))
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d, want 401", rec.Code)
+	}
+}
+
+func TestUpdateProfileHandler_RejectsMalformedBody(t *testing.T) {
+	gw, key := gatewayWithProfileManagement(&fakeProfileReader{}, &fakeProfileUpdater{}, &fakePasswordChanger{})
+	r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, authedRequest(t, http.MethodPatch, "/profile", "{not json", key))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("got %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// writeAuthError is the one place a service error becomes a status code, and each
+// arm means something different to the caller. A missing account is a 404 they can
+// act on; an unrecognised error is a 500 they cannot — collapsing them hides real
+// failures behind "account not found".
+func TestWriteAuthError_MapsEachServiceErrorToItsOwnStatus(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{"user not found", service.ErrUserNotFound, http.StatusNotFound},
+		{"keycloak unavailable", service.ErrKeycloakUnavailable, http.StatusServiceUnavailable},
+		{"something unrecognised", errors.New("disk on fire"), http.StatusInternalServerError},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gw, key := gatewayWithProfileManagement(&fakeProfileReader{err: tc.err}, &fakeProfileUpdater{}, &fakePasswordChanger{})
+			r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
+
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, authedRequest(t, http.MethodGet, "/profile", "", key))
+
+			if rec.Code != tc.want {
+				t.Fatalf("got %d, want %d: %s", rec.Code, tc.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+// ChangePassword talks to Keycloak three times and each failure means something
+// different to the caller: a missing account is a 404, a wrong current password is
+// a 401, and an unhealthy Keycloak is a 503 they should retry. Mapping any of them
+// to 500 tells the user to give up on a request that would succeed a moment later.
+func TestChangePasswordHandler_DistinguishesEachUpstreamFailure(t *testing.T) {
+	cases := []struct {
+		name    string
+		reader  *fakeProfileReader
+		changer *fakePasswordChanger
+		want    int
+	}{
+		{"account gone", &fakeProfileReader{err: service.ErrUserNotFound}, &fakePasswordChanger{}, http.StatusNotFound},
+		{"lookup failed", &fakeProfileReader{err: errors.New("connection refused")}, &fakePasswordChanger{}, http.StatusServiceUnavailable},
+		{"reset failed", &fakeProfileReader{email: "mario@unibo.it"}, &fakePasswordChanger{err: errors.New("connection refused")}, http.StatusServiceUnavailable},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gw, key := gatewayWithProfileManagement(tc.reader, &fakeProfileUpdater{}, tc.changer)
+			r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
+
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, authedRequest(t, http.MethodPost, "/profile/password",
+				`{"currentPassword":"old-pw","newPassword":"new-pw"}`, key))
+
+			if rec.Code != tc.want {
+				t.Fatalf("got %d, want %d: %s", rec.Code, tc.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+// Refresh reaches tenancy for current memberships. If that fails the session must
+// not be silently re-minted from stale claims — the caller would keep access they
+// may no longer have.
+func TestRefreshHandler_TenancyFailureIsReportedNotSilentlyReMinted(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	gw := service.New(&fakeVerifier{}, erroringTenancy{}, fakeSigner{}, time.Hour)
+	r := api.Mount(gw, fakeSigner{}, realKeyfunc(t, &key.PublicKey), issuer)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, authedRequest(t, http.MethodPost, "/refresh", "", key))
+
+	if rec.Code == http.StatusNoContent {
+		t.Fatal("got 204 — the session was re-minted despite tenancy failing")
+	}
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("got %d, want 503", rec.Code)
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == api.CookieName && c.Value != "" {
+			t.Fatal("a session cookie was set despite the refresh failing")
+		}
 	}
 }

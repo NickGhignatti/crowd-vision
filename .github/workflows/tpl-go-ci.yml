@@ -33,6 +33,19 @@ jobs:
         with:
           working_directory: ${{ inputs.working_directory }}
 
+      # gofmt -l prints offenders and still exits 0, so the loop is what makes it a
+      # gate. go vet never looks at formatting, so without this nothing did.
+      - name: Check formatting
+        env:
+          MODULE_DIR: ${{ inputs.working_directory }}
+        run: |
+          status=0
+          for f in $(gofmt -l .); do
+            echo "::error file=$MODULE_DIR/$f::not gofmt-formatted — run 'gofmt -w $f' in $MODULE_DIR"
+            status=1
+          done
+          exit $status
+
       - name: Run go vet
         run: go vet ./...
 
@@ -48,8 +61,11 @@ jobs:
       - name: Build
         run: go build ./...
 
+      # -tags=integration ADDS the tagged files to the normal run rather than
+      # replacing it, so this is the unit suite plus any testcontainers suite the
+      # module has. Without the tag those files compile nowhere and never run.
       - name: Test
-        run: go test ./...
+        run: go test -tags=integration ./...
 
       - name: Build Binary
         if: inputs.builds_binary

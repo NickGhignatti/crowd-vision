@@ -97,7 +97,7 @@ All external traffic enters through the single gateway (Caddy in compose, Istio 
     - - provisioner → registry
       - `POST /internal/organizations/{id}/status`
       - HMAC `X-Signature`
-      - Report an organization back to `ready`/`failed`.
+      - Report an organization back to `ready`/`failed`. Those two are the only accepted values — anything else is rejected with `400` and nothing is written, so a typo cannot silently mark a tenant live.
     - - provisioner → tenancy
       - `POST /internal/domains`
       - HMAC `X-Signature`

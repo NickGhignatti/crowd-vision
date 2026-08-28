@@ -14,26 +14,38 @@ services:
       timeout: 3s
       retries: 10
 
-  socket:
-    depends_on:
-      redis:
-        condition: service_healthy
-      digital-twin:
-        condition: service_healthy
+  # The real claims-gateway needs Keycloak and tenancy to boot; this suite only
+  # asserts which paths the edge routes through require_gateway_auth, not how a
+  # JWT is verified (claims-gateway's own Go suite covers that). Same reason
+  # digital-twin is stubbed above.
+  claims-gateway:
+    image: nginx:alpine
+    volumes:
+      - ./stubs/claims-gateway.conf:/etc/nginx/conf.d/default.conf:z
     healthcheck:
-      test: ["CMD", "/usr/local/bin/socket", "--health"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
       interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 20s
+      timeout: 3s
+      retries: 10
 
-  dashboard:
-    environment:
-      - RUST_LOG=info
+  # Mounts the repo-root Caddyfile itself, not a copy — a trimmed fragment would
+  # stop being the file that ships. It boots fine with tenancy/chat/agent/grafana
+  # all absent: reverse_proxy resolves upstream DNS per request, not at config
+  # load, so unused routes just 502 and nothing here asks for them.
+  # No host port: the suite addresses it as http://gateway on the compose network.
+  gateway:
+    image: caddy:latest
+    volumes:
+      - ../../Caddyfile:/etc/caddy/Caddyfile:z
+    # /gateway/* is the one prefix Caddy proxies without require_gateway_auth,
+    # so this proves the Caddyfile parsed AND is routing — not merely listening.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/gateway/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     depends_on:
-      redis:
-        condition: service_healthy
-      telemetry:
+      claims-gateway:
         condition: service_healthy
 
   integration-tests:
@@ -46,6 +58,7 @@ services:
       - TELEMETRY_URL=http://telemetry:3000
       - SOCKET_URL=http://socket:3000
       - DASHBOARD_URL=http://dashboard:3000
+      - EDGE_URL=http://gateway
       - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
     volumes:
       # :z relabels the bind mount for SELinux-enforcing hosts (same reason
@@ -57,6 +70,10 @@ services:
         condition: service_healthy
       socket:
         condition: service_healthy
+      digital-twin:
+        condition: service_healthy
       dashboard:
         condition: service_started
+      gateway:
+        condition: service_healthy
     restart: "no"

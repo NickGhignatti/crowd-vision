@@ -121,7 +121,8 @@
     "key": "dashboard",
     "dir": "backend/dashboard",
     "lang": "rust",
-    "needs_mongo": false,
+    "needs_mongo": true,
+    "needs_redis": true,
     "image": "crowdvision-dashboard",
     "cd_context": ".",
     "dockerfile": "backend/dashboard/Dockerfile"

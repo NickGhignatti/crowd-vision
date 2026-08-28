@@ -529,3 +529,241 @@ func TestLeave_NonAdminIsAllowed(t *testing.T) {
 		t.Fatalf("member-2 should have been removed, got %+v", ms)
 	}
 }
+
+// Invite bypasses join policy but not existence: inviting into a domain that is
+// not there must be a not-found, not a membership pointing at a missing domain.
+func TestInvite_UnknownDomainIsNotFound(t *testing.T) {
+	svc, _ := newSvc()
+	err := svc.Invite(context.Background(), service.InviteInput{
+		AccountID: "acct-1", DomainName: "no-such-domain", Role: "standard_customer",
+	})
+	if !errors.Is(err, service.ErrDomainNotFound) {
+		t.Fatalf("got %v, want ErrDomainNotFound", err)
+	}
+}
+
+func TestLeave_UnknownDomainIsNotFound(t *testing.T) {
+	svc, _ := newSvc()
+	if err := svc.Leave(context.Background(), "acct-1", "no-such-domain"); !errors.Is(err, service.ErrDomainNotFound) {
+		t.Fatalf("got %v, want ErrDomainNotFound", err)
+	}
+}
+
+// --- store-failure passthrough ---
+//
+// Every service method that reads a domain before acting has a branch for "the
+// store failed" that is distinct from "the domain is not there". Collapsing the
+// two would report a database outage as a 404, telling the caller their domain
+// no longer exists when it is simply unreachable.
+
+func TestServiceMethods_PropagateStoreFailuresDistinctlyFromNotFound(t *testing.T) {
+	boom := errors.New("connection refused")
+
+	cases := []struct {
+		name   string
+		failOn string
+		call   func(*service.Service) error
+	}{
+		{"CreateDomain", "DomainByName", func(s *service.Service) error {
+			_, err := s.CreateDomain(context.Background(), service.CreateDomainInput{Name: "unibo", DisplayName: "UniBO"})
+			return err
+		}},
+		{"CreateOwnDomain", "DomainByName", func(s *service.Service) error {
+			_, err := s.CreateOwnDomain(context.Background(), service.CreateOwnDomainInput{AccountID: "a", Name: "unibo", DisplayName: "UniBO"})
+			return err
+		}},
+		{"CreateSubdomain", "DomainByName", func(s *service.Service) error {
+			_, err := s.CreateSubdomain(context.Background(), service.CreateSubdomainInput{ParentDomainName: "acme", Name: "eng", DisplayName: "Eng"})
+			return err
+		}},
+		{"ListSubdomains", "DomainByName", func(s *service.Service) error {
+			_, err := s.ListSubdomains(context.Background(), "acme")
+			return err
+		}},
+		{"CreateInviteCode", "DomainByName", func(s *service.Service) error {
+			_, err := s.CreateInviteCode(context.Background(), service.CreateInviteCodeInput{DomainName: "acme"})
+			return err
+		}},
+		{"Join", "DomainByName", func(s *service.Service) error {
+			return s.Join(context.Background(), service.JoinInput{AccountID: "a", DomainName: "acme"})
+		}},
+		{"Invite", "DomainByName", func(s *service.Service) error {
+			return s.Invite(context.Background(), service.InviteInput{AccountID: "a", DomainName: "acme"})
+		}},
+		{"Leave", "DomainByName", func(s *service.Service) error {
+			return s.Leave(context.Background(), "a", "acme")
+		}},
+		{"RedeemInviteCode", "RedeemInviteCode", func(s *service.Service) error {
+			return s.RedeemInviteCode(context.Background(), "some-code", "a")
+		}},
+		{"ReapAccount", "DeleteMembershipsForAccount", func(s *service.Service) error {
+			return s.ReapAccount(context.Background(), "a")
+		}},
+		{"MembershipsFor", "MembershipsFor", func(s *service.Service) error {
+			_, err := s.MembershipsFor(context.Background(), "a")
+			return err
+		}},
+		{"PublicDomains", "PublicDomains", func(s *service.Service) error {
+			_, err := s.PublicDomains(context.Background())
+			return err
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, fake := newSvc()
+			fake.FailOn = map[string]error{tc.failOn: boom}
+
+			err := tc.call(svc)
+
+			if !errors.Is(err, boom) {
+				t.Fatalf("got %v, want the store's own error to propagate", err)
+			}
+			if errors.Is(err, service.ErrDomainNotFound) {
+				t.Fatal("a store outage must not be reported as ErrDomainNotFound")
+			}
+		})
+	}
+}
+
+// The existence check and the insert are separate statements, so two concurrent
+// creators can both pass the check. The store's unique constraint is the real
+// arbiter, and the loser must get the same "name taken" the check would have
+// given rather than a raw store error.
+func TestCreateDomain_LosingAConcurrentCreateMapsToNameTaken(t *testing.T) {
+	svc, fake := newSvc()
+	fake.FailOn = map[string]error{"CreateDomain": store.ErrAlreadyExists}
+
+	_, err := svc.CreateDomain(context.Background(), service.CreateDomainInput{Name: "unibo", DisplayName: "UniBO"})
+
+	if !errors.Is(err, service.ErrDomainNameTaken) {
+		t.Fatalf("got %v, want ErrDomainNameTaken", err)
+	}
+}
+
+func TestCreateSubdomain_LosingAConcurrentCreateMapsToNameTaken(t *testing.T) {
+	svc, fake := newSvc()
+	if _, err := svc.CreateDomain(context.Background(), service.CreateDomainInput{Name: "acme", DisplayName: "Acme"}); err != nil {
+		t.Fatalf("parent: %v", err)
+	}
+	fake.FailOn = map[string]error{"CreateDomain": store.ErrAlreadyExists}
+
+	_, err := svc.CreateSubdomain(context.Background(), service.CreateSubdomainInput{
+		ParentDomainName: "acme", Name: "eng", DisplayName: "Eng",
+	})
+
+	if !errors.Is(err, service.ErrDomainNameTaken) {
+		t.Fatalf("got %v, want ErrDomainNameTaken", err)
+	}
+}
+
+// A public subdomain with no explicit policy must be joinable, or "public" would
+// list a domain in the directory that nobody can actually join.
+func TestCreateSubdomain_PublicDefaultsToOpenViaIdP(t *testing.T) {
+	svc, _ := newSvc()
+	ctx := context.Background()
+	if _, err := svc.CreateDomain(ctx, service.CreateDomainInput{Name: "acme", DisplayName: "Acme"}); err != nil {
+		t.Fatalf("parent: %v", err)
+	}
+
+	sub, err := svc.CreateSubdomain(ctx, service.CreateSubdomainInput{
+		ParentDomainName: "acme", Name: "eng", DisplayName: "Eng", IsPublic: true,
+	})
+	if err != nil {
+		t.Fatalf("create subdomain: %v", err)
+	}
+	if sub.JoinPolicy != "open-via-idp" {
+		t.Fatalf("got join policy %q, want open-via-idp", sub.JoinPolicy)
+	}
+}
+
+func TestCreateOwnDomain_LosingAConcurrentCreateMapsToNameTaken(t *testing.T) {
+	svc, fake := newSvc()
+	fake.FailOn = map[string]error{"CreateDomain": store.ErrAlreadyExists}
+
+	_, err := svc.CreateOwnDomain(context.Background(), service.CreateOwnDomainInput{
+		AccountID: "acct-1", Name: "unibo", DisplayName: "UniBO",
+	})
+
+	if !errors.Is(err, service.ErrDomainNameTaken) {
+		t.Fatalf("got %v, want ErrDomainNameTaken", err)
+	}
+}
+
+// The code is generated before it is stored. If the insert fails the caller must
+// get the error, not a code that was never persisted and will never redeem.
+func TestCreateInviteCode_StoreFailureIsReportedNotSwallowed(t *testing.T) {
+	svc, fake := newSvc()
+	ctx := context.Background()
+	if _, err := svc.CreateDomain(ctx, service.CreateDomainInput{Name: "acme", DisplayName: "Acme"}); err != nil {
+		t.Fatalf("domain: %v", err)
+	}
+	boom := errors.New("connection refused")
+	fake.FailOn = map[string]error{"CreateInviteCode": boom}
+
+	ic, err := svc.CreateInviteCode(ctx, service.CreateInviteCodeInput{DomainName: "acme", Role: "standard_customer"})
+
+	if !errors.Is(err, boom) {
+		t.Fatalf("got %v, want the store's error", err)
+	}
+	if ic.Code != "" {
+		t.Fatalf("got code %q back alongside an error, want none", ic.Code)
+	}
+}
+
+// Leave passes the last-admin guard and then deletes. A failure at the delete
+// must surface: reporting success would tell the user they had left a domain
+// they are still a member of.
+func TestLeave_ReportsAFailedDelete(t *testing.T) {
+	svc, fake := newSvc()
+	ctx := context.Background()
+	if _, err := svc.CreateOwnDomain(ctx, service.CreateOwnDomainInput{AccountID: "admin-1", Name: "acme", DisplayName: "Acme"}); err != nil {
+		t.Fatalf("domain: %v", err)
+	}
+	if err := svc.Invite(ctx, service.InviteInput{AccountID: "member-1", DomainName: "acme", Role: "standard_customer"}); err != nil {
+		t.Fatalf("invite: %v", err)
+	}
+	boom := errors.New("connection refused")
+	fake.FailOn = map[string]error{"DeleteMembership": boom}
+
+	if err := svc.Leave(ctx, "member-1", "acme"); !errors.Is(err, boom) {
+		t.Fatalf("got %v, want the store's error", err)
+	}
+}
+
+// Leave counts admins before deleting, so a failure reading the membership list
+// must abort: proceeding blind could remove the last admin, which is the single
+// thing the guard exists to prevent.
+func TestLeave_AbortsWhenTheMemberListCannotBeRead(t *testing.T) {
+	svc, fake := newSvc()
+	ctx := context.Background()
+	if _, err := svc.CreateOwnDomain(ctx, service.CreateOwnDomainInput{AccountID: "admin-1", Name: "acme", DisplayName: "Acme"}); err != nil {
+		t.Fatalf("domain: %v", err)
+	}
+	boom := errors.New("connection refused")
+	fake.FailOn = map[string]error{"MembersOf": boom}
+
+	if err := svc.Leave(ctx, "admin-1", "acme"); !errors.Is(err, boom) {
+		t.Fatalf("got %v, want the store's error", err)
+	}
+}
+
+// The parent resolves but the name-collision check fails. That is a store outage,
+// not a free name — creating anyway would rely on the unique constraint alone.
+func TestCreateSubdomain_StoreFailureOnTheNameCheckIsNotTreatedAsFree(t *testing.T) {
+	svc, fake := newSvc()
+	ctx := context.Background()
+	if _, err := svc.CreateDomain(ctx, service.CreateDomainInput{Name: "acme", DisplayName: "Acme"}); err != nil {
+		t.Fatalf("parent: %v", err)
+	}
+	boom := errors.New("connection refused")
+	fake.FailOn = map[string]error{"DomainByName:eng": boom}
+
+	_, err := svc.CreateSubdomain(ctx, service.CreateSubdomainInput{
+		ParentDomainName: "acme", Name: "eng", DisplayName: "Eng",
+	})
+
+	if !errors.Is(err, boom) {
+		t.Fatalf("got %v, want the store's error", err)
+	}
+}

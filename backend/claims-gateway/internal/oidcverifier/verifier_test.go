@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -282,5 +283,77 @@ func TestNew_FailsFastWhenIssuerIsUnreachable(t *testing.T) {
 	_, err := oidcverifier.New(context.Background(), "http://127.0.0.1:1", "http://127.0.0.1:1", clientID)
 	if err == nil {
 		t.Fatal("expected discovery to fail for an unreachable issuer")
+	}
+}
+
+// Discovery runs once at boot and everything downstream depends on it landing on a
+// real JWKS. Each failure below would otherwise surface as a service that came up
+// and then rejected every login, with the cause several layers away from the symptom.
+func TestNew_DiscoveryFailures(t *testing.T) {
+	cases := []struct {
+		name    string
+		handler http.HandlerFunc
+		want    string
+	}{
+		{
+			name:    "discovery endpoint returns non-200",
+			handler: func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusInternalServerError) },
+			want:    "status 500",
+		},
+		{
+			name: "discovery document is not JSON",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte("definitely not json"))
+			},
+			want: "decoding discovery document",
+		},
+		{
+			name: "discovery document omits jwks_uri",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(`{"issuer":"https://example.test"}`))
+			},
+			want: "no jwks_uri",
+		},
+		{
+			name: "jwks_uri is not a parseable URL",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(`{"jwks_uri":"://not a url"}`))
+			},
+			want: "parsing jwks_uri",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(tc.handler)
+			defer srv.Close()
+
+			_, err := oidcverifier.New(context.Background(), srv.URL, srv.URL, clientID)
+
+			if err == nil {
+				t.Fatal("got nil, want a discovery failure")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("got %q, want it to mention %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestNew_UnreachableIdPIsReported(t *testing.T) {
+	_, err := oidcverifier.New(context.Background(), "http://127.0.0.1:1", "http://127.0.0.1:1", clientID)
+
+	if err == nil {
+		t.Fatal("got nil, want a transport failure")
+	}
+	if !strings.Contains(err.Error(), "oidc discovery against") {
+		t.Fatalf("got %q, want the error to name the discovery URL", err)
+	}
+}
+
+func TestNew_UnparseableDiscoveryURLFailsBeforeAnyRequest(t *testing.T) {
+	_, err := oidcverifier.New(context.Background(), "http://\x7f-control-char", "http://example.test", clientID)
+	if err == nil {
+		t.Fatal("got nil, want a request-construction failure")
 	}
 }

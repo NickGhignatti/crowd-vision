@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/keycloakadmin"
@@ -369,4 +370,118 @@ func TestResetPassword_KeycloakUnavailableIsNotMistakenForNotFound(t *testing.T)
 	if err == nil || errors.Is(err, service.ErrUserNotFound) {
 		t.Fatalf("got %v, want a plain unavailable error", err)
 	}
+}
+
+// --- transport and unexpected-status sweeps ---
+//
+// Every method here follows the same shape: fetch an admin token, call the admin
+// API, then map the status. The happy paths and the meaningful statuses (409, 404,
+// 401) are covered above; these two sweeps cover what is left — the transport
+// failing outright, and Keycloak answering something nobody anticipated. Both must
+// be errors: returning nil would report a user created, updated or reset when
+// nothing happened.
+
+func callEachMethod(c *keycloakadmin.Client) map[string]func() error {
+	ctx := context.Background()
+	return map[string]func() error{
+		"PasswordGrant": func() error { _, err := c.PasswordGrant(ctx, "mario@unibo.it", "pw"); return err },
+		"CreateUser":    func() error { return c.CreateUser(ctx, "mario@unibo.it", "pw", "Mario") },
+		"GetUser":       func() error { _, _, _, err := c.GetUser(ctx, testUserID); return err },
+		"UpdateUser":    func() error { return c.UpdateUser(ctx, testUserID, "mario@unibo.it", "Mario") },
+		"ResetPassword": func() error { return c.ResetPassword(ctx, testUserID, "new-pw") },
+	}
+}
+
+func TestEveryMethod_UnreachableKeycloakIsAnError(t *testing.T) {
+	c := keycloakadmin.New("http://127.0.0.1:1", realm, clientID, clientSecret)
+	for name, call := range callEachMethod(c) {
+		t.Run(name, func(t *testing.T) {
+			if err := call(); err == nil {
+				t.Fatal("got nil against a closed port, want an error")
+			}
+		})
+	}
+}
+
+func TestEveryMethod_UnparseableBaseURLIsAnError(t *testing.T) {
+	c := keycloakadmin.New("http://\x7f-control-char", realm, clientID, clientSecret)
+	for name, call := range callEachMethod(c) {
+		t.Run(name, func(t *testing.T) {
+			if err := call(); err == nil {
+				t.Fatal("got nil for a base URL that cannot form a request, want an error")
+			}
+		})
+	}
+}
+
+// 418 stands in for "a status this code has no branch for". It must fall to the
+// default arm and name the status, not be mistaken for success.
+func TestEveryMethod_UnexpectedStatusIsAnErrorNamingIt(t *testing.T) {
+	teapot := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }
+
+	t.Run("token endpoint", func(t *testing.T) {
+		srv := fakeKeycloak(t, teapot, nil, nil)
+		defer srv.Close()
+		_, err := keycloakadmin.New(srv.URL, realm, clientID, clientSecret).PasswordGrant(context.Background(), "mario@unibo.it", "pw")
+		if err == nil || !strings.Contains(err.Error(), "418") {
+			t.Fatalf("got %v, want an error naming status 418", err)
+		}
+	})
+
+	for name, mk := range map[string]func(*httptest.Server) error{
+		"CreateUser": func(s *httptest.Server) error {
+			return keycloakadmin.New(s.URL, realm, clientID, clientSecret).CreateUser(context.Background(), "m@u.it", "pw", "Mario")
+		},
+		"GetUser": func(s *httptest.Server) error {
+			_, _, _, err := keycloakadmin.New(s.URL, realm, clientID, clientSecret).GetUser(context.Background(), testUserID)
+			return err
+		},
+		"UpdateUser": func(s *httptest.Server) error {
+			return keycloakadmin.New(s.URL, realm, clientID, clientSecret).UpdateUser(context.Background(), testUserID, "m@u.it", "Mario")
+		},
+		"ResetPassword": func(s *httptest.Server) error {
+			return keycloakadmin.New(s.URL, realm, clientID, clientSecret).ResetPassword(context.Background(), testUserID, "new-pw")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := fakeKeycloak(t, adminTokenHandler, teapot, teapot)
+			defer srv.Close()
+			err := mk(srv)
+			if err == nil || !strings.Contains(err.Error(), "418") {
+				t.Fatalf("got %v, want an error naming status 418", err)
+			}
+		})
+	}
+}
+
+// A 200 whose body is not the expected JSON is a broken peer, not an empty result.
+func TestUndecodableResponsesAreErrors(t *testing.T) {
+	garbage := func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("not json")) }
+
+	t.Run("token endpoint", func(t *testing.T) {
+		srv := fakeKeycloak(t, garbage, nil, nil)
+		defer srv.Close()
+		_, err := keycloakadmin.New(srv.URL, realm, clientID, clientSecret).PasswordGrant(context.Background(), "mario@unibo.it", "pw")
+		if err == nil || !strings.Contains(err.Error(), "decod") {
+			t.Fatalf("got %v, want a decode error", err)
+		}
+	})
+
+	t.Run("admin token used by GetUser", func(t *testing.T) {
+		srv := fakeKeycloak(t, garbage, nil, nil)
+		defer srv.Close()
+		_, _, _, err := keycloakadmin.New(srv.URL, realm, clientID, clientSecret).GetUser(context.Background(), testUserID)
+		if err == nil {
+			t.Fatal("got nil, want the admin-token decode failure to propagate")
+		}
+	})
+
+	t.Run("user representation", func(t *testing.T) {
+		srv := fakeKeycloak(t, adminTokenHandler, nil, garbage)
+		defer srv.Close()
+		_, _, _, err := keycloakadmin.New(srv.URL, realm, clientID, clientSecret).GetUser(context.Background(), testUserID)
+		if err == nil || !strings.Contains(err.Error(), "decod") {
+			t.Fatalf("got %v, want a decode error", err)
+		}
+	})
 }

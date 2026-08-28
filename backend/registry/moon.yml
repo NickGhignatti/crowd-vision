@@ -1,3 +1,28 @@
 language: 'go'
 
 # build / test / lint are inherited from .moon/tasks/go.yml
+
+tasks:
+  # Opt-in: internal/store (and, for tenancy, internal/events) are behind
+  # `//go:build integration` and start real containers via testcontainers-go.
+  # Not cached at either level: moon's `cache: false` still lets Go serve a
+  # previous PASS from its own test cache, which for a suite whose real
+  # dependency is a running Docker daemon would be a green run that proved
+  # nothing. -count=1 disables that.
+  test-integration:
+    # command + args, not one packed string: moon's own parsing of a packed
+    # `go test -tags=integration ...` silently drops the tag, and the store suite
+    # then reports "[no test files]" while the task still exits 0.
+    command: 'go'
+    args:
+      - 'test'
+      - '-tags=integration'
+      - '-count'
+      - '1'
+      - './...'
+    inputs:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+    options:
+      cache: false

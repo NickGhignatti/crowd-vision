@@ -1,3 +1,7 @@
+// This middleware is duplicated verbatim in chat, telemetry and digital-twin --
+// three axum services with no shared Rust lib between them (schemas/ is for wire
+// shapes, not middleware). The tests are duplicated with it on purpose: a fix
+// applied to one copy and not the others would otherwise pass CI everywhere.
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::middleware::Next;
