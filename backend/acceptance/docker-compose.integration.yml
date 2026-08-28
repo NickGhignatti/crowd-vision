@@ -48,28 +48,6 @@ services:
       claims-gateway:
         condition: service_healthy
 
-  socket:
-    depends_on:
-      redis:
-        condition: service_healthy
-      digital-twin:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/socket", "--health"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 20s
-
-  dashboard:
-    environment:
-      - RUST_LOG=info
-    depends_on:
-      redis:
-        condition: service_healthy
-      telemetry:
-        condition: service_healthy
-
   integration-tests:
     image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
     working_dir: /workspace
@@ -91,6 +69,8 @@ services:
       telemetry:
         condition: service_healthy
       socket:
+        condition: service_healthy
+      digital-twin:
         condition: service_healthy
       dashboard:
         condition: service_started

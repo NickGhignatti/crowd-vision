@@ -145,7 +145,7 @@ The orchestrator runs `docker compose` with `COMPOSE_BAKE=true`, which delegates
 
 `just test integration` does **not** go through the orchestrator. It runs `backend/acceptance/run-integration-tests.sh`, which writes its own runtime file under its own project name (`crowdvision-integration-tests`), so it never collides with a running `just stack dev` and tears down independently.
 
-Fragments are listed in `include:` order, and the order is load-bearing — the last one overrides those above it:
+Fragments are listed in `include:` order. No fragment may redefine a service another one already declared — compose rejects that with `services.<name> conflicts with imported resource`, so anything a service needs only for this suite still has to live in that service's own fragment:
 
 .var {headers}
    - Fragment
@@ -157,7 +157,7 @@ Fragments are listed in `include:` order, and the order is load-bearing — the 
     - - `backend/telemetry`, `backend/socket`, `backend/dashboard`
       - Each service's own `docker-compose.yml`, built from source.
     - - `backend/acceptance/docker-compose.integration.yml`
-      - Included **last**, so it overrides the fragments above: healthchecks, `depends_on` wiring, the stub containers, `gateway`, and the `integration-tests` runner.
+      - Only services no other fragment declares: the stub containers, `gateway`, and the `integration-tests` runner. `socket`'s healthcheck lives in `backend/socket/docker-compose.yml` for this reason.
 
 ### What is stubbed, and why
 
