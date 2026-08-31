@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { extractSvg } from './svg.ts'
+import { floorsToBuilding, type PlanOptions } from './draft.ts'
+import { readSvg } from './svg.ts'
 import simpleOffice from './__fixtures__/simple-office.svg?raw'
 import transformedPlan from './__fixtures__/transformed-plan.svg?raw'
 
-describe('extractSvg', () => {
+/** The reader plus the builder, which is how the modal uses them for a single storey. */
+const extractSvg = (source: string, options: PlanOptions) => {
+  const { shapes, warnings } = readSvg(source)
+  return { building: floorsToBuilding([{ floorIndex: 0, shapes }], options), warnings }
+}
+
+describe('readSvg', () => {
   it('turns labelled rectangles into centred, metre-scaled rooms', () => {
     const { building, warnings } = extractSvg(simpleOffice, {
       name: 'Cesena Campus',
@@ -14,19 +21,19 @@ describe('extractSvg', () => {
     expect(building.name).toBe('Cesena Campus')
     expect(building.rooms).toEqual([
       {
-        id: 'meeting-room',
+        id: 'f0-meeting-room',
         name: 'Meeting Room',
         position: { x: 4, y: 1.5, z: 3 },
         dimensions: { width: 8, height: 3, depth: 6 },
       },
       {
-        id: 'open-space',
+        id: 'f0-open-space',
         name: 'Open Space',
         position: { x: 13.5, y: 1.5, z: 3 },
         dimensions: { width: 9, height: 3, depth: 6 },
       },
       {
-        id: 'lab-1',
+        id: 'f0-lab-1',
         name: 'Lab 1',
         position: { x: 9, y: 1.5, z: 10 },
         dimensions: { width: 18, height: 3, depth: 6 },
@@ -40,6 +47,19 @@ describe('extractSvg', () => {
     expect(building.rooms.map((room) => room.name)).not.toContain('Ground Floor')
   })
 
+  it('keeps a room that has furniture drawn inside it', () => {
+    const { building } = extractSvg(
+      `<svg xmlns="http://www.w3.org/2000/svg">
+         <rect x="0" y="0" width="200" height="200"/>
+         <text x="100" y="100">Office</text>
+         <rect x="20" y="20" width="40" height="30"/>
+       </svg>`,
+      { unitsPerMetre: 10 },
+    )
+
+    expect(building.rooms.map((room) => room.id)).toEqual(['f0-office'])
+  })
+
   it('drops unlabelled shapes, which are walls and furniture', () => {
     const { building } = extractSvg(simpleOffice, { unitsPerMetre: 20 })
 
@@ -47,20 +67,22 @@ describe('extractSvg', () => {
   })
 
   it('applies inherited translations and reads polygons and line paths', () => {
-    const { building } = extractSvg(transformedPlan, {
-      unitsPerMetre: 10,
-      floorIndex: 1,
-    })
+    const building = floorsToBuilding(
+      [{ floorIndex: 1, shapes: readSvg(transformedPlan).shapes }],
+      {
+        unitsPerMetre: 10,
+      },
+    )
 
     expect(building.rooms).toEqual([
       {
-        id: 'kitchen',
+        id: 'f1-kitchen',
         name: 'Kitchen',
         position: { x: 6, y: 4.5, z: 4 },
         dimensions: { width: 12, height: 3, depth: 8 },
       },
       {
-        id: 'store',
+        id: 'f1-store',
         name: 'Store',
         position: { x: 20, y: 4.5, z: 4 },
         dimensions: { width: 12, height: 3, depth: 8 },
@@ -99,7 +121,7 @@ describe('extractSvg', () => {
       { unitsPerMetre: 10 },
     )
 
-    expect(building.rooms.map((room) => room.id)).toEqual(['office', 'office-2'])
+    expect(building.rooms.map((room) => room.id)).toEqual(['f0-office', 'f0-office-2'])
   })
 
   it('refuses a drawing with no labelled shape rather than yielding an empty building', () => {

@@ -5,14 +5,14 @@ Building registration accepts one input today: a JSON description of rooms. This
 
 For the registration flow this feeds, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd). For the bounded context, [Building Management Context](../domain/building-management.qd).
 
-.box {Partly built — phases 1 to 3} type:{note}
-    SVG upload works end to end: the modal accepts a drawing, calibrates it, and hands the rooms to the same reviewable draft a JSON upload produces. No acceptance test covers it yet — that is phase 4. Phases are listed at the bottom, and each one updates this page in its own commit.
+.box {Built for SVG — phases 1 to 3, plus multi-floor} type:{note}
+    SVG upload works end to end: the modal takes one drawing per storey, calibrates them together, and hands the rooms to the same reviewable draft a JSON upload produces. The next rung on the ladder is DXF. Phases are listed at the bottom, and each one updates this page in its own commit.
 
 ---
 
 ## The Seam
 
-The format decision lives at exactly one line — `frontend/src/components/modals/creation/RegisterBuildingModal.vue`:
+The format decision lives in one place — `frontend/src/components/modals/creation/RegisterBuildingModal.vue`:
 
 ```typescript
 const raw = JSON.parse(await file.text())
@@ -28,7 +28,7 @@ Everything downstream of `loadFromJson` is already format-agnostic: the draft, t
 .tablebyrows {.seam}
     - - `handleFileSelected` — picks a parser by file type
       - **yes, one branch**
-    - - calibration and floor controls
+    - - calibration and per-storey upload rows
       - **yes, new**
     - - extraction — drawing to `BuildingDraft`
       - **yes, new**
@@ -115,11 +115,14 @@ A two-point measuring tool over a preview of the drawing is the friendlier contr
 
 Telemetry keys per-room thresholds by path — `/telemetry/thresholds/peopleCount/buildings/{buildingId}/rooms/{roomId}`. An id that changes between two extractions of the same drawing orphans every threshold attached to the old one.
 
-- Derive the id from the room **label** when the drawing has one, slugified.
+- Prefix every id with its storey — `f0-`, `f1-`. Two floors of an office both hold an
+  `Office 1`, and a shared collision suffix would decide the winner by upload order and
+  renumber the survivors whenever a floor is removed.
+- Derive the rest from the room **label** when the drawing has one, slugified.
 - With no label, derive it from the room's position in drawing coordinates — stable under re-export, unlike an array index, which reorders whenever the drawing tool reorders its entity list.
 - Collisions get a suffix. Two rooms named `Office` are normal; two rooms with the same id are a data-loss bug.
 
-Determinism pays a second time inside the modal. Changing the scale re-extracts the whole drawing, and because ids come from labels rather than array order, sensors already attached to a room stay attached across the re-run. Calibration is therefore free to be a loop instead of a decision made before upload.
+Determinism pays a second time inside the modal. Changing the scale re-extracts every drawing, and because ids come from the storey and the label rather than array order, sensors already attached to a room stay attached across the re-run. Calibration is therefore free to be a loop instead of a decision made before upload.
 
 ---
 
@@ -134,7 +137,9 @@ separates them:
 - A label belongs to the **tightest** shape enclosing it, so a room's name is not captured by
   the sheet it is drawn on.
 - A shape enclosing another room is a **container** — the sheet border, the building outline —
-  and is dropped even when a title block gave it a label of its own.
+  and is dropped even when a title block gave it a label of its own. Only labelled shapes count
+  as the thing enclosed: a plan draws desks and fixtures inside rooms, and treating those as
+  enclosed rooms would delete every room that contains one.
 - Everything unlabelled is dropped silently. Walls are the common case, and a warning per wall
   is noise that trains the user to ignore warnings.
 
@@ -181,15 +186,22 @@ Raster is a different discipline and is deliberately last.
 
 ## The Extraction Contract
 
-One pure function per format, one shape:
+One pure function per format, and it reads geometry only:
 
 ```typescript
-(source: string, options: PlanOptions) => ExtractionResult
+(source: string) => PlanReading      // { shapes, warnings }
 ```
 
-`options` carries the calibration and the storey; `ExtractionResult` is `{ building, warnings }`,
-where `building` is exactly the JSON `loadFromJson` already consumes — so the seam stays a
-one-line branch and no draft-building logic is duplicated.
+Turning shapes into rooms is a second, format-agnostic step:
+
+```typescript
+(floors: PlanFloor[], options: PlanOptions) => ExtractedBuilding
+```
+
+The split is what makes a multi-storey building possible. Scale, centring, elevation and id
+minting need to see *every* storey at once, so they cannot live inside a per-file reader.
+`building` is exactly the JSON `loadFromJson` already consumes, so no draft-building logic is
+duplicated.
 
 Reading the `File` is the caller's job, not the extractor's: the seam already awaits
 `file.text()` for the JSON path, and a function over a string is the one that tests without
@@ -205,6 +217,19 @@ Three rules, and they are the whole insurance policy:
 - **Dispatch is a switch on file type**, not a plugin registry. Adding a format adds a file and an arm.
 
 Held to those, moving one format to a service later is a swapped call site with the fixtures reused as-is — not a migration.
+
+---
+
+### Reviewing before submitting
+
+The draft editor lists rooms as cards, which is the right shape for correcting a name or a
+capacity and the wrong one for noticing that a room landed in the wrong place. The preview
+draws the extracted building from above, one plan per storey, in metres — the same view the
+user uploaded, so a misread wall or a bad scale is visible at a glance rather than inferable
+from a column of numbers.
+
+It is read-only on purpose. Editing stays in the cards; the preview exists to make an error
+obvious, not to fix it.
 
 ---
 
@@ -225,7 +250,7 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
 - **No polygon rooms.** The twin models axis-aligned boxes. Extracting an L-shaped room's true outline produces geometry nothing downstream can store or render. Its bounding box is the honest answer; splitting it into two rooms is the user's call, in the editor.
 - **No raster support in the first ladder rungs.** It is a research problem with a different toolchain, and every phase before it makes the eventual decision better informed.
 - **The source drawing is not stored.** The twin persists the derived room list. Retaining the original is document management — retention windows, per-tenant storage, access control — and none of it serves occupancy.
-- **One drawing is one floor of one building.** A site plan holding three buildings, or a sheet holding four floors, is split by the user before upload. Detecting the split is inference on top of inference.
+- **One drawing is one floor.** A site plan holding three buildings, or a sheet holding four floors, is split by the user before upload. Detecting the split is inference on top of inference. Several drawings *do* make one building: the upload takes a row per storey, and they are placed against one shared origin so the floors line up rather than each being centred on its own sheet margin.
 - **No rotated or skewed rooms.** The schema stores axis-aligned boxes. A `rotate` or `matrix`
   transform has no correct box, so the shape is skipped and counted in `warnings` rather than
   squared off into a plausible wrong rectangle.
@@ -234,6 +259,8 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
 - **Only `translate` and `scale` transforms are honoured.** They cover CAD and Inkscape
   exports. Ignoring transforms entirely would silently displace every room on a layered drawing.
 - **No plugin architecture for formats.** Four formats is a switch statement.
+- **No browser test of the upload flow.** There is no frontend e2e harness to add one to, and
+  building one to cover a single modal is out of proportion — see the note under Phases.
 - **No capacity or colour extraction at all.** Both have editor defaults that apply to every upload; a second set of defaults inside the extractor is drift waiting to happen.
 
 ---
@@ -251,14 +278,28 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
       - `extractSvg` plus fixtures; no UI
     - - 3 — wire the seam ✅
       - type branch, calibration control, floor index; SVG works end to end
-    - - 4 — acceptance
-      - upload, review, submit, building visible
+    - - 4 — automated end-to-end coverage
+      - **dropped**; see below
     - - 5 — DXF
       - one extractor, one switch arm, `$INSUNITS`
     - - 6 — PDF, vector
       - paths out of the PDF, then the SVG path
     - - 7 — raster
       - re-decision point: service, or drop
+
+Phase 4 was planned as an acceptance test covering upload, review, submit and the building
+appearing in the scene. It is dropped, and the numbering is kept so the later rungs do not move.
+
+Nothing cheap would have covered it. `backend/acceptance` runs Python against HTTP and stubs the
+twin outright (`stubs/twin.conf`), so it cannot run a TypeScript extractor — it could only post a
+hand-written payload, which asserts nothing about extraction. `frontend/e2e` is still the
+Playwright starter template, so a browser test means building the harness first: a login flow, a
+composed stack in CI, and assertions against a canvas. That harness is something the whole
+frontend needs or does not need on its own merits, and this feature is the wrong place to fund it.
+
+What remains is the extractor's own fixtures and the draft editor, which the user reviews before
+anything is submitted. The modal wiring — file picked, scale changed, rooms rendered — is verified
+by hand.
 
 Phases 5 and 6 are additive by construction. Phase 7 is the only one that reopens an architectural question, and it is scheduled last on purpose.
 
@@ -273,7 +314,7 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
    - File
 
 .tablebyrows {.files}
-    - - format dispatch — extension to extractor
+    - - format dispatch, and merging storeys into one building
       - `utils/building/floorplan/index.ts`
     - - shapes to rooms — scale, centring, elevation, ids
       - `utils/building/floorplan/draft.ts`
@@ -283,8 +324,12 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
       - `utils/building/floorplan/svg.spec.ts`, `index.spec.ts`, `__fixtures__/`
     - - draft shape, unchanged
       - `composables/building/useBuildingDraft.ts`
-    - - the seam — upload, calibration, warnings
+    - - the seam — format choice, calibration, warnings
       - `components/modals/creation/RegisterBuildingModal.vue`
+    - - one upload row per storey
+      - `components/modals/creation/PlanUploadModal.vue`
+    - - review before submitting — one plan view per floor
+      - `components/modals/creation/BuildingPreviewModal.vue`
 
 `draft.ts` names no format and `svg.ts` names no Vue symbol. That split is what phase 5 reuses:
 DXF adds a reader beside `svg.ts` and touches nothing else.

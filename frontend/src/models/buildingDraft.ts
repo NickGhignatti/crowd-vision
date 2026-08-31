@@ -1,3 +1,5 @@
+import type { Coordinates, RoomDimensions } from './building.ts'
+
 export interface RoomThresholdDraft {
   minTemp: number
   maxTemp: number
@@ -18,8 +20,8 @@ export interface RoomDraft {
   name: string
   capacity: number
   thresholds: RoomThresholdDraft
-  position: unknown
-  dimensions: unknown
+  position: Coordinates
+  dimensions: RoomDimensions
   color?: string
 }
 

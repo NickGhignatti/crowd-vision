@@ -2,8 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useBuildingDraft } from '@/composables/building/useBuildingDraft.ts'
-import { PLAN_EXTENSIONS, extractPlan, isPlanFile } from '@/utils/building/floorplan/index.ts'
-import UploadZoneButton from '@/components/buttons/UploadZoneButton.vue'
+import { extractPlans, type PlanUpload } from '@/utils/building/floorplan/index.ts'
+import PlanUploadModal from '@/components/modals/creation/PlanUploadModal.vue'
+import BuildingPreviewModal from '@/components/modals/creation/BuildingPreviewModal.vue'
 import FullWidthInput from '@/components/inputs/FullWidthInput.vue'
 import RangeSlider from '@/components/inputs/RangeSlider.vue'
 import BuildingRoomCard from '@/components/cards/BuildingRoomCard.vue'
@@ -26,15 +27,16 @@ const parseError = ref<string | null>(null)
 const cosmeticBuildingAqiMin = ref(0)
 
 /**
- * The drawing is kept so the scale and floor can be re-applied without a second upload:
- * a plan states neither, and the first number the user tries is rarely the right one.
+ * The drawings are kept so the scale can be re-applied without a second upload: a plan
+ * states no units, and the first number the user tries is rarely the right one.
  */
-const planFile = ref<{ name: string; source: string } | null>(null)
+const planUploads = ref<PlanUpload[]>([])
 const unitsPerMetre = ref(1)
-const floorIndex = ref(0)
 const planWarnings = ref<string[]>([])
 
-const uploadAccept = ['.json', ...PLAN_EXTENSIONS.map((extension) => `.${extension}`)].join(',')
+const isPlanModalOpen = ref(false)
+const isPreviewOpen = ref(false)
+const jsonInput = ref<HTMLInputElement | null>(null)
 const sensorDrafts = ref<SensorRegistrationDraft[]>([])
 const roomSensorDrafts = computed(() => {
   const grouped: Record<string, Array<{ sensor: SensorRegistrationDraft; index: number }>> = {}
@@ -58,20 +60,18 @@ const canSave = computed(
 )
 
 /**
- * Re-run on every scale or floor change. Room ids are derived from labels, not from
- * array order, so sensors already attached to a room survive the re-extraction — and
- * a name the user has corrected is fed back in rather than reset to the file name.
+ * Re-run whenever the scale changes. Room ids are derived from labels and floor, not from
+ * array order, so sensors already attached to a room survive the re-extraction — and a
+ * name the user has corrected is fed back in rather than reset to the file name.
  */
-const applyPlan = () => {
-  const plan = planFile.value
-  if (!plan) return
+const applyPlans = () => {
+  if (planUploads.value.length === 0) return
 
   parseError.value = null
   try {
-    const { building, warnings } = extractPlan(plan.name, plan.source, {
-      name: draft.value?.name?.trim() || plan.name.replace(/\.[^.]+$/, ''),
+    const { building, warnings } = extractPlans(planUploads.value, {
+      name: draft.value?.name?.trim() || planUploads.value[0]!.name.replace(/\.[^.]+$/, ''),
       unitsPerMetre: unitsPerMetre.value,
-      floorIndex: floorIndex.value,
     })
     planWarnings.value = warnings
     loadFromJson(building)
@@ -81,29 +81,35 @@ const applyPlan = () => {
   }
 }
 
-watch([unitsPerMetre, floorIndex], () => {
-  if (unitsPerMetre.value > 0) applyPlan()
+watch(unitsPerMetre, () => {
+  if (unitsPerMetre.value > 0) applyPlans()
 })
 
-const handleFileSelected = async (file: File) => {
+const resetUpload = () => {
   parseError.value = null
   planWarnings.value = []
+  planUploads.value = []
   sensorDrafts.value = []
   clear()
+}
 
-  const source = await file.text()
+const handlePlansConfirmed = (uploads: PlanUpload[], scale: number) => {
+  isPlanModalOpen.value = false
+  resetUpload()
+  planUploads.value = uploads
+  unitsPerMetre.value = scale
+  applyPlans()
+}
 
-  if (isPlanFile(file.name)) {
-    planFile.value = { name: file.name, source }
-    unitsPerMetre.value = 1
-    floorIndex.value = 0
-    applyPlan()
-    return
-  }
+const handleJsonSelected = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
 
-  planFile.value = null
+  resetUpload()
   try {
-    loadFromJson(JSON.parse(source))
+    loadFromJson(JSON.parse(await file.text()))
   } catch {
     parseError.value = t('model.register.invalidJson')
   }
@@ -137,17 +143,13 @@ const handleSave = async () => {
   await submit(props.domainName, sensorDrafts.value)
   sensorDrafts.value = []
   clear()
-  planFile.value = null
+  planUploads.value = []
   planWarnings.value = []
   emit('close')
 }
 
 const handleCancel = () => {
-  sensorDrafts.value = []
-  clear()
-  parseError.value = null
-  planFile.value = null
-  planWarnings.value = []
+  resetUpload()
   emit('close')
 }
 </script>
@@ -190,12 +192,50 @@ const handleCancel = () => {
 
           <!-- Body -->
           <div class="overflow-y-auto flex-1 p-6 space-y-6">
-            <UploadZoneButton
-              icon="ph-upload-simple"
-              :title="t('model.register.upload')"
-              :accept="uploadAccept"
-              :is-uploading="isSubmitting"
-              @file-selected="handleFileSelected"
+            <!-- One button per format the upload understands. A new format adds a
+                 button here and a reader in utils/building/floorplan. -->
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <button
+                type="button"
+                :disabled="isSubmitting"
+                class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 hover:bg-white hover:border-emerald-400 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="jsonInput?.click()"
+              >
+                <i
+                  class="ph-bold ph-file-code text-3xl text-slate-400 group-hover:text-emerald-500 transition-colors"
+                ></i>
+                <span class="text-sm font-bold text-slate-600">
+                  {{ t('model.register.formats.json') }}
+                </span>
+                <span class="text-xs text-slate-400 text-center">
+                  {{ t('model.register.formats.jsonHint') }}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                :disabled="isSubmitting"
+                class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 hover:bg-white hover:border-emerald-400 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="isPlanModalOpen = true"
+              >
+                <i
+                  class="ph-bold ph-blueprint text-3xl text-slate-400 group-hover:text-emerald-500 transition-colors"
+                ></i>
+                <span class="text-sm font-bold text-slate-600">
+                  {{ t('model.register.formats.svg') }}
+                </span>
+                <span class="text-xs text-slate-400 text-center">
+                  {{ t('model.register.formats.svgHint') }}
+                </span>
+              </button>
+            </div>
+
+            <input
+              ref="jsonInput"
+              type="file"
+              accept=".json"
+              class="hidden"
+              @change="handleJsonSelected"
             />
 
             <p
@@ -206,56 +246,39 @@ const handleCancel = () => {
               {{ parseError }}
             </p>
 
-            <!-- Floor plan calibration -->
+            <!-- Floor plan calibration: the drawings are kept, so this re-extracts. -->
             <div
-              v-if="planFile"
-              class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4"
+              v-if="planUploads.length"
+              class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3"
             >
               <div class="flex items-center justify-between gap-3">
                 <label
                   class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"
                 >
-                  <i class="ph-bold ph-blueprint text-emerald-500"></i>
-                  {{ t('model.register.plan.title') }}
+                  <i class="ph-bold ph-stack text-emerald-500"></i>
+                  {{ t('model.register.plan.loaded', { count: planUploads.length }) }}
                 </label>
-                <span class="text-xs font-semibold text-slate-500 truncate">
-                  {{ planFile.name }}
-                </span>
+                <button
+                  type="button"
+                  class="text-xs font-bold text-emerald-600 hover:text-emerald-500"
+                  @click="isPlanModalOpen = true"
+                >
+                  {{ t('model.register.plan.change') }}
+                </button>
               </div>
 
-              <p class="text-xs text-slate-500">{{ t('model.register.plan.hint') }}</p>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label class="text-xs font-semibold text-slate-500">
-                    {{ t('model.register.plan.scale') }}
-                  </label>
-                  <input
-                    v-model.number="unitsPerMetre"
-                    type="number"
-                    min="0.001"
-                    step="any"
-                    class="w-full bg-white border-b-2 border-slate-200 focus:border-emerald-500 outline-none py-1.5 text-slate-800 font-semibold text-sm"
-                  />
-                  <p class="mt-1 text-xs text-slate-400">
-                    {{ t('model.register.plan.scaleHint') }}
-                  </p>
-                </div>
-
-                <div>
-                  <label class="text-xs font-semibold text-slate-500">
-                    {{ t('model.register.plan.floor') }}
-                  </label>
-                  <input
-                    v-model.number="floorIndex"
-                    type="number"
-                    step="1"
-                    class="w-full bg-white border-b-2 border-slate-200 focus:border-emerald-500 outline-none py-1.5 text-slate-800 font-semibold text-sm"
-                  />
-                  <p class="mt-1 text-xs text-slate-400">
-                    {{ t('model.register.plan.floorHint') }}
-                  </p>
-                </div>
+              <div>
+                <label class="text-xs font-semibold text-slate-500">
+                  {{ t('model.register.plan.scale') }}
+                </label>
+                <input
+                  v-model.number="unitsPerMetre"
+                  type="number"
+                  min="0.001"
+                  step="any"
+                  class="w-full bg-white border-b-2 border-slate-200 focus:border-emerald-500 outline-none py-1.5 text-slate-800 font-semibold text-sm"
+                />
+                <p class="mt-1 text-xs text-slate-400">{{ t('model.register.plan.scaleHint') }}</p>
               </div>
 
               <div v-if="planWarnings.length" class="space-y-1">
@@ -269,6 +292,22 @@ const handleCancel = () => {
                   </li>
                 </ul>
               </div>
+            </div>
+
+            <!-- Review before submitting: the draft is only checkable as a shape. -->
+            <div
+              v-if="hasData && draft"
+              class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 flex items-center justify-between gap-4"
+            >
+              <p class="text-xs text-slate-600">{{ t('model.register.preview.explain') }}</p>
+              <button
+                type="button"
+                class="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-300 bg-white text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition-colors"
+                @click="isPreviewOpen = true"
+              >
+                <i class="ph-bold ph-eye"></i>
+                {{ t('model.register.preview.button') }}
+              </button>
             </div>
 
             <template v-if="hasData && draft">
@@ -445,4 +484,16 @@ const handleCancel = () => {
       </div>
     </Transition>
   </Teleport>
+
+  <PlanUploadModal
+    :is-open="isPlanModalOpen"
+    @close="isPlanModalOpen = false"
+    @confirm="handlePlansConfirmed"
+  />
+
+  <BuildingPreviewModal
+    :is-open="isPreviewOpen"
+    :rooms="draft?.rooms ?? []"
+    @close="isPreviewOpen = false"
+  />
 </template>

@@ -1,11 +1,6 @@
 /// SVG floor plan reader: the first rung of the format ladder in `design/floor-plans.qd`.
 
-import {
-  shapesToBuilding,
-  type ExtractionResult,
-  type PlanOptions,
-  type PlanShape,
-} from './draft.ts'
+import type { PlanReading, PlanShape } from './draft.ts'
 
 /** Translation and scale accumulated from ancestor `transform` attributes. */
 interface Transform {
@@ -156,7 +151,8 @@ const parse = (source: string): Document => {
   return document
 }
 
-export function extractSvg(source: string, options: PlanOptions): ExtractionResult {
+/** Reads geometry only. Turning shapes into rooms is `draft.ts`'s job, for every format. */
+export function readSvg(source: string): PlanReading {
   const shapes: PlanShape[] = []
   const anchors: Anchor[] = []
   const skipped = new Map<string, number>()
@@ -221,5 +217,5 @@ export function extractSvg(source: string, options: PlanOptions): ExtractionResu
       `${count} shape${count > 1 ? 's' : ''} skipped: the transform "${name}" cannot produce an axis-aligned room.`,
   )
 
-  return { building: shapesToBuilding(shapes, options), warnings }
+  return { shapes, warnings }
 }

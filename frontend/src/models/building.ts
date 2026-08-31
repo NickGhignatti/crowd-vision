@@ -1,10 +1,10 @@
-interface Coordinates {
+export interface Coordinates {
   x: number
   y: number
   z: number
 }
 
-interface RoomDimensions {
+export interface RoomDimensions {
   width: number
   height: number
   depth: number
