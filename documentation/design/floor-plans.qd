@@ -5,8 +5,8 @@ Building registration accepts one input today: a JSON description of rooms. This
 
 For the registration flow this feeds, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd). For the bounded context, [Building Management Context](../domain/building-management.qd).
 
-.box {Design record, not a description of shipped code} type:{note}
-    Nothing on this page is implemented yet. It is written first so the format ladder, the calibration model and the extraction contract are settled before the first extractor exists. Phases are listed at the bottom; each one updates this page in its own commit.
+.box {Partly built — phases 1 and 2} type:{note}
+    The SVG extractor and its fixtures exist. Nothing is wired into the upload modal yet, so the feature is not reachable from the UI: that is phase 3. Phases are listed at the bottom, and each one updates this page in its own commit.
 
 ---
 
@@ -43,6 +43,19 @@ The backend does not learn that floor plans exist. That is the point: a drawing 
 
 `domain/building.rs` models a room as an axis-aligned box — `Coordinates { x, y, z }` and `Dimensions { width, height, depth }`. There are no polygons, no wall thicknesses, no door graph. Extraction has to produce **a bounding rectangle and a label**, not reconstruct the architecture.
 
+### Y is up, so the plan lies in X–Z
+
+`useInstancedRooms.ts` passes `position` and `dimensions` straight into a Three.js instance
+matrix as translation and scale. Two consequences the JSON schema does not state:
+
+- **`y` is the vertical axis.** A drawing's two axes are `x` and **`z`**, and `height` is the
+  ceiling. Mapping a plan's vertical axis to `y` mirrors the storey into the floor.
+- **`position` is the box centre, on every axis** — a `BoxGeometry` is origin-centred.
+  A rectangle's top-left corner is not a position; the centre is.
+
+Reading the plan from above makes the sense of the axes agree without a flip: SVG's
+downward `y` is the same direction as `+z` on screen when looking down the `y` axis.
+
 ### The draft editor is the accuracy backstop
 
 Extraction is never trusted. Its output lands in the same reviewable draft a hand-written JSON does, and the user corrects it before anything is submitted. The bar is "close enough to fix in half a minute", not correctness. A phase that chases extraction accuracy instead of improving the editor is solving the wrong problem.
@@ -59,10 +72,10 @@ Four of the six room fields are absent from any plan view, and the missing ones 
    - Where it comes from
 
 .tablebyrows {.gaps}
-    - - `x`, `y`, `width`, `depth`
+    - - `x`, `z`, `width`, `depth`
       - yes
       - extracted, after calibration
-    - - `z`
+    - - `y`
       - no
       - `floor_index × floor_height`; one drawing is one floor
     - - `height`
@@ -70,14 +83,14 @@ Four of the six room fields are absent from any plan view, and the missing ones 
       - default, editable per room
     - - `capacity`
       - never
-      - derived from floor area, editable per room
+      - left unset; the editor's own default, as for hand-written JSON
     - - `color`
       - sometimes — a fill
-      - carried through when present, else unset
+      - left unset; the editor's own default
 
-Defaults are stated in one place in code and surfaced in the editor pre-filled, never silently applied. A default the user cannot see is a default they cannot correct.
+Only geometry is extracted. `capacity` and `color` are the two fields a drawing has no authority over, and `loadFromJson` already defaults both for every other upload — so extraction leaves them alone rather than inventing a second set of defaults that has to be kept in step.
 
-`capacity` from area is a heuristic with a real ceiling: occupancy per square metre is a function of room *use*, which a plan does not encode. It exists to save typing, not to be right.
+Deriving `capacity` from floor area was considered and dropped. Occupancy per square metre is a function of room *use*, which a plan does not encode, so the number would be wrong at a plausible-looking magnitude — worse than the blank the user already expects to fill in.
 
 ---
 
@@ -104,6 +117,28 @@ Telemetry keys per-room thresholds by path — `/telemetry/thresholds/peopleCoun
 
 ---
 
+## What Counts as a Room
+
+A drawing is mostly not rooms. Walls, furniture, dimension lines, north arrows, the sheet
+border and the title block all sit in the same file, and none of them are spaces. One rule
+separates them:
+
+**A shape is a room when a text label falls inside it.**
+
+- A label belongs to the **tightest** shape enclosing it, so a room's name is not captured by
+  the sheet it is drawn on.
+- A shape enclosing another room is a **container** — the sheet border, the building outline —
+  and is dropped even when a title block gave it a label of its own.
+- Everything unlabelled is dropped silently. Walls are the common case, and a warning per wall
+  is noise that trains the user to ignore warnings.
+
+The ceiling is stated plainly: **an unlabelled room is not extracted.** Rooms are named on
+plans nearly always, and the alternative — treating every closed shape as a space — produces a
+draft in which the real rooms are buried among furniture. Adding a room by hand costs less
+than finding twelve wrong ones.
+
+---
+
 ## Format Ladder
 
 Formats are added one at a time, hardest last. Each new format is one extractor plus one arm in the type switch — the contract below is what keeps that true.
@@ -116,7 +151,7 @@ Formats are added one at a time, hardest last. Each new format is one extractor 
 
 .tablebyrows {.formats}
     - - **SVG** — first
-      - `DOMParser`; `<rect>` and `<path>` bounding boxes, nearest `<text>` as the label
+      - `DOMParser`; `rect`, `polygon`, `polyline` and straight-line `path` extents, enclosed `text` as the label
       - none — the browser already parses it
       - user
     - - **DXF**
@@ -143,8 +178,19 @@ Raster is a different discipline and is deliberately last.
 One pure function per format, one shape:
 
 ```typescript
-(file: File, scale: Scale) => Promise<BuildingDraft>
+(source: string, options: PlanOptions) => ExtractionResult
 ```
+
+`options` carries the calibration and the storey; `ExtractionResult` is `{ building, warnings }`,
+where `building` is exactly the JSON `loadFromJson` already consumes — so the seam stays a
+one-line branch and no draft-building logic is duplicated.
+
+Reading the `File` is the caller's job, not the extractor's: the seam already awaits
+`file.text()` for the JSON path, and a function over a string is the one that tests without
+a DOM fixture harness.
+
+`warnings` is the honest channel for what a drawing contains and the schema cannot hold — a
+rotated room, a curved outline. Reporting them beats silently squaring them off.
 
 Three rules, and they are the whole insurance policy:
 
@@ -174,8 +220,15 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
 - **No raster support in the first ladder rungs.** It is a research problem with a different toolchain, and every phase before it makes the eventual decision better informed.
 - **The source drawing is not stored.** The twin persists the derived room list. Retaining the original is document management — retention windows, per-tenant storage, access control — and none of it serves occupancy.
 - **One drawing is one floor of one building.** A site plan holding three buildings, or a sheet holding four floors, is split by the user before upload. Detecting the split is inference on top of inference.
+- **No rotated or skewed rooms.** The schema stores axis-aligned boxes. A `rotate` or `matrix`
+  transform has no correct box, so the shape is skipped and counted in `warnings` rather than
+  squared off into a plausible wrong rectangle.
+- **No curved outlines.** A `path` carrying a curve command is not a room outline — it is a
+  door swing or a logo — and is left alone.
+- **Only `translate` and `scale` transforms are honoured.** They cover CAD and Inkscape
+  exports. Ignoring transforms entirely would silently displace every room on a layered drawing.
 - **No plugin architecture for formats.** Four formats is a switch statement.
-- **No capacity model beyond area.** Occupancy per square metre by room type is a lookup table someone has to own and keep current. The editor field costs nothing and is always correct.
+- **No capacity or colour extraction at all.** Both have editor defaults that apply to every upload; a second set of defaults inside the extractor is drift waiting to happen.
 
 ---
 
@@ -186,10 +239,10 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
    - Delivers
 
 .tablebyrows {.phases}
-    - - 1 — this page
+    - - 1 — this page ✅
       - format ladder, calibration model, extraction contract, id rule
-    - - 2 — SVG extractor
-      - pure function plus fixtures; no UI
+    - - 2 — SVG extractor ✅
+      - `extractSvg` plus fixtures; no UI
     - - 3 — wire the seam
       - type branch, calibration control, floor index; SVG works end to end
     - - 4 — acceptance
@@ -207,22 +260,29 @@ Phases 5 and 6 are additive by construction. Phase 7 is the only one that reopen
 
 ## Where This Lives
 
-Proposed, as phase 2 and 3 land.
+All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exists.
 
 .var {files}
    - Concern
    - File
 
 .tablebyrows {.files}
-    - - type dispatch — the seam
-      - `frontend/src/components/modals/creation/RegisterBuildingModal.vue`
+    - - shapes to rooms — scale, centring, elevation, ids
+      - `utils/building/floorplan/draft.ts`
+    - - SVG reader — transforms, extents, label matching
+      - `utils/building/floorplan/svg.ts`
+    - - fixtures and assertions
+      - `utils/building/floorplan/svg.spec.ts`, `__fixtures__/`
     - - draft shape, unchanged
-      - `frontend/src/composables/building/useBuildingDraft.ts`
-    - - extractors, one per format
-      - `frontend/src/composables/building/floorplan/`
-    - - defaults, calibration, id minting
-      - `frontend/src/composables/building/floorplan/` — shared, not per-format
-    - - fixtures — drawings and expected drafts
-      - `frontend/src/composables/building/floorplan/__fixtures__/`
+      - `composables/building/useBuildingDraft.ts`
+    - - type dispatch — the seam, phase 3
+      - `components/modals/creation/RegisterBuildingModal.vue`
+
+`draft.ts` names no format and `svg.ts` names no Vue symbol. That split is what phase 5 reuses:
+DXF adds a reader beside `svg.ts` and touches nothing else.
+
+Extraction lives under `utils/`, not `composables/`, because none of it touches `ref`,
+`computed` or a lifecycle hook — the `use` prefix promises a `setup()`-only call site, and
+these are pure functions callable from anywhere.
 
 Nothing under `backend/` appears in this table, and that is the invariant worth keeping: a floor plan is an authoring format, and the twin's contract is the room list.
