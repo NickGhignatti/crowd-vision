@@ -2,6 +2,8 @@
 /// drawing units, and this turns them into the room list `/twin/register` accepts.
 /// Nothing here knows what SVG or DXF is — the next format reuses it untouched.
 
+import type { Room } from '@/models/building.ts'
+
 /** Ceiling height in metres. A plan is a horizontal section and never states one. */
 export const DEFAULT_FLOOR_HEIGHT = 3
 
@@ -23,12 +25,12 @@ export interface PlanOptions {
   floorHeight?: number
 }
 
-export interface ExtractedRoom {
-  id: string
-  name: string
-  position: { x: number; y: number; z: number }
-  dimensions: { width: number; height: number; depth: number }
-}
+/**
+ * Exactly the fields a drawing can supply. Derived from `Room` rather than restated so
+ * a change to the room's geometry — a footprint, say — reaches extraction as a type error
+ * instead of as silent drift.
+ */
+export type ExtractedRoom = Pick<Room, 'id' | 'name' | 'position' | 'dimensions'>
 
 /** The shape `useBuildingDraft.loadFromJson` already consumes, so nothing downstream changes. */
 export interface ExtractedBuilding {
