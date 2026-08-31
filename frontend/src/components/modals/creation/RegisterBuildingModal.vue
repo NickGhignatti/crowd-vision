@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useBuildingDraft } from '@/composables/building/useBuildingDraft.ts'
+import { PLAN_EXTENSIONS, extractPlan, isPlanFile } from '@/utils/building/floorplan/index.ts'
 import UploadZoneButton from '@/components/buttons/UploadZoneButton.vue'
 import FullWidthInput from '@/components/inputs/FullWidthInput.vue'
 import RangeSlider from '@/components/inputs/RangeSlider.vue'
@@ -23,6 +24,17 @@ const { draft, hasData, isSubmitting, loadFromJson, updateBuilding, updateRoom, 
 
 const parseError = ref<string | null>(null)
 const cosmeticBuildingAqiMin = ref(0)
+
+/**
+ * The drawing is kept so the scale and floor can be re-applied without a second upload:
+ * a plan states neither, and the first number the user tries is rarely the right one.
+ */
+const planFile = ref<{ name: string; source: string } | null>(null)
+const unitsPerMetre = ref(1)
+const floorIndex = ref(0)
+const planWarnings = ref<string[]>([])
+
+const uploadAccept = ['.json', ...PLAN_EXTENSIONS.map((extension) => `.${extension}`)].join(',')
 const sensorDrafts = ref<SensorRegistrationDraft[]>([])
 const roomSensorDrafts = computed(() => {
   const grouped: Record<string, Array<{ sensor: SensorRegistrationDraft; index: number }>> = {}
@@ -41,14 +53,57 @@ const hasInvalidSensorConfig = computed(() =>
   sensorDrafts.value.some((sensor) => !sensor.sensorId.trim() || !sensor.roomId.trim()),
 )
 
-const canSave = computed(() => hasData.value && !isSubmitting.value && !hasInvalidSensorConfig.value)
+const canSave = computed(
+  () => hasData.value && !isSubmitting.value && !hasInvalidSensorConfig.value,
+)
+
+/**
+ * Re-run on every scale or floor change. Room ids are derived from labels, not from
+ * array order, so sensors already attached to a room survive the re-extraction — and
+ * a name the user has corrected is fed back in rather than reset to the file name.
+ */
+const applyPlan = () => {
+  const plan = planFile.value
+  if (!plan) return
+
+  parseError.value = null
+  try {
+    const { building, warnings } = extractPlan(plan.name, plan.source, {
+      name: draft.value?.name?.trim() || plan.name.replace(/\.[^.]+$/, ''),
+      unitsPerMetre: unitsPerMetre.value,
+      floorIndex: floorIndex.value,
+    })
+    planWarnings.value = warnings
+    loadFromJson(building)
+  } catch (error) {
+    planWarnings.value = []
+    parseError.value = error instanceof Error ? error.message : t('model.register.plan.invalid')
+  }
+}
+
+watch([unitsPerMetre, floorIndex], () => {
+  if (unitsPerMetre.value > 0) applyPlan()
+})
 
 const handleFileSelected = async (file: File) => {
   parseError.value = null
+  planWarnings.value = []
+  sensorDrafts.value = []
+  clear()
+
+  const source = await file.text()
+
+  if (isPlanFile(file.name)) {
+    planFile.value = { name: file.name, source }
+    unitsPerMetre.value = 1
+    floorIndex.value = 0
+    applyPlan()
+    return
+  }
+
+  planFile.value = null
   try {
-    const raw = JSON.parse(await file.text())
-    loadFromJson(raw)
-    sensorDrafts.value = []
+    loadFromJson(JSON.parse(source))
   } catch {
     parseError.value = t('model.register.invalidJson')
   }
@@ -82,6 +137,8 @@ const handleSave = async () => {
   await submit(props.domainName, sensorDrafts.value)
   sensorDrafts.value = []
   clear()
+  planFile.value = null
+  planWarnings.value = []
   emit('close')
 }
 
@@ -89,6 +146,8 @@ const handleCancel = () => {
   sensorDrafts.value = []
   clear()
   parseError.value = null
+  planFile.value = null
+  planWarnings.value = []
   emit('close')
 }
 </script>
@@ -107,10 +166,7 @@ const handleCancel = () => {
         v-if="isOpen"
         class="fixed inset-0 z-[100] flex items-center justify-center p-4 font-sans"
       >
-        <div
-          class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-          @click="handleCancel"
-        ></div>
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="handleCancel"></div>
 
         <div
           class="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]"
@@ -136,7 +192,8 @@ const handleCancel = () => {
           <div class="overflow-y-auto flex-1 p-6 space-y-6">
             <UploadZoneButton
               icon="ph-upload-simple"
-              :title="t('model.register.uploadJson')"
+              :title="t('model.register.upload')"
+              :accept="uploadAccept"
               :is-uploading="isSubmitting"
               @file-selected="handleFileSelected"
             />
@@ -148,6 +205,71 @@ const handleCancel = () => {
               <i class="ph-bold ph-warning-circle"></i>
               {{ parseError }}
             </p>
+
+            <!-- Floor plan calibration -->
+            <div
+              v-if="planFile"
+              class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <label
+                  class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"
+                >
+                  <i class="ph-bold ph-blueprint text-emerald-500"></i>
+                  {{ t('model.register.plan.title') }}
+                </label>
+                <span class="text-xs font-semibold text-slate-500 truncate">
+                  {{ planFile.name }}
+                </span>
+              </div>
+
+              <p class="text-xs text-slate-500">{{ t('model.register.plan.hint') }}</p>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs font-semibold text-slate-500">
+                    {{ t('model.register.plan.scale') }}
+                  </label>
+                  <input
+                    v-model.number="unitsPerMetre"
+                    type="number"
+                    min="0.001"
+                    step="any"
+                    class="w-full bg-white border-b-2 border-slate-200 focus:border-emerald-500 outline-none py-1.5 text-slate-800 font-semibold text-sm"
+                  />
+                  <p class="mt-1 text-xs text-slate-400">
+                    {{ t('model.register.plan.scaleHint') }}
+                  </p>
+                </div>
+
+                <div>
+                  <label class="text-xs font-semibold text-slate-500">
+                    {{ t('model.register.plan.floor') }}
+                  </label>
+                  <input
+                    v-model.number="floorIndex"
+                    type="number"
+                    step="1"
+                    class="w-full bg-white border-b-2 border-slate-200 focus:border-emerald-500 outline-none py-1.5 text-slate-800 font-semibold text-sm"
+                  />
+                  <p class="mt-1 text-xs text-slate-400">
+                    {{ t('model.register.plan.floorHint') }}
+                  </p>
+                </div>
+              </div>
+
+              <div v-if="planWarnings.length" class="space-y-1">
+                <p class="text-xs font-bold text-amber-600 flex items-center gap-1.5">
+                  <i class="ph-bold ph-warning"></i>
+                  {{ t('model.register.plan.warnings') }}
+                </p>
+                <ul class="list-disc pl-5 space-y-0.5">
+                  <li v-for="warning in planWarnings" :key="warning" class="text-xs text-amber-700">
+                    {{ warning }}
+                  </li>
+                </ul>
+              </div>
+            </div>
 
             <template v-if="hasData && draft">
               <!-- Building name -->
@@ -268,7 +390,8 @@ const handleCancel = () => {
                               class="w-full bg-white border-b-2 border-slate-200 focus:border-emerald-500 outline-none py-1.5 text-slate-800 font-semibold text-sm"
                               @change="
                                 updateSensor(sensorIndex, {
-                                  sensorType: ($event.target as HTMLSelectElement).value as 'temperature',
+                                  sensorType: ($event.target as HTMLSelectElement)
+                                    .value as 'temperature',
                                 })
                               "
                             >
@@ -314,9 +437,7 @@ const handleCancel = () => {
               class="px-6 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-lg shadow-emerald-600/20 rounded-xl transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
               @click="handleSave"
             >
-              <i
-                :class="isSubmitting ? 'ph-bold ph-spinner animate-spin' : 'ph-bold ph-check'"
-              ></i>
+              <i :class="isSubmitting ? 'ph-bold ph-spinner animate-spin' : 'ph-bold ph-check'"></i>
               {{ isSubmitting ? t('model.register.saving') : t('commons.save') }}
             </button>
           </div>
