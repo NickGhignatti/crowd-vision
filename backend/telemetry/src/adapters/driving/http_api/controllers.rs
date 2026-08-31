@@ -14,6 +14,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Instant;
 use telemetry_schema::{
@@ -397,6 +398,29 @@ pub async fn patch_building_threshold(
     let stored = state
         .thresholds
         .update_building(&sensor_type, &building_id, &patch)
+        .await?;
+    Ok(Json(json!({ "data": stored })))
+}
+
+/// Sets one metric's threshold for many rooms at once. Registering a building is the case
+/// this exists for: it would otherwise be one request per room, each paying its own edge
+/// auth round trip, with no way to reject the set as a whole.
+pub async fn patch_room_thresholds(
+    State(state): State<Arc<AppState>>,
+    Path((sensor_type, building_id)): Path<(String, String)>,
+    claims: GatewayClaims,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, DomainError> {
+    edit(&state, &claims, &building_id).await?;
+
+    let mut patches = BTreeMap::new();
+    for (room_id, bounds) in object(body)? {
+        patches.insert(room_id, object(bounds)?);
+    }
+
+    let stored = state
+        .thresholds
+        .update_rooms(&sensor_type, &building_id, &patches)
         .await?;
     Ok(Json(json!({ "data": stored })))
 }

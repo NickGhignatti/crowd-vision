@@ -60,15 +60,4 @@ describe('readPdf', () => {
 
     await expect(readPdf(notPdf)).rejects.toThrow(/pdf/i)
   })
-
-  /**
-   * A scanned plan is a single image with no path operators. Saying so beats "no rooms
-   * found", which reads as a problem with the drawing rather than with its format.
-   */
-  it('says a PDF with no outlines is probably a scan', async () => {
-    const { shapes, warnings } = await readPdf(fixture('scanned.pdf'))
-
-    expect(shapes).toHaveLength(0)
-    expect(warnings.some((warning) => /scan/i.test(warning))).toBe(true)
-  })
 })

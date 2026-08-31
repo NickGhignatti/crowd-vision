@@ -107,10 +107,6 @@ export async function readPdf(bytes: ArrayBuffer): Promise<PlanReading> {
     if (enclosing[0]) enclosing[0].label = anchor.text
   }
 
-  if (shapes.length === 0) {
-    warnings.push('No outlines were found. A scanned PDF is an image, not a drawing.')
-  }
-
   await task.destroy()
   return { shapes, warnings }
 }

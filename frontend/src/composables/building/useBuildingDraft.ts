@@ -8,7 +8,11 @@ import type {
   SensorRegistrationDraft,
 } from '@/models/buildingDraft.ts'
 
-const ROOM_REQUEST_CONCURRENCY = 4
+/**
+ * Bounded concurrency: firing one request per sensor at once can burst past what the local
+ * proxy handles, resetting connections instead of queuing them.
+ */
+const SENSOR_REQUEST_CONCURRENCY = 4
 
 const DEFAULT_THRESHOLDS: BuildingThresholdDraft = {
   minTemp: 18,
@@ -79,31 +83,35 @@ export function useBuildingDraft() {
 
       const buildingId = await buildingsStore.register(twinPayload, domainName)
 
-      await makeRequestWithRetry(`/telemetry/thresholds/temperature/buildings/${buildingId}`, 'PATCH', {
-        body: JSON.stringify({
-          maxTemp: draft.value.thresholds.maxTemp,
-          minTemp: draft.value.thresholds.minTemp,
-        }),
-      })
-
-      await makeRequestWithRetry(`/telemetry/thresholds/airQuality/buildings/${buildingId}`, 'PATCH', {
-        body: JSON.stringify({
-          maxAqi: draft.value.thresholds.maxAqi,
-          maxCo2: draft.value.thresholds.maxCo2,
-        }),
-      })
-
-      // Bounded concurrency: firing one request per room at once can burst past what
-      // the local proxy handles, resetting connections instead of queuing them.
-      await mapWithConcurrency(draft.value.rooms, ROOM_REQUEST_CONCURRENCY, (room) =>
-        makeRequestWithRetry(
-          `/telemetry/thresholds/peopleCount/buildings/${buildingId}/rooms/${room.id}`,
-          'PATCH',
-          { body: JSON.stringify({ maxPeople: room.thresholds.maxPeople }) },
-        ),
+      // Every room's threshold goes in one request. As one request per room it was the
+      // bulk of a registration's round trips, and a failure part-way left some rooms
+      // written and the rest not, with nothing to say which.
+      const roomThresholds = Object.fromEntries(
+        draft.value.rooms.map((room) => [room.id, { maxPeople: room.thresholds.maxPeople }]),
       )
 
-      await mapWithConcurrency(sensorsToRegister, ROOM_REQUEST_CONCURRENCY, async (sensor) => {
+      // The three writes touch different metrics, so they overlap rather than queue.
+      await Promise.all([
+        makeRequestWithRetry(`/telemetry/thresholds/temperature/buildings/${buildingId}`, 'PATCH', {
+          body: JSON.stringify({
+            maxTemp: draft.value.thresholds.maxTemp,
+            minTemp: draft.value.thresholds.minTemp,
+          }),
+        }),
+        makeRequestWithRetry(`/telemetry/thresholds/airQuality/buildings/${buildingId}`, 'PATCH', {
+          body: JSON.stringify({
+            maxAqi: draft.value.thresholds.maxAqi,
+            maxCo2: draft.value.thresholds.maxCo2,
+          }),
+        }),
+        makeRequestWithRetry(
+          `/telemetry/thresholds/peopleCount/buildings/${buildingId}/rooms`,
+          'PATCH',
+          { body: JSON.stringify(roomThresholds) },
+        ),
+      ])
+
+      await mapWithConcurrency(sensorsToRegister, SENSOR_REQUEST_CONCURRENCY, async (sensor) => {
         const registerResponse = await makeRequestWithRetry('/telemetry/sensor', 'POST', {
           body: JSON.stringify({
             sensorData: {

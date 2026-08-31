@@ -3,6 +3,7 @@ use crate::kernel::registry::PluginRegistry;
 use crate::types::error::DomainError;
 use crate::types::plugin::SensorPlugin;
 use crate::types::threshold::{Bounds, TemperatureLimits};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 pub struct Thresholds {
@@ -69,6 +70,36 @@ impl Thresholds {
             .store
             .upsert(building_id, Some(room_id), metric, patch)
             .await?)
+    }
+
+    /// Every patch is validated before any of them is written. Registering a building sets
+    /// one threshold per room, and doing that as one request per room means a rejected bound
+    /// halfway through leaves the earlier rooms written and the rest not — with nothing to
+    /// tell the user which. Validation is what actually fails here, so checking the whole
+    /// batch first is what makes the operation all-or-nothing in practice.
+    ///
+    /// The writes themselves are still one upsert per room: the store has no transactional
+    /// bulk write, and a mid-write database failure is both rare and idempotent to retry.
+    pub async fn update_rooms(
+        &self,
+        metric: &str,
+        building_id: &str,
+        patches: &BTreeMap<String, Bounds>,
+    ) -> Result<BTreeMap<String, Bounds>, DomainError> {
+        for patch in patches.values() {
+            self.checked(metric, patch)?;
+        }
+
+        let mut stored = BTreeMap::new();
+        for (room_id, patch) in patches {
+            stored.insert(
+                room_id.clone(),
+                self.store
+                    .upsert(building_id, Some(room_id), metric, patch)
+                    .await?,
+            );
+        }
+        Ok(stored)
     }
 
     pub async fn temperature_limits(
