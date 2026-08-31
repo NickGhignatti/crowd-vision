@@ -64,12 +64,12 @@ const canSave = computed(
  * array order, so sensors already attached to a room survive the re-extraction — and a
  * name the user has corrected is fed back in rather than reset to the file name.
  */
-const applyPlans = () => {
+const applyPlans = async () => {
   if (planUploads.value.length === 0) return
 
   parseError.value = null
   try {
-    const { building, warnings } = extractPlans(planUploads.value, {
+    const { building, warnings } = await extractPlans(planUploads.value, {
       name: draft.value?.name?.trim() || planUploads.value[0]!.name.replace(/\.[^.]+$/, ''),
       unitsPerMetre: unitsPerMetre.value,
     })
@@ -93,12 +93,12 @@ const resetUpload = () => {
   clear()
 }
 
-const handlePlansConfirmed = (uploads: PlanUpload[], scale: number) => {
+const handlePlansConfirmed = async (uploads: PlanUpload[], scale: number) => {
   isPlanModalOpen.value = false
   resetUpload()
   planUploads.value = uploads
   unitsPerMetre.value = scale
-  applyPlans()
+  await applyPlans()
 }
 
 const handleJsonSelected = async (event: Event) => {
@@ -243,6 +243,23 @@ const handleCancel = () => {
                 </span>
                 <span class="text-xs text-slate-400 text-center">
                   {{ t('model.register.formats.dxfHint') }}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                :disabled="isSubmitting"
+                class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 hover:bg-white hover:border-emerald-400 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="isPlanModalOpen = true"
+              >
+                <i
+                  class="ph-bold ph-file-pdf text-3xl text-slate-400 group-hover:text-emerald-500 transition-colors"
+                ></i>
+                <span class="text-sm font-bold text-slate-600">
+                  {{ t('model.register.formats.pdf') }}
+                </span>
+                <span class="text-xs text-slate-400 text-center">
+                  {{ t('model.register.formats.pdfHint') }}
                 </span>
               </button>
             </div>

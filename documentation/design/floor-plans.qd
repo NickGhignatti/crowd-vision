@@ -5,8 +5,8 @@ Building registration accepts one input today: a JSON description of rooms. This
 
 For the registration flow this feeds, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd). For the bounded context, [Building Management Context](../domain/building-management.qd).
 
-.box {Built for SVG and DXF — phases 1 to 3 and 5, plus multi-floor} type:{note}
-    Both formats work end to end: the modal takes one drawing per storey, calibrates them together, and hands the rooms to the same reviewable draft a JSON upload produces. The next rung on the ladder is vector PDF. Phases are listed at the bottom, and each one updates this page in its own commit.
+.box {Built for SVG, DXF and vector PDF — phases 1 to 3, 5 and 6, plus multi-floor} type:{note}
+    All three formats work end to end: the modal takes one drawing per storey, calibrates them together, and hands the rooms to the same reviewable draft a JSON upload produces. Only raster is left, and it is a re-decision point rather than another rung. Phases are listed at the bottom, and each one updates this page in its own commit.
 
 ---
 
@@ -169,9 +169,9 @@ Formats are added one at a time, hardest last. Each new format is one extractor 
       - ASCII group-code pairs; `LWPOLYLINE` extents, `TEXT`/`MTEXT` labels
       - none — hand-rolled, see below
       - `$INSUNITS`, user-overridable
-    - - **PDF, vector**
-      - a PDF library down to paths, then identical to SVG
-      - a PDF library
+    - - **PDF, vector** — third
+      - pdf.js down to path bounding boxes, then identical to SVG
+      - `pdfjs-dist`, dynamically imported
       - user
     - - **Raster** — PNG, scanned PDF
       - wall detection, contour extraction, OCR for labels
@@ -189,8 +189,13 @@ Raster is a different discipline and is deliberately last.
 One pure function per format, and it reads geometry only:
 
 ```typescript
-(source: string) => PlanReading      // { shapes, warnings }
+(bytes: ArrayBuffer) => PlanReading | Promise<PlanReading>   // { shapes, warnings }
 ```
+
+Bytes rather than text, because a PDF is binary: `File.text()` replaces every invalid UTF-8
+sequence before a reader could see it, which silently corrupts the content stream. The two
+text formats decode in the dispatch table, so `svg.ts` and `dxf.ts` never learn the
+distinction. A reader may be async for the same reason — pdf.js is loaded on demand.
 
 Turning shapes into rooms is a second, format-agnostic step:
 
@@ -219,6 +224,14 @@ Three rules, and they are the whole insurance policy:
 Held to those, moving one format to a service later is a swapped call site with the fixtures reused as-is — not a migration.
 
 ---
+
+### Three formats, three coordinate conventions
+
+SVG's y grows downwards; DXF's and PDF's grow upwards; the twin's z runs down the screen.
+Each reader negates y at its own boundary, so `draft.ts` sees one convention and normalises
+against it. A missed flip mirrors the whole floor — and a mirrored building still renders,
+still registers and still looks plausible, so nothing downstream catches it. Both flipping
+readers assert it in a test for that reason.
 
 ### DXF y points up
 
@@ -280,6 +293,15 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
 - **No rooms inside blocks.** A DXF that draws its rooms in `BLOCKS` and places them with
   `INSERT` yields nothing. The reader counts the `INSERT`s and says so, rather than returning an
   empty building that looks like a bad drawing.
+- **No PDF written by hand.** SVG and DXF are text formats worth hand-rolling; a PDF content
+  stream is compressed binary and is not. `pdfjs-dist` is the one dependency the ladder adds,
+  loaded through a dynamic import so its 1.3 MB worker is a separate chunk rather than part of
+  the main bundle — most sessions never open a PDF.
+- **The pdf.js legacy build, not the modern one.** The modern build calls
+  `Uint8Array.prototype.toHex`, which is too new for the test runtime and for browsers this
+  app still supports.
+- **Only page 1 of a PDF.** One drawing is one floor. A multi-page PDF is read as its first
+  page and says so in `warnings`, rather than silently merging storeys.
 - **No plugin architecture for formats.** Four formats is a switch statement.
 - **No browser test of the upload flow.** There is no frontend e2e harness to add one to, and
   building one to cover a single modal is out of proportion — see the note under Phases.
@@ -304,8 +326,8 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
       - **dropped**; see below
     - - 5 — DXF ✅
       - one reader, one switch arm, `$INSUNITS` pre-fills the scale
-    - - 6 — PDF, vector
-      - paths out of the PDF, then the SVG path
+    - - 6 — PDF, vector ✅
+      - pdf.js path bounds and text positions; readers move to bytes
     - - 7 — raster
       - re-decision point: service, or drop
 
@@ -344,8 +366,10 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
       - `utils/building/floorplan/svg.ts`
     - - DXF reader — group-code pairs, `$INSUNITS`, y-axis flip
       - `utils/building/floorplan/dxf.ts`
+    - - PDF reader — pdf.js path bounds, y-axis flip, scan detection
+      - `utils/building/floorplan/pdf.ts`
     - - fixtures and assertions
-      - `utils/building/floorplan/{svg,dxf,index}.spec.ts`, `__fixtures__/`
+      - `utils/building/floorplan/{svg,dxf,pdf,index}.spec.ts`, `__fixtures__/`
     - - draft shape, unchanged
       - `composables/building/useBuildingDraft.ts`
     - - the seam — format choice, calibration, warnings

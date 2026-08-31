@@ -329,6 +329,8 @@ const messages = {
           svgHint: 'One drawing per floor',
           dxf: 'DXF floor plans',
           dxfHint: 'CAD export, one per floor',
+          pdf: 'PDF floor plans',
+          pdfHint: 'Vector PDF, not a scan',
         },
         plan: {
           title: 'Floor plans',
@@ -705,6 +707,8 @@ const messages = {
           svgHint: 'Un disegno per piano',
           dxf: 'Piante DXF',
           dxfHint: 'Export CAD, uno per piano',
+          pdf: 'Piante PDF',
+          pdfHint: 'PDF vettoriale, non una scansione',
         },
         plan: {
           title: 'Piante',

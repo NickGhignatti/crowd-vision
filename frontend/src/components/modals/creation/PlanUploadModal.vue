@@ -20,7 +20,7 @@ const { t } = useI18n()
 
 /** A row's floor is its position in the list, so removing one renumbers the rest. */
 interface Row {
-  file: { name: string; source: string } | null
+  file: { name: string; bytes: ArrayBuffer } | null
 }
 
 const rows = ref<Row[]>([{ file: null }])
@@ -51,18 +51,19 @@ const handleRowFile = async (index: number, event: Event) => {
   if (!file) return
 
   readError.value = null
-  let source: string
+  // Bytes, not text: a PDF is binary, and File.text() would corrupt it on the way in.
+  let bytes: ArrayBuffer
   try {
-    source = await file.text()
+    bytes = await file.arrayBuffer()
   } catch {
     readError.value = t('model.register.plan.unreadable')
     return
   }
-  rows.value[index]!.file = { name: file.name, source }
+  rows.value[index]!.file = { name: file.name, bytes }
 
   // DXF states its own units. Pre-fill from the first drawing that does, and leave the
   // field editable — drawings lie about their units often enough that the knob has to stay.
-  const declared = declaredScaleOf(file.name, source)
+  const declared = declaredScaleOf(file.name, bytes)
   if (declared !== null && !scaleFromDrawing.value) {
     unitsPerMetre.value = declared
     scaleFromDrawing.value = true
