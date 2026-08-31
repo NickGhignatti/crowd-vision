@@ -228,6 +228,23 @@ const handleCancel = () => {
                   {{ t('model.register.formats.svgHint') }}
                 </span>
               </button>
+
+              <button
+                type="button"
+                :disabled="isSubmitting"
+                class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 hover:bg-white hover:border-emerald-400 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="isPlanModalOpen = true"
+              >
+                <i
+                  class="ph-bold ph-compass-tool text-3xl text-slate-400 group-hover:text-emerald-500 transition-colors"
+                ></i>
+                <span class="text-sm font-bold text-slate-600">
+                  {{ t('model.register.formats.dxf') }}
+                </span>
+                <span class="text-xs text-slate-400 text-center">
+                  {{ t('model.register.formats.dxfHint') }}
+                </span>
+              </button>
             </div>
 
             <input

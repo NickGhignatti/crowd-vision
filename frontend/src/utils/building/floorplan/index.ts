@@ -8,10 +8,20 @@ import {
   type PlanOptions,
   type PlanReading,
 } from './draft.ts'
+import { declaredUnitsPerMetre, readDxf } from './dxf.ts'
 import { readSvg } from './svg.ts'
 
 const READERS: Record<string, (source: string) => PlanReading> = {
   svg: readSvg,
+  dxf: readDxf,
+}
+
+/**
+ * Formats that state their own scale. SVG never does; DXF has `$INSUNITS`. Used to pre-fill
+ * the calibration field — never to replace it, because drawings lie about their units.
+ */
+const SCALE_READERS: Record<string, (source: string) => number | null> = {
+  dxf: declaredUnitsPerMetre,
 }
 
 /** Extensions the upload accepts as a drawing, without the dot. */
@@ -22,6 +32,10 @@ const extensionOf = (fileName: string): string =>
 
 export const isPlanFile = (fileName: string): boolean =>
   fileName.includes('.') && extensionOf(fileName) in READERS
+
+/** The scale a drawing declares, when its format can carry one. */
+export const declaredScaleOf = (fileName: string, source: string): number | null =>
+  SCALE_READERS[extensionOf(fileName)]?.(source) ?? null
 
 /** One drawing and the storey it represents. */
 export interface PlanUpload {

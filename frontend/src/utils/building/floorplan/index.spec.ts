@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { PLAN_EXTENSIONS, extractPlans, isPlanFile } from './index.ts'
+import { PLAN_EXTENSIONS, declaredScaleOf, extractPlans, isPlanFile } from './index.ts'
 import simpleOffice from './__fixtures__/simple-office.svg?raw'
+import office from './__fixtures__/office.dxf?raw'
 
 const room = (label: string, x: number, y: number) =>
   `<rect x="${x}" y="${y}" width="100" height="100"/><text x="${x + 10}" y="${y + 10}">${label}</text>`
@@ -11,6 +12,7 @@ const plan = (...rooms: string[]) =>
 describe('plan dispatch', () => {
   it('recognises the formats it can extract', () => {
     expect(isPlanFile('ground-floor.svg')).toBe(true)
+    expect(isPlanFile('ground-floor.dxf')).toBe(true)
     expect(isPlanFile('building.json')).toBe(false)
   })
 
@@ -37,14 +39,19 @@ describe('plan dispatch', () => {
 
   it('refuses a format it has no reader for', () => {
     expect(() =>
-      extractPlans([{ name: 'plan.dxf', source: '0\nSECTION', floorIndex: 0 }], {
+      extractPlans([{ name: 'plan.pdf', source: '%PDF-1.7', floorIndex: 0 }], {
         unitsPerMetre: 1,
       }),
-    ).toThrow(/dxf/i)
+    ).toThrow(/pdf/i)
+  })
+
+  it('offers the scale a DXF declares, and nothing for a format that cannot', () => {
+    expect(declaredScaleOf('plan.dxf', office)).toBe(1000)
+    expect(declaredScaleOf('plan.svg', simpleOffice)).toBeNull()
   })
 
   it('advertises every extension it dispatches on', () => {
-    expect(PLAN_EXTENSIONS).toEqual(['svg'])
+    expect(PLAN_EXTENSIONS).toEqual(['svg', 'dxf'])
   })
 })
 

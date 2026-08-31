@@ -327,6 +327,8 @@ const messages = {
           jsonHint: 'A building already described as rooms',
           svg: 'SVG floor plans',
           svgHint: 'One drawing per floor',
+          dxf: 'DXF floor plans',
+          dxfHint: 'CAD export, one per floor',
         },
         plan: {
           title: 'Floor plans',
@@ -335,6 +337,7 @@ const messages = {
           hint: 'Rooms were read from the drawing. Check them below before saving.',
           scale: 'Drawing units per metre',
           scaleHint: 'No drawing states its real size. Set this, then check a room’s width.',
+          scaleFromDrawing: 'Taken from the drawing. Change it if a room comes out the wrong size.',
           floor: 'Floor',
           floorHint: 'One drawing is one floor. The ground floor is 0.',
           floorRow: 'Floor {index}',
@@ -700,6 +703,8 @@ const messages = {
           jsonHint: 'Un edificio già descritto come stanze',
           svg: 'Piante SVG',
           svgHint: 'Un disegno per piano',
+          dxf: 'Piante DXF',
+          dxfHint: 'Export CAD, uno per piano',
         },
         plan: {
           title: 'Piante',
@@ -709,6 +714,8 @@ const messages = {
           scale: 'Unità del disegno per metro',
           scaleHint:
             'Nessun disegno dichiara la sua misura reale. Imposta questo valore, poi verifica la larghezza di una stanza.',
+          scaleFromDrawing:
+            'Presa dal disegno. Cambiala se una stanza risulta della misura sbagliata.',
           floor: 'Piano',
           floorHint: 'Un disegno è un piano. Il piano terra è 0.',
           floorRow: 'Piano {index}',

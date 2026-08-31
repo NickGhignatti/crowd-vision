@@ -5,8 +5,8 @@ Building registration accepts one input today: a JSON description of rooms. This
 
 For the registration flow this feeds, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd). For the bounded context, [Building Management Context](../domain/building-management.qd).
 
-.box {Built for SVG — phases 1 to 3, plus multi-floor} type:{note}
-    SVG upload works end to end: the modal takes one drawing per storey, calibrates them together, and hands the rooms to the same reviewable draft a JSON upload produces. The next rung on the ladder is DXF. Phases are listed at the bottom, and each one updates this page in its own commit.
+.box {Built for SVG and DXF — phases 1 to 3 and 5, plus multi-floor} type:{note}
+    Both formats work end to end: the modal takes one drawing per storey, calibrates them together, and hands the rooms to the same reviewable draft a JSON upload produces. The next rung on the ladder is vector PDF. Phases are listed at the bottom, and each one updates this page in its own commit.
 
 ---
 
@@ -165,9 +165,9 @@ Formats are added one at a time, hardest last. Each new format is one extractor 
       - `DOMParser`; `rect`, `polygon`, `polyline` and straight-line `path` extents, enclosed `text` as the label
       - none — the browser already parses it
       - user
-    - - **DXF**
-      - ASCII entity list; `LWPOLYLINE` extents, `TEXT`/`MTEXT` labels
-      - one parser, or hand-rolled
+    - - **DXF** — second
+      - ASCII group-code pairs; `LWPOLYLINE` extents, `TEXT`/`MTEXT` labels
+      - none — hand-rolled, see below
       - `$INSUNITS`, user-overridable
     - - **PDF, vector**
       - a PDF library down to paths, then identical to SVG
@@ -220,6 +220,14 @@ Held to those, moving one format to a service later is a swapped call site with 
 
 ---
 
+### DXF y points up
+
+SVG and DXF disagree about the vertical axis: SVG's y grows downwards, DXF's grows upwards.
+`dxf.ts` negates y as it reads, so `draft.ts` normalises against flipped extents and the plan
+comes out the right way round. Passing y through unchanged mirrors the whole floor — and a
+mirrored building still renders, still registers and still looks plausible, so nothing
+downstream catches it. It is asserted by a test for that reason.
+
 ### Reviewing before submitting
 
 The draft editor lists rooms as cards, which is the right shape for correcting a name or a
@@ -250,7 +258,13 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
 - **No polygon rooms.** The twin models axis-aligned boxes. Extracting an L-shaped room's true outline produces geometry nothing downstream can store or render. Its bounding box is the honest answer; splitting it into two rooms is the user's call, in the editor.
 - **No raster support in the first ladder rungs.** It is a research problem with a different toolchain, and every phase before it makes the eventual decision better informed.
 - **The source drawing is not stored.** The twin persists the derived room list. Retaining the original is document management — retention windows, per-tenant storage, access control — and none of it serves occupancy.
-- **One drawing is one floor.** A site plan holding three buildings, or a sheet holding four floors, is split by the user before upload. Detecting the split is inference on top of inference. Several drawings *do* make one building: the upload takes a row per storey, and they are placed against one shared origin so the floors line up rather than each being centred on its own sheet margin.
+- **One drawing is one floor.** A site plan holding three buildings, or a sheet holding four floors, is split by the user before upload. Detecting the split is inference on top of inference. Several drawings *do* make one building: the upload takes a row per storey, placed against one shared origin.
+- **Storeys are aligned by the drawings, not by the extractor.** One origin is taken across every
+  floor, so a wing that genuinely sits east of the one below stays east of it. The cost is the
+  mirror case: two exports of the same footprint with different sheet margins land displaced by
+  exactly that difference, and nothing detects it. Aligning them instead would mean assuming every
+  storey's top-left corner is the same point, which is false for any building that changes shape as
+  it rises. The drawings have to agree on a coordinate space; the extractor cannot invent one.
 - **No rotated or skewed rooms.** The schema stores axis-aligned boxes. A `rotate` or `matrix`
   transform has no correct box, so the shape is skipped and counted in `warnings` rather than
   squared off into a plausible wrong rectangle.
@@ -258,6 +272,14 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
   door swing or a logo — and is left alone.
 - **Only `translate` and `scale` transforms are honoured.** They cover CAD and Inkscape
   exports. Ignoring transforms entirely would silently displace every room on a layered drawing.
+- **No DXF parser library.** The subset a room outline needs — group-code pairs, `LWPOLYLINE`
+  extents, `TEXT`/`MTEXT` — is about a hundred lines. A library would also read `BLOCKS`, which
+  is the one thing worth having, but its coverage cannot be judged without real drawings, and a
+  new npm dependency means regenerating the Linux lockfile. Revisit when a real export proves
+  blocks are common.
+- **No rooms inside blocks.** A DXF that draws its rooms in `BLOCKS` and places them with
+  `INSERT` yields nothing. The reader counts the `INSERT`s and says so, rather than returning an
+  empty building that looks like a bad drawing.
 - **No plugin architecture for formats.** Four formats is a switch statement.
 - **No browser test of the upload flow.** There is no frontend e2e harness to add one to, and
   building one to cover a single modal is out of proportion — see the note under Phases.
@@ -280,8 +302,8 @@ Deciding that at the end of the ladder means deciding it with real extraction ou
       - type branch, calibration control, floor index; SVG works end to end
     - - 4 — automated end-to-end coverage
       - **dropped**; see below
-    - - 5 — DXF
-      - one extractor, one switch arm, `$INSUNITS`
+    - - 5 — DXF ✅
+      - one reader, one switch arm, `$INSUNITS` pre-fills the scale
     - - 6 — PDF, vector
       - paths out of the PDF, then the SVG path
     - - 7 — raster
@@ -320,8 +342,10 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
       - `utils/building/floorplan/draft.ts`
     - - SVG reader — transforms, extents, label matching
       - `utils/building/floorplan/svg.ts`
+    - - DXF reader — group-code pairs, `$INSUNITS`, y-axis flip
+      - `utils/building/floorplan/dxf.ts`
     - - fixtures and assertions
-      - `utils/building/floorplan/svg.spec.ts`, `index.spec.ts`, `__fixtures__/`
+      - `utils/building/floorplan/{svg,dxf,index}.spec.ts`, `__fixtures__/`
     - - draft shape, unchanged
       - `composables/building/useBuildingDraft.ts`
     - - the seam — format choice, calibration, warnings

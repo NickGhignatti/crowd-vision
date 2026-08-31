@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { PlanUpload } from '@/utils/building/floorplan/index.ts'
+import {
+  PLAN_EXTENSIONS,
+  declaredScaleOf,
+  type PlanUpload,
+} from '@/utils/building/floorplan/index.ts'
 
 const props = defineProps<{
   isOpen: boolean
@@ -22,6 +26,10 @@ interface Row {
 const rows = ref<Row[]>([{ file: null }])
 const unitsPerMetre = ref(1)
 const readError = ref<string | null>(null)
+/** True once the scale came from the drawing itself rather than from the default. */
+const scaleFromDrawing = ref(false)
+
+const accept = PLAN_EXTENSIONS.map((extension) => `.${extension}`).join(',')
 
 const filled = computed(() => rows.value.filter((row) => row.file))
 const canConfirm = computed(() => filled.value.length > 0 && unitsPerMetre.value > 0)
@@ -32,6 +40,7 @@ watch(
     if (!open) return
     rows.value = [{ file: null }]
     unitsPerMetre.value = 1
+    scaleFromDrawing.value = false
     readError.value = null
   },
 )
@@ -42,11 +51,21 @@ const handleRowFile = async (index: number, event: Event) => {
   if (!file) return
 
   readError.value = null
+  let source: string
   try {
-    rows.value[index]!.file = { name: file.name, source: await file.text() }
+    source = await file.text()
   } catch {
     readError.value = t('model.register.plan.unreadable')
     return
+  }
+  rows.value[index]!.file = { name: file.name, source }
+
+  // DXF states its own units. Pre-fill from the first drawing that does, and leave the
+  // field editable — drawings lie about their units often enough that the knob has to stay.
+  const declared = declaredScaleOf(file.name, source)
+  if (declared !== null && !scaleFromDrawing.value) {
+    unitsPerMetre.value = declared
+    scaleFromDrawing.value = true
   }
 
   // Keep exactly one empty row at the end, so the next floor is always one click away.
@@ -111,7 +130,12 @@ const handleConfirm = () => {
                 step="any"
                 class="w-full bg-white border-b-2 border-slate-200 focus:border-emerald-500 outline-none py-1.5 text-slate-800 font-semibold text-sm"
               />
-              <p class="mt-1 text-xs text-slate-400">{{ t('model.register.plan.scaleHint') }}</p>
+              <p v-if="scaleFromDrawing" class="mt-1 text-xs text-emerald-600 font-semibold">
+                {{ t('model.register.plan.scaleFromDrawing') }}
+              </p>
+              <p v-else class="mt-1 text-xs text-slate-400">
+                {{ t('model.register.plan.scaleHint') }}
+              </p>
             </div>
 
             <div class="space-y-2">
@@ -136,7 +160,7 @@ const handleConfirm = () => {
                 <input
                   v-else
                   type="file"
-                  accept=".svg"
+                  :accept="accept"
                   class="flex-1 text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-200 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-slate-600 hover:file:bg-slate-300"
                   @change="handleRowFile(index, $event)"
                 />
