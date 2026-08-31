@@ -1,4 +1,4 @@
-FROM rust:1.96-bookworm AS chef
+FROM rust:1.98-bookworm AS chef
 # hadolint ignore=DL3008
 # build-essential: rdkafka-sys vendors and compiles librdkafka's C sources at build time.
 RUN apt-get update \
