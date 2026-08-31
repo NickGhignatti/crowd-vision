@@ -19,7 +19,7 @@ services:
   # same single-node KRaft config as the root stack's own kafka service.
   kafka:
     cpus: "3"
-    image: apache/kafka:3.9.0
+    image: apache/kafka:3.9.2
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
