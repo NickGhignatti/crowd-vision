@@ -42,6 +42,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             get(c::building_threshold).patch(c::patch_building_threshold),
         )
         .route(
+            "/thresholds/{sensorType}/buildings/{buildingId}/rooms",
+            patch(c::patch_room_thresholds),
+        )
+        .route(
             "/thresholds/{sensorType}/buildings/{buildingId}/rooms/{roomId}",
             patch(c::patch_room_threshold),
         )

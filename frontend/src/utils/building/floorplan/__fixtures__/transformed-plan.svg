@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" width="600" height="200">
+  <g transform="translate(100,50)">
+    <polygon points="0,0 120,0 120,80 0,80" fill="#cfe8ff"/>
+    <text x="30" y="40">Kitchen</text>
+
+    <path d="M 140 0 L 260 0 L 260 80 L 140 80 Z" fill="#ffe9c7"/>
+    <text x="170" y="40">Store</text>
+  </g>
+
+  <!-- Rotated: cannot be an axis-aligned box, so it is skipped with a warning. -->
+  <rect x="450" y="40" width="100" height="60" transform="rotate(15)" fill="#eee"/>
+  <text x="470" y="75">Angled</text>
+</svg>

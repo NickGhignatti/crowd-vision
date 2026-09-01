@@ -663,3 +663,93 @@ async fn the_type_field_is_not_stored_as_a_payload_extra() {
         .unwrap();
     assert_eq!(payload, json!({}));
 }
+
+#[tokio::test]
+async fn every_room_threshold_can_be_set_in_one_request() {
+    let app = test_app(fresh_db("bulkrooms").await, vec!["eng"]).await;
+
+    let (status, body) = app
+        .send_json(
+            "PATCH",
+            "/thresholds/peopleCount/buildings/b1/rooms",
+            Some(&staff()),
+            json!({ "r1": { "maxPeople": 12 }, "r2": { "maxPeople": 20 } }),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["data"]["r1"]["maxPeople"], 12);
+    assert_eq!(body["data"]["r2"]["maxPeople"], 20);
+
+    // There is no GET for a single room's threshold, so prove both were stored the way the
+    // system actually uses them: breach each one and expect its own alert.
+    app.ingest(json!({ "buildingId": "b1", "readings": [
+        { "type": "peopleCount", "roomId": "r1", "timestamp": BASE_MS, "peopleCount": 20 },
+        { "type": "peopleCount", "roomId": "r2", "timestamp": BASE_MS, "peopleCount": 30 }
+    ]}))
+    .await;
+
+    let alerts = app.alerts.published.lock().unwrap();
+    let mut breached: Vec<f64> = alerts.iter().map(|alert| alert.threshold).collect();
+    breached.sort_by(f64::total_cmp);
+    assert_eq!(breached, vec![12.0, 20.0]);
+}
+
+/// The reason the endpoint takes a batch at all: one bad bound must not leave half the
+/// rooms written, the way eighteen separate requests would.
+#[tokio::test]
+async fn one_bad_room_rejects_the_whole_batch_and_writes_nothing() {
+    let app = test_app(fresh_db("bulkbad").await, vec!["eng"]).await;
+
+    let (status, _) = app
+        .send_json(
+            "PATCH",
+            "/thresholds/peopleCount/buildings/b1/rooms",
+            Some(&staff()),
+            json!({ "r1": { "maxPeople": 12 }, "r2": { "maxTemp": 25.0 } }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // r1 was valid and came first. If the batch wrote as it went, its threshold would now
+    // exist and this reading would breach it.
+    app.ingest(json!({ "buildingId": "b1", "readings": [
+        { "type": "peopleCount", "roomId": "r1", "timestamp": BASE_MS, "peopleCount": 99 }
+    ]}))
+    .await;
+
+    let alerts = app.alerts.published.lock().unwrap();
+    assert!(alerts.is_empty(), "a rejected batch must write nothing");
+}
+
+#[tokio::test]
+async fn a_bulk_room_patch_needs_edit_rights_on_the_building() {
+    let app = test_app(fresh_db("bulkauth").await, vec!["eng"]).await;
+
+    let (status, _) = app
+        .send_json(
+            "PATCH",
+            "/thresholds/peopleCount/buildings/b1/rooms",
+            Some(&customer()),
+            json!({ "r1": { "maxPeople": 12 } }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn an_empty_bulk_room_patch_is_accepted_and_changes_nothing() {
+    let app = test_app(fresh_db("bulkempty").await, vec!["eng"]).await;
+
+    let (status, body) = app
+        .send_json(
+            "PATCH",
+            "/thresholds/peopleCount/buildings/b1/rooms",
+            Some(&staff()),
+            json!({}),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["data"].as_object().unwrap().len(), 0);
+}

@@ -64,6 +64,11 @@ const triggerUpload = (domainName: string) => {
   isRegisterModalOpen.value = true
 }
 
+const closeRegisterModal = () => {
+  isRegisterModalOpen.value = false
+  targetUploadDomain.value = null
+}
+
 const getAllSubdomains = async () => {
   await domainsStore.fetchMemberships()
   // The administration panel is for managing domains, so only surface the ones
@@ -103,8 +108,7 @@ const getAllSubdomains = async () => {
     .filter(
       (g) =>
         !allDomainNames.some(
-          (other) =>
-            other !== g.name && g.name.toLowerCase().endsWith(`.${other.toLowerCase()}`),
+          (other) => other !== g.name && g.name.toLowerCase().endsWith(`.${other.toLowerCase()}`),
         ),
     )
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -146,7 +150,7 @@ onMounted(async () => {
     <RegisterBuildingModal
       :is-open="isRegisterModalOpen"
       :domain-name="targetUploadDomain ?? ''"
-      @close="isRegisterModalOpen = false; targetUploadDomain = null"
+      @close="closeRegisterModal"
     />
   </div>
 </template>

@@ -58,4 +58,4 @@ jobs:
           working_directory: ./frontend
 
       - name: Run Unit Tests
-        run: npm run test:unit -- run --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        run: npm run test:unit -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}

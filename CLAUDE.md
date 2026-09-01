@@ -162,7 +162,7 @@ Full text: `contributing/contributing.qd`. A change violating one is rejected re
 - **Stateless services.** All caller authority travels in the token/header.
 - **One bounded context per service** (`domain/strategic-design.qd`).
 - **Frontend stays lightweight.** No global store (Pinia/Vuex) unless genuinely required — composables and local state.
-- **Test what you change.** `#[cfg(test)]` + `tests/` (Rust), `*_test.go` (Go), `tests/` (Python). `just test all` green before a PR. Frontend unit tests are deliberately absent — `frontend:test` runs vitest `--passWithNoTests`; frontend behaviour is covered by `frontend/e2e/` and `backend/acceptance/`.
+- **Test what you change.** `#[cfg(test)]` + `tests/` (Rust), `*_test.go` (Go), `tests/` (Python). `just test all` green before a PR. Frontend unit tests cover pure logic only (`src/utils/**`, colocated `*.spec.ts`); component and view behaviour is covered by `frontend/e2e/` and `backend/acceptance/`, not by vitest.
 - **Tools only through mise/just.**
 - **Docs change in the same commit as the code**, not after.
 

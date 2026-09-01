@@ -1,13 +1,11 @@
 {
   "extends": "./tsconfig.app.json",
-//  "include": ["src/**/__tests__/*", "env.d.ts"],
+  "include": ["src/**/*.spec.ts", "env.d.ts"],
   "exclude": [],
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo",
-//    "paths": {
-//      "@/*": ["./src/*"]
-//    },
-    "lib": [],
-    "types": ["node", "jsdom"]
+    // The specs read fixtures off disk, so they need node types on top of the DOM
+    // lib inherited from tsconfig.app.json — svg.ts parses with DOMParser.
+    "types": ["node"]
   }
 }

@@ -27,6 +27,7 @@ tasks:
     inputs:
       - 'src/**/*'
       - 'vitest.config.ts'
+      - 'tsconfig*.json'
       - 'package.json'
 
   # command inherited (npm run lint); replace inputs so we track this project's

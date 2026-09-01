@@ -1,0 +1,379 @@
+.docname {Floor Plans as Building Models}
+.include {docs}
+
+Building registration accepts one input today: a JSON description of rooms. This page records the decisions for accepting an **architectural drawing** in the same place — what is extracted, what a drawing cannot supply, and where the extraction runs.
+
+For the registration flow this feeds, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd). For the bounded context, [Building Management Context](../domain/building-management.qd).
+
+.box {Built for SVG, DXF and vector PDF — phases 1 to 3, 5 and 6, plus multi-floor} type:{note}
+    All three formats work end to end: the modal takes one drawing per storey, calibrates them together, and hands the rooms to the same reviewable draft a JSON upload produces. The ladder is complete. Phases are listed at the bottom, and each one updates this page in its own commit.
+
+---
+
+## The Seam
+
+The format decision lives in one place — `frontend/src/components/modals/creation/RegisterBuildingModal.vue`:
+
+```typescript
+const raw = JSON.parse(await file.text())
+loadFromJson(raw)
+```
+
+Everything downstream of `loadFromJson` is already format-agnostic: the draft, the per-room editor cards, the threshold sliders, the sensor drafts, and `submit()` posting to `/twin/register`. A floor plan becomes a second way to produce the same `BuildingDraft`.
+
+.var {seam}
+   - Layer
+   - Changes?
+
+.tablebyrows {.seam}
+    - - `handleFileSelected` — picks a parser by file type
+      - **yes, one branch**
+    - - calibration and per-storey upload rows
+      - **yes, new**
+    - - extraction — drawing to `BuildingDraft`
+      - **yes, new**
+    - - `useBuildingDraft`, room cards, threshold and sensor UI
+      - no
+    - - `POST /twin/register`, `service::provisioning`, the Kafka handshake
+      - no
+    - - `schemas/twin-schema`, `domain/building.rs`
+      - no
+
+The backend does not learn that floor plans exist. That is the point: a drawing is an *authoring* convenience, and the twin's contract is the room list either way.
+
+### The target is easier than it looks
+
+`domain/building.rs` models a room as an axis-aligned box — `Coordinates { x, y, z }` and `Dimensions { width, height, depth }`. There are no polygons, no wall thicknesses, no door graph. Extraction has to produce **a bounding rectangle and a label**, not reconstruct the architecture.
+
+### Y is up, so the plan lies in X–Z
+
+`useInstancedRooms.ts` passes `position` and `dimensions` straight into a Three.js instance
+matrix as translation and scale. Two consequences the JSON schema does not state:
+
+- **`y` is the vertical axis.** A drawing's two axes are `x` and **`z`**, and `height` is the
+  ceiling. Mapping a plan's vertical axis to `y` mirrors the storey into the floor.
+- **`position` is the box centre, on every axis** — a `BoxGeometry` is origin-centred.
+  A rectangle's top-left corner is not a position; the centre is.
+
+Reading the plan from above makes the sense of the axes agree without a flip: SVG's
+downward `y` is the same direction as `+z` on screen when looking down the `y` axis.
+
+### The draft editor is the accuracy backstop
+
+Extraction is never trusted. Its output lands in the same reviewable draft a hand-written JSON does, and the user corrects it before anything is submitted. The bar is "close enough to fix in half a minute", not correctness. A phase that chases extraction accuracy instead of improving the editor is solving the wrong problem.
+
+---
+
+## What a Drawing Cannot Tell You
+
+Four of the six room fields are absent from any plan view, and the missing ones are not guessable from the geometry.
+
+.var {gaps}
+   - Field
+   - On the plan?
+   - Where it comes from
+
+.tablebyrows {.gaps}
+    - - `x`, `z`, `width`, `depth`
+      - yes
+      - extracted, after calibration
+    - - `y`
+      - no
+      - `floor_index × floor_height`; one drawing is one floor
+    - - `height`
+      - never — a plan is a horizontal section
+      - default, editable per room
+    - - `capacity`
+      - never
+      - left unset; the editor's own default, as for hand-written JSON
+    - - `color`
+      - sometimes — a fill
+      - left unset; the editor's own default
+
+Only geometry is extracted. `capacity` and `color` are the two fields a drawing has no authority over, and `loadFromJson` already defaults both for every other upload — so extraction leaves them alone rather than inventing a second set of defaults that has to be kept in step.
+
+Deriving `capacity` from floor area was considered and dropped. Occupancy per square metre is a function of room *use*, which a plan does not encode, so the number would be wrong at a plausible-looking magnitude — worse than the blank the user already expects to fill in.
+
+---
+
+## Scale Is a Calibration, Not a Heuristic
+
+The twin declares no unit. A drawing carries pixels, or drawing units, or a printed scale bar — nothing that resolves itself. There are exactly two honest sources:
+
+- **Declared by the format.** DXF states `$INSUNITS`. Take it.
+- **Declared by the user.** They type how many drawing units make a metre, then check a room's width in the editor and adjust. Re-extraction is instant and non-destructive, so the loop is the calibration.
+
+There is no third option. Inferring metres from a bitmap's dimensions, a door's typical width, or a text label that happens to read `1:100` is guessing dressed as convenience, and it fails silently — a building that is uniformly 3× too large still renders, still registers, and is only noticed once someone stands in it.
+
+When the format declares a scale the calibration control is pre-filled, not hidden. Drawings lie about their units often enough that the knob has to stay reachable.
+
+A two-point measuring tool over a preview of the drawing is the friendlier control and was deliberately not built: it needs a rendered, click-mapped preview, which is more work than the rest of the upload path combined. The number field is the same calibration with a worse first guess, and the editor already shows whether the guess was right. Build the picker when a real drawing proves the number is unusable.
+
+---
+
+## Room Ids Must Be Deterministic
+
+Telemetry keys per-room thresholds by path — `/telemetry/thresholds/peopleCount/buildings/{buildingId}/rooms/{roomId}`. An id that changes between two extractions of the same drawing orphans every threshold attached to the old one.
+
+- Prefix every id with its storey — `f0-`, `f1-`. Two floors of an office both hold an
+  `Office 1`, and a shared collision suffix would decide the winner by upload order and
+  renumber the survivors whenever a floor is removed.
+- Derive the rest from the room **label** when the drawing has one, slugified.
+- With no label, derive it from the room's position in drawing coordinates — stable under re-export, unlike an array index, which reorders whenever the drawing tool reorders its entity list.
+- Collisions get a suffix. Two rooms named `Office` are normal; two rooms with the same id are a data-loss bug.
+
+Determinism pays a second time inside the modal. Changing the scale re-extracts every drawing, and because ids come from the storey and the label rather than array order, sensors already attached to a room stay attached across the re-run. Calibration is therefore free to be a loop instead of a decision made before upload.
+
+---
+
+## What Counts as a Room
+
+A drawing is mostly not rooms. Walls, furniture, dimension lines, north arrows, the sheet
+border and the title block all sit in the same file, and none of them are spaces. One rule
+separates them:
+
+**A shape is a room when a text label falls inside it.**
+
+- A label belongs to the **tightest** shape enclosing it, so a room's name is not captured by
+  the sheet it is drawn on.
+- A shape enclosing another room is a **container** — the sheet border, the building outline —
+  and is dropped even when a title block gave it a label of its own. Only labelled shapes count
+  as the thing enclosed: a plan draws desks and fixtures inside rooms, and treating those as
+  enclosed rooms would delete every room that contains one.
+- Everything unlabelled is dropped silently. Walls are the common case, and a warning per wall
+  is noise that trains the user to ignore warnings.
+
+The ceiling is stated plainly: **an unlabelled room is not extracted.** Rooms are named on
+plans nearly always, and the alternative — treating every closed shape as a space — produces a
+draft in which the real rooms are buried among furniture. Adding a room by hand costs less
+than finding twelve wrong ones.
+
+---
+
+## Format Ladder
+
+Formats were added one at a time, each one an extractor plus an arm in the type switch — the contract below is what kept that true. The ladder covers what building-drawing tools export.
+
+.var {formats}
+   - Format
+   - Mechanism
+   - New dependency
+   - Scale from
+
+.tablebyrows {.formats}
+    - - **SVG** — first
+      - `DOMParser`; `rect`, `polygon`, `polyline` and straight-line `path` extents, enclosed `text` as the label
+      - none — the browser already parses it
+      - user
+    - - **DXF** — second
+      - ASCII group-code pairs; `LWPOLYLINE` extents, `TEXT`/`MTEXT` labels
+      - none — hand-rolled, see below
+      - `$INSUNITS`, user-overridable
+    - - **PDF, vector** — third
+      - pdf.js down to path bounding boxes, then identical to SVG
+      - `pdfjs-dist`, dynamically imported
+      - user
+
+SVG went first because it cost nothing and proved the entire path — calibration, floor handling, id minting, the editor round trip — before a single dependency was added. It is rarely what an architect hands over; DXF is. Everything phases 2 and 3 built was reused verbatim by DXF and then by PDF.
+
+
+---
+
+## The Extraction Contract
+
+One pure function per format, and it reads geometry only:
+
+```typescript
+(bytes: ArrayBuffer) => PlanReading | Promise<PlanReading>   // { shapes, warnings }
+```
+
+Bytes rather than text, because a PDF is binary: `File.text()` replaces every invalid UTF-8
+sequence before a reader could see it, which silently corrupts the content stream. The two
+text formats decode in the dispatch table, so `svg.ts` and `dxf.ts` never learn the
+distinction. A reader may be async for the same reason — pdf.js is loaded on demand.
+
+Turning shapes into rooms is a second, format-agnostic step:
+
+```typescript
+(floors: PlanFloor[], options: PlanOptions) => ExtractedBuilding
+```
+
+The split is what makes a multi-storey building possible. Scale, centring, elevation and id
+minting need to see *every* storey at once, so they cannot live inside a per-file reader.
+`building` is exactly the JSON `loadFromJson` already consumes, so no draft-building logic is
+duplicated.
+
+Reading the `File` is the caller's job, not the extractor's: the seam already awaits
+`file.text()` for the JSON path, and a function over a string is the one that tests without
+a DOM fixture harness.
+
+`warnings` is the honest channel for what a drawing contains and the schema cannot hold — a
+rotated room, a curved outline. Reporting them beats silently squaring them off.
+
+Three rules, and they are the whole insurance policy:
+
+- **No Vue, no store, no network.** An extractor reads bytes and returns data.
+- **Fixtures are the contract.** Real drawings in, expected `BuildingDraft` JSON out, asserted per format.
+- **Dispatch is a switch on file type**, not a plugin registry. Adding a format adds a file and an arm.
+
+Held to those, moving one format to a service later is a swapped call site with the fixtures reused as-is — not a migration.
+
+---
+
+### Three formats, three coordinate conventions
+
+SVG's y grows downwards; DXF's and PDF's grow upwards; the twin's z runs down the screen.
+Each reader negates y at its own boundary, so `draft.ts` sees one convention and normalises
+against it. A missed flip mirrors the whole floor — and a mirrored building still renders,
+still registers and still looks plausible, so nothing downstream catches it. Both flipping
+readers assert it in a test for that reason.
+
+### DXF y points up
+
+SVG and DXF disagree about the vertical axis: SVG's y grows downwards, DXF's grows upwards.
+`dxf.ts` negates y as it reads, so `draft.ts` normalises against flipped extents and the plan
+comes out the right way round. Passing y through unchanged mirrors the whole floor — and a
+mirrored building still renders, still registers and still looks plausible, so nothing
+downstream catches it. It is asserted by a test for that reason.
+
+### Reviewing before submitting
+
+The draft editor lists rooms as cards, which is the right shape for correcting a name or a
+capacity and the wrong one for noticing that a room landed in the wrong place. The preview
+draws the extracted building from above, one plan per storey, in metres — the same view the
+user uploaded, so a misread wall or a bad scale is visible at a glance rather than inferable
+from a column of numbers.
+
+It is read-only on purpose. Editing stays in the cards; the preview exists to make an error
+obvious, not to fix it.
+
+---
+
+## Where Extraction Runs
+
+**In the frontend**, beside `loadFromJson`. No new service, no route, no image, no auth surface, no `services.json` entry.
+
+The instinct to put it behind an API is usually about accuracy, and that instinct is wrong here: SVG, DXF and vector PDF parse to the same bounding boxes on either side of the wire. There is no precision to be gained by moving, and a service would cost a `services.json` entry, an image, a route and an auth surface for work that runs once per building.
+
+The drawing also never leaves the browser, which is worth keeping: a floor plan is a description of a customer's premises.
+
+---
+
+## Deliberate Omissions
+
+- **No polygon rooms.** The twin models axis-aligned boxes. Extracting an L-shaped room's true outline produces geometry nothing downstream can store or render. Its bounding box is the honest answer; splitting it into two rooms is the user's call, in the editor.
+- **The source drawing is not stored.** The twin persists the derived room list. Retaining the original is document management — retention windows, per-tenant storage, access control — and none of it serves occupancy.
+- **One drawing is one floor.** A site plan holding three buildings, or a sheet holding four floors, is split by the user before upload. Detecting the split is inference on top of inference. Several drawings *do* make one building: the upload takes a row per storey, placed against one shared origin.
+- **Storeys are aligned by the drawings, not by the extractor.** One origin is taken across every
+  floor, so a wing that genuinely sits east of the one below stays east of it. The cost is the
+  mirror case: two exports of the same footprint with different sheet margins land displaced by
+  exactly that difference, and nothing detects it. Aligning them instead would mean assuming every
+  storey's top-left corner is the same point, which is false for any building that changes shape as
+  it rises. The drawings have to agree on a coordinate space; the extractor cannot invent one.
+- **No rotated or skewed rooms.** The schema stores axis-aligned boxes. A `rotate` or `matrix`
+  transform has no correct box, so the shape is skipped and counted in `warnings` rather than
+  squared off into a plausible wrong rectangle.
+- **No curved outlines.** A `path` carrying a curve command is not a room outline — it is a
+  door swing or a logo — and is left alone.
+- **Only `translate` and `scale` transforms are honoured.** They cover CAD and Inkscape
+  exports. Ignoring transforms entirely would silently displace every room on a layered drawing.
+- **No DXF parser library.** The subset a room outline needs — group-code pairs, `LWPOLYLINE`
+  extents, `TEXT`/`MTEXT` — is about a hundred lines. A library would also read `BLOCKS`, which
+  is the one thing worth having, but its coverage cannot be judged without real drawings, and a
+  new npm dependency means regenerating the Linux lockfile. Revisit when a real export proves
+  blocks are common.
+- **No rooms inside blocks.** A DXF that draws its rooms in `BLOCKS` and places them with
+  `INSERT` yields nothing. The reader counts the `INSERT`s and says so, rather than returning an
+  empty building that looks like a bad drawing.
+- **No PDF written by hand.** SVG and DXF are text formats worth hand-rolling; a PDF content
+  stream is compressed binary and is not. `pdfjs-dist` is the one dependency the ladder adds,
+  loaded through a dynamic import so its 1.3 MB worker is a separate chunk rather than part of
+  the main bundle — most sessions never open a PDF.
+- **The pdf.js legacy build, not the modern one.** The modern build calls
+  `Uint8Array.prototype.toHex`, which is too new for the test runtime and for browsers this
+  app still supports.
+- **Only page 1 of a PDF.** One drawing is one floor. A multi-page PDF is read as its first
+  page and says so in `warnings`, rather than silently merging storeys.
+- **No plugin architecture for formats.** Four formats is a switch statement.
+- **No browser test of the upload flow.** There is no frontend e2e harness to add one to, and
+  building one to cover a single modal is out of proportion — see the note under Phases.
+- **No capacity or colour extraction at all.** Both have editor defaults that apply to every upload; a second set of defaults inside the extractor is drift waiting to happen.
+
+---
+
+## Phases
+
+.var {phases}
+   - Phase
+   - Delivers
+
+.tablebyrows {.phases}
+    - - 1 — this page ✅
+      - format ladder, calibration model, extraction contract, id rule
+    - - 2 — SVG extractor ✅
+      - `extractSvg` plus fixtures; no UI
+    - - 3 — wire the seam ✅
+      - type branch, calibration control, floor index; SVG works end to end
+    - - 4 — automated end-to-end coverage
+      - **dropped**; see below
+    - - 5 — DXF ✅
+      - one reader, one switch arm, `$INSUNITS` pre-fills the scale
+    - - 6 — PDF, vector ✅
+      - pdf.js path bounds and text positions; readers move to bytes
+
+Phase 4 was planned as an acceptance test covering upload, review, submit and the building
+appearing in the scene. It is dropped, and the numbering is kept so the later rungs do not move.
+
+Nothing cheap would have covered it. `backend/acceptance` runs Python against HTTP and stubs the
+twin outright (`stubs/twin.conf`), so it cannot run a TypeScript extractor — it could only post a
+hand-written payload, which asserts nothing about extraction. `frontend/e2e` is still the
+Playwright starter template, so a browser test means building the harness first: a login flow, a
+composed stack in CI, and assertions against a canvas. That harness is something the whole
+frontend needs or does not need on its own merits, and this feature is the wrong place to fund it.
+
+What remains is the extractor's own fixtures and the draft editor, which the user reviews before
+anything is submitted. The modal wiring — file picked, scale changed, rooms rendered — is verified
+by hand.
+
+Phases 5 and 6 were additive by construction, which is what the extraction contract exists to guarantee: each added a reader and an entry in the dispatch table, and changed nothing else.
+
+---
+
+## Where This Lives
+
+All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exists.
+
+.var {files}
+   - Concern
+   - File
+
+.tablebyrows {.files}
+    - - format dispatch, and merging storeys into one building
+      - `utils/building/floorplan/index.ts`
+    - - shapes to rooms — scale, centring, elevation, ids
+      - `utils/building/floorplan/draft.ts`
+    - - SVG reader — transforms, extents, label matching
+      - `utils/building/floorplan/svg.ts`
+    - - DXF reader — group-code pairs, `$INSUNITS`, y-axis flip
+      - `utils/building/floorplan/dxf.ts`
+    - - PDF reader — pdf.js path bounds, y-axis flip
+      - `utils/building/floorplan/pdf.ts`
+    - - fixtures and assertions
+      - `utils/building/floorplan/{svg,dxf,pdf,index}.spec.ts`, `__fixtures__/`
+    - - draft shape, unchanged
+      - `composables/building/useBuildingDraft.ts`
+    - - the seam — format choice, calibration, warnings
+      - `components/modals/creation/RegisterBuildingModal.vue`
+    - - one upload row per storey
+      - `components/modals/creation/PlanUploadModal.vue`
+    - - review before submitting — one plan view per floor
+      - `components/modals/creation/BuildingPreviewModal.vue`
+
+`draft.ts` names no format and `svg.ts` names no Vue symbol. That split is what phase 5 reuses:
+DXF adds a reader beside `svg.ts` and touches nothing else.
+
+Extraction lives under `utils/`, not `composables/`, because none of it touches `ref`,
+`computed` or a lifecycle hook — the `use` prefix promises a `setup()`-only call site, and
+these are pure functions callable from anywhere.
+
+Nothing under `backend/` appears in this table, and that is the invariant worth keeping: a floor plan is an authoring format, and the twin's contract is the room list.

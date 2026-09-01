@@ -15,14 +15,6 @@ export default defineConfig((env) => {
         globals: true,
         mockReset: true,
         restoreMocks: true,
-        deps: {
-          optimizer: {
-            web: {
-              enabled: true,
-              include: ['vue', 'vue-router', '@vue/test-utils'],
-            },
-          },
-        },
         pool: "threads",
         coverage: {
           provider: 'v8',

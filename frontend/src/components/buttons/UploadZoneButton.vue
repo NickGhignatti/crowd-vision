@@ -5,6 +5,7 @@ defineProps<{
   icon: string
   title: string
   isUploading?: boolean
+  accept?: string
 }>()
 
 const emit = defineEmits<{
@@ -38,6 +39,12 @@ const handleChange = (event: Event) => {
       class="ph-bold text-2xl text-slate-400 group-hover:text-emerald-500 transition-colors shrink-0"
       :class="isUploading ? 'ph-spinner animate-spin' : icon"
     ></i>
-    <input ref="fileInput" type="file" accept=".json" class="hidden" @change="handleChange" />
+    <input
+      ref="fileInput"
+      type="file"
+      :accept="accept ?? '.json'"
+      class="hidden"
+      @change="handleChange"
+    />
   </button>
 </template>

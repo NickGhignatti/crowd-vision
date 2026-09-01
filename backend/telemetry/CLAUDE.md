@@ -51,6 +51,12 @@ catalog at runtime.
 `schemas/fixtures/internal-signature.json`, the same golden vectors the Go services assert —
 changing the scheme breaks both sides at once, by design.
 
+**Room thresholds are written as a batch.** `PATCH /thresholds/{sensorType}/buildings/{id}/rooms`
+takes `{roomId: bounds}` and validates every entry before writing any, so one bad bound rejects
+the set. The per-room route stays for single edits. This mirrors ingest: the operation that
+naturally arrives as a set is accepted as a set, all-or-nothing. The writes are still one upsert
+per room — `ThresholdStore` has no transactional bulk write, and a retry converges.
+
 **Registration**: telemetry consumes `building-registration-requested` and answers
 `building-registration-completed` (both from `twin_schema`). `maxTemperature` is read here
 but never sent by twin, which syncs thresholds over HTTP — keep the field optional, don't
