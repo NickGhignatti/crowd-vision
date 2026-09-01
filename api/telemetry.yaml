@@ -621,6 +621,40 @@ paths:
         "404":
           description: Unknown sensor type
 
+  /thresholds/{sensorType}/buildings/{buildingId}/rooms:
+    patch:
+      summary: Update a metric's thresholds for many rooms at once
+      description: >
+        Every room in one request. Registering a building sets one threshold per
+        room, and as one request per room that was both the bulk of the round
+        trips and a way to end up half applied. Every patch is validated before
+        any is written, so a single bad bound rejects the whole batch and stores
+        nothing. An empty object is accepted and changes nothing.
+      tags: [Thresholds]
+      parameters:
+        - $ref: "#/components/parameters/SensorType"
+        - $ref: "#/components/parameters/BuildingId"
+      requestBody:
+        required: true
+        description: Room id to that room's bounds for this metric.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: { type: object }
+            example:
+              f0-reception: { maxPeople: 12 }
+              f0-lobby: { maxPeople: 40 }
+      responses:
+        "200":
+          description: The stored thresholds, keyed by room id
+        "400":
+          description: A bound the metric does not declare, or a non-numeric value
+        "403":
+          description: No edit rights on the building
+        "404":
+          description: Unknown sensor type
+
   /thresholds/{sensorType}/buildings/{buildingId}/rooms/{roomId}:
     patch:
       summary: Update a metric's room-level thresholds
