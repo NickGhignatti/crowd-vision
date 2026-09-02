@@ -6,7 +6,7 @@ phones already emit. Occupancy per zone, and flow between zones — rendered liv
 
 **Status:** design, not implemented. Tracks [issue #314](https://github.com/NickGhignatti/crowd-vision/issues/314).
 
-**Applies to:** a new `edge/ap-collector`, plus one telemetry plugin. No new service.
+**Applies to:** a new `devices/ap-collector`, plus one telemetry plugin. No new service.
 
 .box {Two phases, in order} type:{note}
     **Phase 1 — routers-only.** Poll the access points the building already has. Zero new
@@ -193,9 +193,24 @@ evacuation or an incident, and the alert path is already built.
 
 ### Registration
 
-- `edge/ap-collector` in `.moon/workspace.yml`.
-- An entry in `.github/services.json` — like the simulators, which carry `"ci": false`
-  because they are not part of the deployed stack.
+`devices/`, not `simulators/`. A simulator is a fake you throw away; the collector *is* the
+sensor, shipped to every building and running unattended. `edge/` would collide with the
+ingress proxy, which is what "the edge" means everywhere else in this repository.
+
+- `ap-collector: "devices/ap-collector"` in `.moon/workspace.yml`.
+- An entry in `.github/services.json` with **no `image` key**. `ci-gate.yml` gates the
+  docker matrix on `select(.image and (.ci != false))`, so omitting the image skips the
+  build while the tests still run. Do **not** copy the simulators' `"ci": false` — that
+  also drops the package from coverage and from `check-workflow-registry.py`, and
+  union-by-MAC is the likeliest bug in the design.
+- A job in `ci-gate.yml` using `tpl-python-ci.yml`, listed in both `docker.needs` and
+  `ci-passed.needs` — `check-workflow-registry.py` fails otherwise.
+- `moon.yml` overrides the inherited `test` / `lint`, which shell out to npm. Agent wraps
+  uv in a `package.json`; this package cannot, because the root `.gitignore` ignores every
+  `package.json`. Both overrides use `script:`, not `command:` — `command:` merges with the
+  inherited task's args and silently runs `uv test`.
+- Python, no runtime dependencies: ubus and `/telemetry/ingest` are both JSON over HTTP,
+  and signing is `hmac.new(key, body, sha256)`. `urllib.request` covers it.
 
 ---
 
@@ -226,7 +241,7 @@ expensive to throw away.
       - consecutive-poll count and RSSI margin
       - Replays step 2's log. Tuning against a live system is slow and unreproducible — the same hallway cannot be re-walked identically. Turns two config values from guesses into measurements.
     - - **4 — The collector daemon**
-      - `edge/ap-collector`, printing to stdout
+      - `devices/ap-collector`, printing to stdout
       - Every parameter it needs was measured in 0–3; written earlier it is written with placeholders. Step 2's log becomes the test fixture — replay it and assert the counts, with no Wi-Fi to mock.
     - - **5 — Sign and ingest**
       - `POST /telemetry/ingest`
