@@ -86,6 +86,10 @@ frontend:
 agent:
     mise exec -- moon run agent:test
 
+[doc("Unit tests for the on-premises AP collector.")]
+ap-collector:
+    mise exec -- moon run ap-collector:test
+
 [doc("Agent Python integration tests (separate suite from the docker-compose one).")]
 agent-integration:
     mise exec -- uv run --directory backend/agent pytest tests/integration

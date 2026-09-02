@@ -1,0 +1,25 @@
+# `deps` / `audit` / `relock` are inherited from .moon/tasks/python.yml. The inherited
+# `test` / `lint` shell out to npm — agent wraps uv in a package.json, which this package
+# cannot do because the root .gitignore ignores every package.json. They call uv directly
+# instead, matching what tpl-python-ci.yml runs in CI.
+language: 'python'
+
+tasks:
+  test:
+    script: 'uv run pytest'
+    inputs:
+      - 'app/**/*'
+      - 'tests/**/*'
+      - 'pyproject.toml'
+
+  lint:
+    script: 'uv run ruff check . && uv run ruff format --check . && uv run pyright'
+    inputs:
+      - 'app/**/*'
+      - 'tests/**/*'
+      - 'pyproject.toml'
+
+  lint-fix:
+    script: 'uv run ruff check --fix . && uv run ruff format .'
+    options:
+      cache: false
