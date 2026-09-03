@@ -1,0 +1,9 @@
+services:
+  ap-simulator:
+    cpus: "1"
+    build:
+      context: .
+    environment:
+      - AP_SIM_SCENARIO=${AP_SIM_SCENARIO:-corridor}
+    ports:
+      - "3003:3000"
