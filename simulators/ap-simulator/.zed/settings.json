@@ -1,0 +1,20 @@
+// ap-simulator is a standalone Python 3.14 project (see Dockerfile), with its
+// own .venv/ here — unrelated to backend/agent's or aq-simulator's venvs.
+{
+  "lsp": {
+    "basedpyright": {
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    },
+    "pyright": {
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    }
+  }
+}
