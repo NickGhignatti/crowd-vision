@@ -88,6 +88,12 @@ class Config:
 
     def load_env(self) -> None:
         self.telemetry_service = os.getenv("TELEMETRY_SERVICE_URL")
+        self.telemetry_secret = os.getenv("TELEMETRY_SERVICE_SECRET")
+
+        if not self.telemetry_service:
+            raise ValueError("config: TELEMETRY_SERVICE_URL must be set")
+        if not self.telemetry_secret:
+            raise ValueError("config: TELEMETRY_SERVICE_SECRET must be set")
 
     def _validate(self, buildings: list[Building]) -> None:
         if not buildings:
