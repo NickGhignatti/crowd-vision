@@ -79,7 +79,7 @@ In `dev` and `start`, services can be left out either by named flag or by raw su
 ```bash
 just stack dev --no-agent                  # agent + its Langfuse/ClickHouse/MinIO stack
 just stack dev --no-metrics                # prometheus, grafana
-just stack dev --no-simulators             # aq-simulator, sensor-simulator
+just stack dev --no-simulators             # aq-simulator, sensor-simulator, ap-simulator
 just stack dev --no-agent --no-metrics     # combine freely
 just stack dev redis-langfuse              # raw substring, for anything without a flag
 just stack dev --dry-run                   # print the resolved docker command, run nothing
