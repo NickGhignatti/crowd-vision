@@ -6,18 +6,18 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-
 import scenarios
-from schemas import StatusResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from ubus import NULL_SESSION, UBUS_OK, UBUS_PERMISSION_DENIED, envelope, error_envelope
 from world import World
 
+from schemas import ScenarioRequest, StatusResponse
+
 app = FastAPI(title="AP Simulator (fake ubus)")
 
-_preset = os.environ.get("AP_SIM_SCENARIO", "corridor")
-world = World(scenarios.PRESETS[_preset]())
+_scenario_name = os.environ.get("AP_SIM_SCENARIO", "corridor")
+world = World(scenarios.PRESETS[_scenario_name]())
 
 
 @app.post("/{ap_id}/ubus")
@@ -26,7 +26,9 @@ async def ubus_rpc(ap_id: str, request: Request) -> JSONResponse:
     request_id = body.get("id", 1)
 
     if ap_id not in world.aps:
-        return JSONResponse(error_envelope(request_id, f"unknown AP '{ap_id}'"), status_code=404)
+        return JSONResponse(
+            error_envelope(request_id, f"unknown AP '{ap_id}'"), status_code=404
+        )
     if world.is_down(ap_id):
         return JSONResponse(
             error_envelope(request_id, "AP unreachable (simulated)"), status_code=503
@@ -34,11 +36,15 @@ async def ubus_rpc(ap_id: str, request: Request) -> JSONResponse:
 
     params = body.get("params") or []
     if len(params) != 4:
-        return JSONResponse(error_envelope(request_id, "malformed ubus call"), status_code=400)
+        return JSONResponse(
+            error_envelope(request_id, "malformed ubus call"), status_code=400
+        )
     session_id, obj, method, call_params = params
 
     if obj == "session" and method == "login":
-        token = world.login(ap_id, call_params.get("username", ""), call_params.get("password", ""))
+        token = world.login(
+            ap_id, call_params.get("username", ""), call_params.get("password", "")
+        )
         if token is None:
             return JSONResponse(envelope(request_id, UBUS_PERMISSION_DENIED))
         return JSONResponse(envelope(request_id, UBUS_OK, {"ubus_rpc_session": token}))
@@ -49,7 +55,11 @@ async def ubus_rpc(ap_id: str, request: Request) -> JSONResponse:
     ap = world.aps[ap_id]
     clients = world.clients(ap_id)
 
-    if obj == f"hostapd.{ap.iface}" and method == "get_clients" and ap.reader == "hostapd":
+    if (
+        obj == f"hostapd.{ap.iface}"
+        and method == "get_clients"
+        and ap.reader == "hostapd"
+    ):
         payload = {"clients": {mac: {"signal": rssi} for mac, rssi in clients}}
         return JSONResponse(envelope(request_id, UBUS_OK, payload))
 
@@ -82,10 +92,29 @@ def revive(ap_id: str) -> dict:
 @app.get("/control/status")
 def status() -> StatusResponse:
     return StatusResponse(
+        scenario=_scenario_name,
         aps=sorted(world.aps),
         down=sorted(world.down),
         devices=sorted(world.device_macs),
     )
+
+
+@app.post("/control/scenario")
+def set_scenario(req: ScenarioRequest) -> StatusResponse:
+    """Swap topology/devices at runtime — no restart, but resets all sessions
+    and killed-AP state since it's a fresh World."""
+    global world, _scenario_name
+    if req.preset is not None:
+        if req.preset not in scenarios.PRESETS:
+            raise HTTPException(
+                status_code=400, detail=f"unknown preset '{req.preset}'"
+            )
+        world = World(scenarios.PRESETS[req.preset]())
+        _scenario_name = req.preset
+    else:
+        world = World(req.config)
+        _scenario_name = "custom"
+    return status()
 
 
 @app.get("/control/ground-truth")

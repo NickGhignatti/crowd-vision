@@ -1,0 +1,25 @@
+[
+  {
+    "name": "b1",
+    "ap": [
+      {
+        "name": "ap-a",
+        "zone": "zone-a",
+        "url": "http://localhost:3003/ap-a/ubus",
+        "username": "collector",
+        "password": "collector",
+        "ifaces": ["wlan0"],
+        "reader": "hostapd"
+      },
+      {
+        "name": "ap-b",
+        "zone": "zone-b",
+        "url": "http://localhost:3003/ap-b/ubus",
+        "username": "collector",
+        "password": "collector",
+        "ifaces": ["wlan0"],
+        "reader": "iwinfo"
+      }
+    ]
+  }
+]
