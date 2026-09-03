@@ -167,21 +167,19 @@ def test_load_env_reads_telemetry_service_url(monkeypatch):
     assert config.telemetry_secret == "my-secret"
 
 
-def test_load_env_is_none_when_var_is_unset(monkeypatch):
+def test_load_env_raises_when_telemetry_service_url_is_unset(monkeypatch):
     monkeypatch.delenv("TELEMETRY_SERVICE_URL", raising=False)
+    monkeypatch.setenv("TELEMETRY_SERVICE_SECRET", "my-secret")
     config = Config([])
 
-    config.load_env()
-
-    with pytest.raises(ValueError, match=r"(?i)config: TELEMETRY_SERVICE_URL must be set"):
-        Config([]).load_env()
+    with pytest.raises(ValueError, match=r"(?i)TELEMETRY_SERVICE_URL must be set"):
+        config.load_env()
 
 
-def test_load_env_is_none_when_secret_is_unset(monkeypatch):
+def test_load_env_raises_when_telemetry_service_secret_is_unset(monkeypatch):
+    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry:8080")
     monkeypatch.delenv("TELEMETRY_SERVICE_SECRET", raising=False)
     config = Config([])
 
-    config.load_env()
-
-    with pytest.raises(ValueError, match=r"(?i)config: TELEMETRY_SERVICE_SECRET must be set"):
-        Config([]).load_env()
+    with pytest.raises(ValueError, match=r"(?i)TELEMETRY_SERVICE_SECRET must be set"):
+        config.load_env()
