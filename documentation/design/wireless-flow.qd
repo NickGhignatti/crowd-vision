@@ -31,7 +31,7 @@ Two aggregates render the same visualisation and carry none of that weight:
 
 | Aggregate | Question it answers | Metric |
 |---|---|---|
-| **Zone occupancy** | how many people are in this zone now | `peopleCount` — already shipped |
+| **Zone occupancy** | how many people are in this zone now | `totalDeviceCount` + `ratioDeviceCount` — new |
 | **Zone transitions** | how many moved lobby → floor-2 in this window | `zoneTransition` — new |
 
 Occupancy plus transitions is enough to animate flow across the twin. A per-person path adds
@@ -41,6 +41,33 @@ nothing the user can see, and costs the entire legal position.
 identifiers to zones in memory and emits counts. The platform stores aggregates only. This is
 what keeps the platform itself free of personal data — nothing to breach, no retention
 schedule, no subject-access path.
+
+---
+
+## What Is Stored, And Why That Is Safe
+
+A count carries no identifier and no per-device row, so there is nothing to single out. That
+is the whole argument, and it is only as strong as the two conditions below. Both are
+properties of the stored data, not of the collector — state them here or nobody checks them.
+
+**Resolution decays with age.** `readings` is a Timescale hypertable with a **14-day**
+retention policy; `readings_hourly` is a continuous aggregate with **none**
+([Telemetry Storage](telemetry-storage.qd)). So per-tick counts exist for a fortnight and
+hourly averages persist. That is the right shape and it is load-bearing: one minute of a room
+count is noise, a year of minutes is a behavioural profile. The property is currently inherited
+from the platform rather than chosen by this feature — a change to either policy is a change
+to this privacy argument.
+
+**A count of 1 in a room of 1 is an identifier.** `office-3.14, count=1, 08:03 → 17:12,
+weekdays` is an attendance record for whoever sits there; no MAC is required to read it. In
+the EU that is employee monitoring (Art. 88 and national/works-council law), not merely GDPR.
+Open floors and lobbies are unaffected — the risk is exactly single-occupancy rooms.
+
+.box {The mitigation goes on history, not on live data} type:{note}
+    A floor on retained buckets, never on the live reading. Live occupancy has to keep the
+    honest 0 and 1: the collector goes to some length to make "this room is empty" a different
+    fact from "this room's AP is down", and a suppression rule on the live path throws that
+    distinction away to solve a problem that only exists in the archive.
 
 ---
 
@@ -157,12 +184,56 @@ emitting a transition. Both thresholds are configuration, not constants.
 
 ## The Platform Side
 
-Almost nothing to build. `peopleCount` already exists as a metric
-(`backend/telemetry/src/plugins/people_count.rs`): per building and room, non-negative
-integer, `maxPeople` threshold, alerting, dashboard catalog, twin overlay, agent tool. A zone
-is a room. Occupancy needs no new code.
+### Occupancy is two metrics, not one
 
-Transitions are one new plugin, following the same shape:
+The collector emits **both** numbers for every zone, every tick:
+
+| Metric | What it is | Field |
+|---|---|---|
+| `totalDeviceCount` | Devices associated in the zone. A measurement. | `totalDeviceCount` |
+| `ratioDeviceCount` | Devices ÷ the site's devices-per-person factor. An estimate. | `ratioDeviceCount` |
+
+Publishing only the estimate would be the smaller change and the wrong one. The factor is a
+per-building guess that gets *re-measured* — see step 7 — and an estimate is only as good as
+the factor it was derived with. Store the raw count and a corrected factor re-derives the
+whole history; store the estimate alone and every past bucket is permanently wrong by whatever
+the old factor was off by. The measurement is also the only one of the two that means the same
+thing in every building, which is what makes cross-site comparison possible at all.
+
+`ratioDeviceCount` is emitted only where the site actually configured a factor
+(`useDevicesPerPerson`). No factor, no estimate — an estimate silently equal to the device
+count is a claim about people that nobody made.
+
+Both follow the shape of the existing `peopleCount` plugin
+(`backend/telemetry/src/plugins/people_count.rs`): per building and room, non-negative
+integer, a threshold key, alerting, dashboard catalog, twin overlay, agent tool. A zone is a
+room. Thresholds belong on `ratioDeviceCount` — "too many people" is the facility question;
+"too many devices" is an ops question with a different answer.
+
+### Optional — per-AP client counts
+
+Separate from occupancy, and useful for Wi-Fi capacity planning rather than for the twin:
+how many stations each AP is carrying. It needs no deduplication, unlike the zone path — a
+station is associated to exactly one AP at a time, so the per-AP lists cannot double-count the
+way overlapping RSSI coverage can.
+
+`readings` is keyed `(building_id, room_id, metric, ts)` with no AP dimension, and ingest does
+not validate `room_id` against `building_rooms`. So the cheap shape is a distinct metric with
+the AP name in `roomId`:
+
+```
+metric = "apClients", roomId = "ap-lobby-1", value = 14
+```
+
+Zero migration, existing index, existing hourly rollup. The alternative — the AP name as an
+extra field in `payload` — stores fine but is not in the rollup's `group by`, so it never
+aggregates, which is the entire point of collecting it. The cost of the cheap shape is that
+these rows are only distinguishable from real rooms by their metric key; every query is
+already metric-scoped, so it works, but it is a convention and not a constraint.
+
+### Transitions
+
+One new plugin, following the same shape:
 
 ```rust
 static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
@@ -246,9 +317,9 @@ expensive to throw away.
     - - **5 — Sign and ingest**
       - `POST /telemetry/ingest`
       - Kept separate from step 4 so a failure is unambiguously a signing or transport bug, never an estimator bug. Golden vectors already exist in `schemas/fixtures/internal-signature.json`.
-    - - **6 — The `zoneTransition` plugin**
-      - one plugin file, one line in `main.rs`
-      - The only change to the shipped platform; everything before it is additive and outside the deployed stack. Last means the smallest blast radius, and the payload shape is known from step 4's real output rather than guessed.
+    - - **6 — The telemetry plugins**
+      - `totalDeviceCount`, `ratioDeviceCount`, `zoneTransition` — one file each, one line each in `main.rs`
+      - The only change to the shipped platform; everything before it is additive and outside the deployed stack. Last means the smallest blast radius, and the payload shapes are known from step 4's real output rather than guessed. Ingest rejects an unregistered `type` and a batch is all-or-nothing, so until these exist the collector posts nothing at all.
     - - **7 — Accuracy honesty pass**
       - the devices-per-person factor, in config and in the docs
       - Needs the whole pipe live. It is also the number that decides whether the dashboard can be trusted: shipping without it ships a figure nobody knows how to read.
@@ -305,8 +376,10 @@ recommendations.
 | **Boundary flapping** | Phantom transitions. | Hysteresis. |
 | **Android re-randomize on reconnect** | Split identity. | Non-default per-network option. Rare; ignored. |
 
-The metric counts **devices**. It is published as `peopleCount`. That gap is the conversion
-factor above, and it belongs in the user-facing docs, not just here.
+What is measured is **devices**; what a facility manager wants is **people**. That gap is the
+conversion factor above, and it is why both numbers are published separately rather than one
+being quietly substituted for the other. The caveat belongs in the user-facing docs too, not
+only here: `ratioDeviceCount` is an estimate and reads like a fact.
 
 The conversion rounds **up**. One device at a factor of 2.5 is 0.4 of a person, and rounding
 that to zero reports an occupied room as empty — the one fact the collector otherwise takes

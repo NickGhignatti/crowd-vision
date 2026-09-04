@@ -181,31 +181,39 @@ def readings_for_building(
     now_ms: int,
     devices_per_person: float | None = None,
 ) -> list[dict[str, str | int]]:
-    """Confirmed per-device zone assignment -> one deviceDetection reading per declared zone.
+    """Confirmed per-device zone assignment -> the tick's occupancy readings per declared zone.
 
-    Every zone the building declares gets a reading, including an explicit 0 for one nobody
-    is in right now: a zero is real data (the room is empty), a different fact from the zone
-    being absent entirely (its AP is down and ZoneTracker never reported on it this tick).
+    Two metrics, not one. `totalDeviceCount` is the measurement; `ratioDeviceCount` is that
+    count divided by the site's devices-per-person factor, which is an estimate.
 
-    `devices_per_person` is opt-in (None means off, matching Config.devices_per_person):
-    when set, each zone's raw device count is divided by it before emitting -- an explicit,
-    site-configured choice to report an estimated person count instead of a raw device count,
-    not something applied silently.
+    `devices_per_person` is opt-in (None means off, matching Config.devices_per_person). With
+    no factor configured there is no estimate to publish, and an estimate silently equal to
+    the device count would be a claim about people that nobody made.
 
-    That division rounds *up*: one device under a factor of 2.5 is 0.4 of a person, and
-    rounding it to zero reports an occupied room as empty -- indistinguishable downstream
+    The division rounds *up*: one device under a factor of 2.5 is 0.4 of a person, and
+    rounding that to zero reports an occupied room as empty -- indistinguishable downstream
     from the real emptiness the paragraph above is careful to preserve. Ceiling keeps 0 at 0
     and never erases somebody who is standing there.
     """
     counts = dict.fromkeys(set(_ap_zones(building).values()), 0)
     for zone in assignment.values():
         counts[zone] = counts.get(zone, 0) + 1
-    if devices_per_person is not None:
-        counts = {zone: math.ceil(count / devices_per_person) for zone, count in counts.items()}
-    return [
-        {"type": "deviceDetection", "roomId": zone, "timestamp": now_ms, "deviceCount": count}
-        for zone, count in counts.items()
+
+    readings: list[dict[str, str | int]] = [
+        _reading("totalDeviceCount", zone, now_ms, count) for zone, count in counts.items()
     ]
+    if devices_per_person is not None:
+        readings += [
+            _reading("ratioDeviceCount", zone, now_ms, math.ceil(count / devices_per_person))
+            for zone, count in counts.items()
+        ]
+    return readings
+
+
+def _reading(metric: str, zone: str, now_ms: int, value: int) -> dict[str, str | int]:
+    """One telemetry reading. The value field is named after the metric, matching every
+    plugin in `backend/telemetry/src/plugins` -- `MetricDescriptor.value_field` == `key`."""
+    return {"type": metric, "roomId": zone, "timestamp": now_ms, metric: value}
 
 
 def build_readings(

@@ -56,7 +56,10 @@ def _make_print_tick(
             readings = readings_for_building(
                 building, assignment, now_ms, config.devices_per_person
             )
-            counts = {reading["roomId"]: reading["deviceCount"] for reading in readings}
+            counts: dict[str, dict[str, object]] = {}
+            for reading in readings:
+                metric = str(reading["type"])
+                counts.setdefault(metric, {})[str(reading["roomId"])] = reading[metric]
             batch = {
                 "building": building_name,
                 "counts": counts,
@@ -70,8 +73,8 @@ def _make_print_tick(
 def _make_post_tick(
     config: Config,
 ) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
-    """Real-mode `on_tick`: turn each building's confirmed assignment into deviceDetection
-    readings and POST them. Built once (needs config's secret/URL/buildings), not per tick.
+    """Real-mode `on_tick`: turn each building's confirmed assignment into occupancy readings
+    and POST them. Built once (needs config's secret/URL/buildings), not per tick.
 
     A failed POST is reported and dropped, never raised: `run` calls this straight from its
     loop, so an escaping IngestError ends the process -- one telemetry restart, or one batch
