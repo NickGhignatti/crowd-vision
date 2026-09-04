@@ -5,6 +5,9 @@ import os
 from pathlib import Path
 
 READERS = ("hostapd", "iwinfo")
+DEFAULT_POLL_INTERVAL = 60
+DEFAULT_REQUEST_TIMEOUT = 10
+"""Must stay <= DEFAULT_POLL_INTERVAL -- see Config._validate."""
 
 
 class AccessPoint:
@@ -73,7 +76,10 @@ class Building:
 
 class Config:
     def __init__(
-        self, buildings: list[Building], poll_interval: int = 60, default_timeout: int = 60 * 10
+        self,
+        buildings: list[Building],
+        poll_interval: int = DEFAULT_POLL_INTERVAL,
+        default_timeout: int = DEFAULT_REQUEST_TIMEOUT,
     ):
         self.buildings = buildings
         self.poll_interval: int = poll_interval
@@ -82,9 +88,13 @@ class Config:
     def load_from_config_file(self, config_file_path: str) -> None:
         with Path.open(Path(config_file_path)) as f:
             data = json.load(f)
-        buildings = [Building.from_json(building) for building in data]
-        self._validate(buildings)
+        buildings = [Building.from_json(building) for building in data.get("buildings", [])]
+        poll_interval = data.get("pollIntervalS", DEFAULT_POLL_INTERVAL)
+        default_timeout = data.get("requestTimeoutS", DEFAULT_REQUEST_TIMEOUT)
+        self._validate(buildings, poll_interval, default_timeout)
         self.buildings = buildings
+        self.poll_interval = poll_interval
+        self.default_timeout = default_timeout
 
     def load_env(self) -> None:
         self.telemetry_service = os.getenv("TELEMETRY_SERVICE_URL")
@@ -95,9 +105,16 @@ class Config:
         if not self.telemetry_secret:
             raise ValueError("config: TELEMETRY_SERVICE_SECRET must be set")
 
-    def _validate(self, buildings: list[Building]) -> None:
+    def _validate(
+        self, buildings: list[Building], poll_interval: float, default_timeout: float
+    ) -> None:
         if not buildings:
             raise ValueError("config: buildings must not be empty")
         names = [b.name for b in buildings]
         if len(set(names)) != len(names):
             raise ValueError("config: building names must be unique")
+        if default_timeout > poll_interval:
+            # Otherwise a single unreachable AP holds a tick open past when the next one
+            # should start, and the real poll rate drifts away from what phase 3's hysteresis
+            # numbers were tuned against.
+            raise ValueError("config: requestTimeoutS must not exceed pollIntervalS")

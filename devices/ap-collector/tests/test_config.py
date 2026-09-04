@@ -2,7 +2,14 @@ import json
 
 import pytest
 
-from app.config import READERS, AccessPoint, Building, Config
+from app.config import (
+    DEFAULT_POLL_INTERVAL,
+    DEFAULT_REQUEST_TIMEOUT,
+    READERS,
+    AccessPoint,
+    Building,
+    Config,
+)
 
 GOOD_AP = {
     "name": "ap-a",
@@ -98,15 +105,17 @@ def test_get_ap_finds_by_name_and_returns_none_for_unknown():
 
 
 def test_load_from_config_file_parses_multiple_buildings(tmp_path):
-    data = [
-        {"name": "b1", "ap": [GOOD_AP]},
-        {
-            "name": "b2",
-            "ap": [
-                dict(GOOD_AP, name="ap-c", zone="zone-c", url="http://localhost:3003/ap-c/ubus")
-            ],
-        },
-    ]
+    data = {
+        "buildings": [
+            {"name": "b1", "ap": [GOOD_AP]},
+            {
+                "name": "b2",
+                "ap": [
+                    dict(GOOD_AP, name="ap-c", zone="zone-c", url="http://localhost:3003/ap-c/ubus")
+                ],
+            },
+        ]
+    }
     path = _write(tmp_path, data)
 
     config = Config([])
@@ -117,15 +126,22 @@ def test_load_from_config_file_parses_multiple_buildings(tmp_path):
     assert config.buildings[1].ap[0].name == "ap-c"
 
 
-def test_load_from_config_file_empty_list_raises(tmp_path):
-    path = _write(tmp_path, [])
+def test_load_from_config_file_empty_buildings_raises(tmp_path):
+    path = _write(tmp_path, {"buildings": []})
+
+    with pytest.raises(ValueError, match=r"(?i)buildings"):
+        Config([]).load_from_config_file(path)
+
+
+def test_load_from_config_file_missing_buildings_key_raises(tmp_path):
+    path = _write(tmp_path, {})
 
     with pytest.raises(ValueError, match=r"(?i)buildings"):
         Config([]).load_from_config_file(path)
 
 
 def test_load_from_config_file_duplicate_building_names_raise(tmp_path):
-    data = [{"name": "b1", "ap": [GOOD_AP]}, {"name": "b1", "ap": [GOOD_AP]}]
+    data = {"buildings": [{"name": "b1", "ap": [GOOD_AP]}, {"name": "b1", "ap": [GOOD_AP]}]}
     path = _write(tmp_path, data)
 
     with pytest.raises(ValueError, match=r"(?i)building names"):
@@ -135,7 +151,7 @@ def test_load_from_config_file_duplicate_building_names_raise(tmp_path):
 def test_a_failed_reload_does_not_clobber_the_previous_buildings(tmp_path):
     original = [Building.from_json({"name": "b1", "ap": [GOOD_AP]})]
     config = Config(original)
-    bad_path = _write(tmp_path, [])
+    bad_path = _write(tmp_path, {"buildings": []})
 
     with pytest.raises(ValueError):
         config.load_from_config_file(bad_path)
@@ -143,17 +159,60 @@ def test_a_failed_reload_does_not_clobber_the_previous_buildings(tmp_path):
     assert config.buildings is original
 
 
-def test_poll_interval_and_timeout_are_not_wired_from_json_yet(tmp_path):
-    """Documents a known gap: pollIntervalS/requestTimeoutS in the file are
-    currently ignored. Update this alongside whoever wires them."""
-    data = [{"name": "b1", "ap": [GOOD_AP], "pollIntervalS": 1, "requestTimeoutS": 1}]
+def test_poll_interval_and_timeout_are_read_from_json(tmp_path):
+    data = {
+        "pollIntervalS": 10,
+        "requestTimeoutS": 4,
+        "buildings": [{"name": "b1", "ap": [GOOD_AP]}],
+    }
     path = _write(tmp_path, data)
 
     config = Config([], poll_interval=60, default_timeout=600)
     config.load_from_config_file(path)
 
-    assert config.poll_interval == 60
-    assert config.default_timeout == 600
+    assert config.poll_interval == 10
+    assert config.default_timeout == 4
+
+
+def test_poll_interval_and_timeout_default_when_omitted_from_json(tmp_path):
+    """Missing from the file means the module DEFAULT_*, not whatever the instance
+    already happened to hold -- a reload must not leak a previous load's values in."""
+    data = {"buildings": [{"name": "b1", "ap": [GOOD_AP]}]}
+    path = _write(tmp_path, data)
+
+    config = Config([], poll_interval=999, default_timeout=999)
+    config.load_from_config_file(path)
+
+    assert config.poll_interval == DEFAULT_POLL_INTERVAL
+    assert config.default_timeout == DEFAULT_REQUEST_TIMEOUT
+
+
+def test_request_timeout_greater_than_poll_interval_raises(tmp_path):
+    data = {
+        "pollIntervalS": 2,
+        "requestTimeoutS": 5,
+        "buildings": [{"name": "b1", "ap": [GOOD_AP]}],
+    }
+    path = _write(tmp_path, data)
+
+    with pytest.raises(ValueError, match=r"(?i)requestTimeoutS"):
+        Config([]).load_from_config_file(path)
+
+
+def test_a_failed_timeout_validation_does_not_clobber_previous_settings(tmp_path):
+    config = Config([Building.from_json({"name": "b1", "ap": [GOOD_AP]})], poll_interval=5)
+    bad_data = {
+        "pollIntervalS": 2,
+        "requestTimeoutS": 5,
+        "buildings": [{"name": "b2", "ap": [GOOD_AP]}],
+    }
+    bad_path = _write(tmp_path, bad_data)
+
+    with pytest.raises(ValueError):
+        config.load_from_config_file(bad_path)
+
+    assert config.poll_interval == 5
+    assert [b.name for b in config.buildings] == ["b1"]
 
 
 def test_load_env_reads_telemetry_service_url(monkeypatch):
