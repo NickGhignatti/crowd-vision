@@ -1,3 +1,4 @@
+import threading
 from collections import Counter
 
 import pytest
@@ -81,6 +82,36 @@ def test_poll_aps_returns_none_for_a_failed_ap_without_affecting_others():
         ("ap-a", [("aa:bb:cc:00:00:01", -60)]),
         ("ap-b", None),
     ]
+
+
+def test_poll_aps_polls_every_ap_at_once():
+    """Polled in sequence, N unreachable APs cost N * requestTimeoutS and push a tick past
+    its interval. The barrier only releases if all four are in flight together, so a serial
+    implementation deadlocks it and fails here rather than in a building at 3am."""
+    barrier = threading.Barrier(4, timeout=5)
+
+    class _BarrierSession:
+        def stations(self) -> list[tuple[str, int]]:
+            barrier.wait()
+            return []
+
+    result = poll_aps({f"ap-{i}": _BarrierSession() for i in range(4)})
+
+    assert [name for name, _ in result] == ["ap-0", "ap-1", "ap-2", "ap-3"]
+
+
+def test_poll_aps_returns_results_in_session_order():
+    sessions = {
+        "ap-c": _FakeSession(result=[("aa:bb:cc:00:00:03", -80)]),
+        "ap-a": _FakeSession(error=UbusError("down")),
+        "ap-b": _FakeSession(result=[]),
+    }
+
+    assert [name for name, _ in poll_aps(sessions)] == ["ap-c", "ap-a", "ap-b"]
+
+
+def test_poll_aps_with_no_sessions_returns_nothing():
+    assert poll_aps({}) == []
 
 
 def test_build_readings_flattens_stations_with_ap_name_attached():
@@ -271,7 +302,7 @@ def test_build_trackers_creates_one_tracker_per_building_with_the_given_paramete
     building2 = Building(name="b2", ap=[_ap()])
     config = Config([building1, building2])
 
-    trackers = build_trackers(config, polls=2, margin_db=6.0, absent_polls=3)
+    trackers = build_trackers(config, polls=2, margin_db=6.0, absent_polls=3, frozen_polls=30)
 
     assert set(trackers) == {"b1", "b2"}
     assert all(isinstance(t, ZoneTracker) for t in trackers.values())
@@ -279,6 +310,7 @@ def test_build_trackers_creates_one_tracker_per_building_with_the_given_paramete
     assert trackers["b1"].polls == 2
     assert trackers["b1"].margin_db == 6.0
     assert trackers["b1"].absent_polls == 3
+    assert trackers["b1"].frozen_polls == 30
 
 
 def _run_harness():
@@ -409,7 +441,32 @@ def test_readings_for_building_divides_by_devices_per_person_when_set():
 
     readings = readings_for_building(building, assignment, now_ms=1_000, devices_per_person=1.4)
 
-    # 3 / 1.4 = 2.14... -> rounds to 2
+    # 3 / 1.4 = 2.14... -> 3
     assert readings == [
-        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 2}
+        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 3}
+    ]
+
+
+def test_readings_for_building_never_converts_a_present_device_into_an_empty_room():
+    """One device under a factor of 2.5 is 0.4 of a person. Rounded, that is 0 -- an
+    occupied room reported as empty. A zone with anyone in it must never read zero."""
+    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
+
+    readings = readings_for_building(
+        building, {"aa:bb:cc:00:00:01": "lobby"}, now_ms=1_000, devices_per_person=2.5
+    )
+
+    assert readings == [
+        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 1}
+    ]
+
+
+def test_readings_for_building_keeps_an_empty_zone_at_zero_under_conversion():
+    """The floor is the only thing that moves: an empty room stays empty."""
+    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
+
+    readings = readings_for_building(building, {}, now_ms=1_000, devices_per_person=2.5)
+
+    assert readings == [
+        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 0}
     ]

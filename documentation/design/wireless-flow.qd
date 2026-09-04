@@ -308,6 +308,14 @@ recommendations.
 The metric counts **devices**. It is published as `peopleCount`. That gap is the conversion
 factor above, and it belongs in the user-facing docs, not just here.
 
+The conversion rounds **up**. One device at a factor of 2.5 is 0.4 of a person, and rounding
+that to zero reports an occupied room as empty — the one fact the collector otherwise takes
+care to keep distinct from a genuinely empty zone. An empty zone still converts to 0.
+
+A rejected or unreachable ingest POST is logged and dropped, not raised: the run loop calls
+the post path directly, so an escaping error ends the collector on a single telemetry restart.
+One lost batch costs one poll interval of resolution; the next tick supersedes it.
+
 ## Calibration
 
 Every number that depends on the physical world is configuration, per building:
@@ -319,6 +327,18 @@ Every number that depends on the physical world is configuration, per building:
 
 None of these are constants. A building full of engineers and a building full of visitors
 have different device ratios, and no model can see that from the code.
+
+Two numbers are *not* on that list, because they are ceilings rather than tuning:
+
+- **`requestTimeoutS <= pollIntervalS`.** Holds only because the collector polls every AP of
+  a building concurrently. Polled in sequence a tick would cost the sum of its APs' timeouts,
+  so enough dark APs would silently slow the real poll rate below what the hysteresis numbers
+  were tuned against. One AP's own interfaces are still read in series, so an AP with many
+  radios and a long timeout is the one case still worth checking by hand.
+- **Frozen-device ceiling** (`--frozen-polls`, 30 polls). A device behind a silent AP is
+  frozen, not expired, so an AP reboot does not empty the building. Past this ceiling the
+  outage is not a reboot: the device is dropped, or the track table grows for the life of the
+  process and every stale device keeps padding its zone's count.
 
 ---
 

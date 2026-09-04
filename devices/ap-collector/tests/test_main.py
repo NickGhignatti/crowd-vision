@@ -1,4 +1,6 @@
+import email.message
 import json
+import urllib.error
 
 from app.__main__ import main
 
@@ -45,18 +47,18 @@ def _make_fake_urlopen(ingest_calls):
     return fake
 
 
-def _write_config(tmp_path):
+def _write_config(tmp_path, building_names=("b1",)):
     data = {
         "pollIntervalS": 5,
         "requestTimeoutS": 3,
         "buildings": [
             {
-                "name": "b1",
+                "name": name,
                 "ap": [
                     {
                         "name": "ap-a",
                         "zone": "lobby",
-                        "url": "http://ap-a.example/ubus",
+                        "url": f"http://{name}-ap-a.example/ubus",
                         "username": "collector",
                         "password": "collector",
                         "ifaces": ["wlan0"],
@@ -64,6 +66,7 @@ def _write_config(tmp_path):
                     }
                 ],
             }
+            for name in building_names
         ],
     }
     path = tmp_path / "collector.json"
@@ -106,6 +109,36 @@ def test_main_without_dry_run_posts_a_signed_peoplecount_batch(tmp_path, monkeyp
     assert reading["roomId"] == "lobby"
     assert reading["deviceCount"] == 1
     assert isinstance(reading["timestamp"], int)
+
+
+def test_main_survives_a_rejected_batch_and_still_posts_every_other_building(
+    tmp_path, monkeypatch, capsys
+):
+    """Telemetry refusing one building's batch must not end the run. A tick is a snapshot:
+    the next one supersedes it, so dropping one is recoverable and dying is not."""
+    posted = []
+
+    def fake(request, timeout=None):
+        body = json.loads(request.data)
+        if isinstance(body, dict) and body.get("method") == "call":
+            return _fake_ubus_urlopen(request, timeout)
+        if body["buildingId"] == "b1":
+            raise urllib.error.HTTPError(
+                request.full_url, 422, "Unprocessable", email.message.Message(), None
+            )
+        posted.append(body["buildingId"])
+        return _FakeResponse(b"")
+
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
+    monkeypatch.setenv("TELEMETRY_SERVICE_SECRET", "x" * 32)
+    config_path = _write_config(tmp_path, ("b1", "b2"))
+
+    exit_code = main(["--config", config_path, "--once"])
+
+    assert exit_code == 0
+    assert posted == ["b2"]
+    assert "b1" in capsys.readouterr().err
 
 
 def test_main_replay_is_not_implemented_yet(tmp_path, capsys):
