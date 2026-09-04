@@ -15,13 +15,14 @@ from app.zones import ZoneTracker, best_by_zone
 
 if TYPE_CHECKING:
     from collections import Counter
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Mapping, Sequence
 
     from app.config import Building, Config
+    from app.ubus import StationsSource
     from app.zones import Reading
 
 
-def poll_one(ap_name: str, session: ApSession) -> tuple[str, list[tuple[str, int]] | None]:
+def poll_one(ap_name: str, session: StationsSource) -> tuple[str, list[tuple[str, int]] | None]:
     """One AP's stations this tick, or None if it failed to answer.
 
     None and an empty list are different facts: a failed AP must not silently become an
@@ -35,7 +36,7 @@ def poll_one(ap_name: str, session: ApSession) -> tuple[str, list[tuple[str, int
 
 
 def poll_aps(
-    sessions: Mapping[str, ApSession],
+    sessions: Mapping[str, StationsSource],
 ) -> list[tuple[str, list[tuple[str, int]] | None]]:
     """Poll every AP, each with its own session, returning their stations or None if they failed."""
     return [poll_one(ap_name, session) for ap_name, session in sessions.items()]
@@ -46,7 +47,7 @@ def _ap_zones(building: Building) -> dict[str, str]:
 
 
 def batch_poll_by_building(
-    building: Building, sessions: Mapping[str, ApSession]
+    building: Building, sessions: Mapping[str, StationsSource]
 ) -> tuple[list[Reading], set[str]]:
     """One tick for one building: poll it and build its readings/available zones.
 
@@ -60,7 +61,7 @@ def batch_poll_by_building(
 
 
 def tick_building(
-    building: Building, sessions: Mapping[str, ApSession], tracker: ZoneTracker
+    building: Building, sessions: Mapping[str, StationsSource], tracker: ZoneTracker
 ) -> tuple[dict[str, str], Counter[tuple[str, str]]]:
     """One building, one tick, fully assembled: poll, resolve per-zone signal strength, and
     hand it to the building's own long-lived `ZoneTracker` for the confirmed result.
@@ -76,7 +77,7 @@ def tick_building(
 
 def tick(
     config: Config,
-    sessions_by_building: Mapping[str, Mapping[str, ApSession]],
+    sessions_by_building: Mapping[str, Mapping[str, StationsSource]],
     trackers_by_building: Mapping[str, ZoneTracker],
 ) -> dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]:
     """One tick across every building in `config`, keyed by building name.
@@ -121,7 +122,7 @@ def build_trackers(
 
 def run(
     config: Config,
-    sessions_by_building: Mapping[str, Mapping[str, ApSession]],
+    sessions_by_building: Mapping[str, Mapping[str, StationsSource]],
     trackers_by_building: Mapping[str, ZoneTracker],
     interval_s: float,
     *,
@@ -159,7 +160,7 @@ def run(
 
 def readings_for_building(
     building: Building, assignment: Mapping[str, str], now_ms: int
-) -> list[dict[str, object]]:
+) -> list[dict[str, str | int]]:
     """Confirmed per-device zone assignment -> one deviceDetection reading per declared zone.
 
     A separate metric from telemetry's own `peopleCount`, not a reuse of it: a device count
@@ -180,7 +181,7 @@ def readings_for_building(
 
 
 def build_readings(
-    polled: list[tuple[str, list[tuple[str, int]] | None]],
+    polled: Sequence[tuple[str, list[tuple[str, int]] | None]],
     ap_zones: Mapping[str, str],
 ) -> tuple[list[Reading], set[str]]:
     """Flatten polled per-AP stations into (ap, mac, rssi) readings, plus which zones answered.

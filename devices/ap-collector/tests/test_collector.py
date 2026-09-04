@@ -20,13 +20,16 @@ from app.zones import ZoneTracker
 
 
 class _FakeSession:
-    def __init__(self, result=None, error=None):
+    def __init__(
+        self, result: list[tuple[str, int]] | None = None, error: Exception | None = None
+    ) -> None:
         self._result = result
         self._error = error
 
-    def stations(self):
+    def stations(self) -> list[tuple[str, int]]:
         if self._error is not None:
             raise self._error
+        assert self._result is not None
         return self._result
 
 
