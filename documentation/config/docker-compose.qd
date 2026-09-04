@@ -42,7 +42,7 @@ The root file holds the pieces every run needs regardless of which services are 
 .mermaid
     flowchart TD
         J["just stack dev / start / down / …"] --> R["compose-run.py"]
-        R --> W["Walk backend/ and simulators/<br/>apply exclude patterns"]
+        R --> W["Walk backend/, simulators/ and devices/<br/>apply exclude patterns"]
         W --> G["Write compose.runtime.yml<br/>(an include: list)"]
         G --> D["docker compose -f compose.runtime.yml (up | down | build)"]
 
@@ -69,7 +69,7 @@ A single-path entry becomes one sub-project; a multi-path entry merges a service
 ### How the include list is built
 
 1. Always include the root `docker-compose.yml`\.
-2. Walk `backend/` (skipping `tests/`) and `simulators/`, adding each folder's `docker-compose.yml` and — in development modes — its `docker-compose.dev.yml` if present.
+2. Walk `backend/` (skipping `tests/`), `simulators/` and `devices/`, adding each folder's `docker-compose.yml` and — in development modes — its `docker-compose.dev.yml` if present.
 3. Add `frontend` unless excluded.
 
 ### Excluding services
@@ -80,6 +80,7 @@ In `dev` and `start`, services can be left out either by named flag or by raw su
 just stack dev --no-agent                  # agent + its Langfuse/ClickHouse/MinIO stack
 just stack dev --no-metrics                # prometheus, grafana
 just stack dev --no-simulators             # aq-simulator, sensor-simulator, ap-simulator
+just stack dev --no-devices                # ap-collector
 just stack dev --no-agent --no-metrics     # combine freely
 just stack dev redis-langfuse              # raw substring, for anything without a flag
 just stack dev --dry-run                   # print the resolved docker command, run nothing
@@ -100,7 +101,9 @@ Each flag is generated from `EXCLUDE_GROUPS` at the top of `scripts/compose/comp
     - - `--no-metrics`
       - `prometheus`, `grafana`
     - - `--no-simulators`
-      - `simulator` — matches both simulator folders
+      - `simulator` — matches all three simulator folders
+    - - `--no-devices`
+      - `ap-collector`
 
 Adding a group is one entry in that dict; the flag appears automatically. Unknown flags are rejected with a usage message, so a typo fails loudly instead of silently matching nothing.
 

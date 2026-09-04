@@ -1,0 +1,6 @@
+services:
+  ap-collector:
+    develop:
+      watch:
+        - action: rebuild
+          path: ./app

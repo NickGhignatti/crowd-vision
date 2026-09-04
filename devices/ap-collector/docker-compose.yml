@@ -1,0 +1,8 @@
+services:
+  ap-collector:
+    cpus: "1"
+    build:
+      context: .
+    environment:
+      - TELEMETRY_SERVICE_URL=${TELEMETRY_SERVICE_URL:-http://gateway/telemetry}
+      - TELEMETRY_SERVICE_SECRET=${TELEMETRY_INGEST_SECRET}

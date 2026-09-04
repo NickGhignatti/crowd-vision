@@ -16,6 +16,7 @@ EXCLUDE_GROUPS = {
     "agent": ("agent",),
     "metrics": ("prometheus", "grafana"),
     "simulators": ("simulator",),
+    "devices": ("ap-collector",),
 }
 
 parser = argparse.ArgumentParser(prog="just stack <mode>", description=__doc__)
@@ -88,6 +89,7 @@ def iterate(parent, skip=()):
 add_include("docker-compose.yml")
 iterate("backend", skip=("tests",))
 iterate("simulators")
+iterate("devices")
 
 if not is_excluded("frontend"):
     add_service("frontend", is_dev)

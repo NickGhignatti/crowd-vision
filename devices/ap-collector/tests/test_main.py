@@ -46,22 +46,26 @@ def _make_fake_urlopen(ingest_calls):
 
 
 def _write_config(tmp_path):
-    data = [
-        {
-            "name": "b1",
-            "ap": [
-                {
-                    "name": "ap-a",
-                    "zone": "lobby",
-                    "url": "http://ap-a.example/ubus",
-                    "username": "collector",
-                    "password": "collector",
-                    "ifaces": ["wlan0"],
-                    "reader": "hostapd",
-                }
-            ],
-        }
-    ]
+    data = {
+        "pollIntervalS": 5,
+        "requestTimeoutS": 3,
+        "buildings": [
+            {
+                "name": "b1",
+                "ap": [
+                    {
+                        "name": "ap-a",
+                        "zone": "lobby",
+                        "url": "http://ap-a.example/ubus",
+                        "username": "collector",
+                        "password": "collector",
+                        "ifaces": ["wlan0"],
+                        "reader": "hostapd",
+                    }
+                ],
+            }
+        ],
+    }
     path = tmp_path / "collector.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     return str(path)
