@@ -47,10 +47,12 @@ def _make_fake_urlopen(ingest_calls):
     return fake
 
 
-def _write_config(tmp_path, building_names=("b1",)):
+def _write_config(tmp_path, building_names=("b1",), devices_per_person=None):
     data = {
         "pollIntervalS": 5,
         "requestTimeoutS": 3,
+        "useDevicesPerPerson": devices_per_person is not None,
+        "devicesPerPerson": devices_per_person,
         "buildings": [
             {
                 "name": name,
@@ -83,11 +85,11 @@ def test_main_dry_run_once_prints_one_tick_batch(tmp_path, monkeypatch, capsys):
     assert exit_code == 0
     batch = json.loads(capsys.readouterr().out)
     assert batch["building"] == "b1"
-    assert batch["counts"] == {"lobby": 1}
+    assert batch["counts"] == {"totalDeviceCount": {"lobby": 1}}
     assert batch["transitions"] == {}
 
 
-def test_main_without_dry_run_posts_a_signed_peoplecount_batch(tmp_path, monkeypatch):
+def test_main_without_dry_run_posts_a_signed_occupancy_batch(tmp_path, monkeypatch):
     ingest_calls = []
     monkeypatch.setattr("urllib.request.urlopen", _make_fake_urlopen(ingest_calls))
     monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
@@ -103,12 +105,30 @@ def test_main_without_dry_run_posts_a_signed_peoplecount_batch(tmp_path, monkeyp
     assert request.get_header("X-signature")
     body = json.loads(request.data)
     assert body["buildingId"] == "b1"
+    # No devicesPerPerson in this config, so the measurement ships and the estimate does not.
     assert len(body["readings"]) == 1
     reading = body["readings"][0]
-    assert reading["type"] == "deviceDetection"
+    assert reading["type"] == "totalDeviceCount"
     assert reading["roomId"] == "lobby"
-    assert reading["deviceCount"] == 1
+    assert reading["totalDeviceCount"] == 1
     assert isinstance(reading["timestamp"], int)
+
+
+def test_main_posts_both_metrics_when_a_conversion_factor_is_configured(tmp_path, monkeypatch):
+    ingest_calls = []
+    monkeypatch.setattr("urllib.request.urlopen", _make_fake_urlopen(ingest_calls))
+    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
+    monkeypatch.setenv("TELEMETRY_SERVICE_SECRET", "x" * 32)
+    config_path = _write_config(tmp_path, devices_per_person=2.5)
+
+    exit_code = main(["--config", config_path, "--once"])
+
+    assert exit_code == 0
+    readings = json.loads(ingest_calls[0].data)["readings"]
+    assert [(r["type"], r[r["type"]]) for r in readings] == [
+        ("totalDeviceCount", 1),
+        ("ratioDeviceCount", 1),
+    ]
 
 
 def test_main_survives_a_rejected_batch_and_still_posts_every_other_building(

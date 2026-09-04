@@ -403,8 +403,8 @@ def test_readings_for_building_counts_devices_per_zone():
     readings = readings_for_building(building, assignment, now_ms=1_000)
 
     assert sorted(readings, key=lambda r: r["roomId"]) == [
-        {"type": "deviceDetection", "roomId": "hall", "timestamp": 1_000, "deviceCount": 0},
-        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 2},
+        {"type": "totalDeviceCount", "roomId": "hall", "timestamp": 1_000, "totalDeviceCount": 0},
+        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 2},
     ]
 
 
@@ -416,22 +416,27 @@ def test_readings_for_building_reports_zero_not_absence_for_an_empty_zone():
     readings = readings_for_building(building, assignment={}, now_ms=1_000)
 
     assert readings == [
-        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 0}
+        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 0}
     ]
 
 
-def test_readings_for_building_ignores_devices_per_person_when_none():
+def test_readings_for_building_emits_no_estimate_without_a_factor():
+    """No configured factor, no ratioDeviceCount: an estimate silently equal to the device
+    count is a claim about people that nobody made."""
     building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
     assignment = {"aa:bb:cc:00:00:01": "lobby", "aa:bb:cc:00:00:02": "lobby"}
 
     readings = readings_for_building(building, assignment, now_ms=1_000, devices_per_person=None)
 
     assert readings == [
-        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 2}
+        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 2}
     ]
 
 
-def test_readings_for_building_divides_by_devices_per_person_when_set():
+def test_readings_for_building_emits_measurement_and_estimate_side_by_side():
+    """Both numbers, every tick. The raw count is what was measured; the ratio is what it
+    was divided by a factor that gets re-measured -- keeping both is what lets a corrected
+    factor re-derive the history instead of leaving every past bucket wrong."""
     building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
     assignment = {
         "aa:bb:cc:00:00:01": "lobby",
@@ -443,7 +448,8 @@ def test_readings_for_building_divides_by_devices_per_person_when_set():
 
     # 3 / 1.4 = 2.14... -> 3
     assert readings == [
-        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 3}
+        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 3},
+        {"type": "ratioDeviceCount", "roomId": "lobby", "timestamp": 1_000, "ratioDeviceCount": 3},
     ]
 
 
@@ -457,16 +463,18 @@ def test_readings_for_building_never_converts_a_present_device_into_an_empty_roo
     )
 
     assert readings == [
-        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 1}
+        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 1},
+        {"type": "ratioDeviceCount", "roomId": "lobby", "timestamp": 1_000, "ratioDeviceCount": 1},
     ]
 
 
 def test_readings_for_building_keeps_an_empty_zone_at_zero_under_conversion():
-    """The floor is the only thing that moves: an empty room stays empty."""
+    """The floor is the only thing that moves: an empty room stays empty in both metrics."""
     building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
 
     readings = readings_for_building(building, {}, now_ms=1_000, devices_per_person=2.5)
 
     assert readings == [
-        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 0}
+        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 0},
+        {"type": "ratioDeviceCount", "roomId": "lobby", "timestamp": 1_000, "ratioDeviceCount": 0},
     ]
