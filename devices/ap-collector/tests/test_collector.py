@@ -386,3 +386,30 @@ def test_readings_for_building_reports_zero_not_absence_for_an_empty_zone():
     assert readings == [
         {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 0}
     ]
+
+
+def test_readings_for_building_ignores_devices_per_person_when_none():
+    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
+    assignment = {"aa:bb:cc:00:00:01": "lobby", "aa:bb:cc:00:00:02": "lobby"}
+
+    readings = readings_for_building(building, assignment, now_ms=1_000, devices_per_person=None)
+
+    assert readings == [
+        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 2}
+    ]
+
+
+def test_readings_for_building_divides_by_devices_per_person_when_set():
+    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
+    assignment = {
+        "aa:bb:cc:00:00:01": "lobby",
+        "aa:bb:cc:00:00:02": "lobby",
+        "aa:bb:cc:00:00:03": "lobby",
+    }
+
+    readings = readings_for_building(building, assignment, now_ms=1_000, devices_per_person=1.4)
+
+    # 3 / 1.4 = 2.14... -> rounds to 2
+    assert readings == [
+        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 2}
+    ]

@@ -159,21 +159,27 @@ def run(
 
 
 def readings_for_building(
-    building: Building, assignment: Mapping[str, str], now_ms: int
+    building: Building,
+    assignment: Mapping[str, str],
+    now_ms: int,
+    devices_per_person: float | None = None,
 ) -> list[dict[str, str | int]]:
     """Confirmed per-device zone assignment -> one deviceDetection reading per declared zone.
-
-    A separate metric from telemetry's own `peopleCount`, not a reuse of it: a device count
-    and a people count are different measurements, and a room with both a Wi-Fi collector and
-    a real occupancy sensor must not have them collide under one metric key.
 
     Every zone the building declares gets a reading, including an explicit 0 for one nobody
     is in right now: a zero is real data (the room is empty), a different fact from the zone
     being absent entirely (its AP is down and ZoneTracker never reported on it this tick).
+
+    `devices_per_person` is opt-in (None means off, matching Config.devices_per_person):
+    when set, each zone's raw device count is divided by it before emitting -- an explicit,
+    site-configured choice to report an estimated person count instead of a raw device count,
+    not something applied silently.
     """
     counts = dict.fromkeys(set(_ap_zones(building).values()), 0)
     for zone in assignment.values():
         counts[zone] = counts.get(zone, 0) + 1
+    if devices_per_person is not None:
+        counts = {zone: round(count / devices_per_person) for zone, count in counts.items()}
     return [
         {"type": "deviceDetection", "roomId": zone, "timestamp": now_ms, "deviceCount": count}
         for zone, count in counts.items()

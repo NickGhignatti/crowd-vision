@@ -3,6 +3,7 @@ import json
 import pytest
 
 from app.config import (
+    DEFAULT_DEVICES_PER_PERSON,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_REQUEST_TIMEOUT,
     READERS,
@@ -242,3 +243,49 @@ def test_load_env_raises_when_telemetry_service_secret_is_unset(monkeypatch):
 
     with pytest.raises(ValueError, match=r"(?i)TELEMETRY_SERVICE_SECRET must be set"):
         config.load_env()
+
+
+def test_devices_per_person_is_none_when_flag_is_false_or_omitted(tmp_path):
+    data = {"devicesPerPerson": 1.4, "buildings": [{"name": "b1", "ap": [GOOD_AP]}]}
+    path = _write(tmp_path, data)
+
+    config = Config([])
+    config.load_from_config_file(path)
+
+    assert config.devices_per_person is None
+
+
+def test_devices_per_person_is_used_when_flag_is_true(tmp_path):
+    data = {
+        "useDevicesPerPerson": True,
+        "devicesPerPerson": 1.4,
+        "buildings": [{"name": "b1", "ap": [GOOD_AP]}],
+    }
+    path = _write(tmp_path, data)
+
+    config = Config([])
+    config.load_from_config_file(path)
+
+    assert config.devices_per_person == 1.4
+
+
+def test_devices_per_person_defaults_when_flag_true_but_ratio_omitted(tmp_path):
+    data = {"useDevicesPerPerson": True, "buildings": [{"name": "b1", "ap": [GOOD_AP]}]}
+    path = _write(tmp_path, data)
+
+    config = Config([])
+    config.load_from_config_file(path)
+
+    assert config.devices_per_person == DEFAULT_DEVICES_PER_PERSON
+
+
+def test_devices_per_person_zero_or_negative_raises_when_enabled(tmp_path):
+    data = {
+        "useDevicesPerPerson": True,
+        "devicesPerPerson": 0,
+        "buildings": [{"name": "b1", "ap": [GOOD_AP]}],
+    }
+    path = _write(tmp_path, data)
+
+    with pytest.raises(ValueError, match=r"(?i)devicesPerPerson"):
+        Config([]).load_from_config_file(path)
