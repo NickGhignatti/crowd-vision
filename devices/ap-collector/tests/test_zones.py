@@ -131,12 +131,51 @@ def test_zone_tracker_reappearance_resets_missed_polls():
     assert assignment == {"aa:bb": "lobby"}
 
 
+def test_zone_tracker_drops_a_device_frozen_past_frozen_polls():
+    """Freezing survives an AP reboot. An AP that never comes back would otherwise hold the
+    device -- and its count -- forever, growing the track table for the life of the process."""
+    tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1, frozen_polls=2)
+    tracker.update({"aa:bb": {"lobby": -60}}, {"lobby"})
+
+    assignment, _ = tracker.update({}, set())
+    assert assignment == {"aa:bb": "lobby"}
+
+    assignment, _ = tracker.update({}, set())
+    assert assignment == {}
+
+
+def test_zone_tracker_reappearance_resets_frozen_polls():
+    tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1, frozen_polls=2)
+    tracker.update({"aa:bb": {"lobby": -60}}, {"lobby"})
+    tracker.update({}, set())  # one frozen poll
+
+    tracker.update({"aa:bb": {"lobby": -60}}, {"lobby"})
+
+    # If the frozen counter had not reset, this would hit frozen_polls=2 and drop it.
+    assignment, _ = tracker.update({}, set())
+    assert assignment == {"aa:bb": "lobby"}
+
+
+def test_zone_tracker_keeps_frozen_and_absent_counters_apart():
+    """A poll spent frozen is not a poll of proven absence: becoming available again must
+    not inherit the frozen count and expire the device early."""
+    tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=2, frozen_polls=5)
+    tracker.update({"aa:bb": {"lobby": -60}}, {"lobby"})
+    tracker.update({}, set())
+    tracker.update({}, set())
+
+    assignment, _ = tracker.update({}, {"lobby"})
+    assert assignment == {"aa:bb": "lobby"}
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [
         {"polls": 0, "margin_db": 5, "absent_polls": 1},
         {"polls": 1, "margin_db": -1, "absent_polls": 1},
         {"polls": 1, "margin_db": 5, "absent_polls": 0},
+        {"polls": 1, "margin_db": 5, "absent_polls": 1, "frozen_polls": 0},
+        {"polls": 1, "margin_db": 5, "absent_polls": 3, "frozen_polls": 2},
     ],
 )
 def test_zone_tracker_rejects_invalid_construction_parameters(kwargs):

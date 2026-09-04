@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 
 from app.collector import build_sessions, build_trackers, readings_for_building, run
 from app.config import Config
-from app.ingest import post_batch
+from app.ingest import IngestError, post_batch
+from app.zones import DEFAULT_FROZEN_POLLS
 
 if TYPE_CHECKING:
     from collections import Counter
@@ -32,6 +33,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--hysteresis-polls", type=int, default=3)
     parser.add_argument("--hysteresis-margin-db", type=float, default=6.0)
     parser.add_argument("--absent-polls", type=int, default=3)
+    parser.add_argument(
+        "--frozen-polls",
+        type=int,
+        default=DEFAULT_FROZEN_POLLS,
+        help="drop a device held behind a silent AP after this many polls",
+    )
     return parser.parse_args(argv)
 
 
@@ -64,7 +71,14 @@ def _make_post_tick(
     config: Config,
 ) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
     """Real-mode `on_tick`: turn each building's confirmed assignment into deviceDetection
-    readings and POST them. Built once (needs config's secret/URL/buildings), not per tick."""
+    readings and POST them. Built once (needs config's secret/URL/buildings), not per tick.
+
+    A failed POST is reported and dropped, never raised: `run` calls this straight from its
+    loop, so an escaping IngestError ends the process -- one telemetry restart, or one batch
+    the ingest endpoint refuses, and the collector is gone until somebody notices. A tick is a
+    snapshot the next tick supersedes, so losing one costs a poll interval of resolution. The
+    catch sits inside the per-building loop for the same reason `poll_one` guards each AP
+    separately: one building's rejected batch must not skip every building after it."""
     buildings_by_name = {building.name: building for building in config.buildings}
     ingest_url = config.telemetry_service.rstrip("/") + "/ingest"
     secret = config.telemetry_secret.encode("utf-8")
@@ -76,7 +90,12 @@ def _make_post_tick(
             readings = readings_for_building(
                 building, assignment, now_ms, config.devices_per_person
             )
-            post_batch(ingest_url, secret, building_name, readings, timeout=config.default_timeout)
+            try:
+                post_batch(
+                    ingest_url, secret, building_name, readings, timeout=config.default_timeout
+                )
+            except IngestError as error:
+                print(f"{building_name}: dropping this tick's batch: {error}", file=sys.stderr)
 
     return on_tick
 
@@ -109,6 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         polls=args.hysteresis_polls,
         margin_db=args.hysteresis_margin_db,
         absent_polls=args.absent_polls,
+        frozen_polls=args.frozen_polls,
     )
 
     run(

@@ -7,7 +7,9 @@ whole building's read.
 
 from __future__ import annotations
 
+import math
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 from app.ubus import ApSession, UbusError
@@ -38,8 +40,22 @@ def poll_one(ap_name: str, session: StationsSource) -> tuple[str, list[tuple[str
 def poll_aps(
     sessions: Mapping[str, StationsSource],
 ) -> list[tuple[str, list[tuple[str, int]] | None]]:
-    """Poll every AP, each with its own session, returning their stations or None if they failed."""
-    return [poll_one(ap_name, session) for ap_name, session in sessions.items()]
+    """Poll every AP, each with its own session, returning their stations or None if they failed.
+
+    All at once, and that is a budget decision rather than a speed one: polled in sequence, a
+    tick costs the *sum* of its APs' timeouts, so enough unreachable APs push one tick past
+    `pollIntervalS` and the run loop -- which never sleeps a negative amount -- quietly settles
+    at a slower real poll rate than the hysteresis numbers were tuned against. Concurrently, a
+    tick costs about one timeout however many APs are dark, which is what `Config._validate`'s
+    `requestTimeoutS <= pollIntervalS` check assumes.
+
+    Every AP has its own session and the sessions share nothing, so there is nothing to lock.
+    `map` preserves `sessions` order.
+    """
+    if not sessions:
+        return []
+    with ThreadPoolExecutor(max_workers=len(sessions)) as pool:
+        return list(pool.map(lambda item: poll_one(*item), sessions.items()))
 
 
 def _ap_zones(building: Building) -> dict[str, str]:
@@ -111,12 +127,13 @@ def build_sessions(config: Config, timeout: int) -> dict[str, dict[str, ApSessio
 
 
 def build_trackers(
-    config: Config, polls: int, margin_db: float, absent_polls: int
+    config: Config, polls: int, margin_db: float, absent_polls: int, frozen_polls: int
 ) -> dict[str, ZoneTracker]:
     """One ZoneTracker per building -- built once for the whole run, same reasoning as
     `build_sessions`: hysteresis state must survive across ticks to mean anything."""
     return {
-        building.name: ZoneTracker(polls, margin_db, absent_polls) for building in config.buildings
+        building.name: ZoneTracker(polls, margin_db, absent_polls, frozen_polls)
+        for building in config.buildings
     }
 
 
@@ -174,12 +191,17 @@ def readings_for_building(
     when set, each zone's raw device count is divided by it before emitting -- an explicit,
     site-configured choice to report an estimated person count instead of a raw device count,
     not something applied silently.
+
+    That division rounds *up*: one device under a factor of 2.5 is 0.4 of a person, and
+    rounding it to zero reports an occupied room as empty -- indistinguishable downstream
+    from the real emptiness the paragraph above is careful to preserve. Ceiling keeps 0 at 0
+    and never erases somebody who is standing there.
     """
     counts = dict.fromkeys(set(_ap_zones(building).values()), 0)
     for zone in assignment.values():
         counts[zone] = counts.get(zone, 0) + 1
     if devices_per_person is not None:
-        counts = {zone: round(count / devices_per_person) for zone, count in counts.items()}
+        counts = {zone: math.ceil(count / devices_per_person) for zone, count in counts.items()}
     return [
         {"type": "deviceDetection", "roomId": zone, "timestamp": now_ms, "deviceCount": count}
         for zone, count in counts.items()
