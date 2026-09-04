@@ -35,17 +35,29 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _print_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
-    for building_name, (assignment, moves) in results.items():
-        counts: dict[str, int] = {}
-        for zone in assignment.values():
-            counts[zone] = counts.get(zone, 0) + 1
-        batch = {
-            "building": building_name,
-            "counts": counts,
-            "transitions": {f"{a}->{b}": n for (a, b), n in moves.items()},
-        }
-        print(json.dumps(batch))
+def _make_print_tick(
+    config: Config,
+) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
+    """Dry-run `on_tick`: shares `readings_for_building` with the real post path so the
+    preview always matches what would actually be sent, `devicesPerPerson` included."""
+    buildings_by_name = {building.name: building for building in config.buildings}
+
+    def on_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
+        now_ms = int(time.time() * 1000)
+        for building_name, (assignment, moves) in results.items():
+            building = buildings_by_name[building_name]
+            readings = readings_for_building(
+                building, assignment, now_ms, config.devices_per_person
+            )
+            counts = {reading["roomId"]: reading["deviceCount"] for reading in readings}
+            batch = {
+                "building": building_name,
+                "counts": counts,
+                "transitions": {f"{a}->{b}": n for (a, b), n in moves.items()},
+            }
+            print(json.dumps(batch))
+
+    return on_tick
 
 
 def _make_post_tick(
@@ -61,7 +73,9 @@ def _make_post_tick(
         now_ms = int(time.time() * 1000)
         for building_name, (assignment, _moves) in results.items():
             building = buildings_by_name[building_name]
-            readings = readings_for_building(building, assignment, now_ms)
+            readings = readings_for_building(
+                building, assignment, now_ms, config.devices_per_person
+            )
             post_batch(ingest_url, secret, building_name, readings, timeout=config.default_timeout)
 
     return on_tick
@@ -84,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     config.load_from_config_file(args.config)
 
     if args.dry_run:
-        on_tick = _print_tick
+        on_tick = _make_print_tick(config)
     else:
         config.load_env()
         on_tick = _make_post_tick(config)

@@ -8,6 +8,8 @@ READERS = ("hostapd", "iwinfo")
 DEFAULT_POLL_INTERVAL = 60
 DEFAULT_REQUEST_TIMEOUT = 10
 """Must stay <= DEFAULT_POLL_INTERVAL -- see Config._validate."""
+DEFAULT_DEVICES_PER_PERSON = 2.5
+"""Used only when useDevicesPerPerson is true and devicesPerPerson is omitted."""
 
 
 class AccessPoint:
@@ -80,10 +82,12 @@ class Config:
         buildings: list[Building],
         poll_interval: int = DEFAULT_POLL_INTERVAL,
         default_timeout: int = DEFAULT_REQUEST_TIMEOUT,
+        devices_per_person: float | None = None,
     ):
         self.buildings = buildings
         self.poll_interval: int = poll_interval
         self.default_timeout: int = default_timeout
+        self.devices_per_person: float | None = devices_per_person
 
     def load_from_config_file(self, config_file_path: str) -> None:
         with Path.open(Path(config_file_path)) as f:
@@ -91,10 +95,16 @@ class Config:
         buildings = [Building.from_json(building) for building in data.get("buildings", [])]
         poll_interval = data.get("pollIntervalS", DEFAULT_POLL_INTERVAL)
         default_timeout = data.get("requestTimeoutS", DEFAULT_REQUEST_TIMEOUT)
-        self._validate(buildings, poll_interval, default_timeout)
+        devices_per_person = (
+            data.get("devicesPerPerson", DEFAULT_DEVICES_PER_PERSON)
+            if data.get("useDevicesPerPerson", False)
+            else None
+        )
+        self._validate(buildings, poll_interval, default_timeout, devices_per_person)
         self.buildings = buildings
         self.poll_interval = poll_interval
         self.default_timeout = default_timeout
+        self.devices_per_person = devices_per_person
 
     def load_env(self) -> None:
         telemetry_service = os.getenv("TELEMETRY_SERVICE_URL")
@@ -109,7 +119,11 @@ class Config:
         self.telemetry_secret = telemetry_secret
 
     def _validate(
-        self, buildings: list[Building], poll_interval: float, default_timeout: float
+        self,
+        buildings: list[Building],
+        poll_interval: float,
+        default_timeout: float,
+        devices_per_person: float | None,
     ) -> None:
         if not buildings:
             raise ValueError("config: buildings must not be empty")
@@ -121,3 +135,5 @@ class Config:
             # should start, and the real poll rate drifts away from what phase 3's hysteresis
             # numbers were tuned against.
             raise ValueError("config: requestTimeoutS must not exceed pollIntervalS")
+        if devices_per_person is not None and devices_per_person <= 0:
+            raise ValueError("config: devicesPerPerson must be positive")
