@@ -1,3 +1,4 @@
+import email.message
 import json
 import urllib.error
 from pathlib import Path
@@ -84,7 +85,7 @@ def test_post_batch_small_batch_is_a_single_request(monkeypatch):
 
 def test_post_batch_raises_on_http_error(monkeypatch):
     error = urllib.error.HTTPError(
-        "http://telemetry.example/ingest", 422, "Unprocessable", {}, None
+        "http://telemetry.example/ingest", 422, "Unprocessable", email.message.Message(), None
     )
     _mock_urlopen(monkeypatch, error=error)
 

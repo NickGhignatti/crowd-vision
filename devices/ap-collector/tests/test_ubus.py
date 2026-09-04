@@ -48,7 +48,7 @@ def _mock_urlopen(monkeypatch, body: bytes | None = None, raise_error: Exception
         captured["timeout"] = timeout
         if raise_error is not None:
             raise raise_error
-        return _FakeResponse(body)
+        return _FakeResponse(body or b"")
 
     monkeypatch.setattr("urllib.request.urlopen", fake)
     return captured

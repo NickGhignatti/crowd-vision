@@ -4,10 +4,20 @@ import enum
 import json
 import urllib.error
 import urllib.request
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from app.config import AccessPoint
+
+
+class StationsSource(Protocol):
+    """Anything with a `.stations()` -- what `poll_one`/`poll_aps`/etc. actually need.
+
+    `ApSession` satisfies this structurally, so does a test double with no real network
+    behind it: the collector's tick machinery never needs to know or care which."""
+
+    def stations(self) -> list[tuple[str, int]]: ...
+
 
 NULL_SESSION: str = "0" * 32
 

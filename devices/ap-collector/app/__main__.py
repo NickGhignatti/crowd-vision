@@ -48,7 +48,9 @@ def _print_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]
         print(json.dumps(batch))
 
 
-def _make_post_tick(config: Config) -> Callable[[dict[str, tuple[dict[str, str], object]]], None]:
+def _make_post_tick(
+    config: Config,
+) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
     """Real-mode `on_tick`: turn each building's confirmed assignment into deviceDetection
     readings and POST them. Built once (needs config's secret/URL/buildings), not per tick."""
     buildings_by_name = {building.name: building for building in config.buildings}

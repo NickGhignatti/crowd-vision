@@ -97,13 +97,16 @@ class Config:
         self.default_timeout = default_timeout
 
     def load_env(self) -> None:
-        self.telemetry_service = os.getenv("TELEMETRY_SERVICE_URL")
-        self.telemetry_secret = os.getenv("TELEMETRY_SERVICE_SECRET")
+        telemetry_service = os.getenv("TELEMETRY_SERVICE_URL")
+        telemetry_secret = os.getenv("TELEMETRY_SERVICE_SECRET")
 
-        if not self.telemetry_service:
+        if not telemetry_service:
             raise ValueError("config: TELEMETRY_SERVICE_URL must be set")
-        if not self.telemetry_secret:
+        if not telemetry_secret:
             raise ValueError("config: TELEMETRY_SERVICE_SECRET must be set")
+
+        self.telemetry_service = telemetry_service
+        self.telemetry_secret = telemetry_secret
 
     def _validate(
         self, buildings: list[Building], poll_interval: float, default_timeout: float
