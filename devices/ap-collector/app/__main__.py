@@ -3,13 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from typing import TYPE_CHECKING
 
-from app.collector import build_sessions, build_trackers, run
+from app.collector import build_sessions, build_trackers, readings_for_building, run
 from app.config import Config
+from app.ingest import post_batch
 
 if TYPE_CHECKING:
     from collections import Counter
+    from collections.abc import Callable
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -45,6 +48,23 @@ def _print_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]
         print(json.dumps(batch))
 
 
+def _make_post_tick(config: Config) -> Callable[[dict[str, tuple[dict[str, str], object]]], None]:
+    """Real-mode `on_tick`: turn each building's confirmed assignment into deviceDetection
+    readings and POST them. Built once (needs config's secret/URL/buildings), not per tick."""
+    buildings_by_name = {building.name: building for building in config.buildings}
+    ingest_url = config.telemetry_service.rstrip("/") + "/ingest"
+    secret = config.telemetry_secret.encode("utf-8")
+
+    def on_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
+        now_ms = int(time.time() * 1000)
+        for building_name, (assignment, _moves) in results.items():
+            building = buildings_by_name[building_name]
+            readings = readings_for_building(building, assignment, now_ms)
+            post_batch(ingest_url, secret, building_name, readings, timeout=config.default_timeout)
+
+    return on_tick
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
 
@@ -61,14 +81,11 @@ def main(argv: list[str] | None = None) -> int:
     config = Config([])
     config.load_from_config_file(args.config)
 
-    if not args.dry_run:
+    if args.dry_run:
+        on_tick = _print_tick
+    else:
         config.load_env()
-        print(
-            "only --dry-run is wired up so far -- phase 5's signed POST to "
-            "/telemetry/ingest hasn't been built yet",
-            file=sys.stderr,
-        )
-        return 1
+        on_tick = _make_post_tick(config)
 
     sessions_by_building = build_sessions(config, timeout=config.default_timeout)
     trackers_by_building = build_trackers(
@@ -83,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         sessions_by_building,
         trackers_by_building,
         interval_s=config.poll_interval,
-        on_tick=_print_tick,
+        on_tick=on_tick,
         max_ticks=1 if args.once else None,
     )
     return 0

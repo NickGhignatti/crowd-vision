@@ -9,6 +9,7 @@ from app.collector import (
     build_trackers,
     poll_aps,
     poll_one,
+    readings_for_building,
     run,
     tick,
     tick_building,
@@ -355,3 +356,30 @@ def test_run_does_not_sleep_negative_when_a_tick_overruns_the_interval():
     )
 
     assert slept == [0.0]
+
+
+def test_readings_for_building_counts_devices_per_zone():
+    building = Building(
+        name="b1",
+        ap=[_ap(name="ap-a", zone="lobby"), _ap(name="ap-b", zone="hall")],
+    )
+    assignment = {"aa:bb:cc:00:00:01": "lobby", "aa:bb:cc:00:00:02": "lobby"}
+
+    readings = readings_for_building(building, assignment, now_ms=1_000)
+
+    assert sorted(readings, key=lambda r: r["roomId"]) == [
+        {"type": "deviceDetection", "roomId": "hall", "timestamp": 1_000, "deviceCount": 0},
+        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 2},
+    ]
+
+
+def test_readings_for_building_reports_zero_not_absence_for_an_empty_zone():
+    """A declared zone with nobody in it still gets a reading -- 0 is real data (the
+    room is empty), not the same fact as the zone being missing entirely."""
+    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
+
+    readings = readings_for_building(building, assignment={}, now_ms=1_000)
+
+    assert readings == [
+        {"type": "deviceDetection", "roomId": "lobby", "timestamp": 1_000, "deviceCount": 0}
+    ]

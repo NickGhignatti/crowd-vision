@@ -31,6 +31,20 @@ def _fake_ubus_urlopen(request, timeout=None):
     return _FakeResponse(json.dumps(payload).encode())
 
 
+def _make_fake_urlopen(ingest_calls):
+    """Routes to the ubus fake for ubus JSON-RPC calls, records everything else as an
+    ingest POST -- lets one test drive the whole pipeline (poll -> tick -> post) for real."""
+
+    def fake(request, timeout=None):
+        body = json.loads(request.data)
+        if isinstance(body, dict) and body.get("method") == "call":
+            return _fake_ubus_urlopen(request, timeout)
+        ingest_calls.append(request)
+        return _FakeResponse(b"")
+
+    return fake
+
+
 def _write_config(tmp_path):
     data = [
         {
@@ -66,15 +80,28 @@ def test_main_dry_run_once_prints_one_tick_batch(tmp_path, monkeypatch, capsys):
     assert batch["transitions"] == {}
 
 
-def test_main_without_dry_run_refuses_and_exits_nonzero(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example")
+def test_main_without_dry_run_posts_a_signed_peoplecount_batch(tmp_path, monkeypatch):
+    ingest_calls = []
+    monkeypatch.setattr("urllib.request.urlopen", _make_fake_urlopen(ingest_calls))
+    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
     monkeypatch.setenv("TELEMETRY_SERVICE_SECRET", "x" * 32)
     config_path = _write_config(tmp_path)
 
     exit_code = main(["--config", config_path, "--once"])
 
-    assert exit_code == 1
-    assert "phase 5" in capsys.readouterr().err
+    assert exit_code == 0
+    assert len(ingest_calls) == 1
+    request = ingest_calls[0]
+    assert request.full_url == "http://telemetry.example/telemetry/ingest"
+    assert request.get_header("X-signature")
+    body = json.loads(request.data)
+    assert body["buildingId"] == "b1"
+    assert len(body["readings"]) == 1
+    reading = body["readings"][0]
+    assert reading["type"] == "deviceDetection"
+    assert reading["roomId"] == "lobby"
+    assert reading["deviceCount"] == 1
+    assert isinstance(reading["timestamp"], int)
 
 
 def test_main_replay_is_not_implemented_yet(tmp_path, capsys):
