@@ -44,7 +44,7 @@ def _mock_urlopen(monkeypatch, *, error: Exception | None = None):
 def test_post_batch_signs_the_exact_serialised_bytes(monkeypatch):
     captured = _mock_urlopen(monkeypatch)
     secret = b"x" * 32
-    readings = [{"type": "peopleCount", "roomId": "lobby", "timestamp": 1, "peopleCount": 2}]
+    readings = [{"type": "deviceDetection", "roomId": "lobby", "timestamp": 1, "deviceCount": 2}]
 
     post_batch("http://telemetry.example/ingest", secret, "b1", readings, timeout=3)
 
@@ -60,7 +60,7 @@ def test_post_batch_chunks_at_max_batch_readings(monkeypatch):
     captured = _mock_urlopen(monkeypatch)
     secret = b"x" * 32
     readings = [
-        {"type": "peopleCount", "roomId": f"r{i}", "timestamp": i, "peopleCount": 1}
+        {"type": "deviceDetection", "roomId": f"r{i}", "timestamp": i, "deviceCount": 1}
         for i in range(MAX_BATCH_READINGS + 1)
     ]
 
