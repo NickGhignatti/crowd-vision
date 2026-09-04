@@ -206,9 +206,13 @@ count is a claim about people that nobody made.
 
 Both follow the shape of the existing `peopleCount` plugin
 (`backend/telemetry/src/plugins/people_count.rs`): per building and room, non-negative
-integer, a threshold key, alerting, dashboard catalog, twin overlay, agent tool. A zone is a
-room. Thresholds belong on `ratioDeviceCount` — "too many people" is the facility question;
-"too many devices" is an ops question with a different answer.
+integer, dashboard catalog, twin overlay, agent tool.
+
+**Neither carries a threshold.** A device count is an access-point capacity question, not a
+facility one — it breaches on a room full of laptops. And the estimate beside it is that same
+count divided by a site-configured factor, so a bound on it fires on the factor as much as on
+the building. Occupancy alerting stays with `peopleCount`, which measures people instead of
+inferring them.
 
 ### Optional — per-AP client counts
 
