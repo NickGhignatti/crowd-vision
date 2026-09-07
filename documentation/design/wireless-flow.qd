@@ -1,0 +1,424 @@
+.docname {Wireless People Flow}
+.include {docs}
+
+Tracking how people move **through** a building in real time, using the wireless signals their
+phones already emit. Occupancy per zone, and flow between zones — rendered live on the twin.
+
+**Status:** design, not implemented. Tracks [issue #314](https://github.com/NickGhignatti/crowd-vision/issues/314).
+
+**Applies to:** a new `edge/ap-collector`, plus one telemetry plugin. No new service.
+
+.box {Two phases, in order} type:{note}
+    **Phase 1 — routers-only.** Poll the access points the building already has. Zero new
+    hardware. Covers every device associated to the building Wi-Fi.
+
+    **Phase 2 — dedicated sniffers.** Raspberry Pi rigs in monitor mode, to reach devices
+    that never join the Wi-Fi. Only after phase 1 is proven in a real building.
+
+---
+
+## What This Does Not Build
+
+Per-device trajectories. Not as a simplification — as the constraint the whole design is
+shaped around.
+
+The Dutch DPA is explicit: *"Storing multiple location points per device means that the data
+is not anonymous."* A sequence of positions keyed to one device is personal data under GDPR
+however it is hashed, and it stays personal data after the hash. There is no salt rotation
+that makes a trajectory anonymous.
+
+Two aggregates render the same visualisation and carry none of that weight:
+
+| Aggregate | Question it answers | Metric |
+|---|---|---|
+| **Zone occupancy** | how many people are in this zone now | `peopleCount` — already shipped |
+| **Zone transitions** | how many moved lobby → floor-2 in this window | `zoneTransition` — new |
+
+Occupancy plus transitions is enough to animate flow across the twin. A per-person path adds
+nothing the user can see, and costs the entire legal position.
+
+**Invariant: no device identifier ever crosses into CrowdVision.** The collector resolves
+identifiers to zones in memory and emits counts. The platform stores aggregates only. This is
+what keeps the platform itself free of personal data — nothing to breach, no retention
+schedule, no subject-access path.
+
+---
+
+## Why Routers-Only Works
+
+The obvious objection: MAC addresses are randomized, so won't one phone look like a different
+person to every access point it passes?
+
+No — **randomization is per-SSID, not per-AP.** Every AP in the building broadcasts the same
+SSID, so a device roaming across them keeps one address.
+
+| Platform | Behaviour on the building SSID |
+|---|---|
+| **Android 10–15** | Persistent randomized MAC derived from the network profile (SSID + security type). Stable across APs, stable across forget-and-rejoin, until factory reset. |
+| **Apple** (iOS 18 / macOS Sequoia) | On WPA2-AES or WPA3, the private address is **fixed** per SSID. Only open and pre-WPA2 networks rotate — every 2 weeks. |
+
+Wi-Fi roaming *requires* this. The DHCP lease, L2 forwarding tables and 802.11r fast
+transition are all keyed on the station MAC. If it changed on roam, open TCP connections
+would drop and roaming would not function.
+
+.box {The objection is correct for the other regime} type:{warning}
+    Probe-request MACs **are** random per scan burst and uncorrelated between listeners. A
+    device is counted once per sniffer that hears it. That is the phase 2 problem, and it is
+    why phase 2 does not count identifiers at all.
+
+### Two regimes
+
+| Regime | What the AP sees | Routers-only? |
+|---|---|---|
+| **Associated** — device joined the Wi-Fi | Every frame, continuously, stable per-SSID MAC, RSSI per AP | **Yes.** This is phase 1. |
+| **Unassociated** — visitor never joins | Sporadic probe requests only, and only if a radio is in monitor mode while serving | **No.** This is phase 2. |
+
+Phase 1 covers everyone on the Wi-Fi and misses the walk-through visitor. For facility
+management the associated population is generally the population that matters.
+
+It is also the only regime with a workable legal basis: a captive portal, Wi-Fi terms of
+service or an employment agreement supports consent or legitimate interest. Ambient sniffing
+of passers-by supports neither — that is what the AP fined a Dutch municipality for in 2021.
+
+---
+
+## Zones, Not Coordinates
+
+Two tempting techniques, both rejected.
+
+**RSSI trilateration** resolves to roughly 2–5 m in practice. It needs surveyed AP
+coordinates, a per-site path-loss calibration and Kalman filtering, and it needs **three APs
+hearing the device at once**. Real buildings deploy APs for coverage, not overlap — one
+strong and one weak reading is the common case, which fails the technique outright. And 3 m
+of error crosses walls: the computed `(x, y)` cannot be trusted to the room it claims.
+
+**Fine Timing Measurement** (802.11mc, 1–2 m; 802.11az, sub-metre; 802.11bk, sub-decimetre)
+is genuinely accurate and genuinely unusable here. FTM is **client-initiated**: the phone
+ranges against the APs and holds the result. The infrastructure never learns the position
+unless an app on the phone reports it back. Android exposes `WifiRttManager`; iOS has no
+public API. Recorded here so it is not proposed again.
+
+**What is used instead:** strongest-RSSI zone assignment. Each AP maps to one zone, the
+device belongs to the zone of the AP that hears it loudest. No coordinates, no survey, no
+calibration — and zone granularity is exactly what the twin renders.
+
+---
+
+## Phase 1 — Routers-Only
+
+.mermaid
+    graph LR
+        subgraph Building
+            AP1[AP - lobby]
+            AP2[AP - floor 2]
+            AP3[AP - canteen]
+        end
+        C[ap-collector]
+        AP1 -->|RSSI per station| C
+        AP2 --> C
+        AP3 --> C
+        C -->|aggregate counts, HMAC-signed| T[POST /telemetry/ingest]
+        T --> RD{{Redis}}
+        T --> PG[(Timescale)]
+
+### The collector
+
+A small daemon on the building network. Polls each AP every few seconds, holds one in-memory
+table, emits one signed batch per tick.
+
+On OpenWrt the readings come from hostapd over `ubus` — `hostapd.<iface> get_clients` returns
+every associated station with its `signal` in dBm. `iw dev <iface> station dump` is the
+equivalent without ubus.
+
+Per tick:
+
+1. **Collect** `(mac, rssi)` from every AP.
+2. **Union by MAC**, never sum. A device in range of three APs appears in three client lists.
+3. **Assign** each MAC to the zone of its strongest AP.
+4. **Compare** against the previous tick's assignment to derive transitions.
+5. **Emit** per-zone counts and per-edge transition counts. Discard the MAC table's identity
+   column; keep only the previous-zone mapping, in memory, under a daily-rotating salt.
+
+.box {Union by MAC, never sum per-AP client counts} type:{warning}
+    Summing the client lists of overlapping APs is a straight multiplication of the count,
+    and it produces exactly the symptom people expect from MAC randomization. It is the most
+    likely bug in this component. One device, one MAC, one zone.
+
+### Hysteresis
+
+A device sitting on a zone boundary flips between two APs, generating phantom
+lobby → hall → lobby traffic at the poll rate. Transitions are the headline metric, so this
+matters more than the occupancy path.
+
+Require **N consecutive polls** in the new zone, or an RSSI margin over the incumbent, before
+emitting a transition. Both thresholds are configuration, not constants.
+
+---
+
+## The Platform Side
+
+Almost nothing to build. `peopleCount` already exists as a metric
+(`backend/telemetry/src/plugins/people_count.rs`): per building and room, non-negative
+integer, `maxPeople` threshold, alerting, dashboard catalog, twin overlay, agent tool. A zone
+is a room. Occupancy needs no new code.
+
+Transitions are one new plugin, following the same shape:
+
+```rust
+static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    value_field: "zoneTransition",
+    key: "zoneTransition",
+    label: "Zone Transition",
+    interface_name: "IZoneTransition",
+    unit: Some("people"),
+    fields: &[
+        FieldSpec { name: "buildingId",     kind: NonEmptyString,  required: true },
+        FieldSpec { name: "roomId",         kind: NonEmptyString,  required: true },
+        FieldSpec { name: "fromRoomId",     kind: NonEmptyString,  required: true },
+        FieldSpec { name: "timestamp",      kind: Finite,          required: true },
+        FieldSpec { name: "zoneTransition", kind: NonNegativeInt,  required: true },
+    ],
+};
+
+static BOUNDS: &[BoundSpec] = &[BoundSpec { key: "maxTransitions", direction: Above }];
+```
+
+`roomId` is the **destination**; `fromRoomId` is the extra field, so it lands in the stored
+`payload` while the columns stay as they are — consistent with
+[Telemetry Storage](telemetry-storage.qd). One registration line in
+`backend/telemetry/src/main.rs` and the metric is live everywhere.
+
+`maxTransitions` is not decoration: a sudden flow spike across an edge is the signal for an
+evacuation or an incident, and the alert path is already built.
+
+### Registration
+
+- `edge/ap-collector` in `.moon/workspace.yml`.
+- An entry in `.github/services.json` — like the simulators, which carry `"ci": false`
+  because they are not part of the deployed stack.
+
+---
+
+## Implementation Order
+
+The risky unknowns here are **physical, not code**. Whether RSSI separates two rooms is a fact
+about where the APs were mounted, and no amount of software answers it. So steps 0–3 produce
+no product code at all, and each can kill or reshape the design for the cost of an afternoon.
+Nothing uncertain is allowed to survive past step 3, because step 4 is where code starts being
+expensive to throw away.
+
+.var {steps}
+   - Step
+   - Output
+   - Why here
+
+.tablebyrows {.steps}
+    - - **0 — Read RSSI off one AP**
+      - a shell one-liner returning `(mac, rssi)`
+      - Hard gate on the whole track. Vendor firmware with no ubus, no SSH and no metrics endpoint means routers-only is dead and the vendor API or phase 2 takes over. A day-one discovery, not a month-two one.
+    - - **1 — Verify MAC stability**
+      - a walk log across two APs, iOS and Android
+      - The load-bearing assumption, currently argued from the standard rather than measured in *this* building. A failure is almost always a split-SSID or open-guest misconfiguration — fixed in the Wi-Fi config, not in code. Cheapest possible test of the thing most expensive to get wrong.
+    - - **2 — Measure zone separability**
+      - `(timestamp, mac, ap, rssi)` log with hand-written ground truth
+      - Make-or-break, and unfixable in software: if two zones do not separate, an AP moves or the zones merge. It also *produces the zone map*. Writing the daemon first means writing it against a map nobody validated.
+    - - **3 — Tune hysteresis offline**
+      - consecutive-poll count and RSSI margin
+      - Replays step 2's log. Tuning against a live system is slow and unreproducible — the same hallway cannot be re-walked identically. Turns two config values from guesses into measurements.
+    - - **4 — The collector daemon**
+      - `edge/ap-collector`, printing to stdout
+      - Every parameter it needs was measured in 0–3; written earlier it is written with placeholders. Step 2's log becomes the test fixture — replay it and assert the counts, with no Wi-Fi to mock.
+    - - **5 — Sign and ingest**
+      - `POST /telemetry/ingest`
+      - Kept separate from step 4 so a failure is unambiguously a signing or transport bug, never an estimator bug. Golden vectors already exist in `schemas/fixtures/internal-signature.json`.
+    - - **6 — The `zoneTransition` plugin**
+      - one plugin file, one line in `main.rs`
+      - The only change to the shipped platform; everything before it is additive and outside the deployed stack. Last means the smallest blast radius, and the payload shape is known from step 4's real output rather than guessed.
+    - - **7 — Accuracy honesty pass**
+      - the devices-per-person factor, in config and in the docs
+      - Needs the whole pipe live. It is also the number that decides whether the dashboard can be trusted: shipping without it ships a figure nobody knows how to read.
+
+---
+
+## Phase 2 — Dedicated Sniffers
+
+Only once phase 1 runs in a real building. Adds coverage of devices that never associate.
+
+Raspberry Pi with a dual-band monitor-mode NIC (mt7612u, ath9k), roughly €60 per unit. An
+ESP32 is €5 but **2.4 GHz only**, and modern phones probe heavily on 5 GHz — systematic
+undercount. Acceptable for a bench prototype, not for a building.
+
+**Do not de-randomize.** The literature is good — `Bleach` reports ~99%, `vMac` and
+`Espresso` combine information elements, sequence numbers and RSSI, one IE-attribute method
+reports 99% precision across 70+ device types — and every one of them is re-identification
+engineering. It buys accuracy this feature does not need, at the one cost it cannot pay.
+
+**Count without identity instead.** `RateCount` (2025) estimates the device count from a
+provably unbiased closed form over the *rate* at which probe frames arrive, with an error
+model. Learning-free: no training set, no per-site model tuning, no MAC ever inspected. The
+Keio scheme is the same idea — a phone emits a roughly constant probe rate, so the rate scales
+with the population.
+
+This is simultaneously the lazier engineering and the defensible privacy story.
+
+Practical corrections the estimator needs: channel hopping means only a fraction of frames are
+heard, so a duty-cycle term; probe rate varies by phone model and screen state.
+
+---
+
+## Deployment Prerequisites
+
+Phase 1 is only correct if the Wi-Fi is configured for it. These are requirements, not
+recommendations.
+
+| Requirement | Why |
+|---|---|
+| **One SSID across all APs** | Per-SSID randomization means a second SSID is a second identity for the same phone. |
+| **One SSID across 2.4 and 5 GHz** | Split-band SSIDs are two networks; use band steering. Standard practice regardless. |
+| **WPA2-AES or WPA3** | On open networks Apple rotates the private address every 2 weeks. Encryption pins it. |
+| **Known AP → zone mapping** | The collector needs it. A flat config file; no coordinate survey. |
+
+---
+
+## Known Error Sources
+
+| Source | Effect | Handling |
+|---|---|---|
+| **Multiple devices per person** | Phone + laptop + watch = 3 counts, 1 human. Largest error term by far. | A stated conversion factor per building. Cannot be inferred. |
+| **People with no device** | Undercount. | Inherent. Document the caveat. |
+| **Visitors not on the Wi-Fi** | Undercount. | Phase 2. |
+| **Boundary flapping** | Phantom transitions. | Hysteresis. |
+| **Android re-randomize on reconnect** | Split identity. | Non-default per-network option. Rare; ignored. |
+
+The metric counts **devices**. It is published as `peopleCount`. That gap is the conversion
+factor above, and it belongs in the user-facing docs, not just here.
+
+## Calibration
+
+Every number that depends on the physical world is configuration, per building:
+
+- devices-per-person conversion factor
+- poll interval
+- hysteresis: consecutive-poll count and RSSI margin
+- phase 2: probes-per-device rate, channel-hop duty cycle
+
+None of these are constants. A building full of engineers and a building full of visitors
+have different device ratios, and no model can see that from the code.
+
+---
+
+## Alternative — Consume the Vendor Controller
+
+If the building runs Cisco, Aruba or Mist, the controller already computes client positions.
+[Cisco Spaces Location Cloud API](https://developer.cisco.com/docs/cisco-spaces-location/)
+returns cartesian `(x, y)` per floor; Mist is equivalent.
+
+Zero hardware, zero algorithm — but vendor lock-in, and the vendor holds the MAC addresses.
+That moves the privacy problem rather than removing it, and the platform then depends on a
+commercial contract. Worth taking where the hardware already exists; not worth designing for.
+
+---
+
+
+## Prior Art & References
+
+Ordered by how directly it feeds the build. The first group is code to read before writing
+any; the research groups are there to justify — or overturn — a decision, not to be
+reimplemented.
+
+### Phase 1 — closest existing implementations
+
+Read these first. Every one solves a piece of the collector.
+
+- [vjt/openwrt-ha-presence](https://github.com/vjt/openwrt-ha-presence) — **the closest analogue.** Scrapes RSSI from every OpenWrt AP and assigns each device to a room by strongest signal. This is phase 1's algorithm, already written, at single-home scale.
+- [awilliams/wifi-presence](https://github.com/awilliams/wifi-presence) — Go daemon on the AP itself, subscribing to hostapd's control interface for client connect/disconnect events rather than polling. Worth reading for the event-driven alternative to a poll loop.
+- [WiFi Presence Detection for Home Assistant Using OpenWrt](https://sindro.me/posts/2026-02-15-wifi-presence-detection-home-assistant/) — end-to-end walkthrough. Enables the `wifi_stations` collector in `prometheus-node-exporter-lua`, then polls `/metrics` on each AP every 5 s for `wifi_station_signal_dbm`. The simplest transport for the collector: no ubus auth, no custom ACLs.
+- [\[HOWTO\] Reliable WiFi presence for Home Assistant using OpenWrt hostapd events](https://community.home-assistant.io/t/howto-reliable-wifi-presence-for-home-assistant-using-openwrt-hostapd-events/980611) — the practical failure modes of naive presence detection. Read it for what goes wrong, not for the architecture.
+- [FUjr/homeassistant-openwrt-ubus](https://github.com/FUjr/homeassistant-openwrt-ubus) — working `ubus` client pulling per-station RSSI, connection quality and which AP interface each device is on.
+
+### Phase 1 — the ubus / hostapd surface
+
+- [OpenWrt hostapd `ubus` interface (source)](https://github.com/openwrt/openwrt/blob/master/package/network/services/hostapd/src/src/ap/ubus.c) — authoritative definition of `get_clients` and the rest. The docs lag; the source does not.
+- [ubus (OpenWrt micro bus architecture) — techref](https://oldwiki.archive.openwrt.org/doc/techref/ubus) — the JSON-RPC-over-HTTP protocol: `session.login` for a token, then `call` with the object and method.
+- [OnionIoT — ubus tutorial (part 3 covers rpcd)](https://github.com/OnionIoT/wiki/tree/master/Tutorials/OpenWrt%20Tutorials/UBUS_Tutorial) — the clearest walkthrough of exposing and calling ubus methods remotely.
+- [Easy ubus daemons with rpcd (Freifunk)](https://blog.freifunk.net/2017/07/02/easy-ubus-daemons-rpcd/) and [ubus service development with rpcd (Zilogic)](https://zilogic.com/blog/ubus-service-development-with-rpcd.html) — needed if the collector ends up running *on* the AP.
+- [openwrt-ubus-rpc (PyPI)](https://pypi.org/project/openwrt-ubus-rpc/) — Python client that already wraps login and `get_hostapd_clients`.
+- [OpenWrt forum — UBUS over HTTP for WiFi presence detection](https://forum.archive.openwrt.org/viewtopic.php?id=65004) — the ACL file under `/usr/share/rpcd/acl.d/` needed to grant hostapd methods to a non-root RPC user. Easy to miss; nothing works without it.
+- [Home Assistant — OpenWrt (ubus) integration](https://www.home-assistant.io/integrations/ubus/) — documents the exact router-side setup (`rpcd`, `uhttpd-mod-ubus`, ACL) in user-facing terms.
+
+### Trilateration — reference implementations
+
+Rejected for this design, listed so the rejection is checkable rather than asserted.
+
+- [ifindev/indoor-positioning-algorithms](https://github.com/ifindev/indoor-positioning-algorithms) — trilateration and min-max in Python over RSSI from four routers.
+- [dvalenza/Trilateration-Example](https://github.com/dvalenza/Trilateration-Example) — minimal three-signal position solve.
+- [WiFi Trilateration With Three or More Points](https://www.appelsiini.net/2017/trilateration-with-n-points/) — the least-squares generalisation, and the path-loss model `d = 10 ^ ((Ptx - RSSI) / (10n))` whose exponent `n` is the per-site calibration that makes this expensive.
+- [Indoor Positioning and Tracking in a Multi-Level Residential Building Using WiFi (MDPI)](https://www.mdpi.com/2078-2489/16/8/633) — accuracy actually achieved in a real multi-floor building.
+
+### Phase 2 — sniffers and probe capture
+
+- [schollz/howmanypeoplearearound](https://github.com/schollz/howmanypeoplearearound) — counts probe requests over a window via `tshark` on a monitor-mode adapter. Small, readable, and the direct ancestor of the rate-based approach.
+- [GiovanniBaccichet/openwrt-multi-sniffer](https://github.com/GiovanniBaccichet/openwrt-multi-sniffer) — an OpenWrt AP sniffing probe requests across multiple channels in **both** 2.4 and 5 GHz. Bridges phase 1 and phase 2 hardware: it may remove the need for separate Pi units entirely.
+- [fdd4s/wifi-analytics](https://github.com/fdd4s/wifi-analytics) — captures MAC and RSSI from monitor mode; a worked presence-analytics pipeline.
+- [ETS-PoliTO/esp32-sniffer](https://github.com/ETS-PoliTO/esp32-sniffer) — reference ESP32 firmware for probe-request capture.
+- [SensorsIot/Wi-Fi-Sniffer-as-a-Human-detector](https://github.com/SensorsIot/Wi-Fi-Sniffer-as-a-Human-detector) — companion code to the video below.
+- [Building an ESP32 packet sniffer (HackMag)](https://hackmag.com/security/esp32-sniffer-2) — monitor-mode walkthrough, and the 2.4 GHz-only limitation stated plainly.
+- [Kismet, monitor mode, wardriving on OpenWrt (forum thread)](https://forum.openwrt.org/t/kismet-monitor-mode-wardriving/167431) — Kismet is fully passive and handles channel hopping, logging and device tracking already. Viable as the capture layer under a custom estimator.
+
+### Phase 3 — device-free CSI sensing
+
+Not planned. Tracked because it removes the identifier problem entirely.
+
+- [espressif/esp-csi](https://github.com/espressif/esp-csi) — official CSI support, including a `wifi_sensing_demo` for motion and human presence with on-site training.
+- [ESP32 CSI Toolkit](https://stevenmhernandez.github.io/ESP32-CSI-Tool/) ([repo](https://github.com/StevenMHernandez/ESP32-CSI-Tool)) — extracts CSI from an ESP32 in active or passive mode.
+- [Wi-ESP CSI Tool](https://wrlab.github.io/Wi-ESP/) — alternative toolkit.
+- [Awesome-WiFi-CSI-Sensing](https://github.com/NTUMARS/Awesome-WiFi-CSI-Sensing) — curated paper and tooling index. The single best entry point to this field.
+
+### Standards and platform behaviour
+
+- [Apple — Use private Wi-Fi addresses](https://support.apple.com/en-us/102509) — fixed vs. rotating, and which networks rotate. The source for the WPA2/WPA3 prerequisite.
+- [Android — MAC randomization behavior (AOSP)](https://source.android.com/docs/core/connect/wifi-mac-randomization-behavior) — per-profile persistence rules.
+- [Android — Implement MAC randomization (AOSP)](https://source.android.com/docs/core/connect/wifi-mac-randomization) — derivation of the address from the network profile.
+- [IEEE 802.11bf: Enabling the Widespread Adoption of Wi-Fi Sensing (NIST)](https://www.nist.gov/publications/ieee-80211bf-enabling-widespread-adoption-wi-fi-sensing) — device-free sensing; active standard since September 2025, chipsets still thin.
+- [Indoor Positioning with Wi-Fi Location: a survey of 802.11mc/az/bk FTM (arXiv 2509.03901)](https://arxiv.org/pdf/2509.03901) — accuracy per amendment, and why FTM is client-initiated.
+
+### Counting and localization research
+
+- [RateCount: Learning-Free Device Counting by Wi-Fi Probe Listening (arXiv 2507.03873)](https://arxiv.org/abs/2507.03873) — the phase 2 estimator. Unbiased closed form over probe arrival rate; no training, no MAC inspected.
+- [MAC address randomization tolerant crowd monitoring (arXiv 2112.02161)](https://arxiv.org/abs/2112.02161) — Vision and TrueSight; also uses data and beacon frames, not probes alone.
+- [Indoor crowd estimation using the number of Wi-Fi probe requests (Keio)](https://keio.elsevierpure.com/en/publications/indoor-crowd-estimation-scheme-using-the-number-of-wi-fi-probe-re/) — the constant-probe-rate assumption RateCount formalises.
+- [Signals from the Crowd: Uncovering Social Relationships (IMC 2013)](https://conferences.sigcomm.org/imc/2013/papers/imc148-barberaSP106.pdf) — the origin of large-scale probe analytics, and a blunt demonstration of what this data reveals when it is *not* aggregated. Read it as a privacy argument.
+- [MAC Address Anonymization for Crowd Counting (arXiv 2009.09876)](https://arxiv.org/pdf/2009.09876) — why salted hashing is not anonymisation, with collision-rate requirements.
+- [MAC address de-randomization for WiFi device counting (ScienceDirect)](https://www.sciencedirect.com/science/article/abs/pii/S1389128622004273) — the approach deliberately rejected.
+- [Efficient Association of Wi-Fi Probe Requests under MAC Randomization — vMac (INFOCOM'21)](https://www.cse.ust.hk/~gchan/papers/info21_vMac.pdf) — likewise: state of the art in the direction not taken.
+
+### Datasets and simulation
+
+For validating an estimator before any hardware exists.
+
+- [CRAWDAD `sapienza/probe-requests` (IEEE DataPort)](https://ieee-dataport.org/open-access/crawdad-sapienzaprobe-requests) — the classic set: four one-shot events of 40 min to 6 h, plus six weeks of fixed capture on a campus.
+- [Labelled device Wi-Fi probe requests (Mendeley, 2024)](https://data.mendeley.com/datasets/5tvnwhsj2p/2) — 22 devices in 6 modes each. The only public set where the emitting device is labelled, so it is the only one that can score an estimator's error.
+- [Dataset of Wi-Fi Probe Requests (arXiv 2308.04435)](https://arxiv.org/pdf/2308.04435)
+- [WiFiSim: simulating Wi-Fi probe requests via AOSP analysis (arXiv 2509.15501)](https://arxiv.org/pdf/2509.15501) — generate synthetic probe traffic with realistic device behaviour. Useful for testing before a Pi exists, in the same spirit as `simulators/`.
+
+### Videos
+
+Listed by their published title; orientation, not specification.
+
+- [#163 Wi-Fi Sniffer as Sensor for Humans](https://www.youtube.com/watch?v=fmhjtzmLrg8) — end-to-end build of a probe-request human detector, with the companion repo above.
+- [Probe Requests: What They Do And How To Save Them](https://www.youtube.com/watch?v=pycdTNSWbaw) — what a probe request contains and how capture works.
+
+### Privacy and law
+
+- [Autoriteit Persoonsgegevens — WiFi and bluetooth tracking](https://www.autoriteitpersoonsgegevens.nl/en/themes/internet-and-smart-devices/wifi-and-bluetooth) — MACs as indirectly identifying data; conditions for anonymisation; the multiple-location-points rule this design is built around.
+- [AP fines municipality for Wi-Fi tracking (2021)](https://www.autoriteitpersoonsgegevens.nl/en/current/ap-fines-municipality-for-wi-fi-tracking) — enforcement precedent.
+- [WiFi-Tracking and Retail Analytics under the GDPR (TechGDPR)](https://techgdpr.com/blog/wifi-tracking-retail-analytics-gdpr/) — legal-basis analysis for exactly this class of system.
+- [What does the GDPR say about WiFi tracking? (Privacy Company)](https://www.privacycompany.eu/blog/what-does-the-gdpr-say-about-wifi-tracking) — why consent is not a workable basis for ambient sensing.
+
+### Vendor controller APIs
+
+If the building already runs managed Wi-Fi, the position is computed for you.
+
+- [Cisco Spaces Location Cloud API](https://developer.cisco.com/docs/cisco-spaces-location/) — active client locations, history, map and AP endpoints; cartesian `(x, y)` per floor.
+- [Cisco Spaces — access point auto-location](https://www.cisco.com/c/en/us/td/docs/wireless/spaces/config-guide/ciscospaces-configuration-guide/m-device-placement.html) — how AP placement is derived, which is the survey step avoided by using zones.
+- [Juniper Mist — adding an AP for location](https://www.mist.com/documentation/adding-ap-location/) — note the requirement of line of sight to at least two APs.
