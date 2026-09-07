@@ -43,8 +43,7 @@ def test_response_has_a_metrics_array(metrics_catalog: dict):
 
 
 def test_contains_every_registered_sensor_metric(metrics_catalog: dict):
-    """Every plugin telemetry registers has to reach this catalog: it is the only
-    place the frontend asks what columns exist, so a metric missing here is
+    """The only place the frontend asks what columns exist: a metric missing here is
     ingested, stored, retained -- and unreachable.
     """
     keys = {metric["metricKey"] for metric in metrics_catalog["metrics"]}

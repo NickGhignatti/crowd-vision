@@ -1,12 +1,5 @@
-// Repo-scoped settings only. Everything a language server needs for a given package
-// lives in that package's own .zed/settings.json, because Zed reads .zed/settings.json
-// from the worktree root only: opening `backend/telemetry` on its own never sees this
-// file. Those per-package files are duplicated on purpose — a folder has to stand alone.
-//
-// What stays here is what has no single owning package:
-//   - linkedProjects, which is by definition the list of every crate in the repo
-//   - format_on_save, so files outside any package (scripts/, k8s/, .github/) behave
-//   - justfile, since Justfile and just/*.just live at the root
+// Only what no package owns. Per-package .zed/settings.json carry the LSP settings and
+// are duplicated on purpose — Zed reads this file only when the repo is the worktree.
 {
   "auto_install_extensions": {
     "justfile": true,
@@ -24,15 +17,8 @@
   },
 
   "lsp": {
-    // Every Rust crate here is independent — no workspace Cargo.toml ties them
-    // together — so rust-analyzer has to be told about each one explicitly or it
-    // only picks up whichever the active buffer happens to be under, and reds the
-    // rest. This list must hold every Cargo.toml outside target/:
-    //   find . -name Cargo.toml -not -path '*/target/*'
-    //
-    // Only meaningful when the whole repo is the worktree. Open one crate on its own
-    // and rust-analyzer finds its Cargo.toml unaided — which is why the crate's own
-    // .zed/settings.json carries the rust-analyzer options but not this list.
+    // No workspace Cargo.toml ties these crates together, so rust-analyzer loads only the
+    // active buffer's unless listed. Must hold every `find . -name Cargo.toml` outside target/.
     "rust-analyzer": {
       "initialization_options": {
         "linkedProjects": [

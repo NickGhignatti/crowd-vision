@@ -1,8 +1,7 @@
 import socketio
 
-# `socketio/__init__.py` never imports this submodule, so `socketio.exceptions` resolves
-# at runtime only because another submodule binds it as an import side effect. Naming it
-# directly is what the package actually guarantees.
+# `socketio/__init__.py` never imports this submodule -- `socketio.exceptions` resolves
+# only because another submodule binds it as a side effect.
 from socketio.exceptions import TimeoutError as SocketIOTimeoutError
 
 
@@ -29,9 +28,8 @@ class DashboardSocket:
         ack = self._client.call(
             "subscribe_building", self._building_id, timeout=10
         )
-        # `call` returns whatever the server acked, or None on timeout. Checking the
-        # shape rather than reaching straight for .get turns a refused or timed-out
-        # subscribe into this assertion instead of an AttributeError on None.
+        # `call` returns the ack or None on timeout; the isinstance keeps a timed-out
+        # subscribe as this assertion rather than an AttributeError on None.
         assert isinstance(ack, dict) and ack.get("subscribed") is True, (
             f"subscribe_building refused for {self._building_id}: {ack}"
         )

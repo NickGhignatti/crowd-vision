@@ -15,10 +15,8 @@ dependencies = [
 testpaths = ["metrics_catalog", "dashboard_freshness", "edge", "wireless"]
 pythonpath = ["."]
 
-# No `include`: pyright then roots at this directory, which is what makes `from support
-# import telemetry` resolve, and means a new test package needs no entry here — unlike
-# `testpaths` above. venvPath/venv are what let an editor other than Zed find the
-# interpreter on its own (.zed/settings.json says the same thing to Zed).
+# No `include`: pyright roots here, so `from support import ...` resolves and a new test
+# package needs no entry (unlike testpaths above). venvPath/venv serve non-Zed editors.
 [tool.pyright]
 exclude = ["**/__pycache__", ".venv"]
 venvPath = "."

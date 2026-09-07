@@ -77,8 +77,7 @@ jobs:
             simulators:
               - 'simulators/**'
               - '.github/workflows/ci-simulators.yml'
-              # The ruff pin the two Python legs install. Without this a Renovate
-              # bump of it merges without ever running the lint it changes.
+              # The ruff pin these legs install: without it a Renovate bump merges untested.
               - '.github/requirements-ruff.txt'
             acceptance:
               - 'backend/acceptance/**'
@@ -89,9 +88,8 @@ jobs:
               - 'backend/telemetry/**'
               - 'backend/socket/**'
               - 'backend/dashboard/**'
-              # The collector agrees with telemetry only on JSON — nothing
-              # compiles the two together, so wireless/ is the only leg that
-              # catches a drifted metric key before it reaches a roof.
+              # Collector and telemetry agree only on JSON; this leg is the only
+              # thing that catches a drifted metric key.
               - 'devices/ap-collector/**'
               - '.github/workflows/ci-acceptance.yml'
             docs:

@@ -31,8 +31,8 @@ change. Duplicates across services are collapsed by `push_unique_metric`.
 once at startup by `load_all`; a write updates the DashMap and returns 200, then upserts to
 Mongo in a spawned task whose failure is only logged (`api/data.rs`). So the response does
 not mean it was persisted, and a restart replays whatever Mongo actually holds. Deliberate,
-and the reason CI needs no Mongo for this service (`needs_mongo: false`) — but it is where a
-lost preference would come from.
+and the reason the unit tests need no Mongo — but it is where a lost preference would come
+from.
 
 **Initialising a building is idempotent**: a second init keeps the existing columns; a new
 building gets exactly `room name` and `max occupancy`.
@@ -44,10 +44,15 @@ rather than failing the request. A hung service cannot stall the dashboard.
 ## Tests
 
 ```bash
-mise exec -- moon run dashboard:test   # unit only, in-module #[cfg(test)]
-                                       # no `just test dashboard` recipe exists
+just test dashboard               # unit only, in-module #[cfg(test)], no infra
+just test dashboard-integration   # tests/*.rs against throwaway Mongo + Redis
 ```
 
-No `tests/` directory and no integration leg. Unit tests build an `AppState` against a
-`Collection` handle without ever connecting (the mongodb driver connects lazily, and the
-write path is fire-and-forget), which is why the CI leg runs with no Mongo.
+`test` is pinned to `cargo test --lib` in `moon.yml` like every sibling — the inherited
+`cargo test` would also run `tests/`, which needs infra, and `just test all` must go green
+with nothing running. Unit tests build an `AppState` against a `Collection` handle without
+connecting (the driver connects lazily, the write path is fire-and-forget).
+
+`tests/db.rs` covers the Mongo adapter, `tests/tunnel.rs` the fan-out against a real Redis.
+CI runs them via `scripts/test/rust-integration-tests.sh`, with Mongo and Redis started from
+`needs_mongo`/`needs_redis` in `.github/services.json`.

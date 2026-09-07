@@ -24,14 +24,9 @@ FILTER_ACTION = Path(".github/actions/filter-services/action.yml")
 
 
 def duplicate_filter_keys() -> list[str]:
-    """The filter file `filter-services` builds exists only at runtime, so nothing in the
-    repo can be parsed to check it. It concatenates one block per services.json entry with
-    the gate's `extra_filters`, and dorny/paths-filter parses the result with js-yaml,
-    which rejects a duplicated mapping key outright. That kills the `changes` job in
-    seconds, every downstream job skips, and `ci-passed` fails having tested nothing.
-
-    PyYAML would not find this: it accepts duplicate keys and silently keeps the last one.
-    So the keys are counted textually, exactly as they are emitted.
+    """Duplicate keys in the filter file the action composes at runtime, which js-yaml
+    rejects outright -- killing `changes` and skipping every job. Counted textually
+    because PyYAML accepts duplicates and silently keeps the last.
     """
     lines: list[str] = []
     for service in json.loads(REGISTRY.read_text()):

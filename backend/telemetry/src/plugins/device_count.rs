@@ -35,10 +35,8 @@ static TOTAL_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
     ],
 };
 
-/// Neither metric alerts. A device count is an access-point capacity question, not a facility
-/// one -- it fires on a room full of laptops. The estimate beside it is a count divided by a
-/// site-configured factor, so a threshold on it would alert on the factor as much as on the
-/// building. Occupancy alerting stays with `peopleCount`, which is a measurement of people.
+/// Neither metric alerts: a device count fires on a room full of laptops, and the estimate
+/// beside it would alert on its configured factor. Occupancy alerting stays with `peopleCount`.
 static NO_BOUNDS: &[BoundSpec] = &[];
 
 static RATIO_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
@@ -171,8 +169,8 @@ mod tests {
 
     #[test]
     fn each_plugin_names_its_value_field_after_its_key() {
-        // The collector builds every reading as {"type": key, key: value} and the registry
-        // dispatches on `type`. Drift between the two rejects every batch it sends.
+        // Collector emits {"type": key, key: value}; the registry dispatches on `type`.
+        // Drift between the two rejects every batch it sends.
         for descriptor in [&TOTAL_DESCRIPTOR, &RATIO_DESCRIPTOR] {
             assert_eq!(descriptor.key, descriptor.value_field);
         }
@@ -245,8 +243,8 @@ mod tests {
 
     #[test]
     fn a_total_reading_without_a_room_is_rejected_rather_than_stored_unattributed() {
-        // `common::reading` reads roomId unconditionally, so an undeclared roomId becomes ""
-        // and lands in a not-null column -- a zone reading attributed to nowhere.
+        // `common::reading` reads roomId unconditionally: undeclared, it becomes "" in a
+        // not-null column -- a zone reading attributed to nowhere.
         let mut payload = total_payload();
         payload.as_object_mut().unwrap().remove("roomId");
         assert_eq!(
@@ -305,8 +303,7 @@ mod tests {
 
     #[test]
     fn neither_metric_carries_a_threshold() {
-        // Both are device counts, one of them divided by a site-configured factor. Occupancy
-        // alerting belongs to `peopleCount`, which measures people rather than inferring them.
+        // Occupancy alerting belongs to `peopleCount`, which measures people, not devices.
         assert!(TotalDeviceCountPlugin.bounds().is_empty());
         assert!(RatioDeviceCountPlugin.bounds().is_empty());
     }

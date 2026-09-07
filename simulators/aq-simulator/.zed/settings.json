@@ -1,9 +1,6 @@
-// Zed reads .zed/settings.json from the worktree root only, so opening this folder
-// on its own never sees the repo-root config. Everything this package's language
-// servers need is therefore spelled out here rather than inherited; the root file
-// keeps only what is genuinely repo-scoped (rust-analyzer linkedProjects).
-// aq-simulator is a standalone Python project (see Dockerfile) with its own .venv/
-// here -- unrelated to agent's or ap-simulator's. Pyright config: pyrightconfig.json.
+// Zed reads .zed/settings.json from the worktree root only: without this file,
+// opening this folder alone loses everything below. Root keeps only linkedProjects.
+// Own venv here, unrelated to agent's; pyright config in pyrightconfig.json.
 {
   "format_on_save": "on",
 

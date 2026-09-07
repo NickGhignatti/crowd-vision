@@ -1,9 +1,6 @@
-// Zed reads .zed/settings.json from the worktree root only, so opening this folder
-// on its own never sees the repo-root config. Everything this package's language
-// servers need is therefore spelled out here rather than inherited; the root file
-// keeps only what is genuinely repo-scoped (rust-analyzer linkedProjects).
-// agent is its own uv-managed Python project with its own .venv/ here, separate
-// from every simulator's. Pyright config lives in pyproject.toml ([tool.pyright]).
+// Zed reads .zed/settings.json from the worktree root only: without this file,
+// opening this folder alone loses everything below. Root keeps only linkedProjects.
+// Own uv venv here; pyright config in pyproject.toml ([tool.pyright]).
 {
   "format_on_save": "on",
 

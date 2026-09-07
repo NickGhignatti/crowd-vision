@@ -1,10 +1,6 @@
-// Zed reads .zed/settings.json from the worktree root only, so opening this folder
-// on its own never sees the repo-root config. Everything this package's language
-// servers need is therefore spelled out here rather than inherited; the root file
-// keeps only what is genuinely repo-scoped (rust-analyzer linkedProjects).
-// acceptance is its own uv project with its own .venv/ here -- httpx, pytest and
-// python-socketio live in it and nowhere else in the repo. Pyright config itself
-// lives in pyproject.toml ([tool.pyright]), so editors other than Zed work too.
+// Zed reads .zed/settings.json from the worktree root only: without this file,
+// opening this folder alone loses everything below. Root keeps only linkedProjects.
+// Own uv venv here (httpx, pytest, socketio); pyright config in pyproject.toml.
 {
   "format_on_save": "on",
 

@@ -99,7 +99,7 @@ indent-style = "space"
 [tool.pyright]
 include = ["app", "tests"]
 exclude = ["**/__pycache__", "alembic/versions", ".venv"]
-# Names the interpreter for editors other than Zed — .zed/settings.json only tells Zed.
+# For editors other than Zed; .zed/settings.json says the same thing to Zed.
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.12"

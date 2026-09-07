@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Runs tests/*.rs against a real MongoDB and Redis, all inside the same compose
-# network (container-to-container) so the test process never depends on a
-# host-published port. `src/` unit tests (cargo test --lib) need none of this.
+# Runs tests/*.rs against a real MongoDB and Redis, inside the compose network so no
+# host-published port is needed. Unit tests (cargo test --lib) need none of this.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"

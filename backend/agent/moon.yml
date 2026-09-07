@@ -1,16 +1,7 @@
 language: 'python'
 
-# test / lint / lint-fix are inherited from .moon/tasks/python.yml; only `test`'s env is
-# added below.
-#
-# tests/integration/ uses testcontainers, whose Ryuk reaper container will not start under
-# rootless podman -- every run there dies with "container did not become running" after a
-# 30s timeout, while the same tests pass on Docker and in CI. Disabling the reaper is the
-# standard podman workaround: testcontainers still removes its own containers on a clean
-# exit, so the only thing lost is cleanup after a hard crash.
-#
-# Local only. CI never runs moon -- tpl-python-ci.yml calls `uv run pytest` directly, and
-# keeps Ryuk.
+# Tasks inherited from .moon/tasks/python.yml; only this env is added. Testcontainers' Ryuk
+# reaper cannot start under rootless podman. Local only — CI runs uv directly and keeps Ryuk.
 tasks:
   test:
     env:

@@ -40,17 +40,10 @@ def poll_one(ap_name: str, session: StationsSource) -> tuple[str, list[tuple[str
 def poll_aps(
     sessions: Mapping[str, StationsSource],
 ) -> list[tuple[str, list[tuple[str, int]] | None]]:
-    """Poll every AP, each with its own session, returning their stations or None if they failed.
+    """Poll every AP concurrently, returning its stations or None if it failed.
 
-    All at once, and that is a budget decision rather than a speed one: polled in sequence, a
-    tick costs the *sum* of its APs' timeouts, so enough unreachable APs push one tick past
-    `pollIntervalS` and the run loop -- which never sleeps a negative amount -- quietly settles
-    at a slower real poll rate than the hysteresis numbers were tuned against. Concurrently, a
-    tick costs about one timeout however many APs are dark, which is what `Config._validate`'s
-    `requestTimeoutS <= pollIntervalS` check assumes.
-
-    Every AP has its own session and the sessions share nothing, so there is nothing to lock.
-    `map` preserves `sessions` order.
+    Concurrent for budget, not speed: in sequence a tick costs the *sum* of its APs'
+    timeouts, so dark APs silently stretch it past `pollIntervalS`.
     """
     if not sessions:
         return []
@@ -181,19 +174,11 @@ def readings_for_building(
     now_ms: int,
     devices_per_person: float | None = None,
 ) -> list[dict[str, str | int]]:
-    """Confirmed per-device zone assignment -> the tick's occupancy readings per declared zone.
+    """Confirmed zone assignment -> the tick's readings, one pair per declared zone.
 
-    Two metrics, not one. `totalDeviceCount` is the measurement; `ratioDeviceCount` is that
-    count divided by the site's devices-per-person factor, which is an estimate.
-
-    `devices_per_person` is opt-in (None means off, matching Config.devices_per_person). With
-    no factor configured there is no estimate to publish, and an estimate silently equal to
-    the device count would be a claim about people that nobody made.
-
-    The division rounds *up*: one device under a factor of 2.5 is 0.4 of a person, and
-    rounding that to zero reports an occupied room as empty -- indistinguishable downstream
-    from the real emptiness the paragraph above is careful to preserve. Ceiling keeps 0 at 0
-    and never erases somebody who is standing there.
+    `totalDeviceCount` is measured; `ratioDeviceCount` divides it by the site's
+    devices-per-person factor, and is skipped entirely when none is configured.
+    Rounds up: flooring 0.4 of a person would report an occupied room as empty.
     """
     counts = dict.fromkeys(set(_ap_zones(building).values()), 0)
     for zone in assignment.values():
@@ -211,8 +196,8 @@ def readings_for_building(
 
 
 def _reading(metric: str, zone: str, now_ms: int, value: int) -> dict[str, str | int]:
-    """One telemetry reading. The value field is named after the metric, matching every
-    plugin in `backend/telemetry/src/plugins` -- `MetricDescriptor.value_field` == `key`."""
+    """One telemetry reading, its value field named after the metric --
+    every plugin sets `MetricDescriptor.value_field` == `key`."""
     return {"type": metric, "roomId": zone, "timestamp": now_ms, metric: value}
 
 

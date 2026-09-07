@@ -1,10 +1,4 @@
-# Ruff for the two Python simulator lint legs, which have no lockfile of their own.
-# A requirements file rather than an inline `pip install ruff==...`: Renovate's
-# pip_requirements manager reads this path but cannot see a version inside a `run:`
-# block — the same reason requirements-lint.txt exists.
-#
-# Kept equal to the version devices/ap-collector/uv.lock resolves, so a rule that passes
-# locally passes in CI. Unpinned, a ruff release turns these legs red with no code change.
-#
-# Separate from requirements-lint.txt so the simulator legs do not install zizmor too.
+# Ruff for the Python simulator lint legs, which have no lockfile. A file, not an inline
+# pin: Renovate reads this path but cannot see a version in a `run:` block. Matches
+# ap-collector/uv.lock so local and CI agree.
 ruff==0.16.5

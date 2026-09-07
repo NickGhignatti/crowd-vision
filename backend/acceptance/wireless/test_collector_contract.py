@@ -1,3 +1,7 @@
+"""The ap-collector's wire contract against a real telemetry: Python producer, Rust
+consumer, nothing compiling them together. Both unit suites once passed while disagreeing.
+"""
+
 import math
 import time
 
@@ -10,12 +14,9 @@ DEVICES_PER_PERSON = 2.5
 
 
 def collector_tick(now_ms: int, counts: dict[str, int]) -> list[dict]:
-    """One tick's readings, shaped exactly like `collector.readings_for_building`.
+    """One tick's readings, shaped like `collector.readings_for_building`.
 
-    Written out rather than imported: the acceptance container mounts only
-    `backend/acceptance`, and importing the collector would make this assert that
-    the producer agrees with itself. Spelled out, it asserts the *wire shape*
-    telemetry accepts, which is the thing that actually drifted.
+    Written out, not imported: importing it would assert the producer agrees with itself.
     """
     readings = [
         {
@@ -45,9 +46,7 @@ def building_id() -> str:
 
 
 def test_a_whole_collector_tick_is_accepted(building_id: str):
-    """Every zone, both metrics, one batch. Ingest is all-or-nothing, so a single
-    unknown key or missing field would 400 the entire tick rather than part of it.
-    """
+    """Ingest is all-or-nothing: one unknown key would reject the whole tick."""
     counts = {"ground-floor": 9, "first-floor": 4, "atrium": 0}
     body = {
         "buildingId": building_id,
@@ -61,10 +60,7 @@ def test_a_whole_collector_tick_is_accepted(building_id: str):
 
 
 def test_both_metrics_are_stored_per_zone(building_id: str):
-    """The zone name travels as `roomId` and comes back keyed by it -- proof the
-    reading reached Postgres under the metric the plugin registered, not merely
-    that ingest liked the payload.
-    """
+    """Reads back per zone: proof it reached Postgres, not just that ingest accepted it."""
     counts = {"ground-floor": 3, "first-floor": 6, "atrium": 9}
     now_ms = int(time.time() * 1000)
 
@@ -86,9 +82,7 @@ def test_both_metrics_are_stored_per_zone(building_id: str):
 
 
 def test_an_empty_zone_is_stored_rather_than_dropped(building_id: str):
-    """Zero is a measurement: the zone answered and heard nobody. Dropping it
-    would leave the dashboard showing the last non-zero count indefinitely.
-    """
+    """Zero is a measurement -- dropping it strands the last non-zero count on screen."""
     zone = "empty-wing"
     body = {
         "buildingId": building_id,
@@ -110,9 +104,8 @@ def test_an_empty_zone_is_stored_rather_than_dropped(building_id: str):
 
 
 def test_a_drifted_metric_key_is_rejected(building_id: str):
-    """The guard on every test above. Without it they would still pass against a
-    telemetry that accepted anything -- and `deviceCount` is the exact key that
-    drifted, so this is the regression, not a hypothetical.
+    """Guards the tests above: without it they would pass against a telemetry that
+    accepted anything. `deviceCount` is the key that actually drifted.
     """
     body = {
         "buildingId": building_id,
@@ -134,8 +127,8 @@ def test_a_drifted_metric_key_is_rejected(building_id: str):
 
 
 def test_a_reading_without_a_zone_is_rejected(building_id: str):
-    """`roomId` is read unconditionally downstream, so an absent one would land as
-    "" in a not-null column: a device count attributed to nowhere.
+    """roomId is read unconditionally downstream: absent, it lands as "" in a not-null
+    column -- a device count attributed to nowhere.
     """
     body = {
         "buildingId": building_id,

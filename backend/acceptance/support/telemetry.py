@@ -90,9 +90,8 @@ def post_reading(
 
 
 def latest(client: httpx.Client, metric: str, building_id: str, room_id: str) -> dict:
-    """The stored payload for one metric in one room. `/{sensorType}/latest` is
-    generic over the plugin registry, so `metric` is whatever key a plugin
-    registered — the route itself knows nothing about temperature.
+    """Stored payload for one metric in one room. The route is generic over the plugin
+    registry, so `metric` is whatever key a plugin registered.
     """
     response = client.get(
         f"{config.TELEMETRY_URL}/{metric}/latest",
