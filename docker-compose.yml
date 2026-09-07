@@ -65,7 +65,7 @@ services:
 
   keycloak:
     cpus: "3"
-    image: quay.io/keycloak/keycloak:26.0
+    image: quay.io/keycloak/keycloak:26.7
     container_name: crowd-vision-keycloak
     command: ["start-dev", "--features=organization", "--import-realm"]
     environment:
