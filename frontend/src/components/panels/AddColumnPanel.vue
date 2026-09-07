@@ -56,12 +56,12 @@ const { t } = useI18n()
     <div v-else class="flex flex-wrap gap-2">
       <button
         v-for="metric in metrics"
-        :key="metric.metricKey"
+        :key="metric.kind"
         @click="emit('select', metric)"
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 hover:border-emerald-400 transition-all"
       >
         <i class="ph-bold ph-plus text-[10px]"></i>
-        {{ METRIC_I18N_KEY[metric.metricKey] ? t(METRIC_I18N_KEY[metric.metricKey]!) : metric.label }}
+        {{ METRIC_I18N_KEY[metric.kind] ? t(METRIC_I18N_KEY[metric.kind]!) : metric.label }}
         <span v-if="metric.unit" class="text-emerald-500 font-normal">({{ metric.unit }})</span>
       </button>
     </div>

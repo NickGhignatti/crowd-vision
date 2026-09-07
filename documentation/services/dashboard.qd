@@ -167,7 +167,7 @@ Started at boot, the tunnel opens a dedicated Redis PubSub connection and subscr
 
 1. `discover_services()` collects every environment value whose key ends in `_METRICS_URL`.
 2. Each service's `GET /contracts` is fetched and deserialised (either a `ServiceMetricsContract` or a bare metric list).
-3. Each metric is tagged with its `source_service` and added via `push_unique_metric`, which deduplicates on `(metric_key, interface_name, source_service)`.
+3. Each metric is tagged with its `source` and added via `push_unique_metric`, which deduplicates on `(kind, interface, source)`.
 
 New metric types therefore appear automatically once a service advertises them; no change is needed here.
 

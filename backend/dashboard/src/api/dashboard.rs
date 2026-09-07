@@ -29,8 +29,8 @@ async fn fetch_service_metrics(client: &reqwest::Client, service: &str) -> Vec<M
             .metrics
             .into_iter()
             .map(|mut m| {
-                if m.source_service.is_none() {
-                    m.source_service = Some(sc.service.clone());
+                if m.source.is_none() {
+                    m.source = Some(sc.service.clone());
                 }
                 m
             })
@@ -38,8 +38,8 @@ async fn fetch_service_metrics(client: &reqwest::Client, service: &str) -> Vec<M
         Ok(MetricsDiscoveryResponse::Metrics(metrics)) => metrics
             .into_iter()
             .map(|mut m| {
-                if m.source_service.is_none() {
-                    m.source_service = Some(service.to_string());
+                if m.source.is_none() {
+                    m.source = Some(service.to_string());
                 }
                 m
             })
@@ -84,9 +84,9 @@ async fn collect_metrics(services: Vec<String>) -> Vec<MetricContract> {
 
 fn push_unique_metric(possible_metrics: &mut Vec<MetricContract>, metric: MetricContract) {
     if possible_metrics.iter().any(|existing| {
-        existing.metric_key == metric.metric_key
-            && existing.interface_name == metric.interface_name
-            && existing.source_service == metric.source_service
+        existing.kind == metric.kind
+            && existing.interface == metric.interface
+            && existing.source == metric.source
     }) {
         return;
     }
@@ -139,21 +139,21 @@ mod tests {
         );
     }
 
-    /// Creates a metric with a fixed metric_key and interface_name, varying only source_service.
-    fn metric(source_service: &str) -> MetricContract {
-        metric_with("temperature", "ITemperature", source_service)
+    /// Creates a metric with a fixed kind and interface, varying only source.
+    fn metric(source: &str) -> MetricContract {
+        metric_with("temperature", "ITemperature", source)
     }
 
     /// Creates a fully customisable metric with no fields.
-    fn metric_with(metric_key: &str, interface_name: &str, source_service: &str) -> MetricContract {
+    fn metric_with(kind: &str, interface: &str, source: &str) -> MetricContract {
         MetricContract {
-            metric_key: metric_key.to_string(),
-            label: format!("Label {}", metric_key),
-            interface_name: interface_name.to_string(),
+            kind: kind.to_string(),
+            label: format!("Label {}", kind),
+            interface: interface.to_string(),
             unit: None,
             fields: vec![],
             actions: vec![],
-            source_service: Some(source_service.to_string()),
+            source: Some(source.to_string()),
         }
     }
 
@@ -178,8 +178,8 @@ mod tests {
     }
 
     #[test]
-    fn push_unique_metric_keeps_same_metric_key_with_different_interface_name() {
-        // Same metric_key but different interface_name → not a duplicate.
+    fn push_unique_metric_keeps_same_kind_with_different_interface() {
+        // Same kind but different interface → not a duplicate.
         let mut metrics = Vec::new();
         push_unique_metric(
             &mut metrics,
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn push_unique_metric_keeps_same_metric_from_different_services() {
-        // Same metric_key + interface_name but different source_service → not a duplicate.
+        // Same kind + interface but different source → not a duplicate.
         let mut possible_metrics = Vec::new();
 
         push_unique_metric(&mut possible_metrics, metric("telemetry"));
@@ -256,12 +256,12 @@ mod tests {
 
     #[tokio::test]
     async fn collects_bare_array_response_and_backfills_source_from_url() {
-        // The `Metrics` variant: a bare array with no service name. source_service
+        // The `Metrics` variant: a bare array with no service name. source
         // must be back-filled from the service URL it was fetched from.
         let server = mock_contracts(json!([{
-            "metricKey": "temperature",
+            "kind": "temperature",
             "label": "Temperature",
-            "interfaceName": "ITemperature",
+            "interface": "ITemperature",
             "fields": []
         }]))
         .await;
@@ -269,9 +269,9 @@ mod tests {
         let metrics = collect_metrics(vec![server.uri()]).await;
 
         assert_eq!(metrics.len(), 1);
-        assert_eq!(metrics[0].metric_key, "temperature");
+        assert_eq!(metrics[0].kind, "temperature");
         assert_eq!(
-            metrics[0].source_service.as_deref(),
+            metrics[0].source.as_deref(),
             Some(server.uri().as_str())
         );
     }
@@ -279,13 +279,13 @@ mod tests {
     #[tokio::test]
     async fn collects_service_contract_response_and_backfills_source_from_service_name() {
         // The `ServiceContract` variant carries its own service name, which is
-        // used as source_service rather than the URL.
+        // used as source rather than the URL.
         let server = mock_contracts(json!({
             "service": "telemetry",
             "metrics": [{
-                "metricKey": "co2",
+                "kind": "co2",
                 "label": "CO2",
-                "interfaceName": "IAirQuality",
+                "interface": "IAirQuality",
                 "fields": []
             }]
         }))
@@ -294,7 +294,7 @@ mod tests {
         let metrics = collect_metrics(vec![server.uri()]).await;
 
         assert_eq!(metrics.len(), 1);
-        assert_eq!(metrics[0].source_service.as_deref(), Some("telemetry"));
+        assert_eq!(metrics[0].source.as_deref(), Some("telemetry"));
     }
 
     #[tokio::test]
@@ -302,8 +302,8 @@ mod tests {
         let server = mock_contracts(json!({
             "service": "telemetry",
             "metrics": [
-                { "metricKey": "temperature", "label": "T", "interfaceName": "ITemperature", "fields": [] },
-                { "metricKey": "temperature", "label": "T", "interfaceName": "ITemperature", "fields": [] }
+                { "kind": "temperature", "label": "T", "interface": "ITemperature", "fields": [] },
+                { "kind": "temperature", "label": "T", "interface": "ITemperature", "fields": [] }
             ]
         }))
         .await;
@@ -325,9 +325,9 @@ mod tests {
     #[tokio::test]
     async fn keeps_reachable_service_when_another_is_unreachable() {
         let server = mock_contracts(json!([{
-            "metricKey": "temperature",
+            "kind": "temperature",
             "label": "Temperature",
-            "interfaceName": "ITemperature",
+            "interface": "ITemperature",
             "fields": []
         }]))
         .await;
@@ -337,7 +337,7 @@ mod tests {
         let metrics = collect_metrics(vec!["http://127.0.0.1:1".to_string(), server.uri()]).await;
 
         assert_eq!(metrics.len(), 1);
-        assert_eq!(metrics[0].metric_key, "temperature");
+        assert_eq!(metrics[0].kind, "temperature");
     }
 
     #[tokio::test]

@@ -73,16 +73,16 @@ const { t } = useI18n()
             <ul v-else class="max-h-52 overflow-y-auto divide-y divide-slate-50">
               <li
                 v-for="metric in metrics"
-                :key="metric.metricKey"
+                :key="metric.kind"
                 @click="emit('swap', metric)"
                 class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 cursor-pointer group transition-colors"
               >
                 <div class="min-w-0">
                   <p class="text-sm font-semibold text-slate-700 group-hover:text-emerald-700 truncate">
-                    {{ METRIC_I18N_KEY[metric.metricKey] ? t(METRIC_I18N_KEY[metric.metricKey]!) : metric.label }}
+                    {{ METRIC_I18N_KEY[metric.kind] ? t(METRIC_I18N_KEY[metric.kind]!) : metric.label }}
                   </p>
                   <p class="text-xs text-slate-400 truncate">
-                    {{ metric.sourceService ?? 'telemetry' }}
+                    {{ metric.source ?? 'telemetry' }}
                     <span v-if="metric.unit"> · {{ metric.unit }}</span>
                   </p>
                 </div>

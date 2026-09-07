@@ -13,8 +13,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct MetricFieldContract {
     pub name: String,
-    #[serde(rename = "type")]
-    pub field_type: String,
+    pub r#type: String,
     pub required: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -24,8 +23,7 @@ pub struct MetricFieldContract {
 #[serde(rename_all = "camelCase")]
 pub struct ActionParameterContract {
     pub name: String,
-    #[serde(rename = "type")]
-    pub parameter_type: String,
+    pub r#type: String,
     pub required: bool,
 }
 
@@ -40,15 +38,15 @@ pub struct ActionContract {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetricContract {
-    pub metric_key: String,
+    pub kind: String,
     pub label: String,
-    pub interface_name: String,
+    pub interface: String,
     pub unit: Option<String>,
     pub fields: Vec<MetricFieldContract>,
     #[serde(default)]
     pub actions: Vec<ActionContract>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_service: Option<String>,
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -73,7 +71,7 @@ mod tests {
     fn field(name: &str) -> MetricFieldContract {
         MetricFieldContract {
             name: name.to_owned(),
-            field_type: "Finite".to_owned(),
+            r#type: "Finite".to_owned(),
             required: true,
             description: None,
         }
@@ -81,36 +79,36 @@ mod tests {
 
     fn metric() -> MetricContract {
         MetricContract {
-            metric_key: "temperature".to_owned(),
+            kind: "temperature".to_owned(),
             label: "Temperature".to_owned(),
-            interface_name: "ITemperature".to_owned(),
+            interface: "ITemperature".to_owned(),
             unit: Some("C".to_owned()),
             fields: vec![field("temperature")],
             actions: vec![],
-            source_service: None,
+            source: None,
         }
     }
 
     #[test]
-    fn a_metric_serialises_with_the_camel_case_names_the_frontend_reads() {
+    fn a_metric_serialises_with_the_single_word_names_the_frontend_reads() {
         let body = serde_json::to_value(metric()).unwrap();
-        assert_eq!(body["metricKey"], "temperature");
-        assert_eq!(body["interfaceName"], "ITemperature");
+        assert_eq!(body["kind"], "temperature");
+        assert_eq!(body["interface"], "ITemperature");
         assert_eq!(body["fields"][0]["type"], "Finite");
     }
 
     #[test]
-    fn an_absent_source_service_is_omitted_but_empty_actions_stay_an_array() {
+    fn an_absent_source_is_omitted_but_empty_actions_stay_an_array() {
         let body = serde_json::to_value(metric()).unwrap();
-        assert!(body.get("sourceService").is_none());
+        assert!(body.get("source").is_none());
         assert_eq!(body["actions"], json!([]));
     }
 
     #[test]
     fn a_catalog_without_an_actions_field_still_parses() {
         let raw = json!({
-            "metricKey": "occupancy", "label": "Occupancy",
-            "interfaceName": "IOccupancy", "unit": null, "fields": []
+            "kind": "occupancy", "label": "Occupancy",
+            "interface": "IOccupancy", "unit": null, "fields": []
         });
         let decoded: MetricContract = serde_json::from_value(raw).unwrap();
         assert!(decoded.actions.is_empty());
@@ -152,7 +150,7 @@ mod tests {
             label: "Set target temperature".to_owned(),
             parameters: vec![ActionParameterContract {
                 name: "target".to_owned(),
-                parameter_type: "Finite".to_owned(),
+                r#type: "Finite".to_owned(),
                 required: true,
             }],
         }];

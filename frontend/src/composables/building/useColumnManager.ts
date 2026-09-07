@@ -107,7 +107,7 @@ export function useColumnManager(
   const handleSwapColumn = (metric: MetricContract) => {
     if (!activeHeaderKey.value) return
     const alreadyUsed = localHeaders.value.some(
-      h => headerId(h) === metric.metricKey && headerId(h) !== activeHeaderKey.value,
+      h => headerId(h) === metric.kind && headerId(h) !== activeHeaderKey.value,
     )
     if (alreadyUsed) return
     const idx = localHeaders.value.findIndex(h => headerId(h) === activeHeaderKey.value)
@@ -118,7 +118,7 @@ export function useColumnManager(
   }
 
   const handleAddColumn = (metric: MetricContract) => {
-    if (localHeaders.value.some(h => headerId(h) === metric.metricKey)) return
+    if (localHeaders.value.some(h => headerId(h) === metric.kind)) return
     localHeaders.value.push(headerFromMetric(metric))
     showAddPanel.value = false
   }
@@ -173,7 +173,7 @@ export function useColumnManager(
 
   const addableMetrics = computed(() =>
     availableMetrics.value.filter(
-      m => !localHeaders.value.some(h => headerId(h) === m.metricKey),
+      m => !localHeaders.value.some(h => headerId(h) === m.kind),
     ),
   )
 
@@ -184,7 +184,7 @@ export function useColumnManager(
         .map(h => headerId(h)),
     )
     return availableMetrics.value.filter(
-      m => m.metricKey !== activeHeaderKey.value && !usedByOtherColumns.has(m.metricKey),
+      m => m.kind !== activeHeaderKey.value && !usedByOtherColumns.has(m.kind),
     )
   })
 

@@ -543,7 +543,7 @@ async fn the_contract_advertises_metrics_and_their_actions() {
     assert_eq!(metrics.len(), 3);
     let temperature = metrics
         .iter()
-        .find(|metric| metric["metricKey"] == "temperature")
+        .find(|metric| metric["kind"] == "temperature")
         .unwrap();
     assert_eq!(temperature["unit"], "C");
     assert_eq!(temperature["actions"].as_array().unwrap().len(), 3);
@@ -552,7 +552,7 @@ async fn the_contract_advertises_metrics_and_their_actions() {
 
     let people = metrics
         .iter()
-        .find(|metric| metric["metricKey"] == "peopleCount")
+        .find(|metric| metric["kind"] == "peopleCount")
         .unwrap();
     assert_eq!(people["actions"], json!([]));
 }
@@ -572,7 +572,7 @@ async fn the_catalog_deserialises_into_the_shape_dashboard_parses() {
         contract
             .metrics
             .iter()
-            .any(|metric| metric.metric_key == "temperature")
+            .any(|metric| metric.kind == "temperature")
     );
     assert!(
         contract

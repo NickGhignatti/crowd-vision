@@ -48,9 +48,9 @@ export const metricKeyToHeader = (metricKey: string): TableHeader => ({
 export const headerId = (h: TableHeader): string => h.metricKey ?? h.key
 
 export const headerFromMetric = (metric: MetricContract, cellClass?: string): TableHeader => ({
-  key:       METRIC_DATA_KEY[metric.metricKey] ?? metric.metricKey,
-  metricKey: metric.metricKey,
-  label:     METRIC_I18N_KEY[metric.metricKey] ?? metric.label,
+  key:       METRIC_DATA_KEY[metric.kind] ?? metric.kind,
+  metricKey: metric.kind,
+  label:     METRIC_I18N_KEY[metric.kind] ?? metric.label,
   ...(cellClass ? { cellClass } : {}),
 })
 
