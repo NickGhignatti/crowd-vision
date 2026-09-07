@@ -2,8 +2,9 @@
 // on its own never sees the repo-root config. Everything this package's language
 // servers need is therefore spelled out here rather than inherited; the root file
 // keeps only what is genuinely repo-scoped (rust-analyzer linkedProjects).
-// ap-simulator is a standalone Python project (see Dockerfile) with its own .venv/
-// here -- unrelated to agent's or aq-simulator's. Pyright config: pyrightconfig.json.
+// acceptance is its own uv project with its own .venv/ here -- httpx, pytest and
+// python-socketio live in it and nowhere else in the repo. Pyright config itself
+// lives in pyproject.toml ([tool.pyright]), so editors other than Zed work too.
 {
   "format_on_save": "on",
 

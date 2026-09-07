@@ -1,7 +1,22 @@
-// agent is its own Python project (uv-managed, .venv/ at this
-// directory) — separate from simulators/aq-simulator's venv. Pyright/ruff
-// config itself lives in pyproject.toml ([tool.pyright] / [tool.ruff]).
+// Zed reads .zed/settings.json from the worktree root only, so opening this folder
+// on its own never sees the repo-root config. Everything this package's language
+// servers need is therefore spelled out here rather than inherited; the root file
+// keeps only what is genuinely repo-scoped (rust-analyzer linkedProjects).
+// agent is its own uv-managed Python project with its own .venv/ here, separate
+// from every simulator's. Pyright config lives in pyproject.toml ([tool.pyright]).
 {
+  "format_on_save": "on",
+
+  "languages": {
+    "Python": {
+      "format_on_save": "on",
+      "formatter": [
+        { "code_actions": { "source.organizeImports.ruff": true } },
+        { "language_server": { "name": "ruff" } }
+      ]
+    }
+  },
+
   "lsp": {
     "basedpyright": {
       "settings": {

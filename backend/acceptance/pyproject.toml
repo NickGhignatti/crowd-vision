@@ -14,3 +14,16 @@ dependencies = [
 # once it is listed here, and is silently invisible until then.
 testpaths = ["metrics_catalog", "dashboard_freshness", "edge", "wireless"]
 pythonpath = ["."]
+
+# No `include`: pyright then roots at this directory, which is what makes `from support
+# import telemetry` resolve, and means a new test package needs no entry here — unlike
+# `testpaths` above. venvPath/venv are what let an editor other than Zed find the
+# interpreter on its own (.zed/settings.json says the same thing to Zed).
+[tool.pyright]
+exclude = ["**/__pycache__", ".venv"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingImports = "error"
+reportMissingTypeStubs = "none"

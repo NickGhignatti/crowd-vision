@@ -1,5 +1,10 @@
 import socketio
 
+# `socketio/__init__.py` never imports this submodule, so `socketio.exceptions` resolves
+# at runtime only because another submodule binds it as an import side effect. Naming it
+# directly is what the package actually guarantees.
+from socketio.exceptions import TimeoutError as SocketIOTimeoutError
+
 
 class DashboardSocket:
     """A test stand-in for the frontend's live-dashboard connection: join a
@@ -24,7 +29,10 @@ class DashboardSocket:
         ack = self._client.call(
             "subscribe_building", self._building_id, timeout=10
         )
-        assert ack.get("subscribed") is True, (
+        # `call` returns whatever the server acked, or None on timeout. Checking the
+        # shape rather than reaching straight for .get turns a refused or timed-out
+        # subscribe into this assertion instead of an AttributeError on None.
+        assert isinstance(ack, dict) and ack.get("subscribed") is True, (
             f"subscribe_building refused for {self._building_id}: {ack}"
         )
 
@@ -49,7 +57,7 @@ class DashboardSocket:
         while True:
             try:
                 event, _ = self._client.receive(timeout=idle_timeout)
-            except socketio.exceptions.TimeoutError:
+            except SocketIOTimeoutError:
                 return received
             if event == "telemetry":
                 received += 1

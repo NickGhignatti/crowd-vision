@@ -1,18 +1,36 @@
+// Zed reads .zed/settings.json from the worktree root only, so opening this folder
+// on its own never sees the repo-root config. Everything this package's language
+// servers need is therefore spelled out here rather than inherited; the root file
+// keeps only what is genuinely repo-scoped (rust-analyzer linkedProjects).
+// ap-collector is its own uv project with its own .venv/ here. Pyright config
+// lives in pyrightconfig.json beside this folder.
 {
+  "format_on_save": "on",
+
+  "languages": {
+    "Python": {
+      "format_on_save": "on",
+      "formatter": [
+        { "code_actions": { "source.organizeImports.ruff": true } },
+        { "language_server": { "name": "ruff" } }
+      ]
+    }
+  },
+
   "lsp": {
     "basedpyright": {
       "settings": {
         "python": {
-          "pythonPath": ".venv/bin/python",
-        },
-      },
+          "pythonPath": ".venv/bin/python"
+        }
+      }
     },
     "pyright": {
       "settings": {
         "python": {
-          "pythonPath": ".venv/bin/python",
-        },
-      },
-    },
-  },
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    }
+  }
 }

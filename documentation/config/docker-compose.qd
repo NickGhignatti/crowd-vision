@@ -162,6 +162,13 @@ Fragments are listed in `include:` order. No fragment may redefine a service ano
     - - `backend/acceptance/docker-compose.integration.yml`
       - Only services no other fragment declares: the stub containers, `gateway`, and the `integration-tests` runner. `socket`'s healthcheck lives in `backend/socket/docker-compose.yml` for this reason.
 
+.box {Why the runner shadows its own .venv} type:{note}
+    `integration-tests` bind-mounts the suite at `/workspace`, and `uv run` builds its
+    venv inside it. Without the anonymous `/workspace/.venv` volume that venv is written
+    back onto the host, carrying `home = /usr/local/bin` and an interpreter symlink into
+    the image — leaving a `.venv` no host editor can use, so every import reds. Same
+    reason a Node image shadows `node_modules`.
+
 ### Per-service integration suites compose their own too
 
 A service whose `tests/*.rs` need real infra keeps that infra in its own

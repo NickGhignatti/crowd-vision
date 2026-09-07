@@ -1,34 +1,20 @@
+// Repo-scoped settings only. Everything a language server needs for a given package
+// lives in that package's own .zed/settings.json, because Zed reads .zed/settings.json
+// from the worktree root only: opening `backend/telemetry` on its own never sees this
+// file. Those per-package files are duplicated on purpose — a folder has to stand alone.
+//
+// What stays here is what has no single owning package:
+//   - linkedProjects, which is by definition the list of every crate in the repo
+//   - format_on_save, so files outside any package (scripts/, k8s/, .github/) behave
+//   - justfile, since Justfile and just/*.just live at the root
 {
   "auto_install_extensions": {
-    "vue": true,
     "justfile": true,
   },
 
   "format_on_save": "on",
 
   "languages": {
-    "Python": {
-      "format_on_save": "on",
-      "formatter": [
-        { "code_actions": { "source.organizeImports.ruff": true } },
-        { "language_server": { "name": "ruff" } },
-      ],
-    },
-    "Go": {
-      "format_on_save": "on",
-    },
-    "Rust": {
-      "format_on_save": "on",
-    },
-    "TypeScript": {
-      "format_on_save": "on",
-    },
-    "TSX": {
-      "format_on_save": "on",
-    },
-    "Vue.js": {
-      "format_on_save": "on",
-    },
     "JSON": {
       "format_on_save": "on",
     },
@@ -38,66 +24,28 @@
   },
 
   "lsp": {
-    // dashboard and digital-twin are two independent crates (no
-    // workspace Cargo.toml ties them together), so rust-analyzer needs to be
-    // told about both explicitly or it will only pick up whichever one the
-    // active buffer happens to be under.
+    // Every Rust crate here is independent — no workspace Cargo.toml ties them
+    // together — so rust-analyzer has to be told about each one explicitly or it
+    // only picks up whichever the active buffer happens to be under, and reds the
+    // rest. This list must hold every Cargo.toml outside target/:
+    //   find . -name Cargo.toml -not -path '*/target/*'
+    //
+    // Only meaningful when the whole repo is the worktree. Open one crate on its own
+    // and rust-analyzer finds its Cargo.toml unaided — which is why the crate's own
+    // .zed/settings.json carries the rust-analyzer options but not this list.
     "rust-analyzer": {
       "initialization_options": {
         "linkedProjects": [
+          "backend/chat/Cargo.toml",
           "backend/dashboard/Cargo.toml",
           "backend/digital-twin/Cargo.toml",
           "backend/socket/Cargo.toml",
           "backend/notification/Cargo.toml",
           "backend/telemetry/Cargo.toml",
+          "schemas/claims-schema/Cargo.toml",
+          "schemas/telemetry-schema/Cargo.toml",
+          "schemas/twin-schema/Cargo.toml",
         ],
-        "cargo": {
-          "allFeatures": false,
-        },
-        "cachePriming": {
-          "enable": false,
-          // cargo check reports errors but almost no suggestions; clippy is where
-          // the actionable lints and their quick-fixes come from. targetDir keeps
-          // it out of ./target so a check-on-save never blocks a `cargo test`.
-          // --all-targets is already passed by default, do not add it here.
-          "check": {
-            "command": "clippy",
-            "targetDir": true,
-          },
-          "diagnostics": {
-            "experimental": { "enable": true },
-          },
-          "inlayHints": {
-            "typeHints": { "enable": true },
-            "parameterHints": { "enable": true },
-            "chainingHints": { "enable": true },
-            "closureReturnTypeHints": { "enable": "with_block" },
-          },
-        },
-      },
-    },
-
-    "gopls": {
-      "initialization_options": {
-        "hints": {
-          "assignVariableTypes": true,
-          "compositeLiteralFields": true,
-          "compositeLiteralTypes": true,
-          "constantValues": true,
-          "functionTypeParameters": true,
-          "parameterNames": true,
-          "rangeVariableTypes": true,
-        },
-      },
-    },
-
-    // All JS/TS packages (frontend, backend/*-service, sensor-simulator, tests)
-    // use flat eslint.config.* + eslint 10, each with its own nearest config.
-    "eslint": {
-      "settings": {
-        "experimental": {
-          "useFlatConfig": true,
-        },
       },
     },
   },

@@ -90,7 +90,11 @@ cd frontend && mise exec -- npx vitest run src/path/File.spec.ts -t "name"      
   (`just setup clean-install`, or `npm install --prefix <dir> --package-lock-only --cpu=x64 --os=linux`),
   else CI `npm ci` fails. `cargo add` / `go get` in-dir need no lockfile step.
 - Rust pinned exact in `.mise.toml`; CI reads the same pin, so clippy matches locally. Bumping is a deliberate commit.
-- New package → register in `.moon/workspace.yml` and `.github/services.json`.
+- New package → register in `.moon/workspace.yml` and `.github/services.json`, and give it
+  its own `.zed/settings.json`. Zed reads that file from the worktree root only, so a
+  package without one loses every language-server setting when opened on its own. Copy a
+  sibling of the same language; the root `.zed/settings.json` keeps only `linkedProjects`
+  (add the crate there too, if it is Rust).
 
 ## Architecture invariants
 

@@ -1,0 +1,23 @@
+// Zed reads .zed/settings.json from the worktree root only, so opening this folder
+// on its own never sees the repo-root config. Everything this package's language
+// servers need is therefore spelled out here rather than inherited; the root file
+// keeps only what is genuinely repo-scoped (rust-analyzer linkedProjects).
+{
+  "format_on_save": "on",
+
+  "lsp": {
+    "gopls": {
+      "initialization_options": {
+        "hints": {
+          "assignVariableTypes": true,
+          "compositeLiteralFields": true,
+          "compositeLiteralTypes": true,
+          "constantValues": true,
+          "functionTypeParameters": true,
+          "parameterNames": true,
+          "rangeVariableTypes": true
+        }
+      }
+    }
+  }
+}

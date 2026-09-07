@@ -65,6 +65,13 @@ services:
       # the root compose file's gateway service does it for its own mounts)
       # — without it the container can't read anything under /workspace.
       - ./:/workspace:z
+      # `uv run` builds its venv at /workspace/.venv, which the bind mount above
+      # would write straight back onto the host — carrying `home = /usr/local/bin`
+      # and an interpreter symlink into this image. The host copy is then unusable:
+      # any editor pointed at .venv/bin/python follows a dangling link and reds
+      # every import. An anonymous volume keeps the container's venv in the
+      # container, the same reason a Node image shadows node_modules.
+      - /workspace/.venv
     depends_on:
       telemetry:
         condition: service_healthy

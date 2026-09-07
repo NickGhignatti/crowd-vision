@@ -1,0 +1,47 @@
+// Zed reads .zed/settings.json from the worktree root only, so opening this folder
+// on its own never sees the repo-root config. Everything this package's language
+// servers need is therefore spelled out here rather than inherited; the root file
+// keeps only what is genuinely repo-scoped (rust-analyzer linkedProjects).
+{
+  "format_on_save": "on",
+
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "cargo": {
+          "allFeatures": false
+        },
+        "cachePriming": {
+          "enable": false
+        },
+        // cargo check reports errors but almost no suggestions; clippy is where the
+        // actionable lints and their quick-fixes come from. targetDir keeps it out of
+        // ./target so a check-on-save never blocks a `cargo test`.
+        // --all-targets is already passed by default, do not add it here.
+        "check": {
+          "command": "clippy",
+          "targetDir": true
+        },
+        "diagnostics": {
+          "experimental": {
+            "enable": true
+          }
+        },
+        "inlayHints": {
+          "typeHints": {
+            "enable": true
+          },
+          "parameterHints": {
+            "enable": true
+          },
+          "chainingHints": {
+            "enable": true
+          },
+          "closureReturnTypeHints": {
+            "enable": "with_block"
+          }
+        }
+      }
+    }
+  }
+}
