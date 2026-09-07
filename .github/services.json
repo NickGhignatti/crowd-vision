@@ -142,6 +142,11 @@
     "image": "crowdvision-frontend"
   },
   {
+    "key": "ap-collector",
+    "dir": "devices/ap-collector",
+    "lang": "python"
+  },
+  {
     "key": "sensor-simulator",
     "dir": "simulators/sensor-simulator",
     "lang": "node",
@@ -153,6 +158,13 @@
     "dir": "simulators/aq-simulator",
     "lang": "python",
     "image": "crowdvision-aq-simulator",
+    "ci": false
+  },
+  {
+    "key": "ap-simulator",
+    "dir": "simulators/ap-simulator",
+    "lang": "python",
+    "image": "crowdvision-ap-simulator",
     "ci": false
   }
 ]

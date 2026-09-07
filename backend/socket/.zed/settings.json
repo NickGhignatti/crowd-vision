@@ -1,0 +1,43 @@
+// Zed reads .zed/settings.json from the worktree root only: without this file,
+// opening this folder on its own loses every setting below.
+{
+  "format_on_save": "on",
+
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "cargo": {
+          "allFeatures": false
+        },
+        "cachePriming": {
+          "enable": false
+        },
+        // clippy, not check: check reports errors but almost no fixable lints. targetDir
+        // keeps it out of ./target so save-check never blocks a `cargo test`.
+        "check": {
+          "command": "clippy",
+          "targetDir": true
+        },
+        "diagnostics": {
+          "experimental": {
+            "enable": true
+          }
+        },
+        "inlayHints": {
+          "typeHints": {
+            "enable": true
+          },
+          "parameterHints": {
+            "enable": true
+          },
+          "chainingHints": {
+            "enable": true
+          },
+          "closureReturnTypeHints": {
+            "enable": "with_block"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,34 +1,13 @@
+// Only what no package owns. Per-package .zed/settings.json carry the LSP settings and
+// are duplicated on purpose — Zed reads this file only when the repo is the worktree.
 {
   "auto_install_extensions": {
-    "vue": true,
     "justfile": true,
   },
 
   "format_on_save": "on",
 
   "languages": {
-    "Python": {
-      "format_on_save": "on",
-      "formatter": [
-        { "code_actions": { "source.organizeImports.ruff": true } },
-        { "language_server": { "name": "ruff" } },
-      ],
-    },
-    "Go": {
-      "format_on_save": "on",
-    },
-    "Rust": {
-      "format_on_save": "on",
-    },
-    "TypeScript": {
-      "format_on_save": "on",
-    },
-    "TSX": {
-      "format_on_save": "on",
-    },
-    "Vue.js": {
-      "format_on_save": "on",
-    },
     "JSON": {
       "format_on_save": "on",
     },
@@ -38,66 +17,21 @@
   },
 
   "lsp": {
-    // dashboard and digital-twin are two independent crates (no
-    // workspace Cargo.toml ties them together), so rust-analyzer needs to be
-    // told about both explicitly or it will only pick up whichever one the
-    // active buffer happens to be under.
+    // No workspace Cargo.toml ties these crates together, so rust-analyzer loads only the
+    // active buffer's unless listed. Must hold every `find . -name Cargo.toml` outside target/.
     "rust-analyzer": {
       "initialization_options": {
         "linkedProjects": [
+          "backend/chat/Cargo.toml",
           "backend/dashboard/Cargo.toml",
           "backend/digital-twin/Cargo.toml",
           "backend/socket/Cargo.toml",
           "backend/notification/Cargo.toml",
           "backend/telemetry/Cargo.toml",
+          "schemas/claims-schema/Cargo.toml",
+          "schemas/telemetry-schema/Cargo.toml",
+          "schemas/twin-schema/Cargo.toml",
         ],
-        "cargo": {
-          "allFeatures": false,
-        },
-        "cachePriming": {
-          "enable": false,
-          // cargo check reports errors but almost no suggestions; clippy is where
-          // the actionable lints and their quick-fixes come from. targetDir keeps
-          // it out of ./target so a check-on-save never blocks a `cargo test`.
-          // --all-targets is already passed by default, do not add it here.
-          "check": {
-            "command": "clippy",
-            "targetDir": true,
-          },
-          "diagnostics": {
-            "experimental": { "enable": true },
-          },
-          "inlayHints": {
-            "typeHints": { "enable": true },
-            "parameterHints": { "enable": true },
-            "chainingHints": { "enable": true },
-            "closureReturnTypeHints": { "enable": "with_block" },
-          },
-        },
-      },
-    },
-
-    "gopls": {
-      "initialization_options": {
-        "hints": {
-          "assignVariableTypes": true,
-          "compositeLiteralFields": true,
-          "compositeLiteralTypes": true,
-          "constantValues": true,
-          "functionTypeParameters": true,
-          "parameterNames": true,
-          "rangeVariableTypes": true,
-        },
-      },
-    },
-
-    // All JS/TS packages (frontend, backend/*-service, sensor-simulator, tests)
-    // use flat eslint.config.* + eslint 10, each with its own nearest config.
-    "eslint": {
-      "settings": {
-        "experimental": {
-          "useFlatConfig": true,
-        },
       },
     },
   },

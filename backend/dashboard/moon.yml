@@ -1,3 +1,23 @@
 language: 'rust'
 
-# build / test / lint are inherited from .moon/tasks/rust.yml
+# The inherited `cargo test` also runs tests/*.rs, which need a MongoDB and Redis, so
+# `just test all` could not go green without them already running.
+tasks:
+  test:
+    command: 'cargo test --lib'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+    options:
+      mergeArgs: 'replace'
+
+  test-integration:
+    command: 'bash test-integration.sh'
+    inputs:
+      - 'src/**/*'
+      - 'tests/**/*'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+    options:
+      cache: false

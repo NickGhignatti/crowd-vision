@@ -64,8 +64,8 @@ just stack logs <svc>    # follow one service
 just lint fix            # then: just lint affected
 just test affected       # mirrors per-service CI legs
 just test all
-just test <svc>          # chat telemetry twin notification socket frontend agent
-                         # claims-gateway provisioner registry tenancy
+just test <svc>          # chat telemetry twin notification socket dashboard frontend
+                         # agent ap-collector claims-gateway provisioner registry tenancy
 just test <svc>-integration   # throwaway DB/broker, composed, then torn down
                          # Go (registry, tenancy): testcontainers behind `-tags=integration`
 just test integration    # full backend acceptance suite
@@ -90,7 +90,10 @@ cd frontend && mise exec -- npx vitest run src/path/File.spec.ts -t "name"      
   (`just setup clean-install`, or `npm install --prefix <dir> --package-lock-only --cpu=x64 --os=linux`),
   else CI `npm ci` fails. `cargo add` / `go get` in-dir need no lockfile step.
 - Rust pinned exact in `.mise.toml`; CI reads the same pin, so clippy matches locally. Bumping is a deliberate commit.
-- New package → register in `.moon/workspace.yml` and `.github/services.json`.
+- New package → register in `.moon/workspace.yml` and `.github/services.json`, and copy a
+  same-language sibling's `.zed/settings.json` (Zed reads it from the worktree root only, so
+  a package without one loses every LSP setting when opened alone). Rust also joins
+  `linkedProjects` in the root `.zed/settings.json`.
 
 ## Architecture invariants
 
@@ -179,9 +182,16 @@ Full text: `contributing/contributing.qd`. A change violating one is rejected re
 ## Working style
 
 - **TDD.** Failing test first, in the language's idiomatic location. No behaviour without a test.
-- **No noise comments.** Nothing that restates the code. A `///` doc comment is welcome when it
-  records a decision or a trap the next reader would otherwise reintroduce — see
-  `chat/src/service/ports.rs`, `telemetry/src/adapters/ingest_auth.rs` for the bar.
+- **Comments: two lines, hard cap.** Most code needs none. A comment earns its place only by
+  saying *why* — the decision or trap behind the line, never what the code already says. A
+  doc comment (`///`, docstring) also says *what* the function does, in one line.
+  Prose paragraphs, narrated history, and restated reasoning belong in `documentation/**.qd`
+  or the commit message — never in a source file. If two lines will not fit it, cut it.
+  See `chat/src/service/ports.rs`, `telemetry/src/adapters/ingest_auth.rs` for the bar.
+- **State the problem, never point at another file for it.** No "same reason as X", "as in Y",
+  "see Z for why" — the reader is here, not there, and the cross-reference rots when the other
+  file changes. Say the actual problem ("fixes OS CVEs the base still ships: alpine images lag
+  their own apk repos"), and repeat those two lines verbatim elsewhere if it applies there too.
 - **Docs are terse.** Bullets and tables over prose, one line per fact, no restating. "Why" only when it prevents a real mistake.
 - **Batch independent reads into one call.** Several greps, or a grep plus a file listing,
   belong in one `python3` heredoc or one compound command — not four round trips. Only chain

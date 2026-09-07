@@ -1,0 +1,29 @@
+{
+  "pollIntervalS": 5.0,
+  "requestTimeoutS": 3.0,
+  "buildings": [
+    {
+      "name": "b1",
+      "ap": [
+        {
+          "name": "ap-a",
+          "zone": "zone-a",
+          "url": "http://ap-simulator:3000/ap-a/ubus",
+          "username": "collector",
+          "password": "collector",
+          "ifaces": ["wlan0"],
+          "reader": "hostapd"
+        },
+        {
+          "name": "ap-b",
+          "zone": "zone-b",
+          "url": "http://ap-simulator:3000/ap-b/ubus",
+          "username": "collector",
+          "password": "collector",
+          "ifaces": ["wlan0"],
+          "reader": "iwinfo"
+        }
+      ]
+    }
+  ]
+}

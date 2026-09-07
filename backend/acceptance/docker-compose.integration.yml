@@ -65,6 +65,9 @@ services:
       # the root compose file's gateway service does it for its own mounts)
       # — without it the container can't read anything under /workspace.
       - ./:/workspace:z
+      # Keeps `uv run`'s venv in the container: through the bind mount above it would
+      # overwrite the host's with image-internal paths, dangling every import.
+      - /workspace/.venv
     depends_on:
       telemetry:
         condition: service_healthy

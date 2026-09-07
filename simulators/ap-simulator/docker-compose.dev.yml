@@ -1,0 +1,6 @@
+services:
+  ap-simulator:
+    develop:
+      watch:
+        - action: rebuild
+          path: ./requirements.txt

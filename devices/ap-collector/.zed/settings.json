@@ -1,0 +1,33 @@
+// Zed reads .zed/settings.json from the worktree root only: without this file,
+// opening this folder on its own loses every setting below.
+// Own uv venv here; pyright config in pyrightconfig.json.
+{
+  "format_on_save": "on",
+
+  "languages": {
+    "Python": {
+      "format_on_save": "on",
+      "formatter": [
+        { "code_actions": { "source.organizeImports.ruff": true } },
+        { "language_server": { "name": "ruff" } }
+      ]
+    }
+  },
+
+  "lsp": {
+    "basedpyright": {
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    },
+    "pyright": {
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        }
+      }
+    }
+  }
+}

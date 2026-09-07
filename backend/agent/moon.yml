@@ -1,3 +1,8 @@
 language: 'python'
 
-# test / lint / lint-fix are inherited from .moon/tasks/python.yml
+# Tasks inherited from .moon/tasks/python.yml; only this env is added. Testcontainers' Ryuk
+# reaper cannot start under rootless podman. Local only — CI runs uv directly and keeps Ryuk.
+tasks:
+  test:
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: 'true'

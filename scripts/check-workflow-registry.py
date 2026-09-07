@@ -11,6 +11,7 @@ checks the three lists against the registry instead of trusting them to stay in 
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -19,6 +20,42 @@ import yaml
 REGISTRY = Path(".github/services.json")
 GATE = Path(".github/workflows/ci-gate.yml")
 WORKFLOWS = Path(".github/workflows")
+FILTER_ACTION = Path(".github/actions/filter-services/action.yml")
+
+
+def duplicate_filter_keys() -> list[str]:
+    """Duplicate keys in the filter file the action composes at runtime, which js-yaml
+    rejects outright -- killing `changes` and skipping every job. Counted textually
+    because PyYAML accepts duplicates and silently keeps the last.
+    """
+    lines: list[str] = []
+    for service in json.loads(REGISTRY.read_text()):
+        lines += [f"{service['key']}:", f'  - "{service["dir"]}/**"']
+
+    steps = yaml.safe_load(GATE.read_text())["jobs"]["changes"]["steps"]
+    extra = next(
+        (
+            step.get("with", {}).get("extra_filters", "")
+            for step in steps
+            if str(step.get("uses", "")).startswith("./.github/actions/filter-services")
+        ),
+        "",
+    )
+    lines += extra.splitlines()
+
+    seen: dict[str, list[int]] = {}
+    for number, line in enumerate(lines, 1):
+        match = re.fullmatch(r"([A-Za-z0-9_.-]+):\s*", line)
+        if match:
+            seen.setdefault(match.group(1), []).append(number)
+
+    return [
+        f"filter '{key}' is declared twice (lines {', '.join(map(str, at))}) in the file "
+        f"{FILTER_ACTION} composes — every {REGISTRY} key already becomes a filter of the "
+        f"same name, so naming it in extra_filters too makes the whole file unparseable"
+        for key, at in sorted(seen.items())
+        if len(at) > 1
+    ]
 
 
 def dangling_needs() -> list[str]:
@@ -54,7 +91,7 @@ def main() -> int:
     gate = yaml.safe_load(GATE.read_text())
     jobs = gate["jobs"]
 
-    problems: list[str] = dangling_needs()
+    problems: list[str] = dangling_needs() + duplicate_filter_keys()
 
     missing_jobs = sorted(services - set(jobs))
     if missing_jobs:
@@ -71,7 +108,8 @@ def main() -> int:
     if problems:
         print(
             f"\n{len(problems)} inconsistency(ies). Every service in {REGISTRY} needs a job in "
-            f"{GATE}, listed in both 'docker.needs' and 'ci-passed.needs'.",
+            f"{GATE}, listed in both 'docker.needs' and 'ci-passed.needs', and must not be "
+            f"repeated in that job's 'extra_filters'.",
             file=sys.stderr,
         )
         return 1

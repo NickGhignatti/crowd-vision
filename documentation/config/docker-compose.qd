@@ -42,7 +42,7 @@ The root file holds the pieces every run needs regardless of which services are 
 .mermaid
     flowchart TD
         J["just stack dev / start / down / …"] --> R["compose-run.py"]
-        R --> W["Walk backend/ and simulators/<br/>apply exclude patterns"]
+        R --> W["Walk backend/, simulators/ and devices/<br/>apply exclude patterns"]
         W --> G["Write compose.runtime.yml<br/>(an include: list)"]
         G --> D["docker compose -f compose.runtime.yml (up | down | build)"]
 
@@ -69,7 +69,7 @@ A single-path entry becomes one sub-project; a multi-path entry merges a service
 ### How the include list is built
 
 1. Always include the root `docker-compose.yml`\.
-2. Walk `backend/` (skipping `tests/`) and `simulators/`, adding each folder's `docker-compose.yml` and — in development modes — its `docker-compose.dev.yml` if present.
+2. Walk `backend/` (skipping `tests/`), `simulators/` and `devices/`, adding each folder's `docker-compose.yml` and — in development modes — its `docker-compose.dev.yml` if present.
 3. Add `frontend` unless excluded.
 
 ### Excluding services
@@ -79,7 +79,8 @@ In `dev` and `start`, services can be left out either by named flag or by raw su
 ```bash
 just stack dev --no-agent                  # agent + its Langfuse/ClickHouse/MinIO stack
 just stack dev --no-metrics                # prometheus, grafana
-just stack dev --no-simulators             # aq-simulator, sensor-simulator
+just stack dev --no-simulators             # aq-simulator, sensor-simulator, ap-simulator
+just stack dev --no-devices                # ap-collector
 just stack dev --no-agent --no-metrics     # combine freely
 just stack dev redis-langfuse              # raw substring, for anything without a flag
 just stack dev --dry-run                   # print the resolved docker command, run nothing
@@ -100,7 +101,9 @@ Each flag is generated from `EXCLUDE_GROUPS` at the top of `scripts/compose/comp
     - - `--no-metrics`
       - `prometheus`, `grafana`
     - - `--no-simulators`
-      - `simulator` — matches both simulator folders
+      - `simulator` — matches all three simulator folders
+    - - `--no-devices`
+      - `ap-collector`
 
 Adding a group is one entry in that dict; the flag appears automatically. Unknown flags are rejected with a usage message, so a typo fails loudly instead of silently matching nothing.
 
@@ -158,6 +161,57 @@ Fragments are listed in `include:` order. No fragment may redefine a service ano
       - Each service's own `docker-compose.yml`, built from source.
     - - `backend/acceptance/docker-compose.integration.yml`
       - Only services no other fragment declares: the stub containers, `gateway`, and the `integration-tests` runner. `socket`'s healthcheck lives in `backend/socket/docker-compose.yml` for this reason.
+
+.box {Why the runner shadows its own .venv} type:{note}
+    `integration-tests` bind-mounts the suite at `/workspace`, and `uv run` builds its
+    venv inside it. Without the anonymous `/workspace/.venv` volume that venv is written
+    back onto the host, carrying `home = /usr/local/bin` and an interpreter symlink into
+    the image — leaving a `.venv` no host editor can use, so every import reds. Same
+    reason a Node image shadows `node_modules`.
+
+### Per-service integration suites compose their own too
+
+A service whose `tests/*.rs` need real infra keeps that infra in its own
+`docker-compose.test.yml`, run by its own `test-integration.sh` under its own project
+name. `just test <svc>-integration` is the entry point; each tears itself down.
+
+This is why `just test all` needs nothing running. Every Rust service's moon `test` task
+is restricted to `cargo test --lib` (plus its architecture fitness test where it has one),
+so the unit leg touches no database — matching `tpl-rust-ci.yml`, which runs
+`cargo test --lib` and `scripts/test/rust-integration-tests.sh` as two separate steps.
+A service that skips the override runs its integration tests inside the unit task, which
+is what made `just test all` fail without a MongoDB until `dashboard` got one.
+
+.var {headers}
+   - Service
+   - Compose project
+   - Infra
+
+.tablebyrows {.headers}
+    - - `chat`
+      - `chat-integration-tests`
+      - MongoDB
+    - - `digital-twin`
+      - `digital-twin-integration-tests`
+      - MongoDB
+    - - `notification`
+      - `notification-integration-tests`
+      - MongoDB, Redis, Kafka
+    - - `socket`
+      - `socket-integration-tests`
+      - Redis
+    - - `telemetry`
+      - `telemetry-integration-tests`
+      - TimescaleDB, Redis, Kafka
+    - - `dashboard`
+      - `dashboard-integration-tests`
+      - MongoDB, Redis
+
+.box {One copy of the runner} type:{note}
+    Every one of these runs `scripts/test/rust-integration-tests.sh`, which names each
+    `tests/*.rs` binary explicitly rather than using `cargo test --tests` — that would
+    rerun the unit tests too. `chat` and `dashboard` bind-mount it; `digital-twin` copies
+    it into the image.
 
 ### What is stubbed, and why
 

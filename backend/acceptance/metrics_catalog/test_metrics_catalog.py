@@ -42,11 +42,16 @@ def test_response_has_a_metrics_array(metrics_catalog: dict):
     assert len(metrics_catalog["metrics"]) > 0
 
 
-def test_contains_all_three_sensor_metrics(metrics_catalog: dict):
+def test_contains_every_registered_sensor_metric(metrics_catalog: dict):
+    """The only place the frontend asks what columns exist: a metric missing here is
+    ingested, stored, retained -- and unreachable.
+    """
     keys = {metric["metricKey"] for metric in metrics_catalog["metrics"]}
     assert "temperature" in keys
     assert "airQuality" in keys
     assert "peopleCount" in keys
+    assert "totalDeviceCount" in keys
+    assert "ratioDeviceCount" in keys
 
 
 def test_every_metric_has_a_source_service(metrics_catalog: dict):

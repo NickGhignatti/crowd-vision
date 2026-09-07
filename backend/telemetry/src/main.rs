@@ -21,6 +21,7 @@ use telemetry::kernel::registry::PluginRegistry;
 use telemetry::kernel::sensors::Sensors;
 use telemetry::kernel::thresholds::Thresholds;
 use telemetry::plugins::air_quality::AirQualityPlugin;
+use telemetry::plugins::device_count::{RatioDeviceCountPlugin, TotalDeviceCountPlugin};
 use telemetry::plugins::people_count::PeopleCountPlugin;
 use telemetry::plugins::temperature::TemperaturePlugin;
 use telemetry::state::{AppState, SystemClock};
@@ -60,6 +61,8 @@ async fn main() -> anyhow::Result<()> {
             Box::new(TemperaturePlugin),
             Box::new(PeopleCountPlugin),
             Box::new(AirQualityPlugin),
+            Box::new(TotalDeviceCountPlugin),
+            Box::new(RatioDeviceCountPlugin),
         ])
         .map_err(|error| anyhow::anyhow!(error))?,
     );

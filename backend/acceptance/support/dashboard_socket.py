@@ -1,5 +1,9 @@
 import socketio
 
+# `socketio/__init__.py` never imports this submodule -- `socketio.exceptions` resolves
+# only because another submodule binds it as a side effect.
+from socketio.exceptions import TimeoutError as SocketIOTimeoutError
+
 
 class DashboardSocket:
     """A test stand-in for the frontend's live-dashboard connection: join a
@@ -24,7 +28,9 @@ class DashboardSocket:
         ack = self._client.call(
             "subscribe_building", self._building_id, timeout=10
         )
-        assert ack.get("subscribed") is True, (
+        # `call` returns the ack or None on timeout; the isinstance keeps a timed-out
+        # subscribe as this assertion rather than an AttributeError on None.
+        assert isinstance(ack, dict) and ack.get("subscribed") is True, (
             f"subscribe_building refused for {self._building_id}: {ack}"
         )
 
@@ -49,7 +55,7 @@ class DashboardSocket:
         while True:
             try:
                 event, _ = self._client.receive(timeout=idle_timeout)
-            except socketio.exceptions.TimeoutError:
+            except SocketIOTimeoutError:
                 return received
             if event == "telemetry":
                 received += 1

@@ -42,6 +42,7 @@ jobs:
       infra: ${{ contains(fromJSON(steps.filter.outputs.changes), 'infra') }}
       simulators: ${{ contains(fromJSON(steps.filter.outputs.changes), 'simulators') }}
       acceptance: ${{ contains(fromJSON(steps.filter.outputs.changes), 'acceptance') }}
+      ap_collector: ${{ contains(fromJSON(steps.filter.outputs.changes), 'ap-collector') }}
       deps: ${{ contains(fromJSON(steps.filter.outputs.changes), 'deps') }}
       docs: ${{ contains(fromJSON(steps.filter.outputs.changes), 'docs') }}
       docker_matrix: ${{ steps.docker.outputs.matrix }}
@@ -76,6 +77,8 @@ jobs:
             simulators:
               - 'simulators/**'
               - '.github/workflows/ci-simulators.yml'
+              # The ruff pin these legs install: without it a Renovate bump merges untested.
+              - '.github/requirements-ruff.txt'
             acceptance:
               - 'backend/acceptance/**'
               # The routing pair the suite exists to keep honest, and the service
@@ -85,6 +88,9 @@ jobs:
               - 'backend/telemetry/**'
               - 'backend/socket/**'
               - 'backend/dashboard/**'
+              # Collector and telemetry agree only on JSON; this leg is the only
+              # thing that catches a drifted metric key.
+              - 'devices/ap-collector/**'
               - '.github/workflows/ci-acceptance.yml'
             docs:
               - 'documentation/**'
@@ -256,6 +262,14 @@ jobs:
       service_key: dashboard
       working_directory: backend/dashboard
 
+  ap-collector:
+    needs: changes
+    if: needs.changes.outputs.ap_collector == 'true'
+    uses: ./.github/workflows/tpl-python-ci.yml
+    with:
+      service_key: ap-collector
+      working_directory: devices/ap-collector
+
   agent:
     needs: changes
     if: needs.changes.outputs.agent == 'true' || needs.changes.outputs.schema_fixtures == 'true'
@@ -267,6 +281,7 @@ jobs:
   docker:
     needs:
       - changes
+      - ap-collector
       - frontend
       - auth-contracts
       - auth-middleware
@@ -360,6 +375,7 @@ jobs:
     timeout-minutes: 10
     needs:
       - changes
+      - ap-collector
       - frontend
       - auth-contracts
       - auth-middleware

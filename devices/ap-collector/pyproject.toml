@@ -1,0 +1,66 @@
+[project]
+name = "ap-collector"
+version = "0.1.0"
+description = "On-premises collector: resolves associated Wi-Fi stations to zones and emits aggregate occupancy to CrowdVision."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.8.0",
+    "pyright>=1.1.390",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov=app --cov-report=xml --cov-report=term-missing"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["**/__pycache__"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "UP",    # pyupgrade
+    "N",     # pep8-naming
+    "S",     # flake8-bandit (security)
+    "ASYNC", # flake8-async
+    "SIM",   # flake8-simplify
+    "PTH",   # flake8-use-pathlib
+    "TID",   # flake8-tidy-imports
+    "TCH",   # flake8-type-checking
+    "RUF",   # ruff-specific
+    "C4",    # flake8-comprehensions
+    "PIE",   # flake8-pie
+    "RET",   # flake8-return
+]
+ignore = [
+    "E501", # line too long (formatter handles it)
+    "S101", # assert (fine in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pyright]
+include = ["app", "tests"]
+exclude = ["**/__pycache__", ".venv"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingImports = "error"
+reportMissingTypeStubs = "none"
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"
