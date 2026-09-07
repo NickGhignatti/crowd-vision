@@ -50,8 +50,10 @@ jobs:
       - name: Syntax Check (py_compile)
         run: find . -name '*.py' -print0 | xargs -0 python -m py_compile
 
+      # Pinned, and equal to what devices/ap-collector/uv.lock resolves: unpinned, a ruff
+      # release turns this leg red with no code change here.
       - name: Install Ruff
-        run: pip install ruff
+        run: pip install -r "$GITHUB_WORKSPACE/.github/requirements-ruff.txt"
 
       - name: Lint (ruff)
         run: ruff check .
@@ -77,8 +79,10 @@ jobs:
       - name: Syntax Check (py_compile)
         run: find . -name '*.py' -print0 | xargs -0 python -m py_compile
 
+      # Pinned, and equal to what devices/ap-collector/uv.lock resolves: unpinned, a ruff
+      # release turns this leg red with no code change here.
       - name: Install Ruff
-        run: pip install ruff
+        run: pip install -r "$GITHUB_WORKSPACE/.github/requirements-ruff.txt"
 
       - name: Lint (ruff)
         run: ruff check .

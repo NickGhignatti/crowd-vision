@@ -77,6 +77,9 @@ jobs:
             simulators:
               - 'simulators/**'
               - '.github/workflows/ci-simulators.yml'
+              # The ruff pin the two Python legs install. Without this a Renovate
+              # bump of it merges without ever running the lint it changes.
+              - '.github/requirements-ruff.txt'
             acceptance:
               - 'backend/acceptance/**'
               # The routing pair the suite exists to keep honest, and the service

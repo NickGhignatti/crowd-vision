@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import os
 
-import scenarios
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+
+import scenarios
+from schemas import ScenarioRequest, StatusResponse
 from ubus import NULL_SESSION, UBUS_OK, UBUS_PERMISSION_DENIED, envelope, error_envelope
 from world import World
-
-from schemas import ScenarioRequest, StatusResponse
 
 app = FastAPI(title="AP Simulator (fake ubus)")
 
