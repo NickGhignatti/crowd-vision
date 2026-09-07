@@ -35,6 +35,8 @@ jobs:
 
       - name: Install just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
+        with:
+          just-version: "1.42.4"
 
       - name: Build site
         run: just docs build
