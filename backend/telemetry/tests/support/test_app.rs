@@ -22,6 +22,7 @@ use telemetry::kernel::registry::PluginRegistry;
 use telemetry::kernel::sensors::Sensors;
 use telemetry::kernel::thresholds::Thresholds;
 use telemetry::plugins::air_quality::AirQualityPlugin;
+use telemetry::plugins::device_count::{RatioDeviceCountPlugin, TotalDeviceCountPlugin};
 use telemetry::plugins::people_count::PeopleCountPlugin;
 use telemetry::plugins::temperature::TemperaturePlugin;
 use telemetry::state::AppState;
@@ -54,6 +55,8 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
             Box::new(TemperaturePlugin),
             Box::new(PeopleCountPlugin),
             Box::new(AirQualityPlugin),
+            Box::new(TotalDeviceCountPlugin),
+            Box::new(RatioDeviceCountPlugin),
         ])
         .unwrap(),
     );

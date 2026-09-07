@@ -7,7 +7,7 @@ It now carries three contracts, each one a place where the same class of failure
 
 | Module | Shape | Producer | Consumers |
 |---|---|---|---|
-| `lib.rs` | Metric catalog (`ServiceMetricsContract`, `MetricContract`, …) | telemetry `/contracts` | dashboard |
+| `lib.rs` | Metric catalog (`ServiceMetricsContract`, `MetricContract`, …) | telemetry `/contracts`, digital-twin `/contracts` | dashboard, frontend |
 | `alerts.rs` | `AlertEvent` + `ALERTS_TOPIC` | telemetry | notification |
 | `telemetry.rs` | `TelemetryEnvelope`, `TelemetryReading`, both channel names | telemetry | dashboard, socket |
 

@@ -540,7 +540,7 @@ async fn the_contract_advertises_metrics_and_their_actions() {
     assert_eq!(body["service"], "telemetry");
 
     let metrics = body["metrics"].as_array().unwrap();
-    assert_eq!(metrics.len(), 3);
+    assert_eq!(metrics.len(), 5);
     let temperature = metrics
         .iter()
         .find(|metric| metric["kind"] == "temperature")
@@ -581,6 +581,33 @@ async fn the_catalog_deserialises_into_the_shape_dashboard_parses() {
             .flat_map(|metric| &metric.fields)
             .any(|field| field.name == "buildingId")
     );
+}
+
+// The shared struct cannot catch a descriptor or handler change: both producers and the
+// consumer would move together and still agree, while the frontend -- which reads these
+// bytes and no Rust type -- silently gets an empty catalog. Only the fixture sees it.
+#[tokio::test]
+async fn every_metric_the_fixture_pins_is_served_byte_for_byte() {
+    const FIXTURE: &str = include_str!("../../../schemas/fixtures/metric-contract.json");
+
+    let app = test_app(fresh_db("contracts_fixture").await, vec!["eng"]).await;
+    let (status, body) = app.get("/contracts", None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let fixture: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
+    let served = body["metrics"].as_array().unwrap();
+
+    for pinned in fixture["metrics"].as_array().unwrap() {
+        // `source` is the one field a producer never sends: dashboard backfills it.
+        let mut expected = pinned.clone();
+        expected.as_object_mut().unwrap().remove("source");
+
+        let actual = served
+            .iter()
+            .find(|metric| metric["kind"] == expected["kind"])
+            .unwrap_or_else(|| panic!("{} is pinned but not served", expected["kind"]));
+        assert_eq!(*actual, expected, "{} drifted", expected["kind"]);
+    }
 }
 
 #[tokio::test]

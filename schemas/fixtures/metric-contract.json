@@ -11,12 +11,7 @@
         { "name": "buildingId", "type": "NonEmptyString", "required": true },
         { "name": "roomId", "type": "NonEmptyString", "required": true },
         { "name": "timestamp", "type": "Finite", "required": true },
-        {
-          "name": "temperature",
-          "type": "Finite",
-          "required": true,
-          "description": "Celsius. The value field is named after the metric kind."
-        }
+        { "name": "temperature", "type": "Finite", "required": true }
       ],
       "actions": [
         {
@@ -62,7 +57,13 @@
         { "name": "timestamp", "type": "Finite", "required": true },
         { "name": "scenario", "type": "NonEmptyString", "required": false },
         { "name": "pm25", "type": "Finite", "required": true },
-        { "name": "co2", "type": "Finite", "required": true }
+        { "name": "co2", "type": "Finite", "required": true },
+        { "name": "pm10", "type": "Finite", "required": false },
+        { "name": "voc", "type": "Finite", "required": false },
+        { "name": "temperature", "type": "Finite", "required": false },
+        { "name": "humidity", "type": "Finite", "required": false },
+        { "name": "aqi", "type": "Finite", "required": false },
+        { "name": "indoor_aqi", "type": "Finite", "required": false }
       ],
       "actions": []
     },

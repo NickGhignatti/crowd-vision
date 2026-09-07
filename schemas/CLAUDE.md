@@ -18,8 +18,9 @@ them has a wire quirk a generator would flatten.
 | Layer | Catches | Where |
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
-| `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/conformance.rs`, Python `tests/unit/test_*_conformance.py` |
-| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, agent's `test_schema_conformance.py` |
+| `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py` |
+| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `telemetry-schema/tests/metric_contract_schema.rs`, agent's `test_schema_conformance.py` |
+| the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json` |
 
 Change a shared shape → change fixture and schema in the same commit, or one of the three
 layers fails and tells you exactly which language disagrees.
