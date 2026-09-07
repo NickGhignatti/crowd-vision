@@ -1,7 +1,7 @@
 language: 'rust'
 
-# `test` overridden like every sibling: the inherited `cargo test` also runs tests/*.rs,
-# which need a MongoDB and Redis, so `just test all` could not go green without them.
+# The inherited `cargo test` also runs tests/*.rs, which need a MongoDB and Redis, so
+# `just test all` could not go green without them already running.
 tasks:
   test:
     command: 'cargo test --lib'

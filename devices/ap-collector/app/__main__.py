@@ -76,12 +76,9 @@ def _make_post_tick(
     """Real-mode `on_tick`: turn each building's confirmed assignment into occupancy readings
     and POST them. Built once (needs config's secret/URL/buildings), not per tick.
 
-    A failed POST is reported and dropped, never raised: `run` calls this straight from its
-    loop, so an escaping IngestError ends the process -- one telemetry restart, or one batch
-    the ingest endpoint refuses, and the collector is gone until somebody notices. A tick is a
-    snapshot the next tick supersedes, so losing one costs a poll interval of resolution. The
-    catch sits inside the per-building loop for the same reason `poll_one` guards each AP
-    separately: one building's rejected batch must not skip every building after it."""
+    A failed POST is dropped, not raised: an escaping IngestError would end the process, and
+    a tick is a snapshot the next supersedes. Caught per building, so one rejected batch does
+    not skip the buildings after it."""
     buildings_by_name = {building.name: building for building in config.buildings}
     ingest_url = config.telemetry_service.rstrip("/") + "/ingest"
     secret = config.telemetry_secret.encode("utf-8")

@@ -188,6 +188,10 @@ Full text: `contributing/contributing.qd`. A change violating one is rejected re
   Prose paragraphs, narrated history, and restated reasoning belong in `documentation/**.qd`
   or the commit message — never in a source file. If two lines will not fit it, cut it.
   See `chat/src/service/ports.rs`, `telemetry/src/adapters/ingest_auth.rs` for the bar.
+- **State the problem, never point at another file for it.** No "same reason as X", "as in Y",
+  "see Z for why" — the reader is here, not there, and the cross-reference rots when the other
+  file changes. Say the actual problem ("fixes OS CVEs the base still ships: alpine images lag
+  their own apk repos"), and repeat those two lines verbatim elsewhere if it applies there too.
 - **Docs are terse.** Bullets and tables over prose, one line per fact, no restating. "Why" only when it prevents a real mistake.
 - **Batch independent reads into one call.** Several greps, or a grep plus a file listing,
   belong in one `python3` heredoc or one compound command — not four round trips. Only chain

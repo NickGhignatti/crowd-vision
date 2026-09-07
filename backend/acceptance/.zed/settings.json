@@ -1,5 +1,5 @@
 // Zed reads .zed/settings.json from the worktree root only: without this file,
-// opening this folder alone loses everything below. Root keeps only linkedProjects.
+// opening this folder on its own loses every setting below.
 // Own uv venv here (httpx, pytest, socketio); pyright config in pyproject.toml.
 {
   "format_on_save": "on",

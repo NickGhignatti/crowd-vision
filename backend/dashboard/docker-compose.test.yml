@@ -15,7 +15,7 @@ services:
     environment:
       - MONGO_URI=mongodb://dashboard-db:27017
       - REDIS_URL=redis://dashboard-redis:6379
-    # Mounted, not COPYed (as chat does): one shared copy, no rebuild when it changes.
+    # Mounted, not COPYed: one shared copy of the runner, no image rebuild when it changes.
     volumes:
       - ../../scripts/test/rust-integration-tests.sh:/app/scripts/test/rust-integration-tests.sh:ro
     depends_on:

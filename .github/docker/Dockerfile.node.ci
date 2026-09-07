@@ -1,5 +1,9 @@
 FROM node:24-alpine
 
+# Fixes OS CVEs the base still ships: alpine images lag their own apk repos, and the Trivy
+# gate fails on any fixed HIGH/CRITICAL.
+RUN apk --no-cache upgrade
+
 ARG SERVICE_DIR
 ARG ARTIFACT_PATH
 
