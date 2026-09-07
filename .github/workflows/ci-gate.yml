@@ -74,8 +74,6 @@ jobs:
               - 'tooling/**'
               - 'Justfile'
               - '.github/workflows/ci-infra.yml'
-            ap-collector:
-              - 'devices/ap-collector/**'
             simulators:
               - 'simulators/**'
               - '.github/workflows/ci-simulators.yml'
