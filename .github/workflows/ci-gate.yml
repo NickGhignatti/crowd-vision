@@ -88,6 +88,10 @@ jobs:
               - 'backend/telemetry/**'
               - 'backend/socket/**'
               - 'backend/dashboard/**'
+              # The collector agrees with telemetry only on JSON — nothing
+              # compiles the two together, so wireless/ is the only leg that
+              # catches a drifted metric key before it reaches a roof.
+              - 'devices/ap-collector/**'
               - '.github/workflows/ci-acceptance.yml'
             docs:
               - 'documentation/**'

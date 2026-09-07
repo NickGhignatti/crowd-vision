@@ -1,0 +1,27 @@
+services:
+  dashboard-db:
+    image: mongo:7
+
+  dashboard-redis:
+    image: redis:7-alpine
+
+  # tests/tunnel.rs needs both: it loads a preference document from Mongo to
+  # resolve a building's channel, then subscribes and republishes on Redis.
+  # tests/db.rs needs only Mongo, but they share one runner invocation.
+  dashboard-test:
+    build:
+      context: ../..
+      dockerfile: backend/dashboard/Dockerfile
+      target: dev
+    command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
+    environment:
+      - MONGO_URI=mongodb://dashboard-db:27017
+      - REDIS_URL=redis://dashboard-redis:6379
+    # Mounted rather than COPYed into the dev stage (the way chat does it, and
+    # unlike digital-twin) so the runner stays a single shared copy and the
+    # image needs no rebuild when it changes.
+    volumes:
+      - ../../scripts/test/rust-integration-tests.sh:/app/scripts/test/rust-integration-tests.sh:ro
+    depends_on:
+      - dashboard-db
+      - dashboard-redis

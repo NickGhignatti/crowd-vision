@@ -64,8 +64,8 @@ just stack logs <svc>    # follow one service
 just lint fix            # then: just lint affected
 just test affected       # mirrors per-service CI legs
 just test all
-just test <svc>          # chat telemetry twin notification socket frontend agent
-                         # claims-gateway provisioner registry tenancy
+just test <svc>          # chat telemetry twin notification socket dashboard frontend
+                         # agent ap-collector claims-gateway provisioner registry tenancy
 just test <svc>-integration   # throwaway DB/broker, composed, then torn down
                          # Go (registry, tenancy): testcontainers behind `-tags=integration`
 just test integration    # full backend acceptance suite

@@ -1,3 +1,27 @@
 language: 'rust'
 
-# build / test / lint are inherited from .moon/tasks/rust.yml
+# build / lint / deps / audit are inherited from .moon/tasks/rust.yml. `test` is overridden
+# below, matching every other Rust service here: the inherited `cargo test` also builds and
+# runs tests/*.rs, and both of dashboard's need real infra (db.rs a MongoDB, tunnel.rs a
+# Redis *and* a MongoDB), so `just test all` could not go green without them already
+# running. CI never ran the inherited command either — tpl-rust-ci.yml runs `cargo test
+# --lib` and then scripts/test/rust-integration-tests.sh against services it starts itself.
+tasks:
+  test:
+    command: 'cargo test --lib'
+    inputs:
+      - 'src/**/*'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+    options:
+      mergeArgs: 'replace'
+
+  test-integration:
+    command: 'bash test-integration.sh'
+    inputs:
+      - 'src/**/*'
+      - 'tests/**/*'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+    options:
+      cache: false

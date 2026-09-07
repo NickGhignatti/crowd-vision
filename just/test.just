@@ -46,6 +46,14 @@ notification:
 notification-integration:
     mise exec -- moon run notification:test-integration
 
+[doc("Unit tests for dashboard.")]
+dashboard:
+    mise exec -- moon run dashboard:test
+
+[doc("Integration tests for dashboard — starts a throwaway MongoDB and Redis, runs tests/*.rs, tears them down.")]
+dashboard-integration:
+    mise exec -- moon run dashboard:test-integration
+
 [doc("Unit tests for socket.")]
 socket:
     mise exec -- moon run socket:test

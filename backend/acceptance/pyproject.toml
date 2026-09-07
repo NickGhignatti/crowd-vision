@@ -12,5 +12,5 @@ dependencies = [
 [tool.pytest.ini_options]
 # An allowlist, not a discovery root: a new test package is collected only
 # once it is listed here, and is silently invisible until then.
-testpaths = ["metrics_catalog", "dashboard_freshness", "edge"]
+testpaths = ["metrics_catalog", "dashboard_freshness", "edge", "wireless"]
 pythonpath = ["."]

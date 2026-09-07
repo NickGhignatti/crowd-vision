@@ -89,11 +89,19 @@ def post_reading(
     )
 
 
-def latest_temperature(client: httpx.Client, building_id: str, room_id: str) -> dict:
+def latest(client: httpx.Client, metric: str, building_id: str, room_id: str) -> dict:
+    """The stored payload for one metric in one room. `/{sensorType}/latest` is
+    generic over the plugin registry, so `metric` is whatever key a plugin
+    registered — the route itself knows nothing about temperature.
+    """
     response = client.get(
-        f"{config.TELEMETRY_URL}/temperature/latest",
+        f"{config.TELEMETRY_URL}/{metric}/latest",
         params={"building": building_id, "roomId": room_id},
         headers={"x-gateway-claims": claims_header()},
     )
     response.raise_for_status()
     return response.json()["data"]
+
+
+def latest_temperature(client: httpx.Client, building_id: str, room_id: str) -> dict:
+    return latest(client, "temperature", building_id, room_id)
