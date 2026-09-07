@@ -331,7 +331,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       # A requirements file, not inline pins: Renovate's pip_requirements manager
       # reads this path, but cannot see a version inside a `run:` block.
