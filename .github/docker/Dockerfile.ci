@@ -1,5 +1,9 @@
 FROM alpine:latest
 
+# `alpine:latest` lags its own apk repos, so an already-fixed OS CVE still reds the Trivy
+# gate (HIGH/CRITICAL, exit 1) until the base is rebuilt. This takes the fix at build time.
+RUN apk --no-cache upgrade
+
 WORKDIR /app
 
 ARG BINARY_PATH
