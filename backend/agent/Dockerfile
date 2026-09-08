@@ -5,14 +5,14 @@
 # to this file's own location. COPY paths and WORKDIR below preserve the
 # repo's real nesting so that relative path resolution is identical to local
 # dev.
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 WORKDIR /app/backend/agent
 RUN pip install --no-cache-dir uv==0.11.16
 COPY backend/agent/pyproject.toml ./
 COPY backend/agent/app ./app
 RUN uv pip install --system --no-cache .
 
-FROM python:3.12-slim AS production
+FROM python:3.14-slim AS production
 # Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
 # hadolint ignore=DL3005
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
