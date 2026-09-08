@@ -1,5 +1,5 @@
 # Build context is the repo root — see backend/tenancy/Dockerfile.
-FROM golang:1.25-bookworm AS base
+FROM golang:1.27-bookworm AS base
 WORKDIR /app
 COPY backend/libs/auth-contracts ./backend/libs/auth-contracts
 COPY backend/provisioner ./backend/provisioner
