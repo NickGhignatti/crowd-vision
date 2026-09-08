@@ -98,6 +98,14 @@ agent:
 ap-collector:
     mise exec -- moon run ap-collector:test
 
+[doc("Asserts the air-quality simulator still builds the batch shape telemetry pins.")]
+aq-simulator:
+    mise exec -- moon run aq-simulator:test
+
+[doc("Asserts the sensor simulator still builds the batch shape telemetry pins.")]
+sensor-simulator:
+    mise exec -- moon run sensor-simulator:test
+
 [doc("Agent Python integration tests (separate suite from the docker-compose one).")]
 agent-integration:
     mise exec -- uv run --directory backend/agent pytest tests/integration

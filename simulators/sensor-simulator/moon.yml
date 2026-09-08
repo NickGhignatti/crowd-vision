@@ -1,8 +1,3 @@
 language: 'typescript'
 
-# build / lint / lint-fix are inherited from .moon/tasks/typescript.yml.
-# No unit-test suite is wired into CI for the simulator yet, so don't inherit `test`.
-workspace:
-  inheritedTasks:
-    exclude:
-      - 'test'
+# build / test / lint / lint-fix are inherited from .moon/tasks/typescript.yml.

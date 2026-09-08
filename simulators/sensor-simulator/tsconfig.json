@@ -19,6 +19,9 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
+    // A failed build must write nothing: a rootDir violation still emits by default, and
+    // lands the four generated files per source next to the source instead of in dist/.
+    "noEmitOnError": true,
 
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
@@ -42,5 +45,8 @@
     "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["src/**/*", "__tests__/**/*"]
+  // Only `src`: `rootDir` is ./src, so listing __tests__ here makes tsc refuse to emit.
+  // `isolatedModules` puts ts-jest in transpile-only mode, so tests are not type-checked;
+  // they assert the ingest-batch fixture at run time instead.
+  "include": ["src/**/*"]
 }
