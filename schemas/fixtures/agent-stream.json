@@ -1,0 +1,145 @@
+{
+  "description": "The SSE frames agent streams to chat from POST /ask when `stream` is true. Emitted by agent and hand-parsed by chat; each side previously pinned its own copy of this shape in its own tests, so a rename passed both suites. Frames arrive as `data: <json>\\n\\n` -- the transport framing is chat's own concern, these are the decoded bodies.",
+  "rules": {
+    "wireNames": "The `done` frame's `citations` and `usage` are Python dataclass `__dict__` dumps, so an attribute rename in app/citations.py or loop.py silently renames a wire key with no serializer in between.",
+    "answer": "`answer` on the terminal frame -- not the concatenated tokens -- is authoritative. The two differ when the loop strips hallucinated citation markers, or when a hop streams a preamble before calling a tool. A consumer that falls back to the tokens shows text the agent already rejected.",
+    "ordering": "Zero or more `token` frames, then exactly one terminal frame. A stream that ends without one is a failed answer, not an empty one."
+  },
+  "cases": [
+    {
+      "name": "a single-hop answer, streamed then finalised",
+      "frames": [
+        { "type": "token", "text": "Room " },
+        { "type": "token", "text": "B2 " },
+        { "type": "token", "text": "is full." },
+        {
+          "type": "done",
+          "answer": "Room B2 is full.",
+          "citations": [
+            {
+              "chunk_id": "9f1c2e3a-4b5d-4e6f-9a1b-2c3d4e5f6a7b",
+              "document_id": "3a7d9e10-8c2b-4f51-9d3e-6b8a1c4f2e90",
+              "source": "architecture/overview.qd",
+              "section_path": "Top > Services"
+            }
+          ],
+          "retrieved_ids": ["9f1c2e3a-4b5d-4e6f-9a1b-2c3d4e5f6a7b"],
+          "usage": {
+            "input_tokens": 1204,
+            "output_tokens": 38,
+            "cost_usd": 0.0021
+          },
+          "idk": false,
+          "decision": "answered",
+          "tool_calls": [],
+          "hallucinated_citations": []
+        }
+      ]
+    },
+    {
+      "name": "a citation with no heading keeps the key and nulls it",
+      "frames": [
+        {
+          "type": "done",
+          "answer": "Occupancy is tracked per room.",
+          "citations": [
+            {
+              "chunk_id": "5d4c3b2a-1e0f-4a9b-8c7d-6e5f4a3b2c1d",
+              "document_id": "3a7d9e10-8c2b-4f51-9d3e-6b8a1c4f2e90",
+              "source": "domain/strategic-design.qd",
+              "section_path": null
+            }
+          ],
+          "retrieved_ids": ["5d4c3b2a-1e0f-4a9b-8c7d-6e5f4a3b2c1d"],
+          "usage": {
+            "input_tokens": 890,
+            "output_tokens": 12,
+            "cost_usd": 0.0009
+          },
+          "idk": false,
+          "decision": "answered",
+          "tool_calls": [],
+          "hallucinated_citations": []
+        }
+      ]
+    },
+    {
+      "name": "a tool hop streams a preamble, so the tokens are not the answer",
+      "$comment": "The reason `answer` exists. Concatenating the tokens here yields the preamble too.",
+      "frames": [
+        { "type": "token", "text": "Let me check the twin. " },
+        { "type": "token", "text": "Room B2 is at capacity." },
+        {
+          "type": "done",
+          "answer": "Room B2 is at capacity.",
+          "citations": [],
+          "retrieved_ids": [],
+          "usage": {
+            "input_tokens": 2310,
+            "output_tokens": 64,
+            "cost_usd": 0.0044
+          },
+          "idk": false,
+          "decision": "answered",
+          "tool_calls": [
+            {
+              "name": "get_room",
+              "args": { "room_id": "room-b2" },
+              "is_error": false
+            }
+          ],
+          "hallucinated_citations": []
+        }
+      ]
+    },
+    {
+      "name": "the loop gives up and says so",
+      "frames": [
+        {
+          "type": "done",
+          "answer": "I don't know based on the available data.",
+          "citations": [],
+          "retrieved_ids": [],
+          "usage": {
+            "input_tokens": 4102,
+            "output_tokens": 11,
+            "cost_usd": 0.0071
+          },
+          "idk": true,
+          "decision": "tool_loop_exhausted",
+          "tool_calls": [
+            {
+              "name": "unknown_tool",
+              "args": {},
+              "is_error": true,
+              "error": "unknown tool: unknown_tool"
+            }
+          ],
+          "hallucinated_citations": []
+        }
+      ]
+    }
+  ],
+  "tolerated": [
+    {
+      "name": "a frame type the consumer does not know",
+      "reason": "Chat ignores it rather than failing the stream, so agent can add a frame kind without a lockstep release.",
+      "frame": { "type": "heartbeat" }
+    },
+    {
+      "name": "a terminal frame from an agent too old to send `answer`",
+      "reason": "Absent, not null. The consumer falls back to the accumulated tokens -- degraded but not broken.",
+      "frame": { "type": "done", "citations": [] }
+    },
+    {
+      "name": "a terminal frame carrying only what chat reads",
+      "reason": "`retrieved_ids`, `usage`, `idk`, `decision`, `tool_calls` and `hallucinated_citations` are emitted but parsed by no consumer, so a frame without them is still valid.",
+      "frame": { "type": "done", "answer": "Room B2 is full.", "citations": [] }
+    }
+  ],
+  "consumed": {
+    "$comment": "What chat's AgentFrame actually reads. Everything else on a `done` frame is written by agent and read by nobody -- pinned here as observation, not contract.",
+    "token": ["type", "text"],
+    "done": ["type", "answer", "citations"]
+  }
+}
