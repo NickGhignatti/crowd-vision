@@ -1,15 +1,16 @@
 # `deps` / `audit` / `relock` are inherited from .moon/tasks/python.yml. The inherited
 # `test` / `lint` shell out to npm, which this package cannot do because the root
 # .gitignore ignores every package.json; they call uv directly instead, matching CI.
-# No unit-test suite here yet, so `test` is not inherited.
 language: 'python'
 
-workspace:
-  inheritedTasks:
-    exclude:
-      - 'test'
-
 tasks:
+  test:
+    script: 'uv run pytest'
+    inputs:
+      - '*.py'
+      - 'tests/**/*'
+      - 'pyproject.toml'
+
   lint:
     script: 'uv run ruff check . && uv run pyright'
     inputs:
