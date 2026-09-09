@@ -1,5 +1,7 @@
+import json
 import threading
 from collections import Counter
+from pathlib import Path
 
 import pytest
 
@@ -478,3 +480,27 @@ def test_readings_for_building_keeps_an_empty_zone_at_zero_under_conversion():
         {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 0},
         {"type": "ratioDeviceCount", "roomId": "lobby", "timestamp": 1_000, "ratioDeviceCount": 0},
     ]
+
+
+def test_the_readings_match_the_shape_telemetry_pins():
+    """The collector, aq-simulator and sensor-simulator hand-build the same batch in three
+    languages; `ingest-batch.json` is the only thing that holds them to one shape.
+    """
+    fixture = json.loads(
+        (
+            Path(__file__).resolve().parents[3] / "schemas" / "fixtures" / "ingest-batch.json"
+        ).read_text()
+    )
+    pinned = next(c for c in fixture["cases"] if c["producer"] == "ap-collector")
+    expected = pinned["body"]["readings"]
+    timestamp = expected[0]["timestamp"]
+    zone = expected[0]["roomId"]
+
+    building = Building(name="b1", ap=[_ap(name="ap-a", zone=zone)])
+    assignment = {f"aa:bb:cc:00:00:{n:02x}": zone for n in range(47)}
+
+    readings = readings_for_building(
+        building, assignment, now_ms=timestamp, devices_per_person=2.0
+    )
+
+    assert readings == expected

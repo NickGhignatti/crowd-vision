@@ -21,7 +21,7 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           working_directory: ./simulators/sensor-simulator
-          needs_shared_eslint: 'true'
+          needs_shared_eslint: "true"
 
       - name: Lint
         run: npm run lint
@@ -42,20 +42,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - name: Setup Environment
+        uses: ./.github/actions/setup-python
         with:
           python-version: "3.14"
+          working_directory: ./simulators/aq-simulator
 
-      - name: Syntax Check (py_compile)
-        run: find . -name '*.py' -print0 | xargs -0 python -m py_compile
+      - name: Lint
+        run: uv run ruff check .
 
-      # Pinned to ap-collector/uv.lock's version: unpinned, a ruff release reds this leg.
-      - name: Install Ruff
-        run: pip install -r "$GITHUB_WORKSPACE/.github/requirements-ruff.txt"
+      - name: Type Check
+        run: uv run pyright
 
-      - name: Lint (ruff)
-        run: ruff check .
+      - name: Audit Dependencies
+        run: uv audit
 
   python-simulators-ap:
     name: ap-simulator
@@ -70,23 +70,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - name: Setup Environment
+        uses: ./.github/actions/setup-python
         with:
-          python-version: "3.12"
+          working_directory: ./simulators/ap-simulator
 
-      - name: Syntax Check (py_compile)
-        run: find . -name '*.py' -print0 | xargs -0 python -m py_compile
+      - name: Lint
+        run: uv run ruff check .
 
-      # Pinned, and equal to what devices/ap-collector/uv.lock resolves: unpinned, a ruff
-      # release turns this leg red with no code change here.
-      - name: Install Ruff
-        run: pip install -r "$GITHUB_WORKSPACE/.github/requirements-ruff.txt"
+      - name: Type Check
+        run: uv run pyright
 
-      - name: Lint (ruff)
-        run: ruff check .
+      - name: Audit Dependencies
+        run: uv audit
 
       - name: Smoke test
-        run: |
-          pip install -r requirements.txt
-          python smoke.py
+        run: uv run python smoke.py

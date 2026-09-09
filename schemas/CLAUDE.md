@@ -10,6 +10,11 @@ A shape **two or more services parse**. A shape only one service parses is a typ
 contract — leave it in the service (twin's `Building` is the worked example: it stays in
 digital-twin, because no other Rust service reads it).
 
+**A shape one service parses but several *produce* belongs here too**, as a fixture with no
+crate: `fixtures/ingest-batch.json` is built by ap-collector, aq-simulator and
+sensor-simulator in three languages, and a rename in any of them stops readings arriving with
+nothing failing to compile.
+
 Hand-written serde, **no codegen**. Four shapes do not justify a generator, and every one of
 them has a wire quirk a generator would flatten.
 

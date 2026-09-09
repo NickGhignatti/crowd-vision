@@ -583,6 +583,55 @@ async fn the_catalog_deserialises_into_the_shape_dashboard_parses() {
     );
 }
 
+// Three producers in three languages build this body by hand and no Rust type describes it,
+// so these bytes are the only agreement between them. A rejected batch is dropped by its
+// producer and logged: readings stop arriving with nothing failing anywhere.
+const INGEST_FIXTURE: &str = include_str!("../../../schemas/fixtures/ingest-batch.json");
+
+fn ingest_fixture() -> serde_json::Value {
+    serde_json::from_str(INGEST_FIXTURE).unwrap()
+}
+
+#[tokio::test]
+async fn every_batch_the_fixture_pins_is_accepted() {
+    let pool = fresh_db("ingest_fixture_ok").await;
+    seed_building(&pool, "bldg-3f2b4c5d", &["room-lab-2", "room-aula-magna"]).await;
+    let app = test_app(pool, vec!["eng"]).await;
+
+    for case in ingest_fixture()["cases"].as_array().unwrap() {
+        let expected = case["body"]["readings"].as_array().unwrap().len();
+        let (status, body) = app.ingest(case["body"].clone()).await;
+
+        assert_eq!(
+            status,
+            StatusCode::ACCEPTED,
+            "{} rejected: {body}",
+            case["name"]
+        );
+        assert_eq!(body["readings"], expected, "{}", case["name"]);
+    }
+}
+
+// Without these the test above would pass against a telemetry that accepted anything.
+#[tokio::test]
+async fn every_batch_the_fixture_marks_invalid_is_refused() {
+    let pool = fresh_db("ingest_fixture_bad").await;
+    seed_building(&pool, "bldg-3f2b4c5d", &["room-lab-2"]).await;
+    let app = test_app(pool, vec!["eng"]).await;
+
+    for case in ingest_fixture()["rejected"].as_array().unwrap() {
+        let (status, _) = app.ingest(case["body"].clone()).await;
+
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{} was accepted; the fixture says: {}",
+            case["name"],
+            case["reason"]
+        );
+    }
+}
+
 // The shared struct cannot catch a descriptor or handler change: both producers and the
 // consumer would move together and still agree, while the frontend -- which reads these
 // bytes and no Rust type -- silently gets an empty catalog. Only the fixture sees it.

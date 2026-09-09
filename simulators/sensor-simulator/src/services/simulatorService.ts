@@ -131,7 +131,6 @@ export class Simulator {
     building: IBuilding,
   ): ISignalTemperature {
     return {
-      buildingId: building.buildingId,
       roomId,
       timestamp: Date.now(),
       temperature: parseFloat(
@@ -149,7 +148,6 @@ export class Simulator {
     building: IBuilding,
   ): ISignalPeopleCount {
     return {
-      buildingId: building.buildingId,
       roomId,
       timestamp: Date.now(),
       peopleCount:

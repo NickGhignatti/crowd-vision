@@ -180,8 +180,8 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
 .tablebyrows {.headers}
     - - `frontend`
       - Uses Vite/Vitest: overrides `build` inputs and `test` (to `npm run test:unit`), with `mergeArgs: replace` / `mergeInputs: replace` so the overrides replace the inherited values rather than appending.
-    - - `sensor-simulator`
-      - Has no unit suite wired into CI, so it excludes the inherited `test` task.
+    - - `sensor-simulator`, `ap-simulator`, `aq-simulator`
+      - None has a unit suite wired into CI, so each excludes the inherited `test` task. The two Python ones also override `lint` to call `uv` directly, because the inherited task shells out to `npm` and the root `.gitignore` ignores every `package.json`.
     - - `tooling`, `eslint-config`
       - Tagged `language: 'javascript'` so they inherit only `deps`. (`acceptance` is `language: 'python'` and excludes the inherited `test`/`lint` tasks: its pytest suite runs via `just test integration` against a composed stack, never as a moon `:test`.)
     - - `claims-gateway`, `tenancy`, `registry`, `provisioner`

@@ -1,0 +1,34 @@
+[project]
+name = "ap-simulator"
+version = "0.1.0"
+description = "Fake OpenWrt ubus endpoint: serves simulated Wi-Fi station lists so a real ap-collector can be pointed at it."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.0",
+    "pyright>=1.1.390",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["**/__pycache__"]
+
+# Ruff's default rules, which is what the previous bare `ruff check .` leg enforced.
+# Widening the set is a deliberate cleanup commit, not a side effect of adding a lockfile.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pyright]
+include = ["."]
+exclude = ["**/__pycache__", ".venv"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingImports = "error"
+reportMissingTypeStubs = "none"

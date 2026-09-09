@@ -49,7 +49,6 @@ class AirQualityReading(BaseModel):
     type: str = "airQuality"
     # ────────────────────────────────────────
 
-    buildingId: str
     roomId: str
     timestamp: int
     scenario: str

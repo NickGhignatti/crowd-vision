@@ -30,6 +30,11 @@ onto every reading; a reading naming another building is rejected.
 **One route, not two.** The edge ungates the exact path `/telemetry/ingest`, so a `/batch`
 sub-path would 401 for gateways.
 
+**`buildingId` rides on the batch, never on a reading.** Three producers in three languages
+build this body by hand and no Rust type describes it, so `schemas/fixtures/ingest-batch.json`
+pins it — `tests/api.rs` posts every case and every rejection. A reading naming another
+building is still refused; producers just stop sending the field that could disagree.
+
 **One envelope per tick** on `telemetry_schema::RAW_CHANNEL`, shape
 `telemetry_schema::TelemetryEnvelope` — never a hand-rolled `json!`. Channel names come from
 `filtered_channel` / `RAW_CHANNEL`, topics from `adapters/topics.rs` (re-exported

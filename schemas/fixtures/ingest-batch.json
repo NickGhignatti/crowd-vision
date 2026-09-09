@@ -1,0 +1,169 @@
+{
+  "description": "The body POSTed to /telemetry/ingest. Built by ap-collector, aq-simulator and sensor-simulator; parsed by telemetry, which walks it as raw JSON rather than a type. One tick is one batch, all-or-nothing, at most 500 readings.",
+  "rules": {
+    "buildingId": "Carried once by the batch, never repeated on a reading. Telemetry stamps it onto every reading before validating; a reading naming a different building is rejected.",
+    "type": "Names the metric and selects the plugin that validates the reading.",
+    "valueField": "The reading's value lives under the plugin's `value_field`, which is the metric name for every plugin except airQuality, whose value is `indoor_aqi`."
+  },
+  "cases": [
+    {
+      "name": "temperature -- one room, one tick",
+      "producer": "sensor-simulator",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": [
+          {
+            "type": "temperature",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "temperature": 21.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "peopleCount -- integer value, no actions",
+      "producer": "sensor-simulator",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": [
+          {
+            "type": "peopleCount",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "peopleCount": 14
+          }
+        ]
+      }
+    },
+    {
+      "name": "airQuality -- value field is indoor_aqi, not the metric name",
+      "producer": "aq-simulator",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": [
+          {
+            "type": "airQuality",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "scenario": "occupied_office",
+            "pm25": 8.4,
+            "pm10": 12.1,
+            "co2": 612.0,
+            "voc": 45.0,
+            "temperature": 21.4,
+            "humidity": 44.0,
+            "aqi": 35,
+            "indoor_aqi": 41.2
+          }
+        ]
+      }
+    },
+    {
+      "name": "device counts -- both wireless metrics in one tick",
+      "producer": "ap-collector",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": [
+          {
+            "type": "totalDeviceCount",
+            "roomId": "ground-floor",
+            "timestamp": 1757251200000,
+            "totalDeviceCount": 47
+          },
+          {
+            "type": "ratioDeviceCount",
+            "roomId": "ground-floor",
+            "timestamp": 1757251200000,
+            "ratioDeviceCount": 24
+          }
+        ]
+      }
+    },
+    {
+      "name": "a multi-room tick is still one batch",
+      "producer": "sensor-simulator",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": [
+          {
+            "type": "temperature",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "temperature": 21.5
+          },
+          {
+            "type": "peopleCount",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "peopleCount": 14
+          },
+          {
+            "type": "temperature",
+            "roomId": "room-aula-magna",
+            "timestamp": 1757251200000,
+            "temperature": 19.0
+          },
+          {
+            "type": "peopleCount",
+            "roomId": "room-aula-magna",
+            "timestamp": 1757251200000,
+            "peopleCount": 132
+          }
+        ]
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "a reading naming another building",
+      "reason": "buildingId: must match the batch's building",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": [
+          {
+            "type": "temperature",
+            "buildingId": "bldg-someone-else",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "temperature": 21.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "a metric the registry does not know",
+      "reason": "type: unknown sensor type: deviceCount -- the key that actually drifted",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": [
+          {
+            "type": "deviceCount",
+            "roomId": "ground-floor",
+            "timestamp": 1757251200000,
+            "deviceCount": 9
+          }
+        ]
+      }
+    },
+    {
+      "name": "a reading missing the value its type names",
+      "reason": "temperature: required",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": [
+          {
+            "type": "temperature",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000
+          }
+        ]
+      }
+    },
+    {
+      "name": "an empty batch",
+      "reason": "readings: must not be empty",
+      "body": { "buildingId": "bldg-3f2b4c5d", "readings": [] }
+    }
+  ]
+}

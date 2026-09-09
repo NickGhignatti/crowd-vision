@@ -196,8 +196,8 @@ def readings_for_building(
 
 
 def _reading(metric: str, zone: str, now_ms: int, value: int) -> dict[str, str | int]:
-    """One telemetry reading, its value field named after the metric --
-    every plugin sets `MetricDescriptor.value_field` == `key`."""
+    """One telemetry reading, its value field named after the metric -- true of both device
+    plugins, but not universal: airQuality keys its value `indoor_aqi`."""
     return {"type": metric, "roomId": zone, "timestamp": now_ms, metric: value}
 
 

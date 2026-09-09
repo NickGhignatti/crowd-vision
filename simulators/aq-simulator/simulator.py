@@ -88,7 +88,6 @@ class SimulationRoom:
         logger.debug(f"Computed indoor_aqi for {self.room_id}: {indoor_aqi}")
 
         return AirQualityReading(
-            buildingId  = self.building_id,
             roomId      = self.room_id,
             timestamp   = int(time.time() * 1000),
             scenario    = self.scenario.value,

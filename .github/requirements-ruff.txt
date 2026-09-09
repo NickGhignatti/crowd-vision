@@ -1,4 +1,0 @@
-# Ruff for the Python simulator lint legs, which have no lockfile. A file, not an inline
-# pin: Renovate reads this path but cannot see a version in a `run:` block. Matches
-# ap-collector/uv.lock so local and CI agree.
-ruff==0.16.5
