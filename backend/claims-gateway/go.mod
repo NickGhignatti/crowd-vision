@@ -19,7 +19,7 @@ require (
 )
 
 require (
-	github.com/MicahParks/keyfunc/v3 v3.8.1
+	github.com/MicahParks/keyfunc/v3 v3.8.2
 	github.com/NickGhignatti/crowd-vision/server/auth-middleware v0.0.0
 )
 
