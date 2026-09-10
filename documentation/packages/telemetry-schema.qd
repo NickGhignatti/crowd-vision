@@ -43,24 +43,23 @@ One building tick is one message, end to end:
 
 ```json
 {"buildingId":"b1","ingestedAt":1700000000500,
- "readings":[{"type":"temperature","buildingId":"b1","roomId":"r1",
-              "timestamp":1700000000000,"value":21.5,"ingestedAt":1700000000500}]}
+ "readings":[{"type":"temperature","roomId":"r1","timestamp":1700000000000,"value":21.5}]}
 ```
+
+The shape is pinned in `schemas/fixtures/telemetry-envelope.json` (+ its JSON schema): this crate round-trips every tick and reading, telemetry's `redis_fanout.rs` must publish each case byte for byte, and the frontend reads a tick only through `src/utils/telemetry.ts` (`readingsOf`, `readingsFor`), whose spec replays the same file. The envelope has no `type` — only its readings do — so a reader that treats a tick as one reading drops every update.
 
 ```rust
 pub struct TelemetryReading {
     pub metric: String,        // "type"
-    pub building_id: String,
     pub room_id: String,
     pub ts_ms: i64,            // "timestamp"
     pub value: f64,
-    pub ingested_at_ms: i64,   // "ingestedAt"
     #[serde(flatten)]
     pub fields: Map<String, Value>,
 }
 ```
 
-`readings` is `Vec<Value>` on the envelope, deliberately. A reading's fields belong to whichever plugin produced it — telemetry is a microkernel, and enumerating plugin fields in a shared crate would undo that. `TelemetryReading` types the part that *is* fixed (the six names the browser reads) and flattens the rest, so a reading round-trips whatever its plugin emitted.
+`readings` is `Vec<Value>` on the envelope, deliberately. A reading's fields belong to whichever plugin produced it — telemetry is a microkernel, and enumerating plugin fields in a shared crate would undo that. `TelemetryReading` types the part that *is* fixed (the four names the browser reads; `buildingId` and `ingestedAt` are stated once, on the envelope) and flattens the rest, so a reading round-trips whatever its plugin emitted.
 
 **dashboard parses the envelope to route it, then republishes the exact bytes it received.** Routing is a decision about `buildingId`; it is not a licence to rebuild a payload this service does not own. It used to deserialise to a `Value` and re-serialise, which was both slower and one refactor away from dropping a field.
 

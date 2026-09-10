@@ -77,4 +77,4 @@ Suite: `backend/acceptance/acceptance/ld4_dashboard_freshness/`, pytest against 
 
 - **The clock** — starts when the ingest call is issued, stops when that test's own socket client receives the `telemetry` event; `p99` over the 100 samples, same minimum-sample rule as BT-1.
 - **Both QA-P-01 checkpoints are asserted off that one number** — `≤ 1 s` for "inside the system" and `≤ 5 s` end to end. That is a proxy in both directions: a superset of "leaves socket" (the test client is the very next hop) and of "rendered" (Vue's re-render after a socket event is single-digit milliseconds against a 5-second budget).
-- **Why a proxy** — socket has no server-side timing on this path and never reads the `ingestedAt` field telemetry already stamps on every event. The inner `≤ 1 s` boundary is therefore not independently measured; instrumenting socket is what would make it one.
+- **Why a proxy** — socket has no server-side timing on this path and never reads the `ingestedAt` field telemetry already stamps on every tick. The inner `≤ 1 s` boundary is therefore not independently measured; instrumenting socket is what would make it one.

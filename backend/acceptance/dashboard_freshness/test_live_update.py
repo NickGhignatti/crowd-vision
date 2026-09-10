@@ -29,9 +29,10 @@ def test_ingested_reading_reaches_an_open_dashboard_without_a_refresh():
             response = telemetry.ingest_temperature(client, building_id, room_id, value=21.5)
             assert response.status_code == 202
 
-            event = dashboard.wait_for_telemetry(timeout=10.0)
-            assert event["buildingId"] == building_id
-            assert event["roomId"] == room_id
-            assert event["value"] == 21.5
+            tick = dashboard.wait_for_tick(timeout=10.0)
+            assert tick["buildingId"] == building_id
+            (reading,) = tick["readings"]
+            assert reading["roomId"] == room_id
+            assert reading["value"] == 21.5
         finally:
             dashboard.disconnect()

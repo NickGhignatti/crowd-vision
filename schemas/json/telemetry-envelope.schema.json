@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/telemetry-envelope.schema.json",
+  "title": "TelemetryEnvelope",
+  "description": "One building tick: telemetry publishes it, dashboard republishes the same bytes, socket relays it, the frontend reads readings[].",
+  "type": "object",
+  "required": [
+    "buildingId",
+    "ingestedAt",
+    "readings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "buildingId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ingestedAt": {
+      "type": "integer"
+    },
+    "readings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reading"
+      }
+    }
+  },
+  "$defs": {
+    "reading": {
+      "type": "object",
+      "required": [
+        "type",
+        "roomId",
+        "timestamp",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "roomId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": "integer"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "$comment": "Plugin fields ride alongside the four fixed names, so extra keys are allowed.",
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "buildingId"
+            ]
+          },
+          {
+            "required": [
+              "ingestedAt"
+            ]
+          }
+        ],
+        "$comment": "The envelope owns both; a reading repeating them can only agree or contradict it."
+      }
+    }
+  }
+}

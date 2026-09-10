@@ -197,7 +197,7 @@ jobs:
 
   telemetry-schema:
     needs: changes
-    if: needs.changes.outputs.telemetry_schema == 'true'
+    if: needs.changes.outputs.telemetry_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: telemetry-schema

@@ -1,0 +1,129 @@
+{
+  "description": "One building tick. telemetry publishes it on telemetry:raw, dashboard republishes the same bytes on telemetry:filtered:<building>, socket relays it as the `telemetry` event, and the frontend reads readings[]. Every case is an ingest-batch.json case as telemetry emits it.",
+  "rules": {
+    "envelope": "A tick, not a reading: it carries buildingId, ingestedAt and readings, and never a type. buildingId and ingestedAt are stated once here, never repeated on a reading.",
+    "reading": "Four fixed names: type, roomId, timestamp, value. Every other key is the plugin's own field and rides alongside.",
+    "value": "The plugin's value field: the metric name, except airQuality, whose value is indoor_aqi."
+  },
+  "cases": [
+    {
+      "name": "temperature -- one room, one tick",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "ingestedAt": 1757251200500,
+        "readings": [
+          {
+            "type": "temperature",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "value": 21.5,
+            "temperature": 21.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "airQuality -- the value is indoor_aqi, the snapshot rides along",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "ingestedAt": 1757251200500,
+        "readings": [
+          {
+            "type": "airQuality",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "value": 41.2,
+            "scenario": "occupied_office",
+            "pm25": 8.4,
+            "pm10": 12.1,
+            "co2": 612.0,
+            "voc": 45.0,
+            "temperature": 21.4,
+            "humidity": 44.0,
+            "aqi": 35,
+            "indoor_aqi": 41.2
+          }
+        ]
+      }
+    },
+    {
+      "name": "a multi-room tick is still one message",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "ingestedAt": 1757251200500,
+        "readings": [
+          {
+            "type": "temperature",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "value": 21.5,
+            "temperature": 21.5
+          },
+          {
+            "type": "peopleCount",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "value": 14.0,
+            "peopleCount": 14
+          },
+          {
+            "type": "temperature",
+            "roomId": "room-aula-magna",
+            "timestamp": 1757251200000,
+            "value": 19.0,
+            "temperature": 19.0
+          },
+          {
+            "type": "peopleCount",
+            "roomId": "room-aula-magna",
+            "timestamp": 1757251200000,
+            "value": 132.0,
+            "peopleCount": 132
+          }
+        ]
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "no readings",
+      "reason": "a tick carries its readings",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "ingestedAt": 1757251200500
+      }
+    },
+    {
+      "name": "no building",
+      "reason": "the channel is keyed on buildingId",
+      "body": {
+        "ingestedAt": 1757251200500,
+        "readings": []
+      }
+    },
+    {
+      "name": "no ingestedAt",
+      "reason": "one producer always sets it; a missing one is a broken publisher",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "readings": []
+      }
+    },
+    {
+      "name": "a reading without its value",
+      "reason": "the browser plots value",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "ingestedAt": 1757251200500,
+        "readings": [
+          {
+            "type": "temperature",
+            "roomId": "room-lab-2",
+            "timestamp": 1757251200000,
+            "temperature": 21.5
+          }
+        ]
+      }
+    }
+  ]
+}

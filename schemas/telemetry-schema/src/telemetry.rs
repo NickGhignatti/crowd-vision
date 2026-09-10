@@ -20,13 +20,10 @@ pub fn building_of_filtered_channel(channel: &str) -> &str {
 pub struct TelemetryReading {
     #[serde(rename = "type")]
     pub metric: String,
-    pub building_id: String,
     pub room_id: String,
     #[serde(rename = "timestamp")]
     pub ts_ms: i64,
     pub value: f64,
-    #[serde(rename = "ingestedAt")]
-    pub ingested_at_ms: i64,
     #[serde(flatten)]
     pub fields: Map<String, Value>,
 }
@@ -54,11 +51,9 @@ mod tests {
     fn reading() -> TelemetryReading {
         TelemetryReading {
             metric: "temperature".to_string(),
-            building_id: "b1".to_string(),
             room_id: "r1".to_string(),
             ts_ms: 1_700_000_000_000,
             value: 21.5,
-            ingested_at_ms: 1_700_000_000_500,
             fields: Map::new(),
         }
     }
@@ -69,11 +64,9 @@ mod tests {
             serde_json::to_value(reading()).unwrap(),
             json!({
                 "type": "temperature",
-                "buildingId": "b1",
                 "roomId": "r1",
                 "timestamp": 1_700_000_000_000i64,
                 "value": 21.5,
-                "ingestedAt": 1_700_000_000_500i64,
             }),
         );
     }
@@ -98,11 +91,9 @@ mod tests {
     fn an_integer_value_is_read_as_a_number() {
         let raw = json!({
             "type": "peopleCount",
-            "buildingId": "b1",
             "roomId": "r1",
             "timestamp": 1_700_000_000_000i64,
             "value": 20,
-            "ingestedAt": 1_700_000_000_500i64,
             "peopleCount": 20,
         });
         let parsed: TelemetryReading = serde_json::from_value(raw).unwrap();
