@@ -28,9 +28,9 @@ them has a wire quirk a generator would flatten.
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
 | `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts` |
-| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `claims-schema/tests/tenancy_domains_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
+| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `claims-schema/tests/{tenancy_domains,chat_conversation}_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
 | the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case; notification's `controllers.rs` posts every `fixtures/notification-preferences.json` request and rejection |
-| the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; telemetry's `redis_fanout.rs` publishes every `fixtures/telemetry-envelope.json` tick byte for byte; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every case and skips every rejection |
+| the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; chat's `conversation.rs` round-trips every `fixtures/chat-conversation.json` shape through its own types; telemetry's `redis_fanout.rs` publishes every `fixtures/telemetry-envelope.json` tick byte for byte; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every case and skips every rejection |
 
 A fixture with a `rejected` block asserts the schema **refuses** what the service refuses, so a
 rule is never written in only one language — `ingest-batch` is the worked example.
@@ -60,6 +60,8 @@ that needs its own type.
   the header's producer is not always the same edge.
 - Also hosts the schema check for `fixtures/tenancy-domains.json` (tenancy ↔ frontend), which has
   no Rust type: tenancy's `wire_test.go` and the frontend's `src/utils/domains.spec.ts` bind it.
+- Also hosts the schema check for `fixtures/chat-conversation.json` (chat ↔ frontend): chat is
+  its only Rust reader, and its `conversation.rs` tests and `src/utils/chat.spec.ts` bind it.
 - The one definition per language: Go `backend/libs/auth-contracts`, Python `agent/app/auth.py`.
   All three assert `fixtures/standard-claims.json`.
 

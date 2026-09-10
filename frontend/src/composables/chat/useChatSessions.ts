@@ -1,15 +1,12 @@
 import { ref } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import { readSseFrames } from '@/composables/chat/useSseStream.ts'
-import type {
-  ChatConversation,
-  ChatConversationSummary,
-  ChatMessage,
-} from '@/interfaces/chat.ts'
+import type { ChatConversation, ChatConversationSummary, ChatMessage } from '@/interfaces/chat.ts'
+import { toChatMessage, toConversation, toConversationList } from '@/utils/chat.ts'
 
 type ChatFrame =
   | { type: 'token'; text: string }
-  | { type: 'done'; message: ChatMessage }
+  | { type: 'done'; message: unknown }
   | { type: 'error'; message?: string }
 
 const responseError = async (response: Response) => {
@@ -34,7 +31,7 @@ export function useChatSessions() {
     try {
       const response = await makeRequest(`/chat/conversations/${id}`)
       if (!response.ok) throw new Error(await responseError(response))
-      activeConversation.value = (await response.json()) as ChatConversation
+      activeConversation.value = toConversation(await response.json())
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : String(cause)
     } finally {
@@ -48,8 +45,7 @@ export function useChatSessions() {
     try {
       const response = await makeRequest('/chat/conversations')
       if (!response.ok) throw new Error(await responseError(response))
-      const body = (await response.json()) as { conversations: ChatConversationSummary[] }
-      conversations.value = body.conversations
+      conversations.value = toConversationList(await response.json())
 
       const activeId = activeConversation.value?._id
       const nextId =
@@ -71,7 +67,7 @@ export function useChatSessions() {
       })
       if (!response.ok) throw new Error(await responseError(response))
 
-      const conversation = (await response.json()) as ChatConversation
+      const conversation = toConversation(await response.json())
       conversations.value.unshift(conversation)
       activeConversation.value = conversation
     } catch (cause) {
@@ -92,7 +88,7 @@ export function useChatSessions() {
       )
       if (!response.ok) throw new Error(await responseError(response))
 
-      const updated = (await response.json()) as ChatConversation
+      const updated = toConversation(await response.json())
       activeConversation.value = updated
       const summary = conversations.value.find(({ _id }) => _id === updated._id)
       if (summary) summary.title = updated.title
@@ -136,9 +132,13 @@ export function useChatSessions() {
     const discard = () => conversation.messages.splice(settled)
 
     try {
-      const response = await makeRequest(`/chat/conversations/${conversation._id}/messages`, 'POST', {
-        body: JSON.stringify({ content }),
-      })
+      const response = await makeRequest(
+        `/chat/conversations/${conversation._id}/messages`,
+        'POST',
+        {
+          body: JSON.stringify({ content }),
+        },
+      )
       if (!response.ok) throw new Error(await responseError(response))
       if (!response.body) throw new Error('The chat response could not be read')
 
@@ -148,7 +148,7 @@ export function useChatSessions() {
         if (event.type === 'token') streamed.content += event.text
         else if (event.type === 'error') throw new Error(event.message ?? 'Request failed')
         else if (event.type === 'done') {
-          Object.assign(streamed, event.message)
+          Object.assign(streamed, toChatMessage(event.message))
           completed = true
         }
       }

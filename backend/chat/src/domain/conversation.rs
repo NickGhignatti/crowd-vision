@@ -222,6 +222,40 @@ mod tests {
         assert!(json.get("citations").is_none());
     }
 
+    const WIRE: &str = include_str!("../../../../schemas/fixtures/chat-conversation.json");
+
+    fn wire() -> serde_json::Value {
+        serde_json::from_str(WIRE).expect("fixture parses")
+    }
+
+    fn round_trip<T: serde::de::DeserializeOwned + Serialize>(
+        value: &serde_json::Value,
+    ) -> serde_json::Value {
+        let parsed: T = serde_json::from_value(value.clone()).expect("fixture shape parses");
+        serde_json::to_value(parsed).unwrap()
+    }
+
+    #[test]
+    fn every_listed_summary_round_trips_the_fixture_unchanged() {
+        for summary in wire()["list"]["conversations"].as_array().unwrap() {
+            assert_eq!(&round_trip::<ConversationSummary>(summary), summary);
+        }
+    }
+
+    #[test]
+    fn a_full_conversation_round_trips_the_fixture_unchanged() {
+        let conversation = &wire()["conversation"];
+        assert_eq!(&round_trip::<Conversation>(conversation), conversation);
+    }
+
+    #[test]
+    fn every_conversation_the_fixture_rejects_fails_to_parse() {
+        for case in wire()["rejected"].as_array().unwrap() {
+            let parsed = serde_json::from_value::<Conversation>(case["conversation"].clone());
+            assert!(parsed.is_err(), "{} parsed", case["name"]);
+        }
+    }
+
     #[test]
     fn roles_serialise_lowercase() {
         assert_eq!(serde_json::to_value(Role::Assistant).unwrap(), "assistant");

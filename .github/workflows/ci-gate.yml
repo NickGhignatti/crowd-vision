@@ -224,7 +224,7 @@ jobs:
 
   chat:
     needs: changes
-    if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.claims_schema == 'true'
+    if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: chat
