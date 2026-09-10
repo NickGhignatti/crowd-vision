@@ -10,15 +10,14 @@ WORKDIR /app/backend/agent
 RUN pip install --no-cache-dir uv==0.11.16
 COPY backend/agent/pyproject.toml ./
 COPY backend/agent/app ./app
-RUN uv pip install --system --no-cache .
+RUN uv pip install --system --no-cache --prefix /install .
 
 FROM python:3.14-slim AS production
 # Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
 # hadolint ignore=DL3005
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/backend/agent
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /install /usr/local
 COPY backend/libs/auth-policy /app/backend/libs/auth-policy
 COPY backend/libs/auth-contracts /app/backend/libs/auth-contracts
 COPY backend/agent/app ./app
