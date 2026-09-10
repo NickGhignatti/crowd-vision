@@ -270,10 +270,7 @@ mod tests {
 
         assert_eq!(metrics.len(), 1);
         assert_eq!(metrics[0].kind, "temperature");
-        assert_eq!(
-            metrics[0].source.as_deref(),
-            Some(server.uri().as_str())
-        );
+        assert_eq!(metrics[0].source.as_deref(), Some(server.uri().as_str()));
     }
 
     #[tokio::test]

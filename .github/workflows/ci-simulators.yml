@@ -48,7 +48,6 @@ jobs:
       - name: Setup Environment
         uses: ./.github/actions/setup-python
         with:
-          python-version: "3.14"
           working_directory: ./simulators/aq-simulator
 
       - name: Lint

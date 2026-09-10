@@ -499,8 +499,6 @@ def test_the_readings_match_the_shape_telemetry_pins():
     building = Building(name="b1", ap=[_ap(name="ap-a", zone=zone)])
     assignment = {f"aa:bb:cc:00:00:{n:02x}": zone for n in range(47)}
 
-    readings = readings_for_building(
-        building, assignment, now_ms=timestamp, devices_per_person=2.0
-    )
+    readings = readings_for_building(building, assignment, now_ms=timestamp, devices_per_person=2.0)
 
     assert readings == expected
