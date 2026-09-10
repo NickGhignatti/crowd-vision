@@ -6,10 +6,13 @@ inheritedBy:
 tasks:
   test:
     command: 'npm test'
+    # Contract tests read the shared fixtures; without these a fixture edit replays a cached pass.
     inputs:
       - 'app/**/*'
       - 'tests/**/*'
       - 'pyproject.toml'
+      - '/schemas/fixtures/**/*'
+      - '/schemas/json/**/*'
 
   lint:
     command: 'npm run lint'

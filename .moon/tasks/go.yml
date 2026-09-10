@@ -13,9 +13,12 @@ tasks:
 
   test:
     command: 'go test ./...'
+    # Contract tests read the shared fixtures; without these a fixture edit replays a cached pass.
     inputs:
       - '**/*.go'
       - 'go.mod'
+      - '/schemas/fixtures/**/*'
+      - '/schemas/json/**/*'
 
   # Swap to golangci-lint if/when it's adopted.
   # Formatting first, matching tpl-go-ci.yml so `just lint` fails on exactly what

@@ -159,12 +159,14 @@ inheritedBy:
 tasks:
   test:
     command: 'npm test'
-    inputs: ['src/**/*', '__tests__/**/*', 'package.json']
+    inputs: ['src/**/*', '__tests__/**/*', 'package.json', '/schemas/fixtures/**/*', '/schemas/json/**/*']
   audit:
     command: 'npm audit --audit-level=high --omit=dev'
     options: { cache: false }
   # … build, lint, lint-fix, deps …
 ```
+
+Every language's `test` inputs include `/schemas/fixtures/**/*` and `/schemas/json/**/*` (`/` is workspace-relative). Contract tests read those files, and moon hashes a task by its inputs: without them a fixture edit replays a cached pass and `--affected` selects nothing. Rust's `test` also lists `tests/**/*`, where every crate keeps its conformance tests.
 
 .box {Why npm test for the Python service} type:{note}
     The `agent` `package.json` proxies `npm test` to `uv run pytest` and `npm run lint` to `uv run ruff … && pyright`. This gives moon one uniform task interface across languages while the real work still runs through `uv`.
@@ -179,7 +181,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
 
 .tablebyrows {.headers}
     - - `frontend`
-      - Uses Vite/Vitest: overrides `build` inputs and `test` (to `npm run test:unit`), with `mergeArgs: replace` / `mergeInputs: replace` so the overrides replace the inherited values rather than appending.
+      - Uses Vite/Vitest: overrides `build` inputs and `test` (to `npm run test:unit`), with `mergeArgs: replace` / `mergeInputs: replace` so the overrides replace the inherited values rather than appending — which is why its `test` re-lists the fixture and schema inputs itself.
     - - `sensor-simulator`, `aq-simulator`
       - Each asserts `schemas/fixtures/ingest-batch.json`: they hand-build the batch telemetry hand-parses, so the fixture is the only thing holding the three languages to one shape. The Python one overrides `test`/`lint` to call `uv` directly, because the inherited tasks shell out to `npm` and the root `.gitignore` ignores every `package.json`.
     - - `ap-simulator`
