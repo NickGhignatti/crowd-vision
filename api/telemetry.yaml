@@ -203,9 +203,9 @@ components:
           items:
             type: object
             properties:
-              metricKey: { type: string, example: "temperature" }
+              kind: { type: string, example: "temperature" }
               label: { type: string, example: "Temperature" }
-              interfaceName: { type: string, example: "ITemperature" }
+              interface: { type: string, example: "ITemperature" }
               unit: { type: [string, "null"], example: "C" }
               fields:
                 type: array
