@@ -4,8 +4,7 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 
 use crate::domain::{
-    AccountPreferences, Notification, Preference, PreferenceUpdate, PushPayload,
-    WebPushSubscription,
+    AccountPreferences, Notification, Preference, PreferenceUpdate, WebPushSubscription,
 };
 use crate::service::ports::{
     Clock, Cooldown, DomainDirectory, NotificationBus, PreferenceStore, PushOutcome, PushSender,
@@ -202,7 +201,7 @@ impl DomainDirectory for StubDirectory {
 
 #[derive(Default)]
 pub struct RecordingSender {
-    pub sent: Mutex<Vec<(String, PushPayload)>>,
+    pub sent: Mutex<Vec<(String, Notification)>>,
     pub gone: Vec<String>,
     pub failing: Vec<String>,
 }
@@ -237,7 +236,11 @@ impl RecordingSender {
 
 #[async_trait]
 impl PushSender for RecordingSender {
-    async fn send(&self, subscription: &WebPushSubscription, payload: &PushPayload) -> PushOutcome {
+    async fn send(
+        &self,
+        subscription: &WebPushSubscription,
+        payload: &Notification,
+    ) -> PushOutcome {
         self.sent
             .lock()
             .unwrap()

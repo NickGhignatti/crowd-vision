@@ -15,6 +15,7 @@
         AP["auth-policy\npre-expands memberships for Cedar"]
         TS["tenancy\nclaims.CanIn(domain, role)"]
         RS["rust: digital-twin\nincludes roles.json at compile time"]
+        RS2["rust: telemetry\nincludes roles.json at compile time"]
         PY["python: agent\nreads roles.json at import time"]
 
         SIGN --> AC
@@ -22,9 +23,10 @@
         AP --> AC
         TS --> AC
         AC -.->|"roles.json, read directly\n(no Go dependency)"| RS
+        AC -.->|"roles.json, read directly\n(no Go dependency)"| RS2
         AC -.->|"roles.json, read directly\n(no Go dependency)"| PY
 
-`claims-gateway`'s signer *produces* a `StandardClaims` value; `auth-middleware`, `auth-policy`, and `tenancy` *consume* it. Two non-Go services — `digital-twin` (Rust) and `agent` (Python) — read `roles.json` directly off disk rather than depending on this package, since there's no Go module boundary to cross for a static JSON file (see [Auth Policy](auth-policy.qd) for how that split plays out for the Cedar bundle too).
+`claims-gateway`'s signer *produces* a `StandardClaims` value; `auth-middleware`, `auth-policy`, and `tenancy` *consume* it. Three non-Go services — `digital-twin` and `telemetry` (Rust) and `agent` (Python) — read `roles.json` directly off disk rather than depending on this package, since there's no Go module boundary to cross for a static JSON file (see [Auth Policy](auth-policy.qd) for how that split plays out for the Cedar bundle too).
 
 ---
 

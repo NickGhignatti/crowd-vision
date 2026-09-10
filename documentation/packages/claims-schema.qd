@@ -133,6 +133,8 @@ A path dependency makes Rust-to-Rust drift a compile error. It says nothing abou
 
 The Rust test also round-trips the fixture back to JSON and compares, so a field the type forgets to model fails loudly instead of being quietly dropped on the way through.
 
+The crate also hosts the schema check for `schemas/fixtures/tenancy-domains.json` (`tests/tenancy_domains_schema.rs`). That shape travels between tenancy (Go) and the frontend, so no Rust type owns it; this is the identity crate, so it lives here.
+
 CI enforces the same reach: `.github/workflows/ci-gate.yml` re-runs all six consumer services when `claims-schema` changes, and re-runs the Go, Rust and Python conformance legs when the fixture changes.
 
 ---

@@ -31,7 +31,12 @@ fn subscription(account: &str, endpoint: &str) -> WebPushSubscription {
 }
 
 fn update(account: &str, domain: &str, kind: &str, enabled: bool) -> PreferenceUpdate {
-    PreferenceUpdate::new(account, domain, Some(kind), enabled).unwrap()
+    PreferenceUpdate {
+        account_name: account.into(),
+        domain_name: domain.into(),
+        notification_type: kind.into(),
+        enabled,
+    }
 }
 
 #[tokio::test]

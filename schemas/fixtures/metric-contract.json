@@ -1,0 +1,99 @@
+{
+  "service": "telemetry",
+  "metrics": [
+    {
+      "kind": "temperature",
+      "label": "Temperature",
+      "interface": "ITemperature",
+      "unit": "C",
+      "source": "telemetry",
+      "fields": [
+        { "name": "buildingId", "type": "NonEmptyString", "required": true },
+        { "name": "roomId", "type": "NonEmptyString", "required": true },
+        { "name": "timestamp", "type": "Finite", "required": true },
+        { "name": "temperature", "type": "Finite", "required": true }
+      ],
+      "actions": [
+        {
+          "name": "setTarget",
+          "label": "Set target temperature",
+          "parameters": [{ "name": "target", "type": "Finite", "required": true }]
+        },
+        {
+          "name": "increase",
+          "label": "Increase temperature",
+          "parameters": [{ "name": "step", "type": "Finite", "required": false }]
+        },
+        {
+          "name": "decrease",
+          "label": "Decrease temperature",
+          "parameters": [{ "name": "step", "type": "Finite", "required": false }]
+        }
+      ]
+    },
+    {
+      "kind": "peopleCount",
+      "label": "People Count",
+      "interface": "IPeopleCount",
+      "unit": "people",
+      "source": "telemetry",
+      "fields": [
+        { "name": "buildingId", "type": "NonEmptyString", "required": true },
+        { "name": "roomId", "type": "NonEmptyString", "required": true },
+        { "name": "timestamp", "type": "Finite", "required": true },
+        { "name": "peopleCount", "type": "NonNegativeInt", "required": true }
+      ],
+      "actions": []
+    },
+    {
+      "kind": "airQuality",
+      "label": "Air Quality",
+      "interface": "IAirQuality",
+      "unit": null,
+      "source": "telemetry",
+      "fields": [
+        { "name": "buildingId", "type": "NonEmptyString", "required": true },
+        { "name": "roomId", "type": "NonEmptyString", "required": true },
+        { "name": "timestamp", "type": "Finite", "required": true },
+        { "name": "scenario", "type": "NonEmptyString", "required": false },
+        { "name": "pm25", "type": "Finite", "required": true },
+        { "name": "co2", "type": "Finite", "required": true },
+        { "name": "pm10", "type": "Finite", "required": false },
+        { "name": "voc", "type": "Finite", "required": false },
+        { "name": "temperature", "type": "Finite", "required": false },
+        { "name": "humidity", "type": "Finite", "required": false },
+        { "name": "aqi", "type": "Finite", "required": false },
+        { "name": "indoor_aqi", "type": "Finite", "required": false }
+      ],
+      "actions": []
+    },
+    {
+      "kind": "totalDeviceCount",
+      "label": "Total Device Count",
+      "interface": "ITotalDeviceCount",
+      "unit": "devices",
+      "source": "telemetry",
+      "fields": [
+        { "name": "buildingId", "type": "NonEmptyString", "required": true },
+        { "name": "roomId", "type": "NonEmptyString", "required": true },
+        { "name": "timestamp", "type": "Finite", "required": true },
+        { "name": "totalDeviceCount", "type": "NonNegativeInt", "required": true }
+      ],
+      "actions": []
+    },
+    {
+      "kind": "ratioDeviceCount",
+      "label": "Estimated People Count",
+      "interface": "IRatioDeviceCount",
+      "unit": "people",
+      "source": "telemetry",
+      "fields": [
+        { "name": "buildingId", "type": "NonEmptyString", "required": true },
+        { "name": "roomId", "type": "NonEmptyString", "required": true },
+        { "name": "timestamp", "type": "Finite", "required": true },
+        { "name": "ratioDeviceCount", "type": "NonNegativeInt", "required": true }
+      ],
+      "actions": []
+    }
+  ]
+}

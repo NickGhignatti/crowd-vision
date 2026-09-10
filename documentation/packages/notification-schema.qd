@@ -1,0 +1,42 @@
+.docname {Notification Contracts}
+.include {docs}
+
+`notification-schema` holds the one message notification sends to a browser, and the Redis channel it travels on. The same bytes are published for the in-app bell and sent as the Web Push payload, so the bell and the pop-up can never disagree.
+
+---
+
+## The message
+
+.mermaid
+    flowchart LR
+        N["notification\nbuilds Notification"] -->|"Redis notifications"| S["socket\nroutes on domainName"]
+        N -->|"Web Push, same bytes"| W["service worker\ntitle · message · icon"]
+        S -->|"socket.io notification"| B["frontend bell\ntype · message · timestamp"]
+
+| Field | Type | Rule |
+|---|---|---|
+| `id` | string | Millisecond clock at publish. |
+| `type` | `info` \| `warning` \| `danger` | Severity, closed set. Not the metric: that is a preference's `notificationType`. |
+| `title` | string | Pop-up heading. |
+| `message` | string | Body of both the bell entry and the pop-up. |
+| `timestamp` | string | ISO-8601 UTC with milliseconds. |
+| `domainName` | string, optional | Absent means a system-wide broadcast; present means only that domain's room. |
+| `icon` | string, optional | The service worker shows an icon only when one is sent. |
+
+---
+
+## Why socket parses it
+
+socket reads `domainName` to pick the room, then relays the bytes it received. It parses the whole `Notification` rather than reaching for one key, so a message the producer would never write is skipped instead of broadcast — a renamed `domainName` would otherwise send one tenant's alert to every client.
+
+---
+
+## Tests
+
+- `notification-schema/tests/notification_conformance.rs` — every fixture case round-trips byte for byte; every rejection fails to parse; the channel name is pinned.
+- `notification-schema/tests/notification_schema.rs` — the fixture against `schemas/json/notification.schema.json`.
+- notification `service/alerts.rs` — a breach publishes exactly the fixture's scoped and broadcast cases.
+- socket `core/relay.rs` — every case is routed, every rejection skipped.
+- frontend `src/utils/notification.spec.ts` — every severity the fixture sends has a colour, and a list item keeps the server's `id`, `type` and `timestamp`.
+
+The crate also hosts the schema check for `fixtures/notification-preferences.json` (`tests/notification_preferences_schema.rs`), the `GET` / `POST /notification/preferences` shape. It has no Rust type here — only notification parses it — and is bound by notification's `controllers.rs` (every request applied, every rejection refused with its reason) and the frontend's `src/utils/notificationPreferences.spec.ts`.

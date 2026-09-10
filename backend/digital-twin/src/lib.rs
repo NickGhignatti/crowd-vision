@@ -13,10 +13,10 @@ use telemetry_schema::{MetricContract, MetricFieldContract, ServiceMetricsContra
 /// telemetry's `/contracts` serves and the dashboard parses - a hand-rolled `json!`
 /// here is how `key`/`metricKey` once drifted and emptied the catalog at runtime.
 async fn contracts() -> Json<ServiceMetricsContract> {
-    fn field(name: &str, field_type: &str) -> MetricFieldContract {
+    fn field(name: &str, kind: &str) -> MetricFieldContract {
         MetricFieldContract {
             name: name.to_owned(),
-            field_type: field_type.to_owned(),
+            r#type: kind.to_owned(),
             required: true,
             description: None,
         }
@@ -26,9 +26,9 @@ async fn contracts() -> Json<ServiceMetricsContract> {
         service: "digital-twin".to_owned(),
         metrics: vec![
             MetricContract {
-                metric_key: "roomName".to_owned(),
+                kind: "roomName".to_owned(),
                 label: "Room Name".to_owned(),
-                interface_name: "IRoomName".to_owned(),
+                interface: "IRoomName".to_owned(),
                 unit: Some("string".to_owned()),
                 fields: vec![
                     field("buildingId", "string"),
@@ -36,12 +36,12 @@ async fn contracts() -> Json<ServiceMetricsContract> {
                     field("name", "string"),
                 ],
                 actions: vec![],
-                source_service: None,
+                source: None,
             },
             MetricContract {
-                metric_key: "roomMaxOccupancy".to_owned(),
+                kind: "roomMaxOccupancy".to_owned(),
                 label: "Room Max Occupancy".to_owned(),
-                interface_name: "IRoomMaxOccupancy".to_owned(),
+                interface: "IRoomMaxOccupancy".to_owned(),
                 unit: Some("people".to_owned()),
                 fields: vec![
                     field("buildingId", "string"),
@@ -49,7 +49,7 @@ async fn contracts() -> Json<ServiceMetricsContract> {
                     field("maxOccupancy", "integer"),
                 ],
                 actions: vec![],
-                source_service: None,
+                source: None,
             },
         ],
     })
@@ -111,14 +111,14 @@ mod contracts_tests {
 
         let keys: Vec<&str> = metrics
             .iter()
-            .map(|m| m["metricKey"].as_str().unwrap())
+            .map(|m| m["kind"].as_str().unwrap())
             .collect();
         assert_eq!(keys, vec!["roomName", "roomMaxOccupancy"]);
 
         for metric in metrics {
             assert!(
-                metric["interfaceName"].is_string(),
-                "interfaceName missing: {metric}"
+                metric["interface"].is_string(),
+                "interface missing: {metric}"
             );
             assert!(
                 metric["fields"]

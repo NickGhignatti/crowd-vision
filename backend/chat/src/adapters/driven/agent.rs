@@ -184,28 +184,89 @@ impl SseReader {
 mod tests {
     use super::*;
 
-    fn events(chunks: Vec<&str>) -> Vec<anyhow::Result<AgentEvent>> {
-        let owned: Vec<Bytes> = chunks
-            .into_iter()
-            .map(|c| Bytes::from(c.to_string()))
-            .collect();
+    fn events<S: Into<String>>(chunks: Vec<S>) -> Vec<anyhow::Result<AgentEvent>> {
+        let owned: Vec<Bytes> = chunks.into_iter().map(|c| Bytes::from(c.into())).collect();
         futures::executor::block_on(
             frames(futures::stream::iter(owned.into_iter().map(Ok))).collect::<Vec<_>>(),
         )
     }
 
-    #[test]
-    fn tokens_and_the_terminal_frame_are_read_in_order() {
-        let read = events(vec![
-            "data: {\"type\":\"token\",\"text\":\"Room \"}\n\n",
-            "data: {\"type\":\"token\",\"text\":\"B2\"}\n\n",
-            "data: {\"type\":\"done\",\"citations\":[]}\n\n",
-        ]);
+    const FIXTURE: &str = include_str!("../../../../../schemas/fixtures/agent-stream.json");
 
-        assert_eq!(read.len(), 3);
-        assert!(matches!(&read[0], Ok(AgentEvent::Token(t)) if t == "Room "));
-        assert!(matches!(&read[1], Ok(AgentEvent::Token(t)) if t == "B2"));
-        assert!(matches!(&read[2], Ok(AgentEvent::Done { citations, .. }) if citations.is_empty()));
+    fn fixture() -> serde_json::Value {
+        serde_json::from_str(FIXTURE).expect("the agent-stream fixture parses")
+    }
+
+    /// One SSE frame per body, the way agent's `sse()` writes them.
+    fn wire(frame: &serde_json::Value) -> String {
+        format!("data: {}\n\n", serde_json::to_string(frame).unwrap())
+    }
+
+    // Agent builds these frames from Python dataclass `__dict__` dumps and this file parses
+    // them by hand. Reading the fixture rather than a literal is the point: a literal here
+    // keeps passing after agent renames a field.
+    #[test]
+    fn every_stream_the_fixture_pins_decodes_to_what_agent_meant() {
+        for case in fixture()["cases"].as_array().unwrap() {
+            let frames = case["frames"].as_array().unwrap();
+            let read = events(frames.iter().map(wire).collect());
+            let name = &case["name"];
+
+            let expected_tokens: Vec<&str> = frames
+                .iter()
+                .filter(|f| f["type"] == "token")
+                .map(|f| f["text"].as_str().unwrap())
+                .collect();
+            let read_tokens: Vec<&str> = read
+                .iter()
+                .filter_map(|e| match e {
+                    Ok(AgentEvent::Token(t)) => Some(t.as_str()),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(read_tokens, expected_tokens, "{name}");
+
+            let terminal = frames.iter().find(|f| f["type"] == "done").unwrap();
+            let Some(Ok(AgentEvent::Done { answer, citations })) = read.last() else {
+                panic!("{name}: the stream lost its terminal frame");
+            };
+            assert_eq!(answer.as_deref(), terminal["answer"].as_str(), "{name}");
+
+            let pinned = terminal["citations"].as_array().unwrap();
+            assert_eq!(citations.len(), pinned.len(), "{name}");
+            for (got, want) in citations.iter().zip(pinned) {
+                assert_eq!(got.chunk_id, want["chunk_id"].as_str().unwrap(), "{name}");
+                assert_eq!(
+                    got.document_id,
+                    want["document_id"].as_str().unwrap(),
+                    "{name}"
+                );
+                assert_eq!(got.source, want["source"].as_str().unwrap(), "{name}");
+                assert_eq!(got.section_path.as_deref(), want["section_path"].as_str());
+            }
+        }
+    }
+
+    // The leniency is deliberate: agent may add a frame kind, or be too old to send
+    // `answer`, without a lockstep release. Each tolerated frame must degrade, never error.
+    #[test]
+    fn every_frame_the_fixture_tolerates_is_survived() {
+        for case in fixture()["tolerated"].as_array().unwrap() {
+            let frame = &case["frame"];
+            let read = events(vec![wire(frame)]);
+            let name = &case["name"];
+
+            assert!(read.iter().all(|e| e.is_ok()), "{name}: {}", case["reason"]);
+
+            if frame["type"] == "done" {
+                let Some(Ok(AgentEvent::Done { answer, .. })) = read.first() else {
+                    panic!("{name}: a terminal frame must still terminate the stream");
+                };
+                assert_eq!(answer.as_deref(), frame["answer"].as_str(), "{name}");
+            } else {
+                assert!(read.is_empty(), "{name}: an unknown frame yields no event");
+            }
+        }
     }
 
     #[test]
@@ -245,19 +306,6 @@ mod tests {
     }
 
     #[test]
-    fn citations_keep_their_snake_case_field_names() {
-        let read = events(vec![
-            "data: {\"type\":\"done\",\"citations\":[{\"chunk_id\":\"c\",\"document_id\":\"d\",\"source\":\"s\",\"section_path\":\"Top\"}]}\n\n",
-        ]);
-
-        let Ok(AgentEvent::Done { citations, .. }) = &read[0] else {
-            panic!("expected the terminal frame");
-        };
-        assert_eq!(citations[0].chunk_id, "c");
-        assert_eq!(citations[0].section_path.as_deref(), Some("Top"));
-    }
-
-    #[test]
     fn keepalive_comments_and_blank_frames_are_skipped() {
         let read = events(vec![
             ": keepalive\n\n",
@@ -265,35 +313,6 @@ mod tests {
             "data: {\"type\":\"done\",\"citations\":[]}\n\n",
         ]);
         assert_eq!(read.len(), 1);
-    }
-
-    #[test]
-    fn the_terminal_frame_carries_the_agents_authoritative_answer() {
-        let read = events(vec![
-            "data: {\"type\":\"done\",\"answer\":\"cleaned text\",\"citations\":[]}\n\n",
-        ]);
-
-        assert!(matches!(
-            &read[0],
-            Ok(AgentEvent::Done { answer, .. }) if answer.as_deref() == Some("cleaned text")
-        ));
-    }
-
-    #[test]
-    fn a_terminal_frame_without_an_answer_leaves_the_accumulated_tokens_in_charge() {
-        let read = events(vec!["data: {\"type\":\"done\",\"citations\":[]}\n\n"]);
-
-        assert!(matches!(&read[0], Ok(AgentEvent::Done { answer, .. }) if answer.is_none()));
-    }
-
-    #[test]
-    fn an_unknown_frame_type_is_ignored_rather_than_failing_the_stream() {
-        let read = events(vec![
-            "data: {\"type\":\"heartbeat\"}\n\n",
-            "data: {\"type\":\"done\",\"citations\":[]}\n\n",
-        ]);
-        assert_eq!(read.len(), 1);
-        assert!(matches!(&read[0], Ok(AgentEvent::Done { .. })));
     }
 
     #[test]

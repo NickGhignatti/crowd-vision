@@ -1,0 +1,122 @@
+{
+  "description": "GET and POST /notification/preferences. notification serialises the reply and parses the requests with no shared type; the frontend settings page reads the reply and sends the single-switch request.",
+  "rules": {
+    "type": "The metric a switch controls, a preference's notificationType. Closed set: only metrics with a delivery path, today temperature.",
+    "accountName": "Ignored on a request: the account always comes from the verified claims.",
+    "domainId": "Deprecated alias of domainName."
+  },
+  "response": {
+    "success": true,
+    "accountPreferences": [
+      {
+        "accountName": "ada",
+        "domainName": "eng",
+        "preferences": [
+          {
+            "notificationType": "temperature",
+            "isSubscribed": true
+          }
+        ],
+        "createdAt": "2025-09-07T13:20:00.000Z"
+      }
+    ]
+  },
+  "requests": [
+    {
+      "name": "one switch, as the settings page sends it",
+      "body": {
+        "accountName": "ada",
+        "domainName": "eng",
+        "type": "temperature",
+        "enabled": false
+      }
+    },
+    {
+      "name": "the deprecated domainId alias",
+      "body": {
+        "domainId": "eng",
+        "type": "temperature",
+        "enabled": true
+      }
+    },
+    {
+      "name": "a types array sharing one enabled flag",
+      "body": {
+        "domainName": "eng",
+        "types": [
+          "temperature"
+        ],
+        "enabled": true
+      }
+    },
+    {
+      "name": "a granular preferences array",
+      "body": {
+        "domainName": "eng",
+        "preferences": [
+          {
+            "type": "temperature",
+            "enabled": false
+          }
+        ]
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "no domain",
+      "reason": "domainName is required",
+      "body": {
+        "type": "temperature",
+        "enabled": true
+      }
+    },
+    {
+      "name": "no enabled flag",
+      "reason": "enabled is required",
+      "body": {
+        "domainName": "eng",
+        "type": "temperature"
+      }
+    },
+    {
+      "name": "no type",
+      "reason": "type is required",
+      "body": {
+        "domainName": "eng",
+        "enabled": true
+      }
+    },
+    {
+      "name": "a misspelt type",
+      "reason": "type must be one of: temperature",
+      "body": {
+        "domainName": "eng",
+        "type": "temprature",
+        "enabled": true
+      }
+    },
+    {
+      "name": "a types array without enabled",
+      "reason": "enabled is required",
+      "body": {
+        "domainName": "eng",
+        "types": [
+          "temperature"
+        ]
+      }
+    },
+    {
+      "name": "a preferences entry without a type",
+      "reason": "type is required",
+      "body": {
+        "domainName": "eng",
+        "preferences": [
+          {
+            "enabled": true
+          }
+        ]
+      }
+    }
+  ]
+}

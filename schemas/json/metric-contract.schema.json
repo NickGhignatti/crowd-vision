@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/metric-contract.schema.json",
+  "title": "ServiceMetricsContract",
+  "description": "The metric catalog a service serves from GET /contracts. Produced by telemetry and digital-twin, merged by dashboard, rendered by the frontend (TypeScript), which cannot share the Rust type. Every field is one word, so the Rust name is the wire name.",
+  "type": "object",
+  "required": ["service", "metrics"],
+  "additionalProperties": false,
+  "properties": {
+    "service": { "type": "string", "minLength": 1 },
+    "metrics": { "type": "array", "items": { "$ref": "#/$defs/metric" } }
+  },
+  "$defs": {
+    "metric": {
+      "type": "object",
+      "required": ["kind", "label", "interface", "unit", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Metric identifier, e.g. 'temperature'. The frontend keys columns on this."
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "interface": { "type": "string", "minLength": 1 },
+        "unit": {
+          "type": ["string", "null"],
+          "description": "Null, not absent, when a metric is unitless -- serde skips nothing here."
+        },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/field" } },
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/action" },
+          "description": "Optional when parsing: a source may omit it and the crate defaults to empty."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absent from a producer's own response; dashboard backfills it with the service name."
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": ["name", "type", "required"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "$ref": "#/$defs/fieldKind" },
+        "required": { "type": "boolean" },
+        "description": { "type": "string" }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["name", "label", "parameters"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } }
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "required": ["name", "type", "required"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "$ref": "#/$defs/fieldKind" },
+        "required": { "type": "boolean" }
+      }
+    },
+    "fieldKind": {
+      "description": "The Debug rendering of telemetry's FieldKind. Renaming a variant changes this wire value with no compile error, which is why it is enumerated here.",
+      "enum": ["NonEmptyString", "Finite", "NonNegativeInt"]
+    }
+  }
+}

@@ -130,16 +130,16 @@ pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<ServiceMetric
         .map(|plugin| {
             let descriptor = plugin.descriptor();
             MetricContract {
-                metric_key: descriptor.key.to_owned(),
+                kind: descriptor.key.to_owned(),
                 label: descriptor.label.to_owned(),
-                interface_name: descriptor.interface_name.to_owned(),
+                interface: descriptor.interface_name.to_owned(),
                 unit: descriptor.unit.map(str::to_owned),
                 fields: descriptor
                     .fields
                     .iter()
                     .map(|field| MetricFieldContract {
                         name: field.name.to_owned(),
-                        field_type: format!("{:?}", field.kind),
+                        r#type: format!("{:?}", field.kind),
                         required: field.required,
                         description: None,
                     })
@@ -155,13 +155,13 @@ pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<ServiceMetric
                             .iter()
                             .map(|parameter| ActionParameterContract {
                                 name: parameter.name.to_owned(),
-                                parameter_type: format!("{:?}", parameter.kind),
+                                r#type: format!("{:?}", parameter.kind),
                                 required: parameter.required,
                             })
                             .collect(),
                     })
                     .collect(),
-                source_service: None,
+                source: None,
             }
         })
         .collect();

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use futures::future::join_all;
 
-use crate::domain::{PushPayload, WebPushSubscription};
+use crate::domain::{Notification, WebPushSubscription};
 use crate::service::ports::{PreferenceStore, PushOutcome, PushSender, SubscriptionStore};
 
 pub struct Push {
@@ -24,7 +24,7 @@ impl Push {
         }
     }
 
-    pub async fn to_accounts(&self, payload: &PushPayload, account_names: &[String]) {
+    pub async fn to_accounts(&self, payload: &Notification, account_names: &[String]) {
         if account_names.is_empty() {
             return;
         }
@@ -45,7 +45,7 @@ impl Push {
 
     pub async fn to_domain(
         &self,
-        payload: &PushPayload,
+        payload: &Notification,
         domain_name: &str,
         notification_type: Option<&str>,
     ) {
@@ -59,7 +59,7 @@ impl Push {
         }
     }
 
-    async fn deliver(&self, subscription: &WebPushSubscription, payload: &PushPayload) {
+    async fn deliver(&self, subscription: &WebPushSubscription, payload: &Notification) {
         if self.sender.send(subscription, payload).await == PushOutcome::SubscriptionGone
             && let Err(e) = self
                 .subscriptions
@@ -76,6 +76,10 @@ mod tests {
     use super::*;
     use crate::domain::{AccountPreferences, Preference, SubscriptionKeys, TEMPERATURE};
     use crate::service::fakes::{InMemoryPreferences, InMemorySubscriptions, RecordingSender};
+
+    fn sample() -> Notification {
+        crate::domain::notification(0, 0, crate::domain::Severity::Info, "t", "m", None)
+    }
 
     fn subscription(account: &str, endpoint: &str) -> WebPushSubscription {
         WebPushSubscription {
@@ -132,10 +136,7 @@ mod tests {
     #[tokio::test]
     async fn no_accounts_means_no_sends() {
         let fixture = fixture(RecordingSender::default(), vec![]);
-        fixture
-            .push
-            .to_accounts(&PushPayload::new(None, None, None), &[])
-            .await;
+        fixture.push.to_accounts(&sample(), &[]).await;
         assert!(fixture.sender.endpoints().is_empty());
     }
 
@@ -154,7 +155,7 @@ mod tests {
 
         fixture
             .push
-            .to_accounts(&PushPayload::new(None, None, None), &["ada".to_string()])
+            .to_accounts(&sample(), &["ada".to_string()])
             .await;
 
         assert_eq!(
@@ -170,7 +171,7 @@ mod tests {
 
         fixture
             .push
-            .to_accounts(&PushPayload::new(None, None, None), &["ada".to_string()])
+            .to_accounts(&sample(), &["ada".to_string()])
             .await;
 
         assert!(
@@ -190,7 +191,7 @@ mod tests {
 
         fixture
             .push
-            .to_accounts(&PushPayload::new(None, None, None), &["ada".to_string()])
+            .to_accounts(&sample(), &["ada".to_string()])
             .await;
 
         assert_eq!(fixture.subscriptions.subscriptions.lock().unwrap().len(), 1);
@@ -210,7 +211,7 @@ mod tests {
 
         fixture
             .push
-            .to_accounts(&PushPayload::new(None, None, None), &["ada".to_string()])
+            .to_accounts(&sample(), &["ada".to_string()])
             .await;
 
         assert_eq!(
@@ -246,7 +247,7 @@ mod tests {
 
         fixture
             .push
-            .to_domain(&PushPayload::new(None, None, None), "d1", Some(TEMPERATURE))
+            .to_domain(&sample(), "d1", Some(TEMPERATURE))
             .await;
 
         assert_eq!(fixture.sender.endpoints(), vec!["https://push/ada"]);
@@ -270,10 +271,7 @@ mod tests {
         )
         .await;
 
-        fixture
-            .push
-            .to_domain(&PushPayload::new(None, None, None), "d1", None)
-            .await;
+        fixture.push.to_domain(&sample(), "d1", None).await;
 
         assert_eq!(
             fixture.sender.endpoints(),

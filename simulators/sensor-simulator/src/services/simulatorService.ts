@@ -101,8 +101,8 @@ export class Simulator {
     if (rooms.length === 0) return;
 
     const readings = rooms.flatMap((roomId) => [
-      { ...this.temperatureFor(roomId, building), type: "temperature" },
-      { ...this.peopleCountFor(roomId, building), type: "peopleCount" },
+      { ...this.temperatureFor(roomId), type: "temperature" },
+      { ...this.peopleCountFor(roomId), type: "peopleCount" },
     ]);
 
     try {
@@ -126,12 +126,8 @@ export class Simulator {
     }
   }
 
-  private temperatureFor(
-    roomId: string,
-    building: IBuilding,
-  ): ISignalTemperature {
+  private temperatureFor(roomId: string): ISignalTemperature {
     return {
-      buildingId: building.buildingId,
       roomId,
       timestamp: Date.now(),
       temperature: parseFloat(
@@ -144,12 +140,8 @@ export class Simulator {
     };
   }
 
-  private peopleCountFor(
-    roomId: string,
-    building: IBuilding,
-  ): ISignalPeopleCount {
+  private peopleCountFor(roomId: string): ISignalPeopleCount {
     return {
-      buildingId: building.buildingId,
       roomId,
       timestamp: Date.now(),
       peopleCount:

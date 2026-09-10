@@ -1,13 +1,14 @@
 import { shallowRef, triggerRef, ref, watch, type Ref } from 'vue'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import { socket } from '@/services/socket'
+import { readingsFor, type TelemetryTick } from '@/utils/telemetry.ts'
 import type { SensorDraftType } from '@/models/buildingDraft.ts'
 
 export interface ApiDataPoint {
-  timestamp: string
+  timestamp: string | number
   roomId: string
   value?: number
-  building: string
+  building?: string
   // Air Quality fields
   pm25?: number
   pm10?: number
@@ -86,15 +87,15 @@ export function getBuildingData(
 
       // Captured reference ensures socket.off() removes exactly this handler,
       // not a different listener registered by another composable instance.
-      const telemetryHandler = (event: any) => {
-        if (event?.buildingId !== buildingId.value || event?.type !== apiType) return
+      const telemetryHandler = (tick: TelemetryTick) => {
+        const readings = readingsFor(tick, buildingId.value, apiType)
+        if (readings.length === 0) return
 
         const arr = data.value
-        const idx = arr.findIndex((d) => d.roomId === event.roomId)
-        if (idx >= 0) {
-          arr[idx] = { ...arr[idx], ...event }
-        } else {
-          arr.push(event)
+        for (const reading of readings) {
+          const idx = arr.findIndex((d) => d.roomId === reading.roomId)
+          if (idx >= 0) arr[idx] = { ...arr[idx], ...reading }
+          else arr.push(reading)
         }
 
         // Batch DOM/VNode updates to the next animation frame so Vue's scheduler

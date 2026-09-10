@@ -39,11 +39,9 @@ impl RedisFanout {
 fn telemetry_json(event: &TelemetryEvent) -> Value {
     let reading = TelemetryReading {
         metric: event.metric.clone(),
-        building_id: event.building_id.clone(),
         room_id: event.room_id.clone(),
         ts_ms: event.ts_ms,
         value: event.value,
-        ingested_at_ms: event.ingested_at_ms,
         fields: event
             .payload
             .iter()
@@ -107,11 +105,10 @@ mod tests {
             json!({ "buildingId": "b1", "roomId": "r1", "timestamp": 1, "temperature": 21.5 }),
         ));
         assert_eq!(body["type"], "temperature");
-        assert_eq!(body["buildingId"], "b1");
         assert_eq!(body["roomId"], "r1");
         assert_eq!(body["timestamp"], 1_699_999_000_000i64);
         assert_eq!(body["value"], 21.5);
-        assert_eq!(body["ingestedAt"], 1_700_000_000_000i64);
+        assert!(body.get("buildingId").is_none() && body.get("ingestedAt").is_none());
     }
 
     #[test]
@@ -121,7 +118,10 @@ mod tests {
             21.5,
             json!({ "buildingId": "other", "roomId": "other", "timestamp": 999, "temperature": 21.5 }),
         ));
-        assert_eq!(body["buildingId"], "b1");
+        assert!(
+            body.get("buildingId").is_none(),
+            "the envelope owns the building"
+        );
         assert_eq!(body["roomId"], "r1");
         assert_eq!(body["timestamp"], 1_699_999_000_000i64);
     }
@@ -145,7 +145,7 @@ mod tests {
         let reading = &body["readings"][0];
 
         assert_eq!(reading["type"], "temperature");
-        assert_eq!(reading["buildingId"], "b1");
+        assert!(reading.get("buildingId").is_none());
         assert_eq!(reading["roomId"], "r1");
         assert_eq!(reading["value"], 21.5);
     }
@@ -187,6 +187,44 @@ mod tests {
             "aqi",
         ] {
             assert!(body.get(field).is_some(), "missing {field}");
+        }
+    }
+
+    const WIRE: &str = include_str!("../../../../../schemas/fixtures/telemetry-envelope.json");
+
+    fn events_of(tick: &Value) -> Vec<TelemetryEvent> {
+        tick["readings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| {
+                let mut payload = r.as_object().unwrap().clone();
+                for derived in ["type", "value"] {
+                    payload.remove(derived);
+                }
+                TelemetryEvent {
+                    metric: r["type"].as_str().unwrap().to_owned(),
+                    building_id: tick["buildingId"].as_str().unwrap().to_owned(),
+                    room_id: r["roomId"].as_str().unwrap().to_owned(),
+                    ts_ms: r["timestamp"].as_i64().unwrap(),
+                    value: r["value"].as_f64().unwrap(),
+                    payload,
+                    ingested_at_ms: tick["ingestedAt"].as_i64().unwrap(),
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn every_tick_is_published_as_the_fixture_byte_for_byte() {
+        let wire: Value = serde_json::from_str(WIRE).unwrap();
+        for case in wire["cases"].as_array().unwrap() {
+            assert_eq!(
+                telemetry_batch_json(&events_of(&case["body"])),
+                case["body"],
+                "{}",
+                case["name"]
+            );
         }
     }
 }

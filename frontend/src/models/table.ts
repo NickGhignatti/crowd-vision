@@ -1,9 +1,9 @@
 export interface MetricContract {
-  metricKey: string
+  kind: string
   label: string
-  interfaceName: string
+  interface: string
   unit?: string
-  sourceService?: string
+  source?: string
 }
 
 export interface TableHeader {

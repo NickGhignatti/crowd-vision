@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::domain::error::DomainError;
 
 pub const TEMPERATURE: &str = "temperature";
+pub const NOTIFICATION_TYPES: &[&str] = &[TEMPERATURE];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Preference {
@@ -49,13 +50,19 @@ impl PreferenceUpdate {
                 "domainName is required".to_string(),
             ));
         }
+        let notification_type = notification_type
+            .filter(|t| !t.is_empty())
+            .unwrap_or(TEMPERATURE);
+        if !NOTIFICATION_TYPES.contains(&notification_type) {
+            return Err(DomainError::Validation(format!(
+                "type must be one of: {}",
+                NOTIFICATION_TYPES.join(", ")
+            )));
+        }
         Ok(PreferenceUpdate {
             account_name: account_name.to_string(),
             domain_name: domain_name.to_string(),
-            notification_type: notification_type
-                .filter(|t| !t.is_empty())
-                .unwrap_or(TEMPERATURE)
-                .to_string(),
+            notification_type: notification_type.to_string(),
             enabled,
         })
     }
@@ -82,6 +89,7 @@ pub struct PreferenceRequest {
 }
 
 impl PreferenceRequest {
+    /// Returns the explicit preference entries, if any, for the given account and domain.
     fn explicit(
         &self,
         account_name: &str,
@@ -103,10 +111,12 @@ impl PreferenceRequest {
         )
     }
 
+    /// Returns the list of notification types, if any.
     fn listed(&self) -> Option<&Vec<String>> {
         self.types.as_ref().filter(|t| !t.is_empty())
     }
 
+    /// Resolves a preference entry for the given account and domain, with lenient validation.
     pub fn resolve_lenient(
         &self,
         account_name: &str,
@@ -130,21 +140,25 @@ impl PreferenceRequest {
         }
     }
 
+    /// Resolves a preference entry for the given account and domain, with strict validation.
     pub fn resolve_strict(
         &self,
         account_name: &str,
         domain_name: &str,
     ) -> Result<Vec<PreferenceUpdate>, DomainError> {
+        let unnamed =
+            |entry: &PreferenceEntry| entry.notification_type.as_deref().is_none_or(str::is_empty);
+        if self.preferences.iter().flatten().any(unnamed) {
+            return Err(parameter_is_required("type"));
+        }
         if let Some(updates) = self.explicit(account_name, domain_name) {
             return updates;
         }
         match self.listed() {
             Some(types) => {
-                let enabled = self.enabled.ok_or_else(|| {
-                    DomainError::Validation(
-                        "enabled boolean is required when passing a types array".to_string(),
-                    )
-                })?;
+                let enabled = self
+                    .enabled
+                    .ok_or_else(|| parameter_is_required("enabled"))?;
                 types
                     .iter()
                     .map(|t| PreferenceUpdate::new(account_name, domain_name, Some(t), enabled))
@@ -153,16 +167,25 @@ impl PreferenceRequest {
             None => {
                 let enabled = self
                     .enabled
-                    .ok_or_else(|| DomainError::Validation("enabled is required".to_string()))?;
+                    .ok_or_else(|| parameter_is_required("enabled"))?;
+                let notification_type = self
+                    .notification_type
+                    .as_deref()
+                    .filter(|t| !t.is_empty())
+                    .ok_or_else(|| parameter_is_required("type"))?;
                 Ok(vec![PreferenceUpdate::new(
                     account_name,
                     domain_name,
-                    self.notification_type.as_deref(),
+                    Some(notification_type),
                     enabled,
                 )?])
             }
         }
     }
+}
+
+fn parameter_is_required(name: &str) -> DomainError {
+    DomainError::validation(format!("{} is required", name).as_str())
 }
 
 #[cfg(test)]
@@ -205,13 +228,21 @@ mod tests {
     }
 
     #[test]
-    fn a_supplied_notification_type_is_kept_verbatim() {
+    fn a_known_notification_type_is_kept() {
         assert_eq!(
-            update("ada", "d1", Some("humidity"))
+            update("ada", "d1", Some(TEMPERATURE))
                 .unwrap()
                 .notification_type,
-            "humidity"
+            TEMPERATURE
         );
+    }
+
+    #[test]
+    fn a_type_without_a_delivery_path_is_rejected() {
+        assert!(matches!(
+            update("ada", "d1", Some("humidity")),
+            Err(DomainError::Validation(m)) if m == "type must be one of: temperature"
+        ));
     }
 
     #[test]
@@ -233,15 +264,12 @@ mod tests {
     #[test]
     fn an_explicit_preferences_array_wins_over_types_and_enabled() {
         let request = request(serde_json::json!({
-            "preferences": [{ "type": "temperature", "enabled": false }, { "type": "humidity", "enabled": true }],
-            "types": ["ignored"],
+            "preferences": [{ "type": "temperature", "enabled": false }],
+            "types": ["temperature"],
             "enabled": true,
         }));
 
-        let expected = vec![
-            ("temperature".to_string(), false),
-            ("humidity".to_string(), true),
-        ];
+        let expected = vec![("temperature".to_string(), false)];
         assert_eq!(
             pairs(request.resolve_lenient("ada", "d1").unwrap()),
             expected
@@ -254,19 +282,19 @@ mod tests {
 
     #[test]
     fn a_types_array_applies_the_shared_enabled_flag() {
-        let request = request(serde_json::json!({ "types": ["a", "b"], "enabled": false }));
+        let request = request(serde_json::json!({ "types": [TEMPERATURE], "enabled": false }));
         assert_eq!(
             pairs(request.resolve_strict("ada", "d1").unwrap()),
-            vec![("a".to_string(), false), ("b".to_string(), false)]
+            vec![(TEMPERATURE.to_string(), false)]
         );
     }
 
     #[test]
     fn subscribe_treats_an_absent_enabled_as_on() {
-        let request = request(serde_json::json!({ "types": ["a"] }));
+        let request = request(serde_json::json!({ "types": [TEMPERATURE] }));
         assert_eq!(
             pairs(request.resolve_lenient("ada", "d1").unwrap()),
-            vec![("a".to_string(), true)]
+            vec![(TEMPERATURE.to_string(), true)]
         );
     }
 
@@ -290,10 +318,10 @@ mod tests {
 
     #[test]
     fn updating_preferences_requires_an_explicit_enabled_alongside_types() {
-        let request = request(serde_json::json!({ "types": ["a"] }));
+        let request = request(serde_json::json!({ "types": [TEMPERATURE] }));
         assert!(matches!(
             request.resolve_strict("ada", "d1"),
-            Err(DomainError::Validation(m)) if m == "enabled boolean is required when passing a types array"
+            Err(DomainError::Validation(m)) if m == "enabled is required"
         ));
     }
 
@@ -307,17 +335,19 @@ mod tests {
     }
 
     #[test]
-    fn updating_a_single_preference_defaults_the_type_to_temperature() {
+    fn updating_a_single_preference_requires_a_type() {
         let request = request(serde_json::json!({ "enabled": true }));
-        assert_eq!(
-            pairs(request.resolve_strict("ada", "d1").unwrap()),
-            vec![(TEMPERATURE.to_string(), true)]
-        );
+        assert!(matches!(
+            request.resolve_strict("ada", "d1"),
+            Err(DomainError::Validation(m)) if m == "type is required"
+        ));
     }
 
     #[test]
     fn an_empty_preferences_array_falls_through_to_the_other_forms() {
-        let request = request(serde_json::json!({ "preferences": [], "enabled": true }));
+        let request = request(
+            serde_json::json!({ "preferences": [], "type": "temperature", "enabled": true }),
+        );
         assert_eq!(
             pairs(request.resolve_strict("ada", "d1").unwrap()),
             vec![(TEMPERATURE.to_string(), true)]
@@ -340,5 +370,37 @@ mod tests {
         assert_eq!(payload["domainName"], "d1");
         assert_eq!(payload["preferences"][0]["notificationType"], "temperature");
         assert_eq!(payload["preferences"][0]["isSubscribed"], true);
+    }
+
+    #[test]
+    fn an_update_entry_must_name_its_type_but_subscribe_defaults_it() {
+        let request = request(serde_json::json!({ "preferences": [{ "enabled": true }] }));
+        assert!(matches!(
+            request.resolve_strict("ada", "d1"),
+            Err(DomainError::Validation(m)) if m == "type is required"
+        ));
+        assert_eq!(
+            pairs(request.resolve_lenient("ada", "d1").unwrap()),
+            vec![(TEMPERATURE.to_string(), true)]
+        );
+    }
+
+    #[test]
+    fn subscribe_also_refuses_a_type_without_a_delivery_path() {
+        let request = request(serde_json::json!({ "types": ["humidity"] }));
+        assert!(matches!(
+            request.resolve_lenient("ada", "d1"),
+            Err(DomainError::Validation(m)) if m == "type must be one of: temperature"
+        ));
+    }
+
+    const WIRE: &str = include_str!("../../../../schemas/fixtures/notification-preferences.json");
+
+    #[test]
+    fn the_fixture_reply_round_trips_byte_for_byte() {
+        let wire: serde_json::Value = serde_json::from_str(WIRE).unwrap();
+        let record = wire["response"]["accountPreferences"][0].clone();
+        let parsed: AccountPreferences = serde_json::from_value(record.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), record);
     }
 }

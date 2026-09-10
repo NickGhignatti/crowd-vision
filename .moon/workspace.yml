@@ -20,6 +20,8 @@ projects:
   registry: "backend/registry"
   provisioner: "backend/provisioner"
   sensor-simulator: "simulators/sensor-simulator"
+  ap-simulator: "simulators/ap-simulator"
+  aq-simulator: "simulators/aq-simulator"
   ap-collector: "devices/ap-collector"
   eslint-config: "tooling/eslint-config"
   acceptance: "backend/acceptance"
@@ -27,5 +29,6 @@ projects:
   telemetry-schema: "schemas/telemetry-schema"
   claims-schema: "schemas/claims-schema"
   twin-schema: "schemas/twin-schema"
+  notification-schema: "schemas/notification-schema"
 
 telemetry: false

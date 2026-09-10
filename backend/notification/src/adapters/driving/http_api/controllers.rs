@@ -522,7 +522,7 @@ mod tests {
             post(
                 "/preferences",
                 Some("ada"),
-                serde_json::json!({ "domainId": "eng", "enabled": true }),
+                serde_json::json!({ "domainId": "eng", "type": "temperature", "enabled": true }),
             ),
         )
         .await;
@@ -567,7 +567,7 @@ mod tests {
         let published = harness.published();
         assert_eq!(published.len(), 2);
         assert_eq!(published[0].message, "Manual Alert Triggered");
-        assert_eq!(published[0].kind, "alert");
+        assert_eq!(published[0].r#type, crate::domain::Severity::Danger);
     }
 
     #[tokio::test]
@@ -814,7 +814,7 @@ mod tests {
             post_as(
                 "/preferences",
                 &admin_header("root"),
-                serde_json::json!({ "domainName": "finance", "enabled": true }),
+                serde_json::json!({ "domainName": "finance", "type": "temperature", "enabled": true }),
             ),
         )
         .await;
@@ -855,7 +855,64 @@ mod tests {
             published[0].message,
             "Provisioning failed for building b1: boom"
         );
-        assert_eq!(published[0].kind, "danger");
+        assert_eq!(published[0].r#type, crate::domain::Severity::Danger);
+    }
+
+    #[tokio::test]
+    async fn triggering_with_a_type_outside_the_closed_set_is_a_validation_error() {
+        let harness = harness(Arc::new(StubDirectory::returning("b1", &["eng"])));
+
+        let (status, body) = call(
+            &harness.state,
+            post(
+                "/trigger",
+                Some("ada"),
+                serde_json::json!({ "buildingName": "b1", "type": "alert" }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            body["message"],
+            "type must be one of: info, warning, danger"
+        );
+        assert!(harness.published().is_empty());
+    }
+
+    const PREFERENCES_WIRE: &str =
+        include_str!("../../../../../../schemas/fixtures/notification-preferences.json");
+
+    fn preference_cases(group: &str) -> Vec<Value> {
+        let wire: Value = serde_json::from_str(PREFERENCES_WIRE).unwrap();
+        wire[group].as_array().unwrap().clone()
+    }
+
+    #[tokio::test]
+    async fn every_preferences_request_the_fixture_accepts_is_applied() {
+        for case in preference_cases("requests") {
+            let harness = harness(Arc::new(StubDirectory::empty()));
+            let (status, body) = call(
+                &harness.state,
+                post("/preferences", Some("ada"), case["body"].clone()),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{}: {body}", case["name"]);
+        }
+    }
+
+    #[tokio::test]
+    async fn every_preferences_request_the_fixture_rejects_is_refused_with_its_reason() {
+        for case in preference_cases("rejected") {
+            let harness = harness(Arc::new(StubDirectory::empty()));
+            let (status, body) = call(
+                &harness.state,
+                post("/preferences", Some("ada"), case["body"].clone()),
+            )
+            .await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{}", case["name"]);
+            assert_eq!(body["message"], case["reason"], "{}", case["name"]);
+        }
     }
 
     #[tokio::test]

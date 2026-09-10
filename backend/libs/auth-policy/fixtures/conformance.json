@@ -1,5 +1,5 @@
 {
-  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds server/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy) — that identical-outcomes guarantee is the whole point of one shared policy bundle. Ported from the pre-Cedar tenantScope.ts / claims.CanIn test suites so behavior didn't drift during the migration.",
+  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds backend/libs/auth-policy. Every case here must produce the same decision in Go (cedar-go), Rust (digital-twin and telemetry), and Python (cedarpy) — that identical-outcomes guarantee is the whole point of one shared policy bundle. Ported from the pre-Cedar tenantScope.ts / claims.CanIn test suites so behavior didn't drift during the migration.",
   "cases": [
     {
       "name": "read: member of the domain, any role, is allowed",

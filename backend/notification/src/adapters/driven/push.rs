@@ -4,7 +4,7 @@ use web_push::{
     WebPushMessage, WebPushMessageBuilder,
 };
 
-use crate::domain::{PushPayload, WebPushSubscription};
+use crate::domain::{Notification, WebPushSubscription};
 use crate::service::ports::{PushOutcome, PushSender};
 
 const SUBJECT: &str = "mailto:admin@crowdvision.com";
@@ -78,7 +78,11 @@ impl WebPushSender {
 
 #[async_trait]
 impl PushSender for WebPushSender {
-    async fn send(&self, subscription: &WebPushSubscription, payload: &PushPayload) -> PushOutcome {
+    async fn send(
+        &self,
+        subscription: &WebPushSubscription,
+        payload: &Notification,
+    ) -> PushOutcome {
         let body = match serde_json::to_vec(payload) {
             Ok(body) => body,
             Err(e) => {
@@ -134,6 +138,10 @@ mod tests {
         }
     }
 
+    fn sample() -> crate::domain::Notification {
+        crate::domain::notification(0, 0, crate::domain::Severity::Info, "t", "m", None)
+    }
+
     async fn outcome_for(status: u16) -> PushOutcome {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
@@ -143,10 +151,7 @@ mod tests {
             .await;
 
         WebPushSender::new(PUBLIC_KEY, PRIVATE_KEY)
-            .send(
-                &subscription(format!("{}/push/1", server.uri())),
-                &PushPayload::new(None, None, None),
-            )
+            .send(&subscription(format!("{}/push/1", server.uri())), &sample())
             .await
     }
 
@@ -202,7 +207,7 @@ mod tests {
         let outcome = WebPushSender::new("", "")
             .send(
                 &subscription("https://push.example/1".to_string()),
-                &PushPayload::new(None, None, None),
+                &sample(),
             )
             .await;
         assert_eq!(outcome, PushOutcome::Failed);

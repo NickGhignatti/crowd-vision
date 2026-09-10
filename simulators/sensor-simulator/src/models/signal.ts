@@ -27,14 +27,12 @@ export interface IBuilding {
 }
 
 export interface ISignalPeopleCount {
-  buildingId: string;
   roomId: string;
   timestamp: number;
   peopleCount: number;
 }
 
 export interface ISignalTemperature {
-  buildingId: string;
   roomId: string;
   timestamp: number;
   temperature: number;

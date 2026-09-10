@@ -48,7 +48,7 @@ deps.
 | `backend/agent` | Python / FastAPI / pgvector | RAG assistant, LLM tool-calling |
 | `backend/libs/{auth-contracts,auth-middleware,auth-policy}` | Go modules | Shared, embedded, never deployed |
 | `backend/acceptance` | Python | Cross-service acceptance suite |
-| `schemas/{claims,telemetry,twin}-schema` | Rust crates | Shapes crossing a service boundary |
+| `schemas/{claims,notification,telemetry,twin}-schema` | Rust crates | Shapes crossing a service boundary |
 | `schemas/{fixtures,json}` | JSON | Cross-language conformance fixtures + written contracts |
 | `simulators/*` | Python / Node | Synthetic telemetry |
 | `tooling/eslint-config` | Node | Shared flat ESLint config |
@@ -66,6 +66,7 @@ just test affected       # mirrors per-service CI legs
 just test all
 just test <svc>          # chat telemetry twin notification socket dashboard frontend
                          # agent ap-collector claims-gateway provisioner registry tenancy
+                         # aq-simulator sensor-simulator (assert the ingest-batch fixture)
 just test <svc>-integration   # throwaway DB/broker, composed, then torn down
                          # Go (registry, tenancy): testcontainers behind `-tags=integration`
 just test integration    # full backend acceptance suite
@@ -112,7 +113,7 @@ ungated and both edges **strip** client-supplied `x-gateway-claims` on it.
 **Shared shapes live in `schemas/`, never in `backend/`.** Three layers of defence:
 Rust path deps catch Rust↔Rust drift at compile time; `schemas/fixtures/*.json` catch one
 language's parser disagreeing with the others (asserted by Go `conformance_test.go`, Rust
-`tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`);
+`tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts`);
 `schemas/json/*.schema.json` catch a fixture drifting from the written contract.
 Hand-written serde, no codegen. A shape only one service parses is a type, not a contract —
 leave it in the service.

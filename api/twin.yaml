@@ -406,15 +406,15 @@ components:
 
     MetricContract:
       type: object
-      required: [metricKey, label, interfaceName, fields]
+      required: [kind, label, interface, fields]
       properties:
-        metricKey:
+        kind:
           type: string
           example: "roomName"
         label:
           type: string
           example: "Room"
-        interfaceName:
+        interface:
           type: string
           example: "IRoom"
         unit:

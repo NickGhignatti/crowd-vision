@@ -1,4 +1,4 @@
-// Mirrors tenancy's domainResponse DTO (server/tenancy/internal/api/handler.go).
+// tenancy's domainResponse (backend/tenancy/internal/api/handler.go), pinned by schemas/fixtures/tenancy-domains.json.
 export interface Domain {
   id: string
   name: string

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/agent-stream.schema.json",
+  "title": "AgentStreamFrame",
+  "description": "One decoded SSE frame from agent's POST /ask. Describes what a conforming producer emits; chat is deliberately more lenient than this, ignoring unknown frame types and defaulting an absent `answer`, so that agent can add a frame kind without a lockstep release. Validate frames one at a time -- ordering (tokens, then exactly one terminal frame) is asserted by the fixture's consumers, not expressible here.",
+  "type": "object",
+  "required": ["type"],
+  "$comment": "Extra keys are allowed throughout: agent emits several fields no consumer reads, and adding another must not break chat.",
+  "properties": {
+    "type": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "token" } }, "required": ["type"] },
+      "then": {
+        "required": ["text"],
+        "properties": { "text": { "type": "string" } }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "done" } }, "required": ["type"] },
+      "then": {
+        "required": ["citations"],
+        "properties": {
+          "answer": {
+            "type": "string",
+            "$comment": "Optional, and absent rather than null when an older agent cannot send it. Authoritative when present: the concatenated tokens still contain text the loop stripped."
+          },
+          "citations": { "type": "array", "items": { "$ref": "#/$defs/citation" } },
+          "retrieved_ids": { "type": "array", "items": { "type": "string" } },
+          "usage": { "$ref": "#/$defs/usage" },
+          "idk": { "type": "boolean" },
+          "decision": { "enum": ["answered", "tool_loop_exhausted"] },
+          "tool_calls": { "type": "array", "items": { "$ref": "#/$defs/toolCall" } },
+          "hallucinated_citations": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "citation": {
+      "$comment": "A `Citation.__dict__` dump: the dataclass attribute names are the wire names, with no serializer in between to catch a rename.",
+      "type": "object",
+      "required": ["chunk_id", "document_id", "source", "section_path"],
+      "properties": {
+        "chunk_id": { "type": "string", "minLength": 1 },
+        "document_id": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "section_path": {
+          "type": ["string", "null"],
+          "$comment": "Null, not absent: the dump always carries every field. Chat defaults it anyway, being more lenient than this schema on purpose."
+        }
+      }
+    },
+    "usage": {
+      "$comment": "A `Usage.__dict__` dump. Read by nobody today -- pinned so it cannot drift unnoticed if something starts reading it.",
+      "type": "object",
+      "required": ["input_tokens", "output_tokens", "cost_usd"],
+      "properties": {
+        "input_tokens": { "type": "integer", "minimum": 0 },
+        "output_tokens": { "type": "integer", "minimum": 0 },
+        "cost_usd": { "type": "number", "minimum": 0 }
+      }
+    },
+    "toolCall": {
+      "$comment": "The trace entry the loop appends per call; `error` rides along only on a failure.",
+      "type": "object",
+      "required": ["name", "args", "is_error"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "args": { "type": "object" },
+        "is_error": { "type": "boolean" },
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

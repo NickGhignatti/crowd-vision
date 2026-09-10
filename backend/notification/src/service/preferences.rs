@@ -102,7 +102,7 @@ mod tests {
     #[tokio::test]
     async fn repeated_writes_for_the_same_type_do_not_accumulate_duplicates() {
         let (service, _, store) = fixture();
-        let updates = request(serde_json::json!({ "enabled": true }))
+        let updates = request(serde_json::json!({ "type": "temperature", "enabled": true }))
             .resolve_strict("ada", "d1")
             .unwrap();
 
@@ -120,7 +120,7 @@ mod tests {
         let (service, _, store) = fixture();
         service
             .apply(
-                &request(serde_json::json!({ "enabled": true }))
+                &request(serde_json::json!({ "type": "temperature", "enabled": true }))
                     .resolve_strict("ada", "d1")
                     .unwrap(),
             )
@@ -128,7 +128,7 @@ mod tests {
             .unwrap();
         service
             .apply(
-                &request(serde_json::json!({ "enabled": false }))
+                &request(serde_json::json!({ "type": "temperature", "enabled": false }))
                     .resolve_strict("ada", "d1")
                     .unwrap(),
             )
@@ -142,10 +142,15 @@ mod tests {
     #[tokio::test]
     async fn distinct_types_coexist_on_one_account_and_domain() {
         let (service, _, store) = fixture();
-        let updates =
-            request(serde_json::json!({ "types": ["temperature", "humidity"], "enabled": true }))
-                .resolve_strict("ada", "d1")
-                .unwrap();
+        let updates: Vec<PreferenceUpdate> = ["temperature", "humidity"]
+            .into_iter()
+            .map(|kind| PreferenceUpdate {
+                account_name: "ada".into(),
+                domain_name: "d1".into(),
+                notification_type: kind.into(),
+                enabled: true,
+            })
+            .collect();
 
         service.apply(&updates).await.unwrap();
 
@@ -158,7 +163,7 @@ mod tests {
         let (service, _, store) = fixture();
         service
             .apply(
-                &request(serde_json::json!({ "enabled": true }))
+                &request(serde_json::json!({ "type": "temperature", "enabled": true }))
                     .resolve_strict("ada", "d1")
                     .unwrap(),
             )
@@ -166,7 +171,7 @@ mod tests {
             .unwrap();
         service
             .apply(
-                &request(serde_json::json!({ "enabled": true }))
+                &request(serde_json::json!({ "type": "temperature", "enabled": true }))
                     .resolve_strict("bob", "d1")
                     .unwrap(),
             )

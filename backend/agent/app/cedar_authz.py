@@ -1,26 +1,11 @@
-"""CrowdVision's shared Cedar authorization bundle, embedded in agent
-(Decision A — no authz network call on the data path). See
-server/auth-policy/policy.cedar for the rules this module evaluates against.
-
-agent's AuthUser has always flattened domain+role into two unpaired
-lists (roles: list[str], domains: list[str] — a real architectural fact, not
-a bug here: see access.py's can_access_domain, which never needed the
-pairing). That means the Account entity built here only ever populates
-domainsAsStandardCustomer (= user.domains, since presence there already
-meant "some membership") and maxRoleWeight (= the caller's highest role
-weight, for the global checks) — the business_staff/business_admin/admin
-per-domain tier sets other languages compute don't apply to any check
-agent actually makes, so they're left empty rather than
-reconstructed from data that was never kept paired.
-"""
-
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import cedarpy
+
+from app.roles import ROLE_WEIGHTS as _ROLE_WEIGHTS
 
 if TYPE_CHECKING:
     from app.auth import AuthUser
@@ -29,9 +14,6 @@ _AUTH_POLICY_DIR = Path(__file__).resolve().parent.parent.parent / "libs" / "aut
 
 _SCHEMA = (_AUTH_POLICY_DIR / "schema.cedarschema").read_text()
 _POLICY = (_AUTH_POLICY_DIR / "policy.cedar").read_text()
-_ROLE_WEIGHTS: dict[str, int] = json.loads(
-    (_AUTH_POLICY_DIR / ".." / "auth-contracts" / "roles.json").read_text()
-)
 
 
 def _account_entity(user: AuthUser) -> dict:

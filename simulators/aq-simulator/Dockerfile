@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.12-slim
 LABEL authors="nickg"
 # Patch base-image OS CVEs for the cd-registry Trivy scan. DL3005 (no apt upgrade) is intentionally waived here.
 # hadolint ignore=DL3005
@@ -8,8 +8,13 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# uv resolves from the same lockfile CI and the local venv use, so the image cannot
+# quietly ship a different dependency set than the one that was linted.
+COPY pyproject.toml uv.lock ./
+RUN pip install --no-cache-dir uv==0.11.32 \
+    && uv sync --locked --no-dev \
+    && rm -rf /root/.cache
+ENV PATH="/app/.venv/bin:$PATH"
 
 COPY . .
 

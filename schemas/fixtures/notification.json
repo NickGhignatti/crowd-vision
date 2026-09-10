@@ -1,0 +1,89 @@
+{
+  "description": "One message, two deliveries. notification publishes it on the Redis `notifications` channel and sends the same bytes as a Web Push payload. socket routes it by domainName; the frontend bell renders type, message and timestamp; the service worker renders title, message and icon.",
+  "rules": {
+    "type": "Severity, a closed set: info | warning | danger. It is not the metric: that is a preference's notificationType.",
+    "domainName": "Absent means a system-wide message, broadcast to every client. Present means only that domain's room receives it.",
+    "icon": "Optional. The service worker shows an icon only when one is sent.",
+    "timestamp": "ISO-8601 in UTC with milliseconds, not epoch milliseconds."
+  },
+  "cases": [
+    {
+      "name": "temperature breach, scoped to its domain",
+      "body": {
+        "id": "1757251200000",
+        "type": "danger",
+        "title": "Temperature Alert - bldg-3f2b4c5d",
+        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "timestamp": "2025-09-07T13:20:00.000Z",
+        "domainName": "eng"
+      }
+    },
+    {
+      "name": "unroutable breach, broadcast to every client",
+      "body": {
+        "id": "1757251200000",
+        "type": "danger",
+        "title": "Temperature Alert - bldg-3f2b4c5d",
+        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "timestamp": "2025-09-07T13:20:00.000Z"
+      }
+    },
+    {
+      "name": "warning",
+      "body": {
+        "id": "1757251260000",
+        "type": "warning",
+        "title": "Temperature Alert - bldg-3f2b4c5d",
+        "message": "Temperature alert in room room-lab-2: 27.5 C",
+        "timestamp": "2025-09-07T13:21:00.000Z",
+        "domainName": "eng"
+      }
+    },
+    {
+      "name": "info with an icon",
+      "body": {
+        "id": "1757251320000",
+        "type": "info",
+        "title": "CrowdVision",
+        "message": "Maintenance tonight at 22:00",
+        "timestamp": "2025-09-07T13:22:00.000Z",
+        "domainName": "eng",
+        "icon": "/icons/crowdvision-192.png"
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "a type outside the closed set",
+      "reason": "type: info | warning | danger; \"alert\" is the old trigger default",
+      "body": {
+        "id": "1757251200000",
+        "type": "alert",
+        "title": "Temperature Alert - bldg-3f2b4c5d",
+        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "timestamp": "2025-09-07T13:20:00.000Z"
+      }
+    },
+    {
+      "name": "no title",
+      "reason": "title is required: the push pop-up has no other heading",
+      "body": {
+        "id": "1757251200000",
+        "type": "danger",
+        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "timestamp": "2025-09-07T13:20:00.000Z"
+      }
+    },
+    {
+      "name": "an epoch-millisecond timestamp",
+      "reason": "timestamp is an ISO-8601 string",
+      "body": {
+        "id": "1757251200000",
+        "type": "danger",
+        "title": "Temperature Alert - bldg-3f2b4c5d",
+        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "timestamp": 1757251200000
+      }
+    }
+  ]
+}

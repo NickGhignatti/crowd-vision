@@ -24,6 +24,12 @@
     "builds_binary": false
   },
   {
+    "key": "notification-schema",
+    "dir": "schemas/notification-schema",
+    "lang": "rust",
+    "builds_binary": false
+  },
+  {
     "key": "auth-middleware",
     "dir": "backend/libs/auth-middleware",
     "lang": "go",

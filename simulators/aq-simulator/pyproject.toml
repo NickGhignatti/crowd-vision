@@ -1,0 +1,40 @@
+[project]
+name = "aq-simulator"
+version = "0.1.0"
+description = "Synthetic indoor air-quality telemetry: physical model, sensor error, and a signed batch per building tick."
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.25",
+    "pydantic>=2.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "ruff>=0.8.0",
+    "pyright>=1.1.390",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["**/__pycache__"]
+
+# Ruff's default rules, which is what the previous bare `ruff check .` leg enforced.
+# Widening the set is a deliberate cleanup commit, not a side effect of adding a lockfile.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pyright]
+include = ["."]
+exclude = ["**/__pycache__", ".venv"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingImports = "error"
+reportMissingTypeStubs = "none"

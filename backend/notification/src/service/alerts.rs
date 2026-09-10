@@ -3,8 +3,9 @@ use std::sync::Arc;
 use telemetry_schema::AlertEvent;
 
 use crate::domain::{
-    Audience, COOLDOWN_SECONDS, DomainError, ManualTemperatureAlert, Notification, PushPayload,
-    TEMPERATURE, breach_cooldown_key, breach_message, breach_push_title, system_claims_header,
+    Audience, COOLDOWN_SECONDS, DomainError, ManualTemperatureAlert, Notification, Severity,
+    TEMPERATURE, breach_cooldown_key, breach_message, breach_push_title, notification,
+    system_claims_header,
 };
 use crate::service::ports::{Clock, Cooldown, DomainDirectory, NotificationBus};
 use crate::service::push::Push;
@@ -100,7 +101,15 @@ impl Alerts {
             log::error!(
                 "[Event] Temperature alert for building {building} reached no domain: no web push was sent and only open sockets can receive it. Alert: {message}"
             );
-            self.publish(&message, "danger", None, alert.ts_ms).await;
+            self.publish(&notification(
+                self.clock.now_millis(),
+                alert.ts_ms,
+                Severity::Danger,
+                &breach_push_title(&alert),
+                &message,
+                None,
+            ))
+            .await;
             BreachOutcome::Unroutable
         } else {
             self.fan_out(
@@ -131,7 +140,12 @@ impl Alerts {
         let message = message
             .filter(|m| !m.is_empty())
             .unwrap_or("Manual Alert Triggered");
-        let kind = kind.filter(|t| !t.is_empty()).unwrap_or("alert");
+        let severity = match kind.filter(|t| !t.is_empty()) {
+            Some(kind) => kind.parse().map_err(|_| {
+                DomainError::Validation("type must be one of: info, warning, danger".to_string())
+            })?,
+            None => Severity::Danger,
+        };
         let building = building_name.filter(|b| !b.is_empty()).ok_or_else(|| {
             DomainError::Validation("Missing required field: buildingName".to_string())
         })?;
@@ -151,15 +165,18 @@ impl Alerts {
 
         for domain_name in &permitted {
             let now = self.clock.now_millis();
-            self.publish(message, kind, Some(domain_name.clone()), now)
-                .await;
+            let sent = notification(
+                now,
+                now,
+                severity,
+                "CrowdVision Alert",
+                message,
+                Some(domain_name.clone()),
+            );
+            self.publish(&sent).await;
             if !domain_name.is_empty() {
                 self.push
-                    .to_domain(
-                        &PushPayload::new(Some("CrowdVision Alert"), Some(message), None),
-                        domain_name,
-                        notification_type,
-                    )
+                    .to_domain(&sent, domain_name, notification_type)
                     .await;
             }
         }
@@ -231,22 +248,23 @@ impl Alerts {
     ) {
         for domain_name in unique_non_empty(domains) {
             let now = self.clock.now_millis();
-            self.publish(message, "danger", Some(domain_name.clone()), now)
-                .await;
+            let sent = notification(
+                now,
+                now,
+                Severity::Danger,
+                push_title,
+                message,
+                Some(domain_name.clone()),
+            );
+            self.publish(&sent).await;
             self.push
-                .to_domain(
-                    &PushPayload::new(Some(push_title), Some(message), None),
-                    &domain_name,
-                    notification_type,
-                )
+                .to_domain(&sent, &domain_name, notification_type)
                 .await;
         }
     }
 
-    async fn publish(&self, message: &str, kind: &str, domain_name: Option<String>, at: i64) {
-        let notification =
-            Notification::new(self.clock.now_millis(), at, message, kind, domain_name);
-        if let Err(e) = self.bus.publish(&notification).await {
+    async fn publish(&self, sent: &Notification) {
+        if let Err(e) = self.bus.publish(sent).await {
             log::error!("Failed to publish a notification: {e:?}");
         }
     }
@@ -290,6 +308,10 @@ mod tests {
     }
 
     fn fixture(directory: StubDirectory) -> Fixture {
+        fixture_at(directory, NOW)
+    }
+
+    fn fixture_at(directory: StubDirectory, now: i64) -> Fixture {
         let subscriptions = Arc::new(InMemorySubscriptions::default());
         let preferences = Arc::new(InMemoryPreferences::default());
         let sender = Arc::new(RecordingSender::default());
@@ -326,7 +348,7 @@ mod tests {
                 cooldown.clone(),
                 directory.clone(),
                 push,
-                Arc::new(FrozenClock(NOW)),
+                Arc::new(FrozenClock(now)),
             ),
             bus,
             cooldown,
@@ -364,6 +386,77 @@ mod tests {
         member_of(&["domain-a", "domain-b"])
     }
 
+    const WIRE: &str = include_str!("../../../../schemas/fixtures/notification.json");
+
+    fn wire_case(name: &str) -> serde_json::Value {
+        let wire: serde_json::Value = serde_json::from_str(WIRE).unwrap();
+        let cases = wire["cases"].as_array().unwrap();
+        cases.iter().find(|c| c["name"] == name).unwrap()["body"].clone()
+    }
+
+    fn wire_breach() -> String {
+        serde_json::to_string(&AlertEvent {
+            building_id: "bldg-3f2b4c5d".to_string(),
+            room_id: "room-lab-2".to_string(),
+            metric: "temperature".to_string(),
+            value: 31.4,
+            direction: telemetry_schema::BoundDirection::Above,
+            threshold: 28.0,
+            ts_ms: 1_757_251_200_000,
+        })
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_scoped_breach_publishes_the_wire_fixture_byte_for_byte() {
+        let fixture = fixture_at(
+            StubDirectory::returning("bldg-3f2b4c5d", &["eng"]),
+            1_757_251_200_000,
+        );
+
+        fixture.alerts.on_breach(&wire_breach()).await;
+
+        assert_eq!(
+            serde_json::to_value(&published(&fixture)[0]).unwrap(),
+            wire_case("temperature breach, scoped to its domain")
+        );
+    }
+
+    #[tokio::test]
+    async fn an_unroutable_breach_publishes_the_wire_fixture_byte_for_byte() {
+        let fixture = fixture_at(StubDirectory::empty(), 1_757_251_200_000);
+
+        fixture.alerts.on_breach(&wire_breach()).await;
+
+        assert_eq!(
+            serde_json::to_value(&published(&fixture)[0]).unwrap(),
+            wire_case("unroutable breach, broadcast to every client")
+        );
+    }
+
+    #[tokio::test]
+    async fn triggering_with_a_type_outside_the_closed_set_is_a_validation_error() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+
+        let result = fixture
+            .alerts
+            .trigger(
+                None,
+                Some("alert"),
+                Some("b1"),
+                None,
+                "claims",
+                &every_domain(),
+            )
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(DomainError::Validation(m)) if m == "type must be one of: info, warning, danger"
+        ));
+        assert!(published(&fixture).is_empty());
+    }
+
     #[tokio::test]
     async fn a_breach_publishes_a_domain_scoped_alert_and_pushes_to_its_subscribers() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
@@ -373,9 +466,10 @@ mod tests {
         let published = published(&fixture);
         assert_eq!(published.len(), 1);
         assert_eq!(published[0].message, "b1 : r1 is 40°C (above maximum)");
-        assert_eq!(published[0].kind, "danger");
+        assert_eq!(published[0].r#type, Severity::Danger);
         assert_eq!(published[0].domain_name.as_deref(), Some("domain-a"));
         assert_eq!(fixture.sender.endpoints(), vec!["https://push/ada"]);
+        assert_eq!(fixture.sender.sent.lock().unwrap()[0].1, published[0]);
     }
 
     #[tokio::test]
@@ -591,7 +685,7 @@ mod tests {
 
         let published = published(&fixture);
         assert_eq!(published[0].message, "Manual Alert Triggered");
-        assert_eq!(published[0].kind, "alert");
+        assert_eq!(published[0].r#type, Severity::Danger);
     }
 
     #[tokio::test]

@@ -12,6 +12,7 @@ ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 FROM chef AS planner
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
+COPY schemas/notification-schema /app/schemas/notification-schema
 COPY backend/socket .
 RUN cargo chef prepare --recipe-path recipe.json
 
@@ -20,6 +21,7 @@ FROM chef AS debug-deps
 COPY --from=planner /app/backend/socket/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
+COPY schemas/notification-schema /app/schemas/notification-schema
 RUN cargo chef cook --recipe-path recipe.json
 
 # Integration-test stage: deliberately does NOT install cargo-watch. It runs
@@ -37,6 +39,7 @@ FROM chef AS builder
 COPY --from=planner /app/backend/socket/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
+COPY schemas/notification-schema /app/schemas/notification-schema
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY backend/socket .
 RUN cargo build --release

@@ -12,3 +12,9 @@ impl From<anyhow::Error> for DomainError {
         DomainError::Internal(e)
     }
 }
+
+impl DomainError {
+    pub fn validation(message: &str) -> Self {
+        DomainError::Validation(message.to_string())
+    }
+}

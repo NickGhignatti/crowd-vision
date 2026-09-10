@@ -2157,6 +2157,7 @@ dependencies = [
  "futures",
  "log",
  "mongodb",
+ "notification-schema",
  "prometheus",
  "rdkafka",
  "redis",
@@ -2170,6 +2171,14 @@ dependencies = [
  "urlencoding",
  "web-push",
  "wiremock",
+]
+
+[[package]]
+name = "notification-schema"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

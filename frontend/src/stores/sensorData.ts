@@ -3,8 +3,14 @@ import { shallowRef, ref, type ShallowRef, type Ref } from 'vue'
 import { socket } from '@/services/socket'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import type { ApiDataPoint } from '@/composables/building/useSensorData.ts'
+import {
+  readingsOf,
+  type SensorType,
+  type TelemetryReading,
+  type TelemetryTick,
+} from '@/utils/telemetry.ts'
 
-export type SensorType = 'peopleCount' | 'temperature' | 'airQuality'
+export type { SensorType }
 
 export interface SensorBucket {
   data: ShallowRef<ApiDataPoint[]>
@@ -13,9 +19,6 @@ export interface SensorBucket {
   refCount: number
   abort: AbortController | null
 }
-
-type SensorReading = ApiDataPoint & { type?: SensorType; buildingId?: string }
-type TelemetryTick = { readings?: SensorReading[] }
 
 const bucketKey = (type: SensorType, buildingId: string) => `${type}:${buildingId}`
 const buildingOf = (key: string) => key.slice(key.indexOf(':') + 1)
@@ -34,14 +37,12 @@ export const useSensorDataStore = defineStore('sensorData', () => {
 
   function onTelemetry(rawEvent: unknown) {
     const tick = rawEvent as TelemetryTick
-    for (const reading of tick?.readings ?? []) applyReading(reading)
+    for (const reading of readingsOf(tick)) applyReading(tick.buildingId, reading)
     scheduleFlush()
   }
 
-  function applyReading(event: SensorReading) {
-    // Telemetry events identify their building as `buildingId` (the REST shape
-    // uses `building`); the bucket key is the building id passed to `acquire`.
-    const key = bucketKey(event?.type as SensorType, event?.buildingId as string)
+  function applyReading(buildingId: string, event: TelemetryReading) {
+    const key = bucketKey(event?.type as SensorType, buildingId)
     const bucket = buckets.get(key)
     if (!bucket) return
 
