@@ -15,10 +15,13 @@ tasks:
 
   test:
     command: 'npm test'
+    # Contract tests read the shared fixtures; without these a fixture edit replays a cached pass.
     inputs:
       - 'src/**/*'
       - '__tests__/**/*'
       - 'package.json'
+      - '/schemas/fixtures/**/*'
+      - '/schemas/json/**/*'
 
   lint:
     command: 'npm run lint'

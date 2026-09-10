@@ -15,9 +15,13 @@ tasks:
 
   test:
     command: 'cargo test'
+    # Contract tests read the shared fixtures; without these a fixture edit replays a cached pass.
     inputs:
       - 'src/**/*'
+      - 'tests/**/*'
       - 'Cargo.toml'
+      - '/schemas/fixtures/**/*'
+      - '/schemas/json/**/*'
 
   lint:
     command: 'cargo clippy -- -D warnings'

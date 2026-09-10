@@ -29,6 +29,8 @@ tasks:
       - 'vitest.config.ts'
       - 'tsconfig*.json'
       - 'package.json'
+      - '/schemas/fixtures/**/*'
+      - '/schemas/json/**/*'
 
   # command inherited (npm run lint); replace inputs so we track this project's
   # TS eslint config instead of the inherited eslint.config.mjs (which it lacks).
