@@ -567,7 +567,7 @@ mod tests {
         let published = harness.published();
         assert_eq!(published.len(), 2);
         assert_eq!(published[0].message, "Manual Alert Triggered");
-        assert_eq!(published[0].kind, "alert");
+        assert_eq!(published[0].r#type, crate::domain::Severity::Danger);
     }
 
     #[tokio::test]
@@ -855,7 +855,29 @@ mod tests {
             published[0].message,
             "Provisioning failed for building b1: boom"
         );
-        assert_eq!(published[0].kind, "danger");
+        assert_eq!(published[0].r#type, crate::domain::Severity::Danger);
+    }
+
+    #[tokio::test]
+    async fn triggering_with_a_type_outside_the_closed_set_is_a_validation_error() {
+        let harness = harness(Arc::new(StubDirectory::returning("b1", &["eng"])));
+
+        let (status, body) = call(
+            &harness.state,
+            post(
+                "/trigger",
+                Some("ada"),
+                serde_json::json!({ "buildingName": "b1", "type": "alert" }),
+            ),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            body["message"],
+            "type must be one of: info, warning, danger"
+        );
+        assert!(harness.published().is_empty());
     }
 
     #[tokio::test]

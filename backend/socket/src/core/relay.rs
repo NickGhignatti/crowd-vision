@@ -1,3 +1,4 @@
+use notification_schema::Notification;
 use serde_json::Value;
 
 use crate::core::rooms::{building_id_from_channel, room_for_building, room_for_domain};
@@ -24,13 +25,16 @@ pub fn get_telemetry_delivery_plan(channel: &str, message: &str) -> Option<Deliv
 }
 
 pub fn get_notification_delivery_plan(message: &str) -> Option<Delivery> {
-    let payload: Value = serde_json::from_str(message).ok()?;
-    let target = match payload.get("domainName").and_then(Value::as_str) {
+    let notification: Notification = serde_json::from_str(message).ok()?;
+    let target = match notification.domain_name.as_deref() {
         Some(name) if !name.is_empty() => Target::Room(room_for_domain(name)),
         _ => Target::Broadcast,
     };
 
-    Some(Delivery { target, payload })
+    Some(Delivery {
+        target,
+        payload: serde_json::from_str(message).ok()?,
+    })
 }
 
 #[cfg(test)]
@@ -54,39 +58,70 @@ mod tests {
         );
     }
 
+    const WIRE: &str = include_str!("../../../../schemas/fixtures/notification.json");
+
+    fn wire(group: &str, name: &str) -> Value {
+        let wire: Value = serde_json::from_str(WIRE).unwrap();
+        let cases = wire[group].as_array().unwrap();
+        cases.iter().find(|c| c["name"] == name).unwrap()["body"].clone()
+    }
+
+    fn broadcast_case() -> Value {
+        wire("cases", "unroutable breach, broadcast to every client")
+    }
+
     #[test]
-    fn a_scoped_notification_goes_to_its_domain_room() {
-        let delivery =
-            get_notification_delivery_plan(r#"{"message":"hi","domainName":"acme"}"#).unwrap();
-        assert_eq!(delivery.target, Target::Room(room_for_domain("acme")));
-        assert_eq!(
-            delivery.payload,
-            json!({"message": "hi", "domainName": "acme"})
-        );
+    fn a_scoped_notification_goes_to_its_domain_room_unchanged() {
+        let body = wire("cases", "temperature breach, scoped to its domain");
+        let delivery = get_notification_delivery_plan(&body.to_string()).unwrap();
+        assert_eq!(delivery.target, Target::Room(room_for_domain("eng")));
+        assert_eq!(delivery.payload, body);
     }
 
     #[test]
     fn an_unscoped_notification_is_broadcast() {
-        let delivery = get_notification_delivery_plan(r#"{"message":"hi"}"#).unwrap();
+        let delivery = get_notification_delivery_plan(&broadcast_case().to_string()).unwrap();
         assert_eq!(delivery.target, Target::Broadcast);
     }
 
     #[test]
     fn a_null_domain_name_is_broadcast() {
-        let delivery =
-            get_notification_delivery_plan(r#"{"message":"hi","domainName":null}"#).unwrap();
+        let mut body = broadcast_case();
+        body["domainName"] = Value::Null;
+        let delivery = get_notification_delivery_plan(&body.to_string()).unwrap();
         assert_eq!(delivery.target, Target::Broadcast);
     }
 
     #[test]
     fn an_empty_domain_name_is_broadcast() {
-        let delivery =
-            get_notification_delivery_plan(r#"{"message":"hi","domainName":""}"#).unwrap();
+        let mut body = broadcast_case();
+        body["domainName"] = json!("");
+        let delivery = get_notification_delivery_plan(&body.to_string()).unwrap();
         assert_eq!(delivery.target, Target::Broadcast);
     }
 
     #[test]
     fn malformed_notification_is_skipped() {
         assert_eq!(get_notification_delivery_plan("{oops"), None);
+    }
+
+    #[test]
+    fn a_message_the_producer_never_writes_is_skipped_not_broadcast() {
+        assert_eq!(
+            get_notification_delivery_plan(r#"{"message":"hi","domainName":"acme"}"#),
+            None
+        );
+        for name in [
+            "a type outside the closed set",
+            "no title",
+            "an epoch-millisecond timestamp",
+        ] {
+            let body = wire("rejected", name);
+            assert_eq!(
+                get_notification_delivery_plan(&body.to_string()),
+                None,
+                "{name}"
+            );
+        }
     }
 }

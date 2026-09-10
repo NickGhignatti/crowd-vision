@@ -127,7 +127,7 @@ A single account may own several `WebPushSubscription` records (one per device) 
       - Sets one or more per-domain, per-type opt-in flags for the **caller**. `200`.
     - - `POST /trigger`
       - JWT
-      - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `200`.
+      - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `type` is a severity — `info`, `warning` or `danger` (default); anything else is a `400`. `200`.
     - - `POST /push/temperature`
       - JWT
       - Automated threshold alert; subject to the per-room cooldown below. `200`.
@@ -211,7 +211,7 @@ The key is `temp_alert:{buildingId}:{roomId}`; the cooldown is **300 seconds**. 
 
 - `to_domain(payload, domain_name, type)` queries the preferences collection for records in the domain whose `preferences` contain an enabled entry for `type` (`$elemMatch`), reduces to a unique set of account names, and delegates to `to_accounts`. An absent `type` matches every subscriber of the domain.
 - `to_accounts(payload, account_names)` loads every `WebPushSubscription` for those accounts and sends the encrypted payload to each endpoint concurrently — one dead endpoint never aborts the batch.
-- The in-app channel is independent: `NotificationBus::publish` posts `{ id, message, type, timestamp, domainName? }` to the Redis `notifications` channel, which the socket relays to browsers.
+- The in-app channel carries the same message: `NotificationBus::publish` posts the `notification_schema::Notification` `{ id, type, title, message, timestamp, domainName?, icon? }` to the Redis `notifications` channel, which the socket relays to browsers. The Web Push payload is those same bytes — see [Notification Schema](../packages/notification-schema.qd).
 
 ### Preference upserts
 

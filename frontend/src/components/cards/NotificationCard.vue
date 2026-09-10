@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Notification } from '@/interfaces/notification.ts'
+import { SEVERITY_DOT } from '@/utils/notification.ts'
 
 defineProps<{
   notification: Notification
@@ -11,7 +12,7 @@ defineProps<{
     <div class="mt-1">
       <div
         class="w-2 h-2 rounded-full"
-        :class="notification.type === 'alert' ? 'bg-red-500' : 'bg-blue-500'"
+        :class="SEVERITY_DOT[notification.type]"
       ></div>
     </div>
     <div>

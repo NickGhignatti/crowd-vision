@@ -35,6 +35,7 @@ jobs:
       claims_schema: ${{ contains(fromJSON(steps.filter.outputs.changes), 'claims-schema') }}
       telemetry_schema: ${{ contains(fromJSON(steps.filter.outputs.changes), 'telemetry-schema') }}
       twin_schema: ${{ contains(fromJSON(steps.filter.outputs.changes), 'twin-schema') }}
+      notification_schema: ${{ contains(fromJSON(steps.filter.outputs.changes), 'notification-schema') }}
       schema_fixtures: ${{ contains(fromJSON(steps.filter.outputs.changes), 'schema-fixtures') }}
       k8s: ${{ contains(fromJSON(steps.filter.outputs.changes), 'k8s') }}
       shared: ${{ contains(fromJSON(steps.filter.outputs.changes), 'shared') }}
@@ -212,6 +213,15 @@ jobs:
       working_directory: schemas/twin-schema
       builds_binary: false
 
+  notification-schema:
+    needs: changes
+    if: needs.changes.outputs.notification_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
+    uses: ./.github/workflows/tpl-rust-ci.yml
+    with:
+      service_key: notification-schema
+      working_directory: schemas/notification-schema
+      builds_binary: false
+
   chat:
     needs: changes
     if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.claims_schema == 'true'
@@ -222,7 +232,7 @@ jobs:
 
   notification:
     needs: changes
-    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true'
+    if: needs.changes.outputs.notification == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true' || needs.changes.outputs.notification_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: notification
@@ -238,7 +248,7 @@ jobs:
 
   socket:
     needs: changes
-    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true'
+    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true' || needs.changes.outputs.notification_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: socket
@@ -296,6 +306,7 @@ jobs:
       - claims-schema
       - telemetry-schema
       - twin-schema
+      - notification-schema
       - dashboard
       - agent
     if: needs.changes.outputs.has_images == 'true'
@@ -390,6 +401,7 @@ jobs:
       - claims-schema
       - telemetry-schema
       - twin-schema
+      - notification-schema
       - dashboard
       - agent
       - docker

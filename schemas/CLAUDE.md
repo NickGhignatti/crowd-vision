@@ -2,7 +2,7 @@
 
 Every shape that crosses a service boundary. One file for the whole directory — the three
 crates are one `lib.rs` each, and their rules only make sense together.
-Docs: `documentation/packages/{claims,telemetry,twin}-schema.qd`.
+Docs: `documentation/packages/{claims,notification,telemetry,twin}-schema.qd`.
 
 ## What belongs here
 
@@ -28,9 +28,9 @@ them has a wire quirk a generator would flatten.
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
 | `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py` |
-| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
+| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch}_schema.rs`, `notification-schema/tests/notification_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
 | the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case |
-| the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader` |
+| the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every case and skips every rejection |
 
 A fixture with a `rejected` block asserts the schema **refuses** what the service refuses, so a
 rule is never written in only one language — `ingest-batch` is the worked example.
@@ -94,6 +94,19 @@ The building-registration handshake. Consumers: digital-twin, telemetry.
   upload registers what it can rather than failing the building.
 - **`maxTemperature` is optional and stays optional** — telemetry reads it, twin never sends
   it (thresholds sync over HTTP). Deleting the field breaks the read side for no gain.
+
+## notification-schema
+
+`NOTIFICATIONS_CHANNEL`, `Notification`, `Severity`. Consumers: notification (producer), socket.
+
+- **One message, two deliveries.** The Redis publish and the Web Push payload are the same
+  bytes; there is no separate push shape.
+- **`type` is severity**: `info | warning | danger`, closed. The metric is a preference's
+  `notificationType`; don't conflate them.
+- **socket parses it to route, then relays the received bytes.** A message that is not a
+  `Notification` is skipped, never broadcast: a renamed `domainName` would otherwise send one
+  tenant's alert to every client.
+- `domainName` and `icon` are optional and omitted when absent.
 
 ## Adding or changing a shape
 

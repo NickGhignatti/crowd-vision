@@ -12,7 +12,7 @@ Ports & Adapters, enforced by `tests/architecture_fitness.rs` — read it before
 
 | Path | Holds |
 |---|---|
-| `src/domain/` | `Notification`, `Audience`, `PushPayload`, preferences, subscriptions, identity. No framework, no `crate::{service,adapters}`. |
+| `src/domain/` | `notification()` (builds `notification_schema::Notification`), `Audience`, preferences, subscriptions, identity. No framework, no `crate::{service,adapters}`. |
 | `src/service/` | `alerts`, `push`, `preferences` + `ports.rs`. No framework, no adapters. `fakes.rs` = doubles. |
 | `src/adapters/driving/` | HTTP API + `alert_listener.rs` (Kafka). Must not reach into `driven`. |
 | `src/adapters/driven/` | Mongo persistence, Web Push sender, Redis bus, twin client. |
@@ -43,6 +43,10 @@ endpoint never stops the rest of the batch.
 **`system:notification-service` is a pinned identity, not a name to refresh.** It is the
 `sub` this service presents when calling other services with no end user
 (`domain/identity.rs`), asserted byte-for-byte by test. Renaming it changes a trust boundary.
+
+**One message, two deliveries.** The Redis publish and the Web Push payload are the same
+`notification_schema::Notification`. `/trigger`'s `type` must be a `Severity`; anything else is
+a 400, not a new colour.
 
 ## Tests
 

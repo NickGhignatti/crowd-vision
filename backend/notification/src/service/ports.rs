@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 
-use crate::domain::{
-    AccountPreferences, Notification, PreferenceUpdate, PushPayload, WebPushSubscription,
-};
+use crate::domain::{AccountPreferences, Notification, PreferenceUpdate, WebPushSubscription};
 
 #[async_trait]
 pub trait SubscriptionStore: Send + Sync {
@@ -34,7 +32,8 @@ pub enum PushOutcome {
 
 #[async_trait]
 pub trait PushSender: Send + Sync {
-    async fn send(&self, subscription: &WebPushSubscription, payload: &PushPayload) -> PushOutcome;
+    async fn send(&self, subscription: &WebPushSubscription, payload: &Notification)
+    -> PushOutcome;
 }
 
 #[async_trait]

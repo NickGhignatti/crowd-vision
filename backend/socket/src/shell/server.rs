@@ -20,7 +20,6 @@ use crate::shell::metrics::{
 use crate::shell::twin::BuildingDomains;
 
 pub const PORT: u16 = 3000;
-const NOTIFICATIONS_CHANNEL: &str = "notifications";
 const DEFAULT_FRONTEND_URL: &str = "http://localhost:5173";
 const DEFAULT_TWIN_URL: &str = "http://digital-twin:3000";
 const DEFAULT_MAX_LIFETIME: Duration = Duration::from_secs(15 * 60);
@@ -136,7 +135,7 @@ async fn consume(io: &SocketIo, mut messages: impl Stream<Item = redis::Msg> + U
             continue;
         };
 
-        if channel == NOTIFICATIONS_CHANNEL {
+        if channel == notification_schema::NOTIFICATIONS_CHANNEL {
             match get_notification_delivery_plan(&payload) {
                 Some(delivery) => {
                     let scope = match delivery.target {
@@ -178,7 +177,9 @@ fn skip(channel: &str) {
 
 async fn connect_pubsub(url: &str) -> redis::RedisResult<redis::aio::PubSub> {
     let mut pubsub = redis::Client::open(url)?.get_async_pubsub().await?;
-    pubsub.subscribe(NOTIFICATIONS_CHANNEL).await?;
+    pubsub
+        .subscribe(notification_schema::NOTIFICATIONS_CHANNEL)
+        .await?;
     pubsub
         .psubscribe(telemetry_schema::FILTERED_CHANNEL_PATTERN)
         .await?;

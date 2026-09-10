@@ -1,10 +1,9 @@
-use serde::{Deserialize, Serialize};
 use telemetry_schema::{AlertEvent, BoundDirection};
 use time::OffsetDateTime;
 use time::format_description::BorrowedFormatItem;
 use time::macros::format_description;
 
-pub const NOTIFICATIONS_CHANNEL: &str = "notifications";
+pub use notification_schema::{NOTIFICATIONS_CHANNEL, Notification, Severity};
 pub use telemetry_schema::{ALERTS_DLQ_TOPIC, ALERTS_TOPIC};
 pub const COOLDOWN_SECONDS: u64 = 300;
 
@@ -18,49 +17,23 @@ pub fn iso8601(millis: i64) -> String {
         .expect("format is total over valid datetimes")
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Notification {
-    pub id: String,
-    pub message: String,
-    #[serde(rename = "type")]
-    pub kind: String,
-    pub timestamp: String,
-    #[serde(rename = "domainName", skip_serializing_if = "Option::is_none")]
-    pub domain_name: Option<String>,
-}
-
-impl Notification {
-    pub fn new(
-        id_millis: i64,
-        at_millis: i64,
-        message: impl Into<String>,
-        kind: impl Into<String>,
-        domain_name: Option<String>,
-    ) -> Self {
-        Notification {
-            id: id_millis.to_string(),
-            message: message.into(),
-            kind: kind.into(),
-            timestamp: iso8601(at_millis),
-            domain_name: domain_name.filter(|d| !d.is_empty()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct PushPayload {
-    pub title: String,
-    pub message: String,
-    pub icon: String,
-}
-
-impl PushPayload {
-    pub fn new(title: Option<&str>, message: Option<&str>, icon: Option<&str>) -> Self {
-        PushPayload {
-            title: or_default(title, "CrowdVision Alert"),
-            message: or_default(message, "New system update."),
-            icon: or_default(icon, "/favicon.ico"),
-        }
+/// The one message both deliveries send; an empty domain means a broadcast.
+pub fn notification(
+    id_millis: i64,
+    at_millis: i64,
+    severity: Severity,
+    title: &str,
+    message: &str,
+    domain_name: Option<String>,
+) -> Notification {
+    Notification {
+        id: id_millis.to_string(),
+        r#type: severity,
+        title: title.to_string(),
+        message: message.to_string(),
+        timestamp: iso8601(at_millis),
+        domain_name: domain_name.filter(|d| !d.is_empty()),
+        icon: None,
     }
 }
 
@@ -150,7 +123,7 @@ pub fn temperature_cooldown_key(building_id: Option<&str>, room_id: Option<&str>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{Value, json};
+    use serde_json::Value;
 
     fn alert(direction: BoundDirection) -> AlertEvent {
         AlertEvent {
@@ -249,31 +222,50 @@ mod tests {
 
     #[test]
     fn an_unscoped_notification_omits_domain_name_entirely() {
-        let payload = serde_json::to_value(Notification::new(1, 1, "hi", "info", None)).unwrap();
+        let payload =
+            serde_json::to_value(notification(1, 1, Severity::Info, "t", "hi", None)).unwrap();
         assert!(!payload.as_object().unwrap().contains_key("domainName"));
     }
 
     #[test]
     fn an_empty_domain_name_is_treated_as_unscoped() {
-        let payload =
-            serde_json::to_value(Notification::new(1, 1, "hi", "info", Some(String::new())))
-                .unwrap();
+        let payload = serde_json::to_value(notification(
+            1,
+            1,
+            Severity::Info,
+            "t",
+            "hi",
+            Some(String::new()),
+        ))
+        .unwrap();
         assert!(!payload.as_object().unwrap().contains_key("domainName"));
     }
 
     #[test]
     fn a_scoped_notification_carries_the_domain_name() {
-        let payload =
-            serde_json::to_value(Notification::new(1, 1, "hi", "danger", Some("d1".into())))
-                .unwrap();
+        let payload = serde_json::to_value(notification(
+            1,
+            1,
+            Severity::Danger,
+            "t",
+            "hi",
+            Some("d1".into()),
+        ))
+        .unwrap();
         assert_eq!(payload["domainName"], "d1");
     }
 
     #[test]
     fn the_id_is_the_millisecond_clock_rendered_as_a_string() {
-        let payload =
-            serde_json::to_value(Notification::new(1_700_000_000_000, 0, "hi", "info", None))
-                .unwrap();
+        let payload = serde_json::to_value(notification(
+            1_700_000_000_000,
+            0,
+            Severity::Info,
+            "t",
+            "hi",
+            None,
+        ))
+        .unwrap();
         assert_eq!(payload["id"], Value::String("1700000000000".into()));
     }
 
@@ -285,33 +277,15 @@ mod tests {
 
     #[test]
     fn the_notification_serialises_type_not_kind() {
-        let payload = serde_json::to_value(Notification::new(1, 1, "hi", "danger", None)).unwrap();
+        let payload =
+            serde_json::to_value(notification(1, 1, Severity::Danger, "t", "hi", None)).unwrap();
         assert_eq!(payload["type"], "danger");
     }
 
     #[test]
-    fn push_payload_defaults_fill_in_absent_fields() {
-        assert_eq!(
-            serde_json::to_value(PushPayload::new(None, None, None)).unwrap(),
-            json!({
-                "title": "CrowdVision Alert",
-                "message": "New system update.",
-                "icon": "/favicon.ico"
-            })
-        );
-    }
-
-    #[test]
-    fn push_payload_empty_strings_fall_through_to_the_defaults() {
-        let payload = PushPayload::new(Some(""), Some(""), Some(""));
-        assert_eq!(payload, PushPayload::new(None, None, None));
-    }
-
-    #[test]
-    fn push_payload_keeps_supplied_values() {
-        let payload = PushPayload::new(Some("t"), Some("m"), Some("i"));
-        assert_eq!(payload.title, "t");
-        assert_eq!(payload.message, "m");
-        assert_eq!(payload.icon, "i");
+    fn a_built_notification_carries_no_icon() {
+        let payload =
+            serde_json::to_value(notification(1, 1, Severity::Info, "t", "hi", None)).unwrap();
+        assert!(!payload.as_object().unwrap().contains_key("icon"));
     }
 }

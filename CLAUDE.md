@@ -48,7 +48,7 @@ deps.
 | `backend/agent` | Python / FastAPI / pgvector | RAG assistant, LLM tool-calling |
 | `backend/libs/{auth-contracts,auth-middleware,auth-policy}` | Go modules | Shared, embedded, never deployed |
 | `backend/acceptance` | Python | Cross-service acceptance suite |
-| `schemas/{claims,telemetry,twin}-schema` | Rust crates | Shapes crossing a service boundary |
+| `schemas/{claims,notification,telemetry,twin}-schema` | Rust crates | Shapes crossing a service boundary |
 | `schemas/{fixtures,json}` | JSON | Cross-language conformance fixtures + written contracts |
 | `simulators/*` | Python / Node | Synthetic telemetry |
 | `tooling/eslint-config` | Node | Shared flat ESLint config |

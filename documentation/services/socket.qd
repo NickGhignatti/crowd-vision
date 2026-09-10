@@ -112,7 +112,7 @@ The subscriber runs in a **reconnect loop**: if the initial connection fails (Re
 .box {`/health` does not reflect subscriber state} type:{note}
     `GET /health` answers "is the HTTP server up", not "is the relay actually receiving". A pod whose Redis subscription is down still reports ready. This matches the Node service's behaviour and is tolerable because the reconnect loop closes the gap in seconds — but a readiness probe that gated on subscriber health would be strictly better, and is the obvious next improvement if this ever bites.
 
-Notifications are **domain-scoped**: if the payload carries a `domainName`, only that domain's room receives it, so members of one tenant never see another's alerts. A payload without a `domainName` (a system-wide message) is broadcast to every client.
+Notifications are **domain-scoped**: if the payload carries a `domainName`, only that domain's room receives it, so members of one tenant never see another's alerts. A payload without a `domainName` (a system-wide message) is broadcast to every client. The payload must parse as `notification_schema::Notification` to be routed at all; anything else is skipped, so a renamed `domainName` can never turn a scoped alert into a broadcast — see [Notification Schema](../packages/notification-schema.qd).
 
 ---
 

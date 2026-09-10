@@ -1,10 +1,9 @@
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {}
 
-  const title = data.title || 'CrowdVision Alert'
   const options = {
-    body: data.message || 'New critical update available.',
-    icon: '/favicon.ico', // Ensure you have an icon here
+    body: data.message,
+    ...(data.icon && { icon: data.icon }),
     badge: '/favicon.ico',
     tag: 'crowdvision-alert', // Prevents stacking multiple alerts
     renotify: true,
@@ -13,7 +12,7 @@ self.addEventListener('push', (event) => {
     },
   }
 
-  event.waitUntil(self.registration.showNotification(title, options))
+  event.waitUntil(self.registration.showNotification(data.title, options))
 })
 
 self.addEventListener('notificationclick', (event) => {

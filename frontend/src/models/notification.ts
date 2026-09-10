@@ -1,6 +1,13 @@
+export type Severity = 'info' | 'warning' | 'danger'
+
 export interface Notification {
+  id: string
+  type: Severity
+  title: string
   message: string
-  type?: 'info' | 'alert' | 'critical'
+  timestamp: string
+  domainName?: string
+  icon?: string
 }
 
 export enum NotificationType {

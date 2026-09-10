@@ -140,6 +140,20 @@ async fn kill_pubsub_connections() {
         .unwrap();
 }
 
+fn notification(message: &str, domain_name: Option<&str>) -> String {
+    let mut body = serde_json::json!({
+        "id": "1757251200000",
+        "type": "info",
+        "title": "CrowdVision",
+        "message": message,
+        "timestamp": "2025-09-07T13:20:00.000Z",
+    });
+    if let Some(domain) = domain_name {
+        body["domainName"] = domain.into();
+    }
+    body.to_string()
+}
+
 async fn publish(channel: &str, message: &str) {
     let client = redis::Client::open(redis_url()).unwrap();
     let mut connection = client.get_multiplexed_async_connection().await.unwrap();
@@ -201,7 +215,7 @@ async fn the_relay_recovers_when_redis_drops_the_subscription() {
     kill_pubsub_connections().await;
     tokio::time::sleep(RECONNECT_SETTLE).await;
 
-    publish("notifications", r#"{"message":"after reconnect"}"#).await;
+    publish("notifications", &notification("after reconnect", None)).await;
 
     assert_eq!(
         next_delivery(&mut events).await["message"],
@@ -220,11 +234,7 @@ async fn a_scoped_notification_reaches_only_its_domain() {
     let (member, mut inside) = connect(&url, &claims_header(&["acme"]), "notification").await;
     let (outsider, mut outside) = connect(&url, &claims_header(&["beta"]), "notification").await;
 
-    publish(
-        "notifications",
-        r#"{"message":"scoped","domainName":"acme"}"#,
-    )
-    .await;
+    publish("notifications", &notification("scoped", Some("acme"))).await;
 
     assert_eq!(next_delivery(&mut inside).await["message"], "scoped");
     assert_silent(&mut outside).await;
@@ -242,7 +252,7 @@ async fn an_unscoped_notification_reaches_every_client() {
     let (second, mut second_events) =
         connect(&url, &claims_header(&["beta"]), "notification").await;
 
-    publish("notifications", r#"{"message":"system"}"#).await;
+    publish("notifications", &notification("system", None)).await;
 
     assert_eq!(next_delivery(&mut first_events).await["message"], "system");
     assert_eq!(next_delivery(&mut second_events).await["message"], "system");
@@ -401,7 +411,7 @@ async fn a_connection_without_claims_is_refused_and_receives_nothing() {
         .expect("the engine.io transport still opens");
 
     tokio::time::sleep(SETTLE).await;
-    publish("notifications", r#"{"message":"system"}"#).await;
+    publish("notifications", &notification("system", None)).await;
 
     next_delivery(&mut errors).await;
     assert_silent(&mut notifications).await;
@@ -424,7 +434,7 @@ async fn a_malformed_message_does_not_stop_the_relay() {
         .get();
 
     publish("notifications", "{not json").await;
-    publish("notifications", r#"{"message":"still alive"}"#).await;
+    publish("notifications", &notification("still alive", None)).await;
 
     assert_eq!(next_delivery(&mut events).await["message"], "still alive");
     assert_eq!(

@@ -6,6 +6,7 @@ import type {
   ServerToClientEvents,
   Notification,
 } from '@/interfaces/notification.ts'
+import { toListItem } from '@/utils/notification.ts'
 
 export const socketState = reactive({
   connected: false,
@@ -49,13 +50,7 @@ socket.on('connect_error', (error) => {
 })
 
 socket.on('notification', (data) => {
-  socketState.notifications.unshift({
-    id: Date.now().toString(),
-    message: data.message,
-    type: data.type || 'info',
-    timestamp: new Date(),
-    read: false,
-  })
+  socketState.notifications.unshift(toListItem(data))
   if (socketState.notifications.length > 100) socketState.notifications.length = 100
   socketState.unreadCount++
 })

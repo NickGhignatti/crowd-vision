@@ -10,8 +10,8 @@ pub use identity::{
 };
 pub use notification::{
     ALERTS_DLQ_TOPIC, ALERTS_TOPIC, COOLDOWN_SECONDS, ManualTemperatureAlert,
-    NOTIFICATIONS_CHANNEL, Notification, PushPayload, breach_cooldown_key, breach_message,
-    breach_push_title, iso8601, manual_push_title, manual_temperature_message,
+    NOTIFICATIONS_CHANNEL, Notification, Severity, breach_cooldown_key, breach_message,
+    breach_push_title, iso8601, manual_push_title, manual_temperature_message, notification,
     temperature_cooldown_key,
 };
 pub use preference::{
