@@ -48,6 +48,10 @@ endpoint never stops the rest of the batch.
 `notification_schema::Notification`. `/trigger`'s `type` must be a `Severity`; anything else is
 a 400, not a new colour.
 
+**`POST /preferences` names its type; `/subscribe` may not.** A missing type is a 400 on
+update and `temperature` on subscribe. Either way the type must be in `NOTIFICATION_TYPES`,
+the metrics with a delivery path: adding a metric means adding it there with its delivery.
+
 ## Tests
 
 ```bash

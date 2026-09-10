@@ -38,3 +38,5 @@ socket reads `domainName` to pick the room, then relays the bytes it received. I
 - notification `service/alerts.rs` — a breach publishes exactly the fixture's scoped and broadcast cases.
 - socket `core/relay.rs` — every case is routed, every rejection skipped.
 - frontend `src/utils/notification.spec.ts` — every severity the fixture sends has a colour, and a list item keeps the server's `id`, `type` and `timestamp`.
+
+The crate also hosts the schema check for `fixtures/notification-preferences.json` (`tests/notification_preferences_schema.rs`), the `GET` / `POST /notification/preferences` shape. It has no Rust type here — only notification parses it — and is bound by notification's `controllers.rs` (every request applied, every rejection refused with its reason) and the frontend's `src/utils/notificationPreferences.spec.ts`.

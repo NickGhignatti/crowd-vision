@@ -122,7 +122,7 @@ jobs:
 
   frontend:
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/ci-frontend.yml
 
   auth-contracts:

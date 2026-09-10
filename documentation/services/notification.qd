@@ -124,7 +124,7 @@ A single account may own several `WebPushSubscription` records (one per device) 
       - Returns the **caller's own** `NotificationSubscription` records. The `:accountName` param is ignored (identity from the token).
     - - `POST /preferences`
       - JWT
-      - Sets one or more per-domain, per-type opt-in flags for the **caller**. `200`.
+      - Sets one or more per-domain, per-type opt-in flags for the **caller**. Every form names its `type`, which must have a delivery path (today only `temperature`); otherwise `400`. `200`.
     - - `POST /trigger`
       - JWT
       - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `type` is a severity — `info`, `warning` or `danger` (default); anything else is a `400`. `200`.
@@ -132,7 +132,7 @@ A single account may own several `WebPushSubscription` records (one per device) 
       - JWT
       - Automated threshold alert; subject to the per-room cooldown below. `200`.
 
-Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified claims, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array.
+Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified claims, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array — every accepted and rejected form is pinned in `schemas/fixtures/notification-preferences.json`.
 
 .box {Auth boundary} type:{note}
     Only `/health`, `/metrics`, and `/public-key` (the non-secret VAPID key) stay public; the `GatewayClaims` extractor guards everything else and rejects claims without an `accountName`. `/trigger` and `/push/temperature` fan out push notifications to a whole domain, so leaving them open was an abuse vector — they require valid claims like the rest.

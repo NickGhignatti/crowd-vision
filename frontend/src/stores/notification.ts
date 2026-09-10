@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { makeRequest } from '@/composables/core/useApi.ts'
-import { type NotificationSubscription, NotificationType } from '@/models/notification.ts'
+import { NotificationType } from '@/models/notification.ts'
+import { preferenceRequest, toPreferenceMap } from '@/utils/notificationPreferences.ts'
 
 export const useNotificationStore = defineStore('notification', {
   state: () => ({
@@ -25,20 +26,7 @@ export const useNotificationStore = defineStore('notification', {
         return
       }
 
-      this.notificationPreferences = {}
-
-      data.accountPreferences.forEach((subscription: NotificationSubscription) => {
-        let domainPrefs = this.notificationPreferences[subscription.domainName]
-        if (!domainPrefs) {
-          domainPrefs = {}
-          this.notificationPreferences[subscription.domainName] = domainPrefs
-        }
-
-        // Safely iterate and assign to the local reference
-        ;(subscription.preferences || []).forEach((pref) => {
-          domainPrefs[pref.notificationType] = pref.isSubscribed
-        })
-      })
+      this.notificationPreferences = toPreferenceMap(data.accountPreferences)
     },
 
     async handleNotificationSubscription(
@@ -49,12 +37,7 @@ export const useNotificationStore = defineStore('notification', {
       const currentValue = this.isSubscribed(domainName, type)
 
       const response = await makeRequest('/notification/preferences', 'POST', {
-        body: JSON.stringify({
-          accountName,
-          domainName,
-          type,
-          enabled: !currentValue,
-        }),
+        body: JSON.stringify(preferenceRequest(accountName, domainName, type, !currentValue)),
       })
 
       if (!response.ok) {

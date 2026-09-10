@@ -28,8 +28,8 @@ them has a wire quirk a generator would flatten.
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
 | `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py` |
-| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch}_schema.rs`, `notification-schema/tests/notification_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
-| the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case |
+| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
+| the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case; notification's `controllers.rs` posts every `fixtures/notification-preferences.json` request and rejection |
 | the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every case and skips every rejection |
 
 A fixture with a `rejected` block asserts the schema **refuses** what the service refuses, so a
@@ -107,6 +107,8 @@ The building-registration handshake. Consumers: digital-twin, telemetry.
   `Notification` is skipped, never broadcast: a renamed `domainName` would otherwise send one
   tenant's alert to every client.
 - `domainName` and `icon` are optional and omitted when absent.
+- Also hosts the schema check for `fixtures/notification-preferences.json`, which has no type
+  here: only notification parses it in Rust.
 
 ## Adding or changing a shape
 
