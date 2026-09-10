@@ -1,0 +1,121 @@
+{
+  "description": "The conversation shapes chat serves on /chat/conversations: the list reply, and the one conversation that GET, POST and PATCH return. chat serialises them from its own types; the frontend reads them only through src/utils/chat.ts.",
+  "rules": {
+    "_id": "A bare 24-character hex string, never {\"$oid\": …}. Every message carries its own.",
+    "casing": "Conversation and message fields are camelCase through per-field renames; citation fields stay snake_case, agent's payload returned unchanged.",
+    "citations": "Absent on a user message. Always an array on an assistant message, [] when the answer cites nothing. Never null.",
+    "section_path": "Present on every citation, null when the source has no section.",
+    "userId": "Sent on every conversation; the frontend does not read it."
+  },
+  "list": {
+    "conversations": [
+      {
+        "_id": "65f0000000000000000000aa",
+        "userId": "ada",
+        "title": "How many rooms are on floor 2?",
+        "createdAt": "2025-09-07T13:20:00.000Z",
+        "updatedAt": "2025-09-07T13:22:03.250Z"
+      }
+    ]
+  },
+  "conversation": {
+    "_id": "65f0000000000000000000aa",
+    "userId": "ada",
+    "title": "How many rooms are on floor 2?",
+    "messages": [
+      {
+        "_id": "65f0000000000000000000b1",
+        "role": "user",
+        "content": "How many rooms are on floor 2?",
+        "createdAt": "2025-09-07T13:21:00.000Z"
+      },
+      {
+        "_id": "65f0000000000000000000b2",
+        "role": "assistant",
+        "content": "Floor 2 has 14 rooms.",
+        "citations": [
+          {
+            "chunk_id": "chunk-7",
+            "document_id": "doc-hq-floorplan",
+            "source": "hq-floorplan.pdf",
+            "section_path": "Floors > Floor 2"
+          },
+          {
+            "chunk_id": "chunk-9",
+            "document_id": "doc-hq-handbook",
+            "source": "hq-handbook.md",
+            "section_path": null
+          }
+        ],
+        "createdAt": "2025-09-07T13:21:04.512Z"
+      },
+      {
+        "_id": "65f0000000000000000000b3",
+        "role": "user",
+        "content": "Thanks!",
+        "createdAt": "2025-09-07T13:22:00.000Z"
+      },
+      {
+        "_id": "65f0000000000000000000b4",
+        "role": "assistant",
+        "content": "You're welcome.",
+        "citations": [],
+        "createdAt": "2025-09-07T13:22:03.250Z"
+      }
+    ],
+    "createdAt": "2025-09-07T13:20:00.000Z",
+    "updatedAt": "2025-09-07T13:22:03.250Z"
+  },
+  "rejected": [
+    {
+      "name": "a message id without the underscore",
+      "reason": "_id is required",
+      "conversation": {
+        "_id": "65f0000000000000000000aa",
+        "userId": "ada",
+        "title": "New chat",
+        "messages": [
+          {
+            "id": "65f0000000000000000000b1",
+            "role": "user",
+            "content": "hi",
+            "createdAt": "2025-09-07T13:21:00.000Z"
+          }
+        ],
+        "createdAt": "2025-09-07T13:20:00.000Z",
+        "updatedAt": "2025-09-07T13:21:00.000Z"
+      }
+    },
+    {
+      "name": "an epoch-millisecond timestamp",
+      "reason": "createdAt is an ISO-8601 string",
+      "conversation": {
+        "_id": "65f0000000000000000000aa",
+        "userId": "ada",
+        "title": "New chat",
+        "messages": [],
+        "createdAt": 1757251200000,
+        "updatedAt": "2025-09-07T13:20:00.000Z"
+      }
+    },
+    {
+      "name": "a system role",
+      "reason": "role is user or assistant",
+      "conversation": {
+        "_id": "65f0000000000000000000aa",
+        "userId": "ada",
+        "title": "New chat",
+        "messages": [
+          {
+            "_id": "65f0000000000000000000b1",
+            "role": "system",
+            "content": "hi",
+            "createdAt": "2025-09-07T13:21:00.000Z"
+          }
+        ],
+        "createdAt": "2025-09-07T13:20:00.000Z",
+        "updatedAt": "2025-09-07T13:21:00.000Z"
+      }
+    }
+  ]
+}

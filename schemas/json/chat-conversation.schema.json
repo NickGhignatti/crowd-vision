@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/chat-conversation.schema.json",
+  "title": "ChatConversation",
+  "description": "The GET /chat/conversations reply, or the one conversation that GET, POST and PATCH /chat/conversations[/:id] return. chat serialises both from its own types and the frontend has no shared type, so this is the only written form of the rules.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/list"
+    },
+    {
+      "$ref": "#/$defs/conversation"
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{24}$",
+      "$comment": "An ObjectId as bare hex, never {\"$oid\": …}."
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "list": {
+      "type": "object",
+      "required": [
+        "conversations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "conversations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/summary"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "_id",
+        "userId",
+        "title",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "_id": {
+          "$ref": "#/$defs/id"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "conversation": {
+      "type": "object",
+      "required": [
+        "_id",
+        "userId",
+        "title",
+        "messages",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "_id": {
+          "$ref": "#/$defs/id"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/message"
+          }
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "message": {
+      "type": "object",
+      "required": [
+        "_id",
+        "role",
+        "content",
+        "createdAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ]
+        },
+        "content": {
+          "type": "string"
+        },
+        "citations": {
+          "type": "array",
+          "$comment": "Absent on a user message; [] on an answer that cites nothing. Never null.",
+          "items": {
+            "$ref": "#/$defs/citation"
+          }
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "citation": {
+      "type": "object",
+      "required": [
+        "chunk_id",
+        "document_id",
+        "source",
+        "section_path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "chunk_id": {
+          "type": "string"
+        },
+        "document_id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "section_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

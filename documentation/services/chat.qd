@@ -87,6 +87,11 @@ they are agent's Python payload, stored and returned unchanged.
 Citations are persisted on the assistant message so that reopening an old conversation shows
 the same grounded sources the agent originally returned, without re-querying.
 
+The REST shapes are pinned in `schemas/fixtures/chat-conversation.json`, with the written rules in `schemas/json/chat-conversation.schema.json` (checked by `claims-schema`):
+
+- chat's `domain/conversation.rs` tests round-trip its types against the fixture.
+- The frontend reads every reply only through `src/utils/chat.ts`, which throws on a shape it cannot read instead of showing an empty chat list.
+
 ---
 
 ## HTTP API

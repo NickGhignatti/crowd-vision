@@ -33,6 +33,10 @@ streamed before a tool call). It is `Option` because an older agent may not send
 **No blanket `rename_all = "camelCase"`.** Citation fields are agent's Python payload,
 stored and returned as-is; a blanket rename silently rewrites them. Test-enforced.
 
+**The REST shapes are pinned in `schemas/fixtures/chat-conversation.json`.** The
+`domain/conversation.rs` tests round-trip it; the frontend reads it through `src/utils/chat.ts`.
+Change a wire field → change the fixture and `schemas/json/chat-conversation.schema.json` together.
+
 **`ObjectId` never leaves `adapters/driven/persistence/conversations.rs`.** bson renders it
 as `{"$oid": …}`, so ids must be mapped to bare strings in the persistence adapter.
 Test-enforced against that exact file.
