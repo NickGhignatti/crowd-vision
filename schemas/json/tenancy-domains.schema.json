@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/tenancy-domains.schema.json",
+  "title": "TenancyDomains",
+  "description": "A message tenancy (Go) and the frontend exchange: a domain listing entry, a membership, a create or join body, or an invite-code reply.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/domain"
+    },
+    {
+      "$ref": "#/$defs/membership"
+    },
+    {
+      "$ref": "#/$defs/createDomain"
+    },
+    {
+      "$ref": "#/$defs/join"
+    },
+    {
+      "$ref": "#/$defs/inviteCode"
+    }
+  ],
+  "$defs": {
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "displayName",
+        "joinPolicy",
+        "isPublic"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "joinPolicy": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "open-via-idp or invite-only."
+        },
+        "parentId": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Subdomains only."
+        },
+        "isPublic": {
+          "type": "boolean"
+        },
+        "memberCount": {
+          "type": "integer",
+          "minimum": 1,
+          "$comment": "omitempty: zero is omitted, never sent."
+        }
+      }
+    },
+    "membership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "role"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "externalId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "createDomain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "displayName"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "joinPolicy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "isPublic": {
+          "type": "boolean"
+        }
+      }
+    },
+    "join": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "externalId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "inviteCode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "role",
+        "expiresAt"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expiresAt": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(Z|[+-]\\d{2}:\\d{2})$",
+          "$comment": "Go time.RFC3339."
+        }
+      }
+    }
+  }
+}

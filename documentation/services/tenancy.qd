@@ -216,6 +216,8 @@ This is the one place in the platform where `Can()` (a plain role-weight compari
       - HMAC `X-Signature`
       - Called by `provisioner` to create the domain backing a newly-signed-up organization.
 
+The bodies the frontend reads and sends — a domain listing entry (`memberCount` omitted when zero, `parentId` only on a subdomain), `/me/memberships`, the create and join bodies, and the invite-code reply — are pinned in `schemas/fixtures/tenancy-domains.json`. tenancy's `internal/api/wire_test.go` round-trips its handler types against it, and the frontend reads it only through `src/utils/domains.ts`.
+
 ---
 
 ## The `account.deleted` Consumer

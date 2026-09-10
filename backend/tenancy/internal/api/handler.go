@@ -27,6 +27,24 @@ type domainResponse struct {
 	MemberCount int    `json:"memberCount,omitempty"`
 }
 
+type createDomainRequest struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	JoinPolicy  string `json:"joinPolicy"`
+	IsPublic    bool   `json:"isPublic"`
+}
+
+type joinRequest struct {
+	Role       string `json:"role"`
+	ExternalID string `json:"externalId"`
+}
+
+type inviteCodeResponse struct {
+	Code      string `json:"code"`
+	Role      string `json:"role"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
 func toDomainResponse(d store.Domain) domainResponse {
 	return domainResponse{
 		ID: d.ID, Name: d.Name, DisplayName: d.DisplayName, JoinPolicy: d.JoinPolicy,
@@ -155,10 +173,7 @@ func (h *handler) internalProvision(w http.ResponseWriter, r *http.Request) {
 func (h *handler) createOwnDomain(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
 
-	var body struct {
-		Name, DisplayName, JoinPolicy string
-		IsPublic                      bool `json:"isPublic"`
-	}
+	var body createDomainRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "bad body", http.StatusBadRequest)
 		return
@@ -204,7 +219,7 @@ func (h *handler) myMemberships(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) joinDomain(w http.ResponseWriter, r *http.Request) {
 	claims, _ := authmiddleware.FromContext(r.Context())
-	var body struct{ Role, ExternalID string }
+	var body joinRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
 	err := h.svc.Join(r.Context(), service.JoinInput{
@@ -280,10 +295,7 @@ func (h *handler) createSubdomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body struct {
-		Name, DisplayName, JoinPolicy string
-		IsPublic                      bool `json:"isPublic"`
-	}
+	var body createDomainRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "bad body", http.StatusBadRequest)
 		return
@@ -339,8 +351,8 @@ func (h *handler) createInviteCode(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]string{
-		"code": ic.Code, "role": ic.Role, "expiresAt": ic.ExpiresAt.Format(time.RFC3339),
+	writeJSON(w, http.StatusCreated, inviteCodeResponse{
+		Code: ic.Code, Role: ic.Role, ExpiresAt: ic.ExpiresAt.Format(time.RFC3339),
 	})
 }
 

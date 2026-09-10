@@ -3,6 +3,7 @@ import { makeRequest } from '@/composables/core/useApi.ts'
 import { useAuthStore } from './authentication'
 import type { DomainMembership, Domain } from '@/models/domain'
 import type { DomainRow, DomainToAddWithVisibilityPayload } from '@/interfaces/domain'
+import { createDomainRequest, joinRequest, memberCountsOf, toMemberships } from '@/utils/domains.ts'
 
 // Roles a business_admin can mint an invite code for — mirrors auth-contracts' role ladder
 // minus platform-level "admin". tenancy enforces actual redemption; this only gates the QR tabs offered.
@@ -73,14 +74,7 @@ export const useDomainsStore = defineStore('domains', {
             this.memberships = []
             return
           }
-          const data: { domain: string; role: string; externalId?: string }[] = await res.json()
-          this.memberships = Array.isArray(data)
-            ? data.map((m) => ({
-                domainName: m.domain,
-                role: m.role,
-                externalId: m.externalId,
-              }))
-            : []
+          this.memberships = toMemberships(await res.json())
         } finally {
           this.loading = false
           this._membershipsPromise = null
@@ -116,11 +110,7 @@ export const useDomainsStore = defineStore('domains', {
     // No network call: tenancy's GET /domains already embeds each
     // domain's live member count, so fetchAll has everything this needs.
     async fetchMemberCounts() {
-      const counts: Record<string, number> = {}
-      for (const d of this.allDomains ?? []) {
-        counts[d.name] = d.memberCount ?? 0
-      }
-      this.memberCounts = counts
+      this.memberCounts = memberCountsOf(this.allDomains ?? [])
     },
 
     async fetchBuildingCounts(domainNames: string[]) {
@@ -152,13 +142,7 @@ export const useDomainsStore = defineStore('domains', {
           : normalizedName
 
       const response = await makeRequest(endpoint, 'POST', {
-        body: JSON.stringify({
-          name: domainName,
-          // No separate display-name field in the creation UI (yet) — the
-          // submitted name doubles as both, same as the old auth-service form.
-          displayName: domainName,
-          isPublic: payload.isVisibleFromOutside,
-        }),
+        body: JSON.stringify(createDomainRequest(domainName, payload.isVisibleFromOutside)),
       })
 
       if (!response.ok) {
@@ -180,7 +164,7 @@ export const useDomainsStore = defineStore('domains', {
       const response = await makeRequest(
         `/tenancy/domains/${encodeURIComponent(domain.name)}/join`,
         'POST',
-        { body: JSON.stringify({ role: 'standard_customer' }) },
+        { body: JSON.stringify(joinRequest('standard_customer')) },
       )
 
       if (!response.ok) throw new Error(`Failed to subscribe to ${domain.name}`)

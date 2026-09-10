@@ -180,7 +180,7 @@ jobs:
 
   tenancy:
     needs: changes
-    if: needs.changes.outputs.tenancy == 'true' || needs.changes.outputs.auth_contracts == 'true'
+    if: needs.changes.outputs.tenancy == 'true' || needs.changes.outputs.auth_contracts == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-go-ci.yml
     with:
       service_key: tenancy
