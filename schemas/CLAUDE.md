@@ -27,7 +27,7 @@ them has a wire quirk a generator would flatten.
 | Layer | Catches | Where |
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
-| `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py` |
+| `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts` |
 | `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `claims-schema/tests/tenancy_domains_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
 | the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case; notification's `controllers.rs` posts every `fixtures/notification-preferences.json` request and rejection |
 | the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; telemetry's `redis_fanout.rs` publishes every `fixtures/telemetry-envelope.json` tick byte for byte; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every case and skips every rejection |
@@ -82,7 +82,8 @@ Two wire families plus the metric catalog. Consumers: telemetry, dashboard, sock
   A multi-word field would reintroduce a rename that only the fixture reads — don't add one.
   This is the drift that once emptied the dashboard catalog at runtime — `key`/`metricKey`,
   `kind`/`type`. Both sides now build from this struct, so it is a compile error instead.
-  `fixtures/metric-contract.json` pins the bytes for the frontend, which cannot share the struct.
+  `fixtures/metric-contract.json` pins the bytes for the frontend, which cannot share the struct;
+  `frontend/src/utils/metrics.spec.ts` binds it.
 - **`fixtures/telemetry-envelope.json` pins what the browser receives.** The frontend reads ticks
   only through `src/utils/telemetry.ts`; a tick is never a reading, it has no `type`.
   `buildingId` and `ingestedAt` live on the envelope only, never repeated on a reading.

@@ -113,7 +113,7 @@ ungated and both edges **strip** client-supplied `x-gateway-claims` on it.
 **Shared shapes live in `schemas/`, never in `backend/`.** Three layers of defence:
 Rust path deps catch Rust↔Rust drift at compile time; `schemas/fixtures/*.json` catch one
 language's parser disagreeing with the others (asserted by Go `conformance_test.go`, Rust
-`tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`);
+`tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts`);
 `schemas/json/*.schema.json` catch a fixture drifting from the written contract.
 Hand-written serde, no codegen. A shape only one service parses is a type, not a contract —
 leave it in the service.
