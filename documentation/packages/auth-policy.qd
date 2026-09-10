@@ -21,6 +21,9 @@
         subgraph "Rust — digital-twin"
             RSEMBED["service/authz.rs\ninclude_str! macro, relative path"]
         end
+        subgraph "Rust — telemetry"
+            RSEMBED2["kernel/authz.rs\ninclude_str! macro, relative path"]
+        end
         subgraph "Python — agent"
             PYEMBED["cedar_authz.py\nreads the files directly at import time"]
         end
@@ -29,13 +32,16 @@
         POLICY --> GOEMBED
         SCHEMA -.->|"relative path, compile-time"| RSEMBED
         POLICY -.->|"relative path, compile-time"| RSEMBED
+        SCHEMA -.->|"relative path, compile-time"| RSEMBED2
+        POLICY -.->|"relative path, compile-time"| RSEMBED2
         SCHEMA -.->|"relative path, runtime"| PYEMBED
         POLICY -.->|"relative path, runtime"| PYEMBED
         CONF -.->|"same cases, same expected outcome"| GOAPI
         CONF -.->|"same cases, same expected outcome"| RSEMBED
+        CONF -.->|"same cases, same expected outcome"| RSEMBED2
         CONF -.->|"same cases, same expected outcome"| PYEMBED
 
-Go consumes this as a real module dependency (`go.mod`). Rust and Python don't — there's no package registry spanning Go modules, Cargo crates, and Python packages, so `digital-twin` and `agent` instead read `policy.cedar`/`schema.cedarschema` directly off disk by relative path, at compile time (Rust's `include_str!`) or process start (Python's `Path.read_text()`). It's a plain-text file; there was nothing to gain from inventing a distribution mechanism for three ecosystems just to move it.
+Go consumes this as a real module dependency (`go.mod`). Rust and Python don't — there's no package registry spanning Go modules, Cargo crates, and Python packages, so `digital-twin`, `telemetry` and `agent` instead read `policy.cedar`/`schema.cedarschema` directly off disk by relative path, at compile time (Rust's `include_str!`) or process start (Python's `Path.read_text()`). It's a plain-text file; there was nothing to gain from inventing a distribution mechanism for three ecosystems just to move it.
 
 ---
 
@@ -185,11 +191,11 @@ func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeig
 
 ## 4. The golden conformance suite — identical outcomes, not identical code
 
-**Files:** `fixtures/conformance.json`, `conformance_test.go` (Go) — with equivalent runners in `digital-twin/tests/cedar_conformance.rs` and `agent/tests/unit/test_cedar_conformance.py`\.
+**Files:** `fixtures/conformance.json`, `conformance_test.go` (Go) — with equivalent runners in `digital-twin/tests/cedar_conformance.rs`, `telemetry/tests/cedar_conformance.rs` and `agent/tests/unit/test_cedar_conformance.py`\.
 
 ```json
 {
-  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds backend/libs/auth-policy. Every case here must produce the same decision in TS (cedar-wasm), Go (cedar-go), and Python (cedarpy).",
+  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds backend/libs/auth-policy. Every case here must produce the same decision in Go (cedar-go), Rust (digital-twin and telemetry), and Python (cedarpy).",
   "cases": [
     { "name": "read: member of the domain, any role, is allowed",
       "memberships": [{ "domain": "eng", "role": "standard_customer" }],
@@ -230,4 +236,4 @@ This is the guarantee that justifies having one shared policy bundle at all rath
 
 ## 5. Distribution — no package manager, just files
 
-Unlike [Auth Contracts](auth-contracts.qd) and [Auth Middleware](auth-middleware.qd), which are real Go modules with `go.mod` dependency edges, `auth-policy`'s cross-language reach works because Cedar's own inputs — a schema, a policy file, a JSON fixture — are plain text. `digital-twin` bakes them into its binary at compile time (`include_str!`, so a missing file is a build failure, not a runtime one); `agent` reads them once at process start and keeps `_POLICY`/`_SCHEMA` as module-level constants. Neither needed a real package dependency, a registry, or a build step of its own — the relative path from `backend/<service>` back to `backend/libs/auth-policy` is stable because both live in the same monorepo.
+Unlike [Auth Contracts](auth-contracts.qd) and [Auth Middleware](auth-middleware.qd), which are real Go modules with `go.mod` dependency edges, `auth-policy`'s cross-language reach works because Cedar's own inputs — a schema, a policy file, a JSON fixture — are plain text. `digital-twin` and `telemetry` bake them into their binaries at compile time (`include_str!`, so a missing file is a build failure, not a runtime one); `agent` reads them once at process start and keeps `_POLICY`/`_SCHEMA` as module-level constants. None needed a real package dependency, a registry, or a build step of its own — the relative path from `backend/<service>` back to `backend/libs/auth-policy` is stable because both live in the same monorepo.

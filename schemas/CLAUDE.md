@@ -15,6 +15,10 @@ crate: `fixtures/ingest-batch.json` is built by ap-collector, aq-simulator and
 sensor-simulator in three languages, and a rename in any of them stops readings arriving with
 nothing failing to compile.
 
+**The Cedar bundle is the exception — it stays in `backend/libs/auth-policy`.** Its fixture
+holds golden *decisions*, not a wire shape, is meaningless without `policy.cedar` and
+`schema.cedarschema` beside it, and Go imports the package as a real module. Don't move it here.
+
 Hand-written serde, **no codegen**. Four shapes do not justify a generator, and every one of
 them has a wire quirk a generator would flatten.
 

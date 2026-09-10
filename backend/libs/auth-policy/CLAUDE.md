@@ -2,13 +2,13 @@
 
 The shared Cedar bundle: `policy.cedar` (rules), `schema.cedarschema` (entity shapes),
 `fixtures/conformance.json` (the cases every language replays). Go API in `authz.go` /
-`policy.go`. Role ladder is `../auth-contracts/roles.json`.
+`policy.go`. Role ladder is `../auth-contracts/roles.json` — every consumer reads the file, none mirrors it.
 Docs: `documentation/packages/auth-policy.qd`, `domain/identity-access.qd`.
 
 ## How it is evaluated
 
 Locally, in every service, on the data path — no remote PDP, no authz network call. The
-bundle is embedded by Go directly, by Rust (digital-twin `service/authz.rs`) and by Python
+bundle is embedded by Go directly, by Rust (digital-twin `service/authz.rs`, telemetry `kernel/authz.rs`) and by Python
 (`agent/app/cedar_authz.py`) through their own Cedar bindings. All of them replay
 `fixtures/conformance.json`, so a rule change that means different things in different
 languages fails immediately.
@@ -45,6 +45,6 @@ made before the call, not a policy decision. Don't move it into a rule.
 ## Changing a rule
 
 1. Edit `policy.cedar` / `schema.cedarschema` and add the case to `fixtures/conformance.json`.
-2. Run all three replays: `mise exec -- go test ./...` here,
-   `mise exec -- cargo test cedar` in `backend/digital-twin`, `just test agent`.
+2. Run all four replays: `mise exec -- go test ./...` here,
+   `mise exec -- cargo test cedar` in `backend/digital-twin` and `backend/telemetry`, `just test agent`.
 3. Actions are a contract too — adding one means every language's binding learns it.
