@@ -53,7 +53,7 @@ pub fn breach_message(alert: &AlertEvent) -> String {
         .unwrap_or_default();
     format!(
         "{} : {} {} is {}{unit}{breach}",
-        alert.building_id, alert.room_id, alert.label, alert.value
+        alert.building_name, alert.room_name, alert.label, alert.value
     )
 }
 
@@ -69,7 +69,7 @@ pub fn breach_cooldown_key(alert: &AlertEvent) -> String {
 }
 
 pub fn breach_push_title(alert: &AlertEvent) -> String {
-    match alert.building_id.as_str() {
+    match alert.building_name.as_str() {
         "" => format!("{} Alert", alert.label),
         building => format!("{} Alert - {building}", alert.label),
     }
@@ -84,6 +84,8 @@ mod tests {
         AlertEvent {
             building_id: "b1".to_string(),
             room_id: "r1".to_string(),
+            building_name: "HQ".to_string(),
+            room_name: "Lab 1".to_string(),
             metric: "temperature".to_string(),
             field: "temperature".to_string(),
             value: 40.0,
@@ -111,7 +113,7 @@ mod tests {
     fn a_high_breach_reads_above_maximum() {
         assert_eq!(
             breach_message(&alert(BoundDirection::Above)),
-            "b1 : r1 Temperature is 40 °C (above maximum)"
+            "HQ : Lab 1 Temperature is 40 °C (above maximum)"
         );
     }
 
@@ -119,7 +121,7 @@ mod tests {
     fn a_low_breach_reads_below_minimum() {
         assert_eq!(
             breach_message(&alert(BoundDirection::Below)),
-            "b1 : r1 Temperature is 40 °C (below minimum)"
+            "HQ : Lab 1 Temperature is 40 °C (below minimum)"
         );
     }
 
@@ -129,7 +131,7 @@ mod tests {
         a.value = 21.5;
         assert_eq!(
             breach_message(&a),
-            "b1 : r1 Temperature is 21.5 °C (above maximum)"
+            "HQ : Lab 1 Temperature is 21.5 °C (above maximum)"
         );
     }
 
@@ -137,9 +139,9 @@ mod tests {
     fn a_breach_on_another_field_names_its_own_label_and_unit() {
         assert_eq!(
             breach_message(&co2()),
-            "b1 : r1 CO2 is 1200 ppm (above maximum)"
+            "HQ : Lab 1 CO2 is 1200 ppm (above maximum)"
         );
-        assert_eq!(breach_push_title(&co2()), "CO2 Alert - b1");
+        assert_eq!(breach_push_title(&co2()), "CO2 Alert - HQ");
     }
 
     #[test]
@@ -153,12 +155,12 @@ mod tests {
         };
         assert_eq!(
             breach_message(&aqi),
-            "b1 : r1 Air Quality is 162 (above maximum)"
+            "HQ : Lab 1 Air Quality is 162 (above maximum)"
         );
     }
 
     #[test]
-    fn each_field_throttles_on_its_own_key() {
+    fn the_text_names_the_place_but_the_cooldown_key_uses_the_ids() {
         assert_eq!(
             breach_cooldown_key(&alert(BoundDirection::Above)),
             "alert:temperature:temperature:b1:r1"
@@ -180,9 +182,9 @@ mod tests {
     }
 
     #[test]
-    fn the_push_title_drops_the_suffix_without_a_building() {
+    fn the_push_title_drops_the_suffix_without_a_building_name() {
         let nowhere = AlertEvent {
-            building_id: String::new(),
+            building_name: String::new(),
             ..alert(BoundDirection::Above)
         };
         assert_eq!(breach_push_title(&nowhere), "Temperature Alert");

@@ -1,4 +1,4 @@
-use crate::kernel::ports::{Alerts, Clock, Fanout, ReadingStore, ThresholdStore};
+use crate::kernel::ports::{Alerts, BuildingStore, Clock, Fanout, ReadingStore, ThresholdStore};
 use crate::kernel::registry::PluginRegistry;
 use crate::types::error::DomainError;
 use crate::types::event::{AlertPayload, TelemetryEvent};
@@ -14,6 +14,7 @@ pub struct Ingest {
     pub thresholds: Arc<dyn ThresholdStore>,
     pub fanout: Arc<dyn Fanout>,
     pub alerts: Arc<dyn Alerts>,
+    pub buildings: Arc<dyn BuildingStore>,
     pub clock: Arc<dyn Clock>,
 }
 
@@ -116,12 +117,32 @@ impl Ingest {
         let Some(bounds) = resolved else {
             return;
         };
-        for breach in breaches(plugin.bounds(), &bounds, &reading.payload) {
+        let found = breaches(plugin.bounds(), &bounds, &reading.payload);
+        if found.is_empty() {
+            return;
+        }
+        // A failed lookup names the alert by its ids rather than dropping it.
+        let names = self
+            .buildings
+            .names_of(&reading.building_id)
+            .await
+            .unwrap_or_else(|error| {
+                log::error!("building name lookup failed: {error}");
+                None
+            });
+        let building_name = names.as_ref().map_or(&reading.building_id, |n| &n.name);
+        let room_name = names
+            .as_ref()
+            .and_then(|n| n.rooms.get(&reading.room_id))
+            .unwrap_or(&reading.room_id);
+        for breach in found {
             let alert = AlertPayload {
                 metric: reading.metric.clone(),
                 field: breach.bound.field.to_owned(),
                 building_id: reading.building_id.clone(),
                 room_id: reading.room_id.clone(),
+                building_name: building_name.clone(),
+                room_name: room_name.clone(),
                 value: breach.value,
                 label: breach.bound.label.to_owned(),
                 unit: breach.bound.unit.map(str::to_owned),
@@ -137,7 +158,10 @@ impl Ingest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::kernel::fakes::{FakeAlerts, FakePlugin, FakeReadings, FakeThresholds, FixedClock};
+    use crate::kernel::fakes::{
+        FakeAlerts, FakeBuildings, FakePlugin, FakeReadings, FakeThresholds, FixedClock,
+    };
+    use crate::types::building::{RegisteredBuilding, Room};
     use serde_json::json;
 
     struct Harness {
@@ -147,7 +171,29 @@ mod tests {
         ingest: Ingest,
     }
 
+    fn hq() -> FakeBuildings {
+        FakeBuildings {
+            upserted: std::sync::Mutex::new(vec![RegisteredBuilding {
+                id: "b1".to_owned(),
+                name: "HQ".to_owned(),
+                rooms: vec![Room {
+                    id: "r1".to_owned(),
+                    name: "Lab 1".to_owned(),
+                }],
+            }]),
+            refuse: false,
+        }
+    }
+
     fn harness(readings: FakeReadings, thresholds: FakeThresholds) -> Harness {
+        harness_with(readings, thresholds, hq())
+    }
+
+    fn harness_with(
+        readings: FakeReadings,
+        thresholds: FakeThresholds,
+        buildings: FakeBuildings,
+    ) -> Harness {
         let readings = Arc::new(readings);
         let fanout = Arc::new(crate::kernel::fakes::FakeFanout::default());
         let alerts = Arc::new(FakeAlerts::default());
@@ -159,6 +205,7 @@ mod tests {
             thresholds: Arc::new(thresholds) as Arc<dyn ThresholdStore>,
             fanout: fanout.clone() as Arc<dyn Fanout>,
             alerts: alerts.clone() as Arc<dyn Alerts>,
+            buildings: Arc::new(buildings) as Arc<dyn BuildingStore>,
             clock: Arc::new(FixedClock::default()) as Arc<dyn Clock>,
         };
         Harness {
@@ -343,6 +390,44 @@ mod tests {
         assert_eq!(published[0].value, 26.0);
         assert_eq!(published[0].field, "fake");
         assert_eq!(published[0].label, "Fake");
+    }
+
+    #[tokio::test]
+    async fn a_breach_is_named_by_the_registered_building_and_room() {
+        let h = harness(FakeReadings::default(), bounds(json!({ "maxFake": 25.0 })));
+        h.ingest.accept("b1", &[item("r1", 26.0)]).await.unwrap();
+        let published = h.alerts.published.lock().unwrap();
+        assert_eq!(published[0].building_name, "HQ");
+        assert_eq!(published[0].room_name, "Lab 1");
+    }
+
+    #[tokio::test]
+    async fn a_room_twin_never_registered_is_named_by_its_id() {
+        let h = harness(FakeReadings::default(), bounds(json!({ "maxFake": 25.0 })));
+        h.ingest
+            .accept("b1", &[item("zone-7", 26.0)])
+            .await
+            .unwrap();
+        let published = h.alerts.published.lock().unwrap();
+        assert_eq!(published[0].building_name, "HQ");
+        assert_eq!(published[0].room_name, "zone-7");
+    }
+
+    #[tokio::test]
+    async fn a_failed_name_lookup_still_raises_the_alert_named_by_its_ids() {
+        let refusing = FakeBuildings {
+            refuse: true,
+            ..Default::default()
+        };
+        let h = harness_with(
+            FakeReadings::default(),
+            bounds(json!({ "maxFake": 25.0 })),
+            refusing,
+        );
+        h.ingest.accept("b1", &[item("r1", 26.0)]).await.unwrap();
+        let published = h.alerts.published.lock().unwrap();
+        assert_eq!(published[0].building_name, "b1");
+        assert_eq!(published[0].room_name, "r1");
     }
 
     #[tokio::test]

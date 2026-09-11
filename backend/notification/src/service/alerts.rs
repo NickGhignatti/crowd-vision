@@ -307,6 +307,8 @@ mod tests {
         AlertEvent {
             building_id: "b1".to_string(),
             room_id: "r1".to_string(),
+            building_name: "HQ".to_string(),
+            room_name: "Lab 1".to_string(),
             metric: "temperature".to_string(),
             field: "temperature".to_string(),
             value: 40.0,
@@ -370,6 +372,8 @@ mod tests {
         serde_json::to_string(&AlertEvent {
             building_id: "bldg-3f2b4c5d".to_string(),
             room_id: "room-lab-2".to_string(),
+            building_name: "Innovation Hub".to_string(),
+            room_name: "Lab 2".to_string(),
             metric: "temperature".to_string(),
             field: "temperature".to_string(),
             value: 31.4,
@@ -442,7 +446,7 @@ mod tests {
         assert_eq!(published.len(), 1);
         assert_eq!(
             published[0].message,
-            "b1 : r1 Temperature is 40 °C (above maximum)"
+            "HQ : Lab 1 Temperature is 40 °C (above maximum)"
         );
         assert_eq!(published[0].r#type, Severity::Danger);
         assert_eq!(published[0].domain_name.as_deref(), Some("domain-a"));
@@ -476,9 +480,9 @@ mod tests {
         let published = published(&fixture);
         assert_eq!(
             published[0].message,
-            "b1 : r1 CO2 is 1200 ppm (above maximum)"
+            "HQ : Lab 1 CO2 is 1200 ppm (above maximum)"
         );
-        assert_eq!(published[0].title, "CO2 Alert - b1");
+        assert_eq!(published[0].title, "CO2 Alert - HQ");
         assert!(
             fixture.sender.endpoints().is_empty(),
             "ada opted into temperature only"
@@ -605,7 +609,7 @@ mod tests {
         assert_eq!(published[0].domain_name, None);
         assert_eq!(
             published[0].message,
-            "b1 : r1 Temperature is 40 °C (above maximum)"
+            "HQ : Lab 1 Temperature is 40 °C (above maximum)"
         );
         assert_eq!(fixture.cooldown.started.lock().unwrap().len(), 1);
     }

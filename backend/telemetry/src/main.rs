@@ -1,5 +1,6 @@
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
+use telemetry::adapters::driven::building_cache::CachedBuildings;
 use telemetry::adapters::driven::dispatch::HttpDispatch;
 use telemetry::adapters::driven::kafka_producer::KafkaEvents;
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
@@ -63,7 +64,10 @@ async fn main() -> anyhow::Result<()> {
         pool.clone(),
     ))));
     let sensors_store = Arc::new(PgSensors::new(pool.clone()));
-    let buildings_store = Arc::new(PgBuildings::new(pool.clone()));
+    // Shared for the same reason: a re-registration must reach the names cache ingest reads.
+    let buildings_store = Arc::new(CachedBuildings::new(Arc::new(PgBuildings::new(
+        pool.clone(),
+    ))));
     let dispatch = Arc::new(HttpDispatch::from_json(pool.clone(), BINDINGS)?);
     let fanout = Arc::new(RedisFanout::connect(&redis_url).await?);
     let directory = Arc::new(TwinDirectory::new(twin_url));
@@ -97,6 +101,7 @@ async fn main() -> anyhow::Result<()> {
             thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
             fanout: fanout.clone() as Arc<dyn Fanout>,
             alerts: kafka.clone() as Arc<dyn Alerts>,
+            buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
             clock: Arc::new(SystemClock) as Arc<dyn Clock>,
         },
         readings: Readings {

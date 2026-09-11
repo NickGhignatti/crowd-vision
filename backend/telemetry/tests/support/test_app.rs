@@ -85,6 +85,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
             thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
             fanout: fanout.clone() as Arc<dyn Fanout>,
             alerts: alerts.clone() as Arc<dyn Alerts>,
+            buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
             clock: Arc::new(StubClock::default()) as Arc<dyn Clock>,
         },
         readings: Readings {

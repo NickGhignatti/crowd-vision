@@ -25,7 +25,8 @@ telemetry. A message that is not the shape the producer writes is invalid, not b
 parsed.
 
 **Every metric in `telemetry_schema::ALERTABLE_METRICS` is delivered, nothing else.** Message
-and title come from the alert's own `label`/`unit`, so this service holds no per-metric table.
+and title come from the alert's own `label`, `unit` and building/room names, so this service
+holds no per-metric table and makes no name lookup.
 Any other metric is dropped and counted `unsupported_metric` (`BreachOutcome::label`) —
 visible, never silently skipped.
 

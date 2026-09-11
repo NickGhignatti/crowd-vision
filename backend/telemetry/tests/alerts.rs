@@ -48,6 +48,8 @@ fn alert(room_id: &str, metric: &str, value: f64, direction: BoundDirection) -> 
         field: metric.to_owned(),
         building_id: "b1".to_owned(),
         room_id: room_id.to_owned(),
+        building_name: "HQ".to_owned(),
+        room_name: "Lab 1".to_owned(),
         value,
         label: metric.to_owned(),
         unit: None,

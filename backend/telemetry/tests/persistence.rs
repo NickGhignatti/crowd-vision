@@ -390,6 +390,29 @@ async fn registering_a_duplicate_sensor_violates_the_primary_key() {
 }
 
 #[tokio::test]
+async fn a_buildings_names_are_read_back_by_id() {
+    let pool = fresh_db("names").await;
+    let buildings = PgBuildings::new(pool.clone());
+    buildings
+        .upsert(&RegisteredBuilding {
+            id: "b1".to_owned(),
+            name: "HQ".to_owned(),
+            rooms: vec![Room {
+                id: "r1".to_owned(),
+                name: "Lab 1".to_owned(),
+            }],
+        })
+        .await
+        .unwrap();
+
+    let names = buildings.names_of("b1").await.unwrap().unwrap();
+
+    assert_eq!(names.name, "HQ");
+    assert_eq!(names.rooms["r1"], "Lab 1");
+    assert!(buildings.names_of("nowhere").await.unwrap().is_none());
+}
+
+#[tokio::test]
 async fn registering_a_building_twice_converges() {
     let pool = fresh_db("rereg").await;
     let buildings = PgBuildings::new(pool.clone());

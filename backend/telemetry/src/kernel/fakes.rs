@@ -469,6 +469,20 @@ impl BuildingStore for FakeBuildings {
         }
         Ok(())
     }
+
+    async fn names_of(
+        &self,
+        building_id: &str,
+    ) -> anyhow::Result<Option<crate::types::building::BuildingNames>> {
+        if self.refuse {
+            anyhow::bail!("buildings refused");
+        }
+        let upserted = self.upserted.lock().unwrap();
+        Ok(upserted
+            .iter()
+            .find(|b| b.id == building_id)
+            .map(RegisteredBuilding::names))
+    }
 }
 
 #[derive(Default)]

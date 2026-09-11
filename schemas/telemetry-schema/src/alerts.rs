@@ -28,6 +28,9 @@ impl BoundDirection {
 pub struct AlertEvent {
     pub building_id: String,
     pub room_id: String,
+    /// Display text from twin's registration; the ids stay the keys, since names can repeat.
+    pub building_name: String,
+    pub room_name: String,
     pub metric: String,
     /// The payload field whose bound broke; one metric can bound several (air quality: co2, AQI).
     pub field: String,
@@ -41,6 +44,8 @@ pub struct AlertEvent {
 
 const BUILDING_ID: &str = "buildingId";
 const ROOM_ID: &str = "roomId";
+const BUILDING_NAME: &str = "buildingName";
+const ROOM_NAME: &str = "roomName";
 const METRIC: &str = "type";
 const FIELD: &str = "field";
 const LABEL: &str = "label";
@@ -51,9 +56,11 @@ const TIMESTAMP: &str = "timestamp";
 
 impl Serialize for AlertEvent {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut map = serializer.serialize_map(Some(9 + usize::from(self.unit.is_some())))?;
+        let mut map = serializer.serialize_map(Some(11 + usize::from(self.unit.is_some())))?;
         map.serialize_entry(BUILDING_ID, &self.building_id)?;
         map.serialize_entry(ROOM_ID, &self.room_id)?;
+        map.serialize_entry(BUILDING_NAME, &self.building_name)?;
+        map.serialize_entry(ROOM_NAME, &self.room_name)?;
         map.serialize_entry(&self.field, &self.value)?;
         map.serialize_entry(METRIC, &self.metric)?;
         map.serialize_entry(FIELD, &self.field)?;
@@ -86,6 +93,8 @@ impl<'de> Visitor<'de> for AlertEventVisitor {
     fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<AlertEvent, M::Error> {
         let mut building_id = None;
         let mut room_id = None;
+        let mut building_name = None;
+        let mut room_name = None;
         let mut metric = None;
         let mut field = None;
         let mut label = None;
@@ -98,7 +107,9 @@ impl<'de> Visitor<'de> for AlertEventVisitor {
         while let Some(key) = map.next_key::<String>()? {
             match key.as_str() {
                 BUILDING_ID => building_id = Some(map.next_value()?),
-                ROOM_ID => room_id = Some(map.next_value()?),
+                ROOM_ID => room_id = Some(map.next_value::<String>()?),
+                BUILDING_NAME => building_name = Some(map.next_value::<String>()?),
+                ROOM_NAME => room_name = Some(map.next_value::<String>()?),
                 METRIC => metric = Some(map.next_value::<String>()?),
                 FIELD => field = Some(map.next_value::<String>()?),
                 LABEL => label = Some(map.next_value::<String>()?),
@@ -111,7 +122,11 @@ impl<'de> Visitor<'de> for AlertEventVisitor {
         }
 
         let metric: String = metric.ok_or_else(|| DeError::missing_field(METRIC))?;
-        // Records written before bounds named their field carry no field, label or unit.
+        let building_id: String = building_id.ok_or_else(|| DeError::missing_field(BUILDING_ID))?;
+        let room_id: String = room_id.ok_or_else(|| DeError::missing_field(ROOM_ID))?;
+        // Older records lack these; each reads as the id or metric it describes.
+        let building_name = building_name.unwrap_or_else(|| building_id.clone());
+        let room_name = room_name.unwrap_or_else(|| room_id.clone());
         let field = field.unwrap_or_else(|| metric.clone());
         let label = label.unwrap_or_else(|| metric.clone());
         let value = candidates
@@ -123,8 +138,10 @@ impl<'de> Visitor<'de> for AlertEventVisitor {
             })?;
 
         Ok(AlertEvent {
-            building_id: building_id.ok_or_else(|| DeError::missing_field(BUILDING_ID))?,
-            room_id: room_id.ok_or_else(|| DeError::missing_field(ROOM_ID))?,
+            building_id,
+            room_id,
+            building_name,
+            room_name,
             metric,
             field,
             value,
@@ -159,6 +176,8 @@ mod tests {
         AlertEvent {
             building_id: "b1".to_string(),
             room_id: "r1".to_string(),
+            building_name: "HQ".to_string(),
+            room_name: "Lab 1".to_string(),
             metric: "temperature".to_string(),
             field: "temperature".to_string(),
             value: 40.0,
@@ -189,6 +208,8 @@ mod tests {
             json!({
                 "buildingId": "b1",
                 "roomId": "r1",
+                "buildingName": "HQ",
+                "roomName": "Lab 1",
                 "temperature": 40.0,
                 "type": "temperature",
                 "field": "temperature",
@@ -258,6 +279,8 @@ mod tests {
         assert_eq!(alert.label, "temperature");
         assert_eq!(alert.unit, None);
         assert_eq!(alert.value, 40.0);
+        assert_eq!(alert.building_name, "b1");
+        assert_eq!(alert.room_name, "r1");
     }
 
     #[test]

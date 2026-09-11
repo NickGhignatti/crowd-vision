@@ -53,6 +53,8 @@ catalog at runtime.
 (`telemetry_schema::{ALERTS_TOPIC, AlertEvent}`). Fan-out to dashboard stays on Redis.
 A `BoundSpec` compares its own payload `field`, never the reading's `value` — air quality bounds
 `co2` as well as `indoor_aqi`. One alert per breached field; the first listed bound wins.
+Each alert carries the building and room names from the registration projection
+(`BuildingStore::names_of`, cached by `CachedBuildings`); an unregistered room is named by its id.
 
 **Ingest auth is device-facing and separate from the gateway JWT**
 (`adapters/ingest_auth.rs`): `x-signature`, lowercase-hex SHA-256 HMAC over the body, secret

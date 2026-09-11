@@ -70,10 +70,12 @@ that needs its own type.
 Two wire families plus the metric catalog. Consumers: telemetry, dashboard, socket, notification.
 
 - **`AlertEvent` has a hand-written `Serialize`/`Deserialize` because the value is keyed by
-  the field that breached** — `{"buildingId", "roomId", "<field>": value, "type": "<metric>",
-  "field", "label", "unit"?, "direction": "high"|"low", "threshold", "timestamp"}`. `type`
-  means *metric*; one metric can bound several fields (air quality: `co2`, `indoor_aqi`).
-  `field`/`label`/`unit` are optional on read — older records lack them and read as the metric.
+  the field that breached** — `{"buildingId", "roomId", "buildingName", "roomName",
+  "<field>": value, "type": "<metric>", "field", "label", "unit"?, "direction": "high"|"low",
+  "threshold", "timestamp"}`. `type` means *metric*; one metric can bound several fields
+  (air quality: `co2`, `indoor_aqi`). The names are display text only — ids stay the keys,
+  because names repeat. `field`/`label`/`unit` and the names are optional on read: older
+  records read as the metric and the ids.
   Derive would produce a different shape; don't "simplify" it back.
 - **`ALERTABLE_METRICS` is the set notification delivers.** telemetry's `plugins::all()` test pins
   it to the plugins that declare bounds; notification uses it as its preference types. A bounded
