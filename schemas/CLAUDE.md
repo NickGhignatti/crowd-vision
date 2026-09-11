@@ -75,6 +75,9 @@ Two wire families plus the metric catalog. Consumers: telemetry, dashboard, sock
   means *metric*; one metric can bound several fields (air quality: `co2`, `indoor_aqi`).
   `field`/`label`/`unit` are optional on read — older records lack them and read as the metric.
   Derive would produce a different shape; don't "simplify" it back.
+- **`ALERTABLE_METRICS` is the set notification delivers.** telemetry's `plugins::all()` test pins
+  it to the plugins that declare bounds; notification uses it as its preference types. A bounded
+  metric missing here would breach straight into `unsupported_metric`.
 - **`TelemetryEnvelope` / `TelemetryReading` carry no shape tag** — everything is a tick, so a
   constant `type` would say nothing, and `type` already means metric on a reading. Plugin
   fields ride in a `#[serde(flatten)]` map, so a reading round-trips whatever its plugin emitted.

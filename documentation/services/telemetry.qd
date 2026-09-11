@@ -92,7 +92,7 @@ A bound names the payload `field` it compares — not the reading's value, since
 
 **2. Implement `SensorPlugin`.** `validate` is `check_fields` plus reading the value; `actions()` defaults to `&[]` and is only overridden for metrics with an actuator.
 
-**3. Register it** in `main.rs`'s `PluginRegistry::new(vec![…])`.
+**3. Register it** in `plugins::all()`, which `main.rs` hands to `PluginRegistry::new`. A plugin with bounds also joins `telemetry_schema::ALERTABLE_METRICS` — a test fails until it does — which gives its breaches a delivery path in notification.
 
 `GET /contracts`, `POST /ingest`, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.
 

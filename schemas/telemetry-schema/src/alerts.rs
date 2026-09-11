@@ -137,15 +137,16 @@ impl<'de> Visitor<'de> for AlertEventVisitor {
     }
 }
 
-impl AlertEvent {
-    pub const TEMPERATURE: &'static str = "temperature";
+/// The metrics notification delivers; telemetry pins it to exactly the plugins that declare bounds.
+pub const ALERTABLE_METRICS: &[&str] = &["temperature", "airQuality", "peopleCount"];
 
+impl AlertEvent {
     pub fn partition_key(&self) -> String {
         format!("{}:{}", self.building_id, self.room_id)
     }
 
-    pub fn is_temperature(&self) -> bool {
-        self.metric == Self::TEMPERATURE
+    pub fn is_alertable(&self) -> bool {
+        ALERTABLE_METRICS.contains(&self.metric.as_str())
     }
 }
 
@@ -311,6 +312,16 @@ mod tests {
     #[test]
     fn alerts_are_keyed_so_one_room_keeps_its_order_in_a_partition() {
         assert_eq!(breach().partition_key(), "b1:r1");
-        assert!(breach().is_temperature());
+    }
+
+    #[test]
+    fn only_a_metric_notification_delivers_is_alertable() {
+        assert!(breach().is_alertable());
+        assert!(co2_breach().is_alertable());
+        let humidity = AlertEvent {
+            metric: "humidity".to_string(),
+            ..breach()
+        };
+        assert!(!humidity.is_alertable());
     }
 }

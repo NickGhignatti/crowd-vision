@@ -4,8 +4,7 @@ use telemetry_schema::AlertEvent;
 
 use crate::domain::{
     Audience, COOLDOWN_SECONDS, DomainError, ManualTemperatureAlert, Notification, Severity,
-    TEMPERATURE, breach_cooldown_key, breach_message, breach_push_title, notification,
-    system_claims_header,
+    breach_cooldown_key, breach_message, breach_push_title, notification, system_claims_header,
 };
 use crate::service::ports::{Clock, Cooldown, DomainDirectory, NotificationBus};
 use crate::service::push::Push;
@@ -67,7 +66,7 @@ impl Alerts {
             }
         };
 
-        if !alert.is_temperature() {
+        if !alert.is_alertable() {
             log::warn!(
                 "[Event] No delivery path for a {} breach in building {}, dropping",
                 alert.metric,
@@ -99,7 +98,8 @@ impl Alerts {
 
         let outcome = if domains.is_empty() {
             log::error!(
-                "[Event] Temperature alert for building {building} reached no domain: no web push was sent and only open sockets can receive it. Alert: {message}"
+                "[Event] {label} alert for building {building} reached no domain: no web push was sent and only open sockets can receive it. Alert: {message}",
+                label = alert.label
             );
             self.publish(&notification(
                 self.clock.now_millis(),
@@ -116,7 +116,7 @@ impl Alerts {
                 &message,
                 &breach_push_title(&alert),
                 &domains,
-                Some(TEMPERATURE),
+                Some(alert.metric.as_str()),
             )
             .await;
             BreachOutcome::Delivered
@@ -291,7 +291,9 @@ fn unique_non_empty(domains: &[String]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{AccountPreferences, Preference, SubscriptionKeys, WebPushSubscription};
+    use crate::domain::{
+        AccountPreferences, Preference, SubscriptionKeys, TEMPERATURE, WebPushSubscription,
+    };
     use crate::service::fakes::{
         FrozenClock, InMemoryCooldown, InMemoryPreferences, InMemorySubscriptions, RecordingBus,
         RecordingSender, StubDirectory,
@@ -357,22 +359,45 @@ mod tests {
         }
     }
 
+    fn temperature() -> AlertEvent {
+        AlertEvent {
+            building_id: "b1".to_string(),
+            room_id: "r1".to_string(),
+            metric: "temperature".to_string(),
+            field: "temperature".to_string(),
+            value: 40.0,
+            label: "Temperature".to_string(),
+            unit: Some("°C".to_string()),
+            direction: telemetry_schema::BoundDirection::Above,
+            threshold: 25.0,
+            ts_ms: 1_600_000_000_000,
+        }
+    }
+
+    fn co2() -> AlertEvent {
+        AlertEvent {
+            metric: "airQuality".to_string(),
+            field: "co2".to_string(),
+            value: 1200.0,
+            label: "CO2".to_string(),
+            unit: Some("ppm".to_string()),
+            threshold: 1000.0,
+            ..temperature()
+        }
+    }
+
     fn breach() -> String {
-        breach_of("temperature", 40.0)
+        serde_json::to_string(&temperature()).unwrap()
     }
 
     fn breach_of(metric: &str, value: f64) -> String {
         serde_json::to_string(&AlertEvent {
-            building_id: "b1".to_string(),
-            room_id: "r1".to_string(),
             metric: metric.to_string(),
             field: metric.to_string(),
             value,
             label: metric.to_string(),
             unit: None,
-            direction: telemetry_schema::BoundDirection::Above,
-            threshold: 25.0,
-            ts_ms: 1_600_000_000_000,
+            ..temperature()
         })
         .unwrap()
     }
@@ -471,7 +496,10 @@ mod tests {
 
         let published = published(&fixture);
         assert_eq!(published.len(), 1);
-        assert_eq!(published[0].message, "b1 : r1 is 40°C (above maximum)");
+        assert_eq!(
+            published[0].message,
+            "b1 : r1 Temperature is 40 °C (above maximum)"
+        );
         assert_eq!(published[0].r#type, Severity::Danger);
         assert_eq!(published[0].domain_name.as_deref(), Some("domain-a"));
         assert_eq!(fixture.sender.endpoints(), vec!["https://push/ada"]);
@@ -482,16 +510,50 @@ mod tests {
     async fn a_metric_with_no_delivery_path_is_dropped_and_said_so() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
-        let outcome = fixture
-            .alerts
-            .on_breach(&breach_of("indoorAqi", 180.0))
-            .await;
+        let outcome = fixture.alerts.on_breach(&breach_of("humidity", 80.0)).await;
 
         assert_eq!(outcome, BreachOutcome::Unsupported);
         assert_eq!(outcome.label(), "unsupported_metric");
         assert!(published(&fixture).is_empty());
         assert!(fixture.sender.endpoints().is_empty());
         assert!(fixture.cooldown.started.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_air_quality_breach_is_delivered_in_its_own_words_to_its_own_subscribers() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+
+        let outcome = fixture
+            .alerts
+            .on_breach(&serde_json::to_string(&co2()).unwrap())
+            .await;
+
+        assert_eq!(outcome, BreachOutcome::Delivered);
+        let published = published(&fixture);
+        assert_eq!(
+            published[0].message,
+            "b1 : r1 CO2 is 1200 ppm (above maximum)"
+        );
+        assert_eq!(published[0].title, "CO2 Alert - b1");
+        assert!(
+            fixture.sender.endpoints().is_empty(),
+            "ada opted into temperature only"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_co2_cooldown_never_silences_a_temperature_breach_in_the_same_room() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+        fixture
+            .cooldown
+            .active
+            .lock()
+            .unwrap()
+            .push("alert:airQuality:co2:b1:r1".to_string());
+
+        let outcome = fixture.alerts.on_breach(&breach()).await;
+
+        assert_eq!(outcome, BreachOutcome::Delivered);
     }
 
     #[tokio::test]
@@ -516,7 +578,7 @@ mod tests {
 
         assert_eq!(
             *fixture.cooldown.started.lock().unwrap(),
-            vec![("temp_alert:b1:r1".to_string(), 300)]
+            vec![("alert:temperature:temperature:b1:r1".to_string(), 300)]
         );
     }
 
@@ -528,7 +590,7 @@ mod tests {
             .active
             .lock()
             .unwrap()
-            .push("temp_alert:b1:r1".to_string());
+            .push("alert:temperature:temperature:b1:r1".to_string());
 
         fixture.alerts.on_breach(&breach()).await;
 
@@ -572,7 +634,7 @@ mod tests {
             .active
             .lock()
             .unwrap()
-            .push("temp_alert:b1:r1".to_string());
+            .push("alert:temperature:temperature:b1:r1".to_string());
 
         let outcome = fixture.alerts.on_breach(&breach()).await;
 
@@ -597,7 +659,10 @@ mod tests {
         let published = published(&fixture);
         assert_eq!(published.len(), 1);
         assert_eq!(published[0].domain_name, None);
-        assert_eq!(published[0].message, "b1 : r1 is 40°C (above maximum)");
+        assert_eq!(
+            published[0].message,
+            "b1 : r1 Temperature is 40 °C (above maximum)"
+        );
         assert_eq!(fixture.cooldown.started.lock().unwrap().len(), 1);
     }
 
@@ -889,7 +954,7 @@ mod tests {
             .active
             .lock()
             .unwrap()
-            .push("temp_alert:b1:r1".to_string());
+            .push("alert:temperature:temperature:b1:r1".to_string());
         let alert = ManualTemperatureAlert {
             building_id: Some("b1".into()),
             room_id: Some("r1".into()),
@@ -925,7 +990,7 @@ mod tests {
 
         assert_eq!(
             *fixture.cooldown.started.lock().unwrap(),
-            vec![("temp_alert:b1:r1".to_string(), 300)]
+            vec![("alert:temperature:temperature:b1:r1".to_string(), 300)]
         );
     }
 }

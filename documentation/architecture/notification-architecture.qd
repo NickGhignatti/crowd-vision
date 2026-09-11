@@ -71,8 +71,8 @@ Because twin's answer is unscoped, notification scopes it itself: the resolved d
 ## Key Architectural Decisions
 
 - **Two responsibilities, two models.** Delivery channels and alert preferences are kept apart so a device can be revoked without losing choices, and choices can change without re-registering devices.
-- **Dual-channel delivery, on every temperature-alert path.** `trigger`, `push_temperature`, and the automatic `alerts` listener all dispatch both an in-app event (through the broker) and a push to offline devices, so reachability does not depend on the app being open.
-- **Repeat suppression, on every temperature-alert path.** A 5-minute Redis-backed cooldown, keyed per building and room (`temp_alert:{buildingId}:{roomId}`), stops the same condition from re-alerting on every reading — including the automatic sensor-driven path, which is the one under the most repeat-alert pressure (a stuck sensor reading the same breach every tick).
+- **Dual-channel delivery, on every alert path.** `trigger`, `push_temperature`, and the automatic `alerts` listener all dispatch both an in-app event (through the broker) and a push to offline devices, so reachability does not depend on the app being open.
+- **Repeat suppression, on every alert path.** A 5-minute Redis-backed cooldown, keyed per metric, breached field, building and room (`alert:{metric}:{field}:{buildingId}:{roomId}`), stops the same condition from re-alerting on every reading — including the automatic sensor-driven path, which is the one under the most repeat-alert pressure (a stuck sensor reading the same breach every tick).
 - **Recipient resolution by collaboration.** Where a path resolves recipients at all, it asks digital-twin which domains a building belongs to and translates that into recipients, rather than keeping its own copy of building structure (an anti-corruption boundary).
 - **Self-pruning channels.** A delivery channel that the provider reports as permanently dead (`410`/`403`) is removed automatically on the next push attempt, keeping the model clean without a scheduled job.
 
@@ -81,7 +81,7 @@ Because twin's answer is unscoped, notification scopes it itself: the resolved d
 ## Integration
 
 - Owns `notification-db`; no other service reads it.
-- Receives breach events from telemetry via the Kafka `alerts` topic (group `alerts`, `auto.offset.reset=earliest`; the payload is `telemetry_schema::AlertEvent`, and a metric other than `temperature` has no delivery path — it is logged, counted `unsupported_metric` and settled); publishes to the `notifications` Redis channel for socket to relay — see [Communication & Data Flow](data-flow.qd).
+- Receives breach events from telemetry via the Kafka `alerts` topic (group `alerts`, `auto.offset.reset=earliest`; the payload is `telemetry_schema::AlertEvent`; a metric outside `telemetry_schema::ALERTABLE_METRICS` has no delivery path — it is logged, counted `unsupported_metric` and settled); publishes to the `notifications` Redis channel for socket to relay — see [Communication & Data Flow](data-flow.qd).
 - Calls digital-twin to resolve a building's domains — from the authenticated HTTP alert routes (`trigger`, `push_temperature`, forwarding the caller's own claims, then intersecting the answer with their memberships) and from the `alerts` event listener (using a fixed system identity, since there's no caller to forward).
 - Called by digital-twin on a failed building provisioning (`POST /trigger`, system identity, in-mesh) — see [Digital Twin Service](../services/digital-twin.qd).
 

@@ -24,13 +24,15 @@ Ports & Adapters, enforced by `tests/architecture_fitness.rs` — read it before
 telemetry. A message that is not the shape the producer writes is invalid, not best-effort
 parsed.
 
-**Only `temperature` has a delivery path.** Any other metric is dropped and counted
-`unsupported_metric` (`BreachOutcome::label`) — visible, never silently skipped. Adding a
-metric here means adding its delivery, not loosening the check.
+**Every metric in `telemetry_schema::ALERTABLE_METRICS` is delivered, nothing else.** Message
+and title come from the alert's own `label`/`unit`, so this service holds no per-metric table.
+Any other metric is dropped and counted `unsupported_metric` (`BreachOutcome::label`) —
+visible, never silently skipped.
 
 **Redelivery is expected, so delivery is cooldown-guarded**: a breach arms a Redis cooldown
-of `COOLDOWN_SECONDS` (300) keyed by building and room; while it is active the lookup, the
-publish and the re-arm are all suppressed. Kafka redelivery and a renamed consumer group
+of `COOLDOWN_SECONDS` (300) keyed `alert:{metric}:{field}:{building}:{room}` — per field, so
+metrics never silence each other; while it is active the lookup, the publish and the re-arm
+are all suppressed. Kafka redelivery and a renamed consumer group
 (which replays the topic from the beginning) are both absorbed by this.
 
 **Delivery is domain-scoped.** `Audience::permits` decides which domains a notification may
@@ -49,8 +51,8 @@ endpoint never stops the rest of the batch.
 a 400, not a new colour.
 
 **`POST /preferences` names its type; `/subscribe` may not.** A missing type is a 400 on
-update and `temperature` on subscribe. Either way the type must be in `NOTIFICATION_TYPES`,
-the metrics with a delivery path: adding a metric means adding it there with its delivery.
+update and every alertable metric switched on at subscribe. Either way the type must be in
+`NOTIFICATION_TYPES`, which *is* `ALERTABLE_METRICS` — one list, never a second copy here.
 
 ## Tests
 

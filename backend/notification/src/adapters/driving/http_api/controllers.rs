@@ -442,17 +442,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn subscribing_with_a_domain_defaults_to_an_enabled_temperature_preference() {
+    async fn subscribing_with_a_domain_switches_on_every_alertable_metric() {
         let harness = harness(Arc::new(StubDirectory::empty()));
         let mut body = valid_subscription();
         body["domainName"] = serde_json::json!("eng");
 
         call(&harness.state, post("/subscribe", Some("ada"), body)).await;
 
-        assert_eq!(
-            harness.accounts("eng", Some("temperature")).await,
-            vec!["ada".to_string()]
-        );
+        for metric in ["temperature", "airQuality", "peopleCount"] {
+            assert_eq!(
+                harness.accounts("eng", Some(metric)).await,
+                vec!["ada".to_string()],
+                "{metric}"
+            );
+        }
     }
 
     #[tokio::test]
@@ -652,7 +655,7 @@ mod tests {
     #[tokio::test]
     async fn a_manual_temperature_push_inside_the_cooldown_is_silently_accepted() {
         let harness = harness(Arc::new(StubDirectory::empty()));
-        harness.arm_cooldown("temp_alert:b1:r1");
+        harness.arm_cooldown("alert:temperature:temperature:b1:r1");
 
         let (status, _) = call(
             &harness.state,

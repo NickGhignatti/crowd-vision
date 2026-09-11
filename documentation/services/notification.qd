@@ -99,7 +99,7 @@ struct AccountPreferences {
 // compound unique index { accountName, domainName }
 ```
 
-Collection names and field names are the mongoose ones — the store is shared with the pre-Rust data. Notification type is the string `"temperature"`.
+Collection names and field names are the mongoose ones — the store is shared with the pre-Rust data. Notification type is a metric key from `telemetry_schema::ALERTABLE_METRICS`: `"temperature"`, `"airQuality"` or `"peopleCount"`.
 
 A single account may own several `WebPushSubscription` records (one per device) but exactly one preferences document per domain.
 
@@ -118,13 +118,13 @@ A single account may own several `WebPushSubscription` records (one per device) 
       - Returns `{ publicVapidKey }` for the browser to create a push subscription.
     - - `POST /subscribe`
       - JWT
-      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences. `201`.
+      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences — with no type named, every alertable metric switched on. `201`.
     - - `GET /preferences/:accountName`
       - JWT
       - Returns the **caller's own** `NotificationSubscription` records. The `:accountName` param is ignored (identity from the token).
     - - `POST /preferences`
       - JWT
-      - Sets one or more per-domain, per-type opt-in flags for the **caller**. Every form names its `type`, which must have a delivery path (today only `temperature`); otherwise `400`. `200`.
+      - Sets one or more per-domain, per-type opt-in flags for the **caller**. Every form names its `type`, which must be in `ALERTABLE_METRICS` (`temperature`, `airQuality`, `peopleCount`); otherwise `400`. `200`.
     - - `POST /trigger`
       - JWT
       - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `type` is a severity — `info`, `warning` or `danger` (default); anything else is a `400`. `200`.
@@ -171,13 +171,13 @@ Authentication is not enough: every route that names a domain also checks that t
     Unlike digital-twin, this service does not embed the Cedar bundle — its Docker build context is its own directory, so `include_str!` cannot reach `auth-policy/`. `ReadWithAdminBypass`'s gate is `maxRoleWeight >= 100`, and `admin` tops `auth-contracts/roles.json` at exactly 100, so holding the `admin` role anywhere is equivalent. `the_admin_role_is_the_top_of_the_shared_ladder` reads `roles.json` at compile time and fails if a heavier role is ever added — that is the drift alarm. If one is, switch this service to Cedar rather than bumping a constant.
 
 .box {The broker path is exempt} type:{note}
-    `on_temperature_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger`/`push_temperature` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
+    `on_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger`/`push_temperature` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
 
 ---
 
-## The Temperature-Alert Throttle
+## The Alert Throttle
 
-The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts` Kafka topic — and it is what absorbs the duplicates that at-least-once delivery allows.
+The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room and per breached field using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts` Kafka topic — and it is what absorbs the duplicates that at-least-once delivery allows.
 
 .mermaid
     sequenceDiagram
@@ -187,7 +187,7 @@ The telemetry fires on every reading (~every 10 s). To avoid a storm of identica
         participant R as Redis
         participant TW as digital-twin
         SS->>NS: POST /push/temperature { buildingId, roomId, temperature }
-        NS->>R: GET temp_alert:{buildingId}:{roomId}
+        NS->>R: GET alert:temperature:temperature:{buildingId}:{roomId}
         alt cooldown active
             R-->>NS: "1"
             NS-->>SS: 200 (silently throttled)
@@ -197,11 +197,13 @@ The telemetry fires on every reading (~every 10 s). To avoid a storm of identica
                 TW-->>NS: domain names
             end
             Note over NS: publish "notifications" + Web Push to opted-in recipients
-            NS->>R: SET temp_alert:{buildingId}:{roomId} "1" EX 300
+            NS->>R: SET alert:temperature:temperature:{buildingId}:{roomId} "1" EX 300
             NS-->>SS: 200 (dispatched)
         end
 
-The key is `temp_alert:{buildingId}:{roomId}`; the cooldown is **300 seconds**. After it expires, the next breach starts a new cycle.
+- The key is `alert:{metric}:{field}:{buildingId}:{roomId}`; the cooldown is **300 seconds**. After it expires, the next breach starts a new cycle.
+- One key per breached field, so a CO2 alert never silences a temperature or AQI alert in the same room.
+- `POST /push/temperature` uses `alert:temperature:temperature:…`, the same key as a sensor-driven temperature breach, so the two paths still throttle each other.
 
 ---
 

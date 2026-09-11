@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::domain::error::DomainError;
 
 pub const TEMPERATURE: &str = "temperature";
-pub const NOTIFICATION_TYPES: &[&str] = &[TEMPERATURE];
+pub const NOTIFICATION_TYPES: &[&str] = telemetry_schema::ALERTABLE_METRICS;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Preference {
@@ -131,12 +131,10 @@ impl PreferenceRequest {
                 .iter()
                 .map(|t| PreferenceUpdate::new(account_name, domain_name, Some(t), enabled))
                 .collect(),
-            None => Ok(vec![PreferenceUpdate::new(
-                account_name,
-                domain_name,
-                Some(TEMPERATURE),
-                enabled,
-            )?]),
+            None => NOTIFICATION_TYPES
+                .iter()
+                .map(|t| PreferenceUpdate::new(account_name, domain_name, Some(t), enabled))
+                .collect(),
         }
     }
 
@@ -237,12 +235,30 @@ mod tests {
         );
     }
 
+    fn every_type(enabled: bool) -> Vec<(String, bool)> {
+        NOTIFICATION_TYPES
+            .iter()
+            .map(|t| (t.to_string(), enabled))
+            .collect()
+    }
+
     #[test]
     fn a_type_without_a_delivery_path_is_rejected() {
         assert!(matches!(
             update("ada", "d1", Some("humidity")),
-            Err(DomainError::Validation(m)) if m == "type must be one of: temperature"
+            Err(DomainError::Validation(m))
+                if m == "type must be one of: temperature, airQuality, peopleCount"
         ));
+    }
+
+    #[test]
+    fn every_alertable_metric_is_a_type() {
+        for metric in ["airQuality", "peopleCount"] {
+            assert_eq!(
+                update("ada", "d1", Some(metric)).unwrap().notification_type,
+                metric
+            );
+        }
     }
 
     #[test]
@@ -303,16 +319,16 @@ mod tests {
         let request = request(serde_json::json!({ "enabled": false }));
         assert_eq!(
             pairs(request.resolve_lenient("ada", "d1").unwrap()),
-            vec![(TEMPERATURE.to_string(), false)]
+            every_type(false)
         );
     }
 
     #[test]
-    fn subscribe_falls_back_to_a_single_temperature_preference() {
+    fn subscribe_without_a_type_switches_on_every_alertable_metric() {
         let request = request(serde_json::json!({}));
         assert_eq!(
             pairs(request.resolve_lenient("ada", "d1").unwrap()),
-            vec![(TEMPERATURE.to_string(), true)]
+            every_type(true)
         );
     }
 
@@ -390,7 +406,8 @@ mod tests {
         let request = request(serde_json::json!({ "types": ["humidity"] }));
         assert!(matches!(
             request.resolve_lenient("ada", "d1"),
-            Err(DomainError::Validation(m)) if m == "type must be one of: temperature"
+            Err(DomainError::Validation(m))
+                if m == "type must be one of: temperature, airQuality, peopleCount"
         ));
     }
 

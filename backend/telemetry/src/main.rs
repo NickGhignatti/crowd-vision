@@ -20,10 +20,7 @@ use telemetry::kernel::registration::Registration;
 use telemetry::kernel::registry::PluginRegistry;
 use telemetry::kernel::sensors::Sensors;
 use telemetry::kernel::thresholds::Thresholds;
-use telemetry::plugins::air_quality::AirQualityPlugin;
-use telemetry::plugins::device_count::{RatioDeviceCountPlugin, TotalDeviceCountPlugin};
-use telemetry::plugins::people_count::PeopleCountPlugin;
-use telemetry::plugins::temperature::TemperaturePlugin;
+use telemetry::plugins;
 use telemetry::state::{AppState, SystemClock};
 
 const BINDINGS: &str = include_str!("../bindings.json");
@@ -56,16 +53,8 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
-    let registry = Arc::new(
-        PluginRegistry::new(vec![
-            Box::new(TemperaturePlugin),
-            Box::new(PeopleCountPlugin),
-            Box::new(AirQualityPlugin),
-            Box::new(TotalDeviceCountPlugin),
-            Box::new(RatioDeviceCountPlugin),
-        ])
-        .map_err(|error| anyhow::anyhow!(error))?,
-    );
+    let registry =
+        Arc::new(PluginRegistry::new(plugins::all()).map_err(|error| anyhow::anyhow!(error))?);
 
     let readings_store = Arc::new(PgReadings::new(pool.clone(), registry.clone()));
     // Wrapped once and shared: writes have to travel the same instance as

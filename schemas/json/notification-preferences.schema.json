@@ -14,7 +14,9 @@
   "$defs": {
     "notificationType": {
       "enum": [
-        "temperature"
+        "temperature",
+        "airQuality",
+        "peopleCount"
       ]
     },
     "reply": {

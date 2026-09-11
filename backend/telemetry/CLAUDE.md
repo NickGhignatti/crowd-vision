@@ -40,7 +40,9 @@ building is still refused; producers just stop sending the field that could disa
 `filtered_channel` / `RAW_CHANNEL`, topics from `adapters/topics.rs` (re-exported
 `twin_schema` / `telemetry_schema` constants).
 
-**Adding a metric = adding a plugin file, nothing else.** A `SensorPlugin` gives `key`,
+**Adding a metric = a plugin file plus its line in `plugins::all()`.** A plugin with bounds also
+joins `telemetry_schema::ALERTABLE_METRICS` (test-enforced) — that is its delivery path in
+notification. A `SensorPlugin` gives `key`,
 `descriptor`, `validate`, `bounds`, optional `actions`; `PluginRegistry::new` rejects two
 plugins sharing a key. Plugins never import each other — shared helpers go in
 `plugins/common.rs`. `/contracts` serves what the registry holds, and dashboard parses that
