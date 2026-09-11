@@ -49,6 +49,8 @@ catalog at runtime.
 
 **Every breach in a tick raises its own alert** to the `alerts` Kafka topic
 (`telemetry_schema::{ALERTS_TOPIC, AlertEvent}`). Fan-out to dashboard stays on Redis.
+A `BoundSpec` compares its own payload `field`, never the reading's `value` — air quality bounds
+`co2` as well as `indoor_aqi`. One alert per breached field; the first listed bound wins.
 
 **Ingest auth is device-facing and separate from the gateway JWT**
 (`adapters/ingest_auth.rs`): `x-signature`, lowercase-hex SHA-256 HMAC over the body, secret

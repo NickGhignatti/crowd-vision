@@ -20,6 +20,10 @@ pub struct FieldSpec {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BoundSpec {
     pub key: &'static str,
+    /// The payload field this bound compares — not always the reading's value.
+    pub field: &'static str,
+    pub label: &'static str,
+    pub unit: Option<&'static str>,
     pub direction: BoundDirection,
 }
 

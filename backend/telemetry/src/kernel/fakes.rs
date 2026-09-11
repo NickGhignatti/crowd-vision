@@ -48,10 +48,16 @@ static FAKE_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
 static FAKE_BOUNDS: &[BoundSpec] = &[
     BoundSpec {
         key: "maxFake",
+        field: "fake",
+        label: "Fake",
+        unit: None,
         direction: BoundDirection::Above,
     },
     BoundSpec {
         key: "minFake",
+        field: "fake",
+        label: "Fake",
+        unit: None,
         direction: BoundDirection::Below,
     },
 ];

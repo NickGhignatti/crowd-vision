@@ -37,6 +37,9 @@ static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
 
 static BOUNDS: &[BoundSpec] = &[BoundSpec {
     key: "maxPeople",
+    field: "peopleCount",
+    label: "People Count",
+    unit: Some("people"),
     direction: BoundDirection::Above,
 }];
 
@@ -120,6 +123,9 @@ mod tests {
             PeopleCountPlugin.bounds(),
             &[BoundSpec {
                 key: "maxPeople",
+                field: "peopleCount",
+                label: "People Count",
+                unit: Some("people"),
                 direction: BoundDirection::Above
             }]
         );

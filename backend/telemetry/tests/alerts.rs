@@ -45,9 +45,12 @@ async fn wait_for(consumer: &StreamConsumer, room_id: &str) -> (String, serde_js
 fn alert(room_id: &str, metric: &str, value: f64, direction: BoundDirection) -> AlertPayload {
     AlertPayload {
         metric: metric.to_owned(),
+        field: metric.to_owned(),
         building_id: "b1".to_owned(),
         room_id: room_id.to_owned(),
         value,
+        label: metric.to_owned(),
+        unit: None,
         direction,
         threshold: 25.0,
         ts_ms: 1_700_000_000_000,

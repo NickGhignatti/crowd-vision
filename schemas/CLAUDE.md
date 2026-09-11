@@ -70,9 +70,11 @@ that needs its own type.
 Two wire families plus the metric catalog. Consumers: telemetry, dashboard, socket, notification.
 
 - **`AlertEvent` has a hand-written `Serialize`/`Deserialize` because the value is keyed by
-  its own metric name** — `{"buildingId", "roomId", "<metric>": value, "type": "<metric>",
-  "direction": "high"|"low", "threshold", "timestamp"}`. `type` means *metric*. Derive would
-  produce a different shape; don't "simplify" it back.
+  the field that breached** — `{"buildingId", "roomId", "<field>": value, "type": "<metric>",
+  "field", "label", "unit"?, "direction": "high"|"low", "threshold", "timestamp"}`. `type`
+  means *metric*; one metric can bound several fields (air quality: `co2`, `indoor_aqi`).
+  `field`/`label`/`unit` are optional on read — older records lack them and read as the metric.
+  Derive would produce a different shape; don't "simplify" it back.
 - **`TelemetryEnvelope` / `TelemetryReading` carry no shape tag** — everything is a tick, so a
   constant `type` would say nothing, and `type` already means metric on a reading. Plugin
   fields ride in a `#[serde(flatten)]` map, so a reading round-trips whatever its plugin emitted.

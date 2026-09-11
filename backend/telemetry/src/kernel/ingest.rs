@@ -3,7 +3,7 @@ use crate::kernel::registry::PluginRegistry;
 use crate::types::error::DomainError;
 use crate::types::event::{AlertPayload, TelemetryEvent};
 use crate::types::reading::Reading;
-use crate::types::threshold::{Bounds, breach};
+use crate::types::threshold::{Bounds, breaches};
 use serde_json::{Map, Value};
 use std::sync::Arc;
 
@@ -116,13 +116,16 @@ impl Ingest {
         let Some(bounds) = resolved else {
             return;
         };
-        if let Some(breach) = breach(plugin.bounds(), &bounds, reading.value) {
+        for breach in breaches(plugin.bounds(), &bounds, &reading.payload) {
             let alert = AlertPayload {
                 metric: reading.metric.clone(),
+                field: breach.bound.field.to_owned(),
                 building_id: reading.building_id.clone(),
                 room_id: reading.room_id.clone(),
-                value: reading.value,
-                direction: breach.direction,
+                value: breach.value,
+                label: breach.bound.label.to_owned(),
+                unit: breach.bound.unit.map(str::to_owned),
+                direction: breach.bound.direction,
                 threshold: breach.threshold,
                 ts_ms: self.clock.now_ms(),
             };
@@ -338,6 +341,8 @@ mod tests {
         assert_eq!(published[0].room_id, "r1");
         assert_eq!(published[0].threshold, 25.0);
         assert_eq!(published[0].value, 26.0);
+        assert_eq!(published[0].field, "fake");
+        assert_eq!(published[0].label, "Fake");
     }
 
     #[tokio::test]
