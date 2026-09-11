@@ -9,10 +9,8 @@ pub use identity::{
     Audience, CLAIMS_HEADER, ClaimsPayload, GatewayClaims, Membership, system_claims_header,
 };
 pub use notification::{
-    ALERTS_DLQ_TOPIC, ALERTS_TOPIC, COOLDOWN_SECONDS, ManualTemperatureAlert,
-    NOTIFICATIONS_CHANNEL, Notification, Severity, breach_cooldown_key, breach_message,
-    breach_push_title, cooldown_key, iso8601, manual_push_title, manual_temperature_message,
-    notification,
+    ALERTS_DLQ_TOPIC, ALERTS_TOPIC, COOLDOWN_SECONDS, NOTIFICATIONS_CHANNEL, Notification,
+    Severity, breach_cooldown_key, breach_message, breach_push_title, iso8601, notification,
 };
 pub use preference::{
     AccountPreferences, Preference, PreferenceEntry, PreferenceRequest, PreferenceUpdate,

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use telemetry_schema::AlertEvent;
 
 use crate::domain::{
-    Audience, COOLDOWN_SECONDS, DomainError, ManualTemperatureAlert, Notification, Severity,
-    breach_cooldown_key, breach_message, breach_push_title, notification, system_claims_header,
+    Audience, COOLDOWN_SECONDS, DomainError, Notification, Severity, breach_cooldown_key,
+    breach_message, breach_push_title, notification, system_claims_header,
 };
 use crate::service::ports::{Clock, Cooldown, DomainDirectory, NotificationBus};
 use crate::service::push::Push;
@@ -181,62 +181,6 @@ impl Alerts {
             }
         }
         Ok(())
-    }
-
-    pub async fn push_temperature(
-        &self,
-        alert: &ManualTemperatureAlert,
-        claims_header: &str,
-        audience: &Audience,
-    ) -> Result<(), DomainError> {
-        let key = alert.cooldown_key();
-        if self
-            .cooldown
-            .is_active(&key)
-            .await
-            .map_err(DomainError::Internal)?
-        {
-            return Ok(());
-        }
-
-        let targets = match alert.domain_name.as_deref().filter(|d| !d.is_empty()) {
-            Some(domain) => vec![domain.to_string()],
-            None => match alert.building_id.as_deref().filter(|b| !b.is_empty()) {
-                Some(building) => self
-                    .domain_directory
-                    .domains_for_building(building, claims_header)
-                    .await
-                    .map_err(DomainError::Internal)?,
-                None => Vec::new(),
-            },
-        };
-
-        let targets = unique_non_empty(&targets);
-        if targets.is_empty() {
-            return Err(DomainError::Validation(
-                "domainName/domainId (or buildingId fallback) is required".to_string(),
-            ));
-        }
-
-        let targets = permitted_by(&targets, audience);
-        if targets.is_empty() {
-            return Err(DomainError::Forbidden(
-                "Not a member of the requested domain".to_string(),
-            ));
-        }
-
-        self.fan_out(
-            &alert.message(),
-            &alert.push_title(),
-            &targets,
-            Some(alert.notification_type()),
-        )
-        .await;
-
-        self.cooldown
-            .start(&key, COOLDOWN_SECONDS)
-            .await
-            .map_err(DomainError::Internal)
     }
 
     async fn fan_out(
@@ -861,136 +805,5 @@ mod tests {
             .unwrap();
 
         assert!(published(&fixture).is_empty());
-    }
-
-    #[tokio::test]
-    async fn a_manual_push_to_a_domain_the_caller_is_not_a_member_of_is_forbidden() {
-        let fixture = fixture(StubDirectory::empty());
-        let alert = ManualTemperatureAlert {
-            building_id: Some("b1".into()),
-            room_id: Some("r1".into()),
-            domain_name: Some("domain-z".into()),
-            ..Default::default()
-        };
-
-        let result = fixture
-            .alerts
-            .push_temperature(&alert, "claims", &member_of(&["domain-a"]))
-            .await;
-
-        assert!(matches!(result, Err(DomainError::Forbidden(_))));
-        assert!(published(&fixture).is_empty());
-        assert!(fixture.cooldown.started.lock().unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn a_manual_push_prefers_the_supplied_domain_over_the_building_lookup() {
-        let fixture = fixture(StubDirectory::returning("b1", &["domain-b"]));
-        let alert = ManualTemperatureAlert {
-            building_id: Some("b1".into()),
-            room_id: Some("r1".into()),
-            temperature: Some(21.5),
-            domain_name: Some("domain-a".into()),
-            notification_type: None,
-        };
-
-        fixture
-            .alerts
-            .push_temperature(&alert, "claims", &every_domain())
-            .await
-            .unwrap();
-
-        let published = published(&fixture);
-        assert_eq!(published[0].domain_name.as_deref(), Some("domain-a"));
-        assert_eq!(published[0].message, "Temperature alert in room r1: 21.5 C");
-        assert!(fixture.directory.calls.lock().unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn a_manual_push_falls_back_to_the_building_lookup() {
-        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
-        let alert = ManualTemperatureAlert {
-            building_id: Some("b1".into()),
-            ..Default::default()
-        };
-
-        fixture
-            .alerts
-            .push_temperature(&alert, "claims", &every_domain())
-            .await
-            .unwrap();
-
-        assert_eq!(
-            published(&fixture)[0].domain_name.as_deref(),
-            Some("domain-a")
-        );
-    }
-
-    #[tokio::test]
-    async fn a_manual_push_with_no_resolvable_domain_is_a_validation_error() {
-        let fixture = fixture(StubDirectory::empty());
-
-        let result = fixture
-            .alerts
-            .push_temperature(
-                &ManualTemperatureAlert::default(),
-                "claims",
-                &every_domain(),
-            )
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(DomainError::Validation(m))
-                if m == "domainName/domainId (or buildingId fallback) is required"
-        ));
-    }
-
-    #[tokio::test]
-    async fn a_manual_push_within_the_cooldown_publishes_nothing_but_succeeds() {
-        let fixture = fixture(StubDirectory::empty());
-        fixture
-            .cooldown
-            .active
-            .lock()
-            .unwrap()
-            .push("alert:temperature:temperature:b1:r1".to_string());
-        let alert = ManualTemperatureAlert {
-            building_id: Some("b1".into()),
-            room_id: Some("r1".into()),
-            domain_name: Some("domain-a".into()),
-            ..Default::default()
-        };
-
-        fixture
-            .alerts
-            .push_temperature(&alert, "claims", &every_domain())
-            .await
-            .unwrap();
-
-        assert!(published(&fixture).is_empty());
-        assert!(fixture.cooldown.started.lock().unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn a_manual_push_arms_the_cooldown_after_delivering() {
-        let fixture = fixture(StubDirectory::empty());
-        let alert = ManualTemperatureAlert {
-            building_id: Some("b1".into()),
-            room_id: Some("r1".into()),
-            domain_name: Some("domain-a".into()),
-            ..Default::default()
-        };
-
-        fixture
-            .alerts
-            .push_temperature(&alert, "claims", &every_domain())
-            .await
-            .unwrap();
-
-        assert_eq!(
-            *fixture.cooldown.started.lock().unwrap(),
-            vec![("alert:temperature:temperature:b1:r1".to_string(), 300)]
-        );
     }
 }

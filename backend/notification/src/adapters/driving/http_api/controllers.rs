@@ -5,10 +5,7 @@ use axum::response::IntoResponse;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::domain::{
-    Audience, DomainError, GatewayClaims, ManualTemperatureAlert, PreferenceRequest,
-    WebPushSubscription,
-};
+use crate::domain::{Audience, DomainError, GatewayClaims, PreferenceRequest, WebPushSubscription};
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -61,22 +58,6 @@ pub struct TriggerRequest {
     #[serde(rename = "buildingName")]
     pub building_name: Option<String>,
     #[serde(rename = "notificationType")]
-    pub notification_type: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default)]
-pub struct TemperatureRequest {
-    #[serde(rename = "roomId")]
-    pub room_id: Option<String>,
-    #[serde(rename = "buildingId")]
-    pub building_id: Option<String>,
-    pub temperature: Option<f64>,
-    #[serde(rename = "domainName")]
-    pub domain_name: Option<String>,
-    #[serde(rename = "domainId")]
-    pub domain_id: Option<String>,
-    #[serde(rename = "type")]
     pub notification_type: Option<String>,
 }
 
@@ -181,26 +162,6 @@ pub async fn trigger_alert(
     ))
 }
 
-pub async fn push_temperature_alert(
-    State(state): State<AppState>,
-    claims: GatewayClaims,
-    Json(body): Json<TemperatureRequest>,
-) -> Result<impl IntoResponse, DomainError> {
-    let alert = ManualTemperatureAlert {
-        building_id: body.building_id,
-        room_id: body.room_id,
-        temperature: body.temperature,
-        domain_name: domain_of(body.domain_name, body.domain_id),
-        notification_type: body.notification_type,
-    };
-    state
-        .alerts
-        .push_temperature(&alert, &claims.raw, &Audience::of(&claims))
-        .await?;
-
-    Ok(Json(json!({ "success": true })))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,10 +188,8 @@ mod tests {
     struct Harness {
         state: AppState,
         bus: Arc<RecordingBus>,
-        sender: Arc<RecordingSender>,
         subscriptions: Arc<InMemorySubscriptions>,
         stored: Arc<InMemoryPreferences>,
-        cooldown: Arc<InMemoryCooldown>,
     }
 
     fn harness(directory: Arc<StubDirectory>) -> Harness {
@@ -240,15 +199,11 @@ mod tests {
         let sender = Arc::new(RecordingSender::default());
         let cooldown = Arc::new(InMemoryCooldown::default());
 
-        let push = Arc::new(Push::new(
-            subscriptions.clone(),
-            stored.clone(),
-            sender.clone(),
-        ));
+        let push = Arc::new(Push::new(subscriptions.clone(), stored.clone(), sender));
         let preferences = Arc::new(Preferences::new(subscriptions.clone(), stored.clone()));
         let alerts = Arc::new(Alerts::new(
             bus.clone(),
-            cooldown.clone(),
+            cooldown,
             directory,
             push,
             Arc::new(FrozenClock(1_700_000_000_000)),
@@ -262,11 +217,8 @@ mod tests {
                 rate_limiter: RateLimiter::new(false),
             },
             bus,
-            sender,
             subscriptions,
-
             stored,
-            cooldown,
         }
     }
 
@@ -292,10 +244,6 @@ mod tests {
 
         fn published(&self) -> Vec<crate::domain::Notification> {
             self.bus.published.lock().unwrap().clone()
-        }
-
-        fn arm_cooldown(&self, key: &str) {
-            self.cooldown.active.lock().unwrap().push(key.to_string());
         }
     }
 
@@ -385,7 +333,6 @@ mod tests {
             get("/preferences", None),
             post("/preferences", None, serde_json::json!({})),
             post("/trigger", None, serde_json::json!({})),
-            post("/push/temperature", None, serde_json::json!({})),
         ] {
             let (status, _) = call(&harness.state, request).await;
             assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -612,66 +559,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_manual_temperature_push_reaches_the_supplied_domain() {
-        let harness = harness(Arc::new(StubDirectory::empty()));
-        let mut body = valid_subscription();
-        body["domainName"] = serde_json::json!("eng");
-        call(&harness.state, post("/subscribe", Some("ada"), body)).await;
-
-        let (status, _) = call(
-            &harness.state,
-            post(
-                "/push/temperature",
-                Some("ada"),
-                serde_json::json!({ "domainName": "eng", "roomId": "r1", "temperature": 31.5 }),
-            ),
-        )
-        .await;
-
-        assert_eq!(status, StatusCode::OK);
-        assert_eq!(
-            harness.published()[0].message,
-            "Temperature alert in room r1: 31.5 C"
-        );
-        assert_eq!(harness.sender.endpoints(), vec!["https://push.example/1"]);
-    }
-
-    #[tokio::test]
-    async fn a_manual_temperature_push_without_any_target_is_a_validation_error() {
-        let harness = harness(Arc::new(StubDirectory::empty()));
-        let (status, body) = call(
-            &harness.state,
-            post("/push/temperature", Some("ada"), serde_json::json!({})),
-        )
-        .await;
-
-        assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert_eq!(
-            body["message"],
-            "domainName/domainId (or buildingId fallback) is required"
-        );
-    }
-
-    #[tokio::test]
-    async fn a_manual_temperature_push_inside_the_cooldown_is_silently_accepted() {
-        let harness = harness(Arc::new(StubDirectory::empty()));
-        harness.arm_cooldown("alert:temperature:temperature:b1:r1");
-
-        let (status, _) = call(
-            &harness.state,
-            post(
-                "/push/temperature",
-                Some("ada"),
-                serde_json::json!({ "buildingId": "b1", "roomId": "r1", "domainName": "eng" }),
-            ),
-        )
-        .await;
-
-        assert_eq!(status, StatusCode::OK);
-        assert!(harness.published().is_empty());
-    }
-
-    #[tokio::test]
     async fn subscribing_to_a_domain_the_caller_is_not_a_member_of_is_forbidden() {
         let harness = harness(Arc::new(StubDirectory::empty()));
         let mut body = valid_subscription();
@@ -719,25 +606,6 @@ mod tests {
 
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert!(harness.accounts("finance", None).await.is_empty());
-    }
-
-    #[tokio::test]
-    async fn a_manual_push_to_a_foreign_domain_is_forbidden() {
-        let harness = harness(Arc::new(StubDirectory::empty()));
-
-        let (status, _) = call(
-            &harness.state,
-            post_as(
-                "/push/temperature",
-                &claims_header_for("ada", &["eng"]),
-                serde_json::json!({ "domainName": "finance", "roomId": "r1", "temperature": 31.5 }),
-            ),
-        )
-        .await;
-
-        assert_eq!(status, StatusCode::FORBIDDEN);
-        assert!(harness.published().is_empty());
-        assert!(harness.sender.endpoints().is_empty());
     }
 
     #[tokio::test]

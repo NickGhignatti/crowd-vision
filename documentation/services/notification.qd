@@ -19,7 +19,7 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
     - - `src/service/ports.rs`
       - Outbound port traits: `SubscriptionStore`, `PreferenceStore`, `PushSender`, `NotificationBus`, `Cooldown`, `DomainDirectory`, `Clock`.
     - - `src/service/alerts.rs`
-      - Alert use cases: broker breach, manual `/trigger`, `/push/temperature`. Owns the throttle.
+      - Alert use cases: broker breach, manual `/trigger`. Owns the breach throttle.
     - - `src/service/push.rs`
       - Recipient resolution and fan-out; deletes gone subscriptions.
     - - `src/service/preferences.rs`
@@ -128,14 +128,11 @@ A single account may own several `WebPushSubscription` records (one per device) 
     - - `POST /trigger`
       - JWT
       - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `type` is a severity — `info`, `warning` or `danger` (default); anything else is a `400`. `200`.
-    - - `POST /push/temperature`
-      - JWT
-      - Automated threshold alert; subject to the per-room cooldown below. `200`.
 
 Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified claims, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array — every accepted and rejected form is pinned in `schemas/fixtures/notification-preferences.json`.
 
 .box {Auth boundary} type:{note}
-    Only `/health`, `/metrics`, and `/public-key` (the non-secret VAPID key) stay public; the `GatewayClaims` extractor guards everything else and rejects claims without an `accountName`. `/trigger` and `/push/temperature` fan out push notifications to a whole domain, so leaving them open was an abuse vector — they require valid claims like the rest.
+    Only `/health`, `/metrics`, and `/public-key` (the non-secret VAPID key) stay public; the `GatewayClaims` extractor guards everything else and rejects claims without an `accountName`. `/trigger` fans out push notifications to a whole domain, so leaving it open was an abuse vector — it requires valid claims like the rest.
 
 ### Domain membership
 
@@ -155,9 +152,6 @@ Authentication is not enough: every route that names a domain also checks that t
     - - `POST /preferences`
       - `claims.belongs_to(domainName)`
       - `403`
-    - - `POST /push/temperature`
-      - Resolved targets intersected with `claims.domains()`
-      - `403` when the intersection is empty
     - - `POST /trigger`
       - Twin's domains for the building intersected with `claims.domains()`
       - Fans out to the intersection; `403` only when the building has domains and none are the caller's
@@ -171,13 +165,13 @@ Authentication is not enough: every route that names a domain also checks that t
     Unlike digital-twin, this service does not embed the Cedar bundle — its Docker build context is its own directory, so `include_str!` cannot reach `auth-policy/`. `ReadWithAdminBypass`'s gate is `maxRoleWeight >= 100`, and `admin` tops `auth-contracts/roles.json` at exactly 100, so holding the `admin` role anywhere is equivalent. `the_admin_role_is_the_top_of_the_shared_ladder` reads `roles.json` at compile time and fails if a heavier role is ever added — that is the drift alarm. If one is, switch this service to Cedar rather than bumping a constant.
 
 .box {The broker path is exempt} type:{note}
-    `on_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger`/`push_temperature` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
+    `on_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
 
 ---
 
 ## The Alert Throttle
 
-The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room and per breached field using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts` Kafka topic — and it is what absorbs the duplicates that at-least-once delivery allows.
+The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room and per breached field using a Redis key with a fixed TTL. It is also what absorbs the duplicates that the `alerts` topic's at-least-once delivery allows.
 
 .mermaid
     sequenceDiagram
@@ -186,24 +180,20 @@ The telemetry fires on every reading (~every 10 s). To avoid a storm of identica
         participant NS as notification
         participant R as Redis
         participant TW as digital-twin
-        SS->>NS: POST /push/temperature { buildingId, roomId, temperature }
-        NS->>R: GET alert:temperature:temperature:{buildingId}:{roomId}
+        SS->>NS: AlertEvent on the alerts topic { type, field, buildingId, roomId, ... }
+        NS->>R: GET alert:{type}:{field}:{buildingId}:{roomId}
         alt cooldown active
             R-->>NS: "1"
-            NS-->>SS: 200 (silently throttled)
+            Note over NS: suppressed, record settled
         else first alert / expired
-            opt domain not supplied
-                NS->>TW: GET /twin/domain/:buildingId
-                TW-->>NS: domain names
-            end
+            NS->>TW: GET /twin/domain/:buildingId
+            TW-->>NS: domain names
             Note over NS: publish "notifications" + Web Push to opted-in recipients
-            NS->>R: SET alert:temperature:temperature:{buildingId}:{roomId} "1" EX 300
-            NS-->>SS: 200 (dispatched)
+            NS->>R: SET alert:{type}:{field}:{buildingId}:{roomId} "1" EX 300
         end
 
 - The key is `alert:{metric}:{field}:{buildingId}:{roomId}`; the cooldown is **300 seconds**. After it expires, the next breach starts a new cycle.
 - One key per breached field, so a CO2 alert never silences a temperature or AQI alert in the same room.
-- `POST /push/temperature` uses `alert:temperature:temperature:…`, the same key as a sensor-driven temperature breach, so the two paths still throttle each other.
 
 ---
 
