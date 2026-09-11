@@ -33,6 +33,7 @@ pub fn notification(
         message: message.to_string(),
         timestamp: iso8601(at_millis),
         domain_name: domain_name.filter(|d| !d.is_empty()),
+        metric: None,
         icon: None,
     }
 }

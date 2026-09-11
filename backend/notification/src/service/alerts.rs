@@ -101,14 +101,17 @@ impl Alerts {
                 "[Event] {label} alert for building {building} reached no domain: no web push was sent and only open sockets can receive it. Alert: {message}",
                 label = alert.label
             );
-            self.publish(&notification(
-                self.clock.now_millis(),
-                alert.ts_ms,
-                Severity::Danger,
-                &breach_push_title(&alert),
-                &message,
-                None,
-            ))
+            self.publish(&Notification {
+                metric: Some(alert.metric.clone()),
+                ..notification(
+                    self.clock.now_millis(),
+                    alert.ts_ms,
+                    Severity::Danger,
+                    &breach_push_title(&alert),
+                    &message,
+                    None,
+                )
+            })
             .await;
             BreachOutcome::Unroutable
         } else {
@@ -116,7 +119,7 @@ impl Alerts {
                 &message,
                 &breach_push_title(&alert),
                 &domains,
-                Some(alert.metric.as_str()),
+                &alert.metric,
             )
             .await;
             BreachOutcome::Delivered
@@ -183,27 +186,23 @@ impl Alerts {
         Ok(())
     }
 
-    async fn fan_out(
-        &self,
-        message: &str,
-        push_title: &str,
-        domains: &[String],
-        notification_type: Option<&str>,
-    ) {
+    /// One bell message per domain, carrying the metric the browser filters on; push filters here.
+    async fn fan_out(&self, message: &str, push_title: &str, domains: &[String], metric: &str) {
         for domain_name in unique_non_empty(domains) {
             let now = self.clock.now_millis();
-            let sent = notification(
-                now,
-                now,
-                Severity::Danger,
-                push_title,
-                message,
-                Some(domain_name.clone()),
-            );
+            let sent = Notification {
+                metric: Some(metric.to_owned()),
+                ..notification(
+                    now,
+                    now,
+                    Severity::Danger,
+                    push_title,
+                    message,
+                    Some(domain_name.clone()),
+                )
+            };
             self.publish(&sent).await;
-            self.push
-                .to_domain(&sent, &domain_name, notification_type)
-                .await;
+            self.push.to_domain(&sent, &domain_name, Some(metric)).await;
         }
     }
 
@@ -437,6 +436,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_manual_alert_carries_no_metric_so_the_bell_never_hides_it() {
+        let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
+
+        fixture
+            .alerts
+            .trigger(
+                Some("hi"),
+                None,
+                Some("b1"),
+                None,
+                "claims",
+                &every_domain(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(published(&fixture)[0].metric, None);
+    }
+
+    #[tokio::test]
     async fn a_breach_publishes_a_domain_scoped_alert_and_pushes_to_its_subscribers() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
@@ -450,6 +469,7 @@ mod tests {
         );
         assert_eq!(published[0].r#type, Severity::Danger);
         assert_eq!(published[0].domain_name.as_deref(), Some("domain-a"));
+        assert_eq!(published[0].metric.as_deref(), Some("temperature"));
         assert_eq!(fixture.sender.endpoints(), vec!["https://push/ada"]);
         assert_eq!(fixture.sender.sent.lock().unwrap()[0].1, published[0]);
     }
@@ -483,6 +503,7 @@ mod tests {
             "HQ : Lab 1 CO2 is 1200 ppm (above maximum)"
         );
         assert_eq!(published[0].title, "CO2 Alert - HQ");
+        assert_eq!(published[0].metric.as_deref(), Some("airQuality"));
         assert!(
             fixture.sender.endpoints().is_empty(),
             "ada opted into temperature only"

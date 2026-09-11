@@ -11,7 +11,7 @@
     flowchart LR
         N["notification\nbuilds Notification"] -->|"Redis notifications"| S["socket\nroutes on domainName"]
         N -->|"Web Push, same bytes"| W["service worker\ntitle · message · icon"]
-        S -->|"socket.io notification"| B["frontend bell\ntype · message · timestamp"]
+        S -->|"socket.io notification"| B["frontend bell\ntype · message · timestamp\nhides metrics switched off"]
 
 | Field | Type | Rule |
 |---|---|---|
@@ -21,6 +21,7 @@
 | `message` | string | Body of both the bell entry and the pop-up. |
 | `timestamp` | string | ISO-8601 UTC with milliseconds. |
 | `domainName` | string, optional | Absent means a system-wide broadcast; present means only that domain's room. |
+| `metric` | alertable metric key, optional | Set on breaches — the same key as a preference's `notificationType`. The bell shows the breach only if the account switched that metric on for the domain; push is filtered the same way server-side. Absent on manual alerts, which always show. |
 | `icon` | string, optional | The service worker shows an icon only when one is sent. |
 
 ---

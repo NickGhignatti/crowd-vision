@@ -101,6 +101,8 @@ struct AccountPreferences {
 
 Collection names and field names are the mongoose ones — the store is shared with the pre-Rust data. Notification type is a metric key from `telemetry_schema::ALERTABLE_METRICS`: `"temperature"`, `"airQuality"` or `"peopleCount"`.
 
+On startup, `switch_on_new_metrics_once` switches each alertable metric on for every account that has temperature on — once per metric, recorded as a `switched-on:<metric>` marker in the `migrations` collection, and never over a choice already stored. Those accounts subscribed before the metric existed; `/subscribe` now switches every metric on by itself.
+
 A single account may own several `WebPushSubscription` records (one per device) but exactly one preferences document per domain.
 
 ---
@@ -202,6 +204,7 @@ The telemetry fires on every reading (~every 10 s). To avoid a storm of identica
 `service/push.rs` separates *who to notify* from *how to reach them*.
 
 - `to_domain(payload, domain_name, type)` queries the preferences collection for records in the domain whose `preferences` contain an enabled entry for `type` (`$elemMatch`), reduces to a unique set of account names, and delegates to `to_accounts`. An absent `type` matches every subscriber of the domain.
+- A breach publishes one bell message per domain carrying `metric`, and pushes only to that metric's subscribers. The browser hides a breach whose metric the account switched off — the same rule, applied client-side, so the broker and socket stay one message per domain.
 - `to_accounts(payload, account_names)` loads every `WebPushSubscription` for those accounts and sends the encrypted payload to each endpoint concurrently — one dead endpoint never aborts the batch.
 - The in-app channel carries the same message: `NotificationBus::publish` posts the `notification_schema::Notification` `{ id, type, title, message, timestamp, domainName?, icon? }` to the Redis `notifications` channel, which the socket relays to browsers. The Web Push payload is those same bytes — see [Notification Schema](../packages/notification-schema.qd).
 

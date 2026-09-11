@@ -38,7 +38,9 @@ are all suppressed. Kafka redelivery and a renamed consumer group
 
 **Delivery is domain-scoped.** `Audience::permits` decides which domains a notification may
 reach; `Unrestricted` means every domain. A push with no type reaches every subscriber of
-the domain, a typed push only those subscribed to that type.
+the domain, a typed push only those subscribed to that type. A breach's bell message carries
+`metric` and goes to the whole domain room; the browser hides it for accounts that switched
+that metric off. Push and bell apply one rule, here and in the frontend respectively.
 
 **A `Gone` subscription is deleted, any other send failure leaves it in place**, and one dead
 endpoint never stops the rest of the batch.
@@ -54,6 +56,8 @@ a 400, not a new colour.
 **`POST /preferences` names its type; `/subscribe` may not.** A missing type is a 400 on
 update and every alertable metric switched on at subscribe. Either way the type must be in
 `NOTIFICATION_TYPES`, which *is* `ALERTABLE_METRICS` — one list, never a second copy here.
+On startup `switch_on_new_metrics_once` switches each newer metric on, once per metric, for
+accounts with temperature on; a stored choice always wins.
 
 ## Tests
 

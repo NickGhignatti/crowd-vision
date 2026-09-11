@@ -5,8 +5,11 @@ use mongodb::{Collection, Database};
 use serde::{Deserialize, Serialize};
 
 use crate::adapters::driven::persistence::db::NOTIFICATION_SUBSCRIPTIONS;
-use crate::domain::{AccountPreferences, Preference, PreferenceUpdate, iso8601};
+use crate::domain::preference::NOTIFICATION_TYPES;
+use crate::domain::{AccountPreferences, Preference, PreferenceUpdate, TEMPERATURE, iso8601};
 use crate::service::ports::PreferenceStore;
+
+const MIGRATIONS: &str = "migrations";
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PreferenceDocument {
@@ -36,13 +39,55 @@ impl From<PreferenceDocument> for AccountPreferences {
 
 pub struct MongoPreferences {
     collection: Collection<PreferenceDocument>,
+    migrations: Collection<Document>,
 }
 
 impl MongoPreferences {
     pub fn new(database: &Database) -> Self {
         MongoPreferences {
             collection: database.collection(NOTIFICATION_SUBSCRIPTIONS),
+            migrations: database.collection(MIGRATIONS),
         }
+    }
+
+    /// Switches each alertable metric on, once per metric, for every account with temperature on.
+    /// Those accounts subscribed before the metric existed; an explicit choice already stored wins.
+    pub async fn switch_on_new_metrics_once(&self) -> anyhow::Result<u64> {
+        let mut switched = 0;
+        for metric in NOTIFICATION_TYPES.iter().filter(|m| **m != TEMPERATURE) {
+            let marker = format!("switched-on:{metric}");
+            if self
+                .migrations
+                .find_one(doc! { "_id": &marker })
+                .await?
+                .is_some()
+            {
+                continue;
+            }
+            switched += self
+                .collection
+                .update_many(
+                    doc! {
+                        "preferences": {
+                            "$elemMatch": { "notificationType": TEMPERATURE, "isSubscribed": true }
+                        },
+                        "preferences.notificationType": { "$ne": *metric },
+                    },
+                    doc! {
+                        "$push": { "preferences": { "notificationType": *metric, "isSubscribed": true } }
+                    },
+                )
+                .await?
+                .modified_count;
+            self.migrations
+                .update_one(
+                    doc! { "_id": &marker },
+                    doc! { "$setOnInsert": { "at": DateTime::now() } },
+                )
+                .upsert(true)
+                .await?;
+        }
+        Ok(switched)
     }
 }
 

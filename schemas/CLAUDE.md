@@ -121,7 +121,10 @@ The building-registration handshake. Consumers: digital-twin, telemetry.
 - **socket parses it to route, then relays the received bytes.** A message that is not a
   `Notification` is skipped, never broadcast: a renamed `domainName` would otherwise send one
   tenant's alert to every client.
-- `domainName` and `icon` are optional and omitted when absent.
+- `domainName`, `metric` and `icon` are optional and omitted when absent.
+- **`metric` is how the bell honours preferences.** Breaches go to the whole domain room, so the
+  browser hides one whose metric the account switched off; push applies the same rule
+  server-side. Manual alerts carry no metric and always show.
 - Also hosts the schema check for `fixtures/notification-preferences.json`, which has no type
   here: only notification parses it in Rust.
 
