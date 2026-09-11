@@ -7,6 +7,7 @@ export interface Notification {
   message: string
   timestamp: string
   domainName?: string
+  metric?: string
   icon?: string
 }
 
