@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import AlertSwitches from '@/components/buttons/AlertSwitches.vue'
 import UploadModelButton from '@/components/buttons/UploadModelButton.vue'
-import { useNotificationStore } from '@/stores/notification.ts'
 
 defineProps({
   name: { type: String, required: true },
@@ -10,9 +10,7 @@ defineProps({
   isUploading: { type: Boolean, default: false },
 })
 
-defineEmits(['select', 'upload', 'notification-trigger'])
-
-const notificationStore = useNotificationStore()
+defineEmits(['select', 'upload'])
 </script>
 
 <template>
@@ -28,20 +26,7 @@ const notificationStore = useNotificationStore()
     </div>
 
     <div class="flex items-center gap-2">
-      <button
-        @click.stop="$emit('notification-trigger', displayName + '.' + parentDomainName)"
-        class="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors duration-200"
-        aria-label="Trigger notification"
-      >
-        <i
-          class="ph text-xl"
-          :class="
-            notificationStore.isSubscribed(displayName + '.' + parentDomainName)
-              ? 'ph-bell'
-              : 'ph-bell-slash'
-          "
-        ></i>
-      </button>
+      <AlertSwitches :domain-name="displayName + '.' + parentDomainName" size="sm" />
 
       <UploadModelButton
         v-if="canUpload"

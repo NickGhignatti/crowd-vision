@@ -204,6 +204,13 @@ const messages = {
         scanQRCode: 'Scan with Google Authenticator or Authy',
         QRCodeTitle: 'Your organization Qr Codes',
         selectDomainToSeeQRCode: 'Select a domain to see its Qr codes',
+        alerts: {
+          temperature: 'Temperature alerts',
+          airQuality: 'Air quality alerts',
+          peopleCount: 'People count alerts',
+          on: 'on',
+          off: 'off',
+        },
       },
       inputs: {
         search: 'Search domain...',
@@ -581,6 +588,13 @@ const messages = {
         scanQRCode: 'Scansiona con Google Authenticator o Authy',
         QRCodeTitle: 'Il Qr Code della tua organizzazione',
         selectDomainToSeeQRCode: 'Seleziona un dominio per vedere i suoi Qr code',
+        alerts: {
+          temperature: 'Avvisi temperatura',
+          airQuality: 'Avvisi qualità aria',
+          peopleCount: 'Avvisi affollamento',
+          on: 'attivi',
+          off: 'disattivati',
+        },
       },
       inputs: {
         search: 'Cerca dominio...',

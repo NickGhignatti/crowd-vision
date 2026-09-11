@@ -13,6 +13,8 @@ export interface Notification {
 
 export enum NotificationType {
   TEMPERATURE = 'temperature',
+  AIR_QUALITY = 'airQuality',
+  PEOPLE_COUNT = 'peopleCount',
 }
 
 export interface ISubscriptionPreference {
