@@ -151,9 +151,14 @@ mod tests {
     fn alert(metric: &str, value: f64, direction: BoundDirection, threshold: f64) -> AlertPayload {
         AlertPayload {
             metric: metric.to_owned(),
+            field: metric.to_owned(),
             building_id: "b1".to_owned(),
             room_id: "r1".to_owned(),
+            building_name: "HQ".to_owned(),
+            room_name: "Lab 1".to_owned(),
             value,
+            label: metric.to_owned(),
+            unit: None,
             direction,
             threshold,
             ts_ms: 1_700_000_000_000,

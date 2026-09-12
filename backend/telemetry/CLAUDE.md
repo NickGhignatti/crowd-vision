@@ -40,7 +40,9 @@ building is still refused; producers just stop sending the field that could disa
 `filtered_channel` / `RAW_CHANNEL`, topics from `adapters/topics.rs` (re-exported
 `twin_schema` / `telemetry_schema` constants).
 
-**Adding a metric = adding a plugin file, nothing else.** A `SensorPlugin` gives `key`,
+**Adding a metric = a plugin file plus its line in `plugins::all()`.** A plugin with bounds also
+joins `telemetry_schema::ALERTABLE_METRICS` (test-enforced) — that is its delivery path in
+notification. A `SensorPlugin` gives `key`,
 `descriptor`, `validate`, `bounds`, optional `actions`; `PluginRegistry::new` rejects two
 plugins sharing a key. Plugins never import each other — shared helpers go in
 `plugins/common.rs`. `/contracts` serves what the registry holds, and dashboard parses that
@@ -49,6 +51,10 @@ catalog at runtime.
 
 **Every breach in a tick raises its own alert** to the `alerts` Kafka topic
 (`telemetry_schema::{ALERTS_TOPIC, AlertEvent}`). Fan-out to dashboard stays on Redis.
+A `BoundSpec` compares its own payload `field`, never the reading's `value` — air quality bounds
+`co2` as well as `indoor_aqi`. One alert per breached field; the first listed bound wins.
+Each alert carries the building and room names from the registration projection
+(`BuildingStore::names_of`, cached by `CachedBuildings`); an unregistered room is named by its id.
 
 **Ingest auth is device-facing and separate from the gateway JWT**
 (`adapters/ingest_auth.rs`): `x-signature`, lowercase-hex SHA-256 HMAC over the body, secret

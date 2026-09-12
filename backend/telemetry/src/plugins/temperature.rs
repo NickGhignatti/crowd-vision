@@ -39,10 +39,16 @@ static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
 static BOUNDS: &[BoundSpec] = &[
     BoundSpec {
         key: "maxTemp",
+        field: "temperature",
+        label: "Temperature",
+        unit: Some("°C"),
         direction: BoundDirection::Above,
     },
     BoundSpec {
         key: "minTemp",
+        field: "temperature",
+        label: "Temperature",
+        unit: Some("°C"),
         direction: BoundDirection::Below,
     },
 ];
@@ -172,10 +178,16 @@ mod tests {
             &[
                 BoundSpec {
                     key: "maxTemp",
+                    field: "temperature",
+                    label: "Temperature",
+                    unit: Some("°C"),
                     direction: BoundDirection::Above
                 },
                 BoundSpec {
                     key: "minTemp",
+                    field: "temperature",
+                    label: "Temperature",
+                    unit: Some("°C"),
                     direction: BoundDirection::Below
                 },
             ]

@@ -1,3 +1,4 @@
+pub mod building_cache;
 pub mod dispatch;
 pub mod kafka_producer;
 pub mod postgres;

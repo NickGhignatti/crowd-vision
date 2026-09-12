@@ -67,6 +67,10 @@ async fn main() {
 
     let subscriptions = Arc::new(MongoSubscriptions::new(&database));
     let stored_preferences = Arc::new(MongoPreferences::new(&database));
+    match stored_preferences.switch_on_new_metrics_once().await {
+        Ok(switched) => info!("Switched new alert metrics on for {switched} preference records"),
+        Err(e) => error!("Switching new alert metrics on failed: {e:?}"),
+    }
     let sender = Arc::new(WebPushSender::new(&vapid_public_key, &vapid_private_key));
 
     let push = Arc::new(Push::new(
@@ -86,7 +90,7 @@ async fn main() {
     let listener_alerts = alerts.clone();
     tokio::spawn(async move {
         if let Err(e) = alert_listener::listen(&brokers, listener_alerts).await {
-            error!("[Event] Temperature alert listener stopped: {e:?}");
+            error!("[Event] Alert listener stopped: {e:?}");
         }
     });
 

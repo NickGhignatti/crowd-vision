@@ -19,7 +19,7 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
     - - `src/service/ports.rs`
       - Outbound port traits: `SubscriptionStore`, `PreferenceStore`, `PushSender`, `NotificationBus`, `Cooldown`, `DomainDirectory`, `Clock`.
     - - `src/service/alerts.rs`
-      - Alert use cases: broker breach, manual `/trigger`, `/push/temperature`. Owns the throttle.
+      - Alert use cases: broker breach, manual `/trigger`. Owns the breach throttle.
     - - `src/service/push.rs`
       - Recipient resolution and fan-out; deletes gone subscriptions.
     - - `src/service/preferences.rs`
@@ -99,7 +99,9 @@ struct AccountPreferences {
 // compound unique index { accountName, domainName }
 ```
 
-Collection names and field names are the mongoose ones — the store is shared with the pre-Rust data. Notification type is the string `"temperature"`.
+Collection names and field names are the mongoose ones — the store is shared with the pre-Rust data. Notification type is a metric key from `telemetry_schema::ALERTABLE_METRICS`: `"temperature"`, `"airQuality"` or `"peopleCount"`.
+
+On startup, `switch_on_new_metrics_once` switches each alertable metric on for every account that has temperature on — once per metric, recorded as a `switched-on:<metric>` marker in the `migrations` collection, and never over a choice already stored. Those accounts subscribed before the metric existed; `/subscribe` now switches every metric on by itself.
 
 A single account may own several `WebPushSubscription` records (one per device) but exactly one preferences document per domain.
 
@@ -118,24 +120,21 @@ A single account may own several `WebPushSubscription` records (one per device) 
       - Returns `{ publicVapidKey }` for the browser to create a push subscription.
     - - `POST /subscribe`
       - JWT
-      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences. `201`.
+      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences — with no type named, every alertable metric switched on. `201`.
     - - `GET /preferences/:accountName`
       - JWT
       - Returns the **caller's own** `NotificationSubscription` records. The `:accountName` param is ignored (identity from the token).
     - - `POST /preferences`
       - JWT
-      - Sets one or more per-domain, per-type opt-in flags for the **caller**. Every form names its `type`, which must have a delivery path (today only `temperature`); otherwise `400`. `200`.
+      - Sets one or more per-domain, per-type opt-in flags for the **caller**. Every form names its `type`, which must be in `ALERTABLE_METRICS` (`temperature`, `airQuality`, `peopleCount`); otherwise `400`. `200`.
     - - `POST /trigger`
       - JWT
       - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `type` is a severity — `info`, `warning` or `danger` (default); anything else is a `400`. `200`.
-    - - `POST /push/temperature`
-      - JWT
-      - Automated threshold alert; subject to the per-room cooldown below. `200`.
 
 Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified claims, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array — every accepted and rejected form is pinned in `schemas/fixtures/notification-preferences.json`.
 
 .box {Auth boundary} type:{note}
-    Only `/health`, `/metrics`, and `/public-key` (the non-secret VAPID key) stay public; the `GatewayClaims` extractor guards everything else and rejects claims without an `accountName`. `/trigger` and `/push/temperature` fan out push notifications to a whole domain, so leaving them open was an abuse vector — they require valid claims like the rest.
+    Only `/health`, `/metrics`, and `/public-key` (the non-secret VAPID key) stay public; the `GatewayClaims` extractor guards everything else and rejects claims without an `accountName`. `/trigger` fans out push notifications to a whole domain, so leaving it open was an abuse vector — it requires valid claims like the rest.
 
 ### Domain membership
 
@@ -155,9 +154,6 @@ Authentication is not enough: every route that names a domain also checks that t
     - - `POST /preferences`
       - `claims.belongs_to(domainName)`
       - `403`
-    - - `POST /push/temperature`
-      - Resolved targets intersected with `claims.domains()`
-      - `403` when the intersection is empty
     - - `POST /trigger`
       - Twin's domains for the building intersected with `claims.domains()`
       - Fans out to the intersection; `403` only when the building has domains and none are the caller's
@@ -171,13 +167,13 @@ Authentication is not enough: every route that names a domain also checks that t
     Unlike digital-twin, this service does not embed the Cedar bundle — its Docker build context is its own directory, so `include_str!` cannot reach `auth-policy/`. `ReadWithAdminBypass`'s gate is `maxRoleWeight >= 100`, and `admin` tops `auth-contracts/roles.json` at exactly 100, so holding the `admin` role anywhere is equivalent. `the_admin_role_is_the_top_of_the_shared_ladder` reads `roles.json` at compile time and fails if a heavier role is ever added — that is the drift alarm. If one is, switch this service to Cedar rather than bumping a constant.
 
 .box {The broker path is exempt} type:{note}
-    `on_temperature_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger`/`push_temperature` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
+    `on_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
 
 ---
 
-## The Temperature-Alert Throttle
+## The Alert Throttle
 
-The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room using a Redis key with a fixed TTL. The same throttle covers both entry points: `POST /push/temperature` and the `alerts` Kafka topic — and it is what absorbs the duplicates that at-least-once delivery allows.
+The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room and per breached field using a Redis key with a fixed TTL. It is also what absorbs the duplicates that the `alerts` topic's at-least-once delivery allows.
 
 .mermaid
     sequenceDiagram
@@ -186,22 +182,20 @@ The telemetry fires on every reading (~every 10 s). To avoid a storm of identica
         participant NS as notification
         participant R as Redis
         participant TW as digital-twin
-        SS->>NS: POST /push/temperature { buildingId, roomId, temperature }
-        NS->>R: GET temp_alert:{buildingId}:{roomId}
+        SS->>NS: AlertEvent on the alerts topic { type, field, buildingId, roomId, ... }
+        NS->>R: GET alert:{type}:{field}:{buildingId}:{roomId}
         alt cooldown active
             R-->>NS: "1"
-            NS-->>SS: 200 (silently throttled)
+            Note over NS: suppressed, record settled
         else first alert / expired
-            opt domain not supplied
-                NS->>TW: GET /twin/domain/:buildingId
-                TW-->>NS: domain names
-            end
+            NS->>TW: GET /twin/domain/:buildingId
+            TW-->>NS: domain names
             Note over NS: publish "notifications" + Web Push to opted-in recipients
-            NS->>R: SET temp_alert:{buildingId}:{roomId} "1" EX 300
-            NS-->>SS: 200 (dispatched)
+            NS->>R: SET alert:{type}:{field}:{buildingId}:{roomId} "1" EX 300
         end
 
-The key is `temp_alert:{buildingId}:{roomId}`; the cooldown is **300 seconds**. After it expires, the next breach starts a new cycle.
+- The key is `alert:{metric}:{field}:{buildingId}:{roomId}`; the cooldown is **300 seconds**. After it expires, the next breach starts a new cycle.
+- One key per breached field, so a CO2 alert never silences a temperature or AQI alert in the same room.
 
 ---
 
@@ -210,6 +204,7 @@ The key is `temp_alert:{buildingId}:{roomId}`; the cooldown is **300 seconds**. 
 `service/push.rs` separates *who to notify* from *how to reach them*.
 
 - `to_domain(payload, domain_name, type)` queries the preferences collection for records in the domain whose `preferences` contain an enabled entry for `type` (`$elemMatch`), reduces to a unique set of account names, and delegates to `to_accounts`. An absent `type` matches every subscriber of the domain.
+- A breach publishes one bell message per domain carrying `metric`, and pushes only to that metric's subscribers. The browser hides a breach whose metric the account switched off — the same rule, applied client-side, so the broker and socket stay one message per domain. The frontend loads the preferences before its socket connects and again whenever the window regains focus (`App.vue`), and filters in `services/socket.ts` through `isVisible` (`src/utils/notification.ts`). The switches are one chip per alertable metric on every domain and subdomain card of the administration page (`components/buttons/AlertSwitches.vue`); `NotificationType` must list exactly `ALERTABLE_METRICS`, asserted against the preferences fixture.
 - `to_accounts(payload, account_names)` loads every `WebPushSubscription` for those accounts and sends the encrypted payload to each endpoint concurrently — one dead endpoint never aborts the batch.
 - The in-app channel carries the same message: `NotificationBus::publish` posts the `notification_schema::Notification` `{ id, type, title, message, timestamp, domainName?, icon? }` to the Redis `notifications` channel, which the socket relays to browsers. The Web Push payload is those same bytes — see [Notification Schema](../packages/notification-schema.qd).
 

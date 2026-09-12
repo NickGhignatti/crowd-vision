@@ -1,5 +1,5 @@
 use crate::kernel::ports::BuildingStore;
-use crate::types::building::RegisteredBuilding;
+use crate::types::building::{BuildingNames, RegisteredBuilding};
 use async_trait::async_trait;
 use sqlx::PgPool;
 
@@ -48,5 +48,25 @@ impl BuildingStore for PgBuildings {
 
         transaction.commit().await?;
         Ok(())
+    }
+
+    async fn names_of(&self, building_id: &str) -> anyhow::Result<Option<BuildingNames>> {
+        let Some(name) =
+            sqlx::query_scalar::<_, String>("select name from buildings where id = $1")
+                .bind(building_id)
+                .fetch_optional(&self.pool)
+                .await?
+        else {
+            return Ok(None);
+        };
+        let rooms: Vec<(String, String)> =
+            sqlx::query_as("select room_id, name from building_rooms where building_id = $1")
+                .bind(building_id)
+                .fetch_all(&self.pool)
+                .await?;
+        Ok(Some(BuildingNames {
+            name,
+            rooms: rooms.into_iter().collect(),
+        }))
     }
 }

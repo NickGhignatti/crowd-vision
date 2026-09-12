@@ -156,7 +156,7 @@ async fn a_breach_produced_while_nobody_listens_is_still_delivered_on_return() {
     let (alerts, bus) = alerts(twin.uri()).await;
 
     produce(format!(
-        r#"{{"type":"temperature","buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high","threshold":25.0,"timestamp":1600000000000}}"#
+        r#"{{"type":"temperature","field":"temperature","label":"Temperature","unit":"°C","buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high","threshold":25.0,"timestamp":1600000000000}}"#
     ))
     .await;
 
@@ -175,11 +175,17 @@ async fn a_breach_produced_while_nobody_listens_is_still_delivered_on_return() {
 
     assert_eq!(
         notification["message"],
-        format!("{building} : r1 is 31.5\u{00b0}C (above maximum)")
+        format!("{building} : r1 Temperature is 31.5 \u{00b0}C (above maximum)")
     );
     assert_eq!(notification["type"], "danger");
     assert_eq!(notification["domainName"], "eng");
-    assert!(armed(&bus, &format!("temp_alert:{building}:r1")).await);
+    assert!(
+        armed(
+            &bus,
+            &format!("alert:temperature:temperature:{building}:r1")
+        )
+        .await
+    );
     listener.abort();
 }
 
@@ -198,13 +204,13 @@ async fn a_second_breach_inside_the_cooldown_publishes_nothing() {
     let building = unique("b");
     let twin = twin_returning(&building, &["eng"]).await;
     let (alerts, bus) = alerts(twin.uri()).await;
-    bus.start(&format!("temp_alert:{building}:r1"), 300)
+    bus.start(&format!("alert:temperature:temperature:{building}:r1"), 300)
         .await
         .unwrap();
 
     alerts
         .on_breach(&format!(
-            r#"{{"type":"temperature","buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high","threshold":25.0,"timestamp":1600000000000}}"#
+            r#"{{"type":"temperature","field":"temperature","label":"Temperature","unit":"°C","buildingId":"{building}","roomId":"r1","temperature":31.5,"direction":"high","threshold":25.0,"timestamp":1600000000000}}"#
         ))
         .await;
 
@@ -303,8 +309,9 @@ async fn an_alert_that_can_never_be_handled_is_parked_rather_than_dropped() {
 
     // Passes the `type == temperature` filter, then fails to deserialise into
     // a TemperatureAlert: no amount of redelivery makes this parse.
-    let poison =
-        format!(r#"{{"type":"temperature","buildingId":"{building}","temperature":"warm"}}"#);
+    let poison = format!(
+        r#"{{"type":"temperature","field":"temperature","label":"Temperature","unit":"°C","buildingId":"{building}","temperature":"warm"}}"#
+    );
     produce(poison.clone()).await;
 
     let listener = {

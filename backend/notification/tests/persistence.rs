@@ -189,3 +189,44 @@ async fn without_a_type_every_subscriber_of_the_domain_is_returned() {
 
     assert_eq!(accounts, vec!["ada".to_string(), "grace".to_string()]);
 }
+
+async fn subscribed(preferences: &MongoPreferences, kind: &str) -> Vec<String> {
+    let mut accounts = preferences
+        .accounts_subscribed_to("eng", Some(kind))
+        .await
+        .unwrap();
+    accounts.sort();
+    accounts
+}
+
+#[tokio::test]
+async fn temperature_subscribers_get_each_new_metric_switched_on_exactly_once() {
+    let (_, preferences) = stores().await;
+    for (account, kind, enabled) in [
+        ("ada", "temperature", true),
+        ("grace", "temperature", false),
+        ("linus", "temperature", true),
+        ("linus", "airQuality", false),
+    ] {
+        preferences
+            .set(&update(account, "eng", kind, enabled))
+            .await
+            .unwrap();
+    }
+
+    preferences.switch_on_new_metrics_once().await.unwrap();
+
+    assert_eq!(subscribed(&preferences, "airQuality").await, vec!["ada"]);
+    assert_eq!(
+        subscribed(&preferences, "peopleCount").await,
+        vec!["ada", "linus"]
+    );
+
+    preferences
+        .set(&update("ada", "eng", "airQuality", false))
+        .await
+        .unwrap();
+    preferences.switch_on_new_metrics_once().await.unwrap();
+
+    assert!(subscribed(&preferences, "airQuality").await.is_empty());
+}

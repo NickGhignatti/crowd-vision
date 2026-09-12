@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { makeRequest } from '@/composables/core/useApi.ts'
-import { NotificationType } from '@/models/notification.ts'
+import type { NotificationType } from '@/models/notification.ts'
 import { preferenceRequest, toPreferenceMap } from '@/utils/notificationPreferences.ts'
 
 export const useNotificationStore = defineStore('notification', {
@@ -9,11 +9,8 @@ export const useNotificationStore = defineStore('notification', {
   }),
 
   getters: {
-    isSubscribed:
-      (state) =>
-      (domainName: string, type: NotificationType = NotificationType.TEMPERATURE) => {
-        return state.notificationPreferences[domainName]?.[type] ?? false
-      },
+    isSubscribed: (state) => (domainName: string, type: NotificationType) =>
+      state.notificationPreferences[domainName]?.[type] ?? false,
   },
 
   actions: {
@@ -32,7 +29,7 @@ export const useNotificationStore = defineStore('notification', {
     async handleNotificationSubscription(
       accountName: string,
       domainName: string,
-      type: NotificationType = NotificationType.TEMPERATURE, // Default to temperature for UI backward compatibility
+      type: NotificationType,
     ) {
       const currentValue = this.isSubscribed(domainName, type)
 

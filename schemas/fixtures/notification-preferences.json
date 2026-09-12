@@ -1,7 +1,7 @@
 {
   "description": "GET and POST /notification/preferences. notification serialises the reply and parses the requests with no shared type; the frontend settings page reads the reply and sends the single-switch request.",
   "rules": {
-    "type": "The metric a switch controls, a preference's notificationType. Closed set: only metrics with a delivery path, today temperature.",
+    "type": "The metric a switch controls, a preference's notificationType. Closed set: telemetry_schema::ALERTABLE_METRICS, the metrics notification delivers — temperature, airQuality, peopleCount.",
     "accountName": "Ignored on a request: the account always comes from the verified claims.",
     "domainId": "Deprecated alias of domainName."
   },
@@ -50,6 +50,14 @@
       }
     },
     {
+      "name": "another alertable metric's switch",
+      "body": {
+        "domainName": "eng",
+        "type": "airQuality",
+        "enabled": true
+      }
+    },
+    {
       "name": "a granular preferences array",
       "body": {
         "domainName": "eng",
@@ -89,7 +97,7 @@
     },
     {
       "name": "a misspelt type",
-      "reason": "type must be one of: temperature",
+      "reason": "type must be one of: temperature, airQuality, peopleCount",
       "body": {
         "domainName": "eng",
         "type": "temprature",

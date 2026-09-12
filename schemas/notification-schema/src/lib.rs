@@ -32,6 +32,9 @@ pub struct Notification {
     pub timestamp: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain_name: Option<String>,
+    /// The alertable metric of a breach; the bell hides it when the account switched it off.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metric: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
 }

@@ -70,9 +70,16 @@ that needs its own type.
 Two wire families plus the metric catalog. Consumers: telemetry, dashboard, socket, notification.
 
 - **`AlertEvent` has a hand-written `Serialize`/`Deserialize` because the value is keyed by
-  its own metric name** — `{"buildingId", "roomId", "<metric>": value, "type": "<metric>",
-  "direction": "high"|"low", "threshold", "timestamp"}`. `type` means *metric*. Derive would
-  produce a different shape; don't "simplify" it back.
+  the field that breached** — `{"buildingId", "roomId", "buildingName", "roomName",
+  "<field>": value, "type": "<metric>", "field", "label", "unit"?, "direction": "high"|"low",
+  "threshold", "timestamp"}`. `type` means *metric*; one metric can bound several fields
+  (air quality: `co2`, `indoor_aqi`). The names are display text only — ids stay the keys,
+  because names repeat. `field`/`label`/`unit` and the names are optional on read: older
+  records read as the metric and the ids.
+  Derive would produce a different shape; don't "simplify" it back.
+- **`ALERTABLE_METRICS` is the set notification delivers.** telemetry's `plugins::all()` test pins
+  it to the plugins that declare bounds; notification uses it as its preference types. A bounded
+  metric missing here would breach straight into `unsupported_metric`.
 - **`TelemetryEnvelope` / `TelemetryReading` carry no shape tag** — everything is a tick, so a
   constant `type` would say nothing, and `type` already means metric on a reading. Plugin
   fields ride in a `#[serde(flatten)]` map, so a reading round-trips whatever its plugin emitted.
@@ -114,7 +121,10 @@ The building-registration handshake. Consumers: digital-twin, telemetry.
 - **socket parses it to route, then relays the received bytes.** A message that is not a
   `Notification` is skipped, never broadcast: a renamed `domainName` would otherwise send one
   tenant's alert to every client.
-- `domainName` and `icon` are optional and omitted when absent.
+- `domainName`, `metric` and `icon` are optional and omitted when absent.
+- **`metric` is how the bell honours preferences.** Breaches go to the whole domain room, so the
+  browser hides one whose metric the account switched off; push applies the same rule
+  server-side. Manual alerts carry no metric and always show.
 - Also hosts the schema check for `fixtures/notification-preferences.json`, which has no type
   here: only notification parses it in Rust.
 

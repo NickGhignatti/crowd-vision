@@ -33,15 +33,13 @@ pub fn notification(
         message: message.to_string(),
         timestamp: iso8601(at_millis),
         domain_name: domain_name.filter(|d| !d.is_empty()),
+        metric: None,
         icon: None,
     }
 }
 
-fn or_default(value: Option<&str>, fallback: &str) -> String {
-    value
-        .filter(|v| !v.is_empty())
-        .unwrap_or(fallback)
-        .to_string()
+fn or_unknown(value: &str) -> &str {
+    if value.is_empty() { "unknown" } else { value }
 }
 
 pub fn breach_message(alert: &AlertEvent) -> String {
@@ -49,75 +47,33 @@ pub fn breach_message(alert: &AlertEvent) -> String {
         BoundDirection::Above => " (above maximum)",
         BoundDirection::Below => " (below minimum)",
     };
+    let unit = alert
+        .unit
+        .as_deref()
+        .map(|unit| format!(" {unit}"))
+        .unwrap_or_default();
     format!(
-        "{} : {} is {}°C{breach}",
-        alert.building_id, alert.room_id, alert.value
+        "{} : {} {} is {}{unit}{breach}",
+        alert.building_name, alert.room_name, alert.label, alert.value
     )
 }
 
+/// The Redis key throttling one field's alerts in one room, so metrics never silence each other.
 pub fn breach_cooldown_key(alert: &AlertEvent) -> String {
-    temperature_cooldown_key(Some(&alert.building_id), Some(&alert.room_id))
+    format!(
+        "alert:{}:{}:{}:{}",
+        alert.metric,
+        alert.field,
+        or_unknown(&alert.building_id),
+        or_unknown(&alert.room_id)
+    )
 }
 
 pub fn breach_push_title(alert: &AlertEvent) -> String {
-    manual_push_title(Some(&alert.building_id))
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ManualTemperatureAlert {
-    pub building_id: Option<String>,
-    pub room_id: Option<String>,
-    pub temperature: Option<f64>,
-    pub domain_name: Option<String>,
-    pub notification_type: Option<String>,
-}
-
-impl ManualTemperatureAlert {
-    pub fn message(&self) -> String {
-        manual_temperature_message(self.room_id.as_deref(), self.temperature)
+    match alert.building_name.as_str() {
+        "" => format!("{} Alert", alert.label),
+        building => format!("{} Alert - {building}", alert.label),
     }
-
-    pub fn cooldown_key(&self) -> String {
-        temperature_cooldown_key(self.building_id.as_deref(), self.room_id.as_deref())
-    }
-
-    pub fn push_title(&self) -> String {
-        manual_push_title(self.building_id.as_deref())
-    }
-
-    pub fn notification_type(&self) -> &str {
-        self.notification_type
-            .as_deref()
-            .filter(|t| !t.is_empty())
-            .unwrap_or(crate::domain::preference::TEMPERATURE)
-    }
-}
-
-pub fn manual_temperature_message(room_id: Option<&str>, temperature: Option<f64>) -> String {
-    let room = match room_id.filter(|r| !r.is_empty()) {
-        Some(room) => format!(" in room {room}"),
-        None => String::new(),
-    };
-    let reading = match temperature {
-        Some(t) => t.to_string(),
-        None => "N/A".to_string(),
-    };
-    format!("Temperature alert{room}: {reading} C")
-}
-
-pub fn manual_push_title(building_id: Option<&str>) -> String {
-    match building_id.filter(|b| !b.is_empty()) {
-        Some(building) => format!("Temperature Alert - {building}"),
-        None => "Temperature Alert".to_string(),
-    }
-}
-
-pub fn temperature_cooldown_key(building_id: Option<&str>, room_id: Option<&str>) -> String {
-    format!(
-        "temp_alert:{}:{}",
-        or_default(building_id, "unknown"),
-        or_default(room_id, "unknown")
-    )
 }
 
 #[cfg(test)]
@@ -129,11 +85,28 @@ mod tests {
         AlertEvent {
             building_id: "b1".to_string(),
             room_id: "r1".to_string(),
+            building_name: "HQ".to_string(),
+            room_name: "Lab 1".to_string(),
             metric: "temperature".to_string(),
+            field: "temperature".to_string(),
             value: 40.0,
+            label: "Temperature".to_string(),
+            unit: Some("°C".to_string()),
             direction,
             threshold: 25.0,
             ts_ms: 1_700_000_000_000,
+        }
+    }
+
+    fn co2() -> AlertEvent {
+        AlertEvent {
+            metric: "airQuality".to_string(),
+            field: "co2".to_string(),
+            value: 1200.0,
+            label: "CO2".to_string(),
+            unit: Some("ppm".to_string()),
+            threshold: 1000.0,
+            ..alert(BoundDirection::Above)
         }
     }
 
@@ -141,7 +114,7 @@ mod tests {
     fn a_high_breach_reads_above_maximum() {
         assert_eq!(
             breach_message(&alert(BoundDirection::Above)),
-            "b1 : r1 is 40°C (above maximum)"
+            "HQ : Lab 1 Temperature is 40 °C (above maximum)"
         );
     }
 
@@ -149,7 +122,7 @@ mod tests {
     fn a_low_breach_reads_below_minimum() {
         assert_eq!(
             breach_message(&alert(BoundDirection::Below)),
-            "b1 : r1 is 40°C (below minimum)"
+            "HQ : Lab 1 Temperature is 40 °C (below minimum)"
         );
     }
 
@@ -157,67 +130,65 @@ mod tests {
     fn a_fractional_temperature_keeps_its_decimals() {
         let mut a = alert(BoundDirection::Above);
         a.value = 21.5;
-        assert_eq!(breach_message(&a), "b1 : r1 is 21.5°C (above maximum)");
-    }
-
-    #[test]
-    fn a_breach_reuses_the_shared_cooldown_key_and_push_title() {
-        let a = alert(BoundDirection::Above);
-        assert_eq!(breach_cooldown_key(&a), "temp_alert:b1:r1");
-        assert_eq!(breach_push_title(&a), "Temperature Alert - b1");
-    }
-
-    #[test]
-    fn an_absent_building_or_room_falls_back_to_the_literal_unknown() {
         assert_eq!(
-            temperature_cooldown_key(None, None),
-            "temp_alert:unknown:unknown"
-        );
-        assert_eq!(
-            temperature_cooldown_key(Some("b1"), None),
-            "temp_alert:b1:unknown"
-        );
-        assert_eq!(
-            temperature_cooldown_key(None, Some("r1")),
-            "temp_alert:unknown:r1"
+            breach_message(&a),
+            "HQ : Lab 1 Temperature is 21.5 °C (above maximum)"
         );
     }
 
     #[test]
-    fn an_empty_building_or_room_also_falls_back_to_unknown() {
+    fn a_breach_on_another_field_names_its_own_label_and_unit() {
         assert_eq!(
-            temperature_cooldown_key(Some(""), Some("")),
-            "temp_alert:unknown:unknown"
+            breach_message(&co2()),
+            "HQ : Lab 1 CO2 is 1200 ppm (above maximum)"
+        );
+        assert_eq!(breach_push_title(&co2()), "CO2 Alert - HQ");
+    }
+
+    #[test]
+    fn a_field_without_a_unit_shows_the_bare_value() {
+        let aqi = AlertEvent {
+            field: "indoor_aqi".to_string(),
+            value: 162.0,
+            label: "Air Quality".to_string(),
+            unit: None,
+            ..co2()
+        };
+        assert_eq!(
+            breach_message(&aqi),
+            "HQ : Lab 1 Air Quality is 162 (above maximum)"
         );
     }
 
     #[test]
-    fn the_push_title_drops_the_suffix_without_a_building() {
-        assert_eq!(manual_push_title(None), "Temperature Alert");
+    fn the_text_names_the_place_but_the_cooldown_key_uses_the_ids() {
+        assert_eq!(
+            breach_cooldown_key(&alert(BoundDirection::Above)),
+            "alert:temperature:temperature:b1:r1"
+        );
+        assert_eq!(breach_cooldown_key(&co2()), "alert:airQuality:co2:b1:r1");
     }
 
     #[test]
-    fn the_manual_alert_message_names_the_room_when_there_is_one() {
+    fn an_empty_building_or_room_falls_back_to_the_literal_unknown() {
+        let nowhere = AlertEvent {
+            building_id: String::new(),
+            room_id: String::new(),
+            ..alert(BoundDirection::Above)
+        };
         assert_eq!(
-            manual_temperature_message(Some("r1"), Some(21.0)),
-            "Temperature alert in room r1: 21 C"
+            breach_cooldown_key(&nowhere),
+            "alert:temperature:temperature:unknown:unknown"
         );
     }
 
     #[test]
-    fn the_manual_alert_message_drops_the_room_clause_without_a_room() {
-        assert_eq!(
-            manual_temperature_message(None, Some(21.5)),
-            "Temperature alert: 21.5 C"
-        );
-    }
-
-    #[test]
-    fn the_manual_alert_message_reads_n_a_without_a_temperature() {
-        assert_eq!(
-            manual_temperature_message(Some("r1"), None),
-            "Temperature alert in room r1: N/A C"
-        );
+    fn the_push_title_drops_the_suffix_without_a_building_name() {
+        let nowhere = AlertEvent {
+            building_name: String::new(),
+            ..alert(BoundDirection::Above)
+        };
+        assert_eq!(breach_push_title(&nowhere), "Temperature Alert");
     }
 
     #[test]

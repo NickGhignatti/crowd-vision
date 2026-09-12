@@ -11,7 +11,7 @@
     flowchart LR
         N["notification\nbuilds Notification"] -->|"Redis notifications"| S["socket\nroutes on domainName"]
         N -->|"Web Push, same bytes"| W["service worker\ntitle · message · icon"]
-        S -->|"socket.io notification"| B["frontend bell\ntype · message · timestamp"]
+        S -->|"socket.io notification"| B["frontend bell\ntype · message · timestamp\nhides metrics switched off"]
 
 | Field | Type | Rule |
 |---|---|---|
@@ -21,6 +21,7 @@
 | `message` | string | Body of both the bell entry and the pop-up. |
 | `timestamp` | string | ISO-8601 UTC with milliseconds. |
 | `domainName` | string, optional | Absent means a system-wide broadcast; present means only that domain's room. |
+| `metric` | alertable metric key, optional | Set on breaches — the same key as a preference's `notificationType`. The bell shows the breach only if the account switched that metric on for the domain; push is filtered the same way server-side. Absent on manual alerts, which always show. |
 | `icon` | string, optional | The service worker shows an icon only when one is sent. |
 
 ---
@@ -37,6 +38,6 @@ socket reads `domainName` to pick the room, then relays the bytes it received. I
 - `notification-schema/tests/notification_schema.rs` — the fixture against `schemas/json/notification.schema.json`.
 - notification `service/alerts.rs` — a breach publishes exactly the fixture's scoped and broadcast cases.
 - socket `core/relay.rs` — every case is routed, every rejection skipped.
-- frontend `src/utils/notification.spec.ts` — every severity the fixture sends has a colour, and a list item keeps the server's `id`, `type` and `timestamp`.
+- frontend `src/utils/notification.spec.ts` — every severity the fixture sends has a colour, and a list item keeps the server's `id`, `type` and `timestamp`; `isVisible` shows a breach only when the fixture's stored preferences switch its metric on, and always shows a message with no metric or no domain.
 
 The crate also hosts the schema check for `fixtures/notification-preferences.json` (`tests/notification_preferences_schema.rs`), the `GET` / `POST /notification/preferences` shape. It has no Rust type here — only notification parses it — and is bound by notification's `controllers.rs` (every request applied, every rejection refused with its reason) and the frontend's `src/utils/notificationPreferences.spec.ts`.

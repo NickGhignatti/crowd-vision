@@ -7,11 +7,14 @@ export interface Notification {
   message: string
   timestamp: string
   domainName?: string
+  metric?: string
   icon?: string
 }
 
 export enum NotificationType {
   TEMPERATURE = 'temperature',
+  AIR_QUALITY = 'airQuality',
+  PEOPLE_COUNT = 'peopleCount',
 }
 
 export interface ISubscriptionPreference {

@@ -255,7 +255,7 @@ static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
     ],
 };
 
-static BOUNDS: &[BoundSpec] = &[BoundSpec { key: "maxTransitions", direction: Above }];
+static BOUNDS: &[BoundSpec] = &[BoundSpec { key: "maxTransitions", field: "zoneTransition", label: "Zone transitions", unit: None, direction: Above }];
 ```
 
 `roomId` is the **destination**; `fromRoomId` is the extra field, so it lands in the stored

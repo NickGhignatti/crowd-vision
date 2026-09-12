@@ -21,19 +21,23 @@ The seam is covered by a test that lives on the producing side: `telemetry/tests
 
 ---
 
-## 2. `AlertEvent` — a value keyed by its own metric
+## 2. `AlertEvent` — a value keyed by the field that breached
 
 ```json
-{"buildingId":"b1","roomId":"r1","temperature":40.0,"type":"temperature",
- "direction":"high","threshold":25.0,"timestamp":1700000000000}
+{"buildingId":"b1","roomId":"r1","buildingName":"HQ","roomName":"Lab 2","co2":1200.0,
+ "type":"airQuality","field":"co2","label":"CO2","unit":"ppm","direction":"high",
+ "threshold":1000.0,"timestamp":1700000000000}
 ```
 
-`type` names the metric; the reading sits under a key of that name. That is why `Serialize`/`Deserialize` are hand-written rather than derived — a derive cannot express "look up the key this other field names". A `type` naming a key the object does not carry is a parse error, not a silent `None`.
+- `type` names the metric; `field` names the payload field whose bound broke, and the value sits under a key of that name. One metric can bound several fields — air quality bounds `co2` and `indoor_aqi` — so the metric alone cannot say what crossed.
+- That is why `Serialize`/`Deserialize` are hand-written rather than derived — a derive cannot express "look up the key this other field names". A `field` naming a key the object does not carry is a parse error, not a silent `None`.
+- `label` and `unit` come from telemetry's bound, so a consumer renders any metric without its own table. `unit` is omitted when the field has none (AQI).
+- `buildingName` and `roomName` are display names from twin's registration, filled by telemetry from its own projection; an unregistered room gets its id. The ids stay the keys: names can repeat, and twin's domain lookup falls back to a name match across every building sharing it.
+- `field`, `label`, `unit` and the names are optional on read only: a record written before they existed reads as `field` = `label` = the metric, and each name = its id.
+- Everything else is required. The producer always sets it, so a missing one means a malformed record, which notification parks in the dead-letter topic rather than delivering as a half-rendered push. `threshold` is part of the type because it was already on the wire and being thrown away.
 
-Every field is required. The producer always sets all of them, so a missing one means a malformed record, which notification parks in the dead-letter topic rather than delivering as a half-rendered push. `threshold` is part of the type because it was already on the wire and being thrown away.
-
-.box {Every metric's breaches reach the topic; only temperature has a delivery path} type:{note}
-    notification answers `BreachOutcome::Unsupported` for anything else — logged with the metric name, counted `unsupported_metric`, settled. Before, this was an untyped `type == "temperature"` string compare whose failures were counted as `skipped`, which is how air-quality and people-count breaches disappeared without a trace.
+.box {`ALERTABLE_METRICS` is the set notification delivers} type:{note}
+    `temperature`, `airQuality`, `peopleCount`. telemetry's `plugins::all()` test pins it to exactly the plugins that declare bounds, and notification uses it as its preference types, so a new bounded plugin fails a test until it joins. Anything else gets `BreachOutcome::Unsupported` — logged with the metric name, counted `unsupported_metric`, settled, never silently skipped.
 
 ---
 

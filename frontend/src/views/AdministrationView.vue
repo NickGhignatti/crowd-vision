@@ -114,10 +114,6 @@ const getAllSubdomains = async () => {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-const handleNotificationSubscription = async (domainName: string) => {
-  await notificationStore.handleNotificationSubscription(authStore.accountName || '', domainName)
-}
-
 onMounted(async () => {
   await getAllSubdomains()
   await notificationStore.fetchAccountNotificationPreference(authStore.accountName || '')
@@ -133,7 +129,6 @@ onMounted(async () => {
         @add-domain="isAddDomainModalOpen = true"
         @select-domain="handleSelectDomain"
         @upload="triggerUpload"
-        @notification-trigger="handleNotificationSubscription"
       />
 
       <QrCodeCard :domain="selectedDomain" :qr-codes="qrCodes" :is-loading="isLoadingQr" />

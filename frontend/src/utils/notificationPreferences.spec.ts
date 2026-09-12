@@ -8,6 +8,7 @@ const fixture = join(__dirname, '../../../schemas/fixtures/notification-preferen
 const wire = JSON.parse(readFileSync(fixture, 'utf8')) as {
   response: { accountPreferences: NotificationSubscription[] }
   requests: { name: string; body: unknown }[]
+  rejected: { name: string; reason: string }[]
 }
 
 describe('the preferences the server exchanges', () => {
@@ -21,5 +22,10 @@ describe('the preferences the server exchanges', () => {
     expect(preferenceRequest('ada', 'eng', NotificationType.TEMPERATURE, false)).toEqual(
       wire.requests[0]!.body,
     )
+  })
+
+  it('offers a switch for exactly the metrics the server accepts, in its order', () => {
+    const misspelt = wire.rejected.find((r) => r.name === 'a misspelt type')!
+    expect(Object.values(NotificationType)).toEqual(misspelt.reason.split(': ')[1]!.split(', '))
   })
 })

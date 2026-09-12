@@ -28,7 +28,6 @@ fn protected_routes() -> Router<AppState> {
         .route("/preferences", get(get_preferences).post(update_preference))
         .route("/preferences/{account_name}", get(get_preferences))
         .route("/trigger", post(trigger_alert))
-        .route("/push/temperature", post(push_temperature_alert))
 }
 
 pub fn build_router(state: AppState) -> Router {

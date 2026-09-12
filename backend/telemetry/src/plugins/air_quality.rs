@@ -78,10 +78,16 @@ static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
 static BOUNDS: &[BoundSpec] = &[
     BoundSpec {
         key: "maxCo2",
+        field: "co2",
+        label: "CO2",
+        unit: Some("ppm"),
         direction: BoundDirection::Above,
     },
     BoundSpec {
         key: "maxAqi",
+        field: "indoor_aqi",
+        label: "Air Quality",
+        unit: None,
         direction: BoundDirection::Above,
     },
 ];
@@ -198,10 +204,16 @@ mod tests {
             &[
                 BoundSpec {
                     key: "maxCo2",
+                    field: "co2",
+                    label: "CO2",
+                    unit: Some("ppm"),
                     direction: BoundDirection::Above
                 },
                 BoundSpec {
                     key: "maxAqi",
+                    field: "indoor_aqi",
+                    label: "Air Quality",
+                    unit: None,
                     direction: BoundDirection::Above
                 },
             ]

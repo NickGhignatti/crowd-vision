@@ -1,8 +1,9 @@
 {
-  "description": "One message, two deliveries. notification publishes it on the Redis `notifications` channel and sends the same bytes as a Web Push payload. socket routes it by domainName; the frontend bell renders type, message and timestamp; the service worker renders title, message and icon.",
+  "description": "One message, two deliveries. notification publishes it on the Redis `notifications` channel and sends the same bytes as a Web Push payload. socket routes it by domainName; the frontend bell renders type, message and timestamp, hiding a breach whose metric the account switched off; the service worker renders title, message and icon.",
   "rules": {
-    "type": "Severity, a closed set: info | warning | danger. It is not the metric: that is a preference's notificationType.",
+    "type": "Severity, a closed set: info | warning | danger. It is not the metric: that is the metric field.",
     "domainName": "Absent means a system-wide message, broadcast to every client. Present means only that domain's room receives it.",
+    "metric": "Set on a breach: the alertable metric, the same key as a preference's notificationType. The bell shows the breach only if the account switched that metric on for this domain; push was already filtered the same way server-side. Absent on a manual alert, which always shows.",
     "icon": "Optional. The service worker shows an icon only when one is sent.",
     "timestamp": "ISO-8601 in UTC with milliseconds, not epoch milliseconds."
   },
@@ -12,10 +13,11 @@
       "body": {
         "id": "1757251200000",
         "type": "danger",
-        "title": "Temperature Alert - bldg-3f2b4c5d",
-        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "title": "Temperature Alert - Innovation Hub",
+        "message": "Innovation Hub : Lab 2 Temperature is 31.4 °C (above maximum)",
         "timestamp": "2025-09-07T13:20:00.000Z",
-        "domainName": "eng"
+        "domainName": "eng",
+        "metric": "temperature"
       }
     },
     {
@@ -23,9 +25,10 @@
       "body": {
         "id": "1757251200000",
         "type": "danger",
-        "title": "Temperature Alert - bldg-3f2b4c5d",
-        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
-        "timestamp": "2025-09-07T13:20:00.000Z"
+        "title": "Temperature Alert - Innovation Hub",
+        "message": "Innovation Hub : Lab 2 Temperature is 31.4 °C (above maximum)",
+        "timestamp": "2025-09-07T13:20:00.000Z",
+        "metric": "temperature"
       }
     },
     {
@@ -33,8 +36,8 @@
       "body": {
         "id": "1757251260000",
         "type": "warning",
-        "title": "Temperature Alert - bldg-3f2b4c5d",
-        "message": "Temperature alert in room room-lab-2: 27.5 C",
+        "title": "CrowdVision Alert",
+        "message": "Fire drill in Innovation Hub at 15:00",
         "timestamp": "2025-09-07T13:21:00.000Z",
         "domainName": "eng"
       }
@@ -59,8 +62,8 @@
       "body": {
         "id": "1757251200000",
         "type": "alert",
-        "title": "Temperature Alert - bldg-3f2b4c5d",
-        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "title": "Temperature Alert - Innovation Hub",
+        "message": "Innovation Hub : Lab 2 Temperature is 31.4 °C (above maximum)",
         "timestamp": "2025-09-07T13:20:00.000Z"
       }
     },
@@ -70,7 +73,7 @@
       "body": {
         "id": "1757251200000",
         "type": "danger",
-        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "message": "Innovation Hub : Lab 2 Temperature is 31.4 °C (above maximum)",
         "timestamp": "2025-09-07T13:20:00.000Z"
       }
     },
@@ -80,8 +83,8 @@
       "body": {
         "id": "1757251200000",
         "type": "danger",
-        "title": "Temperature Alert - bldg-3f2b4c5d",
-        "message": "bldg-3f2b4c5d : room-lab-2 is 31.4°C (above maximum)",
+        "title": "Temperature Alert - Innovation Hub",
+        "message": "Innovation Hub : Lab 2 Temperature is 31.4 °C (above maximum)",
         "timestamp": 1757251200000
       }
     }

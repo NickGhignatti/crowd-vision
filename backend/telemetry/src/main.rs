@@ -1,5 +1,6 @@
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
+use telemetry::adapters::driven::building_cache::CachedBuildings;
 use telemetry::adapters::driven::dispatch::HttpDispatch;
 use telemetry::adapters::driven::kafka_producer::KafkaEvents;
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
@@ -20,10 +21,7 @@ use telemetry::kernel::registration::Registration;
 use telemetry::kernel::registry::PluginRegistry;
 use telemetry::kernel::sensors::Sensors;
 use telemetry::kernel::thresholds::Thresholds;
-use telemetry::plugins::air_quality::AirQualityPlugin;
-use telemetry::plugins::device_count::{RatioDeviceCountPlugin, TotalDeviceCountPlugin};
-use telemetry::plugins::people_count::PeopleCountPlugin;
-use telemetry::plugins::temperature::TemperaturePlugin;
+use telemetry::plugins;
 use telemetry::state::{AppState, SystemClock};
 
 const BINDINGS: &str = include_str!("../bindings.json");
@@ -56,16 +54,8 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
-    let registry = Arc::new(
-        PluginRegistry::new(vec![
-            Box::new(TemperaturePlugin),
-            Box::new(PeopleCountPlugin),
-            Box::new(AirQualityPlugin),
-            Box::new(TotalDeviceCountPlugin),
-            Box::new(RatioDeviceCountPlugin),
-        ])
-        .map_err(|error| anyhow::anyhow!(error))?,
-    );
+    let registry =
+        Arc::new(PluginRegistry::new(plugins::all()).map_err(|error| anyhow::anyhow!(error))?);
 
     let readings_store = Arc::new(PgReadings::new(pool.clone(), registry.clone()));
     // Wrapped once and shared: writes have to travel the same instance as
@@ -74,7 +64,10 @@ async fn main() -> anyhow::Result<()> {
         pool.clone(),
     ))));
     let sensors_store = Arc::new(PgSensors::new(pool.clone()));
-    let buildings_store = Arc::new(PgBuildings::new(pool.clone()));
+    // Shared for the same reason: a re-registration must reach the names cache ingest reads.
+    let buildings_store = Arc::new(CachedBuildings::new(Arc::new(PgBuildings::new(
+        pool.clone(),
+    ))));
     let dispatch = Arc::new(HttpDispatch::from_json(pool.clone(), BINDINGS)?);
     let fanout = Arc::new(RedisFanout::connect(&redis_url).await?);
     let directory = Arc::new(TwinDirectory::new(twin_url));
@@ -108,6 +101,7 @@ async fn main() -> anyhow::Result<()> {
             thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
             fanout: fanout.clone() as Arc<dyn Fanout>,
             alerts: kafka.clone() as Arc<dyn Alerts>,
+            buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
             clock: Arc::new(SystemClock) as Arc<dyn Clock>,
         },
         readings: Readings {

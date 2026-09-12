@@ -1,4 +1,4 @@
-use crate::types::building::RegisteredBuilding;
+use crate::types::building::{BuildingNames, RegisteredBuilding};
 use crate::types::event::{AlertPayload, TelemetryEvent};
 use crate::types::query::Bucket;
 use crate::types::reading::Reading;
@@ -95,6 +95,9 @@ pub trait BuildingDirectory: Send + Sync {
 #[async_trait]
 pub trait BuildingStore: Send + Sync {
     async fn upsert(&self, building: &RegisteredBuilding) -> anyhow::Result<()>;
+
+    /// The building's registered names, or `None` when twin never registered it.
+    async fn names_of(&self, building_id: &str) -> anyhow::Result<Option<BuildingNames>>;
 }
 
 #[async_trait]

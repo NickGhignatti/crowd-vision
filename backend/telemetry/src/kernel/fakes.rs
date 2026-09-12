@@ -48,10 +48,16 @@ static FAKE_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
 static FAKE_BOUNDS: &[BoundSpec] = &[
     BoundSpec {
         key: "maxFake",
+        field: "fake",
+        label: "Fake",
+        unit: None,
         direction: BoundDirection::Above,
     },
     BoundSpec {
         key: "minFake",
+        field: "fake",
+        label: "Fake",
+        unit: None,
         direction: BoundDirection::Below,
     },
 ];
@@ -462,6 +468,20 @@ impl BuildingStore for FakeBuildings {
             None => upserted.push(building.clone()),
         }
         Ok(())
+    }
+
+    async fn names_of(
+        &self,
+        building_id: &str,
+    ) -> anyhow::Result<Option<crate::types::building::BuildingNames>> {
+        if self.refuse {
+            anyhow::bail!("buildings refused");
+        }
+        let upserted = self.upserted.lock().unwrap();
+        Ok(upserted
+            .iter()
+            .find(|b| b.id == building_id)
+            .map(RegisteredBuilding::names))
     }
 }
 

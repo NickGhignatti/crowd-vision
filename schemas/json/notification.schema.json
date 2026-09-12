@@ -37,6 +37,14 @@
     "domainName": {
       "type": "string"
     },
+    "metric": {
+      "enum": [
+        "temperature",
+        "airQuality",
+        "peopleCount"
+      ],
+      "$comment": "Set on breaches only; the bell hides one whose metric the account switched off."
+    },
     "icon": {
       "type": "string"
     }
