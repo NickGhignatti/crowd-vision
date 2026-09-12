@@ -1,13 +1,5 @@
-FROM rust:1.98.1-bookworm AS chef
-# hadolint ignore=DL3008
-# build-essential: rdkafka-sys vendors and compiles librdkafka's C sources at build time.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends mold build-essential \
-    && rm -rf /var/lib/apt/lists/* \
-    && cargo install cargo-chef --locked
+FROM rust-base AS chef
 WORKDIR /app/backend/notification
-# Use the faster mold linker for every cargo invocation in the build stages.
-ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
 # ── capture the dependency graph ────────────────────────────────────────
 FROM chef AS planner
@@ -32,7 +24,6 @@ FROM debug-deps AS test
 COPY backend/notification .
 
 FROM debug-deps AS dev
-RUN cargo install cargo-watch --locked
 COPY backend/notification .
 CMD ["cargo", "watch", "-x", "run"]
 

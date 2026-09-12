@@ -1,12 +1,5 @@
-FROM rust:1.98.1-bookworm AS chef
-# hadolint ignore=DL3008
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends mold \
-    && rm -rf /var/lib/apt/lists/* \
-    && cargo install cargo-chef --locked
+FROM rust-base AS chef
 WORKDIR /app/backend/socket
-# Use the faster mold linker for every cargo invocation in the build stages.
-ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
 # ── capture the dependency graph ────────────────────────────────────────
 FROM chef AS planner
@@ -31,7 +24,6 @@ FROM debug-deps AS test
 COPY backend/socket .
 
 FROM debug-deps AS dev
-RUN cargo install cargo-watch --locked
 COPY backend/socket .
 CMD ["cargo", "watch", "-x", "run"]
 

@@ -1,3 +1,6 @@
+include:
+  - path: ../../docker/rust-base/docker-compose.yml
+
 services:
   redis:
     image: redis:alpine
@@ -23,6 +26,8 @@ services:
     build:
       context: ../..
       dockerfile: backend/notification/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
       target: test
     command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
     environment:

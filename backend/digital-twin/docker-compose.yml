@@ -6,6 +6,8 @@ services:
       # dir (shared Cedar policy bundle) during build.
       context: ../..
       dockerfile: backend/digital-twin/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
     environment:
       - MONGO_URI=mongodb://twin-db:27017/twindb
       - TELEMETRY_URL=http://telemetry:3000

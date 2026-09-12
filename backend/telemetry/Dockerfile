@@ -1,12 +1,5 @@
-FROM rust:1.98.1-bookworm AS chef
-# hadolint ignore=DL3008
-# build-essential: rdkafka-sys vendors and compiles librdkafka's C sources at build time.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends mold build-essential \
-    && rm -rf /var/lib/apt/lists/* \
-    && cargo install cargo-chef --locked
+FROM rust-base AS chef
 WORKDIR /app/backend/telemetry
-ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
 # ── capture the dependency graph ────────────────────────────────────────
 FROM chef AS planner
@@ -17,7 +10,6 @@ COPY backend/telemetry .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS dev
-RUN cargo install cargo-watch --locked
 COPY --from=planner /app/backend/telemetry/recipe.json recipe.json
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/claims-schema /app/schemas/claims-schema

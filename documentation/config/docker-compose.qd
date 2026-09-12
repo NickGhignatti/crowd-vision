@@ -20,6 +20,8 @@ Compose configuration is split across three kinds of file.
       - One per service: the service container and its private database/network.
     - - `backend/<service>/docker-compose.dev.yml`
       - Optional per-service development override (hot-reload watch rules, dev-only ports).
+    - - `docker/rust-base/docker-compose.yml`
+      - The shared Rust build image. Included by the root file and by every Rust `docker-compose.test.yml`.
 
 The root file holds the pieces every run needs regardless of which services are included:
 
@@ -32,6 +34,22 @@ The root file holds the pieces every run needs regardless of which services are 
 
 .box {Why services are not in the root file} type:{note}
     Keeping each service's compose fragment next to its code means the fragment travels with the service if it is ever extracted to its own repository, and a service can be added or excluded without editing a central file. The trade-off — assembling the fragments correctly — is what the orchestrator handles.
+
+### The shared Rust base image
+
+All six Rust services build `FROM rust-base`, a build-only image defined in
+`docker/rust-base/`. It carries the toolchain, `mold`, `build-essential`, and
+pinned prebuilt `cargo-chef` and `cargo-watch` binaries, and sets `RUSTFLAGS`.
+
+- Each service resolves it through `build.additional_contexts: rust-base: service:rust-base`, so Compose builds the base before anything that needs it.
+- `scale: 0` — it is a toolchain, never a running container, and `up` must not start one.
+- The tool tarballs are checksum-pinned. `cargo install` pins each tool's own lockfile but not its version, so two developers got different `cargo-watch` builds.
+- `RUST_VERSION` comes from the single pin in `.mise.toml`: `scripts/env/rust.sh` rewrites it into `.env` on every `just stack` run.
+- The per-service integration runners export `RUST_VERSION` themselves — they compose a standalone project that never reads the root `.env`.
+
+A cold build of every image (`docker builder prune -af` first) went from **1576s to
+794s**. `cargo install` of the two tools accounted for 3746 of the 10430 step-seconds
+before; it is now zero, and the Rust base image is pulled once rather than six times.
 
 ---
 

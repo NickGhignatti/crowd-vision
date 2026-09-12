@@ -5,6 +5,8 @@ services:
       # Repo-root context: the service needs its sibling ../claims-contracts during build.
       context: ../..
       dockerfile: backend/chat/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
     environment:
       - MONGO_URI=mongodb://chat-db:27017/chatdb
       - AGENT_URL=http://agent:3000

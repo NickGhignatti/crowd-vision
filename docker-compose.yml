@@ -1,3 +1,6 @@
+include:
+  - path: docker/rust-base/docker-compose.yml
+
 services:
   gateway:
     cpus: "3"

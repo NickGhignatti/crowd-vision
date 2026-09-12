@@ -4,6 +4,8 @@ services:
     build:
       context: ../..
       dockerfile: backend/dashboard/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
     environment:
       - PORT=3000
       - REDIS_URL=redis://redis:6379

@@ -1,3 +1,6 @@
+include:
+  - path: ../../docker/rust-base/docker-compose.yml
+
 services:
   telemetry-db:
     image: timescale/timescaledb:2.17.2-pg17
@@ -27,6 +30,8 @@ services:
     build:
       context: ../..
       dockerfile: backend/telemetry/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
       target: dev
     command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
     environment:

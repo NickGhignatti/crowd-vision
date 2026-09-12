@@ -31,6 +31,7 @@ deps.
 - `.moon/workspace.yml` — every package registered once; moon does task cache + affected detection.
 - `Justfile` + `just/*.just` — command surface, wraps `mise exec -- moon`.
 - `.github/services.json` — single manifest CI reads for lang, image, dockerfile, service deps.
+- `docker/rust-base/` — build-only image every Rust service `FROM`s; `RUST_VERSION` comes from `.mise.toml`.
 
 | Package | Stack | Role |
 |---|---|---|
