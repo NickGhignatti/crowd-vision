@@ -64,10 +64,11 @@ Run `just --list` to see every recipe. The recipe catalogue is documented in [Ru
 ```toml
 [tools]
 node = "24"
-python = "3.12"
-rust = "stable"
-"ubi:moonrepo/moon" = "latest"
-uv = "latest"
+python = "3.14.7"
+rust = "1.98.1"
+"ubi:moonrepo/moon" = "2.5.4"
+uv = "0.12.10"
+istioctl = "1.31.0"
 ```
 
 Running `mise install` once after cloning fetches every tool at the pinned version into mise's own store, independent of anything else on the machine.
