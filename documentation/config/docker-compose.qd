@@ -51,6 +51,21 @@ A cold build of every image (`docker builder prune -af` first) went from **1576s
 794s**. `cargo install` of the two tools accounted for 3746 of the 10430 step-seconds
 before; it is now zero, and the Rust base image is pulled once rather than six times.
 
+### sccache on the debug dependency layer
+
+The debug `cargo chef cook` runs under `sccache`, with `RUSTC_WRAPPER` set inline on that
+one step so nothing reaches the release stages or the running dev container.
+
+- It pays off only when Docker must re-run the cook but the store is warm — a `Cargo.toml`
+  or `schemas/` change. Measured on dashboard: **744s to 19.9s**, 241 hits, 0 misses.
+- A cold build is **worse**: the store starts empty, so every call pays `rustc` plus
+  sccache's own hashing. Cold went 794s to ~1262s. Do not read that number alone.
+- Crates are *not* shared between services. All six cook at once, so no service's entries
+  exist when the others need them. The reuse is across rebuilds of one service.
+- `sharing=shared` is safe here, unlike a cargo registry mount: entries are keyed by a hash
+  of the compiler inputs and written atomically. A shared registry mount corrupts instead —
+  cargo's lock lives at `CARGO_HOME` root, outside the mount, so concurrent builds do not see it.
+
 ---
 
 ## The orchestrator

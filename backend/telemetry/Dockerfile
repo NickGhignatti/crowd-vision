@@ -14,7 +14,9 @@ COPY --from=planner /app/backend/telemetry/recipe.json recipe.json
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/twin-schema /app/schemas/twin-schema
-RUN cargo chef cook --recipe-path recipe.json
+RUN --mount=type=cache,target=/sccache,sharing=shared \
+    RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
+    cargo chef cook --recipe-path recipe.json
 COPY backend/libs/auth-policy /app/backend/libs/auth-policy
 COPY backend/libs/auth-contracts /app/backend/libs/auth-contracts
 COPY schemas/fixtures /app/schemas/fixtures

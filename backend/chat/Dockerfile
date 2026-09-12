@@ -11,7 +11,9 @@ RUN cargo chef prepare --recipe-path recipe.json
 FROM chef AS debug-deps
 COPY --from=planner /app/backend/chat/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
-RUN cargo chef cook --recipe-path recipe.json
+RUN --mount=type=cache,target=/sccache,sharing=shared \
+    RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
+    cargo chef cook --recipe-path recipe.json
 
 FROM debug-deps AS test
 COPY backend/chat .

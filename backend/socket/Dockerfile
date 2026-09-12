@@ -15,7 +15,9 @@ COPY --from=planner /app/backend/socket/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/notification-schema /app/schemas/notification-schema
-RUN cargo chef cook --recipe-path recipe.json
+RUN --mount=type=cache,target=/sccache,sharing=shared \
+    RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
+    cargo chef cook --recipe-path recipe.json
 
 # Integration-test stage: deliberately does NOT install cargo-watch. It runs
 # tests/*.rs once and exits, so compiling cargo-watch from source here is

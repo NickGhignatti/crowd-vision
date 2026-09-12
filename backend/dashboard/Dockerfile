@@ -12,7 +12,9 @@ FROM chef AS dev
 COPY --from=planner /app/backend/dashboard/recipe.json recipe.json
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/claims-schema /app/schemas/claims-schema
-RUN cargo chef cook --recipe-path recipe.json
+RUN --mount=type=cache,target=/sccache,sharing=shared \
+    RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
+    cargo chef cook --recipe-path recipe.json
 COPY backend/dashboard .
 CMD ["cargo", "watch", "-x", "run"]
 

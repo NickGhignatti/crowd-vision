@@ -5,6 +5,7 @@ FROM rust:${RUST_VERSION}-bookworm
 ARG TARGETARCH
 ARG CARGO_CHEF_VERSION=0.1.78
 ARG CARGO_WATCH_VERSION=8.5.3
+ARG SCCACHE_VERSION=0.17.0
 
 # build-essential is not optional: rdkafka-sys vendors librdkafka and compiles C,
 # so a toolchain without a C compiler fails partway through the dependency build.
@@ -19,10 +20,12 @@ RUN set -eux; \
     case "${TARGETARCH}" in \
       amd64) arch=x86_64; \
              chef_sha=70ef940ef90d04d122f0176fdb8d6c39069191b484a1eaa29b327370c2e1c3c0; \
-             watch_sha=b4366577bd16763c86820a750ead8a7bc5b838914b75ace05dc9896552e04e57;; \
+             watch_sha=b4366577bd16763c86820a750ead8a7bc5b838914b75ace05dc9896552e04e57; \
+             sccache_sha=67c4a96dd237c1f518f6b36083f270f9976d516f1e57fce891755ea782e50006;; \
       arm64) arch=aarch64; \
              chef_sha=a47e13fba89c2895f5a5c3d0844acd2a5fd416eceb3a6f9dfb26e28155099f4e; \
-             watch_sha=a0dadc7b83e37e320a61d27d2a2c4c693f1ec737795805ed9d2960bc9462d7e7;; \
+             watch_sha=a0dadc7b83e37e320a61d27d2a2c4c693f1ec737795805ed9d2960bc9462d7e7; \
+             sccache_sha=821a86343191aa1cbab74bd42f9e93c9a63bf85e4742945f40d3ae84193c1c77;; \
       *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1;; \
     esac; \
     curl -fsSL -o /tmp/chef.tar.xz \
@@ -33,9 +36,14 @@ RUN set -eux; \
       "https://github.com/watchexec/cargo-watch/releases/download/v${CARGO_WATCH_VERSION}/cargo-watch-v${CARGO_WATCH_VERSION}-${arch}-unknown-linux-gnu.tar.xz"; \
     echo "${watch_sha}  /tmp/watch.tar.xz" | sha256sum -c -; \
     tar -xJf /tmp/watch.tar.xz -C "${CARGO_HOME}/bin" --strip-components=1 --wildcards '*/cargo-watch'; \
-    rm -f /tmp/chef.tar.xz /tmp/watch.tar.xz; \
+    curl -fsSL -o /tmp/sccache.tar.gz \
+      "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-${arch}-unknown-linux-musl.tar.gz"; \
+    echo "${sccache_sha}  /tmp/sccache.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/sccache.tar.gz -C "${CARGO_HOME}/bin" --strip-components=1 --wildcards '*/sccache'; \
+    rm -f /tmp/chef.tar.xz /tmp/watch.tar.xz /tmp/sccache.tar.gz; \
     cargo-chef --version; \
-    cargo watch --version
+    cargo watch --version; \
+    sccache --version
 
 # mold links faster than GNU ld, and every stage that inherits this image gets it.
 ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
