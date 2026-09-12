@@ -205,9 +205,15 @@ const messages = {
         QRCodeTitle: 'Your organization Qr Codes',
         selectDomainToSeeQRCode: 'Select a domain to see its Qr codes',
         alerts: {
+          bell: 'Alert settings · {on} of {total} on',
           temperature: 'Temperature alerts',
           airQuality: 'Air quality alerts',
           peopleCount: 'People count alerts',
+          names: {
+            temperature: 'Temperature',
+            airQuality: 'Air quality',
+            peopleCount: 'People count',
+          },
           on: 'on',
           off: 'off',
         },
@@ -589,9 +595,15 @@ const messages = {
         QRCodeTitle: 'Il Qr Code della tua organizzazione',
         selectDomainToSeeQRCode: 'Seleziona un dominio per vedere i suoi Qr code',
         alerts: {
+          bell: 'Impostazioni avvisi · {on} di {total} attivi',
           temperature: 'Avvisi temperatura',
           airQuality: 'Avvisi qualità aria',
           peopleCount: 'Avvisi affollamento',
+          names: {
+            temperature: 'Temperatura',
+            airQuality: 'Qualità aria',
+            peopleCount: 'Affollamento',
+          },
           on: 'attivi',
           off: 'disattivati',
         },

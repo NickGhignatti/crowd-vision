@@ -43,12 +43,12 @@ const roleBadgeClass = computed(() => {
 
 <template>
   <div
-    class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all duration-300"
+    class="bg-white border border-slate-200 rounded-2xl shadow-sm transition-all duration-300"
   >
     <div
       @click="toggleAccordion"
       class="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors relative z-10"
-      :class="{ 'bg-slate-50 border-b border-slate-100': isOpen }"
+      :class="isOpen ? 'bg-slate-50 border-b border-slate-100 rounded-t-2xl' : 'rounded-2xl'"
     >
       <div class="flex items-center gap-3">
         <span class="text-xl font-extrabold text-slate-800 tracking-tight">
@@ -90,7 +90,7 @@ const roleBadgeClass = computed(() => {
       </div>
     </div>
 
-    <div v-show="isOpen" class="bg-slate-50 px-5 pb-5 pt-3 space-y-2">
+    <div v-show="isOpen" class="bg-slate-50 px-5 pb-5 pt-3 space-y-2 rounded-b-2xl">
       <SubdomainCard
         v-for="sub in domainGroup.subdomains"
         :key="sub.name"
