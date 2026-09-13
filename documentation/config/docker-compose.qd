@@ -109,6 +109,34 @@ Adding a group is one entry in that dict; the flag appears automatically. Unknow
 
 The `down`, `integration`, and `build` modes always operate on the full set and ignore exclude patterns.
 
+### Published host ports
+
+Only the dev overrides publish database ports; in every other mode a service reaches its
+database by container name on its native port. Two services claiming one host port makes
+`docker compose up` abort the whole stack, so check this table before adding one.
+
+.var {headers}
+   - Port
+   - Service
+
+.tablebyrows {.headers}
+    - - `5432`
+      - `telemetry-db` (TimescaleDB; `telemetry-db-gui` browses it)
+    - - `5433`
+      - `tenancy-db`
+    - - `5434`
+      - `registry-db`
+    - - `5435`
+      - `agent-db` (pgvector)
+    - - `27017`, `27019`, `27020`, `27021`
+      - `twin-db`, `notification-db`, `dashboard-db`, `chat-db`
+    - - `3001`, `3002`, `3003`
+      - `sensor-simulator`, `aq-simulator`, `ap-simulator`
+    - - `3030`
+      - `langfuse`
+    - - `6379`, `9092`, `8090`
+      - `redis`, `kafka`, `keycloak`
+
 ---
 
 ## The modes
