@@ -14,4 +14,6 @@ services:
 
   agent-db:
     ports:
-      - "5432:5432"
+      # 5432 is telemetry-db's. Two services publishing it made plain
+      # `just stack dev` fail to start; host ports are listed in docker-compose.qd.
+      - "5435:5432"
