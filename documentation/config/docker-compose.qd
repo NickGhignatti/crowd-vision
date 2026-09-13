@@ -318,6 +318,10 @@ Each MongoDB runs with `--wiredTigerCacheSizeGB 0.25`. Unset, WiredTiger caps it
 half of (host RAM − 1 GB) per instance — about 7 GB each on a 16 GB machine, for four
 instances. The cap is a ceiling, not an allocation, but a long-running stack grows toward it.
 
+Each Rust dev container keeps its own `<service>-cargo-registry` volume. Do not merge them:
+cargo's lock file lives at `CARGO_HOME` root, outside the volume, so two services rebuilding
+at once unpack the same crate into one directory and corrupt it.
+
 ---
 
 ## Related operations

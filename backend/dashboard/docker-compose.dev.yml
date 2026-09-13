@@ -18,7 +18,9 @@ services:
       start_period: 60s
     volumes:
       - contracts-target:/app/backend/dashboard/target
-      - cargo-registry:/usr/local/cargo/registry
+      # Per service: cargo's lock sits outside the registry, so a shared volume lets two
+      # rebuilds unpack the same crate at once and corrupt it.
+      - dashboard-cargo-registry:/usr/local/cargo/registry
 
   dashboard-db:
     ports:
@@ -37,4 +39,4 @@ services:
 
 volumes:
   contracts-target:
-  cargo-registry:
+  dashboard-cargo-registry:

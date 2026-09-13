@@ -18,7 +18,9 @@ services:
           path: ./Cargo.toml
     volumes:
       - chat-target:/app/backend/chat/target
-      - cargo-registry:/usr/local/cargo/registry
+      # Per service: cargo's lock sits outside the registry, so a shared volume lets two
+      # rebuilds unpack the same crate at once and corrupt it.
+      - chat-cargo-registry:/usr/local/cargo/registry
 
   chat-db:
     ports:
@@ -37,4 +39,4 @@ services:
 
 volumes:
   chat-target:
-  cargo-registry:
+  chat-cargo-registry:

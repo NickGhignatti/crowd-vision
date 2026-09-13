@@ -12,7 +12,9 @@ services:
           path: ./Cargo.toml
     volumes:
       - telemetry-target:/app/backend/telemetry/target
-      - cargo-registry:/usr/local/cargo/registry
+      # Per service: cargo's lock sits outside the registry, so a shared volume lets two
+      # rebuilds unpack the same crate at once and corrupt it.
+      - telemetry-cargo-registry:/usr/local/cargo/registry
 
   telemetry-db:
     ports:
@@ -29,4 +31,4 @@ services:
 
 volumes:
   telemetry-target:
-  cargo-registry:
+  telemetry-cargo-registry:

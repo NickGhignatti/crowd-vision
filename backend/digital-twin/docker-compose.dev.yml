@@ -18,7 +18,9 @@ services:
       start_period: 60s
     volumes:
       - twin-target:/app/server/digital-twin/target
-      - cargo-registry:/usr/local/cargo/registry
+      # Per service: cargo's lock sits outside the registry, so a shared volume lets two
+      # rebuilds unpack the same crate at once and corrupt it.
+      - twin-cargo-registry:/usr/local/cargo/registry
 
   twin-db:
     ports:
@@ -37,4 +39,4 @@ services:
 
 volumes:
   twin-target:
-  cargo-registry:
+  twin-cargo-registry:
