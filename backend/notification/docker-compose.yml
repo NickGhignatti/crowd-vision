@@ -23,6 +23,8 @@ services:
   notification-db:
     cpus: "3"
     image: mongo:latest
+    # Default cache is half of host RAM per instance; four of them would each claim ~7GB.
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
     volumes:
       - notification-data:/data/db
 

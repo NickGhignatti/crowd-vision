@@ -314,6 +314,10 @@ just stack down                # tear it all down
 
 `just stack logs [service]` follows logs against the generated `compose.runtime.yml`, so it targets exactly the services the last run started.
 
+Each MongoDB runs with `--wiredTigerCacheSizeGB 0.25`. Unset, WiredTiger caps its cache at
+half of (host RAM − 1 GB) per instance — about 7 GB each on a 16 GB machine, for four
+instances. The cap is a ceiling, not an allocation, but a long-running stack grows toward it.
+
 ---
 
 ## Related operations
