@@ -66,6 +66,13 @@ one step so nothing reaches the release stages or the running dev container.
   of the compiler inputs and written atomically. A shared registry mount corrupts instead —
   cargo's lock lives at `CARGO_HOME` root, outside the mount, so concurrent builds do not see it.
 
+### The Go services' `air`
+
+The four Go Dockerfiles open with an identical `tools` stage that downloads a checksum-pinned
+`air` release; each `dev` stage copies the binary out. Identical text on an identical parent is
+what lets BuildKit build it once for all four — `go install` sat on per-service `COPY`s, so
+it compiled four times. No shared base image: one base tag and one tool do not need one.
+
 ---
 
 ## The orchestrator
