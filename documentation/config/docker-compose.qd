@@ -21,7 +21,7 @@ Compose configuration is split across three kinds of file.
     - - `backend/<service>/docker-compose.dev.yml`
       - Optional per-service development override (hot-reload watch rules, dev-only ports).
     - - `docker/rust-base/docker-compose.yml`
-      - The shared Rust build image. Included by the root file and by every Rust `docker-compose.test.yml`.
+      - The shared Rust build image. Included by the root file, every Rust `docker-compose.test.yml`, and the acceptance runner.
 
 The root file holds the pieces every run needs regardless of which services are included:
 
@@ -45,7 +45,7 @@ pinned prebuilt `cargo-chef` and `cargo-watch` binaries, and sets `RUSTFLAGS`.
 - `scale: 0` — it is a toolchain, never a running container, and `up` must not start one.
 - The tool tarballs are checksum-pinned. `cargo install` pins each tool's own lockfile but not its version, so two developers got different `cargo-watch` builds.
 - `RUST_VERSION` comes from the single pin in `.mise.toml`: `scripts/env/rust.sh` rewrites it into `.env` on every `just stack` run.
-- The per-service integration runners export `RUST_VERSION` themselves — they compose a standalone project that never reads the root `.env`.
+- The per-service integration runners and the acceptance runner export `RUST_VERSION` themselves — they compose standalone projects that never read the root `.env`.
 
 A cold build of every image (`docker builder prune -af` first) went from **1576s to
 794s**. `cargo install` of the two tools accounted for 3746 of the 10430 step-seconds
@@ -223,6 +223,8 @@ Fragments are listed in `include:` order. No fragment may redefine a service ano
    - Provides
 
 .tablebyrows {.headers}
+    - - `docker/rust-base/docker-compose.yml`
+      - The shared Rust build image telemetry, socket and dashboard build `FROM`. Without it compose rejects them with `declares unknown service "rust-base"`.
     - - `backend/acceptance/docker-compose.infra.yml`
       - Redis and Kafka. Named `infra` rather than being the folder's bare `docker-compose.yml` because it is not a base file — it substitutes for the root stack's infra, which this assembly deliberately does not include.
     - - `backend/telemetry`, `backend/socket`, `backend/dashboard`
