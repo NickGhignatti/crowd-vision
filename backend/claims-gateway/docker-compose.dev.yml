@@ -16,7 +16,7 @@ services:
       watch:
         - action: sync
           path: ./
-          target: /app/server/claims-gateway
+          target: /app/backend/claims-gateway
         - action: rebuild
           path: ./go.mod
 

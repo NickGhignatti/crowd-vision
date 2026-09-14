@@ -16,7 +16,7 @@ services:
       watch:
         - action: sync
           path: ./
-          target: /app/server/tenancy
+          target: /app/backend/tenancy
         - action: rebuild
           path: ./go.mod
 

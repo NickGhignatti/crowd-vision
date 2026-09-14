@@ -7,7 +7,7 @@ services:
       watch:
         - action: sync
           path: ./src
-          target: /app/server/digital-twin/src
+          target: /app/backend/digital-twin/src
         - action: rebuild
           path: ./Cargo.toml
     healthcheck:
@@ -17,7 +17,7 @@ services:
       retries: 3
       start_period: 60s
     volumes:
-      - twin-target:/app/server/digital-twin/target
+      - twin-target:/app/backend/digital-twin/target
       # Per service: cargo's lock sits outside the registry, so a shared volume lets two
       # rebuilds unpack the same crate at once and corrupt it.
       - twin-cargo-registry:/usr/local/cargo/registry

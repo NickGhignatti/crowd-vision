@@ -16,7 +16,7 @@ services:
       watch:
         - action: sync
           path: ./
-          target: /app/server/provisioner
+          target: /app/backend/provisioner
         - action: rebuild
           path: ./go.mod
 
