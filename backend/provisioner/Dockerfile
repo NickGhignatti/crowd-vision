@@ -1,5 +1,5 @@
 # Build context is the repo root — see backend/tenancy/Dockerfile.
-FROM golang:1.27-bookworm AS tools
+FROM golang:1.27.1-bookworm AS tools
 ARG TARGETARCH
 ARG AIR_VERSION=1.67.1
 # Prebuilt, checksum-pinned: `go install` compiled air in all four Go images. This stage is
@@ -17,7 +17,7 @@ RUN set -eux; \
     rm -f /tmp/air.tar.gz; \
     air -v
 
-FROM golang:1.27-bookworm AS base
+FROM golang:1.27.1-bookworm AS base
 WORKDIR /app
 COPY backend/libs/auth-contracts ./backend/libs/auth-contracts
 COPY backend/provisioner ./backend/provisioner

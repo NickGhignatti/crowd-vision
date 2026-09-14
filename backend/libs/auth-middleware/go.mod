@@ -1,6 +1,6 @@
 module github.com/NickGhignatti/crowd-vision/server/auth-middleware
 
-go 1.25.0
+go 1.27.1
 
 require (
 	github.com/MicahParks/jwkset v0.11.3
