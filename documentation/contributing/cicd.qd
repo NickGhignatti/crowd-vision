@@ -194,7 +194,7 @@ These legs validate properties that span the codebase rather than a single servi
 
 .tablebyrows {.headers}
     - - `ci-docker.yml`
-      - The `docker` leg. For each **changed** service that ships an image: hadolint on its `Dockerfile`, then a `push: false` Docker build (a PR-time build check — `cd-registry` does the real publish on `master`). The gha layer cache is scoped per image so services reuse their own layers without evicting each other.
+      - The `docker` leg. For each **changed** service that ships an image: hadolint on its `Dockerfile`, then a `push: false` Docker build (a PR-time build check — `cd-registry` does the real publish on `master`). The gha layer cache is scoped per image so services reuse their own layers without evicting each other. Its `if:` starts with `!cancelled()` and only stops on a failed `needs` job: without that, any skipped leg in `needs` skips the build silently and `ci-passed` still goes green.
     - - `ci-k8s.yml`
       - The `k8s` leg. Validates `k8s/` with **kubeconform** (schema, against Kubernetes 1.32.0, `-strict`, plus the [CRDs-catalog](https://github.com/datreeio/CRDs-catalog) schema location so Istio/Gateway API kinds — `Gateway`, `HTTPRoute`, `PeerAuthentication`, `RequestAuthentication`, `AuthorizationPolicy` — are actually schema-checked rather than erroring with "could not find schema"), **pluto** (deprecated/removed API versions), and **kube-score** (best-practice scoring, with a curated set of ignored tests).
     - - `workflows-lint`
@@ -238,6 +238,13 @@ The publish is **gated by a vulnerability scan that runs before anything reaches
 #### Selective builds: only changed services are pushed
 
 The workflow does **not** rebuild every image on every push. A `changes` job detects which services changed and emits a dynamic build matrix; a `build-and-push` job (`needs: changes`) then builds only the selected images, and is skipped entirely when nothing matches. Two cases force a full rebuild: a change to `cd-registry.yml` itself, and a manual `workflow_dispatch` with `service: all` (or a comma-separated list to target specific images).
+
+#### The Rust base image
+
+- The six Rust Dockerfiles build `FROM rust-base`, which exists on no public registry. Without a supplied context buildx looks up `docker.io/library/rust-base` and fails with `insufficient_scope` — a missing image, not a token permission.
+- A `rust-base` job builds `docker/rust-base/` and pushes `ghcr.io/nickghignatti/crowdvision-rust-base:<rust pin>-<Dockerfile sha256, 12 chars>`. If the tag is already there, it skips the build.
+- `build-and-push` passes it as `build-contexts: rust-base=docker-image://…` on both of its build steps.
+- The PR `docker` leg does not need it: Rust images there use `.github/docker/Dockerfile.ci` with the prebuilt binary.
 
 #### Scan scope
 

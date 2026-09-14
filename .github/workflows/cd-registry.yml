@@ -87,8 +87,69 @@ jobs:
           echo "any=$ANY" >> "$GITHUB_OUTPUT"
           echo "Selected images: $MATRIX"
 
-  build-and-push:
+  rust-base:
     needs: changes
+    if: ${{ needs.changes.outputs.any == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      # Rust Dockerfiles build FROM rust-base, which is on no public registry.
+      # Tagged by toolchain pin + Dockerfile hash, so an unchanged base is never rebuilt.
+      - name: Resolve rust-base tag
+        id: tag
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          RUST_VERSION=$(sed -n 's/^rust = "\(.*\)"$/\1/p' .mise.toml)
+          HASH=$(sha256sum docker/rust-base/Dockerfile | cut -c1-12)
+          OWNER_LOWERCASE=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          echo "rust_version=$RUST_VERSION" >> "$GITHUB_OUTPUT"
+          echo "ref=ghcr.io/$OWNER_LOWERCASE/crowdvision-rust-base:$RUST_VERSION-$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for published rust-base
+        id: exists
+        env:
+          REF: ${{ steps.tag.outputs.ref }}
+        run: |
+          if docker buildx imagetools inspect "$REF" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push rust-base
+        if: steps.exists.outputs.found != 'true'
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
+        with:
+          context: docker/rust-base
+          push: true
+          build-args: RUST_VERSION=${{ steps.tag.outputs.rust_version }}
+          tags: ${{ steps.tag.outputs.ref }}
+          cache-from: type=gha,scope=rust-base
+          cache-to: type=gha,mode=max,scope=rust-base
+
+  build-and-push:
+    needs: [changes, rust-base]
     if: ${{ needs.changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -168,6 +229,7 @@ jobs:
           push: false
           load: true
           build-args: ${{ env.BUILD_ARGS }}
+          build-contexts: rust-base=docker-image://${{ needs.rust-base.outputs.ref }}
           tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -248,6 +310,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           build-args: ${{ env.BUILD_ARGS }}
+          build-contexts: rust-base=docker-image://${{ needs.rust-base.outputs.ref }}
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
