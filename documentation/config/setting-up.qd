@@ -43,9 +43,6 @@ just setup install
 
 The JS install uses **`npm ci`** (not `npm install`): it installs exactly what each `package-lock.json` pins and **never rewrites the lockfile**, so running setup on Windows or macOS can't accidentally change a Linux-resolved lock. Python uses `uv sync --locked`, Rust `cargo fetch`, Go `go mod download`. Cap parallelism with moon's `MOON_CONCURRENCY`: `MOON_CONCURRENCY=2 just setup install`.
 
-.box {Go needs a Go toolchain on PATH} type:{note}
-    The `language: 'go'` projects inherit `deps` (`go mod download`) like every other language; Go is pinned in `.mise.toml` with the rest of the toolchain.
-
 ### Lockfiles & Cross-Platform Regeneration
 
 CrowdVision's CI runs on **Linux**, so every committed `package-lock.json` must contain the Linux-specific optional native packages (e.g. `@emnapi/*`, `@unrs/resolver-binding-*`) that some dev tools pull in. A plain `npm install` run on Windows or macOS resolves the lock for *your* platform and **strips those Linux entries** — which makes `npm ci` fail in CI with errors like `Missing: @emnapi/core@… from lock file`.
@@ -185,6 +182,11 @@ This starts all services with hot-reloading. When you save a source file, the ch
 just stack dev --no-simulators   # skip the simulator containers
 just stack dev frontend          # skip the Vue frontend (e.g. run it separately via Vite)
 ```
+
+.box {A cold build loads the CPU, not memory} type:{note}
+    - A cold `just stack dev --build` builds every image at once. Measured on a 12-core, 16 GB laptop: 728 s, CPU pressure 88–96 % for about eight minutes, never under 7.7 GB of free memory, no OOM kills — so builds are deliberately not capped.
+    - Build steps run under `system.slice`, not the `docker.slice` that dockerd's `cgroup-parent` names, so a `CPUWeight` on `docker.slice` does not slow them. Keep the desktop responsive with `sudo systemctl set-property user.slice CPUWeight=400`.
+    - `COMPOSE_PARALLEL_LIMIT` has no effect through `just`: the orchestrator always builds with `COMPOSE_BAKE=true`.
 
 See the [Running the Application](running.qd) page for the full Docker Compose reference.
 
