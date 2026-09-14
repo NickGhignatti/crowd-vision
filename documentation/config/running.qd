@@ -105,15 +105,15 @@ just stack logs
 # Follow logs for one service:
 just stack logs digital-twin
 
-# Wipe all databases (destructive — you will need to re-provision):
+# Drop the chat, twin, notification and agent databases (destructive):
 just db clear
 
-# Wipe only the sensor database:
+# Truncate only the telemetry tables:
 just db clear-telemetry
 ```
 
 .box type:{warning}
-    `just db clear` permanently deletes all persistent Docker volumes.
+    `just db clear` drops those databases' data; the Docker volumes stay. Both recipes act on the stack the last `just stack dev` or `just stack start` generated, so start it through `just` first.
 
 ---
 
@@ -281,9 +281,9 @@ mise exec -- moon run :audit --affected
     - - `just stack logs [service]`
       - Follow logs. Omit service to tail all.
     - - `just db clear`
-      - Drop all databases (destructive).
+      - Drop the chat, twin, notification and agent databases (destructive).
     - - `just db clear-telemetry`
-      - Drop only the sensor database.
+      - Truncate only the telemetry tables.
     - - `just test all`
       - Run all unit tests (moon-cached; unchanged services are instant).
     - - `just test affected`

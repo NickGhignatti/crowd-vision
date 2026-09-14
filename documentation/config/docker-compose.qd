@@ -362,7 +362,7 @@ A floating tag makes the stack you get depend on the day you pulled it.
     - - `just db clear`
       - Drop the chat, twin, notification, and agent databases (MongoDB plus the agent's Postgres).
     - - `just db clear-telemetry`
-      - Drop only the sensor database.
+      - Truncate only the telemetry tables. Both `db` recipes run against `compose.runtime.yml`: the root file alone is not a valid project, since `gateway` depends on services only other fragments declare.
     - - `just test integration`
       - Compose the acceptance suite's own stack, run it, exit with its status, then tear down. See [The acceptance suite composes its own stack](#the-acceptance-suite-composes-its-own-stack).
 
