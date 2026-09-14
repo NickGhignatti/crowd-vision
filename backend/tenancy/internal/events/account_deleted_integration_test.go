@@ -22,7 +22,7 @@ func newTestRedis(t *testing.T) *redis.Client {
 	t.Helper()
 	ctx := context.Background()
 
-	container, err := tcredis.Run(ctx, "redis:7-alpine")
+	container, err := tcredis.Run(ctx, "redis:8.10.1-alpine")
 	if err != nil {
 		t.Fatalf("starting redis container: %v", err)
 	}

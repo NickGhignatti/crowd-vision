@@ -7,12 +7,23 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Resolve the pinned Go version
+      id: toolchain
+      shell: bash
+      run: |
+        version=$(grep -oP '^go = "\K[^"]+' "$GITHUB_WORKSPACE/.mise.toml")
+        if [[ -z "$version" ]]; then
+          echo "no go pin found in .mise.toml" >&2
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
     - name: Setup Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
       with:
-        # Stdlib advisories are fixed by patch releases, and govulncheck below
-        # gates on them — keep this current, not merely working.
-        go-version: '1.27.1'
+        # Stdlib advisories are fixed by patch releases, and govulncheck gates on
+        # them — keep the .mise.toml pin current, not merely working.
+        go-version: ${{ steps.toolchain.outputs.version }}
         cache: true
         cache-dependency-path: '${{ inputs.working_directory }}/go.sum'
 

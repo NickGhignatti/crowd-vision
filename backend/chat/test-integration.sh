@@ -6,6 +6,11 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
+# The base image's compiler comes from the one pin in .mise.toml; this project
+# runs standalone, so nothing else puts RUST_VERSION in the environment.
+RUST_VERSION=$(sed -n 's/^rust = "\(.*\)"$/\1/p' ../../.mise.toml)
+export RUST_VERSION
+
 PROJECT_NAME="chat-integration-tests"
 COMPOSE=(docker compose -p "$PROJECT_NAME" -f docker-compose.test.yml)
 

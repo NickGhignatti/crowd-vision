@@ -1,12 +1,15 @@
+include:
+  - path: ../../docker/rust-base/docker-compose.yml
+
 services:
   redis:
-    image: redis:alpine
+    image: redis:8.10.1-alpine
 
   notification-db:
-    image: mongo:7
+    image: mongo:8.3.9
 
   notification-kafka:
-    image: apache/kafka:3.9.2
+    image: apache/kafka:4.3.1
     environment:
       - KAFKA_NODE_ID=1
       - KAFKA_PROCESS_ROLES=broker,controller
@@ -23,6 +26,8 @@ services:
     build:
       context: ../..
       dockerfile: backend/notification/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
       target: test
     command: ["bash", "/app/scripts/test/rust-integration-tests.sh"]
     environment:

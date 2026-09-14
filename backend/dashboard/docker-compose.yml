@@ -4,6 +4,8 @@ services:
     build:
       context: ../..
       dockerfile: backend/dashboard/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
     environment:
       - PORT=3000
       - REDIS_URL=redis://redis:6379
@@ -16,7 +18,9 @@ services:
 
   dashboard-db:
     cpus: "3"
-    image: mongo:latest
+    image: mongo:8.3.9
+    # Default cache is half of host RAM per instance; four of them would each claim ~7GB.
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
     volumes:
       - dashboard-data:/data/db
 

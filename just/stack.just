@@ -18,6 +18,7 @@ env:
     @mise exec -- sh scripts/env/gateway-key.sh
     @mise exec -- sh scripts/env/ingest-key.sh
     @mise exec -- sh scripts/env/telemetry-db.sh
+    @mise exec -- sh scripts/env/rust.sh
 
 [doc("Start dev stack. Flags: --build --no-agent --no-metrics --no-simulators --dry-run, or bare substrings.")]
 dev *args: env

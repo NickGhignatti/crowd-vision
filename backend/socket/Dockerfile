@@ -1,12 +1,5 @@
-FROM rust:1.96-bookworm AS chef
-# hadolint ignore=DL3008
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends mold \
-    && rm -rf /var/lib/apt/lists/* \
-    && cargo install cargo-chef --locked
+FROM rust-base AS chef
 WORKDIR /app/backend/socket
-# Use the faster mold linker for every cargo invocation in the build stages.
-ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
 # ── capture the dependency graph ────────────────────────────────────────
 FROM chef AS planner
@@ -22,7 +15,9 @@ COPY --from=planner /app/backend/socket/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/notification-schema /app/schemas/notification-schema
-RUN cargo chef cook --recipe-path recipe.json
+RUN --mount=type=cache,target=/sccache,sharing=shared \
+    RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
+    cargo chef cook --recipe-path recipe.json
 
 # Integration-test stage: deliberately does NOT install cargo-watch. It runs
 # tests/*.rs once and exits, so compiling cargo-watch from source here is
@@ -31,7 +26,6 @@ FROM debug-deps AS test
 COPY backend/socket .
 
 FROM debug-deps AS dev
-RUN cargo install cargo-watch --locked
 COPY backend/socket .
 CMD ["cargo", "watch", "-x", "run"]
 

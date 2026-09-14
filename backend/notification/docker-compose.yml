@@ -5,6 +5,8 @@ services:
       # Repo-root context: the service needs its sibling ../claims-contracts during build.
       context: ../..
       dockerfile: backend/notification/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
     environment:
       - REDIS_URL=redis://redis:6379
       - MONGO_URI=mongodb://notification-db:27017/notificationdb
@@ -20,7 +22,9 @@ services:
 
   notification-db:
     cpus: "3"
-    image: mongo:latest
+    image: mongo:8.3.9
+    # Default cache is half of host RAM per instance; four of them would each claim ~7GB.
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
     volumes:
       - notification-data:/data/db
 

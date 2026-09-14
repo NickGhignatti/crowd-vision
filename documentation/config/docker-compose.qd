@@ -20,6 +20,8 @@ Compose configuration is split across three kinds of file.
       - One per service: the service container and its private database/network.
     - - `backend/<service>/docker-compose.dev.yml`
       - Optional per-service development override (hot-reload watch rules, dev-only ports).
+    - - `docker/rust-base/docker-compose.yml`
+      - The shared Rust build image. Included by the root file, every Rust `docker-compose.test.yml`, and the acceptance runner.
 
 The root file holds the pieces every run needs regardless of which services are included:
 
@@ -32,6 +34,44 @@ The root file holds the pieces every run needs regardless of which services are 
 
 .box {Why services are not in the root file} type:{note}
     Keeping each service's compose fragment next to its code means the fragment travels with the service if it is ever extracted to its own repository, and a service can be added or excluded without editing a central file. The trade-off — assembling the fragments correctly — is what the orchestrator handles.
+
+### The shared Rust base image
+
+All six Rust services build `FROM rust-base`, a build-only image defined in
+`docker/rust-base/`. It carries the toolchain, `mold`, `build-essential`, and
+pinned prebuilt `cargo-chef` and `cargo-watch` binaries, and sets `RUSTFLAGS`.
+
+- Each service resolves it through `build.additional_contexts: rust-base: service:rust-base`, so Compose builds the base before anything that needs it.
+- `scale: 0` — it is a toolchain, never a running container, and `up` must not start one.
+- The tool tarballs are checksum-pinned. `cargo install` pins each tool's own lockfile but not its version, so two developers got different `cargo-watch` builds.
+- `RUST_VERSION` comes from the single pin in `.mise.toml`: `scripts/env/rust.sh` rewrites it into `.env` on every `just stack` run.
+- The per-service integration runners and the acceptance runner export `RUST_VERSION` themselves — they compose standalone projects that never read the root `.env`.
+
+A cold build of every image (`docker builder prune -af` first) went from **1576s to
+794s**. `cargo install` of the two tools accounted for 3746 of the 10430 step-seconds
+before; it is now zero, and the Rust base image is pulled once rather than six times.
+
+### sccache on the debug dependency layer
+
+The debug `cargo chef cook` runs under `sccache`, with `RUSTC_WRAPPER` set inline on that
+one step so nothing reaches the release stages or the running dev container.
+
+- It pays off only when Docker must re-run the cook but the store is warm — a `Cargo.toml`
+  or `schemas/` change. Measured on dashboard: **744s to 19.9s**, 241 hits, 0 misses.
+- A cold build is **worse**: the store starts empty, so every call pays `rustc` plus
+  sccache's own hashing. Cold went 794s to ~1262s. Do not read that number alone.
+- Crates are *not* shared between services. All six cook at once, so no service's entries
+  exist when the others need them. The reuse is across rebuilds of one service.
+- `sharing=shared` is safe here, unlike a cargo registry mount: entries are keyed by a hash
+  of the compiler inputs and written atomically. A shared registry mount corrupts instead —
+  cargo's lock lives at `CARGO_HOME` root, outside the mount, so concurrent builds do not see it.
+
+### The Go services' `air`
+
+The four Go Dockerfiles open with an identical `tools` stage that downloads a checksum-pinned
+`air` release; each `dev` stage copies the binary out. Identical text on an identical parent is
+what lets BuildKit build it once for all four — `go install` sat on per-service `COPY`s, so
+it compiled four times. No shared base image: one base tag and one tool do not need one.
 
 ---
 
@@ -183,6 +223,8 @@ Fragments are listed in `include:` order. No fragment may redefine a service ano
    - Provides
 
 .tablebyrows {.headers}
+    - - `docker/rust-base/docker-compose.yml`
+      - The shared Rust build image telemetry, socket and dashboard build `FROM`. Without it compose rejects them with `declares unknown service "rust-base"`.
     - - `backend/acceptance/docker-compose.infra.yml`
       - Redis and Kafka. Named `infra` rather than being the folder's bare `docker-compose.yml` because it is not a base file — it substitutes for the root stack's infra, which this assembly deliberately does not include.
     - - `backend/telemetry`, `backend/socket`, `backend/dashboard`
@@ -281,6 +323,33 @@ just stack down                # tear it all down
 
 `just stack logs [service]` follows logs against the generated `compose.runtime.yml`, so it targets exactly the services the last run started.
 
+Each MongoDB runs with `--wiredTigerCacheSizeGB 0.25`. Unset, WiredTiger caps its cache at
+half of (host RAM − 1 GB) per instance — about 7 GB each on a 16 GB machine, for four
+instances. The cap is a ceiling, not an allocation, but a long-running stack grows toward it.
+
+Each Rust dev container keeps its own `<service>-cargo-registry` volume. Do not merge them:
+cargo's lock file lives at `CARGO_HOME` root, outside the volume, so two services rebuilding
+at once unpack the same crate into one directory and corrupt it.
+
+The four Go dev containers share `go-mod-cache` (`/go/pkg/mod`) and `go-build-cache`
+(`/root/.cache/go-build`). `air` downloads and compiles at container start, not during the
+image build, so a build-time cache mount would never reach it. Sharing is safe here, unlike
+the cargo registry: Go takes its locks inside the cache directories themselves.
+
+### Image pins
+
+Every third-party image is pinned to an exact version — no `latest`, no bare major — and the
+same image carries the same tag in compose, test compose, k8s, CI actions and testcontainers.
+A floating tag makes the stack you get depend on the day you pulled it.
+
+- Postgres family stays on **17** (`postgres:17.11-alpine`, `pgvector 0.8.6-pg17`,
+  `timescaledb 2.30.0-pg17`): Postgres 18 cannot open a 17 data directory.
+- TimescaleDB 2.17.2 → 2.30.0 keeps working on existing volumes, because the image still ships
+  the older library. `ALTER EXTENSION timescaledb UPDATE;` moves a database onto 2.30.0.
+- Langfuse 4 needs ClickHouse ≥ 25.12, Postgres ≥ 15 and Redis ≥ 7. It rewrites the v3
+  ClickHouse data model with no rollback, so local v3 trace volumes were dropped, not migrated.
+- `cgr.dev/chainguard/minio` is pinned by digest: Chainguard's free images publish only `latest`.
+
 ---
 
 ## Related operations
@@ -293,7 +362,7 @@ just stack down                # tear it all down
     - - `just db clear`
       - Drop the chat, twin, notification, and agent databases (MongoDB plus the agent's Postgres).
     - - `just db clear-telemetry`
-      - Drop only the sensor database.
+      - Truncate only the telemetry tables. Both `db` recipes run against `compose.runtime.yml`: the root file alone is not a valid project, since `gateway` depends on services only other fragments declare.
     - - `just test integration`
       - Compose the acceptance suite's own stack, run it, exit with its status, then tear down. See [The acceptance suite composes its own stack](#the-acceptance-suite-composes-its-own-stack).
 

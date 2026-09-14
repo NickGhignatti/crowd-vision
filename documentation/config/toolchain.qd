@@ -64,10 +64,12 @@ Run `just --list` to see every recipe. The recipe catalogue is documented in [Ru
 ```toml
 [tools]
 node = "24"
-python = "3.12"
-rust = "stable"
-"ubi:moonrepo/moon" = "latest"
-uv = "latest"
+python = "3.14.7"
+rust = "1.98.1"
+go = "1.27.1"
+"ubi:moonrepo/moon" = "2.5.4"
+uv = "0.12.10"
+istioctl = "1.31.0"
 ```
 
 Running `mise install` once after cloning fetches every tool at the pinned version into mise's own store, independent of anything else on the machine.
@@ -189,7 +191,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
     - - `tooling`, `eslint-config`
       - Tagged `language: 'javascript'` so they inherit only `deps`. (`acceptance` is `language: 'python'` and excludes the inherited `test`/`lint` tasks: its pytest suite runs via `just test integration` against a composed stack, never as a moon `:test`.)
     - - `claims-gateway`, `tenancy`, `registry`, `provisioner`
-      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Unlike the other four languages, **Go itself isn't pinned in \.`mise.toml`** — install it yourself (see [Setting Up the Environment](setting-up.qd)). Modules are fetched by the inherited `deps` task (`go mod download`) like every other language.
+      - Tagged `language: 'go'`; each `moon.yml` is a single line, same as a standard TypeScript or Rust service. Go is pinned in \.`mise.toml` like every other language; CI's `setup-go` reads that pin, and the Go Dockerfiles' `golang` tag must match it. Modules are fetched by the inherited `deps` task (`go mod download`) like every other language.
 
 ### Inspecting the graph
 

@@ -6,6 +6,8 @@ services:
       # dir (shared Cedar policy bundle) during build.
       context: ../..
       dockerfile: backend/digital-twin/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
     environment:
       - MONGO_URI=mongodb://twin-db:27017/twindb
       - TELEMETRY_URL=http://telemetry:3000
@@ -20,7 +22,9 @@ services:
 
   twin-db:
     cpus: "3"
-    image: mongo:latest
+    image: mongo:8.3.9
+    # Default cache is half of host RAM per instance; four of them would each claim ~7GB.
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
     volumes:
       - twin-data:/data/db
 

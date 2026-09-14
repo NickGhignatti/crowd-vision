@@ -1,12 +1,5 @@
-FROM rust:1.96-bookworm AS chef
-# hadolint ignore=DL3008
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends mold \
-    && rm -rf /var/lib/apt/lists/* \
-    && cargo install cargo-chef --locked
+FROM rust-base AS chef
 WORKDIR /app/backend/dashboard
-# Use the faster mold linker for every cargo invocation in the build stages.
-ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
 # ── capture the dependency graph ────────────────────────────────────────
 FROM chef AS planner
@@ -16,11 +9,12 @@ COPY backend/dashboard .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS dev
-RUN cargo install cargo-watch --locked
 COPY --from=planner /app/backend/dashboard/recipe.json recipe.json
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/claims-schema /app/schemas/claims-schema
-RUN cargo chef cook --recipe-path recipe.json
+RUN --mount=type=cache,target=/sccache,sharing=shared \
+    RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
+    cargo chef cook --recipe-path recipe.json
 COPY backend/dashboard .
 CMD ["cargo", "watch", "-x", "run"]
 

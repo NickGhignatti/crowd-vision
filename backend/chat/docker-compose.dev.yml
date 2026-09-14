@@ -18,14 +18,16 @@ services:
           path: ./Cargo.toml
     volumes:
       - chat-target:/app/backend/chat/target
-      - cargo-registry:/usr/local/cargo/registry
+      # Per service: cargo's lock sits outside the registry, so a shared volume lets two
+      # rebuilds unpack the same crate at once and corrupt it.
+      - chat-cargo-registry:/usr/local/cargo/registry
 
   chat-db:
     ports:
       - "27021:27017"
 
   chat-db-express:
-    image: mongo-express:latest
+    image: mongo-express:1.0.2
     environment:
       - ME_CONFIG_MONGODB_URL=mongodb://chat-db:27017/
       - ME_CONFIG_MONGODB_PORT=27017
@@ -37,4 +39,4 @@ services:
 
 volumes:
   chat-target:
-  cargo-registry:
+  chat-cargo-registry:

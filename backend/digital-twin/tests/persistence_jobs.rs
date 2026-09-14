@@ -32,17 +32,43 @@ fn dummy_building(id: &str) -> Building {
     }
 }
 
-async fn test_queue() -> (MongoUploadQueue, String) {
+async fn open_queue(collection_name: &str) -> MongoUploadQueue {
     let uri =
         std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
     let opts = ClientOptions::parse(&uri).await.unwrap();
     let client = mongodb::Client::with_options(opts).unwrap();
-    let collection_name = format!("pending_uploads_{}", Uuid::new_v4());
     let buildings = client
         .database("digital_twin_test")
         .collection::<Building>("buildings_for_jobs_test");
-    let queue = MongoUploadQueue::with_collection_name(&buildings, &collection_name);
-    (queue, collection_name)
+    MongoUploadQueue::with_collection_name(&buildings, collection_name)
+        .await
+        .unwrap()
+}
+
+async fn test_queue() -> (MongoUploadQueue, String) {
+    let collection_name = format!("pending_uploads_{}", Uuid::new_v4());
+    (open_queue(&collection_name).await, collection_name)
+}
+
+async fn raw_collection(collection_name: &str) -> mongodb::Collection<mongodb::bson::Document> {
+    let uri =
+        std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+    mongodb::Client::with_uri_str(&uri)
+        .await
+        .unwrap()
+        .database("digital_twin_test")
+        .collection(collection_name)
+}
+
+async fn finished_at(collection_name: &str, id: &str) -> Option<mongodb::bson::Bson> {
+    raw_collection(collection_name)
+        .await
+        .find_one(doc! { "id": id })
+        .await
+        .unwrap()
+        .expect("job exists")
+        .get("finished_at")
+        .cloned()
 }
 
 async fn enqueued(queue: &MongoUploadQueue) -> String {
@@ -57,6 +83,41 @@ async fn enqueued(queue: &MongoUploadQueue) -> String {
 }
 
 const LEASE: Duration = Duration::from_secs(30);
+
+async fn index_keys(collection_name: &str) -> Vec<(mongodb::bson::Document, bool)> {
+    let mut cursor = raw_collection(collection_name)
+        .await
+        .list_indexes()
+        .await
+        .unwrap();
+    let mut keys = Vec::new();
+    while cursor.advance().await.unwrap() {
+        let index = cursor.deserialize_current().unwrap();
+        let unique = index.options.and_then(|o| o.unique).unwrap_or(false);
+        keys.push((index.keys, unique));
+    }
+    keys
+}
+
+// Every status poll, claim and resolve filters this collection; without these indexes each one
+// reads every queued upload, and every upload carries its whole building.
+#[tokio::test]
+async fn the_queue_indexes_what_status_claim_and_resolve_look_up() {
+    let (queue, collection_name) = test_queue().await;
+    enqueued(&queue).await;
+
+    let keys = index_keys(&collection_name).await;
+    assert!(
+        keys.iter()
+            .any(|(k, unique)| *k == doc! { "id": 1 } && *unique),
+        "no unique index on id; indexes were {keys:?}"
+    );
+    assert!(
+        keys.iter()
+            .any(|(k, _)| k.keys().next().map(String::as_str) == Some("status")),
+        "no index led by status for claim; indexes were {keys:?}"
+    );
+}
 
 #[tokio::test]
 async fn an_enqueued_upload_is_pending() {
@@ -175,4 +236,87 @@ async fn an_unknown_handle_has_no_status() {
     let (queue, _) = test_queue().await;
 
     assert_eq!(queue.status("nope").await.unwrap(), None);
+}
+
+// The browser learns an upload finished by polling its status, so the record must outlive that
+// wait (30s) before it goes; an hour leaves wide margin.
+#[tokio::test]
+async fn finished_uploads_expire_an_hour_after_they_finish() {
+    let (queue, collection_name) = test_queue().await;
+    enqueued(&queue).await;
+
+    let mut cursor = raw_collection(&collection_name)
+        .await
+        .list_indexes()
+        .await
+        .unwrap();
+    let mut expiry = None;
+    while cursor.advance().await.unwrap() {
+        let index = cursor.deserialize_current().unwrap();
+        if index.keys == doc! { "finished_at": 1 } {
+            expiry = index.options.and_then(|o| o.expire_after);
+        }
+    }
+    assert_eq!(expiry, Some(Duration::from_secs(3600)));
+}
+
+#[tokio::test]
+async fn resolving_records_when_the_upload_finished() {
+    let (queue, collection_name) = test_queue().await;
+    let ready = enqueued(&queue).await;
+    let failed = enqueued(&queue).await;
+    let pending = enqueued(&queue).await;
+
+    queue.mark_ready(&ready).await.unwrap();
+    queue.mark_failed(&failed, "boom").await.unwrap();
+
+    assert!(matches!(
+        finished_at(&collection_name, &ready).await,
+        Some(mongodb::bson::Bson::DateTime(_))
+    ));
+    assert!(matches!(
+        finished_at(&collection_name, &failed).await,
+        Some(mongodb::bson::Bson::DateTime(_))
+    ));
+    // Pending records store finished_at as null, like leased_until; TTL only removes dates.
+    assert!(!matches!(
+        finished_at(&collection_name, &pending).await,
+        Some(mongodb::bson::Bson::DateTime(_))
+    ));
+}
+
+// Records finished before expiry existed carry no finish time, and a TTL index never removes
+// a record without its field.
+#[tokio::test]
+async fn uploads_finished_before_expiry_existed_are_given_a_finish_time() {
+    let (queue, collection_name) = test_queue().await;
+    let id = enqueued(&queue).await;
+    queue.mark_ready(&id).await.unwrap();
+    raw_collection(&collection_name)
+        .await
+        .update_one(doc! { "id": &id }, doc! { "$unset": { "finished_at": "" } })
+        .await
+        .unwrap();
+
+    open_queue(&collection_name).await;
+
+    assert!(matches!(
+        finished_at(&collection_name, &id).await,
+        Some(mongodb::bson::Bson::DateTime(_))
+    ));
+}
+
+#[tokio::test]
+async fn a_completion_arriving_after_the_record_expired_is_a_no_op() {
+    let (queue, collection_name) = test_queue().await;
+    let id = enqueued(&queue).await;
+    queue.mark_ready(&id).await.unwrap();
+    raw_collection(&collection_name)
+        .await
+        .delete_one(doc! { "id": &id })
+        .await
+        .unwrap();
+
+    assert!(queue.mark_ready(&id).await.unwrap().is_none());
+    assert!(queue.status(&id).await.unwrap().is_none());
 }

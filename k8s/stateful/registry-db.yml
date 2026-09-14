@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:17-alpine
+          image: postgres:17.11-alpine
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: pgvector/pgvector:pg17
+          image: pgvector/pgvector:0.8.6-pg17
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

@@ -1,16 +1,6 @@
 module github.com/NickGhignatti/crowd-vision/server/claims-gateway
 
-go 1.25.0
-
-require github.com/NickGhignatti/crowd-vision/server/auth-contracts v0.0.0
-
-require (
-	github.com/MicahParks/jwkset v0.11.3
-	github.com/coreos/go-oidc/v3 v3.19.0
-	github.com/go-chi/chi/v5 v5.3.2
-	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/google/uuid v1.6.0
-)
+go 1.27.1
 
 require (
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
@@ -19,8 +9,14 @@ require (
 )
 
 require (
+	github.com/MicahParks/jwkset v0.11.3
 	github.com/MicahParks/keyfunc/v3 v3.8.2
+	github.com/NickGhignatti/crowd-vision/server/auth-contracts v0.0.0
 	github.com/NickGhignatti/crowd-vision/server/auth-middleware v0.0.0
+	github.com/coreos/go-oidc/v3 v3.19.0
+	github.com/go-chi/chi/v5 v5.3.2
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/google/uuid v1.6.0
 )
 
 replace github.com/NickGhignatti/crowd-vision/server/auth-contracts => ../libs/auth-contracts

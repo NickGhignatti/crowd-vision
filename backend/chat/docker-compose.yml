@@ -5,6 +5,8 @@ services:
       # Repo-root context: the service needs its sibling ../claims-contracts during build.
       context: ../..
       dockerfile: backend/chat/Dockerfile
+      additional_contexts:
+        rust-base: service:rust-base
     environment:
       - MONGO_URI=mongodb://chat-db:27017/chatdb
       - AGENT_URL=http://agent:3000
@@ -14,7 +16,9 @@ services:
 
   chat-db:
     cpus: "3"
-    image: mongo:latest
+    image: mongo:8.3.9
+    # Default cache is half of host RAM per instance; four of them would each claim ~7GB.
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
     volumes:
       - chat-data:/data/db
 

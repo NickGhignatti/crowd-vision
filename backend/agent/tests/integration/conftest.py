@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="session")
 def pg_container():
-    with PostgresContainer("pgvector/pgvector:pg17", dbname="agentdb") as container:
+    with PostgresContainer("pgvector/pgvector:0.8.6-pg17", dbname="agentdb") as container:
         url = container.get_connection_url().replace("postgresql+psycopg2", "postgresql+asyncpg")
         os.environ["POSTGRES_URL"] = url
         yield url

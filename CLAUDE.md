@@ -31,6 +31,7 @@ deps.
 - `.moon/workspace.yml` — every package registered once; moon does task cache + affected detection.
 - `Justfile` + `just/*.just` — command surface, wraps `mise exec -- moon`.
 - `.github/services.json` — single manifest CI reads for lang, image, dockerfile, service deps.
+- `docker/rust-base/` — build-only image every Rust service `FROM`s; `RUST_VERSION` comes from `.mise.toml`.
 
 | Package | Stack | Role |
 |---|---|---|
@@ -90,7 +91,7 @@ cd frontend && mise exec -- npx vitest run src/path/File.spec.ts -t "name"      
 - Node dep: install in the service dir, then regenerate the Linux lockfile
   (`just setup clean-install`, or `npm install --prefix <dir> --package-lock-only --cpu=x64 --os=linux`),
   else CI `npm ci` fails. `cargo add` / `go get` in-dir need no lockfile step.
-- Rust pinned exact in `.mise.toml`; CI reads the same pin, so clippy matches locally. Bumping is a deliberate commit.
+- Rust and Go pinned exact in `.mise.toml`; CI reads the same pins, so clippy and `go vet` match locally. Bumping is a deliberate commit; a Go bump also moves the `golang` tag in the four Go Dockerfiles.
 - New package → register in `.moon/workspace.yml` and `.github/services.json`, and copy a
   same-language sibling's `.zed/settings.json` (Zed reads it from the worktree root only, so
   a package without one loses every LSP setting when opened alone). Rust also joins

@@ -265,7 +265,7 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: prom/prometheus:v3
+          image: prom/prometheus:v3.14.0
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

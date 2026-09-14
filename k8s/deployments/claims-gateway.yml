@@ -17,7 +17,7 @@ spec:
         - name: ghcr-pull-secret
       initContainers:
         - name: wait-for-tenancy
-          image: busybox:1.36
+          image: busybox:1.38.0
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

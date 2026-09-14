@@ -18,14 +18,16 @@ services:
       start_period: 60s
     volumes:
       - contracts-target:/app/backend/dashboard/target
-      - cargo-registry:/usr/local/cargo/registry
+      # Per service: cargo's lock sits outside the registry, so a shared volume lets two
+      # rebuilds unpack the same crate at once and corrupt it.
+      - dashboard-cargo-registry:/usr/local/cargo/registry
 
   dashboard-db:
     ports:
       - "27020:27017"
 
   dashboard-db-express:
-    image: mongo-express:latest
+    image: mongo-express:1.0.2
     environment:
       - ME_CONFIG_MONGODB_URL=mongodb://dashboard-db:27017/
       - ME_CONFIG_MONGODB_PORT=27017
@@ -37,4 +39,4 @@ services:
 
 volumes:
   contracts-target:
-  cargo-registry:
+  dashboard-cargo-registry:

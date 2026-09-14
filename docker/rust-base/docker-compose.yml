@@ -1,0 +1,10 @@
+services:
+  # Build-only: every Rust service FROMs this through build.additional_contexts.
+  # scale 0 keeps `up` from running a toolchain image as a container.
+  rust-base:
+    image: crowd-vision-rust-base
+    scale: 0
+    build:
+      context: .
+      args:
+        RUST_VERSION: ${RUST_VERSION}
