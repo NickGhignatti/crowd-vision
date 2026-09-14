@@ -1,5 +1,5 @@
 # Build context for `context: .` builds (docker-compose.yml, ci-docker).
-# The image runs `npm install` itself, so nothing installed on the host belongs here -
+# The image runs `npm ci` itself, so nothing installed on the host belongs here -
 # a host node_modules is 437MB of the wrong platform's binaries.
 node_modules
 dist
