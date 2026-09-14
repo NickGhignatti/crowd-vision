@@ -329,6 +329,11 @@ Each Rust dev container keeps its own `<service>-cargo-registry` volume. Do not 
 cargo's lock file lives at `CARGO_HOME` root, outside the volume, so two services rebuilding
 at once unpack the same crate into one directory and corrupt it.
 
+The four Go dev containers share `go-mod-cache` (`/go/pkg/mod`) and `go-build-cache`
+(`/root/.cache/go-build`). `air` downloads and compiles at container start, not during the
+image build, so a build-time cache mount would never reach it. Sharing is safe here, unlike
+the cargo registry: Go takes its locks inside the cache directories themselves.
+
 ---
 
 ## Related operations

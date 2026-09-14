@@ -2,6 +2,10 @@ services:
   provisioner:
     build:
       target: dev
+    # Shared on purpose: Go locks inside its own caches, so four services can use them at once.
+    volumes:
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
@@ -15,3 +19,7 @@ services:
           target: /app/server/provisioner
         - action: rebuild
           path: ./go.mod
+
+volumes:
+  go-mod-cache:
+  go-build-cache:
