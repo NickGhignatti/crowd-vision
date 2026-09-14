@@ -72,7 +72,11 @@ async fn main() {
     );
 
     let store = Arc::new(MongoBuildings::new(buildings.clone()));
-    let queue = Arc::new(MongoUploadQueue::from_building_collection(&buildings));
+    let queue = Arc::new(
+        MongoUploadQueue::from_building_collection(&buildings)
+            .await
+            .expect("create upload queue indexes"),
+    );
     let downstream = Arc::new(outbound);
 
     let provisioning = Arc::new(Provisioning::new(

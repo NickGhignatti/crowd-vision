@@ -203,6 +203,9 @@ struct Room {
 
 - The building `id` is generated server-side on `POST /register`; a client-supplied one is ignored. Room ids are client-supplied and come from the uploaded description — they are the only ids a client chooses, and there is no later route to change them.
 - The Mongo collection carries a unique index on `id` and a non-unique index on `domains` (`Building.find({ domains: X })` stays an index seek).
+- The `pending_uploads` queue carries a unique index on `id` (status polls and resolves) and one on `status` + `leased_until` (the worker's claim).
+- Finished uploads get a `finished_at`, and a TTL index removes them an hour later. The record must outlive the browser's status poll (up to 30 s), or a successful upload times out; deleting on completion fails every such poll. MongoDB's TTL sweep runs every 60 s, so removal lags by up to a minute.
+- On startup the queue backfills `finished_at` onto uploads finished before expiry existed; a TTL index never removes a record without its field.
 - No internal database fields (`_id`, a document version, timestamps) leak into API responses — the `Building`/`Room` structs only carry fields a client actually reads.
 
 ---
