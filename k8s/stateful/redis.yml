@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7-alpine
+          image: redis:8.10.1-alpine
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

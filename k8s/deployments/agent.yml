@@ -18,7 +18,7 @@ spec:
       initContainers:
         # agent runs Alembic migrations on startup — DB must be ready first.
         - name: wait-for-db
-          image: busybox:1.36
+          image: busybox:1.38.0
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
@@ -42,7 +42,7 @@ spec:
               ephemeral-storage: "50Mi"
         # agent calls digital-twin internally (the RAG twin tool).
         - name: wait-for-twin
-          image: busybox:1.36
+          image: busybox:1.38.0
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

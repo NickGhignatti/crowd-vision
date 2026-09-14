@@ -3,17 +3,17 @@ include:
 
 services:
   telemetry-db:
-    image: timescale/timescaledb:2.17.2-pg17
+    image: timescale/timescaledb:2.30.0-pg17
     command: ["postgres", "-c", "max_connections=400", "-c", "shared_buffers=256MB"]
     environment:
       - POSTGRES_PASSWORD=telemetry
       - POSTGRES_DB=telemetrydb
 
   telemetry-redis:
-    image: redis:8-alpine
+    image: redis:8.10.1-alpine
 
   telemetry-kafka:
-    image: apache/kafka:3.9.2
+    image: apache/kafka:4.3.1
     environment:
       - KAFKA_NODE_ID=1
       - KAFKA_PROCESS_ROLES=broker,controller

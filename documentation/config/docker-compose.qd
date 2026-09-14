@@ -334,6 +334,20 @@ The four Go dev containers share `go-mod-cache` (`/go/pkg/mod`) and `go-build-ca
 image build, so a build-time cache mount would never reach it. Sharing is safe here, unlike
 the cargo registry: Go takes its locks inside the cache directories themselves.
 
+### Image pins
+
+Every third-party image is pinned to an exact version — no `latest`, no bare major — and the
+same image carries the same tag in compose, test compose, k8s, CI actions and testcontainers.
+A floating tag makes the stack you get depend on the day you pulled it.
+
+- Postgres family stays on **17** (`postgres:17.11-alpine`, `pgvector 0.8.6-pg17`,
+  `timescaledb 2.30.0-pg17`): Postgres 18 cannot open a 17 data directory.
+- TimescaleDB 2.17.2 → 2.30.0 keeps working on existing volumes, because the image still ships
+  the older library. `ALTER EXTENSION timescaledb UPDATE;` moves a database onto 2.30.0.
+- Langfuse 4 needs ClickHouse ≥ 25.12, Postgres ≥ 15 and Redis ≥ 7. It rewrites the v3
+  ClickHouse data model with no rollback, so local v3 trace volumes were dropped, not migrated.
+- `cgr.dev/chainguard/minio` is pinned by digest: Chainguard's free images publish only `latest`.
+
 ---
 
 ## Related operations

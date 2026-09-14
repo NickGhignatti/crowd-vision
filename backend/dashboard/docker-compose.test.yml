@@ -3,10 +3,10 @@ include:
 
 services:
   dashboard-db:
-    image: mongo:7
+    image: mongo:8.3.9
 
   dashboard-redis:
-    image: redis:7-alpine
+    image: redis:8.10.1-alpine
 
   # tunnel.rs needs both -- it resolves a channel from Mongo, then fans out on Redis.
   dashboard-test:

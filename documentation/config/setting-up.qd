@@ -140,7 +140,7 @@ The only interactive prompt in the whole `just stack env` chain is the optional 
 
 #### Langfuse (LLM observability)
 
-`langfuse.sh` generates the self-hosted Langfuse v3 provisioning secrets (`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`, `LANGFUSE_INIT_*`, salt/encryption keys) and the OpenTelemetry exporter config the agent uses to ship traces there. The project and API keys are provisioned headlessly on Langfuse's first boot — nothing to click through. Once the stack is running, the UI is at `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there — see [Docker Compose Orchestration](docker-compose.qd)), logging in with `admin@crowd-vision.local` / `langfuse-admin`.
+`langfuse.sh` generates the self-hosted Langfuse v4 provisioning secrets (`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`, `LANGFUSE_INIT_*`, salt/encryption keys) and the OpenTelemetry exporter config the agent uses to ship traces there. The project and API keys are provisioned headlessly on Langfuse's first boot — nothing to click through. Once the stack is running, the UI is at `http://localhost:3030` (or `http://localhost/langfuse`, which redirects there — see [Docker Compose Orchestration](docker-compose.qd)), logging in with `admin@crowd-vision.local` / `langfuse-admin`.
 
 .box type:{note}
     Unset `OTEL_EXPORTER_OTLP_ENDPOINT` to fall back to compact console span output if you don't need a trace backend for local hacking.

@@ -43,7 +43,7 @@ services:
 
   agent-db:
     cpus: "3"
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:0.8.6-pg17
     environment:
       POSTGRES_USER: agent
       POSTGRES_PASSWORD: agent
@@ -53,7 +53,7 @@ services:
 
   agent-ingester:
     cpus: "3"
-    image: node:20-alpine
+    image: node:24.21.0-alpine
     working_dir: /workspace
     environment:
       - AGENT_URL=http://agent:3000
@@ -69,18 +69,21 @@ services:
 
   redis-langfuse:
     cpus: "3"
-    image: redis:alpine
+    image: redis:8.10.1-alpine
     container_name: langfuse-broker
     restart: always
+    # Langfuse's BullMQ client sends String(REDIS_AUTH), i.e. "undefined", when unset, so the
+    # broker needs a password. noeviction: evicting keys would silently drop queued jobs.
+    command: ["redis-server", "--requirepass", "langfuse-redis", "--maxmemory-policy", "noeviction"]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "langfuse-redis", "--no-auth-warning", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
 
   langfuse-web:
     cpus: "3"
-    image: docker.io/langfuse/langfuse:3
+    image: docker.io/langfuse/langfuse:4.35.0
     container_name: crowd-vision-langfuse
     restart: always
     depends_on: &langfuse-depends-on
@@ -122,7 +125,7 @@ services:
       LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
       REDIS_HOST: redis-langfuse
       REDIS_PORT: "6379"
-      REDIS_AUTH: ""
+      REDIS_AUTH: langfuse-redis
       LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-crowd-vision}
       LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Crowd-Vision}
       LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-agent}
@@ -135,7 +138,7 @@ services:
 
   langfuse-worker:
     cpus: "3"
-    image: docker.io/langfuse/langfuse-worker:3
+    image: docker.io/langfuse/langfuse-worker:4.35.0
     container_name: crowd-vision-langfuse-worker
     restart: always
     depends_on: *langfuse-depends-on
@@ -144,7 +147,7 @@ services:
 
   langfuse-db:
     cpus: "3"
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:0.8.6-pg17
     container_name: crowd-vision-langfuse-db
     restart: always
     environment:
@@ -164,7 +167,7 @@ services:
 
   clickhouse:
     cpus: "3"
-    image: docker.io/clickhouse/clickhouse-server
+    image: docker.io/clickhouse/clickhouse-server:26.8.2
     container_name: crowd-vision-clickhouse
     restart: always
     user: "101:101"
@@ -184,7 +187,7 @@ services:
 
   minio:
     cpus: "3"
-    image: cgr.dev/chainguard/minio
+    image: cgr.dev/chainguard/minio@sha256:4d397a26fe49d7f9ed39b8b566534848936f7efa50ab6328ac97b2a44eeabf4c
     container_name: crowd-vision-minio
     restart: always
     entrypoint: sh

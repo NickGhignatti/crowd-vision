@@ -18,5 +18,5 @@ runs:
           -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
           -e KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0 \
           -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true \
-          apache/kafka:3.9.2
+          apache/kafka:4.3.1
         until docker exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list; do sleep 2; done

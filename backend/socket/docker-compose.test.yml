@@ -3,7 +3,7 @@ include:
 
 services:
   redis:
-    image: redis:alpine
+    image: redis:8.10.1-alpine
 
   socket-test:
     build:

@@ -16,7 +16,7 @@ services:
 
   tenancy-db:
     cpus: "3"
-    image: postgres:17-alpine
+    image: postgres:17.11-alpine
     environment:
       POSTGRES_USER: tenancy
       POSTGRES_PASSWORD: ${TENANCY_DB_PASSWORD}

@@ -21,7 +21,7 @@ func newTestStore(t *testing.T) *store.Postgres {
 	t.Helper()
 	ctx := context.Background()
 
-	container, err := tcpostgres.Run(ctx, "postgres:17-alpine",
+	container, err := tcpostgres.Run(ctx, "postgres:17.11-alpine",
 		tcpostgres.WithDatabase("registry_test"),
 		tcpostgres.WithUsername("test"),
 		tcpostgres.WithPassword("test"),

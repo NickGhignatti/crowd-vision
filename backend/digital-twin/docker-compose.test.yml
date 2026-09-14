@@ -3,7 +3,7 @@ include:
 
 services:
   twin-db:
-    image: mongo:7
+    image: mongo:8.3.9
 
   digital-twin-test:
     build:

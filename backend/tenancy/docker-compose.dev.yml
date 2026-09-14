@@ -25,7 +25,7 @@ services:
       - "5433:5432"
 
   tenancy-db-adminer:
-    image: adminer:latest
+    image: adminer:6.0.1
     environment:
       - ADMINER_DEFAULT_SERVER=tenancy-db
     depends_on:

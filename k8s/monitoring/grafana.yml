@@ -30,7 +30,7 @@ spec:
       imagePullSecrets: []
       containers:
         - name: grafana
-          image: grafana/grafana:11.0.0
+          image: grafana/grafana:13.2.1
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

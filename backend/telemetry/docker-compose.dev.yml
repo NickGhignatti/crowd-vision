@@ -21,7 +21,7 @@ services:
       - "5432:5432"
 
   telemetry-db-gui:
-    image: sosedoff/pgweb:latest
+    image: sosedoff/pgweb:0.17.0
     environment:
       - PGWEB_DATABASE_URL=postgres://telemetry:telemetry@telemetry-db:5432/telemetrydb?sslmode=disable
       - PGWEB_PREFIX=telemetry-db-gui
