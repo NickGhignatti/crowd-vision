@@ -13,7 +13,7 @@
   "$defs": {
     "metric": {
       "type": "object",
-      "required": ["kind", "label", "interface", "unit", "fields"],
+      "required": ["kind", "label", "interface", "unit", "value", "fields"],
       "additionalProperties": false,
       "properties": {
         "kind": {
@@ -26,6 +26,11 @@
         "unit": {
           "type": ["string", "null"],
           "description": "Null, not absent, when a metric is unitless -- serde skips nothing here."
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the payload field holding the reading, one of this metric's fields. Not always kind: airQuality reads indoor_aqi. Every producer sends it; the crate still defaults it to empty when parsing, so a lagging source is not skipped."
         },
         "fields": { "type": "array", "items": { "$ref": "#/$defs/field" } },
         "actions": {

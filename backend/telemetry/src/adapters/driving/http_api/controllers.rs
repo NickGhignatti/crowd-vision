@@ -134,6 +134,7 @@ pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<ServiceMetric
                 label: descriptor.label.to_owned(),
                 interface: descriptor.interface_name.to_owned(),
                 unit: descriptor.unit.map(str::to_owned),
+                value: descriptor.value_field.to_owned(),
                 fields: descriptor
                     .fields
                     .iter()

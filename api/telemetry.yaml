@@ -207,6 +207,7 @@ components:
               label: { type: string, example: "Temperature" }
               interface: { type: string, example: "ITemperature" }
               unit: { type: [string, "null"], example: "C" }
+              value: { type: string, description: "Payload field holding the reading, one of fields", example: "indoor_aqi" }
               fields:
                 type: array
                 items:

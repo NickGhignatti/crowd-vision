@@ -44,6 +44,22 @@ fn the_wire_names_are_the_single_words_the_frontend_reads() {
     assert_eq!(metric["actions"][0]["parameters"][0]["type"], "Finite");
 }
 
+// The key and the field holding the reading differ (`airQuality` reads `indoor_aqi`), so a
+// client cannot guess it; a `value` naming no declared field would render an empty column.
+#[test]
+fn every_metric_value_names_one_of_its_own_fields() {
+    let catalog: ServiceMetricsContract = serde_json::from_str(FIXTURE).expect("fixture parses");
+
+    for metric in &catalog.metrics {
+        assert!(
+            metric.fields.iter().any(|field| field.name == metric.value),
+            "{} reads `{}`, which it does not declare",
+            metric.kind,
+            metric.value
+        );
+    }
+}
+
 // A unitless metric sends null rather than omitting the key, so a client can tell
 // "no unit" from "this producer is too old to send one".
 #[test]

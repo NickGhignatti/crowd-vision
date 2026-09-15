@@ -17,6 +17,8 @@ It now carries three contracts, each one a place where the same class of failure
 
 The original contract, unchanged: serde structs both services build from, with `rename_all = "camelCase"` and field names that `frontend/src/models/table.ts` also reads. The rule that came out of the incident is the one every module here follows — **the producer builds the struct; nobody hand-rolls `json!` for a shape another service parses.**
 
+- `value` names the payload field holding a metric's reading, and must be one of its `fields`. It is not always `kind`: `airQuality` reads `indoor_aqi`, twin's `roomName` reads `name`. Here it is a field *name*; on a `TelemetryReading` `value` is the number itself.
+
 The seam is covered by a test that lives on the producing side: `telemetry/tests/api.rs::the_catalog_deserialises_into_the_shape_dashboard_parses`.
 
 ---

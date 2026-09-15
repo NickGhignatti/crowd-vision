@@ -30,6 +30,14 @@ fn the_schema_refuses_a_metric_without_a_unit() {
     assert!(!validator().is_valid(&fixture));
 }
 
+#[test]
+fn the_schema_refuses_a_metric_without_a_value() {
+    let mut fixture = fixture();
+    metric(&mut fixture).remove("value");
+
+    assert!(!validator().is_valid(&fixture));
+}
+
 // The old names are the drift that emptied the dashboard catalog; they must not validate.
 #[test]
 fn the_schema_refuses_the_pre_rename_field_names() {

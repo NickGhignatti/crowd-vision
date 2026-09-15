@@ -406,7 +406,7 @@ components:
 
     MetricContract:
       type: object
-      required: [kind, label, interface, fields]
+      required: [kind, label, interface, value, fields]
       properties:
         kind:
           type: string
@@ -419,6 +419,10 @@ components:
           example: "IRoom"
         unit:
           type: string
+        value:
+          type: string
+          description: Payload field holding the reading, one of `fields`.
+          example: "name"
         fields:
           type: array
           items:
