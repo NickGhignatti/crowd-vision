@@ -309,7 +309,8 @@ jobs:
       - notification-schema
       - dashboard
       - agent
-    if: needs.changes.outputs.has_images == 'true'
+    # A skipped `needs` job skips this one too, and some leg is skipped on nearly every PR.
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && needs.changes.outputs.has_images == 'true' }}
     permissions:
       contents: read
       packages: write

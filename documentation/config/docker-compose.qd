@@ -46,6 +46,7 @@ pinned prebuilt `cargo-chef` and `cargo-watch` binaries, and sets `RUSTFLAGS`.
 - The tool tarballs are checksum-pinned. `cargo install` pins each tool's own lockfile but not its version, so two developers got different `cargo-watch` builds.
 - `RUST_VERSION` comes from the single pin in `.mise.toml`: `scripts/env/rust.sh` rewrites it into `.env` on every `just stack` run.
 - The per-service integration runners and the acceptance runner export `RUST_VERSION` themselves — they compose standalone projects that never read the root `.env`.
+- Outside Compose, `cd-registry` publishes it to GHCR and hands it to buildx as a named context — see [CI/CD Pipeline](../contributing/cicd.qd).
 
 A cold build of every image (`docker builder prune -af` first) went from **1576s to
 794s**. `cargo install` of the two tools accounted for 3746 of the 10430 step-seconds
