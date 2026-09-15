@@ -1,4 +1,4 @@
-import { shallowRef, computed, watch, type Ref } from 'vue'
+import { shallowRef, computed, watch, onScopeDispose, type Ref } from 'vue'
 import { useSensorDataStore, type SensorType, type SensorBucket } from '@/stores/sensorData.ts'
 import type { ApiDataPoint } from './useSensorData.ts'
 
@@ -34,5 +34,42 @@ export function useBuildingSensor(
     data: computed<ApiDataPoint[]>(() => bucket.value?.data.value ?? []),
     isLoading: computed(() => bucket.value?.isLoading.value ?? false),
     error: computed(() => bucket.value?.error.value ?? null),
+  }
+}
+
+/** Subscribes to a changing set of one building's metrics, keyed by metric in `readings`. */
+export function useBuildingReadings(
+  buildingId: Ref<string | undefined>,
+  kinds: Readonly<Ref<string[]>>,
+): { readings: Ref<Record<string, ApiDataPoint[]>>; isLoading: Ref<boolean> } {
+  const store = useSensorDataStore()
+  const buckets = shallowRef<Record<string, SensorBucket>>({})
+  let held: { id: string; types: string[] } | null = null
+
+  // Acquire the new set before releasing the old, so a metric in both keeps its bucket instead of refetching.
+  watch(
+    [buildingId, () => kinds.value.join('|')],
+    ([id]) => {
+      const types = id ? [...kinds.value] : []
+      const next = Object.fromEntries(types.map((type) => [type, store.acquire(id!, type)]))
+      const previous = held
+      previous?.types.forEach((type) => store.release(previous.id, type))
+      held = id ? { id, types } : null
+      buckets.value = next
+    },
+    { immediate: true },
+  )
+
+  onScopeDispose(() => held?.types.forEach((type) => store.release(held!.id, type)))
+
+  return {
+    readings: computed(() =>
+      Object.fromEntries(
+        Object.entries(buckets.value).map(([type, bucket]) => [type, bucket.data.value]),
+      ),
+    ),
+    isLoading: computed(() =>
+      Object.values(buckets.value).some((bucket) => bucket.isLoading.value),
+    ),
   }
 }

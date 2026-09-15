@@ -141,6 +141,9 @@ The server holds no memory of which rooms a reconnected socket was in — a fres
 
 **File:** `frontend/src/composables/building/useBuildingSensor.ts`
 
+- `useBuildingReadings` (same file) holds a *changing set* of metrics: the dashboard table subscribes to whatever its columns show, so a new plugin's column fills with no frontend change.
+- It acquires the new set before releasing the old, so a metric kept across a column edit reuses its bucket instead of refetching.
+
 ```typescript
 export function useBuildingSensor(buildingId: Ref<string | undefined>, type: SensorType) {
   const store = useSensorDataStore()

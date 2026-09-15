@@ -1,6 +1,7 @@
 import type { ApiDataPoint } from '@/composables/building/useSensorData.ts'
 
-export type SensorType = 'peopleCount' | 'temperature' | 'airQuality'
+// Any metric a telemetry plugin registers; the catalog, not this file, says which exist.
+export type SensorType = string
 
 export type TelemetryReading = ApiDataPoint & { type: string }
 
