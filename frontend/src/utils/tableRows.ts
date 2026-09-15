@@ -41,7 +41,7 @@ export function buildRows(
       row[header.key] = value == null ? '--' : round(value)
     }
     const people = byRoom.get(PEOPLE)?.get(room.roomId)?.value ?? 0
-    row.status = getStatusByOccupants(people, Number(room.capacity) || 0)
+    row.status = getStatusByOccupants(people, room.roomMaxOccupancy)
     return row
   })
 }

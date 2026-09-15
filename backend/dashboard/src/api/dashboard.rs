@@ -151,7 +151,6 @@ mod tests {
             label: format!("Label {}", kind),
             interface: interface.to_string(),
             unit: None,
-            value: kind.to_string(),
             fields: vec![],
             actions: vec![],
             source: Some(source.to_string()),

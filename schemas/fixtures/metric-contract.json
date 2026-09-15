@@ -6,7 +6,6 @@
       "label": "Temperature",
       "interface": "ITemperature",
       "unit": "C",
-      "value": "temperature",
       "source": "telemetry",
       "fields": [
         { "name": "buildingId", "type": "NonEmptyString", "required": true },
@@ -37,7 +36,6 @@
       "label": "People Count",
       "interface": "IPeopleCount",
       "unit": "people",
-      "value": "peopleCount",
       "source": "telemetry",
       "fields": [
         { "name": "buildingId", "type": "NonEmptyString", "required": true },
@@ -52,7 +50,6 @@
       "label": "Air Quality",
       "interface": "IAirQuality",
       "unit": null,
-      "value": "indoor_aqi",
       "source": "telemetry",
       "fields": [
         { "name": "buildingId", "type": "NonEmptyString", "required": true },
@@ -75,7 +72,6 @@
       "label": "Total Device Count",
       "interface": "ITotalDeviceCount",
       "unit": "devices",
-      "value": "totalDeviceCount",
       "source": "telemetry",
       "fields": [
         { "name": "buildingId", "type": "NonEmptyString", "required": true },
@@ -90,7 +86,6 @@
       "label": "Estimated People Count",
       "interface": "IRatioDeviceCount",
       "unit": "people",
-      "value": "ratioDeviceCount",
       "source": "telemetry",
       "fields": [
         { "name": "buildingId", "type": "NonEmptyString", "required": true },

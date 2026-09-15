@@ -1,19 +1,6 @@
 import type { TableHeader } from '@/models/table.ts'
 import type { MetricContract } from '@/models/table.ts'
 
-export const METRIC_DATA_KEY: Record<string, string> = {
-  roomName: 'room',
-  roomMaxOccupancy: 'capacity',
-  peopleCount: 'people',
-  temperature: 'temp',
-  airQuality: 'indoorAqi',
-  status: 'status',
-}
-
-export const DATA_METRIC_KEY: Record<string, string> = Object.fromEntries(
-  Object.entries(METRIC_DATA_KEY).map(([mk, dk]) => [dk, mk]),
-)
-
 export const METRIC_I18N_KEY: Record<string, string> = {
   roomName: 'model.rooms.editRoom.name',
   roomMaxOccupancy: 'dashboard.table.headers.capacity',
@@ -22,13 +9,6 @@ export const METRIC_I18N_KEY: Record<string, string> = {
   airQuality: 'dashboard.table.headers.indoorAqi',
   status: 'dashboard.table.headers.status',
 }
-
-export const DEFAULT_METRIC_KEYS: string[] = [
-  'roomName',
-  'roomMaxOccupancy',
-  'peopleCount',
-  'temperature',
-]
 
 export const METRIC_CELL_CLASS: Record<string, string> = {
   roomName: 'font-medium text-slate-900',
@@ -39,7 +19,7 @@ export const METRIC_CELL_CLASS: Record<string, string> = {
 
 /** Builds a TableHeader from a raw metric key string (as stored in dashboard preferences). */
 export const metricKeyToHeader = (metricKey: string): TableHeader => ({
-  key: METRIC_DATA_KEY[metricKey] ?? metricKey,
+  key: metricKey,
   metricKey,
   label: METRIC_I18N_KEY[metricKey] ?? metricKey,
   ...(METRIC_CELL_CLASS[metricKey] ? { cellClass: METRIC_CELL_CLASS[metricKey] } : {}),
@@ -47,21 +27,19 @@ export const metricKeyToHeader = (metricKey: string): TableHeader => ({
 
 export const headerId = (h: TableHeader): string => h.metricKey ?? h.key
 
-/** Names the payload field holding a metric's reading; empty from a source too old to send it. */
-export const valueField = (metric: MetricContract): string => metric.value || metric.kind
-
 export const headerFromMetric = (metric: MetricContract, cellClass?: string): TableHeader => ({
-  key: METRIC_DATA_KEY[metric.kind] ?? metric.kind,
+  key: metric.kind,
   metricKey: metric.kind,
   label: METRIC_I18N_KEY[metric.kind] ?? metric.label,
   ...(cellClass ? { cellClass } : {}),
 })
 
+/** Keys a header by its metric, so it matches the row field `buildRows` fills. */
 export const enrichHeader = (h: TableHeader): TableHeader => {
-  const mk = h.metricKey ?? DATA_METRIC_KEY[h.key]
-  if (!mk) return h
+  const mk = h.metricKey ?? h.key
   return {
     ...h,
+    key: mk,
     metricKey: mk,
     label: METRIC_I18N_KEY[mk] ?? h.label,
   }

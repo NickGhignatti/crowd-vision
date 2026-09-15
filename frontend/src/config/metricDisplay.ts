@@ -32,7 +32,7 @@ export interface MetricDisplay {
  * `getStatusByOccupants`: empty → slate, ≤50% → blue, ≤95% → orange, else red.
  */
 export function percentColor(value: number, row: TableBody): string {
-  const max = Number(row.capacity) || 0
+  const max = row.roomMaxOccupancy || 0
   if (max <= 0 || value <= 0) return '#94A3B8' // slate-400 (empty / unknown)
   const ratio = value / max
   if (ratio <= 0.5) return '#3B82F6' // blue   (normal)
@@ -46,7 +46,7 @@ export const METRIC_DISPLAY: Record<string, MetricDisplay> = {
   peopleCount: {
     renderer: 'bar',
     icon: 'ph-users',
-    range: (row) => ({ min: 0, max: Number(row.capacity) || 0 }),
+    range: (row) => ({ min: 0, max: row.roomMaxOccupancy || 0 }),
     color: percentColor,
   },
   temperature: {

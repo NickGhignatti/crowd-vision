@@ -42,10 +42,6 @@ pub struct MetricContract {
     pub label: String,
     pub interface: String,
     pub unit: Option<String>,
-    /// Payload field holding the reading; not always `kind` (`airQuality` reads `indoor_aqi`).
-    /// Defaulted so a source not yet sending it keeps its metrics instead of being skipped.
-    #[serde(default)]
-    pub value: String,
     pub fields: Vec<MetricFieldContract>,
     #[serde(default)]
     pub actions: Vec<ActionContract>,
@@ -87,7 +83,6 @@ mod tests {
             label: "Temperature".to_owned(),
             interface: "ITemperature".to_owned(),
             unit: Some("C".to_owned()),
-            value: "temperature".to_owned(),
             fields: vec![field("temperature")],
             actions: vec![],
             source: None,
@@ -99,7 +94,6 @@ mod tests {
         let body = serde_json::to_value(metric()).unwrap();
         assert_eq!(body["kind"], "temperature");
         assert_eq!(body["interface"], "ITemperature");
-        assert_eq!(body["value"], "temperature");
         assert_eq!(body["fields"][0]["type"], "Finite");
     }
 
@@ -118,7 +112,6 @@ mod tests {
         });
         let decoded: MetricContract = serde_json::from_value(raw).unwrap();
         assert!(decoded.actions.is_empty());
-        assert!(decoded.value.is_empty());
     }
 
     #[test]

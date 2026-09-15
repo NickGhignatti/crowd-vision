@@ -3,20 +3,13 @@ import type { TableBody, TableHeader } from '@/models/table.ts'
 import { buildRows, sensorKinds } from './tableRows.ts'
 
 const room = (roomId: string, capacity: number): TableBody => ({
-  room: roomId,
   roomId,
+  roomName: roomId,
+  roomMaxOccupancy: capacity,
   status: '',
-  teacher: '',
-  temp: '',
-  people: '0',
-  capacity: String(capacity),
 })
 
-const header = (metricKey: string, key = metricKey): TableHeader => ({
-  key,
-  metricKey,
-  label: metricKey,
-})
+const header = (metricKey: string): TableHeader => ({ key: metricKey, metricKey, label: metricKey })
 
 const reading = (roomId: string, value: number, fields: Record<string, number> = {}) => ({
   roomId,
@@ -27,58 +20,47 @@ const reading = (roomId: string, value: number, fields: Record<string, number> =
 
 describe('sensorKinds', () => {
   it('fetches every telemetry column, including metrics the table has never heard of', () => {
-    expect(sensorKinds([header('temperature', 'temp'), header('totalDeviceCount')])).toEqual(
+    expect(sensorKinds([header('temperature'), header('totalDeviceCount')])).toEqual(
       expect.arrayContaining(['temperature', 'totalDeviceCount']),
     )
   })
 
   it('never fetches what the room itself carries', () => {
-    expect(
-      sensorKinds([
-        header('roomName', 'room'),
-        header('roomMaxOccupancy', 'capacity'),
-        header('status'),
-      ]),
-    ).toEqual(['peopleCount'])
+    expect(sensorKinds([header('roomName'), header('roomMaxOccupancy'), header('status')])).toEqual(
+      ['peopleCount'],
+    )
   })
 
   it('always fetches people count, because status is derived from it', () => {
-    expect(sensorKinds([header('temperature', 'temp')])).toContain('peopleCount')
+    expect(sensorKinds([header('temperature')])).toContain('peopleCount')
   })
 
   it('lists each metric once', () => {
-    expect(sensorKinds([header('peopleCount', 'people')])).toEqual(['peopleCount'])
+    expect(sensorKinds([header('peopleCount')])).toEqual(['peopleCount'])
   })
 })
 
 describe('buildRows', () => {
-  it('fills a column for a metric the table has no mapping for', () => {
+  it('fills a column for any metric, keyed by the metric', () => {
     const [row] = buildRows([room('r1', 10)], [header('totalDeviceCount')], {
       totalDeviceCount: [reading('r1', 7)],
     })
     expect(row!.totalDeviceCount).toBe(7)
   })
 
-  it('writes under the header key, not the metric key', () => {
-    const [row] = buildRows([room('r1', 10)], [header('temperature', 'temp')], {
-      temperature: [reading('r1', 21.5)],
-    })
-    expect(row!.temp).toBe(21.5)
-  })
-
   // Telemetry already copies each plugin's value field into `value`, history and live alike.
   it('reads the reading value, not a plugin field', () => {
-    const [row] = buildRows([room('r1', 10)], [header('airQuality', 'indoorAqi')], {
+    const [row] = buildRows([room('r1', 10)], [header('airQuality')], {
       airQuality: [reading('r1', 42.3, { indoor_aqi: 42.3, co2: 900 })],
     })
-    expect(row!.indoorAqi).toBe(42.3)
+    expect(row!.airQuality).toBe(42.3)
   })
 
   it('rounds a reading to one decimal', () => {
-    const [row] = buildRows([room('r1', 10)], [header('temperature', 'temp')], {
+    const [row] = buildRows([room('r1', 10)], [header('temperature')], {
       temperature: [reading('r1', 21.456)],
     })
-    expect(row!.temp).toBe(21.5)
+    expect(row!.temperature).toBe(21.5)
   })
 
   it('shows a placeholder for a room with no reading yet', () => {
@@ -88,7 +70,7 @@ describe('buildRows', () => {
     expect(row!.ratioDeviceCount).toBe('--')
   })
 
-  it('derives status from the live people count against capacity', () => {
+  it('derives status from the live people count against max occupancy', () => {
     const [row] = buildRows([room('r1', 10)], [header('status')], {
       peopleCount: [reading('r1', 10)],
     })
@@ -101,11 +83,7 @@ describe('buildRows', () => {
   })
 
   it('leaves room columns as the room provided them', () => {
-    const [row] = buildRows(
-      [room('r1', 10)],
-      [header('roomName', 'room'), header('roomMaxOccupancy', 'capacity')],
-      {},
-    )
-    expect(row).toMatchObject({ room: 'r1', capacity: '10' })
+    const [row] = buildRows([room('r1', 10)], [header('roomName'), header('roomMaxOccupancy')], {})
+    expect(row).toMatchObject({ roomName: 'r1', roomMaxOccupancy: 10 })
   })
 })

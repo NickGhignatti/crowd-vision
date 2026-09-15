@@ -86,7 +86,7 @@ Two wire families plus the metric catalog. Consumers: telemetry, dashboard, sock
 - **Channel names are functions, not strings**: `RAW_CHANNEL`, `filtered_channel(building)`,
   `building_of_filtered_channel(channel)`. Topics: `ALERTS_TOPIC`, `ALERTS_DLQ_TOPIC`.
 - **Every metric-catalog field is one word**, so the Rust name *is* the wire name and no
-  `#[serde(rename)]` survives: `kind`, `label`, `interface`, `unit`, `value`, `source`, and `r#type`
+  `#[serde(rename)]` survives: `kind`, `label`, `interface`, `unit`, `source`, and `r#type`
   (the raw identifier serialises as `type`, which a keyword otherwise forces you to rename).
   A multi-word field would reintroduce a rename that only the fixture reads — don't add one.
   This is the drift that once emptied the dashboard catalog at runtime — `key`/`metricKey`,

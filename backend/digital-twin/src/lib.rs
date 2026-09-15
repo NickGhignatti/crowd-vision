@@ -30,7 +30,6 @@ async fn contracts() -> Json<ServiceMetricsContract> {
                 label: "Room Name".to_owned(),
                 interface: "IRoomName".to_owned(),
                 unit: Some("string".to_owned()),
-                value: "name".to_owned(),
                 fields: vec![
                     field("buildingId", "string"),
                     field("roomId", "string"),
@@ -44,7 +43,6 @@ async fn contracts() -> Json<ServiceMetricsContract> {
                 label: "Room Max Occupancy".to_owned(),
                 interface: "IRoomMaxOccupancy".to_owned(),
                 unit: Some("people".to_owned()),
-                value: "maxOccupancy".to_owned(),
                 fields: vec![
                     field("buildingId", "string"),
                     field("roomId", "string"),
