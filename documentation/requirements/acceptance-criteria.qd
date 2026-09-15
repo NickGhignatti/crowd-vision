@@ -67,7 +67,7 @@ Suite: `backend/digital-twin/tests/`. Cucumber features in `tests/features/`, th
 Suite: `backend/acceptance/acceptance/ld4_dashboard_freshness/`, pytest against a composed stack (telemetry, socket, dashboard and their infra), started by `backend/acceptance/run-integration-tests.sh` behind `just test integration`.
 
 - **An ingested reading reaches an open dashboard** — `test_live_update.py`: ingest returns `202`, the subscribed socket client receives a `telemetry` event carrying the same building, room and value. Wire-level; the render step itself is Vue reactivity, not a backend concern.
-- **A reading ingested during an outage is not lost** — `test_reconnect_catchup.py`: a known pre-outage value, disconnect, ingest, reconnect, then assert the *new* value is what the dashboard reads back — so a stale leftover cannot pass. The client half of that recovery is `frontend/src/stores/sensorData.ts`, whose `connect` handler re-subscribes every building and refetches every bucket; `BuildingTable.vue` reaches it through `useBuildingSensor`.
+- **A reading ingested during an outage is not lost** — `test_reconnect_catchup.py`: a known pre-outage value, disconnect, ingest, reconnect, then assert the *new* value is what the dashboard reads back — so a stale leftover cannot pass. The client half of that recovery is `frontend/src/stores/sensorData.ts`, whose `connect` handler re-subscribes every building and refetches every bucket; `BuildingTable.vue` reaches it through `useBuildingReadings`.
 
 **Not yet asserted.** That the UI itself repaints on reconnect — proving it needs a real browser, out of this suite's scope. Separately, this suite has no CI job: it runs only on demand via `just test integration`.
 
