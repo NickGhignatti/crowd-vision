@@ -1,22 +1,45 @@
+export interface ColorBand {
+  /** Exclusive upper bound; the last band has none. */
+  below: number | null
+  color: string
+  key: string
+}
+
+const NO_READING = '#000000'
+
+export const TEMPERATURE_BANDS: ColorBand[] = [
+  { below: 16, color: '#1E3A8A', key: 'cold' },
+  { below: 19, color: '#0EA5E9', key: 'cool' },
+  { below: 24, color: '#10B981', key: 'comfortable' },
+  { below: 27, color: '#F59E0B', key: 'warm' },
+  { below: null, color: '#EF4444', key: 'hot' },
+]
+
+export const AQI_BANDS: ColorBand[] = [
+  { below: 50, color: '#10B981', key: 'good' },
+  { below: 75, color: '#F59E0B', key: 'fair' },
+  { below: 100, color: '#D97706', key: 'moderate' },
+  { below: null, color: '#EF4444', key: 'poor' },
+]
+
+const colorIn = (bands: ColorBand[], value: number) =>
+  bands.find((band) => band.below === null || value < band.below)!.color
+
+/** Each band with the bound it starts at, for a legend. */
+export const bandRanges = (bands: ColorBand[]) =>
+  bands.map((band, index) => ({ ...band, from: bands[index - 1]?.below ?? null, to: band.below }))
+
 export function roomColorStandard(): string {
   return '#e2e8f0'
 }
 
+// Callers pass 0 for a room with no reading, so 0 paints as "no data", not as freezing.
 export function roomColorByTemperature(temperature: number): string {
-  if (temperature == 0.0) return '#000000'
-  if (temperature < 16.0) return '#1E3A8A'
-  if (temperature < 19.0) return '#0EA5E9'
-  if (temperature < 24.0) return '#10B981'
-  if (temperature < 27.0) return '#F59E0B'
-  return '#EF4444'
+  return temperature === 0 ? NO_READING : colorIn(TEMPERATURE_BANDS, temperature)
 }
 
 export function roomColorByAirQuality(iaqi: number): string {
-  if (iaqi == 0.0) return '#000000'
-  if (iaqi < 50.0) return '#10B981' // Green
-  if (iaqi < 75.0) return '#F59E0B' // Orange
-  if (iaqi < 100.0) return '#D97706' // Darker Orange
-  return '#EF4444' // Red
+  return iaqi === 0 ? NO_READING : colorIn(AQI_BANDS, iaqi)
 }
 
 export function roomOpacity(isSelected: boolean): number {

@@ -1,25 +1,26 @@
+import type { Tone } from '@/helpers/tone.ts'
+
+const STATUS = 'dashboard.table.rooms.status'
+
+const TONES: Record<string, Tone> = {
+  [`${STATUS}.empty`]: 'neutral',
+  [`${STATUS}.normal`]: 'success',
+  [`${STATUS}.crowded`]: 'warning',
+  [`${STATUS}.full`]: 'danger',
+  [`${STATUS}.overcrowded`]: 'danger',
+}
+
+const ALERTS = new Set([`${STATUS}.full`, `${STATUS}.overcrowded`])
+
 export function getStatusByOccupants(occupants: number, roomCapacity: number): string {
   const occupantsPercentage = occupants / roomCapacity
-  if (occupantsPercentage === 0.0) return 'dashboard.table.rooms.status.empty'
-  if (occupantsPercentage <= 0.5) return 'dashboard.table.rooms.status.normal'
-  if (occupantsPercentage <= 0.95) return 'dashboard.table.rooms.status.crowded'
-  if (occupantsPercentage <= 1.0) return 'dashboard.table.rooms.status.full'
-  return 'dashboard.table.rooms.status.overcrowded'
+  if (occupantsPercentage === 0.0) return `${STATUS}.empty`
+  if (occupantsPercentage <= 0.5) return `${STATUS}.normal`
+  if (occupantsPercentage <= 0.95) return `${STATUS}.crowded`
+  if (occupantsPercentage <= 1.0) return `${STATUS}.full`
+  return `${STATUS}.overcrowded`
 }
 
-export function getStatusColor(statusKey: string) {
-  if (!statusKey) return ''
-  switch (statusKey) {
-    case 'dashboard.table.rooms.status.empty':
-      return 'text-emerald-600 font-semibold'
-    case 'dashboard.table.rooms.status.normal':
-      return 'text-blue-600'
-    case 'dashboard.table.rooms.status.crowded':
-      return 'text-orange-600'
-    case 'dashboard.table.rooms.status.full':
-      return 'text-red-600 font-semibold'
-    default:
-      return 'text-red-600 font-semibold'
-  }
-}
+export const statusTone = (statusKey: string): Tone => TONES[statusKey] ?? 'neutral'
 
+export const isAlertStatus = (statusKey: string): boolean => ALERTS.has(statusKey)

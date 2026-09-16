@@ -1,4 +1,6 @@
 import type { Domain, DomainMembership } from '@/models/domain.ts'
+import type { UnifiedDomainGroup } from '@/interfaces/domain.ts'
+import { canManageDomain } from '@/helpers/roles.ts'
 
 export interface MembershipWire {
   domain: string
@@ -25,3 +27,38 @@ export const createDomainRequest = (name: string, isPublic: boolean) => ({
 })
 
 export const joinRequest = (role: string) => ({ role })
+
+const DOMAIN_NAME = /^(?!:\/\/)([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,11}?$/
+
+/** The full name a new domain gets: `main.master`, or whichever part is given. */
+export const composeDomainName = (main: string, master: string): string =>
+  [main, master].filter(Boolean).join('.')
+
+export const isValidDomainName = (name: string): boolean => DOMAIN_NAME.test(name)
+
+/**
+ * Domains the user can manage, each with its subdomains. A managed domain that is itself a
+ * subdomain of another is already nested there; names compare case-insensitively.
+ */
+export function managedDomainGroups(
+  memberships: DomainMembership[],
+  subdomainsByDomain: Record<string, string[]>,
+): UnifiedDomainGroup[] {
+  const managed = memberships.filter((m) => canManageDomain(m.role))
+  const names = managed.map((m) => m.domainName.toLowerCase())
+  const isNested = (name: string) =>
+    names.some((other) => other !== name.toLowerCase() && name.toLowerCase().endsWith(`.${other}`))
+
+  return managed
+    .filter((m) => !isNested(m.domainName))
+    .map((m) => ({
+      name: m.domainName,
+      role: m.role,
+      canUpload: true,
+      subdomains: (subdomainsByDomain[m.domainName] ?? []).map((name) => ({
+        name,
+        displayName: name.replace(`.${m.domainName}`, ''),
+      })),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}

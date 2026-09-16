@@ -1,0 +1,71 @@
+.docname {Frontend Architecture}
+.include {docs}
+
+**Package:** `frontend/` · **Stack:** Vue 3 / Vite / Tailwind CSS v4 / TresJS / vue-i18n
+
+The frontend is one SPA. It is organised by **feature first, role second**: a folder per page, and inside it a folder per job the components do. Shared building blocks live in `commons/`.
+
+---
+
+## Layout
+
+.var {layout}
+   - Path
+   - Holds
+
+.tablebyrows {.layout}
+    - - `views/<feature>/`
+      - One routed page per feature: `homepage`, `dashboard`, `digital-twin`, `domains`, `administration`, `auth`
+    - - `components/<feature>/<role>/`
+      - That page's parts, e.g. `dashboard/{header,kpi,table,charts}`, `digital-twin/{scene,controls,buildings,rooms,modals}`
+    - - `components/commons/`
+      - `base` (buttons, badges, cards), `forms`, `overlays` (modal, popover), `layout` (app shell, nav bar), `navigation`, `account`, `chat`, `notifications`, `data` (pagination, clock)
+    - - `composables/`
+      - Stateful logic by concern: `auth`, `building`, `chat`, `core`, `domains`, `notification`, `scene`, `ui`
+    - - `utils/`, `helpers/`
+      - Pure logic, unit-tested beside the file it covers
+    - - `router/routes.ts`
+      - Every path, read by the router and the nav links
+
+- A feature imports `commons/` freely. It imports another feature only for a part that feature owns: administration reuses `domains/modals/CreateDomainModal.vue` and `domains/badges/RoleBadge.vue`.
+- Views compose; they hold no markup a child could own. Every view except the homepage loads lazily.
+- Logic that needs no `ref` goes in `utils/`, so it is unit-tested (dashboard summary, pagination window, chart timeline, building grouping, floor-plan preview extent, colour bands). Components stay untested and are covered by `e2e/` and `backend/acceptance/`.
+
+## Design System
+
+Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
+
+- `:root` holds the light palette, and `.dark` overrides the same `--cv-*` variables.
+- `@theme inline` exposes them as Tailwind colours: `bg-surface-container-low`, `text-on-surface-variant`, `bg-primary`, …
+- Components use roles only, never a palette step like `emerald-600`. A new theme is therefore one CSS block.
+- Sections separate by tone, spacing and shadow, not by divider lines: tables use zebra rows with rounded ends, and modals have no header or footer rules.
+
+.var {tokens}
+   - Token
+   - Use
+
+.tablebyrows {.tokens}
+    - - `text-display-clock` … `text-label-header`
+      - Type scale; Inter, tabular figures
+    - - `surface-card`
+      - Card surface: large radius, `shadow-soft`, faint ring; no drawn border
+    - - `shadow-soft`, `shadow-lift`
+      - Resting cards; popovers, modals and hovered cards
+    - - `field`
+      - Every text input and select
+    - - `Tone` (`helpers/tone.ts`)
+      - Semantic colour a helper returns (`statusTone`, `getRoleMeta`, `SEVERITY_TONE`); `BaseBadge` and `StatusDot` map it to roles
+
+- The theme is `light`, `dark` or `system`. It is stored in `localStorage['theme']`, and `useTheme` toggles `.dark` on `<html>`.
+- Chart.js and the 3D canvas cannot read CSS variables. `useChartTheme` resolves them to literals again after each theme change, and `BuildingScene` swaps its clear colour.
+- Icons are Phosphor, rendered through `BaseIcon`, which takes the name without the `ph-` prefix.
+- Data-viz colours stay literal: temperature and air-quality bands (`helpers/colors.ts`) and QR codes, because their meaning must not change with the theme.
+
+## Shell
+
+- `App.vue` mounts `RouterView` plus three app-wide overlays: `AuthDialogs`, `PushNotificationPrompt` and `ChatWidget`.
+- `AppLayout` renders `TopNavBar`, and its `variant` sets the page body: `page` pads and centres it, `fill` gives the 3D twin the whole viewport, and `bare` lets the homepage lay out its own full-width sections.
+- The login, sign-up and settings dialogs are one module-level state (`useAuthDialog`). A locked nav link, the bar and the mobile menu all open the same one.
+
+.box {Popovers dismiss themselves} type:{note}
+    `PopoverMenu` closes on a pointer press outside it or on Escape (`useDismiss`). A popover inside a clickable card still needs `@click.stop` on the menu, or the card handles the click too.

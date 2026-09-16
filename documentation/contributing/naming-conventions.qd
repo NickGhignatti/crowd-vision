@@ -130,6 +130,10 @@ Every Node service follows the same internal layout, so the file you want is alw
       - `PascalCase` with a `View` suffix
       - `DashboardView.vue`, `AdministrationView.vue`
       - `Dashboard.vue`
+    - - Folders under `views/` and `components/`
+      - `kebab-case`, one per feature, then one per role; shared parts in `components/commons/`
+      - `components/digital-twin/scene/`, `components/commons/forms/`
+      - `components/modals/` (grouping by widget type)
     - - Composables
       - `camelCase`, prefixed `use`
       - `useBuildingModel.ts`, `useAuth.ts`, `useSceneControls.ts`

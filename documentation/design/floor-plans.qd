@@ -12,11 +12,10 @@ For the registration flow this feeds, see [Digital Twin Service Architecture](..
 
 ## The Seam
 
-The format decision lives in one place — `frontend/src/components/modals/creation/RegisterBuildingModal.vue`:
+The format decision lives in one place — `frontend/src/components/administration/registration/RegisterBuildingModal.vue`:
 
 ```typescript
-const raw = JSON.parse(await file.text())
-loadFromJson(raw)
+loadFromJson(JSON.parse(await file.text()))
 ```
 
 Everything downstream of `loadFromJson` is already format-agnostic: the draft, the per-room editor cards, the threshold sliders, the sensor drafts, and `submit()` posting to `/twin/register`. A floor plan becomes a second way to produce the same `BuildingDraft`.
@@ -26,8 +25,8 @@ Everything downstream of `loadFromJson` is already format-agnostic: the draft, t
    - Changes?
 
 .tablebyrows {.seam}
-    - - `handleFileSelected` — picks a parser by file type
-      - **yes, one branch**
+    - - `SourcePicker` — one tile per format; JSON or plans
+      - **yes, one tile**
     - - calibration and per-storey upload rows
       - **yes, new**
     - - extraction — drawing to `BuildingDraft`
@@ -363,11 +362,11 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
     - - draft shape, unchanged
       - `composables/building/useBuildingDraft.ts`
     - - the seam — format choice, calibration, warnings
-      - `components/modals/creation/RegisterBuildingModal.vue`
+      - `components/administration/registration/{RegisterBuildingModal,PlanCalibration}.vue`
     - - one upload row per storey
-      - `components/modals/creation/PlanUploadModal.vue`
+      - `components/administration/registration/PlanUploadModal.vue`
     - - review before submitting — one plan view per floor
-      - `components/modals/creation/BuildingPreviewModal.vue`
+      - `components/administration/registration/BuildingPreviewModal.vue`, geometry in `utils/building/floorplan/preview.ts`
 
 `draft.ts` names no format and `svg.ts` names no Vue symbol. That split is what phase 5 reuses:
 DXF adds a reader beside `svg.ts` and touches nothing else.

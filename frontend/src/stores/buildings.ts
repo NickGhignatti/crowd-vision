@@ -2,6 +2,16 @@ import { defineStore } from 'pinia'
 import { makeRequest } from '@/composables/core/useApi.ts'
 import type { Building } from '@/models/building'
 import type { DomainMembership } from '@/models/domain'
+import {
+  buildingTemperaturePatch,
+  roomTemperaturePatch,
+  type ThresholdPatch,
+} from '@/utils/thresholds.ts'
+
+async function patchThreshold({ path, body }: ThresholdPatch): Promise<void> {
+  const res = await makeRequest(path, 'PATCH', { body: JSON.stringify(body) })
+  if (!res.ok) throw new Error(`Failed to update threshold: ${res.status}`)
+}
 
 const PROVISIONING_POLL_MS = 500
 const PROVISIONING_TIMEOUT_MS = 30_000
@@ -110,14 +120,7 @@ export const useBuildingsStore = defineStore('buildings', {
     // read-only afterwards; its alert threshold is telemetry's, not the twin's,
     // so it stays writable.
     async updateRoomThreshold(buildingId: string, roomId: string, maxTemperature: number) {
-      const res = await makeRequest(
-        `/telemetry/thresholds/buildings/${buildingId}/rooms/${roomId}`,
-        'PATCH',
-        { body: JSON.stringify({ maxTemperature }) },
-      )
-      if (!res.ok) {
-        throw new Error('Failed to update room threshold')
-      }
+      await patchThreshold(roomTemperaturePatch(buildingId, roomId, maxTemperature))
 
       for (const domain in this.byDomain) {
         const room = this.byDomain[domain]
@@ -127,13 +130,18 @@ export const useBuildingsStore = defineStore('buildings', {
       }
     },
 
+    // The name is the twin's; the alert bound is telemetry's, and only telemetry raises alerts.
     async updateBuildingConfig(buildingId: string, updates: Partial<Building>) {
+      const { maxTemperature, ...twinUpdates } = updates
       const res = await makeRequest(`/twin/building/${buildingId}`, 'PATCH', {
-        body: JSON.stringify(updates),
+        body: JSON.stringify(twinUpdates),
       })
 
       if (!res.ok) {
         throw new Error('Failed to update building geometry')
+      }
+      if (typeof maxTemperature === 'number') {
+        await patchThreshold(buildingTemperaturePatch(buildingId, maxTemperature))
       }
 
       // Automatically sync the store state with the new updates

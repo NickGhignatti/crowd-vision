@@ -11,10 +11,10 @@ export const METRIC_I18N_KEY: Record<string, string> = {
 }
 
 export const METRIC_CELL_CLASS: Record<string, string> = {
-  roomName: 'font-medium text-slate-900',
-  temperature: 'text-slate-900 font-medium',
-  roomMaxOccupancy: 'text-slate-900 font-medium',
-  peopleCount: 'text-slate-900',
+  roomName: 'min-w-48',
+  temperature: 'whitespace-nowrap',
+  roomMaxOccupancy: 'tabular-nums',
+  peopleCount: 'min-w-44',
 }
 
 /** Builds a TableHeader from a raw metric key string (as stored in dashboard preferences). */

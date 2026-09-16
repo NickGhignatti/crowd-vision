@@ -2,63 +2,55 @@ import type { TableBody } from '@/models/table.ts'
 import { roomColorByTemperature, roomColorByAirQuality } from '@/helpers/colors.ts'
 
 /**
- * Per-metric display registry.
- *
- * The table doesn't know how any sensor renders — each metric *declares* it here,
- * keyed by `metricKey`. Adding a sensor means adding one entry (and a new cell
- * component only if a genuinely new visual is needed), never touching the table or
- * the view. This mirrors the backend sensor microkernel ("add a module, don't touch
- * the core") and keeps the dashboard Open/Closed.
+ * Per-metric display registry: each metric declares how its cell renders, keyed by
+ * `metricKey`, so a new sensor adds an entry here and never touches the table.
  */
 
-export type Renderer = 'text' | 'bar' | 'gauge' | 'pill'
+export type Renderer = 'text' | 'room' | 'bar' | 'gauge' | 'pill'
 
 export interface MetricDisplay {
   renderer: Renderer
-  /** Phosphor icon class, e.g. 'ph-thermometer'. */
+  /** Phosphor icon name, e.g. 'thermometer'. */
   icon?: string
   /** Unit suffix appended after the value, e.g. '°C'. */
   unit?: string
   /** Numeric range for 'bar'; max usually comes from the row (e.g. capacity). */
   range?: (row: TableBody) => { min: number; max: number }
-  /** Fill/tint colour. Pluggable so it can be %-based OR threshold-based. */
+  /** Fill/tint colour, any CSS colour. */
   color?: (value: number, row: TableBody) => string
   /** Optional text formatter for 'text'. */
   format?: (value: unknown) => string
 }
 
-/**
- * Fill colour for occupancy bars, aligned with the occupancy status bands in
- * `getStatusByOccupants`: empty → slate, ≤50% → blue, ≤95% → orange, else red.
- */
+/** Occupancy bar fill, on the same bands as `getStatusByOccupants`. */
 export function percentColor(value: number, row: TableBody): string {
   const max = row.roomMaxOccupancy || 0
-  if (max <= 0 || value <= 0) return '#94A3B8' // slate-400 (empty / unknown)
+  if (max <= 0 || value <= 0) return 'var(--cv-outline)'
   const ratio = value / max
-  if (ratio <= 0.5) return '#3B82F6' // blue   (normal)
-  if (ratio <= 0.95) return '#F97316' // orange (crowded)
-  return '#EF4444' // red (full / over)
+  if (ratio <= 0.5) return 'var(--cv-primary)'
+  if (ratio <= 0.95) return 'var(--cv-warning)'
+  return 'var(--cv-error)'
 }
 
 export const METRIC_DISPLAY: Record<string, MetricDisplay> = {
-  roomName: { renderer: 'text' },
-  roomMaxOccupancy: { renderer: 'text' },
+  roomName: { renderer: 'room' },
+  roomMaxOccupancy: { renderer: 'text', icon: 'chair' },
   peopleCount: {
     renderer: 'bar',
-    icon: 'ph-users',
+    icon: 'users',
     range: (row) => ({ min: 0, max: row.roomMaxOccupancy || 0 }),
     color: percentColor,
   },
   temperature: {
     renderer: 'gauge',
-    icon: 'ph-thermometer',
+    icon: 'thermometer',
     unit: '°C',
     color: (v) => roomColorByTemperature(v),
   },
   airQuality: {
     renderer: 'gauge',
-    icon: 'ph-wind',
-    unit: '',
+    icon: 'wind',
+    unit: ' AQI',
     color: (v) => roomColorByAirQuality(v),
   },
   status: { renderer: 'pill' },
