@@ -4,6 +4,7 @@ import FullscreenModeButton from '@/components/buttons/FullscreenModeButton.vue'
 import type { Room } from '@/models/building'
 import ModelDropdown from '@/components/dropdowns/ModelDropdown.vue'
 import BuildingTable from '@/components/tables/BuildingTable.vue'
+import { metricKeyToHeader } from '@/utils/metrics.ts'
 import type { TableBody, TableHeader } from '@/models/table.ts'
 
 import { onMounted, onUnmounted, ref } from 'vue'
@@ -34,10 +35,7 @@ const isFullscreen = ref(false)
 // Data State
 const roomData = ref<TableBody[]>([]) // Processed data for Table
 
-const tableHeaders = ref<TableHeader[]>([
-  { key: 'room',     metricKey: 'roomName',         label: 'model.rooms.editRoom.name',        cellClass: 'font-medium text-slate-900' },
-  { key: 'capacity', metricKey: 'roomMaxOccupancy',  label: 'dashboard.table.headers.capacity', cellClass: 'text-slate-900 font-medium' },
-])
+const tableHeaders = ref<TableHeader[]>(['roomName', 'roomMaxOccupancy'].map(metricKeyToHeader))
 
 const fetchRoomsByBuilding = async (buildingId: string) => {
   try {
@@ -49,13 +47,10 @@ const fetchRoomsByBuilding = async (buildingId: string) => {
       building.rooms.forEach((room: Room) => {
         const roomName = room.name?.trim() || room.id
         roomData.value.push({
-          room: roomName,
           roomId: room.id,
+          roomName,
+          roomMaxOccupancy: room.capacity,
           status: getStatusByOccupants(0, room.capacity),
-          teacher: '',
-          temp: '',
-          people: '0',
-          capacity: room.capacity.toString(),
         })
       })
     }
@@ -143,10 +138,7 @@ onUnmounted(() => {
             as="h2"
             class-name="text-4xl font-extrabold text-slate-800 tracking-tight tabular-nums"
           />
-          <DateCard
-            as="p"
-            class-name="text-center text-slate-500 font-medium mt-2 text-lg"
-          />
+          <DateCard as="p" class-name="text-center text-slate-500 font-medium mt-2 text-lg" />
         </div>
 
         <div class="flex justify-end">

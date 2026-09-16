@@ -14,13 +14,9 @@ export interface TableHeader {
 }
 
 export interface TableBody {
-  room: string
   roomId: string
+  roomName: string
+  roomMaxOccupancy: number
   status: string
-  teacher: string
-  temp: string
-  people: string
-  capacity: string
-  indoorAqi?: string
-  [key: string]: any
+  [metric: string]: unknown
 }
