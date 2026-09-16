@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useAuthDialog, type AuthDialog } from '@/composables/ui/useAuthDialog.ts'
+import { useAuthDialog, type AuthDialog } from '@/composables/authentication/useAuthDialog.ts'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 
 defineProps<{ stacked?: boolean }>()

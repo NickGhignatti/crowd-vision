@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { MetricDisplay } from '@/config/metricDisplay.ts'
-import type { TableBody } from '@/models/table.ts'
-import { statusTone } from '@/helpers/status.ts'
+import type { MetricDisplay } from '@/utils/dashboard/metricDisplay.ts'
+import type { TableBody } from '@/types/dashboard/table.ts'
+import { statusTone } from '@/utils/dashboard/status.ts'
 import StatusDot from '@/components/commons/base/StatusDot.vue'
 
 defineProps<{ display: MetricDisplay; value: unknown; row: TableBody }>()

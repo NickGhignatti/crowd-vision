@@ -1,13 +1,10 @@
 import { io, type Socket } from 'socket.io-client'
 import { reactive } from 'vue'
-import { useAuthStore } from '@/stores/authentication'
-import type {
-  ClientToServerEvents,
-  ServerToClientEvents,
-  Notification,
-} from '@/interfaces/notification.ts'
-import { useNotificationStore } from '@/stores/notification.ts'
-import { isVisible, toListItem } from '@/utils/notification.ts'
+import { useAuthStore } from '@/stores/authentication/authentication'
+import type { ClientToServerEvents, ServerToClientEvents } from '@/types/commons/socket.ts'
+import type { NotificationListItem as Notification } from '@/types/commons/notification.ts'
+import { useNotificationStore } from '@/stores/commons/notification.ts'
+import { isVisible, toListItem } from '@/utils/commons/notification.ts'
 
 export const socketState = reactive({
   connected: false,

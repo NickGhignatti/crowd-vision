@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Tone } from '@/helpers/tone.ts'
+import type { Tone } from '@/utils/commons/tone.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
 withDefaults(

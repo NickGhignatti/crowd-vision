@@ -1,5 +1,5 @@
 {
-  "description": "The conversation shapes chat serves on /chat/conversations: the list reply, and the one conversation that GET, POST and PATCH return. chat serialises them from its own types; the frontend reads them only through src/utils/chat.ts.",
+  "description": "The conversation shapes chat serves on /chat/conversations: the list reply, and the one conversation that GET, POST and PATCH return. chat serialises them from its own types; the frontend reads them only through src/utils/commons/chat.ts.",
   "rules": {
     "_id": "A bare 24-character hex string, never {\"$oid\": …}. Every message carries its own.",
     "casing": "Conversation and message fields are camelCase through per-field renames; citation fields stay snake_case, agent's payload returned unchanged.",

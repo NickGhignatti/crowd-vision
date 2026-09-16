@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { DomainToAddWithVisibilityPayload } from '@/interfaces/domain.ts'
-import { useDomainsStore } from '@/stores/domain.ts'
-import { useManagedDomains } from '@/composables/domains/useManagedDomains.ts'
+import type { DomainToAddWithVisibilityPayload } from '@/types/domains/domain.ts'
+import { useDomainsStore } from '@/stores/domains/domain.ts'
+import { useManagedDomains } from '@/composables/administration/useManagedDomains.ts'
 import AppLayout from '@/components/commons/layout/AppLayout.vue'
 import PageHeader from '@/components/commons/layout/PageHeader.vue'
 import ManagedDomainsCard from '@/components/administration/domains/ManagedDomainsCard.vue'

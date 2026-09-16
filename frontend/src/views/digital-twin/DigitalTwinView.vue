@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useBuildingModel } from '@/composables/building/useBuildingModel.ts'
+import { useBuildingModel } from '@/composables/digital-twin/useBuildingModel.ts'
 import AppLayout from '@/components/commons/layout/AppLayout.vue'
 import BuildingScene, { type ExplodeState } from '@/components/digital-twin/scene/BuildingScene.vue'
 import BuildingSidebar from '@/components/digital-twin/buildings/BuildingSidebar.vue'

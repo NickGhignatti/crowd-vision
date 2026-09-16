@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useAuth } from '@/composables/auth/useAuth.ts'
-import { useAuthDialog } from '@/composables/ui/useAuthDialog.ts'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useAuth } from '@/composables/authentication/useAuth.ts'
+import { useAuthDialog } from '@/composables/authentication/useAuthDialog.ts'
+import { useAuthStore } from '@/stores/authentication/authentication.ts'
 import PopoverMenu from '@/components/commons/overlays/PopoverMenu.vue'
 import MenuItem from '@/components/commons/overlays/MenuItem.vue'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'

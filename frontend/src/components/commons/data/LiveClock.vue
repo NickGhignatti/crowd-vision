@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useDateTime } from '@/composables/core/useDateTime.ts'
+import { useDateTime } from '@/composables/commons/useDateTime.ts'
 
 withDefaults(defineProps<{ size?: 'md' | 'lg' }>(), { size: 'md' })
 

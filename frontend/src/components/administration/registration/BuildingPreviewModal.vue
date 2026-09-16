@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { RoomDraft } from '@/models/buildingDraft.ts'
-import { floorsByElevation, planExtent } from '@/utils/building/floorplan/preview.ts'
+import type { RoomDraft } from '@/types/administration/buildingDraft.ts'
+import { floorsByElevation, planExtent } from '@/utils/administration/floorplan/preview.ts'
 import BaseModal from '@/components/commons/overlays/BaseModal.vue'
 import SegmentedControl from '@/components/commons/base/SegmentedControl.vue'
 import EmptyState from '@/components/commons/base/EmptyState.vue'

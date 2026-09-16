@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { initialsOf, toneIndexOf } from '@/utils/avatar.ts'
+import { initialsOf, toneIndexOf } from '@/utils/commons/avatar.ts'
 
 const props = withDefaults(
   defineProps<{ name?: string; email?: string; picture?: string; size?: 'sm' | 'md' | 'lg' }>(),

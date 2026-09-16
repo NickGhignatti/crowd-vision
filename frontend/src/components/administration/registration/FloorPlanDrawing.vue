@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { RoomDraft } from '@/models/buildingDraft.ts'
-import { roomOrigin } from '@/utils/building/floorplan/preview.ts'
+import type { RoomDraft } from '@/types/administration/buildingDraft.ts'
+import { roomOrigin } from '@/utils/administration/floorplan/preview.ts'
 
 defineProps<{ rooms: RoomDraft[]; viewBox: string }>()
 

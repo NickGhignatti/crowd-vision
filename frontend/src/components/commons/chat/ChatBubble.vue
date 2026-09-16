@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ChatCitation, ChatMessage } from '@/interfaces/chat.ts'
-import { renderMarkdown } from '@/composables/core/useMarkdown.ts'
-import { stripCitations } from '@/utils/chat.ts'
+import type { ChatCitation, ChatMessage } from '@/types/commons/chat.ts'
+import { renderMarkdown } from '@/composables/commons/useMarkdown.ts'
+import { stripCitations } from '@/utils/commons/chat.ts'
 import ChatSources from '@/components/commons/chat/ChatSources.vue'
 
 const props = defineProps<{

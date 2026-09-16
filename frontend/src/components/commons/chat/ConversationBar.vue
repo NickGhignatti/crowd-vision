@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ChatConversationSummary } from '@/interfaces/chat.ts'
+import type { ChatConversationSummary } from '@/types/commons/chat.ts'
 import IconButton from '@/components/commons/base/IconButton.vue'
 import SelectInput from '@/components/commons/forms/SelectInput.vue'
 

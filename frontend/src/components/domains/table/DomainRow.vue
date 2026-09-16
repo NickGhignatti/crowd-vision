@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { DomainRow } from '@/interfaces/domain.ts'
+import type { DomainRow } from '@/types/domains/domain.ts'
 import BaseBadge from '@/components/commons/base/BaseBadge.vue'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 import RoleBadge from '@/components/domains/badges/RoleBadge.vue'

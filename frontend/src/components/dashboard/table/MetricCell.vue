@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
-import { METRIC_DISPLAY, type MetricDisplay, type Renderer } from '@/config/metricDisplay.ts'
-import type { TableBody } from '@/models/table.ts'
+import {
+  METRIC_DISPLAY,
+  type MetricDisplay,
+  type Renderer,
+} from '@/utils/dashboard/metricDisplay.ts'
+import type { TableBody } from '@/types/dashboard/table.ts'
 import PlainValue from '@/components/dashboard/table/cells/PlainValue.vue'
 import RoomName from '@/components/dashboard/table/cells/RoomName.vue'
 import MetricBar from '@/components/dashboard/table/cells/MetricBar.vue'

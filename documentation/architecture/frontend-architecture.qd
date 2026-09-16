@@ -15,18 +15,25 @@ The frontend is one SPA. It is organised by **feature first, role second**: a fo
 
 .tablebyrows {.layout}
     - - `views/<feature>/`
-      - One routed page per feature: `homepage`, `dashboard`, `digital-twin`, `domains`, `administration`, `auth`
+      - One routed page per feature: `homepage`, `dashboard`, `digital-twin`, `domains`, `administration`, `authentication`
     - - `components/<feature>/<role>/`
       - That page's parts, e.g. `dashboard/{header,kpi,table,charts}`, `digital-twin/{scene,controls,buildings,rooms,modals}`
     - - `components/commons/`
       - `base` (buttons, badges, cards), `forms`, `overlays` (modal, popover), `layout` (app shell, nav bar), `navigation`, `account`, `chat`, `notifications`, `data` (pagination, clock)
-    - - `composables/`
-      - Stateful logic by concern: `auth`, `building`, `chat`, `core`, `domains`, `notification`, `scene`, `ui`
-    - - `utils/`, `helpers/`
+    - - `composables/<feature>/`
+      - Stateful logic, in the feature that owns it; shared ones (`useApi`, `useTheme`, chat, live sensor data) in `commons/`
+    - - `utils/<feature>/`
       - Pure logic, unit-tested beside the file it covers
+    - - `types/<feature>/`
+      - Types only: wire shapes and component-facing types, no runtime code except enums
+    - - `stores/<feature>/`
+      - Pinia stores: `authentication`, `domains`, `digital-twin` (buildings), `commons` (notifications, sensor data)
+    - - `services/socket.ts`
+      - The one Socket.IO client, shared by every feature
     - - `router/routes.ts`
       - Every path, read by the router and the nav links
 
+- Every layer (`views`, `components`, `composables`, `utils`, `types`, `stores`) splits by feature the same way; code used by two features with no clear owner goes in `commons/`.
 - A feature imports `commons/` freely. It imports another feature only for a part that feature owns: administration reuses `domains/modals/CreateDomainModal.vue` and `domains/badges/RoleBadge.vue`.
 - Views compose; they hold no markup a child could own. Every view except the homepage loads lazily.
 - Logic that needs no `ref` goes in `utils/`, so it is unit-tested (dashboard summary, pagination window, chart timeline, building grouping, floor-plan preview extent, colour bands). Components stay untested and are covered by `e2e/` and `backend/acceptance/`.
@@ -53,13 +60,13 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
       - Resting cards; popovers, modals and hovered cards
     - - `field`
       - Every text input and select
-    - - `Tone` (`helpers/tone.ts`)
+    - - `Tone` (`utils/commons/tone.ts`)
       - Semantic colour a helper returns (`statusTone`, `getRoleMeta`, `SEVERITY_TONE`); `BaseBadge` and `StatusDot` map it to roles
 
 - The theme is `light`, `dark` or `system`. It is stored in `localStorage['theme']`, and `useTheme` toggles `.dark` on `<html>`.
 - Chart.js and the 3D canvas cannot read CSS variables. `useChartTheme` resolves them to literals again after each theme change, and `BuildingScene` swaps its clear colour.
 - Icons are Phosphor, rendered through `BaseIcon`, which takes the name without the `ph-` prefix.
-- Data-viz colours stay literal: temperature and air-quality bands (`helpers/colors.ts`) and QR codes, because their meaning must not change with the theme.
+- Data-viz colours stay literal: temperature and air-quality bands (`utils/digital-twin/colors.ts`) and QR codes, because their meaning must not change with the theme.
 
 ## Shell
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TableHeader } from '@/models/table.ts'
-import { headerId } from '@/utils/metrics.ts'
+import type { TableHeader } from '@/types/dashboard/table.ts'
+import { headerId } from '@/utils/dashboard/metrics.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
 defineProps<{ headers: TableHeader[]; editing: boolean; activeHeaderKey: string | null }>()

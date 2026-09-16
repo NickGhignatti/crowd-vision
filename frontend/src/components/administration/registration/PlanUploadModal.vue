@@ -5,7 +5,7 @@ import {
   PLAN_EXTENSIONS,
   declaredScaleOf,
   type PlanUpload,
-} from '@/utils/building/floorplan/index.ts'
+} from '@/utils/administration/floorplan/index.ts'
 import BaseModal from '@/components/commons/overlays/BaseModal.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'

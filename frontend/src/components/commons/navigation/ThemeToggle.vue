@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useTheme } from '@/composables/ui/useTheme.ts'
+import { useTheme } from '@/composables/commons/useTheme.ts'
 import IconButton from '@/components/commons/base/IconButton.vue'
 
 const { t } = useI18n()

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getRoleMeta } from '@/helpers/roles.ts'
+import { getRoleMeta } from '@/utils/domains/roles.ts'
 import BaseBadge from '@/components/commons/base/BaseBadge.vue'
 
 const props = defineProps<{ role: string; size?: 'sm' | 'md' }>()

@@ -1,5 +1,5 @@
 import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useAuthStore } from '@/stores/authentication/authentication.ts'
 import { ROUTES } from '@/router/routes.ts'
 import HomeView from '@/views/homepage/HomeView.vue'
 
@@ -37,7 +37,7 @@ const router = createRouter({
     {
       path: ROUTES.authCallback,
       name: 'auth-callback',
-      component: () => import('@/views/auth/AuthCallbackView.vue'),
+      component: () => import('@/views/authentication/AuthCallbackView.vue'),
     },
     {
       path: ROUTES.webGpuSmoke,

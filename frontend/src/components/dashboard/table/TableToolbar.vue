@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { RowFilter } from '@/utils/dashboard.ts'
-import type { Tone } from '@/helpers/tone.ts'
+import type { RowFilter } from '@/utils/dashboard/dashboard.ts'
+import type { Tone } from '@/utils/commons/tone.ts'
 import SearchInput from '@/components/commons/forms/SearchInput.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import StatusDot from '@/components/commons/base/StatusDot.vue'

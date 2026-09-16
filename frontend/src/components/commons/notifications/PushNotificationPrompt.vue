@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useWebPushNotifications } from '@/composables/notification/useWebPushNotifications.ts'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useWebPushNotifications } from '@/composables/commons/useWebPushNotifications.ts'
+import { useAuthStore } from '@/stores/authentication/authentication.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 

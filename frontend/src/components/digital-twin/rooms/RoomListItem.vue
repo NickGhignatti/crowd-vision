@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Room } from '@/models/building.ts'
-import { roomColorByAirQuality, roomColorByTemperature } from '@/helpers/colors.ts'
+import type { Room } from '@/types/digital-twin/building.ts'
+import { roomColorByAirQuality, roomColorByTemperature } from '@/utils/digital-twin/colors.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 import IconButton from '@/components/commons/base/IconButton.vue'
 import ProgressBar from '@/components/commons/base/ProgressBar.vue'

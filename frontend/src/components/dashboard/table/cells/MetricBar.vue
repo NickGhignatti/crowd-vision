@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { MetricDisplay } from '@/config/metricDisplay.ts'
-import type { TableBody } from '@/models/table.ts'
+import type { MetricDisplay } from '@/utils/dashboard/metricDisplay.ts'
+import type { TableBody } from '@/types/dashboard/table.ts'
 import ProgressBar from '@/components/commons/base/ProgressBar.vue'
 
 // Width is the value's position within the row's range; colour comes from the descriptor.

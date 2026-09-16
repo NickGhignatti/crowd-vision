@@ -7,7 +7,7 @@ import {
   createWebGPURenderer,
   isWebGPUSupported,
   SCENE_CLEAR_COLOR,
-} from '@/composables/scene/useWebGPURenderer.ts'
+} from '@/composables/digital-twin/useWebGPURenderer.ts'
 
 const rendererFactory = isWebGPUSupported() ? createWebGPURenderer : undefined
 

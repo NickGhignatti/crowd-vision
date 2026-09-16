@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAuth } from '@/composables/auth/useAuth.ts'
+import { useAuth } from '@/composables/authentication/useAuth.ts'
 import BrandLogo from '@/components/commons/layout/BrandLogo.vue'
 import NavLinks from '@/components/commons/layout/NavLinks.vue'
 import MobileMenu from '@/components/commons/layout/MobileMenu.vue'

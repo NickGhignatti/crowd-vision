@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { UnifiedDomainGroup } from '@/interfaces/domain.ts'
+import type { UnifiedDomainGroup } from '@/types/domains/domain.ts'
 import SurfaceCard from '@/components/commons/base/SurfaceCard.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import EmptyState from '@/components/commons/base/EmptyState.vue'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Tone } from '@/helpers/tone.ts'
+import type { Tone } from '@/utils/commons/tone.ts'
 
 withDefaults(defineProps<{ tone?: Tone; pulse?: boolean; size?: 'sm' | 'md' }>(), {
   tone: 'primary',

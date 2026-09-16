@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuth } from '@/composables/auth/useAuth.ts'
-import { useChatSessions } from '@/composables/chat/useChatSessions.ts'
+import { useAuth } from '@/composables/authentication/useAuth.ts'
+import { useChatSessions } from '@/composables/commons/useChatSessions.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 import ChatHeader from '@/components/commons/chat/ChatHeader.vue'
 import ConversationBar from '@/components/commons/chat/ConversationBar.vue'

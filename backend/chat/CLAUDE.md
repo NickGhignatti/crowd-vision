@@ -34,7 +34,7 @@ streamed before a tool call). It is `Option` because an older agent may not send
 stored and returned as-is; a blanket rename silently rewrites them. Test-enforced.
 
 **The REST shapes are pinned in `schemas/fixtures/chat-conversation.json`.** The
-`domain/conversation.rs` tests round-trip it; the frontend reads it through `src/utils/chat.ts`.
+`domain/conversation.rs` tests round-trip it; the frontend reads it through `src/utils/commons/chat.ts`.
 Change a wire field → change the fixture and `schemas/json/chat-conversation.schema.json` together.
 
 **`ObjectId` never leaves `adapters/driven/persistence/conversations.rs`.** bson renders it

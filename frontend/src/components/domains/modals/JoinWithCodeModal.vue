@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useDomainsStore } from '@/stores/domain.ts'
+import { useDomainsStore } from '@/stores/domains/domain.ts'
 import BaseModal from '@/components/commons/overlays/BaseModal.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import FormField from '@/components/commons/forms/FormField.vue'
