@@ -27,6 +27,24 @@ const messages = {
       ID: 'ID',
       open: 'Open',
       search: 'Search',
+      clear: 'Clear',
+      close: 'Close',
+      collapse: 'Collapse panel',
+      expand: 'Expand panel',
+      dismiss: 'Dismiss',
+      menu: 'Menu',
+      next: 'Next',
+      previous: 'Previous',
+      theme: {
+        light: 'Switch to light theme',
+        dark: 'Switch to dark theme',
+      },
+      pagination: {
+        label: 'Pagination',
+        first: 'First page',
+        rowsPerPage: 'Rows per page',
+        showing: 'Showing {from}–{to} of {total}',
+      },
       languageSelector: {
         changeLanguage: 'Change Language',
         english: 'English',
@@ -80,6 +98,10 @@ const messages = {
       passwordUpdated: 'Password updated.',
     },
     home: {
+      cta: {
+        openDashboard: 'Open dashboard',
+      },
+      heroImageAlt: 'Blueprint of a building digital twin',
       title: {
         monitoring: 'Live Monitoring',
         insights: 'Smart insights for',
@@ -128,8 +150,45 @@ const messages = {
       },
     },
     dashboard: {
+      status: {
+        live: 'Live sync',
+        offline: 'Offline',
+        rooms: 'No rooms | {count} room | {count} rooms',
+      },
+      kpi: {
+        rooms: 'Monitored rooms',
+        roomsCaption: 'In the selected building',
+        temperature: 'Avg. temperature',
+        averageCaption: 'Across reporting rooms',
+        occupancy: 'Occupancy',
+        people: '{people} of {capacity} seats',
+        airQuality: 'Indoor air quality',
+        noReading: 'No reading yet',
+        alerts: 'Rooms in alert',
+        alertsCaption: 'Full or overcrowded',
+        allClear: 'All clear',
+        aqi: {
+          good: 'Good',
+          moderate: 'Moderate',
+          poor: 'Poor',
+        },
+      },
+      filters: {
+        search: 'Filter rooms…',
+        occupied: 'Occupied only',
+        alerts: 'Alerts only',
+      },
+      charts: {
+        occupancy: 'People occupancy',
+        temperature: 'Temperature',
+        airQuality: 'Air quality (indoor AQI)',
+        aggregation: 'Data',
+        range: 'Range',
+      },
       table: {
         addColumn: 'Add column',
+        editColumns: 'Edit columns',
+        saving: 'Saving…',
         removeColumn: 'Remove column',
         replaceWith: 'Replace with',
         currentColumn: 'Current column',
@@ -172,11 +231,18 @@ const messages = {
       },
       mode: {
         focusMode: 'Focus Mode',
+        exitFocus: 'Exit focus',
+        label: 'Dashboard view',
         graphs: 'Graphs',
         table: 'Table',
       },
     },
     domains: {
+      subtitle: 'Browse public domains and the private ones you belong to.',
+      actions: {
+        join: 'Join',
+        leave: 'Leave',
+      },
       errors: {
         lastAdmin: "You're the last admin of this domain — promote another admin before leaving.",
       },
@@ -226,19 +292,23 @@ const messages = {
         modal: {
           step: 'step',
           of: 'of 2',
-          main: 'Main DomainInput',
+          main: 'Domain name',
           desc: 'The main domain represents the primary organizational unit. It can have multiple subdomains under it.',
           mainPlaceholder: 'e.g. unibo.it',
           none: '-- None --',
+          parent: 'Parent domain',
+          preview: 'Will be created as {name}',
           addSub: 'Add Subdomains',
           subdomainPlaceholder: 'e.g. api.unibo.it',
           to: 'to add it to',
         },
         invalid: 'Invalid subdomain format.',
-        alreadyPresent: 'DomainInput already exists.',
+        alreadyPresent: 'Domain already exists.',
         visibleFromOutside: 'Visible from outside',
         visibleFromOutsideDesc: 'Allow users outside the organization to see this domain.',
         joinWithCode: 'Join with a code',
+        joinWithCodeHint: 'Paste the invite code you received.',
+        code: 'Invite code',
         codePlaceholder: 'Enter invite code',
         joinSuccess: 'Successfully joined the domain.',
         joinCodeInvalid: 'That code is invalid, already used, or expired.',
@@ -253,6 +323,35 @@ const messages = {
         standardCustomer: 'Member',
       },
     },
+    administration: {
+      subtitle: 'Manage your domains, alert subscriptions, invites and buildings.',
+      domainsHint: 'Select a domain to see its invite codes.',
+      noDomains: 'No domains to manage',
+      noDomainsHint: 'Create a domain to start registering buildings.',
+      registerBuilding: 'Register a building',
+      subdomainCount: 'No subdomains | 1 subdomain | {count} subdomains',
+      inviteRole: 'Invite role',
+      noInvites: 'No invite codes for this domain',
+      qrAlt: 'Invite QR code for {domain}',
+    },
+    chat: {
+      title: 'CrowdVision Agent',
+      subtitle: 'Saved conversations',
+      open: 'Open assistant',
+      close: 'Close assistant',
+      conversation: 'Conversation',
+      newChat: 'New chat',
+      renameChat: 'Rename chat',
+      deleteChat: 'Delete chat',
+      renamePrompt: 'Rename chat',
+      deleteConfirm: 'Delete this chat permanently?',
+      emptyTitle: 'How can I help today?',
+      emptyHint: 'Ask about buildings, rooms, occupancy, or how the platform works.',
+      placeholder: 'Type your question…',
+      loginPlaceholder: 'Log in to chat with the agent…',
+      send: 'Send',
+      sources: 'Sources',
+    },
     notifications: {
       title: 'Enable critical alerts?',
       description: 'Receive notifications when critical events occur.',
@@ -264,6 +363,25 @@ const messages = {
       },
     },
     model: {
+      editBuilding: {
+        title: 'Edit building',
+        name: 'Building name',
+      },
+      legend: {
+        temperature: 'Temperature',
+        airQuality: 'Air quality',
+        bands: {
+          cold: 'Cold',
+          cool: 'Cool',
+          comfortable: 'Comfortable',
+          warm: 'Warm',
+          hot: 'Hot',
+          good: 'Good',
+          fair: 'Fair',
+          moderate: 'Moderate',
+          poor: 'Poor',
+        },
+      },
       rooms: {
         editRoom: {
           title: 'Room Alert Threshold',
@@ -293,6 +411,7 @@ const messages = {
         },
       },
       controls: {
+        toolbar: 'Scene controls',
         buttons: {
           reset: 'Reset View',
           focus: 'Focus on Room',
@@ -311,6 +430,7 @@ const messages = {
         floorSelection: 'Floor selection',
       },
       register: {
+        saveFailed: 'The building could not be registered. Try again.',
         title: 'Register Building',
         buildingName: 'Building name',
         buildingNamePlaceholder: 'Enter building name',
@@ -416,6 +536,24 @@ const messages = {
       ID: 'ID',
       open: 'Apri',
       search: 'Cerca',
+      clear: 'Cancella',
+      close: 'Chiudi',
+      collapse: 'Comprimi pannello',
+      expand: 'Espandi pannello',
+      dismiss: 'Ignora',
+      menu: 'Menu',
+      next: 'Successivo',
+      previous: 'Precedente',
+      theme: {
+        light: 'Passa al tema chiaro',
+        dark: 'Passa al tema scuro',
+      },
+      pagination: {
+        label: 'Paginazione',
+        first: 'Prima pagina',
+        rowsPerPage: 'Righe per pagina',
+        showing: 'Da {from} a {to} di {total}',
+      },
       languageSelector: {
         changeLanguage: 'Cambia lingua',
         english: 'Inglese',
@@ -469,6 +607,10 @@ const messages = {
       passwordUpdated: 'Password aggiornata.',
     },
     home: {
+      cta: {
+        openDashboard: 'Apri la dashboard',
+      },
+      heroImageAlt: 'Pianta del gemello digitale di un edificio',
       title: {
         monitoring: 'Monitoraggio in tempo reale',
         insights: 'Analisi intelligenti per',
@@ -517,8 +659,45 @@ const messages = {
       },
     },
     dashboard: {
+      status: {
+        live: 'Sincronizzato',
+        offline: 'Offline',
+        rooms: 'Nessuna stanza | {count} stanza | {count} stanze',
+      },
+      kpi: {
+        rooms: 'Stanze monitorate',
+        roomsCaption: "Nell'edificio selezionato",
+        temperature: 'Temperatura media',
+        averageCaption: 'Sulle stanze con letture',
+        occupancy: 'Occupazione',
+        people: '{people} su {capacity} posti',
+        airQuality: "Qualità dell'aria interna",
+        noReading: 'Nessuna lettura',
+        alerts: 'Stanze in allerta',
+        alertsCaption: 'Piene o sovraffollate',
+        allClear: 'Tutto regolare',
+        aqi: {
+          good: 'Buona',
+          moderate: 'Moderata',
+          poor: 'Scarsa',
+        },
+      },
+      filters: {
+        search: 'Filtra stanze…',
+        occupied: 'Solo occupate',
+        alerts: 'Solo in allerta',
+      },
+      charts: {
+        occupancy: 'Occupazione',
+        temperature: 'Temperatura',
+        airQuality: "Qualità dell'aria (AQI interno)",
+        aggregation: 'Dati',
+        range: 'Periodo',
+      },
       table: {
         addColumn: 'Aggiungi colonna',
+        editColumns: 'Modifica colonne',
+        saving: 'Salvataggio…',
         removeColumn: 'Rimuovi colonna',
         replaceWith: 'Sostituisci con',
         currentColumn: 'Colonna attuale',
@@ -561,11 +740,18 @@ const messages = {
       },
       mode: {
         focusMode: 'Modalità Focus',
+        exitFocus: 'Esci dal focus',
+        label: 'Vista della dashboard',
         graphs: 'Grafici',
         table: 'Tabella',
       },
     },
     domains: {
+      subtitle: 'Esplora i domini pubblici e quelli privati di cui fai parte.',
+      actions: {
+        join: 'Iscriviti',
+        leave: 'Esci',
+      },
       errors: {
         lastAdmin:
           'Sei l’ultimo amministratore di questo dominio: promuovi un altro amministratore prima di uscire.',
@@ -620,6 +806,8 @@ const messages = {
           desc: "Il dominio principale rappresenta l'unità organizzativa primaria. Può avere molteplici sottodomini al suo interno.",
           mainPlaceholder: 'es. unibo.it',
           none: '-- Nessuno --',
+          parent: 'Dominio padre',
+          preview: 'Verrà creato come {name}',
           addSub: 'Aggiungi Sottodomini',
           subdomainPlaceholder: 'es. api.unibo.it',
           to: 'per aggiungere',
@@ -630,6 +818,8 @@ const messages = {
         visibleFromOutsideDesc:
           "Consenti agli utenti esterni all'organizzazione di vedere questo dominio.",
         joinWithCode: 'Entra con un codice',
+        joinWithCodeHint: 'Incolla il codice invito che hai ricevuto.',
+        code: 'Codice invito',
         codePlaceholder: 'Inserisci il codice invito',
         joinSuccess: 'Ti sei unito al dominio con successo.',
         joinCodeInvalid: 'Codice non valido, già utilizzato o scaduto.',
@@ -644,6 +834,35 @@ const messages = {
         standardCustomer: 'Membro',
       },
     },
+    administration: {
+      subtitle: 'Gestisci domini, avvisi, inviti ed edifici.',
+      domainsHint: 'Seleziona un dominio per vedere i suoi codici invito.',
+      noDomains: 'Nessun dominio da gestire',
+      noDomainsHint: 'Crea un dominio per iniziare a registrare edifici.',
+      registerBuilding: 'Registra un edificio',
+      subdomainCount: 'Nessun sottodominio | 1 sottodominio | {count} sottodomini',
+      inviteRole: 'Ruolo invito',
+      noInvites: 'Nessun codice invito per questo dominio',
+      qrAlt: 'QR code di invito per {domain}',
+    },
+    chat: {
+      title: 'Agente CrowdVision',
+      subtitle: 'Conversazioni salvate',
+      open: 'Apri assistente',
+      close: 'Chiudi assistente',
+      conversation: 'Conversazione',
+      newChat: 'Nuova chat',
+      renameChat: 'Rinomina chat',
+      deleteChat: 'Elimina chat',
+      renamePrompt: 'Rinomina chat',
+      deleteConfirm: 'Eliminare definitivamente questa chat?',
+      emptyTitle: 'Come posso aiutarti oggi?',
+      emptyHint: 'Chiedi di edifici, stanze, occupazione o di come funziona la piattaforma.',
+      placeholder: 'Scrivi la tua domanda…',
+      loginPlaceholder: "Accedi per parlare con l'agente…",
+      send: 'Invia',
+      sources: 'Fonti',
+    },
     notifications: {
       title: 'Abilitare avvisi critici?',
       description: 'Ricevi notifiche quando si verificano eventi critici.',
@@ -655,6 +874,25 @@ const messages = {
       },
     },
     model: {
+      editBuilding: {
+        title: 'Modifica edificio',
+        name: 'Nome edificio',
+      },
+      legend: {
+        temperature: 'Temperatura',
+        airQuality: "Qualità dell'aria",
+        bands: {
+          cold: 'Freddo',
+          cool: 'Fresco',
+          comfortable: 'Confortevole',
+          warm: 'Caldo',
+          hot: 'Molto caldo',
+          good: 'Buona',
+          fair: 'Discreta',
+          moderate: 'Moderata',
+          poor: 'Scarsa',
+        },
+      },
       rooms: {
         editRoom: {
           title: 'Soglia di Allerta Stanza',
@@ -684,6 +922,7 @@ const messages = {
         },
       },
       controls: {
+        toolbar: 'Controlli scena',
         buttons: {
           reset: 'Reimposta Vista',
           focus: 'Focus su Stanza',
@@ -702,6 +941,7 @@ const messages = {
         floorSelection: 'Selezione Piano',
       },
       register: {
+        saveFailed: "Impossibile registrare l'edificio. Riprova.",
         title: 'Registra Edificio',
         buildingName: 'Nome edificio',
         buildingNamePlaceholder: "Inserisci il nome dell'edificio",
@@ -787,8 +1027,11 @@ const messages = {
 
 const storedLocale = typeof localStorage !== 'undefined' ? localStorage.getItem('locale') : null
 
+const percent = { style: 'percent', maximumFractionDigits: 0 } as const
+
 const i18n = createI18n({
   legacy: false,
+  numberFormats: { en: { percent }, it: { percent } },
   locale: storedLocale || 'en', // Persist locale
   fallbackLocale: 'en',
   messages,

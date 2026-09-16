@@ -1,11 +1,12 @@
 import type { Notification as Wire, Severity } from '@/models/notification.ts'
 import type { Notification } from '@/interfaces/notification.ts'
+import type { Tone } from '@/helpers/tone.ts'
 import type { PreferenceMap } from '@/utils/notificationPreferences.ts'
 
-export const SEVERITY_DOT: Record<Severity, string> = {
-  info: 'bg-blue-500',
-  warning: 'bg-amber-500',
-  danger: 'bg-red-500',
+export const SEVERITY_TONE: Record<Severity, Tone> = {
+  info: 'tertiary',
+  warning: 'warning',
+  danger: 'danger',
 }
 
 export const toListItem = (notification: Wire): Notification => ({ ...notification, read: false })

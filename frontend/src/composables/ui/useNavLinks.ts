@@ -1,13 +1,14 @@
 import { useI18n } from 'vue-i18n'
+import { ROUTES } from '@/router/routes.ts'
 
 export function useNavLinks() {
   const { t } = useI18n()
 
   const links = [
-    { to: '/dashboards', label: () => t('commons.dashboard') },
-    { to: '/model', label: () => t('commons.digitalTwin') },
-    { to: '/domains', label: () => t('commons.domains') },
-    { to: '/admin-panel', label: () => t('commons.adminPanel') },
+    { to: ROUTES.dashboard, icon: 'squares-four', label: () => t('commons.dashboard') },
+    { to: ROUTES.digitalTwin, icon: 'cube', label: () => t('commons.digitalTwin') },
+    { to: ROUTES.domains, icon: 'globe-hemisphere-west', label: () => t('commons.domains') },
+    { to: ROUTES.administration, icon: 'shield-check', label: () => t('commons.adminPanel') },
   ]
 
   return { links }

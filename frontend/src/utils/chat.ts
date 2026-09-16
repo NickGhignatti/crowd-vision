@@ -59,3 +59,30 @@ export const toConversation = (value: unknown): ChatConversation => ({
   ...toConversationSummary(value),
   messages: array(object(value).messages).map(toChatMessage),
 })
+
+const CITATION_MARKER = /\s*\[\^[0-9a-fA-F-]{8,}\]/g
+
+/** Drops the `[^chunk-id]` markers the agent leaves inline; the sources list replaces them. */
+export const stripCitations = (text: string) => text.replace(CITATION_MARKER, '')
+
+export interface CitedSource {
+  source: string
+  label: string
+  section: string | null
+}
+
+/** One entry per document section, labelled by path without the file extension. */
+export function uniqueSources(citations: ChatCitation[] | undefined): CitedSource[] {
+  const bySection = new Map<string, CitedSource>()
+  for (const { source, section_path } of citations ?? []) {
+    const key = `${source}::${section_path ?? ''}`
+    if (!bySection.has(key)) {
+      bySection.set(key, {
+        source,
+        label: source.replace(/\.[^./\\]+$/, ''),
+        section: section_path ?? null,
+      })
+    }
+  }
+  return [...bySection.values()]
+}

@@ -4,8 +4,9 @@ import { socket } from '@/services/socket'
 import { useAuthStore } from '@/stores/authentication'
 import { useNotificationStore } from '@/stores/notification.ts'
 import { useSessionKeepAlive } from '@/composables/auth/useSessionKeepAlive'
-import PushNotificationModal from '@/components/modals/PushNotificationModal.vue'
-import ChatWidget from '@/components/layouts/ChatWidget.vue'
+import PushNotificationPrompt from '@/components/commons/notifications/PushNotificationPrompt.vue'
+import ChatWidget from '@/components/commons/chat/ChatWidget.vue'
+import AuthDialogs from '@/components/commons/account/AuthDialogs.vue'
 
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
@@ -47,10 +48,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="relative min-h-screen">
-    <router-view />
-
-    <PushNotificationModal />
-    <ChatWidget />
-  </div>
+  <RouterView />
+  <AuthDialogs />
+  <PushNotificationPrompt />
+  <ChatWidget />
 </template>

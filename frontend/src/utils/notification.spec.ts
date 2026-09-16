@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Notification, NotificationSubscription } from '@/models/notification.ts'
-import { SEVERITY_DOT, isVisible, toListItem } from './notification.ts'
+import { SEVERITY_TONE, isVisible, toListItem } from './notification.ts'
 import { toPreferenceMap } from './notificationPreferences.ts'
 
 const fixtures = join(__dirname, '../../../schemas/fixtures')
@@ -19,7 +19,7 @@ const breach = wireCase('temperature breach, scoped to its domain')
 
 describe('the notification the server sends', () => {
   it.each(wire.cases)('$name has a colour for its severity', ({ body }) => {
-    expect(SEVERITY_DOT[body.type]).toMatch(/^bg-/)
+    expect(SEVERITY_TONE[body.type]).toBeDefined()
   })
 
   it.each(wire.cases)('$name keeps the server id, type and timestamp in the bell', ({ body }) => {
