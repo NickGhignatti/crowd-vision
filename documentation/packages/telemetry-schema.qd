@@ -15,7 +15,7 @@ It now carries three contracts, each one a place where the same class of failure
 
 ## 1. The metric catalog
 
-The original contract, unchanged: serde structs both services build from, with `rename_all = "camelCase"` and field names that `frontend/src/models/table.ts` also reads. The rule that came out of the incident is the one every module here follows — **the producer builds the struct; nobody hand-rolls `json!` for a shape another service parses.**
+The original contract, unchanged: serde structs both services build from, with `rename_all = "camelCase"` and field names that `frontend/src/types/dashboard/table.ts` also reads. The rule that came out of the incident is the one every module here follows — **the producer builds the struct; nobody hand-rolls `json!` for a shape another service parses.**
 
 The seam is covered by a test that lives on the producing side: `telemetry/tests/api.rs::the_catalog_deserialises_into_the_shape_dashboard_parses`.
 
@@ -50,7 +50,7 @@ One building tick is one message, end to end:
  "readings":[{"type":"temperature","roomId":"r1","timestamp":1700000000000,"value":21.5}]}
 ```
 
-The shape is pinned in `schemas/fixtures/telemetry-envelope.json` (+ its JSON schema): this crate round-trips every tick and reading, telemetry's `redis_fanout.rs` must publish each case byte for byte, and the frontend reads a tick only through `src/utils/telemetry.ts` (`readingsOf`, `readingsFor`), whose spec replays the same file. The envelope has no `type` — only its readings do — so a reader that treats a tick as one reading drops every update.
+The shape is pinned in `schemas/fixtures/telemetry-envelope.json` (+ its JSON schema): this crate round-trips every tick and reading, telemetry's `redis_fanout.rs` must publish each case byte for byte, and the frontend reads a tick only through `src/utils/commons/telemetry.ts` (`readingsOf`, `readingsFor`), whose spec replays the same file. The envelope has no `type` — only its readings do — so a reader that treats a tick as one reading drops every update.
 
 ```rust
 pub struct TelemetryReading {

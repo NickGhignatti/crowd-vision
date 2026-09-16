@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { MetricDisplay } from '@/config/metricDisplay.ts'
-import type { TableBody } from '@/models/table.ts'
+import type { MetricDisplay } from '@/utils/dashboard/metricDisplay.ts'
+import type { TableBody } from '@/types/dashboard/table.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
 const props = defineProps<{ display: MetricDisplay; value: unknown; row: TableBody }>()

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useAuth } from '@/composables/auth/useAuth.ts'
-import { useAuthDialog } from '@/composables/ui/useAuthDialog.ts'
-import { useNavLinks } from '@/composables/ui/useNavLinks.ts'
+import { useAuth } from '@/composables/authentication/useAuth.ts'
+import { useAuthDialog } from '@/composables/authentication/useAuthDialog.ts'
+import { useNavLinks } from '@/composables/commons/useNavLinks.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
 withDefaults(defineProps<{ vertical?: boolean }>(), { vertical: false })

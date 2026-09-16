@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useAuth } from '@/composables/auth/useAuth.ts'
-import { useAuthDialog } from '@/composables/ui/useAuthDialog.ts'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useAuth } from '@/composables/authentication/useAuth.ts'
+import { useAuthDialog } from '@/composables/authentication/useAuthDialog.ts'
+import { useAuthStore } from '@/stores/authentication/authentication.ts'
 import NavLinks from '@/components/commons/layout/NavLinks.vue'
 import GuestActions from '@/components/commons/navigation/GuestActions.vue'
 import UserAvatar from '@/components/commons/account/UserAvatar.vue'

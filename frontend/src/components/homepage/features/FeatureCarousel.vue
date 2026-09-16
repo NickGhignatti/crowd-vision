@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { slotOf, type CarouselSlot } from '@/utils/carousel.ts'
-import { useCarousel } from '@/composables/ui/useCarousel.ts'
+import { slotOf, type CarouselSlot } from '@/utils/homepage/carousel.ts'
+import { useCarousel } from '@/composables/homepage/useCarousel.ts'
 import FeatureCard from '@/components/homepage/features/FeatureCard.vue'
 import IconButton from '@/components/commons/base/IconButton.vue'
 

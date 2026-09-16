@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Room } from '@/models/building.ts'
+import type { Room } from '@/types/digital-twin/building.ts'
 
 defineProps<{ room: Room; color: string }>()
 </script>

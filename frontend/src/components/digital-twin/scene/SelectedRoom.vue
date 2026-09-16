@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { Room } from '@/models/building.ts'
-import { roomOpacity } from '@/helpers/colors.ts'
+import type { Room } from '@/types/digital-twin/building.ts'
+import { roomOpacity } from '@/utils/digital-twin/colors.ts'
 
 defineProps<{ room: Room; color?: string }>()
 

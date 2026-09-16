@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { BuildingDraft, BuildingThresholdDraft } from '@/models/buildingDraft.ts'
+import type { BuildingDraft, BuildingThresholdDraft } from '@/types/administration/buildingDraft.ts'
 import FormField from '@/components/commons/forms/FormField.vue'
 import TextInput from '@/components/commons/forms/TextInput.vue'
 import RangeSlider from '@/components/commons/forms/RangeSlider.vue'

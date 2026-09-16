@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { DomainToAddWithVisibilityPayload } from '@/interfaces/domain.ts'
-import { composeDomainName, isValidDomainName } from '@/utils/domains.ts'
+import type { DomainToAddWithVisibilityPayload } from '@/types/domains/domain.ts'
+import { composeDomainName, isValidDomainName } from '@/utils/domains/domains.ts'
 import BaseModal from '@/components/commons/overlays/BaseModal.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import ToggleSwitch from '@/components/commons/base/ToggleSwitch.vue'

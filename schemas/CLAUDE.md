@@ -59,9 +59,9 @@ that needs its own type.
 - **All four base64 alphabets are accepted** (standard/url-safe × padded/unpadded), because
   the header's producer is not always the same edge.
 - Also hosts the schema check for `fixtures/tenancy-domains.json` (tenancy ↔ frontend), which has
-  no Rust type: tenancy's `wire_test.go` and the frontend's `src/utils/domains.spec.ts` bind it.
+  no Rust type: tenancy's `wire_test.go` and the frontend's `src/utils/domains/domains.spec.ts` bind it.
 - Also hosts the schema check for `fixtures/chat-conversation.json` (chat ↔ frontend): chat is
-  its only Rust reader, and its `conversation.rs` tests and `src/utils/chat.spec.ts` bind it.
+  its only Rust reader, and its `conversation.rs` tests and `src/utils/commons/chat.spec.ts` bind it.
 - The one definition per language: Go `backend/libs/auth-contracts`, Python `agent/app/auth.py`.
   All three assert `fixtures/standard-claims.json`.
 
@@ -92,9 +92,9 @@ Two wire families plus the metric catalog. Consumers: telemetry, dashboard, sock
   This is the drift that once emptied the dashboard catalog at runtime — `key`/`metricKey`,
   `kind`/`type`. Both sides now build from this struct, so it is a compile error instead.
   `fixtures/metric-contract.json` pins the bytes for the frontend, which cannot share the struct;
-  `frontend/src/utils/metrics.spec.ts` binds it.
+  `frontend/src/utils/dashboard/metrics.spec.ts` binds it.
 - **`fixtures/telemetry-envelope.json` pins what the browser receives.** The frontend reads ticks
-  only through `src/utils/telemetry.ts`; a tick is never a reading, it has no `type`.
+  only through `src/utils/commons/telemetry.ts`; a tick is never a reading, it has no `type`.
   `buildingId` and `ingestedAt` live on the envelope only, never repeated on a reading.
 - **`MetricsDiscoveryResponse` is `untagged`**: a source may answer with
   `{service, metrics[]}` or a bare array. Keep both variants.

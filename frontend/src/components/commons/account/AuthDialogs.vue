@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAuthDialog } from '@/composables/ui/useAuthDialog.ts'
+import { useAuthDialog } from '@/composables/authentication/useAuthDialog.ts'
 import LogInModal from '@/components/commons/account/LogInModal.vue'
 import SignUpModal from '@/components/commons/account/SignUpModal.vue'
 import AccountSettingsModal from '@/components/commons/account/AccountSettingsModal.vue'

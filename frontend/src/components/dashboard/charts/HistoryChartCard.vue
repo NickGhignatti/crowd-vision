@@ -11,15 +11,15 @@ import {
   Tooltip,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import type { ApiDataPoint } from '@/composables/building/useBuildingHistory.ts'
-import { useChartTheme } from '@/composables/ui/useChartTheme.ts'
+import type { ApiDataPoint } from '@/composables/dashboard/useBuildingHistory.ts'
+import { useChartTheme } from '@/composables/dashboard/useChartTheme.ts'
 import {
   alignToTimeline,
   timelineFor,
   timelineLabel,
   type Aggregation,
   type TimeRange,
-} from '@/utils/charts.ts'
+} from '@/utils/dashboard/charts.ts'
 import SurfaceCard from '@/components/commons/base/SurfaceCard.vue'
 import BaseBadge from '@/components/commons/base/BaseBadge.vue'
 import EmptyState from '@/components/commons/base/EmptyState.vue'

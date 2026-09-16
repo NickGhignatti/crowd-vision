@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { extractPlans, type PlanUpload } from '@/utils/building/floorplan/index.ts'
-import { useBuildingDraft } from '@/composables/building/useBuildingDraft.ts'
+import { extractPlans, type PlanUpload } from '@/utils/administration/floorplan/index.ts'
+import { useBuildingDraft } from '@/composables/administration/useBuildingDraft.ts'
 import BaseModal from '@/components/commons/overlays/BaseModal.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'

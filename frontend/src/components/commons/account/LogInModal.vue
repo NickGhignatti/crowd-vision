@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useKeycloakAuth } from '@/composables/auth/useKeycloakAuth.ts'
+import { useKeycloakAuth } from '@/composables/authentication/useKeycloakAuth.ts'
 import BaseModal from '@/components/commons/overlays/BaseModal.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import FormField from '@/components/commons/forms/FormField.vue'

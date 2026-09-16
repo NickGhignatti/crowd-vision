@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { toggleSimulator, useIsRunning } from '@/composables/core/simulator.ts'
+import { toggleSimulator, useIsRunning } from '@/composables/dashboard/simulator.ts'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import StatusDot from '@/components/commons/base/StatusDot.vue'
 

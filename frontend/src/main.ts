@@ -9,7 +9,7 @@ import Tres from '@tresjs/core'
 import App from './App.vue'
 import router from './router'
 import i18n from '@/i18n.ts'
-import { startTheme } from '@/composables/ui/useTheme.ts'
+import { startTheme } from '@/composables/commons/useTheme.ts'
 
 startTheme()
 

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { buildRows } from '@/utils/tableRows.ts'
-import { summarize } from '@/utils/dashboard.ts'
-import { useDashboardBuildings } from '@/composables/building/useDashboardBuildings.ts'
-import { useBuildingReadings } from '@/composables/building/useBuildingSensor.ts'
-import { useFullscreen } from '@/composables/ui/useFullscreen.ts'
+import { buildRows } from '@/utils/dashboard/tableRows.ts'
+import { summarize } from '@/utils/dashboard/dashboard.ts'
+import { useDashboardBuildings } from '@/composables/dashboard/useDashboardBuildings.ts'
+import { useBuildingReadings } from '@/composables/dashboard/useBuildingSensor.ts'
+import { useFullscreen } from '@/composables/commons/useFullscreen.ts'
 import AppLayout from '@/components/commons/layout/AppLayout.vue'
 import DashboardStatusBar from '@/components/dashboard/header/DashboardStatusBar.vue'
 import ViewModeSwitch, {

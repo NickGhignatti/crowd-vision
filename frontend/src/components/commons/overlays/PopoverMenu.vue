@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useDismiss } from '@/composables/ui/useDismiss.ts'
+import { useDismiss } from '@/composables/commons/useDismiss.ts'
 
 withDefaults(defineProps<{ align?: 'start' | 'end'; width?: string }>(), {
   align: 'end',

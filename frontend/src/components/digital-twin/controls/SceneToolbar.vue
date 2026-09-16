@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { Mode, useModes } from '@/composables/scene/useModes.ts'
+import { Mode, useModes } from '@/composables/digital-twin/useModes.ts'
 import IconButton from '@/components/commons/base/IconButton.vue'
 
 defineProps<{ canFocus: boolean; isFocused: boolean; isRotating: boolean }>()

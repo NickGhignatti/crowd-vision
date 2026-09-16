@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ChatMessage } from '@/interfaces/chat.ts'
+import type { ChatMessage } from '@/types/commons/chat.ts'
 import EmptyState from '@/components/commons/base/EmptyState.vue'
 import FormMessage from '@/components/commons/forms/FormMessage.vue'
 import ChatBubble from '@/components/commons/chat/ChatBubble.vue'

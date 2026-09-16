@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AQI_BANDS, TEMPERATURE_BANDS, bandRanges } from '@/helpers/colors.ts'
-import { Mode, useModes } from '@/composables/scene/useModes.ts'
+import { AQI_BANDS, TEMPERATURE_BANDS, bandRanges } from '@/utils/digital-twin/colors.ts'
+import { Mode, useModes } from '@/composables/digital-twin/useModes.ts'
 
 const { t } = useI18n()
 const { currentMode } = useModes()

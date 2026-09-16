@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { MetricContract, TableHeader } from '@/models/table.ts'
-import { METRIC_I18N_KEY } from '@/utils/metrics.ts'
+import type { MetricContract, TableHeader } from '@/types/dashboard/table.ts'
+import { METRIC_I18N_KEY } from '@/utils/dashboard/metrics.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
 defineProps<{

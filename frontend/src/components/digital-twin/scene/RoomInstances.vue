@@ -2,9 +2,9 @@
 import { shallowRef, watch } from 'vue'
 import { useTresContext } from '@tresjs/core'
 import { Color, Matrix4, type InstancedMesh, type Intersection } from 'three'
-import type { Room } from '@/models/building.ts'
-import { roomColorStandard, roomOpacity } from '@/helpers/colors.ts'
-import { applyRoomColors, applyRoomMatrices } from '@/composables/scene/useInstancedRooms.ts'
+import type { Room } from '@/types/digital-twin/building.ts'
+import { roomColorStandard, roomOpacity } from '@/utils/digital-twin/colors.ts'
+import { applyRoomColors, applyRoomMatrices } from '@/composables/digital-twin/useInstancedRooms.ts'
 
 interface TresEvent extends Intersection {
   stopPropagation?: () => void

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAccountSettings } from '@/composables/auth/useAccountSettings.ts'
+import { useAccountSettings } from '@/composables/authentication/useAccountSettings.ts'
 import BaseModal from '@/components/commons/overlays/BaseModal.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import FormMessage from '@/components/commons/forms/FormMessage.vue'

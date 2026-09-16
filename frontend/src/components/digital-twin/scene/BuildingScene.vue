@@ -3,16 +3,19 @@ import { computed, ref, shallowRef, toRef, watchEffect } from 'vue'
 import { TresCanvas } from '@tresjs/core'
 import { OrbitControls } from '@tresjs/cientos'
 import { NoToneMapping } from 'three'
-import type { Building, Room } from '@/models/building.ts'
-import { useModes } from '@/composables/scene/useModes.ts'
-import { useSceneControls } from '@/composables/scene/useSceneControls.ts'
-import { useInstancedRooms } from '@/composables/scene/useInstancedRooms.ts'
-import { createWebGPURenderer, isWebGPUSupported } from '@/composables/scene/useWebGPURenderer.ts'
+import type { Building, Room } from '@/types/digital-twin/building.ts'
+import { useModes } from '@/composables/digital-twin/useModes.ts'
+import { useSceneControls } from '@/composables/digital-twin/useSceneControls.ts'
+import { useInstancedRooms } from '@/composables/digital-twin/useInstancedRooms.ts'
+import {
+  createWebGPURenderer,
+  isWebGPUSupported,
+} from '@/composables/digital-twin/useWebGPURenderer.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
-} from '@/composables/building/useRoomsData.ts'
-import { useTheme } from '@/composables/ui/useTheme.ts'
+} from '@/composables/digital-twin/useRoomsData.ts'
+import { useTheme } from '@/composables/commons/useTheme.ts'
 import RenderInvalidator from '@/components/digital-twin/scene/RenderInvalidator.vue'
 import AutoRotate from '@/components/digital-twin/scene/AutoRotate.vue'
 import RoomInstances from '@/components/digital-twin/scene/RoomInstances.vue'

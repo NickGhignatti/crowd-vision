@@ -348,25 +348,25 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
 
 .tablebyrows {.files}
     - - format dispatch, and merging storeys into one building
-      - `utils/building/floorplan/index.ts`
+      - `utils/administration/floorplan/index.ts`
     - - shapes to rooms — scale, centring, elevation, ids
-      - `utils/building/floorplan/draft.ts`
+      - `utils/administration/floorplan/draft.ts`
     - - SVG reader — transforms, extents, label matching
-      - `utils/building/floorplan/svg.ts`
+      - `utils/administration/floorplan/svg.ts`
     - - DXF reader — group-code pairs, `$INSUNITS`, y-axis flip
-      - `utils/building/floorplan/dxf.ts`
+      - `utils/administration/floorplan/dxf.ts`
     - - PDF reader — pdf.js path bounds, y-axis flip
-      - `utils/building/floorplan/pdf.ts`
+      - `utils/administration/floorplan/pdf.ts`
     - - fixtures and assertions
-      - `utils/building/floorplan/{svg,dxf,pdf,index}.spec.ts`, `__fixtures__/`
+      - `utils/administration/floorplan/{svg,dxf,pdf,index}.spec.ts`, `__fixtures__/`
     - - draft shape, unchanged
-      - `composables/building/useBuildingDraft.ts`
+      - `composables/administration/useBuildingDraft.ts`
     - - the seam — format choice, calibration, warnings
       - `components/administration/registration/{RegisterBuildingModal,PlanCalibration}.vue`
     - - one upload row per storey
       - `components/administration/registration/PlanUploadModal.vue`
     - - review before submitting — one plan view per floor
-      - `components/administration/registration/BuildingPreviewModal.vue`, geometry in `utils/building/floorplan/preview.ts`
+      - `components/administration/registration/BuildingPreviewModal.vue`, geometry in `utils/administration/floorplan/preview.ts`
 
 `draft.ts` names no format and `svg.ts` names no Vue symbol. That split is what phase 5 reuses:
 DXF adds a reader beside `svg.ts` and touches nothing else.

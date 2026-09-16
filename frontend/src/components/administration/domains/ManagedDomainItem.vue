@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { UnifiedDomainGroup } from '@/interfaces/domain.ts'
+import type { UnifiedDomainGroup } from '@/types/domains/domain.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 import IconButton from '@/components/commons/base/IconButton.vue'
 import RoleBadge from '@/components/domains/badges/RoleBadge.vue'

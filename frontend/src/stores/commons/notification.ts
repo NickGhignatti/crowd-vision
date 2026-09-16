@@ -1,0 +1,53 @@
+import { defineStore } from 'pinia'
+import { makeRequest } from '@/composables/commons/useApi.ts'
+import type { NotificationType } from '@/types/commons/notification.ts'
+import { preferenceRequest, toPreferenceMap } from '@/utils/commons/notificationPreferences.ts'
+
+export const useNotificationStore = defineStore('notification', {
+  state: () => ({
+    notificationPreferences: {} as Record<string, Record<string, boolean>>,
+  }),
+
+  getters: {
+    isSubscribed: (state) => (domainName: string, type: NotificationType) =>
+      state.notificationPreferences[domainName]?.[type] ?? false,
+  },
+
+  actions: {
+    async fetchAccountNotificationPreference(accountName: string) {
+      const response = await makeRequest(`/notification/preferences/${accountName}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error(`Failed to fetch preferences: ${data.type} - ${data.message}`)
+        return
+      }
+
+      this.notificationPreferences = toPreferenceMap(data.accountPreferences)
+    },
+
+    async handleNotificationSubscription(
+      accountName: string,
+      domainName: string,
+      type: NotificationType,
+    ) {
+      const currentValue = this.isSubscribed(domainName, type)
+
+      const response = await makeRequest('/notification/preferences', 'POST', {
+        body: JSON.stringify(preferenceRequest(accountName, domainName, type, !currentValue)),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        console.error(`Failed to update preference: ${data.type} - ${data.message}`)
+        return
+      }
+
+      // Optimistically update the UI store
+      if (!this.notificationPreferences[domainName]) {
+        this.notificationPreferences[domainName] = {}
+      }
+      this.notificationPreferences[domainName][type] = !currentValue
+    },
+  },
+})

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import QRCode from 'qrcode'
 import { useI18n } from 'vue-i18n'
-import { getRoleMeta } from '@/helpers/roles.ts'
+import { getRoleMeta } from '@/utils/domains/roles.ts'
 import SurfaceCard from '@/components/commons/base/SurfaceCard.vue'
 import SegmentedControl from '@/components/commons/base/SegmentedControl.vue'
 import EmptyState from '@/components/commons/base/EmptyState.vue'

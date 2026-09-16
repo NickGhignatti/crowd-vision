@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Notification } from '@/interfaces/notification.ts'
-import { SEVERITY_TONE } from '@/utils/notification.ts'
+import type { NotificationListItem as Notification } from '@/types/commons/notification.ts'
+import { SEVERITY_TONE } from '@/utils/commons/notification.ts'
 import StatusDot from '@/components/commons/base/StatusDot.vue'
 
 const props = defineProps<{ notification: Notification }>()

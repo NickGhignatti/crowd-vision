@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { pageCount, pageRange, pageWindow } from '@/utils/pagination.ts'
+import { pageCount, pageRange, pageWindow } from '@/utils/commons/pagination.ts'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import IconButton from '@/components/commons/base/IconButton.vue'
 import SelectInput from '@/components/commons/forms/SelectInput.vue'

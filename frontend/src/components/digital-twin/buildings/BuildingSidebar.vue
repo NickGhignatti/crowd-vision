@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Building } from '@/models/building.ts'
+import type { Building } from '@/types/digital-twin/building.ts'
 import {
   filterBuildings,
   floorsOf,
   groupByDomain,
   type BuildingOption,
-} from '@/utils/building/buildings.ts'
-import { useUserPermissions } from '@/composables/auth/useUserPermissions.ts'
-import { useBuildingsStore } from '@/stores/buildings.ts'
+} from '@/utils/digital-twin/buildings.ts'
+import { useUserPermissions } from '@/composables/authentication/useUserPermissions.ts'
+import { useBuildingsStore } from '@/stores/digital-twin/buildings.ts'
 import SidePanel from '@/components/digital-twin/sidebar/SidePanel.vue'
 import BuildingGroup from '@/components/digital-twin/buildings/BuildingGroup.vue'
 import BuildingListItem from '@/components/digital-twin/buildings/BuildingListItem.vue'

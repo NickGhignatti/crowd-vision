@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useAuth } from '@/composables/auth/useAuth.ts'
-import { useAuthDialog } from '@/composables/ui/useAuthDialog.ts'
+import { useAuth } from '@/composables/authentication/useAuth.ts'
+import { useAuthDialog } from '@/composables/authentication/useAuthDialog.ts'
 import { ROUTES } from '@/router/routes.ts'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'

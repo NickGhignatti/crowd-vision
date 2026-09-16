@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ChatCitation } from '@/interfaces/chat.ts'
-import { uniqueSources } from '@/utils/chat.ts'
+import type { ChatCitation } from '@/types/commons/chat.ts'
+import { uniqueSources } from '@/utils/commons/chat.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
 const props = defineProps<{ citations: ChatCitation[] }>()

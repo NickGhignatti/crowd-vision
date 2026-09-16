@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { aqiBand, type BuildingSummary } from '@/utils/dashboard.ts'
+import { aqiBand, type BuildingSummary } from '@/utils/dashboard/dashboard.ts'
 import KpiCard from '@/components/dashboard/kpi/KpiCard.vue'
 import ProgressBar from '@/components/commons/base/ProgressBar.vue'
 import BaseBadge from '@/components/commons/base/BaseBadge.vue'
-import type { Tone } from '@/helpers/tone.ts'
+import type { Tone } from '@/utils/commons/tone.ts'
 
 const props = defineProps<{ summary: BuildingSummary; loading: boolean }>()
 

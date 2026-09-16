@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { MetricContract } from '@/models/table.ts'
-import { METRIC_I18N_KEY } from '@/utils/metrics.ts'
+import type { MetricContract } from '@/types/dashboard/table.ts'
+import { METRIC_I18N_KEY } from '@/utils/dashboard/metrics.ts'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import IconButton from '@/components/commons/base/IconButton.vue'
 import FormMessage from '@/components/commons/forms/FormMessage.vue'

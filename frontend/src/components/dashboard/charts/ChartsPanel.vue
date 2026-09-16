@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getBuildingHistory } from '@/composables/building/useBuildingHistory.ts'
-import { AGGREGATIONS, TIME_RANGES, type Aggregation, type TimeRange } from '@/utils/charts.ts'
+import { getBuildingHistory } from '@/composables/dashboard/useBuildingHistory.ts'
+import {
+  AGGREGATIONS,
+  TIME_RANGES,
+  type Aggregation,
+  type TimeRange,
+} from '@/utils/dashboard/charts.ts'
 import SegmentedControl from '@/components/commons/base/SegmentedControl.vue'
 import SimulatorToggle from '@/components/dashboard/charts/SimulatorToggle.vue'
 import HistoryChartCard from '@/components/dashboard/charts/HistoryChartCard.vue'

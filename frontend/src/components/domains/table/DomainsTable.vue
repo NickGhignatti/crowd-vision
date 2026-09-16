@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { DomainRow as Row } from '@/interfaces/domain.ts'
-import { useDomainsStore } from '@/stores/domain.ts'
+import type { DomainRow as Row } from '@/types/domains/domain.ts'
+import { useDomainsStore } from '@/stores/domains/domain.ts'
 import DomainRow from '@/components/domains/table/DomainRow.vue'
 import EmptyState from '@/components/commons/base/EmptyState.vue'
 import FormMessage from '@/components/commons/forms/FormMessage.vue'

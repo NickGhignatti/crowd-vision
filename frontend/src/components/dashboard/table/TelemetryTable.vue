@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TableBody, TableHeader } from '@/models/table.ts'
+import type { TableBody, TableHeader } from '@/types/dashboard/table.ts'
 import MetricCell from '@/components/dashboard/table/MetricCell.vue'
 import TelemetryTableHead from '@/components/dashboard/table/TelemetryTableHead.vue'
 import EmptyState from '@/components/commons/base/EmptyState.vue'

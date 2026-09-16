@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { MetricDisplay } from '@/config/metricDisplay.ts'
-import type { TableBody } from '@/models/table.ts'
+import type { MetricDisplay } from '@/utils/dashboard/metricDisplay.ts'
+import type { TableBody } from '@/types/dashboard/table.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
 defineProps<{ display: MetricDisplay; value: unknown; row: TableBody }>()
