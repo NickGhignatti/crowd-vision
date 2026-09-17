@@ -11,6 +11,7 @@ import { createWebGPURenderer } from '@/composables/digital-twin/useWebGPURender
 import { roomColorStandard } from '@/utils/digital-twin/colors.ts'
 import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import { thermalGlows } from '@/utils/digital-twin/thermalGlow.ts'
+import { airHazes } from '@/utils/digital-twin/airHaze.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
@@ -20,6 +21,7 @@ import { useTheme } from '@/composables/commons/useTheme.ts'
 import RenderInvalidator from '@/components/digital-twin/scene/RenderInvalidator.vue'
 import AutoRotate from '@/components/digital-twin/scene/AutoRotate.vue'
 import ThermalGlow from '@/components/digital-twin/scene/ThermalGlow.vue'
+import AirHaze from '@/components/digital-twin/scene/AirHaze.vue'
 import RoomInstances from '@/components/digital-twin/scene/RoomInstances.vue'
 import SelectedRoom from '@/components/digital-twin/scene/SelectedRoom.vue'
 import RoomOutline from '@/components/digital-twin/scene/RoomOutline.vue'
@@ -87,8 +89,10 @@ watchEffect(() => {
 })
 
 const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSensor)
-// In temperature mode the glow carries the colour, so shells fall back to the neutral tint.
-const shellColors = computed(() => (isThermal.value ? {} : colors.value))
+const isAir = computed(() => modes.currentMode.value === Mode.AirQualitySensor)
+// In a data mode the glow or haze carries the colour, so shells fall back to the neutral tint.
+const shellColors = computed(() => (isThermal.value || isAir.value ? {} : colors.value))
+const hazes = computed(() => (isAir.value ? airHazes(props.rooms, indoorAqi.value) : []))
 const glows = computed(() => (isThermal.value ? thermalGlows(props.rooms, temperatures.value) : []))
 
 const { instancedRooms, overlayRoom } = useInstancedRooms(
@@ -145,6 +149,7 @@ const focus = withFrame(() =>
 
       <template v-if="building">
         <ThermalGlow :key="`${batchKey}:${glows.length}`" :glows="glows" :colors="colors" />
+        <AirHaze :key="`${batchKey}:${hazes.length}`" :hazes="hazes" :colors="colors" />
         <RoomInstances
           :key="batchKey"
           :rooms="instancedRooms"

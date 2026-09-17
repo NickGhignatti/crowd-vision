@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Room } from '@/types/digital-twin/building.ts'
-import { roomColorByAirQuality, temperatureColor } from '@/utils/digital-twin/colors.ts'
+import { aqiColor, temperatureColor } from '@/utils/digital-twin/colors.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 import IconButton from '@/components/commons/base/IconButton.vue'
 import ProgressBar from '@/components/commons/base/ProgressBar.vue'
@@ -86,7 +86,7 @@ const occupancy = computed(() =>
           <dd
             class="text-mono-metric"
             :style="{
-              color: airQuality === undefined ? undefined : roomColorByAirQuality(airQuality),
+              color: airQuality === undefined ? undefined : aqiColor(airQuality),
             }"
           >
             {{ airQuality ?? EMPTY }}
