@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useTresContext } from '@tresjs/core'
 import type { Mesh } from 'three'
 import type { Room } from '@/types/digital-twin/building.ts'
-import { SHELL_COLOR } from '@/utils/digital-twin/colors.ts'
+import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
 
@@ -13,7 +13,7 @@ defineEmits<{ select: [roomId: string] }>()
 
 const { renderer } = useTresContext()
 const { theme } = useTheme()
-const { style } = useRenderStyle()
+const { current, style } = useRenderStyle()
 const mesh = shallowRef<Mesh | null>(null)
 const material = computed(() => style.value.material('selected', theme.value))
 
@@ -21,7 +21,7 @@ watch(
   [mesh, material, () => props.color],
   ([target, next], [, previous]) => {
     if (previous && previous !== next) previous.dispose()
-    next.color.set(props.color ?? SHELL_COLOR[theme.value])
+    next.color.set(props.color ?? renderStyleConfig(current.value).idleColor[theme.value])
     if (!target) return
     target.material = next
     renderer.invalidate()

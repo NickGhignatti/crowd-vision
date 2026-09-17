@@ -10,7 +10,7 @@ import {
   uniform,
   uv,
 } from 'three/tsl'
-import { roomShell, type ShellShading } from '@/utils/digital-twin/colors.ts'
+import { renderStyleConfig, type ShellShading } from '@/utils/digital-twin/renderStyleConfig.ts'
 import type { RenderStyle } from './types.ts'
 
 /** A see-through room skin: nearly clear facing the camera, firmer toward its silhouette and edges. */
@@ -30,7 +30,9 @@ function createShellMaterial(shading: ShellShading, additive: boolean) {
   return material
 }
 
+const config = renderStyleConfig('ghost')
+
 export const ghostShell: RenderStyle = {
   id: 'ghost',
-  material: (role, theme) => createShellMaterial(roomShell(role === 'selected'), theme === 'dark'),
+  material: (role, theme) => createShellMaterial(config[role], theme === 'dark'),
 }

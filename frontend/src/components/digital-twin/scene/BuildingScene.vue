@@ -8,11 +8,13 @@ import { useModes } from '@/composables/digital-twin/useModes.ts'
 import { useSceneControls } from '@/composables/digital-twin/useSceneControls.ts'
 import { useInstancedRooms } from '@/composables/digital-twin/useInstancedRooms.ts'
 import { createWebGPURenderer } from '@/composables/digital-twin/useWebGPURenderer.ts'
-import { SHELL_COLOR, roomColorStandard } from '@/utils/digital-twin/colors.ts'
+import { roomColorStandard } from '@/utils/digital-twin/colors.ts'
+import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
 } from '@/composables/digital-twin/useRoomsData.ts'
+import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
 import RenderInvalidator from '@/components/digital-twin/scene/RenderInvalidator.vue'
 import AutoRotate from '@/components/digital-twin/scene/AutoRotate.vue'
@@ -42,6 +44,7 @@ const CLEAR_COLOR = { light: '#f2f3ff', dark: '#0f1729' }
 const OUTLINE_COLOR = { light: '#475569', dark: '#bccac0' }
 
 const { theme } = useTheme()
+const renderStyle = useRenderStyle()
 const modes = useModes()
 const controls = useSceneControls()
 const { cameraRef, controlsRef, isRotating } = controls
@@ -68,7 +71,10 @@ watchEffect(() => {
       indoorAqi: indoorAqi.value[room.id],
     })
     // Rooms with no data take the theme's shell tint; data colours keep their meaning.
-    next[room.id] = color === roomColorStandard() ? SHELL_COLOR[theme.value] : color
+    next[room.id] =
+      color === roomColorStandard()
+        ? renderStyleConfig(renderStyle.current.value).idleColor[theme.value]
+        : color
   }
   const previous = colors.value
   const changed =
