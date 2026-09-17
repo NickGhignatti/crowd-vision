@@ -1,4 +1,4 @@
-export const RENDER_STYLE_IDS = ['ghost'] as const
+export const RENDER_STYLE_IDS = ['ghost', 'depth'] as const
 export type RenderStyleId = (typeof RENDER_STYLE_IDS)[number]
 
 export const RENDER_STYLE_STORAGE_KEY = 'renderStyle'

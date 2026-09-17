@@ -76,6 +76,7 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 - `useRenderStyle` holds the current style for every room mesh and saves it in `localStorage['renderStyle']`. `parseRenderStyle` falls back to `ghost` for a missing or retired id.
 - The paint-brush button in `SceneToolbar` switches to the next style (`nextRenderStyle`, wrapping round); its tooltip names the current one (`model.controls.renderStyles.<id>` in `i18n.ts`).
 - `ghost` (`renderStyles/ghostShell.ts`) is a TSL fresnel, nearly clear face-on and firmer edge-on, plus an edge glow a fixed number of screen pixels wide (`fwidth` of the face uv), so outlines stay crisp at any zoom.
+- `depth` (`renderStyles/depthFade.ts`) fades rooms by distance from the camera: faint up to the building's centre, solid toward its far edge, with the same edge glow. The range comes from the drawn mesh's bounding sphere (`focusSphere` in `renderStyles/nodes.ts`, refreshed per object each frame), so it holds at any zoom and building size. The selected room keeps one steady opacity.
 - TSL runs only on `WebGPURenderer`, so `BuildingScene` always uses it. It falls back to WebGL2 by itself when the browser has no WebGPU.
 - Dark theme blends shells additively, so they glow. Light theme blends normally, because additive colour disappears on a pale background.
 - Every style's numbers and colours live in `utils/digital-twin/renderStyleConfig.ts`, kept private. Read them only through `renderStyleConfig(id)`, which is typed per style.

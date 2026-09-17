@@ -22,3 +22,20 @@ describe('the ghost render style settings', () => {
     expect(ghost.idleColor).toEqual({ light: '#64748b', dark: '#e2e8f0' })
   })
 })
+
+describe('the depth fade render style settings', () => {
+  const depth = renderStyleConfig('depth')
+
+  it('fades rooms nearer than the building centre and keeps the far side solid', () => {
+    expect(depth.room).toMatchObject({ near: 0, far: 1, nearOpacity: 0.04, farOpacity: 0.6 })
+  })
+
+  it('keeps the selected room at one steady opacity, whatever its distance', () => {
+    expect(depth.selected.nearOpacity).toBe(depth.selected.farOpacity)
+    expect(depth.selected.edgeStrength).toBeGreaterThan(depth.room.edgeStrength)
+  })
+
+  it('tints rooms with no reading like the ghost style', () => {
+    expect(depth.idleColor).toEqual(renderStyleConfig('ghost').idleColor)
+  })
+})
