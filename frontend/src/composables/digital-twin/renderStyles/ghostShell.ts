@@ -10,10 +10,11 @@ import {
   uniform,
   uv,
 } from 'three/tsl'
-import type { ShellShading } from '@/utils/digital-twin/colors.ts'
+import { roomShell, type ShellShading } from '@/utils/digital-twin/colors.ts'
+import type { RenderStyle } from './types.ts'
 
 /** A see-through room skin: nearly clear facing the camera, firmer toward its silhouette and edges. */
-export function createShellMaterial(shading: ShellShading, additive: boolean) {
+function createShellMaterial(shading: ShellShading, additive: boolean) {
   const { base, strength, power, edgeWidth, edgeStrength } = shading
   const material = new MeshLambertNodeMaterial({ transparent: true, depthWrite: false })
   const rim = float(1).sub(normalView.dot(positionViewDirection).abs()).pow(uniform(power))
@@ -27,4 +28,9 @@ export function createShellMaterial(shading: ShellShading, additive: boolean) {
   // Additive glow vanishes on a light background, so only the dark theme adds.
   material.blending = additive ? AdditiveBlending : NormalBlending
   return material
+}
+
+export const ghostShell: RenderStyle = {
+  id: 'ghost',
+  material: (role, theme) => createShellMaterial(roomShell(role === 'selected'), theme === 'dark'),
 }

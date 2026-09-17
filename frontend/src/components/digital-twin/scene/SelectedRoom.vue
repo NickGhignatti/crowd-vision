@@ -3,8 +3,8 @@ import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useTresContext } from '@tresjs/core'
 import type { Mesh } from 'three'
 import type { Room } from '@/types/digital-twin/building.ts'
-import { SHELL_COLOR, roomShell } from '@/utils/digital-twin/colors.ts'
-import { createShellMaterial } from '@/composables/digital-twin/useShellMaterial.ts'
+import { SHELL_COLOR } from '@/utils/digital-twin/colors.ts'
+import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
 
 const props = defineProps<{ room: Room; color?: string }>()
@@ -13,8 +13,9 @@ defineEmits<{ select: [roomId: string] }>()
 
 const { renderer } = useTresContext()
 const { theme } = useTheme()
+const { style } = useRenderStyle()
 const mesh = shallowRef<Mesh | null>(null)
-const material = computed(() => createShellMaterial(roomShell(true), theme.value === 'dark'))
+const material = computed(() => style.value.material('selected', theme.value))
 
 watch(
   [mesh, material, () => props.color],

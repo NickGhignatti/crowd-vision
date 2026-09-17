@@ -3,9 +3,9 @@ import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useTresContext } from '@tresjs/core'
 import { Color, Matrix4, type InstancedMesh, type Intersection } from 'three'
 import type { Room } from '@/types/digital-twin/building.ts'
-import { SHELL_COLOR, roomShell } from '@/utils/digital-twin/colors.ts'
+import { SHELL_COLOR } from '@/utils/digital-twin/colors.ts'
 import { applyRoomColors, applyRoomMatrices } from '@/composables/digital-twin/useInstancedRooms.ts'
-import { createShellMaterial } from '@/composables/digital-twin/useShellMaterial.ts'
+import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
 
 interface TresEvent extends Intersection {
@@ -18,6 +18,7 @@ const emit = defineEmits<{ select: [roomId: string] }>()
 
 const { renderer } = useTresContext()
 const { theme } = useTheme()
+const { style } = useRenderStyle()
 const mesh = shallowRef<InstancedMesh | null>(null)
 const scratchColor = new Color()
 const scratchMatrix = new Matrix4()
@@ -47,7 +48,7 @@ watch(
   { flush: 'post' },
 )
 
-const material = computed(() => createShellMaterial(roomShell(false), theme.value === 'dark'))
+const material = computed(() => style.value.material('room', theme.value))
 
 watch(
   [mesh, material],
