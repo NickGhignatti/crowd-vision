@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useTresContext } from '@tresjs/core'
 import { Color, Matrix4, type InstancedMesh, type Intersection } from 'three'
 import type { Room } from '@/types/digital-twin/building.ts'
-import { roomColorStandard, roomOpacity } from '@/utils/digital-twin/colors.ts'
+import { SHELL_COLOR, roomShell } from '@/utils/digital-twin/colors.ts'
 import { applyRoomColors, applyRoomMatrices } from '@/composables/digital-twin/useInstancedRooms.ts'
+import { createShellMaterial } from '@/composables/digital-twin/useShellMaterial.ts'
+import { useTheme } from '@/composables/commons/useTheme.ts'
 
 interface TresEvent extends Intersection {
   stopPropagation?: () => void
@@ -15,12 +17,13 @@ const props = defineProps<{ rooms: Room[]; colors: Record<string, string> }>()
 const emit = defineEmits<{ select: [roomId: string] }>()
 
 const { renderer } = useTresContext()
+const { theme } = useTheme()
 const mesh = shallowRef<InstancedMesh | null>(null)
 const scratchColor = new Color()
 const scratchMatrix = new Matrix4()
 
 const paint = (target: InstancedMesh) =>
-  applyRoomColors(target, props.rooms, props.colors, scratchColor, roomColorStandard())
+  applyRoomColors(target, props.rooms, props.colors, scratchColor, SHELL_COLOR[theme.value])
 
 // Geometry is static per room set, so only a new set rebuilds matrices; a telemetry tick repaints.
 watch(
@@ -44,6 +47,22 @@ watch(
   { flush: 'post' },
 )
 
+const material = computed(() => createShellMaterial(roomShell(false), theme.value === 'dark'))
+
+watch(
+  [mesh, material],
+  ([target, next], [, previous]) => {
+    if (previous && previous !== next) previous.dispose()
+    if (!target) return
+    target.material = next
+    renderer.invalidate()
+  },
+  { immediate: true, flush: 'post' },
+)
+
+// The batch remounts per building and floor; a shader left behind leaks GPU memory.
+onBeforeUnmount(() => material.value.dispose())
+
 const onClick = (event: TresEvent) => {
   event.stopPropagation?.()
   const id = event.instanceId === undefined ? undefined : props.rooms[event.instanceId]?.id
@@ -59,12 +78,5 @@ const onClick = (event: TresEvent) => {
     @click="onClick"
   >
     <TresBoxGeometry :args="[1, 1, 1]" />
-    <TresMeshLambertMaterial
-      :transparent="true"
-      :opacity="roomOpacity(false)"
-      :depth-write="false"
-      :depth-test="true"
-      :side="2"
-    />
   </TresInstancedMesh>
 </template>

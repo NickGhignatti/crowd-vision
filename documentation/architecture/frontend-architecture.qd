@@ -68,6 +68,15 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 - Icons are Phosphor, rendered through `BaseIcon`, which takes the name without the `ph-` prefix.
 - Data-viz colours stay literal: temperature and air-quality bands (`utils/digital-twin/colors.ts`) and QR codes, because their meaning must not change with the theme.
 
+## 3D Twin Scene
+
+- A room `position` is the box centre on every axis, so a storey's floor is at `y - height / 2`.
+- Rooms are one `InstancedMesh` and draw front faces only. Two rooms sharing a wall then draw it once from each side, with no extra overdraw.
+- Rooms are ghost shells: `createShellMaterial` (`composables/digital-twin/useShellMaterial.ts`) is a TSL fresnel, nearly clear face-on and firmer edge-on, plus an edge glow a fixed number of screen pixels wide (`fwidth` of the face uv), so outlines stay crisp at any zoom. Its numbers are `roomShell` in `colors.ts`.
+- TSL runs only on `WebGPURenderer`, so `BuildingScene` always uses it. It falls back to WebGL2 by itself when the browser has no WebGPU.
+- Dark theme blends shells additively, so they glow. Light theme blends normally, because additive colour disappears on a pale background.
+- Rooms with no reading take `SHELL_COLOR` for the theme: slate on light, pale grey on dark. Data colours (temperature, air quality) never change with the theme.
+
 ## Shell
 
 - `App.vue` mounts `RouterView` plus three app-wide overlays: `AuthDialogs`, `PushNotificationPrompt` and `ChatWidget`.
