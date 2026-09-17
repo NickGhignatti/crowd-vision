@@ -420,6 +420,10 @@ const messages = {
           panorama: 'Panorama Mode',
           temperature: 'Temperature Mode',
           airQuality: 'Air Quality Mode',
+          renderStyle: 'Render style: {style}',
+        },
+        renderStyles: {
+          ghost: 'Ghost shell',
         },
         uploadJson: 'Upload JSON',
         invalidJsonUpload: 'Please upload a valid JSON file',
@@ -931,6 +935,10 @@ const messages = {
           panorama: 'Modalità Panorama',
           temperature: 'Modalità Temperatura',
           airQuality: 'Modalità Qualità Aria',
+          renderStyle: 'Stile di resa: {style}',
+        },
+        renderStyles: {
+          ghost: 'Guscio fantasma',
         },
         uploadJson: 'Carica JSON',
         invalidJsonUpload: 'Carica un file JSON valido',

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { Mode, useModes } from '@/composables/digital-twin/useModes.ts'
+import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
+import { nextRenderStyle } from '@/utils/digital-twin/renderStyle.ts'
 import IconButton from '@/components/commons/base/IconButton.vue'
 
 defineProps<{ canFocus: boolean; isFocused: boolean; isRotating: boolean }>()
@@ -15,6 +17,7 @@ defineEmits<{
 
 const { t } = useI18n()
 const { currentMode, changeMode } = useModes()
+const { current: renderStyle, setStyle } = useRenderStyle()
 </script>
 
 <template>
@@ -68,6 +71,18 @@ const { currentMode, changeMode } = useModes()
       :label="t('model.controls.buttons.airQuality')"
       :active="currentMode === Mode.AirQualitySensor"
       @click="changeMode(Mode.AirQualitySensor)"
+    />
+
+    <span class="mx-1 h-6 w-px bg-outline-variant" />
+
+    <IconButton
+      icon="paint-brush"
+      :label="
+        t('model.controls.buttons.renderStyle', {
+          style: t(`model.controls.renderStyles.${renderStyle}`),
+        })
+      "
+      @click="setStyle(nextRenderStyle(renderStyle))"
     />
   </div>
 </template>

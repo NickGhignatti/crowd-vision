@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { RENDER_STYLE_STORAGE_KEY, parseRenderStyle } from './renderStyle.ts'
+import {
+  RENDER_STYLE_IDS,
+  RENDER_STYLE_STORAGE_KEY,
+  nextRenderStyle,
+  parseRenderStyle,
+} from './renderStyle.ts'
 
 describe('the render style a browser remembers', () => {
   it('is the saved one when it still exists', () => {
@@ -12,5 +17,12 @@ describe('the render style a browser remembers', () => {
 
   it('lives under its own storage key', () => {
     expect(RENDER_STYLE_STORAGE_KEY).toBe('renderStyle')
+  })
+})
+
+describe('the style the toolbar button switches to', () => {
+  it('is the next one in the list, wrapping from the last back to the first', () => {
+    const after = RENDER_STYLE_IDS.map((id) => nextRenderStyle(id))
+    expect(after).toEqual([...RENDER_STYLE_IDS.slice(1), RENDER_STYLE_IDS[0]])
   })
 })
