@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useTresContext } from '@tresjs/core'
 import { Color, Matrix4, type InstancedMesh, type Intersection } from 'three'
 import type { Room } from '@/types/digital-twin/building.ts'
-import { SHELL_COLOR } from '@/utils/digital-twin/colors.ts'
+import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import { applyRoomColors, applyRoomMatrices } from '@/composables/digital-twin/useInstancedRooms.ts'
 import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
@@ -18,13 +18,19 @@ const emit = defineEmits<{ select: [roomId: string] }>()
 
 const { renderer } = useTresContext()
 const { theme } = useTheme()
-const { style } = useRenderStyle()
+const { current, style } = useRenderStyle()
 const mesh = shallowRef<InstancedMesh | null>(null)
 const scratchColor = new Color()
 const scratchMatrix = new Matrix4()
 
 const paint = (target: InstancedMesh) =>
-  applyRoomColors(target, props.rooms, props.colors, scratchColor, SHELL_COLOR[theme.value])
+  applyRoomColors(
+    target,
+    props.rooms,
+    props.colors,
+    scratchColor,
+    renderStyleConfig(current.value).idleColor[theme.value],
+  )
 
 // Geometry is static per room set, so only a new set rebuilds matrices; a telemetry tick repaints.
 watch(

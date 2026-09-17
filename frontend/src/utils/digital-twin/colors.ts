@@ -41,21 +41,3 @@ export function roomColorByTemperature(temperature: number): string {
 export function roomColorByAirQuality(iaqi: number): string {
   return iaqi === 0 ? NO_READING : colorIn(AQI_BANDS, iaqi)
 }
-
-/** Fresnel opacity: `base` where a face looks at the camera, `base + strength` edge-on. */
-export interface ShellShading {
-  base: number
-  strength: number
-  power: number
-  /** Edge glow falloff, in screen pixels. */
-  edgeWidth: number
-  edgeStrength: number
-}
-
-export function roomShell(isSelected: boolean): ShellShading {
-  return isSelected
-    ? { base: 0.12, strength: 0.6, power: 2, edgeWidth: 5, edgeStrength: 0.8 }
-    : { base: 0.04, strength: 0.45, power: 2, edgeWidth: 4, edgeStrength: 0.5 }
-}
-
-export const SHELL_COLOR = { light: '#64748b', dark: '#e2e8f0' }
