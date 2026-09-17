@@ -1,16 +1,19 @@
 import { ref } from 'vue'
-import { roomColorByTemperature, roomColorStandard, roomColorByAirQuality } from '@/utils/digital-twin/colors.ts'
+import {
+  roomColorByTemperature,
+  roomColorStandard,
+  roomColorByAirQuality,
+} from '@/utils/digital-twin/colors.ts'
 
 export enum Mode {
   NoSensor,
   TemperatureSensor,
-  AirQualitySensor
+  AirQualitySensor,
 }
 
 const currentMode = ref<Mode>(Mode.NoSensor)
 
 export function useModes() {
-
   const changeMode = (mode: Mode) => {
     if (mode === currentMode.value) {
       currentMode.value = Mode.NoSensor
@@ -19,7 +22,10 @@ export function useModes() {
     }
   }
 
-  const getColorByMode = ({ temperature, indoorAqi }: { temperature?: number, indoorAqi?: number } = {}) => {
+  const getColorByMode = ({
+    temperature,
+    indoorAqi,
+  }: { temperature?: number; indoorAqi?: number } = {}) => {
     if (currentMode.value === Mode.TemperatureSensor && temperature !== undefined) {
       return roomColorByTemperature(temperature)
     }
@@ -30,6 +36,8 @@ export function useModes() {
   }
 
   return {
-    currentMode, changeMode, getColorByMode
+    currentMode,
+    changeMode,
+    getColorByMode,
   }
 }

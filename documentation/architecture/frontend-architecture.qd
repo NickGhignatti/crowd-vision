@@ -74,6 +74,7 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 - Rooms are one `InstancedMesh` and draw front faces only. Two rooms sharing a wall then draw it once from each side, with no extra overdraw.
 - Rooms are drawn by a render style (`composables/digital-twin/renderStyles/`): a `RenderStyle` returns the material for a room or the selected room, per theme. `RENDER_STYLES` lists them.
 - `useRenderStyle` holds the current style for every room mesh and saves it in `localStorage['renderStyle']`. `parseRenderStyle` falls back to `ghost` for a missing or retired id.
+- The paint-brush button in `SceneToolbar` switches to the next style (`nextRenderStyle`, wrapping round); its tooltip names the current one (`model.controls.renderStyles.<id>` in `i18n.ts`).
 - `ghost` (`renderStyles/ghostShell.ts`) is a TSL fresnel, nearly clear face-on and firmer edge-on, plus an edge glow a fixed number of screen pixels wide (`fwidth` of the face uv), so outlines stay crisp at any zoom.
 - TSL runs only on `WebGPURenderer`, so `BuildingScene` always uses it. It falls back to WebGL2 by itself when the browser has no WebGPU.
 - Dark theme blends shells additively, so they glow. Light theme blends normally, because additive colour disappears on a pale background.
