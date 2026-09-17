@@ -4,7 +4,10 @@ import {
   TEMPERATURE_BANDS,
   bandRanges,
   roomColorByAirQuality,
+  TEMPERATURE_SCALE,
   roomColorByTemperature,
+  temperatureColor,
+  temperatureGradient,
 } from './colors.ts'
 
 describe('the colour a room takes in temperature mode', () => {
@@ -20,6 +23,54 @@ describe('the colour a room takes in temperature mode', () => {
 
   it('paints a room with no reading black', () => {
     expect(roomColorByTemperature(0)).toBe('#000000')
+  })
+})
+
+const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+
+describe('the colour a room takes against its own temperature limit', () => {
+  it('is red at or above the limit', () => {
+    expect(temperatureColor(27, 27)).toBe('#dc2626')
+    expect(temperatureColor(40, 27)).toBe('#dc2626')
+  })
+
+  it('is blue far below the limit', () => {
+    expect(temperatureColor(10, 27)).toBe('#2563eb')
+  })
+
+  it('takes each stop colour exactly at that stop', () => {
+    for (const stop of TEMPERATURE_SCALE) {
+      expect(temperatureColor(27 + stop.offset, 27)).toBe(stop.color.toLowerCase())
+    }
+  })
+
+  it('reads the same for any limit, so a server room and an office compare fairly', () => {
+    expect(temperatureColor(28, 35)).toBe(temperatureColor(20, 27))
+  })
+
+  it('blends between stops instead of jumping', () => {
+    const [a, b] = [temperatureColor(21.9, 27), temperatureColor(22, 27)].map(channels)
+    expect(Math.max(...a!.map((v, i) => Math.abs(v - b![i]!)))).toBeLessThanOrEqual(8)
+  })
+
+  it('is a calm neutral teal in the middle of comfort', () => {
+    expect(temperatureColor(22, 27)).toBe('#5eead4')
+  })
+
+  it('lies halfway between two stops at their midpoint', () => {
+    expect(channels(temperatureColor(21, 27))).toEqual([110, 223, 232])
+  })
+
+  it('paints a room with no reading black', () => {
+    expect(temperatureColor(0, 27)).toBe('#000000')
+  })
+})
+
+describe('the gradient the scene legend draws for temperature', () => {
+  it('spreads every stop along the bar, coldest at the left edge and the limit at the right', () => {
+    expect(temperatureGradient()).toBe(
+      'linear-gradient(to right, #2563EB 0%, #7DD3FC 41.67%, #5EEAD4 58.33%, #FBBF24 75%, #F97316 91.67%, #DC2626 100%)',
+    )
   })
 })
 

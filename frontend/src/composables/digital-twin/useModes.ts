@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import {
-  roomColorByTemperature,
+  temperatureColor,
   roomColorStandard,
   roomColorByAirQuality,
 } from '@/utils/digital-twin/colors.ts'
@@ -24,10 +24,11 @@ export function useModes() {
 
   const getColorByMode = ({
     temperature,
+    maxTemperature,
     indoorAqi,
-  }: { temperature?: number; indoorAqi?: number } = {}) => {
+  }: { temperature?: number; maxTemperature?: number; indoorAqi?: number } = {}) => {
     if (currentMode.value === Mode.TemperatureSensor && temperature !== undefined) {
-      return roomColorByTemperature(temperature)
+      return temperatureColor(temperature, maxTemperature)
     }
     if (currentMode.value === Mode.AirQualitySensor && indoorAqi !== undefined) {
       return roomColorByAirQuality(indoorAqi)

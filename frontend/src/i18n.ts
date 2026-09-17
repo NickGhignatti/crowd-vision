@@ -369,6 +369,7 @@ const messages = {
       },
       legend: {
         temperature: 'Temperature',
+        limit: 'limit',
         airQuality: 'Air quality',
         bands: {
           cold: 'Cold',
@@ -885,6 +886,7 @@ const messages = {
       },
       legend: {
         temperature: 'Temperatura',
+        limit: 'limite',
         airQuality: "Qualità dell'aria",
         bands: {
           cold: 'Freddo',

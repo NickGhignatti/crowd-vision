@@ -4,12 +4,13 @@ import { TresCanvas } from '@tresjs/core'
 import { OrbitControls } from '@tresjs/cientos'
 import { NoToneMapping } from 'three'
 import type { Building, Room } from '@/types/digital-twin/building.ts'
-import { useModes } from '@/composables/digital-twin/useModes.ts'
+import { Mode, useModes } from '@/composables/digital-twin/useModes.ts'
 import { useSceneControls } from '@/composables/digital-twin/useSceneControls.ts'
 import { useInstancedRooms } from '@/composables/digital-twin/useInstancedRooms.ts'
 import { createWebGPURenderer } from '@/composables/digital-twin/useWebGPURenderer.ts'
 import { roomColorStandard } from '@/utils/digital-twin/colors.ts'
 import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
+import { thermalGlows } from '@/utils/digital-twin/thermalGlow.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
@@ -18,6 +19,7 @@ import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
 import RenderInvalidator from '@/components/digital-twin/scene/RenderInvalidator.vue'
 import AutoRotate from '@/components/digital-twin/scene/AutoRotate.vue'
+import ThermalGlow from '@/components/digital-twin/scene/ThermalGlow.vue'
 import RoomInstances from '@/components/digital-twin/scene/RoomInstances.vue'
 import SelectedRoom from '@/components/digital-twin/scene/SelectedRoom.vue'
 import RoomOutline from '@/components/digital-twin/scene/RoomOutline.vue'
@@ -68,6 +70,7 @@ watchEffect(() => {
   for (const room of props.rooms) {
     const color = modes.getColorByMode({
       temperature: temperatures.value[room.id],
+      maxTemperature: room.maxTemperature,
       indoorAqi: indoorAqi.value[room.id],
     })
     // Rooms with no data take the theme's shell tint; data colours keep their meaning.
@@ -82,6 +85,11 @@ watchEffect(() => {
     Object.entries(next).some(([id, color]) => previous[id] !== color)
   if (changed) colors.value = next
 })
+
+const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSensor)
+// In temperature mode the glow carries the colour, so shells fall back to the neutral tint.
+const shellColors = computed(() => (isThermal.value ? {} : colors.value))
+const glows = computed(() => (isThermal.value ? thermalGlows(props.rooms, temperatures.value) : []))
 
 const { instancedRooms, overlayRoom } = useInstancedRooms(
   toRef(props, 'rooms'),
@@ -136,11 +144,17 @@ const focus = withFrame(() =>
       <AutoRotate :active="isRotating" :camera="cameraRef" />
 
       <template v-if="building">
-        <RoomInstances :key="batchKey" :rooms="instancedRooms" :colors="colors" @select="select" />
+        <ThermalGlow :key="`${batchKey}:${glows.length}`" :glows="glows" :colors="colors" />
+        <RoomInstances
+          :key="batchKey"
+          :rooms="instancedRooms"
+          :colors="shellColors"
+          @select="select"
+        />
         <SelectedRoom
           v-if="overlayRoom"
           :room="overlayRoom"
-          :color="colors[overlayRoom.id]"
+          :color="shellColors[overlayRoom.id]"
           @select="select"
         />
         <RoomOutline v-if="explodedRoom" :room="explodedRoom" :color="OUTLINE_COLOR[theme]" />
