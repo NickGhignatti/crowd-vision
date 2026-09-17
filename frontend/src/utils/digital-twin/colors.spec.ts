@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   AQI_BANDS,
   TEMPERATURE_BANDS,
-  bandRanges,
   roomColorByAirQuality,
   TEMPERATURE_SCALE,
   roomColorByTemperature,
   temperatureColor,
   temperatureGradient,
+  aqiColor,
+  aqiGradient,
 } from './colors.ts'
 
 describe('the colour a room takes in temperature mode', () => {
@@ -74,6 +75,43 @@ describe('the gradient the scene legend draws for temperature', () => {
   })
 })
 
+describe('the smooth colour a room takes for its air quality', () => {
+  it.each([
+    [0.01, '#5eead4'],
+    [50, '#fbbf24'],
+    [100, '#dc2626'],
+    [300, '#dc2626'],
+  ])('index %s paints %s', (value, color) => {
+    expect(aqiColor(value)).toBe(color)
+  })
+
+  it('stays teal through clean air', () => {
+    expect(aqiColor(15)).toBe('#5eead4')
+    expect(aqiColor(30)).toBe('#5eead4')
+  })
+
+  it('blends between stops instead of jumping', () => {
+    expect(channels(aqiColor(46))).toEqual([227, 202, 131])
+  })
+
+  it('never passes through green on the way to red', () => {
+    const greenish = Array.from({ length: 150 }, (_, i) => i + 1)
+      .map((value) => channels(aqiColor(value)))
+      .filter(([r, g, b]) => g! > r! + 40 && g! > b! + 40)
+    expect(greenish).toEqual([])
+  })
+
+  it('paints a room with no reading black', () => {
+    expect(aqiColor(0)).toBe('#000000')
+  })
+
+  it('spreads its stops along the legend bar', () => {
+    expect(aqiGradient()).toBe(
+      'linear-gradient(to right, #5EEAD4 0%, #5EEAD4 30%, #CBD5E1 42%, #FBBF24 50%, #F97316 75%, #DC2626 100%)',
+    )
+  })
+})
+
 describe('the colour a room takes in air quality mode', () => {
   it.each([
     [10, '#10B981'],
@@ -82,20 +120,5 @@ describe('the colour a room takes in air quality mode', () => {
     [150, '#EF4444'],
   ])('index %s paints %s', (value, color) => {
     expect(roomColorByAirQuality(value)).toBe(color)
-  })
-})
-
-describe('the ranges the scene legend lists', () => {
-  it('runs each band from where the previous one stops', () => {
-    expect(bandRanges(AQI_BANDS).map(({ from, to }) => [from, to])).toEqual([
-      [null, 50],
-      [50, 75],
-      [75, 100],
-      [100, null],
-    ])
-  })
-
-  it('keeps every band its colour and label', () => {
-    expect(bandRanges(TEMPERATURE_BANDS)[0]).toMatchObject({ color: '#1E3A8A', key: 'cold' })
   })
 })

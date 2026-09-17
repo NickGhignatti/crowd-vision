@@ -25,10 +25,6 @@ export const AQI_BANDS: ColorBand[] = [
 const colorIn = (bands: ColorBand[], value: number) =>
   bands.find((band) => band.below === null || value < band.below)!.color
 
-/** Each band with the bound it starts at, for a legend. */
-export const bandRanges = (bands: ColorBand[]) =>
-  bands.map((band, index) => ({ ...band, from: bands[index - 1]?.below ?? null, to: band.below }))
-
 export function roomColorStandard(): string {
   return '#e2e8f0'
 }
@@ -47,6 +43,34 @@ const toChannels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i
 const toHex = (channels: number[]) =>
   `#${channels.map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`
 
+interface ScaleStop {
+  at: number
+  color: string
+}
+
+// Clamps below the first stop and above the last; blends linearly in between.
+function colorAlong(stops: readonly ScaleStop[], value: number): string {
+  const upper = stops.findIndex((stop) => value <= stop.at)
+  if (upper === 0) return stops[0]!.color.toLowerCase()
+  if (upper === -1) return stops[stops.length - 1]!.color.toLowerCase()
+  const from = stops[upper - 1]!
+  const to = stops[upper]!
+  const t = (value - from.at) / (to.at - from.at)
+  const [a, b] = [toChannels(from.color), toChannels(to.color)]
+  return toHex(a.map((channel, i) => channel + (b[i]! - channel) * t))
+}
+
+function scaleGradient(stops: readonly ScaleStop[]): string {
+  const first = stops[0]!.at
+  const span = stops[stops.length - 1]!.at - first
+  const parts = stops.map(
+    ({ at, color }) => `${color} ${Number((((at - first) / span) * 100).toFixed(2))}%`,
+  )
+  return `linear-gradient(to right, ${parts.join(', ')})`
+}
+
+const TEMPERATURE_STOPS = TEMPERATURE_SCALE.map(({ offset, color }) => ({ at: offset, color }))
+
 /** Thermal glow: opacity at the floor of a fully deviating room, and how fast it fades upward. */
 export const THERMAL_GLOW = { floorOpacity: 0.6, falloff: 1.5 }
 
@@ -59,25 +83,29 @@ export function temperatureColor(
   maxTemperature = DEFAULT_MAX_TEMPERATURE,
 ): string {
   if (temperature === 0) return NO_READING
-  const offset = temperature - maxTemperature
-  const upper = TEMPERATURE_SCALE.findIndex((stop) => offset <= stop.offset)
-  if (upper === 0) return TEMPERATURE_SCALE[0].color.toLowerCase()
-  if (upper === -1) return TEMPERATURE_SCALE[TEMPERATURE_SCALE.length - 1]!.color.toLowerCase()
-  const from = TEMPERATURE_SCALE[upper - 1]!
-  const to = TEMPERATURE_SCALE[upper]!
-  const t = (offset - from.offset) / (to.offset - from.offset)
-  const [a, b] = [toChannels(from.color), toChannels(to.color)]
-  return toHex(a.map((channel, i) => channel + (b[i]! - channel) * t))
+  return colorAlong(TEMPERATURE_STOPS, temperature - maxTemperature)
 }
 
 /** CSS gradient of the temperature scale, coldest stop at 0% and the limit at 100%. */
-export function temperatureGradient(): string {
-  const span = -TEMPERATURE_SCALE[0].offset
-  const stops = TEMPERATURE_SCALE.map(
-    ({ offset, color }) => `${color} ${Number((((offset + span) / span) * 100).toFixed(2))}%`,
-  )
-  return `linear-gradient(to right, ${stops.join(', ')})`
+export const temperatureGradient = () => scaleGradient(TEMPERATURE_STOPS)
+
+/** Indoor AQI stops: teal for clean air, red from 100. */
+// The pale grey at 42 keeps teal from blending into green on its way to amber.
+export const AQI_SCALE = [
+  { at: 0, color: '#5EEAD4' },
+  { at: 30, color: '#5EEAD4' },
+  { at: 42, color: '#CBD5E1' },
+  { at: 50, color: '#FBBF24' },
+  { at: 75, color: '#F97316' },
+  { at: 100, color: '#DC2626' },
+] as const
+
+/** Smooth colour for an indoor AQI; 0 means no reading. */
+export function aqiColor(iaqi: number): string {
+  return iaqi === 0 ? NO_READING : colorAlong(AQI_SCALE, iaqi)
 }
+
+export const aqiGradient = () => scaleGradient(AQI_SCALE)
 
 // Callers pass 0 for a room with no reading, so 0 paints as "no data", not as freezing.
 export function roomColorByTemperature(temperature: number): string {

@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  AQI_BANDS,
+  AQI_SCALE,
   TEMPERATURE_SCALE,
-  bandRanges,
+  aqiGradient,
   temperatureGradient,
 } from '@/utils/digital-twin/colors.ts'
 import { Mode, useModes } from '@/composables/digital-twin/useModes.ts'
@@ -12,22 +12,38 @@ import { Mode, useModes } from '@/composables/digital-twin/useModes.ts'
 const { t } = useI18n()
 const { currentMode } = useModes()
 
-const isTemperature = computed(() => currentMode.value === Mode.TemperatureSensor)
-const gradient = temperatureGradient()
-const span = -TEMPERATURE_SCALE[0].offset
-// A stop closer than 2° to the next would print its label on top of that one.
-const ticks = TEMPERATURE_SCALE.filter(
+const position = (value: number, first: number, last: number) =>
+  `${((value - first) / (last - first)) * 100}%`
+
+// A temperature stop closer than 2° to the next would print its label on top of that one.
+const temperatureTicks = TEMPERATURE_SCALE.filter(
   ({ offset }, i, all) => i === all.length - 1 || all[i + 1]!.offset - offset >= 2,
-).map(({ offset }) => ({ offset, left: `${((offset + span) / span) * 100}%` }))
+).map(({ offset }) => ({
+  key: offset,
+  left: position(offset, TEMPERATURE_SCALE[0].offset, 0),
+  label: offset === 0 ? t('model.legend.limit') : `${offset}°`,
+}))
+
+// Only the band edges people know get a label; the stops between them only shape the blend.
+const AQI_TICKS = [0, 50, 75, 100]
+const aqiMax = AQI_SCALE[AQI_SCALE.length - 1]!.at
+const aqiTicks = AQI_TICKS.map((at) => ({
+  key: at,
+  left: position(at, 0, aqiMax),
+  label: at === aqiMax ? `${at}+` : `${at}`,
+}))
 
 const legend = computed(() => {
+  if (currentMode.value === Mode.TemperatureSensor)
+    return {
+      title: 'model.legend.temperature',
+      gradient: temperatureGradient(),
+      ticks: temperatureTicks,
+    }
   if (currentMode.value === Mode.AirQualitySensor)
-    return { title: 'model.legend.airQuality', unit: '', bands: bandRanges(AQI_BANDS) }
+    return { title: 'model.legend.airQuality', gradient: aqiGradient(), ticks: aqiTicks }
   return null
 })
-
-const rangeLabel = (from: number | null, to: number | null, unit: string) =>
-  from === null ? `< ${to}${unit}` : to === null ? `≥ ${from}${unit}` : `${from}–${to}${unit}`
 </script>
 
 <template>
@@ -38,42 +54,25 @@ const rangeLabel = (from: number | null, to: number | null, unit: string) =>
     leave-to-class="opacity-0 translate-y-2"
   >
     <div
-      v-if="isTemperature"
+      v-if="legend"
       class="surface-card flex items-center gap-3 rounded-full bg-surface-container-lowest/90 px-5 py-2 shadow-lift backdrop-blur-md"
     >
       <span class="text-label-header uppercase text-on-surface-variant">
-        {{ t('model.legend.temperature') }}
+        {{ t(legend.title) }}
       </span>
       <div class="flex w-48 flex-col gap-1">
-        <span class="h-2.5 rounded-full" :style="{ backgroundImage: gradient }" />
+        <span class="h-2.5 rounded-full" :style="{ backgroundImage: legend.gradient }" />
         <span class="relative h-3 text-label-stat tabular-nums text-on-surface-variant">
           <span
-            v-for="tick in ticks"
-            :key="tick.offset"
+            v-for="tick in legend.ticks"
+            :key="tick.key"
             class="absolute -translate-x-1/2"
             :style="{ left: tick.left }"
           >
-            {{ tick.offset === 0 ? t('model.legend.limit') : `${tick.offset}°` }}
+            {{ tick.label }}
           </span>
         </span>
       </div>
-    </div>
-    <div
-      v-else-if="legend"
-      class="surface-card flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-full bg-surface-container-lowest/90 px-5 py-2 shadow-lift backdrop-blur-md"
-    >
-      <span class="text-label-header uppercase text-on-surface-variant">{{ t(legend.title) }}</span>
-      <span
-        v-for="band in legend.bands"
-        :key="band.key"
-        class="inline-flex items-center gap-1.5 text-label-stat"
-      >
-        <span class="size-2.5 rounded-full" :style="{ backgroundColor: band.color }" />
-        {{ t(`model.legend.bands.${band.key}`) }}
-        <span class="tabular-nums text-on-surface-variant">
-          {{ rangeLabel(band.from, band.to, legend.unit) }}
-        </span>
-      </span>
     </div>
   </Transition>
 </template>

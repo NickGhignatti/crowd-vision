@@ -371,17 +371,6 @@ const messages = {
         temperature: 'Temperature',
         limit: 'limit',
         airQuality: 'Air quality',
-        bands: {
-          cold: 'Cold',
-          cool: 'Cool',
-          comfortable: 'Comfortable',
-          warm: 'Warm',
-          hot: 'Hot',
-          good: 'Good',
-          fair: 'Fair',
-          moderate: 'Moderate',
-          poor: 'Poor',
-        },
       },
       rooms: {
         editRoom: {
@@ -888,17 +877,6 @@ const messages = {
         temperature: 'Temperatura',
         limit: 'limite',
         airQuality: "Qualità dell'aria",
-        bands: {
-          cold: 'Freddo',
-          cool: 'Fresco',
-          comfortable: 'Confortevole',
-          warm: 'Caldo',
-          hot: 'Molto caldo',
-          good: 'Buona',
-          fair: 'Discreta',
-          moderate: 'Moderata',
-          poor: 'Scarsa',
-        },
       },
       rooms: {
         editRoom: {
