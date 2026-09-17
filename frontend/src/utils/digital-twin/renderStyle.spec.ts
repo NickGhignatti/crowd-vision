@@ -7,8 +7,8 @@ import {
 } from './renderStyle.ts'
 
 describe('the render style a browser remembers', () => {
-  it('is the saved one when it still exists', () => {
-    expect(parseRenderStyle('ghost')).toBe('ghost')
+  it.each(['ghost', 'depth'])('is the saved %s when it still exists', (stored) => {
+    expect(parseRenderStyle(stored)).toBe(stored)
   })
 
   it.each([null, '', 'retired-style'])('falls back to ghost for %j', (stored) => {

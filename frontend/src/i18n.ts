@@ -424,6 +424,7 @@ const messages = {
         },
         renderStyles: {
           ghost: 'Ghost shell',
+          depth: 'Depth fade',
         },
         uploadJson: 'Upload JSON',
         invalidJsonUpload: 'Please upload a valid JSON file',
@@ -939,6 +940,7 @@ const messages = {
         },
         renderStyles: {
           ghost: 'Guscio fantasma',
+          depth: 'Dissolvenza in profondità',
         },
         uploadJson: 'Carica JSON',
         invalidJsonUpload: 'Carica un file JSON valido',
