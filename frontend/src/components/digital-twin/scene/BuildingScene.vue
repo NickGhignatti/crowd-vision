@@ -7,10 +7,8 @@ import type { Building, Room } from '@/types/digital-twin/building.ts'
 import { useModes } from '@/composables/digital-twin/useModes.ts'
 import { useSceneControls } from '@/composables/digital-twin/useSceneControls.ts'
 import { useInstancedRooms } from '@/composables/digital-twin/useInstancedRooms.ts'
-import {
-  createWebGPURenderer,
-  isWebGPUSupported,
-} from '@/composables/digital-twin/useWebGPURenderer.ts'
+import { createWebGPURenderer } from '@/composables/digital-twin/useWebGPURenderer.ts'
+import { SHELL_COLOR, roomColorStandard } from '@/utils/digital-twin/colors.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
@@ -48,8 +46,8 @@ const modes = useModes()
 const controls = useSceneControls()
 const { cameraRef, controlsRef, isRotating } = controls
 
-// No automatic WebGL fallback once a custom renderer is wired, so pass it only when WebGPU exists.
-const rendererFactory = isWebGPUSupported() ? createWebGPURenderer : undefined
+// Always WebGPURenderer: it falls back to WebGL2 itself, and the shell shader only runs there.
+const rendererFactory = createWebGPURenderer
 
 // On-demand only: TresJS 'always' mode deadlocks when switched to with no frame in flight.
 const frameTick = ref(0)
@@ -65,10 +63,12 @@ const colors = shallowRef<Record<string, string>>({})
 watchEffect(() => {
   const next: Record<string, string> = {}
   for (const room of props.rooms) {
-    next[room.id] = modes.getColorByMode({
+    const color = modes.getColorByMode({
       temperature: temperatures.value[room.id],
       indoorAqi: indoorAqi.value[room.id],
     })
+    // Rooms with no data take the theme's shell tint; data colours keep their meaning.
+    next[room.id] = color === roomColorStandard() ? SHELL_COLOR[theme.value] : color
   }
   const previous = colors.value
   const changed =
