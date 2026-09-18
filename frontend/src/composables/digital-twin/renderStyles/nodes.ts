@@ -1,13 +1,46 @@
-import { Vector3, type InstancedMesh, type Object3D } from 'three'
-import { float, fwidth, min, smoothstep, uniform, uv } from 'three/tsl'
+import { Vector3, type InstancedBufferAttribute, type InstancedMesh, type Object3D } from 'three'
+import type { Node } from 'three/webgpu'
+import {
+  float,
+  fwidth,
+  instancedBufferAttribute,
+  min,
+  positionGeometry,
+  select,
+  smoothstep,
+  uniform,
+  uv,
+  vec3,
+} from 'three/tsl'
 
-/** 1 on a box face's border, fading to 0 over `width` screen pixels. */
-export function edgeGlow(width: number) {
-  // Each box face spans uv 0..1; dividing by fwidth turns the border distance into pixels.
-  const border = min(uv(), float(1).sub(uv())).div(fwidth(uv()))
-  return float(1)
-    .sub(smoothstep(0, uniform(width), min(border.x, border.y)))
+const falloff = (border: Node<'float'>, width: number) =>
+  float(1)
+    .sub(smoothstep(0, uniform(width), border))
     .pow(2)
+
+/**
+ * 1 on a box face's border, fading to 0 over `width` screen pixels. With `hidden`, a unit box
+ * instance's -x, +x, -z, +z walls marked 1 lose their edges, their own face included.
+ */
+export function edgeGlow(width: number, hidden?: InstancedBufferAttribute) {
+  // Each box face spans uv 0..1; dividing by fwidth turns the border distance into pixels.
+  if (!hidden) {
+    const border = min(uv(), float(1).sub(uv())).div(fwidth(uv()))
+    return falloff(min(border.x, border.y), width)
+  }
+  const walls = instancedBufferAttribute<'vec4'>(hidden, 'vec4')
+  const p = positionGeometry
+  const slope = fwidth(p)
+  // A face is flat along its own axis, which has no border there: push it out of reach.
+  const flat = vec3(1).sub(slope.mul(1e9).min(1))
+  const off = (lo: Node<'float'>, hi: Node<'float'>) => flat.add(vec3(lo, 0, hi)).mul(1e6)
+  const low = p.add(0.5).div(slope.max(1e-7)).add(off(walls.x, walls.z))
+  const high = float(0.5).sub(p).div(slope.max(1e-7)).add(off(walls.y, walls.w))
+  const near = min(low, high)
+  const ownFace = flat.x
+    .mul(select(p.x.greaterThan(0), walls.y, walls.x))
+    .add(flat.z.mul(select(p.z.greaterThan(0), walls.w, walls.z)))
+  return falloff(min(near.x, min(near.y, near.z)), width).mul(float(1).sub(ownFace))
 }
 
 const centre = new Vector3()

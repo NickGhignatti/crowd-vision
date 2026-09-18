@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Room } from '@/types/digital-twin/building.ts'
-import { SNAP_GAP, snapRooms } from './snapRooms.ts'
+import { SNAP_GAP, hiddenWalls, snapRooms } from './snapRooms.ts'
 
 // `floor` is the storey level; a room position is its centre, so the helper lifts it.
 const room = (id: string, x: number, z: number, width: number, depth: number, floor = 0): Room => ({
@@ -110,5 +110,51 @@ describe('rooms drawn flush with their near neighbours', () => {
     const rooms = [room('a', 0, 0, 4, 4), room('b', 4.3, 0, 4, 4)]
     snapRooms(rooms)
     expect(rooms[0]!.dimensions.width).toBe(4)
+  })
+})
+
+describe('walls whose edges a touching neighbour already draws', () => {
+  const NONE = [0, 0, 0, 0]
+
+  it('hide on one side only when two equal walls touch', () => {
+    expect(hiddenWalls([room('a', 0, 0, 4, 4), room('b', 4, 0, 4, 4)])).toEqual({
+      a: NONE,
+      b: [1, 0, 0, 0],
+    })
+    expect(hiddenWalls([room('a', 0, 0, 4, 4), room('b', 0, 4, 4, 4)])).toEqual({
+      a: NONE,
+      b: [0, 0, 1, 0],
+    })
+  })
+
+  it('hide the long wall that several neighbours cover together', () => {
+    expect(
+      hiddenWalls([room('long', 4, 0, 4, 4), room('b', 0, -1, 4, 2), room('c', 0, 1, 4, 2)]),
+    ).toEqual({ long: [1, 0, 0, 0], b: NONE, c: [0, 0, 1, 0] })
+  })
+
+  it('hide the short wall a long neighbour covers', () => {
+    expect(hiddenWalls([room('long', 0, 0, 4, 4), room('short', 4, 0, 4, 2)])).toEqual({
+      long: NONE,
+      short: [1, 0, 0, 0],
+    })
+  })
+
+  it('keep both walls where neither covers the other', () => {
+    expect(hiddenWalls([room('a', 0, 0, 4, 4), room('b', 4, 2, 4, 4)])).toEqual({
+      a: NONE,
+      b: NONE,
+    })
+  })
+
+  it('keep walls with a gap, a shared corner only, or on another storey', () => {
+    expect(
+      hiddenWalls([
+        room('a', 0, 0, 4, 4),
+        room('gap', 4.2, 0, 4, 4),
+        room('corner', -4, 4, 4, 4),
+        room('upstairs', 0, 4, 4, 4, 3.2),
+      ]),
+    ).toEqual({ a: NONE, gap: NONE, corner: NONE, upstairs: NONE })
   })
 })
