@@ -12,7 +12,7 @@ import { roomColorStandard } from '@/utils/digital-twin/colors.ts'
 import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import { thermalGlows } from '@/utils/digital-twin/thermalGlow.ts'
 import { airHazes } from '@/utils/digital-twin/airHaze.ts'
-import { hiddenWalls, snapRooms } from '@/utils/digital-twin/snapRooms.ts'
+import { hiddenEdges, snapRooms } from '@/utils/digital-twin/snapRooms.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
@@ -91,7 +91,7 @@ watchEffect(() => {
 
 // Drawn geometry only: rooms a wall's thickness apart are shown touching.
 const drawnRooms = computed(() => snapRooms(props.rooms))
-const sharedWalls = computed(() => hiddenWalls(drawnRooms.value))
+const sharedEdges = computed(() => hiddenEdges(drawnRooms.value))
 
 const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSensor)
 const isAir = computed(() => modes.currentMode.value === Mode.AirQualitySensor)
@@ -161,7 +161,7 @@ const focus = withFrame(() =>
           :key="batchKey"
           :rooms="instancedRooms"
           :colors="shellColors"
-          :hidden-walls="sharedWalls"
+          :hidden-edges="sharedEdges"
           @select="select"
         />
         <SelectedRoom

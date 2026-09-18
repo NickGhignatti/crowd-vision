@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import type { Room } from '@/types/digital-twin/building.ts'
-import { SNAP_GAP, hiddenWalls, snapRooms } from './snapRooms.ts'
+import { SNAP_GAP, hiddenEdges, snapRooms } from './snapRooms.ts'
 
 // `floor` is the storey level; a room position is its centre, so the helper lifts it.
-const room = (id: string, x: number, z: number, width: number, depth: number, floor = 0): Room => ({
+const room = (
+  id: string,
+  x: number,
+  z: number,
+  width: number,
+  depth: number,
+  floor = 0,
+  height = 3,
+): Room => ({
   id,
   name: id,
   capacity: 10,
-  position: { x, y: floor + 1.5, z },
-  dimensions: { width, height: 3, depth },
+  position: { x, y: floor + height / 2, z },
+  dimensions: { width, height, depth },
 })
 
 const walls = (r: Room) => ({
@@ -113,48 +121,66 @@ describe('rooms drawn flush with their near neighbours', () => {
   })
 })
 
-describe('walls whose edges a touching neighbour already draws', () => {
+// A corner flag names the face the keeper shares with it: 1 an x face, 2 a z face, 3 both.
+describe('edges a neighbour already draws in the same place', () => {
   const NONE = [0, 0, 0, 0]
+  const edges = (walls: number[] = NONE, corners: number[] = NONE) => ({ walls, corners })
 
   it('hide on one side only when two equal walls touch', () => {
-    expect(hiddenWalls([room('a', 0, 0, 4, 4), room('b', 4, 0, 4, 4)])).toEqual({
-      a: NONE,
-      b: [1, 0, 0, 0],
+    expect(hiddenEdges([room('a', 0, 0, 4, 4), room('b', 4, 0, 4, 4)])).toEqual({
+      a: edges(),
+      b: edges([1, 0, 0, 0], [2, 0, 2, 0]),
     })
-    expect(hiddenWalls([room('a', 0, 0, 4, 4), room('b', 0, 4, 4, 4)])).toEqual({
-      a: NONE,
-      b: [0, 0, 1, 0],
+    expect(hiddenEdges([room('a', 0, 0, 4, 4), room('b', 0, 4, 4, 4)])).toEqual({
+      a: edges(),
+      b: edges([0, 0, 1, 0], [1, 1, 0, 0]),
     })
   })
 
-  it('hide the long wall that several neighbours cover together', () => {
+  it('hide a wall several neighbours cover, keeping the lines where they meet it', () => {
     expect(
-      hiddenWalls([room('long', 4, 0, 4, 4), room('b', 0, -1, 4, 2), room('c', 0, 1, 4, 2)]),
-    ).toEqual({ long: [1, 0, 0, 0], b: NONE, c: [0, 0, 1, 0] })
+      hiddenEdges([room('long', 4, 0, 4, 4), room('b', 0, -1, 4, 2), room('c', 0, 1, 4, 2)]),
+    ).toEqual({
+      long: edges([1, 0, 0, 0]),
+      b: edges(NONE, [0, 2, 0, 0]),
+      c: edges([0, 0, 1, 0], [1, 1, 0, 2]),
+    })
   })
 
-  it('hide the short wall a long neighbour covers', () => {
-    expect(hiddenWalls([room('long', 0, 0, 4, 4), room('short', 4, 0, 4, 2)])).toEqual({
-      long: NONE,
-      short: [1, 0, 0, 0],
+  it('keep the corners of a short wall that meets the middle of a long one', () => {
+    expect(hiddenEdges([room('long', 0, 0, 4, 4), room('short', 4, 0, 4, 2)])).toEqual({
+      long: edges(),
+      short: edges([1, 0, 0, 0]),
+    })
+  })
+
+  it('keep the walls of neighbours with different heights, hiding only the shorter corner', () => {
+    expect(hiddenEdges([room('tall', 0, 0, 4, 4, 0, 5), room('low', 4, 0, 4, 4, 0, 3)])).toEqual({
+      tall: edges(),
+      low: edges(NONE, [2, 0, 2, 0]),
     })
   })
 
   it('keep both walls where neither covers the other', () => {
-    expect(hiddenWalls([room('a', 0, 0, 4, 4), room('b', 4, 2, 4, 4)])).toEqual({
-      a: NONE,
-      b: NONE,
+    expect(hiddenEdges([room('a', 0, 0, 4, 4), room('b', 4, 2, 4, 4)])).toEqual({
+      a: edges(),
+      b: edges(),
     })
   })
 
-  it('keep walls with a gap, a shared corner only, or on another storey', () => {
+  it('keep every edge of rooms that meet only at a corner, across a gap, or on another storey', () => {
     expect(
-      hiddenWalls([
+      hiddenEdges([
         room('a', 0, 0, 4, 4),
         room('gap', 4.2, 0, 4, 4),
         room('corner', -4, 4, 4, 4),
         room('upstairs', 0, 4, 4, 4, 3.2),
       ]),
-    ).toEqual({ a: NONE, gap: NONE, corner: NONE, upstairs: NONE })
+    ).toEqual({
+      a: edges(),
+      gap: edges(),
+      corner: edges(),
+      upstairs: edges(),
+    })
   })
 })

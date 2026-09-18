@@ -11,7 +11,7 @@ import {
 } from 'three'
 import type { Room } from '@/types/digital-twin/building.ts'
 import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
-import type { HiddenWalls } from '@/utils/digital-twin/snapRooms.ts'
+import type { HiddenEdges } from '@/utils/digital-twin/snapRooms.ts'
 import { applyRoomColors, applyRoomMatrices } from '@/composables/digital-twin/useInstancedRooms.ts'
 import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
@@ -23,7 +23,7 @@ interface TresEvent extends Intersection {
 const props = defineProps<{
   rooms: Room[]
   colors: Record<string, string>
-  hiddenWalls: Record<string, HiddenWalls>
+  hiddenEdges: Record<string, HiddenEdges>
 }>()
 
 const emit = defineEmits<{ select: [roomId: string] }>()
@@ -37,8 +37,10 @@ const scratchMatrix = new Matrix4()
 
 // The parent remounts this per room count, so one buffer of that size serves every update.
 const geometry = new BoxGeometry(1, 1, 1)
-const walls = new InstancedBufferAttribute(new Float32Array(props.rooms.length * 4), 4)
-geometry.setAttribute('hiddenWalls', walls)
+const flags = () => new InstancedBufferAttribute(new Float32Array(props.rooms.length * 4), 4)
+const edges = { walls: flags(), corners: flags() }
+geometry.setAttribute('hiddenWalls', edges.walls)
+geometry.setAttribute('hiddenCorners', edges.corners)
 
 const paint = (target: InstancedMesh) =>
   applyRoomColors(
@@ -51,14 +53,17 @@ const paint = (target: InstancedMesh) =>
 
 // Geometry is static per room set, so only a new set rebuilds matrices; a telemetry tick repaints.
 watch(
-  [mesh, () => props.rooms, () => props.hiddenWalls],
+  [mesh, () => props.rooms, () => props.hiddenEdges],
   ([target]) => {
     if (!target) return
     applyRoomMatrices(target, props.rooms, scratchMatrix)
-    props.rooms.forEach((room, index) =>
-      walls.setXYZW(index, ...(props.hiddenWalls[room.id] ?? [0, 0, 0, 0])),
-    )
-    walls.needsUpdate = true
+    props.rooms.forEach((room, index) => {
+      const hidden = props.hiddenEdges[room.id]
+      edges.walls.setXYZW(index, ...(hidden?.walls ?? [0, 0, 0, 0]))
+      edges.corners.setXYZW(index, ...(hidden?.corners ?? [0, 0, 0, 0]))
+    })
+    edges.walls.needsUpdate = true
+    edges.corners.needsUpdate = true
     paint(target)
     renderer.invalidate()
   },
@@ -75,7 +80,7 @@ watch(
   { flush: 'post' },
 )
 
-const material = computed(() => style.value.material('room', theme.value, walls))
+const material = computed(() => style.value.material('room', theme.value, edges))
 
 watch(
   [mesh, material],

@@ -1,16 +1,12 @@
-import { AdditiveBlending, NormalBlending, type InstancedBufferAttribute } from 'three'
+import { AdditiveBlending, NormalBlending } from 'three'
 import { MeshLambertNodeMaterial } from 'three/webgpu'
 import { min, mix, positionView, smoothstep, uniform } from 'three/tsl'
 import { renderStyleConfig, type DepthShading } from '@/utils/digital-twin/renderStyleConfig.ts'
-import { edgeGlow, focusSphere } from './nodes.ts'
+import { edgeGlow, focusSphere, type EdgeMask } from './nodes.ts'
 import type { RenderStyle } from './types.ts'
 
 /** Faint on the camera's side of the building, solid toward the far side, at any zoom. */
-function createDepthMaterial(
-  shading: DepthShading,
-  additive: boolean,
-  hiddenWalls?: InstancedBufferAttribute,
-) {
+function createDepthMaterial(shading: DepthShading, additive: boolean, edges?: EdgeMask) {
   const material = new MeshLambertNodeMaterial({ transparent: true, depthWrite: false })
   const { distance, radius } = focusSphere()
   const t = smoothstep(
@@ -19,7 +15,7 @@ function createDepthMaterial(
     positionView.length(),
   )
   const fade = mix(uniform(shading.nearOpacity), uniform(shading.farOpacity), t)
-  const glow = uniform(shading.edgeStrength).mul(edgeGlow(shading.edgeWidth, hiddenWalls))
+  const glow = uniform(shading.edgeStrength).mul(edgeGlow(shading.edgeWidth, edges))
   material.opacityNode = min(fade.add(glow), 1)
   // Additive glow vanishes on a light background, so only the dark theme adds.
   material.blending = additive ? AdditiveBlending : NormalBlending
@@ -30,6 +26,5 @@ const config = renderStyleConfig('depth')
 
 export const depthFade: RenderStyle = {
   id: 'depth',
-  material: (role, theme, hiddenWalls) =>
-    createDepthMaterial(config[role], theme === 'dark', hiddenWalls),
+  material: (role, theme, edges) => createDepthMaterial(config[role], theme === 'dark', edges),
 }
