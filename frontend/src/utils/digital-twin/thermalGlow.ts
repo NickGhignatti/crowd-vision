@@ -1,5 +1,6 @@
 import type { Room } from '@/types/digital-twin/building.ts'
-import { DEFAULT_MAX_TEMPERATURE, TEMPERATURE_SCALE } from './colors.ts'
+import { TEMPERATURE_SCALE } from './colors.ts'
+import { DEFAULT_MAX_TEMPERATURE } from './thresholds.ts'
 
 // Comfort window in °C below the room's limit; inside it a room glows only gently.
 const COMFORT = { from: -8, to: -4 }

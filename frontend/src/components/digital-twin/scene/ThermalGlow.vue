@@ -12,7 +12,7 @@ import {
 } from 'three'
 import { MeshBasicNodeMaterial } from 'three/webgpu'
 import { float, instancedBufferAttribute, positionGeometry, uniform } from 'three/tsl'
-import { THERMAL_GLOW } from '@/utils/digital-twin/colors.ts'
+import { THERMAL_GLOW, themeOpacity } from '@/utils/digital-twin/colors.ts'
 import type { ThermalGlow } from '@/utils/digital-twin/thermalGlow.ts'
 import { applyRoomColors, applyRoomMatrices } from '@/composables/digital-twin/useInstancedRooms.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
@@ -31,13 +31,11 @@ geometry.setAttribute('strength', strength)
 
 // Strongest on the floor, clear at the ceiling; the unit box spans y -0.5..0.5.
 const rise = float(1).sub(positionGeometry.y.add(0.5)).pow(uniform(THERMAL_GLOW.falloff))
-const opacityNode = uniform(THERMAL_GLOW.floorOpacity)
-  .mul(instancedBufferAttribute(strength))
-  .mul(rise)
+const shape = rise.mul(instancedBufferAttribute(strength))
 
 const material = computed(() => {
   const next = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false })
-  next.opacityNode = opacityNode
+  next.opacityNode = uniform(themeOpacity(THERMAL_GLOW.floorOpacity, theme.value)).mul(shape)
   // Additive glow vanishes on a light background, so only the dark theme adds.
   next.blending = theme.value === 'dark' ? AdditiveBlending : NormalBlending
   return next

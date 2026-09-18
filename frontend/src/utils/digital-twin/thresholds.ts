@@ -1,3 +1,6 @@
+/** Upper temperature limit when neither a room nor its building sets one. */
+export const DEFAULT_MAX_TEMPERATURE = 27
+
 export interface ThresholdPatch {
   path: string
   body: Record<string, number>

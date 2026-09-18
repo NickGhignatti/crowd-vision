@@ -9,6 +9,7 @@ import {
   temperatureGradient,
   aqiColor,
   aqiGradient,
+  themeOpacity,
 } from './colors.ts'
 
 describe('the colour a room takes in temperature mode', () => {
@@ -127,5 +128,19 @@ describe('the colour a room takes in air quality mode', () => {
     [150, '#EF4444'],
   ])('index %s paints %s', (value, color) => {
     expect(roomColorByAirQuality(value)).toBe(color)
+  })
+})
+
+describe('how opaque a data effect is drawn per theme', () => {
+  it('keeps dark mode as tuned', () => {
+    expect(themeOpacity(0.3, 'dark')).toBe(0.3)
+  })
+
+  it('boosts light mode, where a translucent colour over near-white washes out', () => {
+    expect(themeOpacity(0.3, 'light')).toBeCloseTo(0.54)
+  })
+
+  it('never goes past fully opaque', () => {
+    expect(themeOpacity(0.8, 'light')).toBe(1)
   })
 })

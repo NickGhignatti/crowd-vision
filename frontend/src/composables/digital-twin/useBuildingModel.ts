@@ -4,7 +4,7 @@ import { useBuildingsStore } from '@/stores/digital-twin/buildings.ts'
 import { useDomainsStore } from '@/stores/domains/domain.ts'
 import { makeRequest } from '@/composables/commons/useApi.ts'
 
-const DEFAULT_MAX_TEMPERATURE = 27
+import { DEFAULT_MAX_TEMPERATURE } from '@/utils/digital-twin/thresholds.ts'
 
 type ThresholdClone = {
   buildingId: string

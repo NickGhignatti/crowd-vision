@@ -22,6 +22,7 @@ import {
   vec3,
 } from 'three/tsl'
 import { AIR_HAZE, type AirHaze } from '@/utils/digital-twin/airHaze.ts'
+import { themeOpacity } from '@/utils/digital-twin/colors.ts'
 import { applyRoomColors, applyRoomMatrices } from '@/composables/digital-twin/useInstancedRooms.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
 
@@ -57,13 +58,11 @@ const streaks = smoothstep(
   threshold.add((AIR_HAZE.softness * 3) / 4),
   field.mul(0.35).add(0.5),
 )
-const opacityNode = uniform(AIR_HAZE.opacity)
-  .mul(streaks)
-  .mul(float(0.4).add(thickness.mul(0.6)))
+const shape = streaks.mul(float(0.4).add(thickness.mul(0.6)))
 
 const material = computed(() => {
   const next = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false })
-  next.opacityNode = opacityNode
+  next.opacityNode = uniform(themeOpacity(AIR_HAZE.opacity, theme.value)).mul(shape)
   // Additive glow vanishes on a light background, so only the dark theme adds.
   next.blending = theme.value === 'dark' ? AdditiveBlending : NormalBlending
   return next
