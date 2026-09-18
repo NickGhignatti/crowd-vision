@@ -53,6 +53,7 @@ impl AppState {
                     "buildingId": sensor.building_id,
                     "roomId": sensor.room_id,
                     "sensorId": sensor.sensor_id,
+                    "name": sensor.name,
                     "sensorType": sensor.sensor_type,
                     "actions": actions,
                 })

@@ -470,56 +470,154 @@ async fn a_bound_the_metric_does_not_declare_is_rejected() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
-#[tokio::test]
-async fn registering_a_sensor_returns_created_then_conflicts() {
-    let app = test_app(fresh_db("registry").await, vec!["eng"]).await;
-    let body = json!({ "sensorData": {
-        "buildingId": "b1", "roomId": "r1", "sensorId": "s1", "sensorType": "temperature"
-    }});
+const SENSORS_B1: &str = "/sensors/buildings/b1";
 
-    let (status, response) = app
-        .send_json("POST", "/sensor", Some(&staff()), body.clone())
-        .await;
-    assert_eq!(status, StatusCode::CREATED);
-    assert_eq!(response["type"], "temperature");
-
-    let (status, _) = app.send_json("POST", "/sensor", Some(&staff()), body).await;
-    assert_eq!(status, StatusCode::CONFLICT);
+async fn sensor_app(label: &str) -> support::test_app::TestApp {
+    let pool = fresh_db(label).await;
+    seed_building(&pool, "b1", &["r1", "r2"]).await;
+    test_app(pool, vec!["eng"]).await
 }
 
 #[tokio::test]
-async fn registering_a_sensor_without_sensor_data_is_rejected() {
-    let app = test_app(fresh_db("w14").await, vec!["eng"]).await;
+async fn a_sensor_batch_returns_server_ids_and_the_list_shows_them() {
+    let app = sensor_app("sensorsave").await;
     let (status, body) = app
-        .send_json("POST", "/sensor", Some(&staff()), json!({}))
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [
+                { "ref": "d1", "name": "Lab thermostat", "sensorType": "temperature", "roomId": "r1",
+                  "sensorId": "chosen-by-client" },
+                { "ref": "d2", "name": "Router hall", "sensorType": "peopleCount", "roomId": null },
+            ]}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let created = body["created"].as_array().unwrap();
+    assert_eq!(created.len(), 2);
+    assert_eq!(created[0]["ref"], "d1");
+    assert_ne!(created[0]["sensorId"], "chosen-by-client");
+
+    let (status, list) = app.get(SENSORS_B1, Some(&customer())).await;
+    assert_eq!(status, StatusCode::OK);
+    let router = list["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["sensorId"] == created[1]["sensorId"])
+        .unwrap();
+    assert_eq!(router["name"], "Router hall");
+    assert_eq!(router["roomId"], json!(null));
+}
+
+#[tokio::test]
+async fn a_sensor_batch_renames_moves_and_deletes() {
+    let app = sensor_app("sensoredit").await;
+    let (_, body) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [
+                { "ref": "d1", "name": "A", "sensorType": "temperature", "roomId": "r1" },
+                { "ref": "d2", "name": "B", "sensorType": "temperature", "roomId": "r1" },
+            ]}),
+        )
+        .await;
+    let (kept, gone) = (
+        &body["created"][0]["sensorId"],
+        &body["created"][1]["sensorId"],
+    );
+
+    let (status, _) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "update": [{ "sensorId": kept, "name": "Moved", "roomId": "r2" }], "delete": [gone] }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, list) = app.get(SENSORS_B1, Some(&customer())).await;
+    assert_eq!(list["data"].as_array().unwrap().len(), 1);
+    assert_eq!(list["data"][0]["name"], "Moved");
+    assert_eq!(list["data"][0]["roomId"], "r2");
+}
+
+#[tokio::test]
+async fn a_sensor_batch_with_a_bad_item_is_422_and_saves_nothing() {
+    let app = sensor_app("sensorreject").await;
+    let (status, body) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [
+                { "ref": "d1", "name": "Fine", "sensorType": "temperature", "roomId": "r1" },
+                { "ref": "d2", "name": "Lost", "sensorType": "temperature", "roomId": "r9" },
+            ]}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        body["errors"],
+        json!([{ "ref": "d2", "field": "roomId", "message": "must be null or a room of this building." }])
+    );
+
+    let (_, list) = app.get(SENSORS_B1, Some(&customer())).await;
+    assert_eq!(list["data"], json!([]));
+}
+
+#[tokio::test]
+async fn a_malformed_sensor_batch_is_rejected() {
+    let app = sensor_app("sensormalformed").await;
+    let (status, body) = app
+        .send_json("POST", SENSORS_B1, Some(&staff()), json!({ "create": {} }))
         .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body["message"].as_str().unwrap().contains("sensorData"));
+    assert!(body["message"].as_str().unwrap().contains("create"));
 }
 
 #[tokio::test]
-async fn sensors_are_listed_with_the_actions_their_driver_supports() {
-    let pool = fresh_db("capabilities").await;
-    seed_building(&pool, "b1", &["r1"]).await;
-    let app = test_app(pool, vec!["eng"]).await;
+async fn a_sensor_batch_for_an_unregistered_building_is_not_found() {
+    let app = sensor_app("sensornobuilding").await;
+    let (status, _) = app
+        .send_json(
+            "POST",
+            "/sensors/buildings/b9",
+            Some(&staff()),
+            json!({ "create": [{ "ref": "d1", "name": "x", "sensorType": "temperature" }] }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
 
+#[tokio::test]
+async fn a_sensor_batch_needs_edit_rights_on_the_building() {
+    let app = sensor_app("sensorauthz").await;
+    let body = json!({ "create": [{ "ref": "d1", "name": "x", "sensorType": "temperature" }] });
+    for claims in [customer(), outsider()] {
+        let (status, _) = app
+            .send_json("POST", SENSORS_B1, Some(&claims), body.clone())
+            .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+    }
+}
+
+#[tokio::test]
+async fn sensors_are_listed_by_name_with_the_actions_their_driver_supports() {
+    let app = sensor_app("capabilities").await;
     app.send_json(
         "POST",
-        "/sensor",
+        SENSORS_B1,
         Some(&staff()),
-        json!({ "sensorData": {
-            "buildingId": "b1", "roomId": "r1", "sensorId": "s1", "sensorType": "temperature",
-            "driver": "tp-simulator", "endpoint": "http://device.local"
-        }}),
-    )
-    .await;
-    app.send_json(
-        "POST",
-        "/sensor",
-        Some(&staff()),
-        json!({ "sensorData": {
-            "buildingId": "b1", "roomId": "r1", "sensorId": "s2", "sensorType": "peopleCount"
-        }}),
+        json!({ "create": [
+            { "ref": "d2", "name": "B counter", "sensorType": "peopleCount", "roomId": "r1" },
+            { "ref": "d1", "name": "A thermostat", "sensorType": "temperature", "roomId": "r1",
+              "driver": "tp-simulator", "endpoint": "http://device.local" },
+        ]}),
     )
     .await;
 
@@ -527,9 +625,99 @@ async fn sensors_are_listed_with_the_actions_their_driver_supports() {
         .get("/sensors/buildings/b1/rooms/r1", Some(&customer()))
         .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["data"][0]["sensorId"], "s1");
+    assert_eq!(body["data"][0]["name"], "A thermostat");
     assert_eq!(body["data"][0]["actions"], json!(["increase", "setTarget"]));
     assert_eq!(body["data"][1]["actions"], json!([]));
+}
+
+async fn device_sensor(
+    app: &support::test_app::TestApp,
+    room: serde_json::Value,
+    device: &str,
+) -> String {
+    let (_, body) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [{ "ref": "d1", "name": "Thermostat", "sensorType": "temperature",
+                                 "roomId": room, "driver": "tp-simulator", "endpoint": device }] }),
+        )
+        .await;
+    body["created"][0]["sensorId"].as_str().unwrap().to_owned()
+}
+
+fn set_target(building: &str, sensor_id: &str, extra: serde_json::Value) -> serde_json::Value {
+    let mut data = json!({ "metric": "temperature", "buildingId": building, "sensorId": sensor_id,
+                           "action": "setTarget", "arguments": { "target": 21.0 } });
+    data.as_object_mut()
+        .unwrap()
+        .extend(extra.as_object().unwrap().clone());
+    json!({ "actionData": data })
+}
+
+async fn device() -> wiremock::MockServer {
+    let server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/control/receive"))
+        .and(wiremock::matchers::body_json(json!({ "value": 21.0 })))
+        .respond_with(wiremock::ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+    server
+}
+
+#[tokio::test]
+async fn an_action_reaches_an_outdoor_sensor_by_its_id_alone() {
+    let app = sensor_app("actionoutdoor").await;
+    let server = device().await;
+    let sensor_id = device_sensor(&app, json!(null), &server.uri()).await;
+
+    let (status, _) = app
+        .send_json(
+            "POST",
+            "/executeAction",
+            Some(&staff()),
+            set_target("b1", &sensor_id, json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn an_action_ignores_a_stale_room_from_the_client() {
+    let app = sensor_app("actionstaleroom").await;
+    let server = device().await;
+    let sensor_id = device_sensor(&app, json!("r1"), &server.uri()).await;
+
+    let (status, _) = app
+        .send_json(
+            "POST",
+            "/executeAction",
+            Some(&staff()),
+            set_target("b1", &sensor_id, json!({ "roomId": "r2" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn an_action_cannot_reach_another_buildings_sensor() {
+    let app = sensor_app("actionscope").await;
+    let server = wiremock::MockServer::start().await;
+    let sensor_id = device_sensor(&app, json!("r1"), &server.uri()).await;
+
+    let (status, _) = app
+        .send_json(
+            "POST",
+            "/executeAction",
+            Some(&staff()),
+            set_target("b2", &sensor_id, json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(server.received_requests().await.unwrap().is_empty());
 }
 
 #[tokio::test]

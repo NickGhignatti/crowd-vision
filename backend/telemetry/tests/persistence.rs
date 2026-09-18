@@ -4,15 +4,13 @@ use serde_json::json;
 use std::sync::Arc;
 use support::{fresh_db, seed_building};
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
-use telemetry::kernel::ports::{
-    BuildingStore, ReadingStore, RegisterError, SensorStore, ThresholdStore,
-};
+use telemetry::kernel::ports::{BuildingStore, ReadingStore, SensorStore, ThresholdStore};
 use telemetry::kernel::registry::PluginRegistry;
 use telemetry::plugins::air_quality::AirQualityPlugin;
 use telemetry::plugins::temperature::TemperaturePlugin;
 use telemetry::types::building::{RegisteredBuilding, Room};
 use telemetry::types::reading::Reading;
-use telemetry::types::sensor::Sensor;
+use telemetry::types::sensor::{Sensor, SensorChanges, SensorUpdate};
 
 const HOUR_MS: i64 = 3_600_000;
 const BASE_MS: i64 = 1_700_000_000_000;
@@ -363,33 +361,6 @@ async fn temperature_limits_of_an_unregistered_building_is_absent() {
 }
 
 #[tokio::test]
-async fn registering_a_duplicate_sensor_violates_the_primary_key() {
-    let pool = fresh_db("dupsensor").await;
-    let sensors = PgSensors::new(pool);
-
-    let sensor = Sensor {
-        building_id: "b1".to_owned(),
-        room_id: "r1".to_owned(),
-        sensor_id: "s1".to_owned(),
-        sensor_type: "temperature".to_owned(),
-        driver: Some("tp-simulator".to_owned()),
-        endpoint: Some("http://gateway/simulator/tp".to_owned()),
-    };
-    sensors.register(&sensor).await.unwrap();
-
-    let error = sensors.register(&sensor).await.unwrap_err();
-    assert!(matches!(error, RegisterError::AlreadyExists));
-
-    let elsewhere = Sensor {
-        room_id: "r2".to_owned(),
-        ..sensor
-    };
-    sensors.register(&elsewhere).await.unwrap();
-    assert_eq!(sensors.by_building("b1").await.unwrap().len(), 2);
-    assert_eq!(sensors.by_room("b1", "r1").await.unwrap().len(), 1);
-}
-
-#[tokio::test]
 async fn a_buildings_names_are_read_back_by_id() {
     let pool = fresh_db("names").await;
     let buildings = PgBuildings::new(pool.clone());
@@ -500,4 +471,141 @@ async fn a_week_range_reads_from_readings_hourly_not_readings() {
     assert_eq!(buckets.len(), 1);
     assert_eq!(buckets[0].ts_ms, midnight_ms);
     assert_eq!(buckets[0].value, 21.0);
+}
+
+fn sensor(id: &str, room: Option<&str>) -> Sensor {
+    Sensor {
+        building_id: "b1".to_owned(),
+        room_id: room.map(str::to_owned),
+        sensor_id: id.to_owned(),
+        name: format!("Sensor {id}"),
+        sensor_type: "temperature".to_owned(),
+        driver: Some("tp-simulator".to_owned()),
+        endpoint: Some("http://gateway/simulator/tp".to_owned()),
+    }
+}
+
+fn creating(sensors: Vec<Sensor>) -> SensorChanges {
+    SensorChanges {
+        create: sensors,
+        ..Default::default()
+    }
+}
+
+#[tokio::test]
+async fn a_sensor_batch_creates_updates_and_deletes() {
+    let sensors = PgSensors::new(fresh_db("sensorbatch").await);
+    sensors
+        .apply(
+            "b1",
+            &creating(vec![
+                sensor("s1", Some("r1")),
+                sensor("s2", None),
+                sensor("s3", Some("r2")),
+            ]),
+        )
+        .await
+        .unwrap();
+
+    sensors
+        .apply(
+            "b1",
+            &SensorChanges {
+                update: vec![
+                    SensorUpdate {
+                        sensor_id: "s1".to_owned(),
+                        name: Some("Renamed".to_owned()),
+                        room_id: Some(None),
+                    },
+                    SensorUpdate {
+                        sensor_id: "s2".to_owned(),
+                        name: None,
+                        room_id: Some(Some("r2".to_owned())),
+                    },
+                ],
+                delete: vec!["s3".to_owned()],
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    let all = sensors.by_building("b1").await.unwrap();
+    let find = |id: &str| all.iter().find(|s| s.sensor_id == id);
+    let s1 = find("s1").unwrap();
+    assert_eq!((s1.name.as_str(), s1.room_id.as_deref()), ("Renamed", None));
+    assert_eq!(s1.driver.as_deref(), Some("tp-simulator"));
+    let s2 = find("s2").unwrap();
+    assert_eq!(
+        (s2.name.as_str(), s2.room_id.as_deref()),
+        ("Sensor s2", Some("r2"))
+    );
+    assert!(find("s3").is_none());
+
+    let in_r2: Vec<_> = sensors
+        .by_room("b1", "r2")
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|s| s.sensor_id)
+        .collect();
+    assert_eq!(in_r2, ["s2"]);
+}
+
+#[tokio::test]
+async fn a_failing_sensor_batch_leaves_nothing_behind() {
+    let sensors = PgSensors::new(fresh_db("sensorrollback").await);
+    sensors
+        .apply("b1", &creating(vec![sensor("s1", Some("r1"))]))
+        .await
+        .unwrap();
+
+    let result = sensors
+        .apply(
+            "b1",
+            &SensorChanges {
+                create: vec![sensor("s2", None), sensor("s1", Some("r2"))],
+                delete: vec!["s1".to_owned()],
+                ..Default::default()
+            },
+        )
+        .await;
+
+    assert!(result.is_err());
+    let ids: Vec<_> = sensors
+        .by_building("b1")
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|s| (s.sensor_id, s.room_id))
+        .collect();
+    assert_eq!(ids, [("s1".to_owned(), Some("r1".to_owned()))]);
+}
+
+#[tokio::test]
+async fn a_sensor_batch_cannot_touch_another_buildings_sensor() {
+    let sensors = PgSensors::new(fresh_db("sensorscope").await);
+    sensors
+        .apply("b1", &creating(vec![sensor("s1", Some("r1"))]))
+        .await
+        .unwrap();
+
+    let rename = SensorChanges {
+        update: vec![SensorUpdate {
+            sensor_id: "s1".to_owned(),
+            name: Some("Hijacked".to_owned()),
+            room_id: None,
+        }],
+        ..Default::default()
+    };
+    let delete = SensorChanges {
+        delete: vec!["s1".to_owned()],
+        ..Default::default()
+    };
+    assert!(sensors.apply("b2", &rename).await.is_err());
+    assert!(sensors.apply("b2", &delete).await.is_err());
+
+    let all = sensors.by_building("b1").await.unwrap();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].name, "Sensor s1");
 }

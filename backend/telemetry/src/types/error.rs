@@ -1,6 +1,16 @@
+/// Why one item of a batch was refused; `reference` is the client's `ref`, or the sensor id.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ItemError {
+    #[serde(rename = "ref")]
+    pub reference: String,
+    pub field: String,
+    pub message: String,
+}
+
 #[derive(Debug)]
 pub enum DomainError {
     Validation(String),
+    Rejected(Vec<ItemError>),
     NotFound(String),
     Conflict(String),
     Unauthorized(String),
@@ -18,6 +28,7 @@ impl std::fmt::Display for DomainError {
             | DomainError::Unauthorized(message)
             | DomainError::Forbidden(message)
             | DomainError::BadGateway(message) => write!(f, "{message}"),
+            DomainError::Rejected(items) => write!(f, "{} item(s) rejected.", items.len()),
             DomainError::Internal(error) => write!(f, "{error}"),
         }
     }

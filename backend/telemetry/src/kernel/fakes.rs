@@ -1,6 +1,6 @@
 use crate::kernel::ports::{
     ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DispatchError, Fanout,
-    ReadingStore, RegisterError, RegistrationEvents, SensorStore, ThresholdStore,
+    ReadingStore, RegistrationEvents, SensorStore, ThresholdStore,
 };
 use crate::types::building::RegisteredBuilding;
 use crate::types::event::{AlertPayload, TelemetryEvent};
@@ -9,7 +9,7 @@ use crate::types::plugin::{
 };
 use crate::types::query::Bucket;
 use crate::types::reading::Reading;
-use crate::types::sensor::{Command, Sensor};
+use crate::types::sensor::{Command, Sensor, SensorChanges};
 use crate::types::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use async_trait::async_trait;
 use serde_json::{Map, Value};
@@ -356,19 +356,27 @@ pub struct FakeSensors {
 
 #[async_trait]
 impl SensorStore for FakeSensors {
-    async fn register(&self, sensor: &Sensor) -> Result<(), RegisterError> {
+    async fn apply(&self, building_id: &str, changes: &SensorChanges) -> anyhow::Result<()> {
         if self.refuse {
-            return Err(RegisterError::Other(anyhow::anyhow!("sensors refused")));
+            anyhow::bail!("sensors refused");
         }
         let mut registered = self.registered.lock().unwrap();
-        if registered.iter().any(|s| {
-            s.building_id == sensor.building_id
-                && s.room_id == sensor.room_id
-                && s.sensor_id == sensor.sensor_id
-        }) {
-            return Err(RegisterError::AlreadyExists);
+        let mut next = registered.clone();
+        next.extend(changes.create.iter().cloned());
+        for update in &changes.update {
+            let sensor = next
+                .iter_mut()
+                .find(|s| s.building_id == building_id && s.sensor_id == update.sensor_id)
+                .ok_or_else(|| anyhow::anyhow!("unknown sensor {}", update.sensor_id))?;
+            if let Some(name) = &update.name {
+                sensor.name = name.clone();
+            }
+            if let Some(room_id) = &update.room_id {
+                sensor.room_id = room_id.clone();
+            }
         }
-        registered.push(sensor.clone());
+        next.retain(|s| !(s.building_id == building_id && changes.delete.contains(&s.sensor_id)));
+        *registered = next;
         Ok(())
     }
 
@@ -395,7 +403,7 @@ impl SensorStore for FakeSensors {
             .lock()
             .unwrap()
             .iter()
-            .filter(|s| s.building_id == building_id && s.room_id == room_id)
+            .filter(|s| s.building_id == building_id && s.room_id.as_deref() == Some(room_id))
             .cloned()
             .collect())
     }

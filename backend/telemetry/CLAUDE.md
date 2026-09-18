@@ -68,6 +68,13 @@ the set. The per-room route stays for single edits. This mirrors ingest: the ope
 naturally arrives as a set is accepted as a set, all-or-nothing. The writes are still one upsert
 per room — `ThresholdStore` has no transactional bulk write, and a retry converges.
 
+**Sensors are written as a batch.** `POST /sensors/buildings/{id}` takes `{create, update,
+delete}`, validates every item before writing, returns `422` with per-item `{ref, field,
+message}` and writes nothing if any item is bad, else applies all in one transaction. Ids are server-generated UUIDs;
+`room_id` null = outdoors. Positions live in digital-twin, never here. Actions find the
+device by `(building_id, sensor_id)` — never by room, or an outdoor or moved sensor is
+unreachable.
+
 **Registration**: telemetry consumes `building-registration-requested` and answers
 `building-registration-completed` (both from `twin_schema`). `maxTemperature` is read here
 but never sent by twin, which syncs thresholds over HTTP — keep the field optional, don't

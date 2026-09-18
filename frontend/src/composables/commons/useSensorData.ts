@@ -2,7 +2,6 @@ import { shallowRef, triggerRef, ref, watch, type Ref } from 'vue'
 import { makeRequest } from '@/composables/commons/useApi.ts'
 import { socket } from '@/services/socket'
 import { readingsFor, type TelemetryTick } from '@/utils/commons/telemetry.ts'
-import type { SensorDraftType } from '@/types/administration/buildingDraft.ts'
 
 export interface ApiDataPoint {
   timestamp: string | number
@@ -25,7 +24,7 @@ export interface RoomSensorRecord {
   buildingId: string
   roomId: string
   sensorId: string
-  sensorType: SensorDraftType | string
+  sensorType: string
 }
 
 export function getBuildingData(
@@ -161,31 +160,6 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
     }
   }
 
-  const registerSensor = async (payload: {
-    roomId: string
-    sensorId: string
-    sensorType: SensorDraftType
-  }) => {
-    if (!buildingId.value) return
-
-    const response = await makeRequest('/telemetry/sensor', 'POST', {
-      body: JSON.stringify({
-        sensorData: {
-          buildingId: buildingId.value,
-          roomId: payload.roomId,
-          sensorId: payload.sensorId,
-          sensorType: payload.sensorType,
-        },
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to register sensor')
-    }
-
-    await refresh()
-  }
-
   const sendAction = async (payload: {
     roomId: string
     sensorId: string
@@ -226,5 +200,5 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
     { immediate: true },
   )
 
-  return { sensors, isLoading, error, refresh, registerSensor, sendAction }
+  return { sensors, isLoading, error, refresh, sendAction }
 }

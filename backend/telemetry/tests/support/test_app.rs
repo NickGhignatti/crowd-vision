@@ -100,6 +100,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
         sensors: Sensors {
             registry: registry.clone(),
             store: sensors_store.clone() as Arc<dyn SensorStore>,
+            buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
         },
         actions: Actions {
             registry: registry.clone(),

@@ -85,7 +85,6 @@ mod tests {
         Command {
             metric: "fake".to_owned(),
             building_id: "b1".to_owned(),
-            room_id: "r1".to_owned(),
             sensor_id: "s1".to_owned(),
             action: action.to_owned(),
             arguments: arguments.as_object().cloned().unwrap_or_default(),

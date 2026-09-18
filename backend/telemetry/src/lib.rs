@@ -49,12 +49,14 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/thresholds/{sensorType}/buildings/{buildingId}/rooms/{roomId}",
             patch(c::patch_room_threshold),
         )
-        .route("/sensors/buildings/{buildingId}", get(c::building_sensors))
+        .route(
+            "/sensors/buildings/{buildingId}",
+            get(c::building_sensors).post(c::apply_sensors),
+        )
         .route(
             "/sensors/buildings/{buildingId}/rooms/{roomId}",
             get(c::room_sensors),
         )
-        .route("/sensor", post(c::register_sensor))
         .route("/executeAction", post(c::execute_action))
         .route("/{sensorType}/latest", get(c::latest))
         .route("/{sensorType}/entireBuilding", get(c::entire_building))

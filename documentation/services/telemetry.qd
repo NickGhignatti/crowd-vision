@@ -133,6 +133,28 @@ A threshold-evaluation failure is logged and does **not** fail the ingest; a per
 
 A read is served in the **same flat shape as the `telemetry` socket event**: envelope plus every metric field at the top level under its own name. The trimmed `payload` column is a storage detail — it is re-inflated on the way out and never appears in a response. A client that reads a REST snapshot and then live events must not have to handle two shapes; when it did, a dashboard column stayed blank until the first socket tick overwrote the row.
 
+**Sensors** — `POST /sensors/buildings/{id}` takes one building's `create` / `update` / `delete` lists as a batch, the same all-or-nothing rule as ingest and room thresholds. The editor saves many changes at once, and half a save would leave the twin disagreeing with what was placed.
+
+.var {sensorrules}
+   - Rule
+   - Why
+
+.tablebyrows {.sensorrules}
+    - - Ids are server-generated UUIDs; a client `sensorId` on create is ignored
+      - A client-chosen id could collide with, or guess, another building's sensor.
+    - - Each create carries a client `ref`; the response maps `ref` → `sensorId`
+      - The editor needs the new id to place the sensor in digital-twin.
+    - - `roomId` null = outside every room; on update, absent keeps the room
+      - Routers and outdoor devices have a position but no room.
+    - - Every item is validated first; errors come back as `422 {errors: [{ref, field, message}]}` and nothing is written
+      - The editor marks each bad item instead of guessing which part saved.
+    - - One Postgres transaction; an update/delete that matches no row fails it
+      - A sensor removed by someone else mid-save must not half-apply the batch.
+    - - At most 200 items (`400` above)
+      - Bounds one request's work, as ingest's 500-reading cap does.
+
+Positions are **not** stored here: they are physical layout and belong to digital-twin, keyed by the same `sensorId`.
+
 **Actions** — `POST /executeAction`. The kernel validates the command against the plugin's `ActionSpec`; the dispatch adapter translates it into the device's own vocabulary. See [Sensor Actions & the Device ACL](../design/sensor-actions.qd).
 
 ---
@@ -151,7 +173,7 @@ Five tables. Full retention and compression design in [Telemetry Storage & Reten
     - - `thresholds`
       - `building_id, room_id, metric, bounds jsonb`. `room_id NULL` = building-level; room-level wins.
     - - `sensors`
-      - `building_id, room_id, sensor_id, sensor_type, driver, endpoint`.
+      - `sensor_id` (PK, UUID), `building_id, room_id` (null = outdoors), `name, sensor_type, driver, endpoint`.
     - - `buildings` / `building_rooms`
       - Registration output. `building_rooms` is what lets the threshold clone view report rooms that have no bounds.
 

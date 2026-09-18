@@ -300,20 +300,19 @@ pub async fn room_sensors(
     Ok(Json(json!({ "data": data })))
 }
 
-pub async fn register_sensor(
+pub async fn apply_sensors(
     State(state): State<Arc<AppState>>,
+    Path(building_id): Path<String>,
     claims: GatewayClaims,
     Json(body): Json<Value>,
-) -> Result<(StatusCode, Json<Value>), DomainError> {
-    let building = body["sensorData"]["buildingId"]
-        .as_str()
-        .unwrap_or_default();
-    edit(&state, &claims, building).await?;
-    let sensor = state.sensors.register(&body).await?;
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({ "created": true, "type": sensor.sensor_type })),
-    ))
+) -> Result<Json<Value>, DomainError> {
+    edit(&state, &claims, &building_id).await?;
+    let created = state.sensors.apply(&building_id, &body).await?;
+    let created: Vec<Value> = created
+        .into_iter()
+        .map(|c| json!({ "ref": c.reference, "sensorId": c.sensor_id }))
+        .collect();
+    Ok(Json(json!({ "created": created })))
 }
 
 pub async fn execute_action(
@@ -338,7 +337,6 @@ pub async fn execute_action(
     let command = Command {
         metric: field("metric")?,
         building_id: field("buildingId")?,
-        room_id: field("roomId")?,
         sensor_id: field("sensorId")?,
         action: field("action")?,
         arguments: data["arguments"].as_object().cloned().unwrap_or_default(),

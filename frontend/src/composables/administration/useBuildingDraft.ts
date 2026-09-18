@@ -1,19 +1,12 @@
 import { DEFAULT_MAX_TEMPERATURE } from '@/utils/digital-twin/thresholds.ts'
 import { ref, computed } from 'vue'
-import { makeRequestWithRetry, mapWithConcurrency } from '@/composables/commons/useApi.ts'
+import { makeRequestWithRetry } from '@/composables/commons/useApi.ts'
 import { useBuildingsStore } from '@/stores/digital-twin/buildings.ts'
 import type {
   BuildingDraft,
   BuildingThresholdDraft,
   RoomDraft,
-  SensorRegistrationDraft,
 } from '@/types/administration/buildingDraft.ts'
-
-/**
- * Bounded concurrency: firing one request per sensor at once can burst past what the local
- * proxy handles, resetting connections instead of queuing them.
- */
-const SENSOR_REQUEST_CONCURRENCY = 4
 
 const DEFAULT_THRESHOLDS: BuildingThresholdDraft = {
   minTemp: 18,
@@ -62,10 +55,7 @@ export function useBuildingDraft() {
     draft.value = null
   }
 
-  const submit = async (
-    domainName: string,
-    sensorsToRegister: SensorRegistrationDraft[] = [],
-  ): Promise<void> => {
+  const submit = async (domainName: string): Promise<void> => {
     if (!draft.value) return
     isSubmitting.value = true
 
@@ -111,23 +101,6 @@ export function useBuildingDraft() {
           { body: JSON.stringify(roomThresholds) },
         ),
       ])
-
-      await mapWithConcurrency(sensorsToRegister, SENSOR_REQUEST_CONCURRENCY, async (sensor) => {
-        const registerResponse = await makeRequestWithRetry('/telemetry/sensor', 'POST', {
-          body: JSON.stringify({
-            sensorData: {
-              buildingId,
-              roomId: sensor.roomId,
-              sensorType: sensor.sensorType,
-              sensorId: sensor.sensorId,
-            },
-          }),
-        })
-
-        if (!registerResponse.ok) {
-          throw new Error('Failed to register sensor')
-        }
-      })
     } finally {
       isSubmitting.value = false
     }
