@@ -30,10 +30,12 @@ export function roomColorStandard(): string {
 }
 
 /** Colour stops in °C relative to a room's own limit; teal marks comfort, and no green/red pair. */
+// The pale grey at −4 keeps teal from blending into green on its way to amber.
 export const TEMPERATURE_SCALE = [
   { offset: -12, color: '#2563EB' },
   { offset: -7, color: '#7DD3FC' },
   { offset: -5, color: '#5EEAD4' },
+  { offset: -4, color: '#CBD5E1' },
   { offset: -3, color: '#FBBF24' },
   { offset: -1, color: '#F97316' },
   { offset: 0, color: '#DC2626' },

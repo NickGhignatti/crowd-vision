@@ -12,6 +12,7 @@ import { roomColorStandard } from '@/utils/digital-twin/colors.ts'
 import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import { thermalGlows } from '@/utils/digital-twin/thermalGlow.ts'
 import { airHazes } from '@/utils/digital-twin/airHaze.ts'
+import { snapRooms } from '@/utils/digital-twin/snapRooms.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
@@ -88,21 +89,26 @@ watchEffect(() => {
   if (changed) colors.value = next
 })
 
+// Drawn geometry only: rooms a wall's thickness apart are shown touching.
+const drawnRooms = computed(() => snapRooms(props.rooms))
+
 const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSensor)
 const isAir = computed(() => modes.currentMode.value === Mode.AirQualitySensor)
 // In a data mode the glow or haze carries the colour, so shells fall back to the neutral tint.
 const shellColors = computed(() => (isThermal.value || isAir.value ? {} : colors.value))
-const hazes = computed(() => (isAir.value ? airHazes(props.rooms, indoorAqi.value) : []))
-const glows = computed(() => (isThermal.value ? thermalGlows(props.rooms, temperatures.value) : []))
+const hazes = computed(() => (isAir.value ? airHazes(drawnRooms.value, indoorAqi.value) : []))
+const glows = computed(() =>
+  isThermal.value ? thermalGlows(drawnRooms.value, temperatures.value) : [],
+)
 
 const { instancedRooms, overlayRoom } = useInstancedRooms(
-  toRef(props, 'rooms'),
+  drawnRooms,
   toRef(props, 'selectedRoomId'),
   toRef(props, 'explodedRoomId'),
 )
 
 const explodedRoom = computed(
-  () => props.rooms.find((room) => room.id === props.explodedRoomId) ?? null,
+  () => drawnRooms.value.find((room) => room.id === props.explodedRoomId) ?? null,
 )
 
 // A new count needs a new InstancedMesh, so the batch remounts per building, floor and size.

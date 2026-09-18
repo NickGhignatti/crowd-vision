@@ -15,16 +15,15 @@ const { currentMode } = useModes()
 const position = (value: number, first: number, last: number) =>
   `${((value - first) / (last - first)) * 100}%`
 
-// A temperature stop closer than 2° to the next would print its label on top of that one.
-const temperatureTicks = TEMPERATURE_SCALE.filter(
-  ({ offset }, i, all) => i === all.length - 1 || all[i + 1]!.offset - offset >= 2,
-).map(({ offset }) => ({
+// Labels sit at least 2° apart; the stops between them only shape the blend.
+const TEMPERATURE_TICKS = [-12, -7, -5, -3, 0]
+const temperatureTicks = TEMPERATURE_TICKS.map((offset) => ({
   key: offset,
   left: position(offset, TEMPERATURE_SCALE[0].offset, 0),
   label: offset === 0 ? t('model.legend.limit') : `${offset}°`,
 }))
 
-// Only the band edges people know get a label; the stops between them only shape the blend.
+// Only the band edges people know get a label.
 const AQI_TICKS = [0, 50, 75, 100]
 const aqiMax = AQI_SCALE[AQI_SCALE.length - 1]!.at
 const aqiTicks = AQI_TICKS.map((at) => ({

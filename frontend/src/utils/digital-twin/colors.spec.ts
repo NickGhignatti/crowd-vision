@@ -62,6 +62,13 @@ describe('the colour a room takes against its own temperature limit', () => {
     expect(channels(temperatureColor(21, 27))).toEqual([110, 223, 232])
   })
 
+  it('never passes through green on the way to red', () => {
+    const greenish = Array.from({ length: 170 }, (_, i) => 13 + i / 10)
+      .map((value) => channels(temperatureColor(value, 27)))
+      .filter(([r, g, b]) => g! > r! + 40 && g! > b! + 40)
+    expect(greenish).toEqual([])
+  })
+
   it('paints a room with no reading black', () => {
     expect(temperatureColor(0, 27)).toBe('#000000')
   })
@@ -70,7 +77,7 @@ describe('the colour a room takes against its own temperature limit', () => {
 describe('the gradient the scene legend draws for temperature', () => {
   it('spreads every stop along the bar, coldest at the left edge and the limit at the right', () => {
     expect(temperatureGradient()).toBe(
-      'linear-gradient(to right, #2563EB 0%, #7DD3FC 41.67%, #5EEAD4 58.33%, #FBBF24 75%, #F97316 91.67%, #DC2626 100%)',
+      'linear-gradient(to right, #2563EB 0%, #7DD3FC 41.67%, #5EEAD4 58.33%, #CBD5E1 66.67%, #FBBF24 75%, #F97316 91.67%, #DC2626 100%)',
     )
   })
 })
