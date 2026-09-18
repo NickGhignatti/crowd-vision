@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DEFAULT_MAX_TEMPERATURE } from '@/utils/digital-twin/thresholds.ts'
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Building } from '@/types/digital-twin/building.ts'
@@ -6,8 +7,6 @@ import BaseModal from '@/components/commons/overlays/BaseModal.vue'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import FormField from '@/components/commons/forms/FormField.vue'
 import TextInput from '@/components/commons/forms/TextInput.vue'
-
-const DEFAULT_MAX_TEMPERATURE = 27
 
 const props = defineProps<{ open: boolean; building: Building | null; saving: boolean }>()
 

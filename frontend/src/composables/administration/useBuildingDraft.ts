@@ -1,3 +1,4 @@
+import { DEFAULT_MAX_TEMPERATURE } from '@/utils/digital-twin/thresholds.ts'
 import { ref, computed } from 'vue'
 import { makeRequestWithRetry, mapWithConcurrency } from '@/composables/commons/useApi.ts'
 import { useBuildingsStore } from '@/stores/digital-twin/buildings.ts'
@@ -16,7 +17,7 @@ const SENSOR_REQUEST_CONCURRENCY = 4
 
 const DEFAULT_THRESHOLDS: BuildingThresholdDraft = {
   minTemp: 18,
-  maxTemp: 27,
+  maxTemp: DEFAULT_MAX_TEMPERATURE,
   maxAqi: 75,
   maxCo2: 1000,
 }

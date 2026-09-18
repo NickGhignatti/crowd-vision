@@ -1,3 +1,6 @@
+import type { Theme } from '@/utils/commons/theme.ts'
+import { DEFAULT_MAX_TEMPERATURE } from './thresholds.ts'
+
 export interface ColorBand {
   /** Exclusive upper bound; the last band has none. */
   below: number | null
@@ -73,11 +76,15 @@ function scaleGradient(stops: readonly ScaleStop[]): string {
 
 const TEMPERATURE_STOPS = TEMPERATURE_SCALE.map(({ offset, color }) => ({ at: offset, color }))
 
+// Blending runs in linear light, so a translucent colour over near-white comes out pale.
+const THEME_OPACITY_GAIN: Record<Theme, number> = { light: 1.8, dark: 1 }
+
+/** A data effect's opacity for the theme, boosted on light backgrounds and capped at opaque. */
+export const themeOpacity = (opacity: number, theme: Theme) =>
+  Math.min(opacity * THEME_OPACITY_GAIN[theme], 1)
+
 /** Thermal glow: opacity at the floor of a fully deviating room, and how fast it fades upward. */
 export const THERMAL_GLOW = { floorOpacity: 0.6, falloff: 1.5 }
-
-// Telemetry's fallback limit when neither the room nor its building sets one.
-export const DEFAULT_MAX_TEMPERATURE = 27
 
 /** Smooth colour for `temperature` against the room's `maxTemperature`; 0 means no reading. */
 export function temperatureColor(
