@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useTresContext } from '@tresjs/core'
-import { Color, Matrix4, type InstancedMesh, type Intersection } from 'three'
+import {
+  BoxGeometry,
+  Color,
+  InstancedBufferAttribute,
+  Matrix4,
+  type InstancedMesh,
+  type Intersection,
+} from 'three'
 import type { Room } from '@/types/digital-twin/building.ts'
 import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
+import type { HiddenWalls } from '@/utils/digital-twin/snapRooms.ts'
 import { applyRoomColors, applyRoomMatrices } from '@/composables/digital-twin/useInstancedRooms.ts'
 import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
@@ -12,7 +20,11 @@ interface TresEvent extends Intersection {
   stopPropagation?: () => void
 }
 
-const props = defineProps<{ rooms: Room[]; colors: Record<string, string> }>()
+const props = defineProps<{
+  rooms: Room[]
+  colors: Record<string, string>
+  hiddenWalls: Record<string, HiddenWalls>
+}>()
 
 const emit = defineEmits<{ select: [roomId: string] }>()
 
@@ -22,6 +34,11 @@ const { current, style } = useRenderStyle()
 const mesh = shallowRef<InstancedMesh | null>(null)
 const scratchColor = new Color()
 const scratchMatrix = new Matrix4()
+
+// The parent remounts this per room count, so one buffer of that size serves every update.
+const geometry = new BoxGeometry(1, 1, 1)
+const walls = new InstancedBufferAttribute(new Float32Array(props.rooms.length * 4), 4)
+geometry.setAttribute('hiddenWalls', walls)
 
 const paint = (target: InstancedMesh) =>
   applyRoomColors(
@@ -34,10 +51,14 @@ const paint = (target: InstancedMesh) =>
 
 // Geometry is static per room set, so only a new set rebuilds matrices; a telemetry tick repaints.
 watch(
-  [mesh, () => props.rooms],
+  [mesh, () => props.rooms, () => props.hiddenWalls],
   ([target]) => {
     if (!target) return
     applyRoomMatrices(target, props.rooms, scratchMatrix)
+    props.rooms.forEach((room, index) =>
+      walls.setXYZW(index, ...(props.hiddenWalls[room.id] ?? [0, 0, 0, 0])),
+    )
+    walls.needsUpdate = true
     paint(target)
     renderer.invalidate()
   },
@@ -54,7 +75,7 @@ watch(
   { flush: 'post' },
 )
 
-const material = computed(() => style.value.material('room', theme.value))
+const material = computed(() => style.value.material('room', theme.value, walls))
 
 watch(
   [mesh, material],
@@ -68,7 +89,10 @@ watch(
 )
 
 // The batch remounts per building and floor; a shader left behind leaks GPU memory.
-onBeforeUnmount(() => material.value.dispose())
+onBeforeUnmount(() => {
+  material.value.dispose()
+  geometry.dispose()
+})
 
 const onClick = (event: TresEvent) => {
   event.stopPropagation?.()
@@ -81,9 +105,7 @@ const onClick = (event: TresEvent) => {
   <TresInstancedMesh
     v-if="rooms.length > 0"
     ref="mesh"
-    :args="[undefined, undefined, rooms.length]"
+    :args="[geometry, undefined, rooms.length]"
     @click="onClick"
-  >
-    <TresBoxGeometry :args="[1, 1, 1]" />
-  </TresInstancedMesh>
+  />
 </template>
