@@ -11,7 +11,7 @@ Ports & Adapters, enforced by `tests/architecture_fitness.rs` — read it before
 | Path | Holds |
 |---|---|
 | `src/domain/` | `Building`, `AcceptedUpload`, `UploadStatus`, identity, errors. No axum/mongodb, no `crate::{service,adapters}`. |
-| `src/service/` | `buildings`, `provisioning`, `authz` + `ports.rs`. No framework, no adapters. `fakes.rs` = doubles. |
+| `src/service/` | `buildings`, `placements`, `provisioning`, `authz` + `ports.rs`. No framework, no adapters. `fakes.rs` = doubles. |
 | `src/adapters/driving/` | HTTP API, Kafka consumer, `worker.rs` (provisioning loop). Must not reach into `driven`. |
 | `src/adapters/driven/` | Mongo persistence + job queue, Kafka producer. |
 
@@ -36,6 +36,13 @@ by `adapters/topics.rs` — never write the topic string here.
 **The room set is write-once.** Rooms are created by the upload and never edited afterwards:
 there is no room-level write route, and the building's own `PATCH` only touches `name`,
 `domains` and the max-temperature clone. `tests/api/rooms.rs` pins both halves.
+
+**Placements hold a sensor's position, nothing else.** `PUT|GET /building/{id}/placements`,
+one Mongo document per building (`{_id, sensors: {<sensorId>: {x,y,z}}}`). The batch is
+all-or-nothing through a single atomic `update_one` — this Mongo is standalone, so no
+transactions. `PlacementChanges::checked` is the only constructor, so no layer can skip its
+rules; sensor ids are document keys, hence letters, digits, `-`, `_` only. Telemetry owns the
+sensor itself and never stores coordinates.
 
 **`resync` republishes the request for a building that already exists** (needs an editing
 role). Use it when telemetry lost a registration, instead of re-uploading.

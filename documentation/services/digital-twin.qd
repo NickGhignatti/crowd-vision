@@ -206,6 +206,8 @@ struct Room {
 - The `pending_uploads` queue carries a unique index on `id` (status polls and resolves) and one on `status` + `leased_until` (the worker's claim).
 - Finished uploads get a `finished_at`, and a TTL index removes them an hour later. The record must outlive the browser's status poll (up to 30 s), or a successful upload times out; deleting on completion fails every such poll. MongoDB's TTL sweep runs every 60 s, so removal lags by up to a minute.
 - On startup the queue backfills `finished_at` onto uploads finished before expiry existed; a TTL index never removes a record without its field.
+- **Placements** are a second collection, one document per building: `{ _id: buildingId, sensors: { "<sensorId>": { x, y, z } } }`. Telemetry owns the sensor (id, name, type, room, driver); only its *position* lives here, because physical layout is this service's bounded context. `sensorId` is telemetry's, treated as opaque and never verified against it — a placement for a deleted sensor is harmless, since a client draws markers from telemetry's list joined with these.
+- One document per building is what makes a placement batch all-or-nothing: this Mongo runs standalone, so there are no multi-document transactions, but a single `update_one` with `$set`/`$unset` is atomic. Sensor ids are keys in that document, so they are restricted to letters, digits, `-` and `_` — a `.` or `$` would be read as a path.
 - No internal database fields (`_id`, a document version, timestamps) leak into API responses — the `Building`/`Room` structs only carry fields a client actually reads.
 
 ---
@@ -233,6 +235,10 @@ struct Room {
       - Return the flattened list of domains for buildings matching the name. Used by notification for recipient resolution.
     - - `PATCH /building/:buildingId`
       - Update `name` and/or `domains` (and an optional `maxTemperature` forwarded to the clone). Requires an editing role in one of the building's own domains. Re-syncs.
+    - - `GET /building/:buildingId/placements`
+      - Where this building's sensors sit: `[{ sensorId, position }]`, ordered by sensor id, `[]` when none. Requires membership in one of the building's domains.
+    - - `PUT /building/:buildingId/placements`
+      - Place, move and remove sensors in one batch — `{ upsert: [{ sensorId, position }], delete: [sensorId] }`, `204`. All-or-nothing, replayable, at most 200 items, each sensor once. Requires an editing role.
     - - `GET /contracts`
       - Return this service's metric catalog (`roomName`, `roomMaxOccupancy`). **Public.**
     - - `GET /health`, `GET /metrics`

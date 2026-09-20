@@ -86,6 +86,7 @@ Suite: `backend/acceptance/sensor_registry/`, same composed stack as LD-4.
 - **Connect, move, remove in one save** — `test_a_sensor_batch_creates_moves_and_removes_sensors`: a room sensor and an outdoor sensor created, then one moved into a room and renamed while the other is deleted, read back through the listing.
 - **Refused without edit rights** — `test_a_sensor_batch_from_another_domain_is_forbidden`: `403`, and the building still lists no sensors.
 - **All-or-nothing** — asserted below the edge, in `backend/telemetry/tests/{api,persistence}.rs`.
+- **Where a sensor sits** — not in this suite: it stubs digital-twin with nginx, so placements have no real service to reach. Covered by twin's own `tests/api/placements.rs` and `tests/persistence_placements.rs` against a real MongoDB.
 
 ### LD-4 — how the performance criterion is measured
 

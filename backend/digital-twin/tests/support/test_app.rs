@@ -6,11 +6,13 @@ use uuid::Uuid;
 use digital_twin::adapters::driven::outbound::OutboundConfig;
 use digital_twin::adapters::driven::persistence::db::{self, MongoBuildings};
 use digital_twin::adapters::driven::persistence::jobs::MongoUploadQueue;
+use digital_twin::adapters::driven::persistence::placements::{self, MongoPlacements};
 use digital_twin::adapters::driving::worker;
 use digital_twin::adapters::ratelimit::RateLimiter;
 use digital_twin::build_router;
 use digital_twin::domain::Building;
 use digital_twin::service::buildings::Buildings;
+use digital_twin::service::placements::Placements;
 use digital_twin::service::ports::RegistrationEvents;
 use digital_twin::service::provisioning::Provisioning;
 use digital_twin::state::AppState;
@@ -57,6 +59,12 @@ pub async fn build(label: &str) -> TestApp {
         sync_enabled: false,
         client: reqwest::Client::new(),
     };
+    let placements = Arc::new(MongoPlacements::new(
+        placements::connect(&uri, &db_name)
+            .await
+            .expect("connect to test MongoDB"),
+    ));
+
     let store = Arc::new(MongoBuildings::new(buildings.clone()));
     let queue = Arc::new(
         MongoUploadQueue::from_building_collection(&buildings)
@@ -82,7 +90,8 @@ pub async fn build(label: &str) -> TestApp {
     });
 
     let router = build_router(AppState {
-        buildings: Arc::new(Buildings::new(store, downstream)),
+        buildings: Arc::new(Buildings::new(store.clone(), downstream)),
+        placements: Arc::new(Placements::new(store, placements)),
         provisioning: provisioning.clone(),
         rate_limiter: RateLimiter::new(false),
     });

@@ -6,6 +6,8 @@ mod auth;
 mod building_update;
 #[path = "api/buildings.rs"]
 mod buildings;
+#[path = "api/placements.rs"]
+mod placements;
 #[path = "api/registration.rs"]
 mod registration;
 #[path = "api/rooms.rs"]

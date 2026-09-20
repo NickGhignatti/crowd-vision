@@ -9,6 +9,7 @@ use crate::domain::{
     Building, DimensionsInput, DomainError, PositionInput, Room, normalize_building_name,
     normalize_room_name, validate_capacity,
 };
+use crate::domain::{Placement, PlacementChanges};
 use crate::service::buildings::BuildingPatch;
 use crate::state::AppState;
 
@@ -166,4 +167,65 @@ pub async fn update_building(
     Ok(Json(
         state.buildings.update(&building_id, patch, &claims).await?,
     ))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlacementWireInput {
+    pub sensor_id: String,
+    pub position: PositionInput,
+}
+
+#[derive(Deserialize, Default)]
+pub struct PlacementBatchRequest {
+    #[serde(default)]
+    pub upsert: Vec<PlacementWireInput>,
+    #[serde(default)]
+    pub delete: Vec<String>,
+}
+
+pub async fn save_placements(
+    State(state): State<AppState>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+    Json(body): Json<PlacementBatchRequest>,
+) -> Result<StatusCode, DomainError> {
+    let upsert = body
+        .upsert
+        .into_iter()
+        .map(|placement| {
+            Ok(Placement {
+                sensor_id: placement.sensor_id,
+                position: placement.position.to_coordinates()?,
+            })
+        })
+        .collect::<Result<Vec<_>, DomainError>>()?;
+
+    state
+        .placements
+        .apply(
+            &building_id,
+            PlacementChanges::checked(upsert, body.delete)?,
+            &claims,
+        )
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn get_placements(
+    State(state): State<AppState>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<Json<serde_json::Value>, DomainError> {
+    let placements = state.placements.list(&building_id, &claims).await?;
+    let body = placements
+        .into_iter()
+        .map(|placement| {
+            serde_json::json!({
+                "sensorId": placement.sensor_id,
+                "position": placement.position,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(serde_json::Value::Array(body)))
 }
