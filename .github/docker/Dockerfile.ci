@@ -1,4 +1,4 @@
-FROM alpine:3.24.1
+FROM alpine:3.24.2
 
 # Fixes OS CVEs the base still ships: alpine images lag their own apk repos, and the Trivy
 # gate fails on any fixed HIGH/CRITICAL.
