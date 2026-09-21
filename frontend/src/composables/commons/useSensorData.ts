@@ -1,3 +1,4 @@
+import type { Sensor } from '@/types/digital-twin/sensor.ts'
 import { shallowRef, triggerRef, ref, watch, type Ref } from 'vue'
 import { makeRequest } from '@/composables/commons/useApi.ts'
 import { socket } from '@/services/socket'
@@ -18,13 +19,6 @@ export interface ApiDataPoint {
   aqi?: number
   indoor_aqi?: number
   indoorAqi?: number
-}
-
-export interface RoomSensorRecord {
-  buildingId: string
-  roomId: string
-  sensorId: string
-  sensorType: string
 }
 
 export function getBuildingData(
@@ -130,7 +124,7 @@ export function getBuildingData(
 }
 
 export function useBuildingSensors(buildingId: Ref<string | undefined>) {
-  const sensors = shallowRef<RoomSensorRecord[]>([])
+  const sensors = shallowRef<Sensor[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -161,7 +155,6 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
   }
 
   const sendAction = async (payload: {
-    roomId: string
     sensorId: string
     metric: string
     action: string
@@ -174,7 +167,6 @@ export function useBuildingSensors(buildingId: Ref<string | undefined>) {
         actionData: {
           metric: payload.metric,
           buildingId: buildingId.value,
-          roomId: payload.roomId,
           sensorId: payload.sensorId,
           action: payload.action,
           arguments: payload.arguments ?? {},
