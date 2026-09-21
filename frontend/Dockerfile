@@ -9,7 +9,7 @@ ARG VITE_KEYCLOAK_URL
 ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL
 RUN npm run build
 
-FROM nginx:1.31.5-alpine AS production-stage
+FROM nginx:1.31.6-alpine AS production-stage
 # Static files need a static server: nginx on alpine is ~64MB against node on alpine's
 # ~167MB, and starts in milliseconds instead of booting Node to run `serve`.
 # apk upgrade patches base-image OS CVEs so the cd-registry Trivy scan stays green.
