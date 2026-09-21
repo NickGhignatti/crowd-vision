@@ -1,5 +1,5 @@
 import type { Coordinates } from '@/types/digital-twin/building.ts'
-import type { Sensor } from '@/types/digital-twin/sensor.ts'
+import type { PlacedSensor, Sensor } from '@/types/digital-twin/sensor.ts'
 
 /** A sensor the user added but has not saved; `ref` is its key until telemetry gives it an id. */
 export interface NewSensorDraft {
@@ -143,3 +143,50 @@ export function mergePlacementBatches(
     delete: [...deleted],
   }
 }
+
+/** One sensor as the editor shows it: the saved state with the draft applied on top. */
+export interface SensorRow {
+  key: string
+  target: Sensor | { ref: string }
+  name: string
+  sensorType: string
+  roomId: string | null
+  position: Coordinates | null
+  state: 'saved' | 'edited' | 'new'
+}
+
+export function previewSensors(saved: PlacedSensor[], draft: SensorDraft): SensorRow[] {
+  const removed = new Set(draft.removed)
+
+  const kept = saved
+    .filter((sensor) => !removed.has(sensor.sensorId))
+    .map((sensor): SensorRow => {
+      const edit = draft.edited[sensor.sensorId]
+      return {
+        key: sensor.sensorId,
+        target: sensor,
+        name: edit?.name ?? sensor.name,
+        sensorType: sensor.sensorType,
+        roomId: edit && 'roomId' in edit ? (edit.roomId ?? null) : sensor.roomId,
+        position: edit && 'position' in edit ? (edit.position ?? null) : sensor.position,
+        state: edit ? 'edited' : 'saved',
+      }
+    })
+
+  const added = draft.added.map(
+    (sensor): SensorRow => ({
+      key: sensor.ref,
+      target: { ref: sensor.ref },
+      name: sensor.name,
+      sensorType: sensor.sensorType,
+      roomId: sensor.roomId,
+      position: sensor.position,
+      state: 'new',
+    }),
+  )
+
+  return [...kept, ...added]
+}
+
+/** A sensor the scene cannot draw: no room to badge and no point to mark. */
+export const isUnplaced = (row: SensorRow): boolean => row.roomId === null && row.position === null

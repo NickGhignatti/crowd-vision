@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useBuildingModel } from '@/composables/digital-twin/useBuildingModel.ts'
+import { provideSensorEditor } from '@/composables/digital-twin/useSensorEditor.ts'
 import AppLayout from '@/components/commons/layout/AppLayout.vue'
 import BuildingScene, { type ExplodeState } from '@/components/digital-twin/scene/BuildingScene.vue'
 import BuildingSidebar from '@/components/digital-twin/buildings/BuildingSidebar.vue'
 import RoomSidebar from '@/components/digital-twin/rooms/RoomSidebar.vue'
+import SensorEditBar from '@/components/digital-twin/sensors/SensorEditBar.vue'
 
 const {
   building,
@@ -26,7 +30,26 @@ const onExplode = (state: ExplodeState) => {
   explodedRoomId.value = state.roomId
 }
 
-onMounted(fetchBuildings)
+const { t } = useI18n()
+const sensorEditor = provideSensorEditor(building)
+const confirmLeave = () =>
+  !sensorEditor.hasChanges.value || window.confirm(t('model.sensors.leaveConfirm'))
+
+const selectBuilding = (id: string) => {
+  if (confirmLeave()) setBuildingById(id)
+}
+
+onBeforeRouteLeave(confirmLeave)
+
+// A tab close or reload skips the router, so the browser's own prompt has to cover it.
+const warnOnUnload = (event: BeforeUnloadEvent) => {
+  if (sensorEditor.hasChanges.value) event.preventDefault()
+}
+onMounted(() => {
+  fetchBuildings()
+  window.addEventListener('beforeunload', warnOnUnload)
+})
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnload))
 </script>
 
 <template>
@@ -49,8 +72,13 @@ onMounted(fetchBuildings)
       :building="building"
       :floor="selectedFloor"
       @update:floor="setFloor"
-      @select="setBuildingById"
+      @select="selectBuilding"
       @updated="fetchBuildings"
+    />
+
+    <SensorEditBar
+      v-if="sensorEditor.isEditing.value"
+      class="absolute left-1/2 top-4 z-30 -translate-x-1/2"
     />
 
     <RoomSidebar

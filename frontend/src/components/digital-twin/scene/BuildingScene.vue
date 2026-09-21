@@ -13,6 +13,8 @@ import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import { thermalGlows } from '@/utils/digital-twin/thermalGlow.ts'
 import { airHazes } from '@/utils/digital-twin/airHaze.ts'
 import { hiddenEdges, snapRooms } from '@/utils/digital-twin/snapRooms.ts'
+import { sensorBadges } from '@/utils/digital-twin/sensors.ts'
+import { useSensorEditor } from '@/composables/digital-twin/useSensorEditor.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
@@ -26,6 +28,7 @@ import AirHaze from '@/components/digital-twin/scene/AirHaze.vue'
 import RoomInstances from '@/components/digital-twin/scene/RoomInstances.vue'
 import SelectedRoom from '@/components/digital-twin/scene/SelectedRoom.vue'
 import RoomOutline from '@/components/digital-twin/scene/RoomOutline.vue'
+import SensorBadges from '@/components/digital-twin/scene/SensorBadges.vue'
 import SceneToolbar from '@/components/digital-twin/controls/SceneToolbar.vue'
 import SceneLegend from '@/components/digital-twin/controls/SceneLegend.vue'
 
@@ -92,6 +95,8 @@ watchEffect(() => {
 // Drawn geometry only: rooms a wall's thickness apart are shown touching.
 const drawnRooms = computed(() => snapRooms(props.rooms))
 const sharedEdges = computed(() => hiddenEdges(drawnRooms.value))
+const sensorEditor = useSensorEditor()
+const badges = computed(() => sensorBadges(drawnRooms.value, sensorEditor.rows.value))
 
 const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSensor)
 const isAir = computed(() => modes.currentMode.value === Mode.AirQualitySensor)
@@ -170,6 +175,7 @@ const focus = withFrame(() =>
           :color="shellColors[overlayRoom.id]"
           @select="select"
         />
+        <SensorBadges :badges="badges" />
         <RoomOutline v-if="explodedRoom" :room="explodedRoom" :color="OUTLINE_COLOR[theme]" />
       </template>
     </TresCanvas>

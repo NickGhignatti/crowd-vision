@@ -9,6 +9,8 @@ import { useUserPermissions } from '@/composables/authentication/useUserPermissi
 import { useBuildingsStore } from '@/stores/digital-twin/buildings.ts'
 import SidePanel from '@/components/digital-twin/sidebar/SidePanel.vue'
 import RoomListItem from '@/components/digital-twin/rooms/RoomListItem.vue'
+import RoomSensors from '@/components/digital-twin/sensors/RoomSensors.vue'
+import UnplacedSensors from '@/components/digital-twin/sensors/UnplacedSensors.vue'
 import EditRoomModal from '@/components/digital-twin/modals/EditRoomModal.vue'
 import SearchInput from '@/components/commons/forms/SearchInput.vue'
 import EmptyState from '@/components/commons/base/EmptyState.vue'
@@ -84,6 +86,8 @@ const saveThreshold = async (maxTemperature: number) => {
       />
     </template>
 
+    <UnplacedSensors :rooms="building?.rooms ?? []" class="mb-3" />
+
     <EmptyState v-if="rooms.length === 0" compact icon="door" :title="t('model.noRooms')" />
 
     <div class="space-y-2.5">
@@ -102,6 +106,7 @@ const saveThreshold = async (maxTemperature: number) => {
           @select="emit('select', room.id)"
           @edit="openEditor(room)"
         />
+        <RoomSensors v-if="selectedRoomId === room.id" :room-id="room.id" class="pt-2" />
       </div>
     </div>
   </SidePanel>

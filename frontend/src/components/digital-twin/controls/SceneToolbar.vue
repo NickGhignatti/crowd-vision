@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import { Mode, useModes } from '@/composables/digital-twin/useModes.ts'
 import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
+import { useSensorEditor } from '@/composables/digital-twin/useSensorEditor.ts'
 import { nextRenderStyle } from '@/utils/digital-twin/renderStyle.ts'
 import IconButton from '@/components/commons/base/IconButton.vue'
 
@@ -18,6 +19,10 @@ defineEmits<{
 const { t } = useI18n()
 const { currentMode, changeMode } = useModes()
 const { current: renderStyle, setStyle } = useRenderStyle()
+const { isEditing, userCanEdit, setEditing } = useSensorEditor()
+
+const toggleSensorEditing = () =>
+  setEditing(!isEditing.value, () => window.confirm(t('model.sensors.discardConfirm')))
 </script>
 
 <template>
@@ -72,6 +77,17 @@ const { current: renderStyle, setStyle } = useRenderStyle()
       :active="currentMode === Mode.AirQualitySensor"
       @click="changeMode(Mode.AirQualitySensor)"
     />
+
+    <template v-if="userCanEdit">
+      <span class="mx-1 h-6 w-px bg-outline-variant" />
+
+      <IconButton
+        icon="broadcast"
+        :label="t('model.controls.buttons.editSensors')"
+        :active="isEditing"
+        @click="toggleSensorEditing"
+      />
+    </template>
 
     <span class="mx-1 h-6 w-px bg-outline-variant" />
 

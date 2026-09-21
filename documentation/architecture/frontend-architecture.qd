@@ -92,6 +92,18 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 - The scene legend is one gradient bar per mode (`temperatureGradient`, `aqiGradient`). The dashboard, which has no per-room limit, keeps `TEMPERATURE_BANDS` and `AQI_BANDS`.
 - Each style has an `idleColor` per theme for rooms with no reading (ghost: slate on light, pale grey on dark). Data colours (temperature, air quality) stay in `colors.ts` and never change with the theme.
 
+## Sensor Editor
+
+- Telemetry owns a sensor (id, name, type, room); digital-twin owns only its position. The frontend joins the two lists on `sensorId` (`joinSensorsWithPlacements`, `utils/digital-twin/sensors.ts`); a placement whose sensor is gone is dropped, never drawn.
+- `provideSensorEditor` (`composables/digital-twin/useSensorEditor.ts`) creates one editor per twin view and shares it by `provide`/`inject`, not a store. `SceneToolbar` sits inside `BuildingScene`, so props would have to thread through the scene.
+- The toolbar's broadcast button turns edit mode on, and shows only to an editing role in the building's domains. Every edit goes into a local draft (`utils/digital-twin/sensorDraft.ts`); nothing is sent until Save in `SensorEditBar`.
+- Save is two batches, telemetry first because it generates the ids twin keys placements by (`useSensorDraft`). A twin failure after telemetry succeeded keeps the unsent placements apart from the draft (`mergePlacementBatches`), so a retry never creates a sensor twice and sensors added meanwhile are still sent.
+- `previewSensors` is the saved state with the draft applied. The editor exposes it as `rows`; the room list (`RoomSensors`), the unplaced list (`UnplacedSensors`) and the scene badges (`sensorBadges`) all read it, so they cannot disagree.
+- A draft names one building's rooms: switching building, leaving the route, closing the tab and leaving edit mode all ask before discarding it.
+- Sensor types come from telemetry's own catalog (`/telemetry/contracts`, `useSensorTypes`), fetched once per session. Icons are looked up by type with a generic fallback (`sensorIcon`), so a new metric plugin needs no frontend change.
+- Badges are cientos `Html` overlays, not geometry: the frame is fill-bound, and DOM pills add no GPU fill.
+- A draft `ref` is time plus random, not `crypto.randomUUID`, which throws on a plain-http origin other than localhost.
+
 ## Shell
 
 - `App.vue` mounts `RouterView` plus three app-wide overlays: `AuthDialogs`, `PushNotificationPrompt` and `ChatWidget`.

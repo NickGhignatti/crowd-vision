@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   addSensor,
+  isUnplaced,
   mergePlacementBatches,
+  previewSensors,
   changeCount,
   emptyDraft,
   moveSensor,
@@ -11,7 +13,7 @@ import {
   toPlacementBatch,
   toTelemetryBatch,
 } from './sensorDraft.ts'
-import type { Sensor } from '@/types/digital-twin/sensor.ts'
+import type { PlacedSensor, Sensor } from '@/types/digital-twin/sensor.ts'
 
 const point = (x: number) => ({ x, y: 0, z: 0 })
 
@@ -178,5 +180,67 @@ describe('mergePlacementBatches', () => {
       { sensorId: 's2', position: point(2) },
     ])
     expect(merged.delete).toEqual(['s3'])
+  })
+})
+
+describe('previewSensors', () => {
+  const placed = (sensorId: string, roomId: string | null = 'r1'): PlacedSensor => ({
+    ...saved(sensorId, roomId),
+    position: null,
+  })
+
+  it('shows saved sensors as they are when nothing is drafted', () => {
+    const rows = previewSensors([placed('s1')], emptyDraft())
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ key: 's1', name: 'Sensor s1', roomId: 'r1', state: 'saved' })
+  })
+
+  it('shows a drafted rename and move on the saved sensor', () => {
+    const sensor = saved('s1')
+    const draft = moveSensor(renameSensor(emptyDraft(), sensor, 'Renamed'), sensor, {
+      roomId: 'r2',
+      position: point(3),
+    })
+    expect(previewSensors([placed('s1')], draft)[0]).toMatchObject({
+      name: 'Renamed',
+      roomId: 'r2',
+      position: point(3),
+      state: 'edited',
+    })
+  })
+
+  it('hides a sensor drafted for removal', () => {
+    const draft = removeSensor(emptyDraft(), saved('s1'))
+    expect(previewSensors([placed('s1'), placed('s2')], draft).map((row) => row.key)).toEqual([
+      's2',
+    ])
+  })
+
+  it('lists added sensors after the saved ones, keyed by their ref', () => {
+    const rows = previewSensors([placed('s1')], withNew())
+    expect(rows.map((row) => [row.key, row.state])).toEqual([
+      ['s1', 'saved'],
+      ['d1', 'new'],
+    ])
+    expect(rows[1].target).toEqual({ ref: 'd1' })
+  })
+
+  it('points each saved row back at its sensor so edits can target it', () => {
+    const rows = previewSensors([placed('s1')], emptyDraft())
+    expect(rows[0].target).toMatchObject({ sensorId: 's1' })
+  })
+})
+
+describe('isUnplaced', () => {
+  const row = (roomId: string | null, position: { x: number; y: number; z: number } | null) =>
+    previewSensors([{ ...saved('s1', roomId), position }], emptyDraft())[0]
+
+  it('is true for a sensor with neither a room nor a position', () => {
+    expect(isUnplaced(row(null, null))).toBe(true)
+  })
+
+  it('is false once the sensor has a room or a position', () => {
+    expect(isUnplaced(row('r1', null))).toBe(false)
+    expect(isUnplaced(row(null, point(2)))).toBe(false)
   })
 })

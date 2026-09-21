@@ -5,6 +5,7 @@ import {
   groupByType,
   joinSensorsWithPlacements,
   roomAt,
+  sensorBadges,
   sensorIcon,
   snapToGrid,
 } from './sensors.ts'
@@ -147,5 +148,34 @@ describe('joinSensorsWithPlacements', () => {
       [placement('s1', 1)],
     )
     expect(joined.map((s) => s.sensorId)).toEqual(['s2', 's1'])
+  })
+})
+
+describe('sensorBadges', () => {
+  const inRoom = (roomId: string | null) => ({ roomId })
+
+  it('counts the sensors of each room that has any', () => {
+    const badges = sensorBadges(rooms, [inRoom('r1'), inRoom('r1'), inRoom('r2')])
+    expect(badges.map(({ roomId, count }) => [roomId, count])).toEqual([
+      ['r1', 2],
+      ['r2', 1],
+    ])
+  })
+
+  it('leaves out a room with no sensors', () => {
+    expect(sensorBadges(rooms, [inRoom('r2')]).map((badge) => badge.roomId)).toEqual(['r2'])
+  })
+
+  it('ignores sensors outside every room and rooms not being drawn', () => {
+    expect(sensorBadges(rooms, [inRoom(null), inRoom('r-other-floor')])).toEqual([])
+  })
+
+  it('floats the badge just above the centre of the ceiling', () => {
+    // r1 is centred at y 1.5 with height 3, so its ceiling sits at y 3.
+    const [badge] = sensorBadges(rooms, [inRoom('r1')])
+    expect(badge.anchor.x).toBe(0)
+    expect(badge.anchor.z).toBe(0)
+    expect(badge.anchor.y).toBeGreaterThan(3)
+    expect(badge.anchor.y).toBeLessThan(4)
   })
 })

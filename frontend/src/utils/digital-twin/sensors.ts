@@ -9,7 +9,7 @@ const ICONS: Record<string, string> = {
   peopleCount: 'users',
   airQuality: 'wind',
 }
-const GENERIC_ICON = 'sensor'
+const GENERIC_ICON = 'cpu'
 
 // A room position is the box centre on every axis, as snapRooms.ts also assumes.
 const holds = (room: Room, point: Coordinates): boolean => {
@@ -66,4 +66,38 @@ export function joinSensorsWithPlacements(
     ...sensor,
     position: positions.get(sensor.sensorId) ?? null,
   }))
+}
+
+/** How far a room's sensor badge floats above its ceiling, in metres. */
+const BADGE_LIFT = 0.4
+
+export interface SensorBadge {
+  roomId: string
+  count: number
+  anchor: Coordinates
+}
+
+/** One badge per drawn room holding at least one sensor, placed above its ceiling centre. */
+export function sensorBadges(rooms: Room[], sensors: { roomId: string | null }[]): SensorBadge[] {
+  const counts = new Map<string, number>()
+  for (const { roomId } of sensors) {
+    if (roomId) counts.set(roomId, (counts.get(roomId) ?? 0) + 1)
+  }
+
+  return rooms.flatMap((room) => {
+    const count = counts.get(room.id)
+    if (!count) return []
+    const { position, dimensions } = room
+    return [
+      {
+        roomId: room.id,
+        count,
+        anchor: {
+          x: position.x,
+          y: position.y + dimensions.height / 2 + BADGE_LIFT,
+          z: position.z,
+        },
+      },
+    ]
+  })
 }
