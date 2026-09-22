@@ -36,7 +36,9 @@ export function snapToGrid(point: Coordinates, step: number = GRID_STEP): Coordi
 }
 
 /** Each sensor type present, with how many carry it, ordered by type. */
-export function groupByType(sensors: Sensor[]): { sensorType: string; count: number }[] {
+export function groupByType(
+  sensors: { sensorType: string }[],
+): { sensorType: string; count: number }[] {
   const counts = new Map<string, number>()
   for (const sensor of sensors) {
     counts.set(sensor.sensorType, (counts.get(sensor.sensorType) ?? 0) + 1)
@@ -44,12 +46,6 @@ export function groupByType(sensors: Sensor[]): { sensorType: string; count: num
   return [...counts.entries()]
     .map(([sensorType, count]) => ({ sensorType, count }))
     .sort((a, b) => a.sensorType.localeCompare(b.sensorType))
-}
-
-/** Selecting nothing shows everything, so an untouched filter hides no sensor. */
-export function filterByTypes(sensors: Sensor[], active: Set<string>): Sensor[] {
-  if (active.size === 0) return sensors
-  return sensors.filter((sensor) => active.has(sensor.sensorType))
 }
 
 /** An icon name for a sensor type; an unknown type still gets one. */
@@ -74,20 +70,31 @@ const BADGE_LIFT = 0.4
 
 export interface SensorBadge {
   roomId: string
+  /** How many of the room's sensors the legend is showing; zero hides the badge. */
   count: number
   anchor: Coordinates
 }
 
-/** One badge per drawn room holding at least one sensor, placed above its ceiling centre. */
-export function sensorBadges(rooms: Room[], sensors: { roomId: string | null }[]): SensorBadge[] {
-  const counts = new Map<string, number>()
-  for (const { roomId } of sensors) {
-    if (roomId) counts.set(roomId, (counts.get(roomId) ?? 0) + 1)
+/**
+ * One badge per drawn room that holds any sensor, placed above its ceiling centre. A room whose
+ * every kind is hidden stays in the list with a count of zero: the badge hides itself, while
+ * dropping it would unmount its overlay.
+ */
+export function sensorBadges(
+  rooms: Room[],
+  sensors: { roomId: string | null; sensorType: string }[],
+  hidden: Set<string> = new Set(),
+): SensorBadge[] {
+  const held = new Map<string, number>()
+  for (const sensor of sensors) {
+    if (!sensor.roomId) continue
+    const shown = hidden.has(sensor.sensorType) ? 0 : 1
+    held.set(sensor.roomId, (held.get(sensor.roomId) ?? 0) + shown)
   }
 
   return rooms.flatMap((room) => {
-    const count = counts.get(room.id)
-    if (!count) return []
+    const count = held.get(room.id)
+    if (count === undefined) return []
     const { position, dimensions } = room
     return [
       {

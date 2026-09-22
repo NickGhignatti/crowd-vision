@@ -14,7 +14,9 @@ defineProps<{ badges: SensorBadge[] }>()
   >
     <!-- DOM, not geometry: the frame is fill-bound, and a few HTML pills add no GPU work. -->
     <Html center pointer-events="none" :z-index-range="[20, 0]">
+      <!-- v-show, not v-if: unmounting an overlay can leave its element behind. -->
       <span
+        v-show="badge.count > 0"
         class="flex items-center gap-1 rounded-full bg-surface-container-lowest/90 px-1.5 py-0.5 text-[0.7rem] font-semibold text-primary shadow-soft ring-1 ring-primary/40 backdrop-blur"
       >
         <BaseIcon name="broadcast" />

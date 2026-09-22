@@ -7,6 +7,8 @@ import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
 defineProps<{
   markers: (SensorRow & { position: Coordinates })[]
+  /** Device kinds switched off in the legend, or every kind when sensors are not being shown. */
+  hidden: Set<string>
   /** Pins take clicks only in edit mode and never while a point is being picked. */
   interactive: boolean
 }>()
@@ -23,7 +25,9 @@ const round = (value: number) => Math.round(value * 10) / 10
   >
     <!-- DOM, not geometry: the frame is fill-bound, and a few HTML pins add no GPU work. -->
     <Html center :pointer-events="interactive ? 'auto' : 'none'" :z-index-range="[20, 0]">
+      <!-- v-show, not v-if: unmounting an overlay can leave its element behind. -->
       <button
+        v-show="!hidden.has(marker.sensorType)"
         type="button"
         :title="`${marker.name} — x ${round(marker.position.x)}, y ${round(marker.position.y)}, z ${round(marker.position.z)}`"
         :disabled="!interactive"

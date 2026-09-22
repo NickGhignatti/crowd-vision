@@ -100,20 +100,20 @@ watchEffect(() => {
 const drawnRooms = computed(() => snapRooms(props.rooms))
 const sharedEdges = computed(() => hiddenEdges(drawnRooms.value))
 const sensorEditor = useSensorEditor()
-const badges = computed(() =>
-  showMarkers.value ? sensorBadges(drawnRooms.value, sensorEditor.rows.value) : [],
+// Badges and pins stay mounted and hide themselves: unmounting an Html overlay can leave its
+// element on screen, which looked like a filter that did nothing.
+const hidden = computed(() =>
+  showMarkers.value
+    ? sensorEditor.hiddenTypes.value
+    : new Set(sensorEditor.rows.value.map((row) => row.sensorType)),
 )
+const badges = computed(() => sensorBadges(drawnRooms.value, sensorEditor.rows.value, hidden.value))
 // Pins would clutter every other view, so they show in sensors mode or while editing.
 const showMarkers = computed(
   () => modes.currentMode.value === Mode.Sensors || sensorEditor.isEditing.value,
 )
 const markers = computed(() =>
-  showMarkers.value
-    ? sensorMarkers(
-        sensorEditor.rows.value,
-        sensorEditor.pendingPlacement.value?.moving?.key ?? null,
-      )
-    : [],
+  sensorMarkers(sensorEditor.rows.value, sensorEditor.pendingPlacement.value?.moving?.key ?? null),
 )
 const markersInteractive = computed(
   () => sensorEditor.isEditing.value && !sensorEditor.pendingPlacement.value,
@@ -207,6 +207,7 @@ const focus = withFrame(() =>
         <SensorBadges :badges="badges" />
         <SensorMarkers
           :markers="markers"
+          :hidden="hidden"
           :interactive="markersInteractive"
           @move="sensorEditor.startMoving"
         />

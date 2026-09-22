@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   clampToGround,
-  filterByTypes,
   groundExtent,
   groupByType,
   joinSensorsWithPlacements,
@@ -103,22 +102,6 @@ describe('groupByType', () => {
   })
 })
 
-describe('filterByTypes', () => {
-  const sensors = [sensor('s1', 'temperature'), sensor('s2', 'peopleCount')]
-
-  it('keeps every sensor when nothing is selected', () => {
-    expect(filterByTypes(sensors, new Set())).toEqual(sensors)
-  })
-
-  it('keeps only the selected types', () => {
-    expect(filterByTypes(sensors, new Set(['peopleCount']))).toEqual([sensors[1]])
-  })
-
-  it('accepts a type no sensor has', () => {
-    expect(filterByTypes(sensors, new Set(['humidity']))).toEqual([])
-  })
-})
-
 describe('sensorIcon', () => {
   it('names an icon for a known type', () => {
     expect(sensorIcon('temperature')).not.toBe(sensorIcon('unheard-of'))
@@ -162,17 +145,28 @@ describe('joinSensorsWithPlacements', () => {
 })
 
 describe('sensorBadges', () => {
-  const inRoom = (roomId: string | null) => ({ roomId })
+  const inRoom = (roomId: string | null, sensorType = 'temperature') => ({ roomId, sensorType })
 
-  it('counts the sensors of each room that has any', () => {
-    const badges = sensorBadges(rooms, [inRoom('r1'), inRoom('r1'), inRoom('r2')])
+  it('counts the sensors of each room', () => {
+    const badges = sensorBadges(rooms, [inRoom('r1'), inRoom('r1', 'router'), inRoom('r2')])
     expect(badges.map(({ roomId, count }) => [roomId, count])).toEqual([
       ['r1', 2],
       ['r2', 1],
     ])
   })
 
-  it('leaves out a room with no sensors', () => {
+  it('leaves the hidden kinds out of the count', () => {
+    const badges = sensorBadges(rooms, [inRoom('r1'), inRoom('r1', 'router')], new Set(['router']))
+    expect(badges[0].count).toBe(1)
+  })
+
+  it('keeps a room whose every kind is hidden, counting zero', () => {
+    // The badge stays mounted and hides itself; dropping it would unmount its overlay.
+    const badges = sensorBadges(rooms, [inRoom('r1', 'router')], new Set(['router']))
+    expect(badges.map(({ roomId, count }) => [roomId, count])).toEqual([['r1', 0]])
+  })
+
+  it('leaves out a room with no sensors at all', () => {
     expect(sensorBadges(rooms, [inRoom('r2')]).map((badge) => badge.roomId)).toEqual(['r2'])
   })
 

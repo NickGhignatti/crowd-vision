@@ -19,6 +19,15 @@ function createSensorEditor(building: Ref<Building | null>, visibleRooms: Ref<Ro
 
   const isEditing = ref(false)
   const isAddPanelOpen = ref(false)
+  /** Device kinds switched off in the legend; every other kind shows. */
+  const hiddenTypes = ref<Set<string>>(new Set())
+
+  /** Clicking a chip switches that kind off, and clicking it again switches it back on. */
+  const toggleType = (kind: string) => {
+    const hidden = new Set(hiddenTypes.value)
+    if (!hidden.delete(kind)) hidden.add(kind)
+    hiddenTypes.value = hidden
+  }
   /**
    * A sensor waiting for the user to click where it sits: a new one (name and type only), or an
    * existing one being moved (`moving` holds its row).
@@ -32,12 +41,25 @@ function createSensorEditor(building: Ref<Building | null>, visibleRooms: Ref<Ro
   /** The point picked for the waiting sensor, adjustable until the user confirms it. */
   const candidate = ref<{ position: Coordinates; roomId: string | null } | null>(null)
 
+  /** Keeps a kind visible, so a sensor never disappears into a filter the moment it is placed. */
+  const revealType = (kind: string) => {
+    if (hiddenTypes.value.has(kind)) toggleType(kind)
+  }
+
+  /** Adding from a room sidebar goes through here too, for the same reason. */
+  const add: typeof draft.add = (sensor) => {
+    revealType(sensor.sensorType)
+    draft.add(sensor)
+  }
+
   const startPlacing = (sensor: { name: string; sensorType: string }) => {
     pendingPlacement.value = sensor
+    revealType(sensor.sensorType)
     isAddPanelOpen.value = false
   }
   const startMoving = (row: SensorRow) => {
     pendingPlacement.value = { name: row.name, sensorType: row.sensorType, moving: row }
+    revealType(row.sensorType)
     candidate.value = row.position ? { position: row.position, roomId: row.roomId } : null
     isAddPanelOpen.value = false
   }
@@ -83,6 +105,7 @@ function createSensorEditor(building: Ref<Building | null>, visibleRooms: Ref<Ro
   watch(buildingId, () => {
     draft.discard()
     isEditing.value = false
+    hiddenTypes.value = new Set()
   })
 
   // Leaving edit mode by any route also abandons a half-started add.
@@ -101,11 +124,14 @@ function createSensorEditor(building: Ref<Building | null>, visibleRooms: Ref<Ro
 
   return {
     ...draft,
+    add,
     rows,
     isEditing,
     userCanEdit,
     setEditing,
     isAddPanelOpen,
+    hiddenTypes,
+    toggleType,
     pendingPlacement,
     startPlacing,
     startMoving,
