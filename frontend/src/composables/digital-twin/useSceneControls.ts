@@ -1,4 +1,5 @@
-import type { Building } from '@/types/digital-twin/building.ts'
+import type { Building, Room } from '@/types/digital-twin/building.ts'
+import { topView } from '@/utils/digital-twin/camera.ts'
 
 import { ref } from 'vue'
 import { Vector3, type PerspectiveCamera } from 'three'
@@ -20,6 +21,23 @@ export function useSceneControls() {
     const dirVector = new Vector3()
     cameraRef.value.getWorldDirection(dirVector)
     cameraRef.value.position.addScaledVector(dirVector, direction * 2)
+  }
+
+  /** Straight above the building, looking down: the easiest angle for placing on the ground. */
+  const topDown = (rooms: Room[]) => {
+    const camera = cameraRef.value
+    if (!camera) return
+    const view = topView(rooms, camera.fov, camera.aspect)
+    if (!view) return
+
+    camera.position.set(view.position.x, view.position.y, view.position.z)
+    const controls = controlsRef.value?.value
+    if (controls) {
+      controls.target.set(view.target.x, view.target.y, view.target.z)
+      controls.update()
+    } else {
+      camera.lookAt(view.target.x, view.target.y, view.target.z)
+    }
   }
 
   const togglePanorama = () => {
@@ -61,6 +79,7 @@ export function useSceneControls() {
     resetView,
     zoomIn: () => zoom(1),
     zoomOut: () => zoom(-1),
+    topDown,
     togglePanorama,
     triggerExplodeView,
   }

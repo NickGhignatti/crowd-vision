@@ -110,6 +110,7 @@ const onClick = (event: TresEvent) => {
   <TresInstancedMesh
     v-if="rooms.length > 0"
     ref="mesh"
+    name="room-shell"
     :args="[geometry, undefined, rooms.length]"
     @click="onClick"
   />

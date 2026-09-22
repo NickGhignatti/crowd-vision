@@ -36,6 +36,13 @@ export interface PlacementBatch {
 
 export const emptyDraft = (): SensorDraft => ({ added: [], edited: {}, removed: [] })
 
+/**
+ * A key for a sensor until telemetry assigns its id. Not `crypto.randomUUID`, which throws on a
+ * plain-http origin other than localhost.
+ */
+export const draftRef = (): string =>
+  `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+
 const isNew = (target: Sensor | { ref: string }): target is { ref: string } => 'ref' in target
 
 export function addSensor(draft: SensorDraft, sensor: NewSensorDraft): SensorDraft {
@@ -190,3 +197,13 @@ export function previewSensors(saved: PlacedSensor[], draft: SensorDraft): Senso
 
 /** A sensor the scene cannot draw: no room to badge and no point to mark. */
 export const isUnplaced = (row: SensorRow): boolean => row.roomId === null && row.position === null
+
+/** Every sensor with a position gets a marker, except the one being moved (drawn by the cursor). */
+export const sensorMarkers = (
+  rows: SensorRow[],
+  movingKey: string | null = null,
+): (SensorRow & { position: Coordinates })[] =>
+  rows.filter(
+    (row): row is SensorRow & { position: Coordinates } =>
+      row.position !== null && row.key !== movingKey,
+  )

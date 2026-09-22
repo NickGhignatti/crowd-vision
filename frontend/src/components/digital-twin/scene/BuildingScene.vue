@@ -13,7 +13,7 @@ import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import { thermalGlows } from '@/utils/digital-twin/thermalGlow.ts'
 import { airHazes } from '@/utils/digital-twin/airHaze.ts'
 import { hiddenEdges, snapRooms } from '@/utils/digital-twin/snapRooms.ts'
-import { sensorBadges } from '@/utils/digital-twin/sensors.ts'
+import { groundExtent, sensorBadges } from '@/utils/digital-twin/sensors.ts'
 import { useSensorEditor } from '@/composables/digital-twin/useSensorEditor.ts'
 import {
   useBuildingAirQualitySensors,
@@ -29,6 +29,10 @@ import RoomInstances from '@/components/digital-twin/scene/RoomInstances.vue'
 import SelectedRoom from '@/components/digital-twin/scene/SelectedRoom.vue'
 import RoomOutline from '@/components/digital-twin/scene/RoomOutline.vue'
 import SensorBadges from '@/components/digital-twin/scene/SensorBadges.vue'
+import GroundPlane from '@/components/digital-twin/scene/GroundPlane.vue'
+import PlacementCursor from '@/components/digital-twin/scene/PlacementCursor.vue'
+import SensorMarkers from '@/components/digital-twin/scene/SensorMarkers.vue'
+import { sensorMarkers } from '@/utils/digital-twin/sensorDraft.ts'
 import SceneToolbar from '@/components/digital-twin/controls/SceneToolbar.vue'
 import SceneLegend from '@/components/digital-twin/controls/SceneLegend.vue'
 
@@ -63,7 +67,7 @@ const rendererFactory = createWebGPURenderer
 // On-demand only: TresJS 'always' mode deadlocks when switched to with no frame in flight.
 const frameTick = ref(0)
 const requestFrame = () => frameTick.value++
-const repaintTrigger = computed(() => `${frameTick.value}:${theme.value}`)
+const repaintTrigger = computed(() => `${frameTick.value}:${theme.value}:${!!ground.value}`)
 
 const buildingId = computed(() => props.building?.id)
 const { temperatures } = useBuildingTemperature(buildingId)
@@ -97,6 +101,16 @@ const drawnRooms = computed(() => snapRooms(props.rooms))
 const sharedEdges = computed(() => hiddenEdges(drawnRooms.value))
 const sensorEditor = useSensorEditor()
 const badges = computed(() => sensorBadges(drawnRooms.value, sensorEditor.rows.value))
+const markers = computed(() =>
+  sensorMarkers(sensorEditor.rows.value, sensorEditor.pendingPlacement.value?.moving?.key ?? null),
+)
+const markersInteractive = computed(
+  () => sensorEditor.isEditing.value && !sensorEditor.pendingPlacement.value,
+)
+// Every room, not just the shown floor: outside the building, "ground" is its lowest floor.
+const ground = computed(() =>
+  sensorEditor.pendingPlacement.value ? groundExtent(props.building?.rooms ?? []) : null,
+)
 
 const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSensor)
 const isAir = computed(() => modes.currentMode.value === Mode.AirQualitySensor)
@@ -120,8 +134,12 @@ const explodedRoom = computed(
 // A new count needs a new InstancedMesh, so the batch remounts per building, floor and size.
 const batchKey = computed(() => `${buildingId.value}:${props.floor}:${instancedRooms.value.length}`)
 
+// The preview marker's colour: distinct from rooms, readable on both themes.
+const PREVIEW_COLOR = '#f59e0b'
+
 const select = (roomId: string) => {
-  if (isRotating.value) return
+  // While placing a sensor, a click drops it; it must not also select the room under it.
+  if (isRotating.value || sensorEditor.pendingPlacement.value) return
   emit('toggle-room', roomId)
 }
 
@@ -134,6 +152,7 @@ const withFrame = (action: () => void) => () => {
 const reset = withFrame(controls.resetView)
 const zoomIn = withFrame(controls.zoomIn)
 const zoomOut = withFrame(controls.zoomOut)
+const topDown = withFrame(() => controls.topDown(props.building?.rooms ?? []))
 const focus = withFrame(() =>
   emit(
     'explode',
@@ -176,6 +195,19 @@ const focus = withFrame(() =>
           @select="select"
         />
         <SensorBadges :badges="badges" />
+        <SensorMarkers
+          :markers="markers"
+          :interactive="markersInteractive"
+          @move="sensorEditor.startMoving"
+        />
+        <GroundPlane v-if="ground" :extent="ground" :color="OUTLINE_COLOR[theme]" />
+        <PlacementCursor
+          v-if="ground"
+          :rooms="building.rooms"
+          :color="PREVIEW_COLOR"
+          :picked="sensorEditor.candidate.value?.position ?? null"
+          @pick="sensorEditor.pick"
+        />
         <RoomOutline v-if="explodedRoom" :room="explodedRoom" :color="OUTLINE_COLOR[theme]" />
       </template>
     </TresCanvas>
@@ -192,6 +224,7 @@ const focus = withFrame(() =>
         @reset="reset"
         @focus="focus"
         @zoom-in="zoomIn"
+        @top-view="topDown"
         @zoom-out="zoomOut"
         @rotate="controls.togglePanorama"
       />

@@ -9,6 +9,8 @@ import BuildingScene, { type ExplodeState } from '@/components/digital-twin/scen
 import BuildingSidebar from '@/components/digital-twin/buildings/BuildingSidebar.vue'
 import RoomSidebar from '@/components/digital-twin/rooms/RoomSidebar.vue'
 import SensorEditBar from '@/components/digital-twin/sensors/SensorEditBar.vue'
+import AddSensorForm from '@/components/digital-twin/sensors/AddSensorForm.vue'
+import PlacementHint from '@/components/digital-twin/sensors/PlacementHint.vue'
 
 const {
   building,
@@ -76,10 +78,19 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnUnload))
       @updated="fetchBuildings"
     />
 
-    <SensorEditBar
+    <div
       v-if="sensorEditor.isEditing.value"
-      class="absolute left-1/2 top-4 z-30 -translate-x-1/2"
-    />
+      class="absolute left-1/2 top-4 z-30 flex w-80 -translate-x-1/2 flex-col items-center gap-2"
+    >
+      <SensorEditBar />
+      <PlacementHint />
+      <AddSensorForm
+        v-if="sensorEditor.isAddPanelOpen.value"
+        class="w-full bg-surface-container-lowest shadow-lift"
+        :rooms="building?.rooms ?? []"
+        @done="sensorEditor.isAddPanelOpen.value = false"
+      />
+    </div>
 
     <RoomSidebar
       :building="displayedBuilding"

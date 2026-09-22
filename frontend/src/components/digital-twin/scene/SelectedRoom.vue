@@ -35,7 +35,7 @@ onBeforeUnmount(() => material.value.dispose())
 
 <template>
   <TresGroup :position="[room.position.x, room.position.y, room.position.z]">
-    <TresMesh ref="mesh" @click="$emit('select', room.id)">
+    <TresMesh ref="mesh" name="room-shell" @click="$emit('select', room.id)">
       <TresBoxGeometry
         :args="[room.dimensions.width, room.dimensions.height, room.dimensions.depth]"
       />

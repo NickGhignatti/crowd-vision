@@ -101,7 +101,12 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 - `previewSensors` is the saved state with the draft applied. The editor exposes it as `rows`; the room list (`RoomSensors`), the unplaced list (`UnplacedSensors`) and the scene badges (`sensorBadges`) all read it, so they cannot disagree.
 - A draft names one building's rooms: switching building, leaving the route, closing the tab and leaving edit mode all ask before discarding it.
 - The add form offers **device kinds**, not metrics: `useDeviceKinds` reads `/telemetry/devices` once per session. A router is one card, though it reports two metrics. Labels are translated by kind (`model.sensors.devices.<kind>`) and fall back to the server's label; icons use `sensorIcon` with a generic fallback, so a new kind needs no frontend change.
-- Badges are cientos `Html` overlays, not geometry: the frame is fill-bound, and DOM pills add no GPU fill.
+- Badges and sensor pins are cientos `Html` overlays, not geometry: the frame is fill-bound, and DOM elements add no GPU fill. A pin takes clicks only in edit mode and never while a point is being picked, so it cannot steal the click that places one.
+- Placing a point sensor: `GroundPlane` (footprint + `GROUND_MARGIN` 20 m, at the lowest floor, whole metres so the 1 m grid lands on metres) appears only while a placement is pending, and `PlacementCursor` raycasts the pointer against meshes named `room-shell` and `sensor-ground` — nothing else in the scene is a surface.
+- `snapOnSurface` snaps only the axes running along the hit face, so a point on a wall stays on that wall. `roomBehind` reads the room just behind the face (`SURFACE_DEPTH` 0.05 m), so a sensor on a ceiling or an outer wall belongs to that room and one on open ground belongs to none.
+- A click **picks** a point rather than placing it: `candidate` in the editor can then be typed in `PlacementHint`'s x/y/z fields or moved with `nudge` (arrows along x/z, Shift for height), and Enter confirms. Typed coordinates lie on no surface, so the room then comes from `roomAt` alone.
+- Moving an existing sensor reuses that flow (`startMoving`), so it has the same fields and keys as placing; its own pin is left out of `sensorMarkers` while it moves, or it would be drawn twice.
+- `topView` (`utils/digital-twin/camera.ts`) puts the camera straight above the building, high enough that the footprint plus 5 m fits the narrower of the vertical and horizontal fields of view. It moves the OrbitControls target too, so orbiting afterwards pivots on the building.
 - A draft `ref` is time plus random, not `crypto.randomUUID`, which throws on a plain-http origin other than localhost.
 
 ## Shell

@@ -5,7 +5,9 @@ import {
   isUnplaced,
   mergePlacementBatches,
   previewSensors,
+  sensorMarkers,
   changeCount,
+  draftRef,
   emptyDraft,
   moveSensor,
   removeSensor,
@@ -242,5 +244,38 @@ describe('isUnplaced', () => {
   it('is false once the sensor has a room or a position', () => {
     expect(isUnplaced(row('r1', null))).toBe(false)
     expect(isUnplaced(row(null, point(2)))).toBe(false)
+  })
+})
+
+describe('draftRef', () => {
+  it('makes a key that is new every time', () => {
+    const refs = new Set(Array.from({ length: 200 }, draftRef))
+    expect(refs.size).toBe(200)
+  })
+
+  it('never looks like a server id', () => {
+    expect(draftRef()).toMatch(/^draft-/)
+  })
+})
+
+describe('sensorMarkers', () => {
+  const placedAt = (
+    sensorId: string,
+    roomId: string | null,
+    position: ReturnType<typeof point> | null,
+  ) => previewSensors([{ ...saved(sensorId, roomId), position }], emptyDraft())[0]
+
+  it('marks every sensor that has a position, in a room or outdoors', () => {
+    const rows = [
+      placedAt('s1', 'r1', point(1)),
+      placedAt('s2', null, point(9)),
+      placedAt('s3', 'r1', null),
+    ]
+    expect(sensorMarkers(rows).map((row) => row.key)).toEqual(['s1', 's2'])
+  })
+
+  it('leaves out the sensor being moved, so it is not drawn twice', () => {
+    const rows = [placedAt('s1', 'r1', point(1)), placedAt('s2', null, point(9))]
+    expect(sensorMarkers(rows, 's2').map((row) => row.key)).toEqual(['s1'])
   })
 })

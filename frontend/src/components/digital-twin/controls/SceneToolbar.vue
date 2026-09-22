@@ -13,13 +13,14 @@ defineEmits<{
   focus: []
   'zoom-in': []
   'zoom-out': []
+  'top-view': []
   rotate: []
 }>()
 
 const { t } = useI18n()
 const { currentMode, changeMode } = useModes()
 const { current: renderStyle, setStyle } = useRenderStyle()
-const { isEditing, userCanEdit, setEditing } = useSensorEditor()
+const { isEditing, userCanEdit, setEditing, isAddPanelOpen } = useSensorEditor()
 
 const toggleSensorEditing = () =>
   setEditing(!isEditing.value, () => window.confirm(t('model.sensors.discardConfirm')))
@@ -57,6 +58,12 @@ const toggleSensorEditing = () =>
       @click="$emit('zoom-out')"
     />
     <IconButton
+      icon="square-half-bottom"
+      :label="t('model.controls.buttons.topView')"
+      :disabled="isRotating"
+      @click="$emit('top-view')"
+    />
+    <IconButton
       icon="arrows-clockwise"
       :label="t('model.controls.buttons.panorama')"
       :active="isRotating"
@@ -86,6 +93,13 @@ const toggleSensorEditing = () =>
         :label="t('model.controls.buttons.editSensors')"
         :active="isEditing"
         @click="toggleSensorEditing"
+      />
+      <IconButton
+        v-if="isEditing"
+        icon="plus"
+        :label="t('model.sensors.add')"
+        :active="isAddPanelOpen"
+        @click="isAddPanelOpen = !isAddPanelOpen"
       />
     </template>
 

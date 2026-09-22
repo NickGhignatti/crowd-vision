@@ -4,19 +4,20 @@ import { useI18n } from 'vue-i18n'
 import { useSensorEditor } from '@/composables/digital-twin/useSensorEditor.ts'
 import { useDeviceKinds } from '@/composables/digital-twin/useDeviceKinds.ts'
 import { sensorIcon } from '@/utils/digital-twin/sensors.ts'
+import { draftRef } from '@/utils/digital-twin/sensorDraft.ts'
+import type { Room } from '@/types/digital-twin/building.ts'
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 import TextInput from '@/components/commons/forms/TextInput.vue'
+import SelectInput from '@/components/commons/forms/SelectInput.vue'
+import SegmentedControl from '@/components/commons/base/SegmentedControl.vue'
 
-const props = defineProps<{ roomId: string }>()
-
-// Only a key for the draft until telemetry assigns the real id; crypto.randomUUID would
-// throw on a plain-http origin other than localhost.
-const draftRef = () => `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+/** Opened from a room, `roomId` fixes where the sensor goes; opened from the toolbar, the user picks. */
+const props = defineProps<{ roomId?: string; rooms?: Room[] }>()
 const emit = defineEmits<{ done: [] }>()
 
 const { t } = useI18n()
-const { add } = useSensorEditor()
+const { add, startPlacing } = useSensorEditor()
 const { kinds, failed, labelOf } = useDeviceKinds()
 
 const name = ref('')
@@ -32,17 +33,34 @@ watch(
   { immediate: true },
 )
 
-const canAdd = computed(() => name.value.trim() !== '' && sensorType.value !== null)
+type Where = 'room' | 'point'
+const where = ref<Where>('room')
+const chosenRoom = ref<string>('')
+const whereOptions = computed(() => [
+  { value: 'room' as const, label: t('model.sensors.inRoom'), icon: 'door' },
+  { value: 'point' as const, label: t('model.sensors.atPoint'), icon: 'crosshair' },
+])
+const roomOptions = computed(() => [
+  { value: '', label: t('model.sensors.chooseRoomPlain') },
+  ...(props.rooms ?? []).map((room) => ({ value: room.id, label: room.name })),
+])
+
+const targetRoom = computed(() => props.roomId ?? (where.value === 'room' ? chosenRoom.value : ''))
+const canAdd = computed(
+  () =>
+    name.value.trim() !== '' &&
+    sensorType.value !== null &&
+    (props.roomId !== undefined || where.value === 'point' || chosenRoom.value !== ''),
+)
 
 const submit = () => {
   if (!canAdd.value || !sensorType.value) return
-  add({
-    ref: draftRef(),
-    name: name.value.trim(),
-    sensorType: sensorType.value,
-    roomId: props.roomId,
-    position: null,
-  })
+  const sensor = { name: name.value.trim(), sensorType: sensorType.value }
+  if (props.roomId === undefined && where.value === 'point') {
+    startPlacing(sensor)
+  } else {
+    add({ ref: draftRef(), ...sensor, roomId: targetRoom.value, position: null })
+  }
   emit('done')
 }
 
@@ -51,7 +69,7 @@ onMounted(() => nameInput.value?.focus())
 
 <template>
   <form
-    class="space-y-3 rounded-xl bg-surface-container-low p-3 ring-1 ring-dashed ring-primary/60"
+    class="space-y-3 rounded-xl bg-surface-container-low p-3 outline-1 outline-dashed outline-primary/60"
     @submit.prevent="submit"
     @keydown.esc.prevent="emit('done')"
   >
@@ -92,12 +110,36 @@ onMounted(() => nameInput.value?.focus())
       </div>
     </fieldset>
 
+    <fieldset v-if="roomId === undefined" class="space-y-1.5">
+      <legend class="text-label-stat font-medium text-on-surface-variant">
+        {{ t('model.sensors.whereLabel') }}
+      </legend>
+      <SegmentedControl
+        v-model="where"
+        :options="whereOptions"
+        :label="t('model.sensors.whereLabel')"
+        size="sm"
+      />
+      <SelectInput
+        v-if="where === 'room'"
+        v-model="chosenRoom"
+        :options="roomOptions"
+        size="sm"
+        :aria-label="t('model.sensors.chooseRoomPlain')"
+      />
+      <p v-else class="text-sm text-on-surface-variant">{{ t('model.sensors.atPointHint') }}</p>
+    </fieldset>
+
     <div class="flex justify-end gap-2">
       <BaseButton size="sm" variant="ghost" @click="emit('done')">
         {{ t('commons.cancel') }}
       </BaseButton>
       <BaseButton size="sm" variant="primary" type="submit" icon="plus" :disabled="!canAdd">
-        {{ t('model.sensors.add') }}
+        {{
+          roomId === undefined && where === 'point'
+            ? t('model.sensors.place')
+            : t('model.sensors.add')
+        }}
       </BaseButton>
     </div>
   </form>

@@ -102,3 +102,94 @@ export function sensorBadges(rooms: Room[], sensors: { roomId: string | null }[]
     ]
   })
 }
+
+/** How far the placement ground reaches past the building on every side, in metres. */
+export const GROUND_MARGIN = 20
+
+export interface GroundExtent {
+  /** Centre of the square, at the building's lowest floor. */
+  center: Coordinates
+  /** Side of the square, in whole metres. */
+  size: number
+}
+
+/** A square of ground around every room, so a sensor can be placed outside the building. */
+export function groundExtent(rooms: Room[], margin: number = GROUND_MARGIN): GroundExtent | null {
+  if (rooms.length === 0) return null
+
+  let minX = Infinity
+  let maxX = -Infinity
+  let minZ = Infinity
+  let maxZ = -Infinity
+  let floor = Infinity
+  for (const { position, dimensions } of rooms) {
+    minX = Math.min(minX, position.x - dimensions.width / 2)
+    maxX = Math.max(maxX, position.x + dimensions.width / 2)
+    minZ = Math.min(minZ, position.z - dimensions.depth / 2)
+    maxZ = Math.max(maxZ, position.z + dimensions.depth / 2)
+    floor = Math.min(floor, position.y - dimensions.height / 2)
+  }
+
+  return {
+    center: { x: (minX + maxX) / 2, y: floor, z: (minZ + maxZ) / 2 },
+    size: Math.ceil(Math.max(maxX - minX, maxZ - minZ) + 2 * margin),
+  }
+}
+
+const AXES = ['x', 'y', 'z'] as const
+
+/** Snaps only the axes that run along the surface, so a point on a wall stays on the wall. */
+export function snapOnSurface(
+  point: Coordinates,
+  normal: Coordinates,
+  step: number = GRID_STEP,
+): Coordinates {
+  const snapped = snapToGrid(point, step)
+  const result = { ...point }
+  for (const axis of AXES) {
+    if (Math.abs(normal[axis]) < 0.5) result[axis] = snapped[axis]
+  }
+  return result
+}
+
+// How far behind the hit face to look for the room, in metres: well inside a wall's thickness.
+const SURFACE_DEPTH = 0.05
+
+/** The room behind a surface point; a sensor on a ceiling or outer wall belongs to that room. */
+export function roomBehind(point: Coordinates, normal: Coordinates, rooms: Room[]): string | null {
+  return roomAt(
+    {
+      x: point.x - normal.x * SURFACE_DEPTH,
+      y: point.y - normal.y * SURFACE_DEPTH,
+      z: point.z - normal.z * SURFACE_DEPTH,
+    },
+    rooms,
+  )
+}
+
+/**
+ * Moves a point one step for an arrow key: left/right along x, up/down along z, and with
+ * shift up/down change height. `null` for any other key, so callers leave it alone.
+ */
+export function nudge(
+  point: Coordinates,
+  key: string,
+  shift: boolean,
+  step: number = GRID_STEP,
+): Coordinates | null {
+  const moves: Record<string, Partial<Coordinates>> = shift
+    ? { ArrowUp: { y: step }, ArrowDown: { y: -step } }
+    : {
+        ArrowRight: { x: step },
+        ArrowLeft: { x: -step },
+        ArrowUp: { z: -step },
+        ArrowDown: { z: step },
+      }
+  const move = moves[key]
+  if (!move) return null
+  return {
+    x: point.x + (move.x ?? 0),
+    y: point.y + (move.y ?? 0),
+    z: point.z + (move.z ?? 0),
+  }
+}

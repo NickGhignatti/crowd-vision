@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   filterByTypes,
+  groundExtent,
   groupByType,
   joinSensorsWithPlacements,
+  nudge,
   roomAt,
+  roomBehind,
   sensorBadges,
   sensorIcon,
+  snapOnSurface,
   snapToGrid,
 } from './sensors.ts'
 import type { Room } from '@/types/digital-twin/building.ts'
@@ -182,5 +186,90 @@ describe('sensorBadges', () => {
     expect(badge.anchor.z).toBe(0)
     expect(badge.anchor.y).toBeGreaterThan(3)
     expect(badge.anchor.y).toBeLessThan(4)
+  })
+})
+
+describe('groundExtent', () => {
+  // rooms: r1 spans x -2..2, r2 spans x 8..12; both z -2..2, floor at y 0.
+
+  it('is null for a building with no rooms', () => {
+    expect(groundExtent([])).toBeNull()
+  })
+
+  it('is centred on the footprint', () => {
+    const ground = groundExtent(rooms, 10)!
+    expect(ground.center).toEqual({ x: 5, y: 0, z: 0 })
+  })
+
+  it('is a square reaching the margin past the widest side', () => {
+    // Footprint is 14 wide and 4 deep; 14 + 2 * 10 = 34.
+    expect(groundExtent(rooms, 10)!.size).toBe(34)
+  })
+
+  it('rounds its size up to whole metres so grid lines land on metres', () => {
+    expect(groundExtent(rooms, 10.3)!.size).toBe(35)
+  })
+
+  it('lies at the lowest floor of the building', () => {
+    const basement = { ...room('b0', 0, 0), position: { x: 0, y: -1.5, z: 0 } }
+    expect(groundExtent([...rooms, basement], 10)!.center.y).toBe(-3)
+  })
+})
+
+describe('snapOnSurface', () => {
+  const up = { x: 0, y: 1, z: 0 }
+  const east = { x: 1, y: 0, z: 0 }
+
+  it('snaps a point on the ground along x and z but keeps its height', () => {
+    expect(snapOnSurface({ x: 1.26, y: 0.013, z: -2.7 }, up, 0.5)).toEqual({
+      x: 1.5,
+      y: 0.013,
+      z: -2.5,
+    })
+  })
+
+  it('keeps a point on a wall on that wall', () => {
+    // The wall faces east at x 2; snapping must not move the point off x 2.
+    expect(snapOnSurface({ x: 2, y: 1.26, z: 0.74 }, east, 0.5)).toEqual({ x: 2, y: 1.5, z: 0.5 })
+  })
+})
+
+describe('roomBehind', () => {
+  const up = { x: 0, y: 1, z: 0 }
+  const east = { x: 1, y: 0, z: 0 }
+
+  it('names the room whose ceiling was hit', () => {
+    expect(roomBehind({ x: 0, y: 3, z: 0 }, up, rooms)).toBe('r1')
+  })
+
+  it('names the room whose outer wall was hit', () => {
+    expect(roomBehind({ x: 2, y: 1, z: 0 }, east, rooms)).toBe('r1')
+  })
+
+  it('names no room for a point on open ground', () => {
+    expect(roomBehind({ x: 5, y: 0, z: 0 }, up, rooms)).toBeNull()
+  })
+})
+
+describe('nudge', () => {
+  const at = { x: 1, y: 2, z: 3 }
+
+  it('moves along x with left and right', () => {
+    expect(nudge(at, 'ArrowRight', false, 0.5)).toEqual({ x: 1.5, y: 2, z: 3 })
+    expect(nudge(at, 'ArrowLeft', false, 0.5)).toEqual({ x: 0.5, y: 2, z: 3 })
+  })
+
+  it('moves along z with up and down', () => {
+    expect(nudge(at, 'ArrowUp', false, 0.5)).toEqual({ x: 1, y: 2, z: 2.5 })
+    expect(nudge(at, 'ArrowDown', false, 0.5)).toEqual({ x: 1, y: 2, z: 3.5 })
+  })
+
+  it('changes height with shift and up or down', () => {
+    expect(nudge(at, 'ArrowUp', true, 0.5)).toEqual({ x: 1, y: 2.5, z: 3 })
+    expect(nudge(at, 'ArrowDown', true, 0.5)).toEqual({ x: 1, y: 1.5, z: 3 })
+  })
+
+  it('ignores any other key', () => {
+    expect(nudge(at, 'Enter', false, 0.5)).toBeNull()
   })
 })

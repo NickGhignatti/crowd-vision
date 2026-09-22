@@ -35,7 +35,7 @@ const commitRename = () => {
 <template>
   <li
     class="space-y-1.5 rounded-lg bg-surface-container-low px-2 py-1.5"
-    :class="{ 'ring-1 ring-dashed ring-primary/60': row.state !== 'saved' }"
+    :class="{ 'outline-1 outline-dashed outline-primary/60': row.state !== 'saved' }"
   >
     <div class="flex items-center gap-2">
       <BaseIcon :name="sensorIcon(row.sensorType)" class="shrink-0 text-on-surface-variant" />
