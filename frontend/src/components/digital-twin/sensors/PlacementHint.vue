@@ -65,25 +65,27 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       </button>
     </div>
 
-    <div v-if="candidate" class="flex items-center gap-2">
-      <label v-for="axis in AXES" :key="axis" class="flex items-center gap-1">
-        <span class="font-mono uppercase">{{ axis }}</span>
-        <input
-          type="number"
-          step="0.5"
-          class="w-16 rounded bg-on-primary/15 px-1.5 py-0.5 text-on-primary focus:outline-none focus:ring-1 focus:ring-on-primary"
-          :value="candidate.position[axis]"
-          :aria-label="t('model.sensors.axisLabel', { axis })"
-          @change="setAxis(axis, ($event.target as HTMLInputElement).value)"
-        />
-      </label>
+    <template v-if="candidate">
+      <div class="grid grid-cols-3 gap-2">
+        <label v-for="axis in AXES" :key="axis" class="flex min-w-0 items-center gap-1">
+          <span class="font-mono uppercase">{{ axis }}</span>
+          <input
+            type="number"
+            step="0.5"
+            class="w-full min-w-0 rounded bg-on-primary/15 px-1.5 py-0.5 text-on-primary focus:outline-none focus:ring-1 focus:ring-on-primary"
+            :value="candidate.position[axis]"
+            :aria-label="t('model.sensors.axisLabel', { axis })"
+            @change="setAxis(axis, ($event.target as HTMLInputElement).value)"
+          />
+        </label>
+      </div>
       <button
         type="button"
-        class="ml-auto rounded-full bg-on-primary px-3 py-1 font-medium text-primary"
+        class="w-full rounded-full bg-on-primary px-3 py-1 font-medium text-primary"
         @click="confirmPlacement"
       >
         {{ pendingPlacement.moving ? t('model.sensors.moveHere') : t('model.sensors.placeHere') }}
       </button>
-    </div>
+    </template>
   </div>
 </template>

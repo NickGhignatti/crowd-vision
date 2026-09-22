@@ -71,7 +71,10 @@ const hydrateBuildingThresholds = async (buildings: Building[]) => {
         }
 
         const threshold = (await response.json()) as ThresholdClone | null
-        thresholdCache.set(candidate.id, { data: threshold, expiresAt: now + THRESHOLD_CACHE_TTL_MS })
+        thresholdCache.set(candidate.id, {
+          data: threshold,
+          expiresAt: now + THRESHOLD_CACHE_TTL_MS,
+        })
         return mergeThresholdClone(candidate, threshold)
       } catch {
         return mergeThresholdClone(candidate, null)
@@ -155,7 +158,9 @@ export function useBuildingModel() {
       allBuildings.value = hydratedBuildings
 
       if (building.value) {
-        const refreshedBuilding = hydratedBuildings.find((candidate) => candidate.id === building.value?.id)
+        const refreshedBuilding = hydratedBuildings.find(
+          (candidate) => candidate.id === building.value?.id,
+        )
         if (refreshedBuilding) {
           Object.assign(building.value, refreshedBuilding)
         }

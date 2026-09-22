@@ -11,6 +11,8 @@ defineProps<{
   interactive: boolean
 }>()
 const emit = defineEmits<{ move: [row: SensorRow] }>()
+
+const round = (value: number) => Math.round(value * 10) / 10
 </script>
 
 <template>
@@ -23,7 +25,7 @@ const emit = defineEmits<{ move: [row: SensorRow] }>()
     <Html center :pointer-events="interactive ? 'auto' : 'none'" :z-index-range="[20, 0]">
       <button
         type="button"
-        :title="marker.name"
+        :title="`${marker.name} — x ${round(marker.position.x)}, y ${round(marker.position.y)}, z ${round(marker.position.z)}`"
         :disabled="!interactive"
         class="flex size-7 items-center justify-center rounded-full bg-surface-container-lowest/95 text-primary shadow-soft ring-2 backdrop-blur transition-transform enabled:hover:scale-110"
         :class="

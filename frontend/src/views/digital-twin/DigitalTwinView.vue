@@ -33,7 +33,7 @@ const onExplode = (state: ExplodeState) => {
 }
 
 const { t } = useI18n()
-const sensorEditor = provideSensorEditor(building)
+const sensorEditor = provideSensorEditor(building, visibleRooms)
 const confirmLeave = () =>
   !sensorEditor.hasChanges.value || window.confirm(t('model.sensors.leaveConfirm'))
 

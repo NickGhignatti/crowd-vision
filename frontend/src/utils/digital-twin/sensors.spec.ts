@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  clampToGround,
   filterByTypes,
   groundExtent,
   groupByType,
@@ -271,5 +272,27 @@ describe('nudge', () => {
 
   it('ignores any other key', () => {
     expect(nudge(at, 'Enter', false, 0.5)).toBeNull()
+  })
+})
+
+describe('clampToGround', () => {
+  // rooms sit on the floor at y 0.
+
+  it('lifts a point that ended up below the building', () => {
+    expect(clampToGround({ x: 1, y: -4, z: 2 }, rooms)).toEqual({ x: 1, y: 0, z: 2 })
+  })
+
+  it('leaves a point at or above the floor alone', () => {
+    expect(clampToGround({ x: 1, y: 0, z: 2 }, rooms)).toEqual({ x: 1, y: 0, z: 2 })
+    expect(clampToGround({ x: 1, y: 2.5, z: 2 }, rooms)).toEqual({ x: 1, y: 2.5, z: 2 })
+  })
+
+  it('uses the lowest floor, so a basement can still hold sensors', () => {
+    const basement = { ...room('b0', 0, 0), position: { x: 0, y: -1.5, z: 0 } }
+    expect(clampToGround({ x: 0, y: -5, z: 0 }, [...rooms, basement]).y).toBe(-3)
+  })
+
+  it('leaves a point alone when the building has no rooms', () => {
+    expect(clampToGround({ x: 1, y: -4, z: 2 }, [])).toEqual({ x: 1, y: -4, z: 2 })
   })
 })

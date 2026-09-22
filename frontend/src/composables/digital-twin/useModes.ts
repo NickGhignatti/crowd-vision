@@ -1,14 +1,11 @@
 import { ref } from 'vue'
-import {
-  temperatureColor,
-  roomColorStandard,
-  aqiColor,
-} from '@/utils/digital-twin/colors.ts'
+import { temperatureColor, roomColorStandard, aqiColor } from '@/utils/digital-twin/colors.ts'
 
 export enum Mode {
   NoSensor,
   TemperatureSensor,
   AirQualitySensor,
+  Sensors,
 }
 
 const currentMode = ref<Mode>(Mode.NoSensor)

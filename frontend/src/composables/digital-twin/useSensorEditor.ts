@@ -5,14 +5,14 @@ import { useSensorDraft } from './useSensorDraft.ts'
 import { useUserPermissions } from '@/composables/authentication/useUserPermissions.ts'
 import { draftRef, previewSensors } from '@/utils/digital-twin/sensorDraft.ts'
 import type { SensorRow } from '@/utils/digital-twin/sensorDraft.ts'
-import { joinSensorsWithPlacements, roomAt } from '@/utils/digital-twin/sensors.ts'
-import type { Building, Coordinates } from '@/types/digital-twin/building.ts'
+import { clampToGround, joinSensorsWithPlacements, roomAt } from '@/utils/digital-twin/sensors.ts'
+import type { Building, Coordinates, Room } from '@/types/digital-twin/building.ts'
 
 export type SensorEditor = ReturnType<typeof createSensorEditor>
 
 const SensorEditorKey: InjectionKey<SensorEditor> = Symbol('sensor-editor')
 
-function createSensorEditor(building: Ref<Building | null>) {
+function createSensorEditor(building: Ref<Building | null>, visibleRooms: Ref<Room[]>) {
   const { canEdit } = useUserPermissions()
   const buildingId = computed(() => building.value?.id)
   const draft = useSensorDraft(buildingId)
@@ -52,7 +52,8 @@ function createSensorEditor(building: Ref<Building | null>) {
   }
   /** Typed or nudged coordinates have no surface behind them, so the room comes from the point. */
   const moveCandidate = (position: Coordinates) => {
-    candidate.value = { position, roomId: roomAt(position, building.value?.rooms ?? []) }
+    const grounded = clampToGround(position, building.value?.rooms ?? [])
+    candidate.value = { position: grounded, roomId: roomAt(grounded, visibleRooms.value) }
   }
   const confirmPlacement = () => {
     const pending = pendingPlacement.value
@@ -117,8 +118,11 @@ function createSensorEditor(building: Ref<Building | null>) {
 }
 
 /** Creates the editor for one twin view and shares it with the scene, toolbar and sidebars. */
-export function provideSensorEditor(building: Ref<Building | null>): SensorEditor {
-  const editor = createSensorEditor(building)
+export function provideSensorEditor(
+  building: Ref<Building | null>,
+  visibleRooms: Ref<Room[]>,
+): SensorEditor {
+  const editor = createSensorEditor(building, visibleRooms)
   provide(SensorEditorKey, editor)
   return editor
 }

@@ -439,6 +439,7 @@ const messages = {
           renderStyle: 'Render style: {style}',
           editSensors: 'Edit sensors',
           topView: 'Top view',
+          sensors: 'Show sensors',
         },
         renderStyles: {
           ghost: 'Ghost shell',
@@ -962,6 +963,7 @@ const messages = {
           renderStyle: 'Stile di resa: {style}',
           editSensors: 'Modifica sensori',
           topView: 'Vista dall’alto',
+          sensors: 'Mostra sensori',
         },
         renderStyles: {
           ghost: 'Guscio fantasma',

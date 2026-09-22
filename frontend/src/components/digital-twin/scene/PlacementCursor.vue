@@ -4,9 +4,16 @@ import { useTresContext } from '@tresjs/core'
 import { Raycaster, Vector2 } from 'three'
 import type { Object3D } from 'three'
 import type { Coordinates, Room } from '@/types/digital-twin/building.ts'
-import { roomBehind, snapOnSurface } from '@/utils/digital-twin/sensors.ts'
+import { clampToGround, roomBehind, snapOnSurface } from '@/utils/digital-twin/sensors.ts'
 
-const props = defineProps<{ rooms: Room[]; color: string; picked: Coordinates | null }>()
+const props = defineProps<{
+  /** Rooms on screen: what the pointer can hit and what decides the room. */
+  rooms: Room[]
+  /** Every room of the building: its lowest floor is the floor nothing may go below. */
+  buildingRooms: Room[]
+  color: string
+  picked: Coordinates | null
+}>()
 const emit = defineEmits<{ pick: [position: Coordinates, roomId: string | null] }>()
 
 // Only surfaces a sensor can sit on; glows, haze, helpers and this preview are ignored.
@@ -41,7 +48,8 @@ const hitUnder = (event: PointerEvent) => {
   if (!hit?.face) return null
 
   const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
-  const position = snapOnSurface(hit.point, normal)
+  // The ground plane has two sides, so a ray from below would otherwise land under the building.
+  const position = clampToGround(snapOnSurface(hit.point, normal), props.buildingRooms)
   return { position, roomId: roomBehind(position, normal, props.rooms) }
 }
 

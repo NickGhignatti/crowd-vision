@@ -193,3 +193,10 @@ export function nudge(
     z: point.z + (move.z ?? 0),
   }
 }
+
+/** Keeps a point at or above the building's lowest floor; underground is never a real spot. */
+export function clampToGround(point: Coordinates, rooms: Room[]): Coordinates {
+  const ground = groundExtent(rooms)
+  if (!ground) return { ...point }
+  return { ...point, y: Math.max(point.y, ground.center.y) }
+}

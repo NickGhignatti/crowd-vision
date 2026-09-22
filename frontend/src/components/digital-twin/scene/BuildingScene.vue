@@ -100,16 +100,27 @@ watchEffect(() => {
 const drawnRooms = computed(() => snapRooms(props.rooms))
 const sharedEdges = computed(() => hiddenEdges(drawnRooms.value))
 const sensorEditor = useSensorEditor()
-const badges = computed(() => sensorBadges(drawnRooms.value, sensorEditor.rows.value))
+const badges = computed(() =>
+  showMarkers.value ? sensorBadges(drawnRooms.value, sensorEditor.rows.value) : [],
+)
+// Pins would clutter every other view, so they show in sensors mode or while editing.
+const showMarkers = computed(
+  () => modes.currentMode.value === Mode.Sensors || sensorEditor.isEditing.value,
+)
 const markers = computed(() =>
-  sensorMarkers(sensorEditor.rows.value, sensorEditor.pendingPlacement.value?.moving?.key ?? null),
+  showMarkers.value
+    ? sensorMarkers(
+        sensorEditor.rows.value,
+        sensorEditor.pendingPlacement.value?.moving?.key ?? null,
+      )
+    : [],
 )
 const markersInteractive = computed(
   () => sensorEditor.isEditing.value && !sensorEditor.pendingPlacement.value,
 )
-// Every room, not just the shown floor: outside the building, "ground" is its lowest floor.
+// The floor on screen, not the whole building: placing happens on what you can see and click.
 const ground = computed(() =>
-  sensorEditor.pendingPlacement.value ? groundExtent(props.building?.rooms ?? []) : null,
+  sensorEditor.pendingPlacement.value ? groundExtent(drawnRooms.value) : null,
 )
 
 const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSensor)
@@ -168,7 +179,6 @@ const focus = withFrame(() =>
       :tone-mapping="NoToneMapping"
       :dpr="[1, 2]"
       render-mode="on-demand"
-      window-size
       :renderer="rendererFactory"
     >
       <RenderInvalidator :trigger="repaintTrigger" />
@@ -203,7 +213,8 @@ const focus = withFrame(() =>
         <GroundPlane v-if="ground" :extent="ground" :color="OUTLINE_COLOR[theme]" />
         <PlacementCursor
           v-if="ground"
-          :rooms="building.rooms"
+          :rooms="drawnRooms"
+          :building-rooms="building.rooms"
           :color="PREVIEW_COLOR"
           :picked="sensorEditor.candidate.value?.position ?? null"
           @pick="sensorEditor.pick"

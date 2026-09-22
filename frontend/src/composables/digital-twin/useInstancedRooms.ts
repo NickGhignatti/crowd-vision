@@ -51,7 +51,11 @@ export function buildRoomMatrix(room: Room, target: Matrix4 = new Matrix4()): Ma
 }
 
 /** Rewrites every instance's transform; positions/sizes are static per floor, so this only needs to run when the room set changes, not on every telemetry tick. */
-export function applyRoomMatrices(mesh: InstancedMesh, rooms: Room[], scratchMatrix: Matrix4): void {
+export function applyRoomMatrices(
+  mesh: InstancedMesh,
+  rooms: Room[],
+  scratchMatrix: Matrix4,
+): void {
   rooms.forEach((room, index) => {
     mesh.setMatrixAt(index, buildRoomMatrix(room, scratchMatrix))
   })

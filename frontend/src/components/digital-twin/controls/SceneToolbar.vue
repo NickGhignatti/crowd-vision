@@ -84,6 +84,12 @@ const toggleSensorEditing = () =>
       :active="currentMode === Mode.AirQualitySensor"
       @click="changeMode(Mode.AirQualitySensor)"
     />
+    <IconButton
+      icon="map-pin-simple"
+      :label="t('model.controls.buttons.sensors')"
+      :active="currentMode === Mode.Sensors"
+      @click="changeMode(Mode.Sensors)"
+    />
 
     <template v-if="userCanEdit">
       <span class="mx-1 h-6 w-px bg-outline-variant" />
