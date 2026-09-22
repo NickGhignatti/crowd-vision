@@ -119,6 +119,11 @@ describe('sensorIcon', () => {
     expect(sensorIcon('temperature')).not.toBe(sensorIcon('unheard-of'))
   })
 
+  it("gives a router its own icon, not a metric's", () => {
+    expect(sensorIcon('router')).not.toBe(sensorIcon('unheard-of'))
+    expect(sensorIcon('router')).not.toBe(sensorIcon('peopleCount'))
+  })
+
   it('falls back to a generic icon for a type it does not know', () => {
     expect(sensorIcon('unheard-of')).toBe(sensorIcon('also-unknown'))
     expect(sensorIcon('unheard-of')).toBeTruthy()

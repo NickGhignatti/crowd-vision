@@ -11,6 +11,7 @@ use telemetry::adapters::driving::kafka_consumer;
 use telemetry::adapters::health::probe_exit_code;
 use telemetry::adapters::ingest_auth::IngestKey;
 use telemetry::kernel::actions::Actions;
+use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
 use telemetry::kernel::ports::{
     Alerts, BuildingDirectory, BuildingStore, Clock, Fanout, ReadingStore, RegistrationEvents,
@@ -57,6 +58,10 @@ async fn main() -> anyhow::Result<()> {
     let registry =
         Arc::new(PluginRegistry::new(plugins::all()).map_err(|error| anyhow::anyhow!(error))?);
 
+    let devices = Arc::new(
+        DeviceCatalog::new(plugins::devices(), &registry)
+            .map_err(|error| anyhow::anyhow!(error))?,
+    );
     let readings_store = Arc::new(PgReadings::new(pool.clone(), registry.clone()));
     // Wrapped once and shared: writes have to travel the same instance as
     // reads or the cache would never learn that a threshold changed.
@@ -91,6 +96,7 @@ async fn main() -> anyhow::Result<()> {
 
     let state = Arc::new(AppState {
         registry: registry.clone(),
+        devices: devices.clone(),
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
         pool: pool.clone(),
@@ -114,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
             store: thresholds_store.clone() as Arc<dyn ThresholdStore>,
         },
         sensors: Sensors {
-            registry: registry.clone(),
+            devices: devices.clone(),
             store: sensors_store.clone() as Arc<dyn SensorStore>,
             buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
         },

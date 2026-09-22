@@ -1,5 +1,5 @@
+use crate::kernel::devices::DeviceCatalog;
 use crate::kernel::ports::{BuildingStore, SensorStore};
-use crate::kernel::registry::PluginRegistry;
 use crate::types::error::{DomainError, ItemError};
 use crate::types::sensor::{Sensor, SensorChanges, SensorUpdate};
 use serde_json::{Map, Value};
@@ -9,7 +9,7 @@ use std::sync::Arc;
 pub const MAX_BATCH_SENSORS: usize = 200;
 
 pub struct Sensors {
-    pub registry: Arc<PluginRegistry>,
+    pub devices: Arc<DeviceCatalog>,
     pub store: Arc<dyn SensorStore>,
     pub buildings: Arc<dyn BuildingStore>,
 }
@@ -94,9 +94,9 @@ impl Sensors {
                 reject("name", "must be a non-empty string.");
             }
             let sensor_type =
-                optional(item, "sensorType").filter(|kind| self.registry.get(kind).is_some());
+                optional(item, "sensorType").filter(|kind| self.devices.get(kind).is_some());
             if sensor_type.is_none() {
-                reject("sensorType", "must be a registered sensor type.");
+                reject("sensorType", "must be a registered device kind.");
             }
             let room_id = room(item, &rooms).unwrap_or_else(|message| {
                 reject("roomId", message);
@@ -243,7 +243,9 @@ fn field(data: &Value, name: &str) -> Result<String, DomainError> {
 mod tests {
     use super::*;
     use crate::kernel::fakes::{FakeBuildings, FakePlugin, FakeSensors};
+    use crate::kernel::registry::PluginRegistry;
     use crate::types::building::{RegisteredBuilding, Room};
+    use crate::types::device::DeviceKind;
     use crate::types::error::ItemError;
     use serde_json::json;
 
@@ -267,8 +269,19 @@ mod tests {
         });
         let registry =
             Arc::new(PluginRegistry::new(vec![Box::new(FakePlugin::default())]).unwrap());
+        let devices = Arc::new(
+            DeviceCatalog::new(
+                vec![DeviceKind {
+                    key: "fakeDevice",
+                    label: "Fake device",
+                    metrics: &["fake"],
+                }],
+                &registry,
+            )
+            .unwrap(),
+        );
         let sensors = Sensors {
-            registry,
+            devices,
             store: store.clone() as Arc<dyn SensorStore>,
             buildings: Arc::new(buildings),
         };
@@ -291,7 +304,7 @@ mod tests {
     }
 
     fn create(reference: &str, room: Value) -> Value {
-        json!({ "ref": reference, "name": format!("Sensor {reference}"), "sensorType": "fake", "roomId": room })
+        json!({ "ref": reference, "name": format!("Sensor {reference}"), "sensorType": "fakeDevice", "roomId": room })
     }
 
     async fn seeded(h: &Harness) -> Vec<Created> {
@@ -347,9 +360,26 @@ mod tests {
         let sensors = stored(&h);
         assert_eq!(sensors[0].building_id, "b1");
         assert_eq!(sensors[0].name, "Sensor d1");
-        assert_eq!(sensors[0].sensor_type, "fake");
+        assert_eq!(sensors[0].sensor_type, "fakeDevice");
         assert_eq!(sensors[0].room_id.as_deref(), Some("r1"));
         assert_eq!(sensors[1].room_id, None);
+    }
+
+    #[tokio::test]
+    async fn a_metric_is_not_a_device_kind() {
+        let h = plain();
+        let mut item = create("d1", json!("r1"));
+        item["sensorType"] = json!("fake");
+        let error = h
+            .sensors
+            .apply("b1", &json!({ "create": [item] }))
+            .await
+            .unwrap_err();
+        let errors = rejected(error);
+        assert_eq!(
+            (errors[0].reference.as_str(), errors[0].field.as_str()),
+            ("d1", "sensorType")
+        );
     }
 
     #[tokio::test]
@@ -491,7 +521,7 @@ mod tests {
             room_id: None,
             sensor_id: "foreign".to_owned(),
             name: "Foreign".to_owned(),
-            sensor_type: "fake".to_owned(),
+            sensor_type: "fakeDevice".to_owned(),
             driver: None,
             endpoint: None,
         });
@@ -541,7 +571,7 @@ mod tests {
         for body in [
             json!("x"),
             json!({ "create": {} }),
-            json!({ "create": [{ "name": "no ref", "sensorType": "fake" }] }),
+            json!({ "create": [{ "name": "no ref", "sensorType": "fakeDevice" }] }),
             json!({ "update": [{ "name": "no id" }] }),
             json!({ "delete": [42] }),
         ] {

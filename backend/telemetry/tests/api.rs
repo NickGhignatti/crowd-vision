@@ -547,6 +547,40 @@ async fn a_sensor_batch_renames_moves_and_deletes() {
 }
 
 #[tokio::test]
+async fn a_router_is_registered_as_one_device() {
+    let app = sensor_app("sensorrouter").await;
+    let (status, _) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [{ "ref": "d1", "name": "Hall AP", "sensorType": "router", "roomId": "r1" }] }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, list) = app.get(SENSORS_B1, Some(&customer())).await;
+    assert_eq!(list["data"][0]["sensorType"], "router");
+}
+
+#[tokio::test]
+async fn a_metric_the_router_produces_is_not_a_sensor_type() {
+    let app = sensor_app("sensormetric").await;
+    for metric in ["totalDeviceCount", "ratioDeviceCount"] {
+        let (status, body) = app
+            .send_json(
+                "POST",
+                SENSORS_B1,
+                Some(&staff()),
+                json!({ "create": [{ "ref": "d1", "name": "x", "sensorType": metric }] }),
+            )
+            .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{metric}");
+        assert_eq!(body["errors"][0]["field"], "sensorType");
+    }
+}
+
+#[tokio::test]
 async fn a_sensor_batch_with_a_bad_item_is_422_and_saves_nothing() {
     let app = sensor_app("sensorreject").await;
     let (status, body) = app
@@ -718,6 +752,39 @@ async fn an_action_cannot_reach_another_buildings_sensor() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn the_device_catalog_lists_each_kind_with_the_metrics_it_reports() {
+    let app = test_app(fresh_db("devices").await, vec!["eng"]).await;
+    let (status, body) = app.get("/devices", None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let devices = body["devices"].as_array().unwrap();
+    let router = devices.iter().find(|d| d["kind"] == "router").unwrap();
+    assert_eq!(router["label"], "Router");
+    assert_eq!(
+        router["metrics"],
+        json!(["totalDeviceCount", "ratioDeviceCount"])
+    );
+    assert!(devices.iter().all(|d| d["kind"] != "totalDeviceCount"));
+}
+
+#[tokio::test]
+async fn every_advertised_metric_belongs_to_exactly_one_device() {
+    let app = test_app(fresh_db("devicescover").await, vec!["eng"]).await;
+    let (_, contract) = app.get("/contracts", None).await;
+    let (_, catalog) = app.get("/devices", None).await;
+
+    for metric in contract["metrics"].as_array().unwrap() {
+        let owners = catalog["devices"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|d| d["metrics"].as_array().unwrap().contains(&metric["kind"]))
+            .count();
+        assert_eq!(owners, 1, "{}", metric["kind"]);
+    }
 }
 
 #[tokio::test]

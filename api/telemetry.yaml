@@ -128,7 +128,7 @@ components:
             properties:
               ref: { type: string, description: "Client-side key, echoed back with the new id.", example: "d1" }
               name: { type: string, example: "Router hall B" }
-              sensorType: { type: string, example: "peopleCount" }
+              sensorType: { type: string, description: "A device kind from `GET /devices`, never a metric.", example: "router" }
               roomId: { type: string, nullable: true, description: "A room of this building, or null/absent for outside every room.", example: null }
               driver: { type: string, example: "tp-simulator" }
               endpoint: { type: string, example: "http://device.local" }
@@ -187,7 +187,7 @@ components:
         roomId: { type: string, nullable: true, description: "null for a sensor outside every room." }
         sensorId: { type: string, description: "Server-generated UUID." }
         name: { type: string }
-        sensorType: { type: string }
+        sensorType: { type: string, description: "The device kind, e.g. `router`." }
         actions:
           type: array
           items: { type: string }
@@ -751,6 +751,36 @@ paths:
           content:
             text/plain:
               schema: { type: string }
+
+  /devices:
+    get:
+      summary: Device kinds a sensor may be registered as
+      description: >
+        A sensor is a physical device, and one device may report several metrics: a
+        router reports both `totalDeviceCount` and `ratioDeviceCount`. Every metric in
+        `/contracts` belongs to exactly one kind here. Kept apart from `/contracts`,
+        whose shape dashboard parses too; only the sensor editor reads this.
+      tags: [Discovery]
+      security: []
+      responses:
+        "200":
+          description: Every device kind and the metrics it reports
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind: { type: string, example: "router" }
+                        label: { type: string, example: "Router" }
+                        metrics:
+                          type: array
+                          items: { type: string }
+                          example: ["totalDeviceCount", "ratioDeviceCount"]
 
   /contracts:
     get:

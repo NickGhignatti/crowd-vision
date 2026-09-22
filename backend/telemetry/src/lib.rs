@@ -19,7 +19,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/metrics", get(c::metrics))
         .route("/metrics/", get(c::metrics))
         .route("/contracts", get(c::contracts))
-        .route("/contracts/", get(c::contracts));
+        .route("/contracts/", get(c::contracts))
+        .route("/devices", get(c::devices));
 
     let ingest = Router::new().route("/ingest", post(c::ingest)).layer(
         axum::middleware::from_fn_with_state(

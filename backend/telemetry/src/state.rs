@@ -1,6 +1,7 @@
 use crate::adapters::driven::dispatch::HttpDispatch;
 use crate::adapters::ingest_auth::IngestKey;
 use crate::kernel::actions::Actions;
+use crate::kernel::devices::DeviceCatalog;
 use crate::kernel::ingest::Ingest;
 use crate::kernel::ports::{BuildingDirectory, Clock};
 use crate::kernel::readings::Readings;
@@ -22,6 +23,7 @@ impl Clock for SystemClock {
 
 pub struct AppState {
     pub registry: Arc<PluginRegistry>,
+    pub devices: Arc<DeviceCatalog>,
     pub pool: sqlx::PgPool,
     pub directory: Arc<dyn BuildingDirectory>,
     pub dispatch: Arc<HttpDispatch>,
@@ -39,11 +41,7 @@ impl AppState {
         sensors
             .iter()
             .map(|sensor| {
-                let declared: Vec<&str> = self
-                    .registry
-                    .get(&sensor.sensor_type)
-                    .map(|plugin| plugin.actions().iter().map(|spec| spec.name).collect())
-                    .unwrap_or_default();
+                let declared = self.devices.actions_of(&sensor.sensor_type, &self.registry);
                 let bound = self.dispatch.actions_for_sensor(sensor.driver.as_deref());
                 let actions: Vec<String> = bound
                     .into_iter()

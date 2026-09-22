@@ -94,6 +94,8 @@ A bound names the payload `field` it compares — not the reading's value, since
 
 **3. Register it** in `plugins::all()`, which `main.rs` hands to `PluginRegistry::new`. A plugin with bounds also joins `telemetry_schema::ALERTABLE_METRICS` — a test fails until it does — which gives its breaches a delivery path in notification.
 
+**4. Give it a device** in `plugins::devices()`: a new kind, or an existing one that reports it too. `DeviceCatalog::new` refuses to start the service when a metric belongs to no device or to two, and names the metric.
+
 `GET /contracts`, `POST /ingest`, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.
 
 `GET /contracts` serialises that declaration into `ServiceMetricsContract` from the shared `schemas/telemetry-schema` crate — the same types `dashboard` parses, so the two cannot drift.
@@ -148,6 +150,8 @@ A read is served in the **same flat shape as the `telemetry` socket event**: env
       - Routers and outdoor devices have a position but no room.
     - - Every item is validated first; errors come back as `422 {errors: [{ref, field, message}]}` and nothing is written
       - The editor marks each bad item instead of guessing which part saved.
+    - - `sensorType` is a **device kind** (`GET /devices`), never a metric
+      - One router reports two metrics; registering it per metric would count one device twice.
     - - One Postgres transaction; an update/delete that matches no row fails it
       - A sensor removed by someone else mid-save must not half-apply the batch.
     - - At most 200 items (`400` above)

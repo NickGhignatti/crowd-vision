@@ -40,7 +40,14 @@ building is still refused; producers just stop sending the field that could disa
 `filtered_channel` / `RAW_CHANNEL`, topics from `adapters/topics.rs` (re-exported
 `twin_schema` / `telemetry_schema` constants).
 
-**Adding a metric = a plugin file plus its line in `plugins::all()`.** A plugin with bounds also
+**A sensor is a device, not a metric.** `sensor_type` holds a device kind from
+`plugins::devices()`; a router reports `totalDeviceCount` and `ratioDeviceCount`. Every metric
+belongs to exactly one device — `DeviceCatalog::new` refuses to start otherwise. Served on
+`GET /devices`, kept out of `/contracts` because dashboard parses that shape too. A sensor's
+actions are the union of its device's metrics' actions.
+
+**Adding a metric = a plugin file plus its line in `plugins::all()` and a device in
+`plugins::devices()`.** A plugin with bounds also
 joins `telemetry_schema::ALERTABLE_METRICS` (test-enforced) — that is its delivery path in
 notification. A `SensorPlugin` gives `key`,
 `descriptor`, `validate`, `bounds`, optional `actions`; `PluginRegistry::new` rejects two

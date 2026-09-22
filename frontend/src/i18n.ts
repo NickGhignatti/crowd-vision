@@ -395,8 +395,14 @@ const messages = {
         editedBadge: 'Edited',
         add: 'Add sensor',
         namePlaceholder: 'e.g. Lab 2 thermostat',
-        typeLabel: 'Type',
-        typesFailed: 'Could not load sensor types',
+        typeLabel: 'Device',
+        typesFailed: 'Could not load device types',
+        devices: {
+          router: 'Router',
+          temperature: 'Thermostat',
+          airQuality: 'Air quality station',
+          peopleCount: 'People counter',
+        },
         unplacedTitle: 'No unplaced sensors | 1 unplaced sensor | {count} unplaced sensors',
         unplacedHint: 'These sensors have no room and no position, so the scene cannot show them.',
         chooseRoom: 'Move to room…',
@@ -895,8 +901,14 @@ const messages = {
         editedBadge: 'Modificato',
         add: 'Aggiungi sensore',
         namePlaceholder: 'es. Termostato Lab 2',
-        typeLabel: 'Tipo',
-        typesFailed: 'Impossibile caricare i tipi di sensore',
+        typeLabel: 'Dispositivo',
+        typesFailed: 'Impossibile caricare i tipi di dispositivo',
+        devices: {
+          router: 'Router',
+          temperature: 'Termostato',
+          airQuality: 'Stazione qualità aria',
+          peopleCount: 'Contapersone',
+        },
         unplacedTitle:
           'Nessun sensore senza posizione | 1 sensore senza posizione | {count} sensori senza posizione',
         unplacedHint:

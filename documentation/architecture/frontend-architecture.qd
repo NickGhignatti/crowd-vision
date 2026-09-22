@@ -100,7 +100,7 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 - Save is two batches, telemetry first because it generates the ids twin keys placements by (`useSensorDraft`). A twin failure after telemetry succeeded keeps the unsent placements apart from the draft (`mergePlacementBatches`), so a retry never creates a sensor twice and sensors added meanwhile are still sent.
 - `previewSensors` is the saved state with the draft applied. The editor exposes it as `rows`; the room list (`RoomSensors`), the unplaced list (`UnplacedSensors`) and the scene badges (`sensorBadges`) all read it, so they cannot disagree.
 - A draft names one building's rooms: switching building, leaving the route, closing the tab and leaving edit mode all ask before discarding it.
-- Sensor types come from telemetry's own catalog (`/telemetry/contracts`, `useSensorTypes`), fetched once per session. Icons are looked up by type with a generic fallback (`sensorIcon`), so a new metric plugin needs no frontend change.
+- The add form offers **device kinds**, not metrics: `useDeviceKinds` reads `/telemetry/devices` once per session. A router is one card, though it reports two metrics. Labels are translated by kind (`model.sensors.devices.<kind>`) and fall back to the server's label; icons use `sensorIcon` with a generic fallback, so a new kind needs no frontend change.
 - Badges are cientos `Html` overlays, not geometry: the frame is fill-bound, and DOM pills add no GPU fill.
 - A draft `ref` is time plus random, not `crypto.randomUUID`, which throws on a plain-http origin other than localhost.
 

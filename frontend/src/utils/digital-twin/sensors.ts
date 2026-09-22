@@ -5,6 +5,7 @@ import type { Placement, PlacedSensor, Sensor } from '@/types/digital-twin/senso
 export const GRID_STEP = 0.5
 
 const ICONS: Record<string, string> = {
+  router: 'wifi-high',
   temperature: 'thermometer',
   peopleCount: 'users',
   airQuality: 'wind',

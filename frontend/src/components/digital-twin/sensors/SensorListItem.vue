@@ -2,7 +2,7 @@
 import { nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSensorEditor } from '@/composables/digital-twin/useSensorEditor.ts'
-import { useSensorTypes } from '@/composables/digital-twin/useSensorTypes.ts'
+import { useDeviceKinds } from '@/composables/digital-twin/useDeviceKinds.ts'
 import { sensorIcon } from '@/utils/digital-twin/sensors.ts'
 import type { SensorRow } from '@/utils/digital-twin/sensorDraft.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
@@ -12,7 +12,7 @@ const props = defineProps<{ row: SensorRow }>()
 
 const { t } = useI18n()
 const { isEditing, rename, remove } = useSensorEditor()
-const { labelOf } = useSensorTypes()
+const { labelOf } = useDeviceKinds()
 
 const renaming = ref(false)
 const newName = ref('')

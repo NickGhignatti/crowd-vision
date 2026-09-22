@@ -122,6 +122,20 @@ pub async fn metrics(State(state): State<Arc<AppState>>) -> impl axum::response:
     metrics::metrics_handler().await
 }
 
+/// The device kinds a sensor may be registered as. Only the sensor editor reads this, so it
+/// stays out of `/contracts`, whose shape dashboard parses too.
+pub async fn devices(State(state): State<Arc<AppState>>) -> Json<Value> {
+    let devices: Vec<Value> = state
+        .devices
+        .all()
+        .iter()
+        .map(|device| {
+            json!({ "kind": device.key, "label": device.label, "metrics": device.metrics })
+        })
+        .collect();
+    Json(json!({ "devices": devices }))
+}
+
 pub async fn contracts(State(state): State<Arc<AppState>>) -> Json<ServiceMetricsContract> {
     let metrics = state
         .registry
