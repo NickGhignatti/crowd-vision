@@ -189,8 +189,8 @@ const focus = withFrame(() =>
       <AutoRotate :active="isRotating" :camera="cameraRef" />
 
       <template v-if="building">
-        <ThermalGlow :key="`${batchKey}:${glows.length}`" :glows="glows" :colors="colors" />
-        <AirHaze :key="`${batchKey}:${hazes.length}`" :hazes="hazes" :colors="colors" />
+        <ThermalGlow :key="`glow:${batchKey}:${glows.length}`" :glows="glows" :colors="colors" />
+        <AirHaze :key="`haze:${batchKey}:${hazes.length}`" :hazes="hazes" :colors="colors" />
         <RoomInstances
           :key="batchKey"
           :rooms="instancedRooms"

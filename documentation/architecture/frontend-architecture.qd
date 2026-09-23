@@ -94,25 +94,33 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 
 ## Sensor Editor
 
-- Telemetry owns a sensor (id, name, type, room); digital-twin owns only its position. The frontend joins the two lists on `sensorId` (`joinSensorsWithPlacements`, `utils/digital-twin/sensors.ts`); a placement whose sensor is gone is dropped, never drawn.
+**Who owns what.** Telemetry owns a sensor (id, name, device kind, room); digital-twin owns only its position. The frontend joins the two lists on `sensorId` (`joinSensorsWithPlacements`, `utils/digital-twin/sensors.ts`); a placement whose sensor is gone is dropped, never drawn.
+
 - `provideSensorEditor` (`composables/digital-twin/useSensorEditor.ts`) creates one editor per twin view and shares it by `provide`/`inject`, not a store. `SceneToolbar` sits inside `BuildingScene`, so props would have to thread through the scene.
 - The toolbar's broadcast button turns edit mode on, and shows only to an editing role in the building's domains. Every edit goes into a local draft (`utils/digital-twin/sensorDraft.ts`); nothing is sent until Save in `SensorEditBar`.
+- `previewSensors` is the saved state with the draft applied. The editor exposes it as `rows`; the room list (`RoomSensors`), the unplaced list (`UnplacedSensors`) and the scene read it, so they cannot disagree.
+- A draft names one building's rooms: switching building, leaving the route, closing the tab and leaving edit mode all ask before discarding it. A draft `ref` is time plus random, not `crypto.randomUUID`, which throws on a plain-http origin other than localhost.
 - Save is two batches, telemetry first because it generates the ids twin keys placements by (`useSensorDraft`). A twin failure after telemetry succeeded keeps the unsent placements apart from the draft (`mergePlacementBatches`), so a retry never creates a sensor twice and sensors added meanwhile are still sent.
-- The legend's chips come from `groupByType` over the previewed rows — one per device kind actually present, hidden below two kinds. Every kind starts on, and a click switches that one off (`hiddenTypes`, `sensorsExcept`): a lit chip that goes grey when clicked reads the way a person expects, where "pick what to show" would not, since nothing is picked to begin with. Badges and pins read one filtered list, and adding or moving a sensor of a switched-off kind switches it back on rather than swallowing it.
-- `previewSensors` is the saved state with the draft applied. The editor exposes it as `rows`; the room list (`RoomSensors`), the unplaced list (`UnplacedSensors`) and the scene badges (`sensorBadges`) all read it, so they cannot disagree.
-- A draft names one building's rooms: switching building, leaving the route, closing the tab and leaving edit mode all ask before discarding it.
 - The add form offers **device kinds**, not metrics: `useDeviceKinds` reads `/telemetry/devices` once per session. A router is one card, though it reports two metrics. Labels are translated by kind (`model.sensors.devices.<kind>`) and fall back to the server's label; icons use `sensorIcon` with a generic fallback, so a new kind needs no frontend change.
-- A room badge is one icon and a count of the sensors the legend is showing, so a filtered room reads the same as the scene.
-- Badges and pins are never removed from the list to filter them: they stay mounted and hide with `v-show`, because unmounting an `Html` overlay can leave its element on screen — which looks like a filter that does nothing, and worsens as kinds are switched on and off. A room whose every kind is hidden keeps a badge with a count of zero.
+
+**What the scene draws.**
+
 - Badges and sensor pins are cientos `Html` overlays, not geometry: the frame is fill-bound, and DOM elements add no GPU fill. A pin takes clicks only in edit mode and never while a point is being picked, so it cannot steal the click that places one. Both show in `Mode.Sensors` or while editing — pins in every view would bury the building.
 - `BuildingScene` must **not** set `window-size` on `TresCanvas`. `Html` projects a point with TresJS's own size (`calculatePosition`), so measuring the window while the canvas starts below the top bar drops every overlay by the bar's height — a room badge then renders under the building. Without it the canvas measures itself, which also gives the camera the right aspect.
-- Placing a point sensor: `GroundPlane` (footprint + `GROUND_MARGIN` 20 m, at the lowest floor, whole metres so the 1 m grid lands on metres) appears only while a placement is pending, and `PlacementCursor` raycasts the pointer against meshes named `room-shell` and `sensor-ground` — nothing else in the scene is a surface.
+- A room badge is one icon and a count of the sensors the legend is showing, so a filtered room reads the same as the scene.
+- The legend's chips come from `groupByType` over the previewed rows — one per device kind actually present, hidden below two kinds. Every kind starts on, and a click switches that one off (`hiddenTypes`): a lit chip that goes grey when clicked reads the way a person expects, where "pick what to show" would not, since nothing is picked to begin with. Adding or moving a sensor of a switched-off kind switches it back on rather than swallowing it.
+- Badges and pins are never removed from the list to filter them: they stay mounted and hide with `v-show`, because unmounting an `Html` overlay can leave its element on screen — which looks like a filter that does nothing, and worsens as kinds are switched on and off. A room whose every kind is hidden keeps a badge with a count of zero.
+
+**Placing a point sensor.**
+
+- `GroundPlane` covers the rooms on screen plus `GROUND_MARGIN` (20 m), sized to whole metres so its 1 m grid lands on metres, and appears only while a placement is pending. `PlacementCursor` raycasts the pointer against meshes named `room-shell` and `sensor-ground` — nothing else in the scene is a surface.
 - `snapOnSurface` snaps only the axes running along the hit face, so a point on a wall stays on that wall. `roomBehind` reads the room just behind the face (`SURFACE_DEPTH` 0.05 m), so a sensor on a ceiling or an outer wall belongs to that room and one on open ground belongs to none.
-- `clampToGround` holds every placement at or above the **building's** lowest floor, clicked or typed: underground is never a real spot. The ground plane and the room lookup follow the floor on screen, so placing happens on what you can see.
+- `clampToGround` holds every placement at or above the **building's** lowest floor, clicked or typed: underground is never a real spot.
 - A click **picks** a point rather than placing it: `candidate` in the editor can then be typed in `PlacementHint`'s x/y/z fields or moved with `nudge` (arrows along x/z, Shift for height), and Enter confirms. Typed coordinates lie on no surface, so the room then comes from `roomAt` alone.
 - Moving an existing sensor reuses that flow (`startMoving`), so it has the same fields and keys as placing; its own pin is left out of `sensorMarkers` while it moves, or it would be drawn twice.
 - `topView` (`utils/digital-twin/camera.ts`) puts the camera straight above the building, high enough that the footprint plus 5 m fits the narrower of the vertical and horizontal fields of view. It moves the OrbitControls target too, so orbiting afterwards pivots on the building.
-- A draft `ref` is time plus random, not `crypto.randomUUID`, which throws on a plain-http origin other than localhost.
+
+**Tests.** `frontend/e2e/sensors.spec.ts` (`just test frontend-e2e`) drives the real UI with telemetry and twin stubbed by Playwright routes, including a click in the canvas to place an outdoor sensor, and asserts the two batches the app sent. The services have their own suites, so stubbing them keeps the browser test about the editor. Three buttons read "Add sensor" — toolbar, sidebar, form — so the room flow is scoped to the sidebar's Sensors section.
 
 ## Shell
 

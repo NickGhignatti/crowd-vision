@@ -37,7 +37,7 @@ These rules preserve the boundaries the architecture depends on. A contribution 
     - - Keep the frontend lightweight
       - Avoid adding a global store (Pinia/Vuex) unless genuinely necessary; prefer composables and local state.
     - - Test what you change
-      - Every backend service has a test suite in its language's idiomatic location (in-module `#[cfg(test)]` plus `tests/` for the Rust services, `*_test.go` alongside the code for the Go services, `tests/` for the Python `agent`). The frontend has no unit suite by design: its behaviour is covered by `frontend/e2e/` and the cross-service suite in `backend/acceptance/`. New behaviour must be covered, and `just test all` must pass before you open a pull request.
+      - Every backend service has a test suite in its language's idiomatic location (in-module `#[cfg(test)]` plus `tests/` for the Rust services, `*_test.go` alongside the code for the Go services, `tests/` for the Python `agent`). The frontend's unit suite covers pure logic only (`src/utils/**`, colocated `*.spec.ts`); views and components are covered by the Playwright suite in `frontend/e2e/` (`just test frontend-e2e`, which starts the app itself and needs `npx playwright install chromium` once) and by the cross-service suite in `backend/acceptance/`. New behaviour must be covered, and `just test all` must pass before you open a pull request.
     - - Route every tool through mise
       - Never rely on the ambient `PATH`\. Use `just` recipes (which wrap `mise exec --`) or `mise exec -- <tool>` directly. Register any new package in \.`moon/workspace.yml`\.
 

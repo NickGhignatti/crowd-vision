@@ -90,6 +90,10 @@ tenancy-integration:
 frontend:
     mise exec -- moon run frontend:test
 
+[doc("Browser tests for the frontend — Playwright starts the app itself; needs `npx playwright install chromium` once.")]
+frontend-e2e:
+    cd frontend && mise exec -- npm run test:e2e
+
 [doc("Unit tests for agent.")]
 agent:
     mise exec -- moon run agent:test

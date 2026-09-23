@@ -325,9 +325,9 @@ appearing in the scene. It is dropped, and the numbering is kept so the later ru
 
 Nothing cheap would have covered it. `backend/acceptance` runs Python against HTTP and stubs the
 twin outright (`stubs/twin.conf`), so it cannot run a TypeScript extractor — it could only post a
-hand-written payload, which asserts nothing about extraction. `frontend/e2e` is still the
-Playwright starter template, so a browser test means building the harness first: a login flow, a
-composed stack in CI, and assertions against a canvas. That harness is something the whole
+hand-written payload, which asserts nothing about extraction. `frontend/e2e` runs Playwright against the app with the
+services stubbed (`sensors.spec.ts`), so a browser test of extraction still means building the
+missing half of the harness: a login flow, a composed stack in CI, and assertions on a canvas. That harness is something the whole
 frontend needs or does not need on its own merits, and this feature is the wrong place to fund it.
 
 What remains is the extractor's own fixtures and the draft editor, which the user reviews before
