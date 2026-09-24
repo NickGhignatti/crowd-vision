@@ -24,6 +24,8 @@ const props = defineProps<{
   rooms: Room[]
   colors: Record<string, string>
   hiddenEdges: Record<string, HiddenEdges>
+  /** Rooms collapsed inside the batch — selected or exploded — instead of removed from it. */
+  hidden: Set<string>
 }>()
 
 const emit = defineEmits<{ select: [roomId: string] }>()
@@ -53,10 +55,10 @@ const paint = (target: InstancedMesh) =>
 
 // Geometry is static per room set, so only a new set rebuilds matrices; a telemetry tick repaints.
 watch(
-  [mesh, () => props.rooms, () => props.hiddenEdges],
+  [mesh, () => props.rooms, () => props.hiddenEdges, () => props.hidden],
   ([target]) => {
     if (!target) return
-    applyRoomMatrices(target, props.rooms, scratchMatrix)
+    applyRoomMatrices(target, props.rooms, scratchMatrix, props.hidden)
     props.rooms.forEach((room, index) => {
       const hidden = props.hiddenEdges[room.id]
       edges.walls.setXYZW(index, ...(hidden?.walls ?? [0, 0, 0, 0]))

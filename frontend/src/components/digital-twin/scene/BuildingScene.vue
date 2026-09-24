@@ -138,7 +138,7 @@ const glows = computed(() =>
   isThermal.value ? thermalGlows(drawnRooms.value, temperatures.value) : [],
 )
 
-const { instancedRooms, overlayRoom } = useInstancedRooms(
+const { instancedRooms, hiddenRooms, overlayRoom } = useInstancedRooms(
   drawnRooms,
   toRef(props, 'selectedRoomId'),
   toRef(props, 'explodedRoomId'),
@@ -149,7 +149,9 @@ const explodedRoom = computed(
 )
 
 // A new count needs a new InstancedMesh, so the batch remounts per building, floor and size.
-const batchKey = computed(() => `${buildingId.value}:${props.floor}:${instancedRooms.value.length}`)
+// Built from the rooms on screen, never from the batch: anything that varies with selection here
+// would remount the room mesh, glow and haze on every click and recompile their shaders.
+const batchKey = computed(() => `${buildingId.value}:${props.floor}:${drawnRooms.value.length}`)
 
 // The preview marker's colour: distinct from rooms, readable on both themes.
 const PREVIEW_COLOR = '#f59e0b'
@@ -202,6 +204,7 @@ const focus = withFrame(() =>
           :rooms="instancedRooms"
           :colors="shellColors"
           :hidden-edges="sharedEdges"
+          :hidden="hiddenRooms"
           @select="select"
         />
         <SelectedRoom
