@@ -26,3 +26,28 @@ export function topView(
   const { x, y, z } = extent.center
   return { position: { x, y: y + height, z }, target: { x, y, z } }
 }
+
+/** Where the camera is and what it looks at. */
+export interface CameraView {
+  position: Coordinates
+  target: Coordinates
+}
+
+/** Smoothstep: eases into and out of motion, so a camera move neither lurches nor stops dead. */
+export function easeInOut(t: number): number {
+  const x = Math.min(Math.max(t, 0), 1)
+  return x * x * (3 - 2 * x)
+}
+
+const lerp = (a: Coordinates, b: Coordinates, t: number): Coordinates => ({
+  x: a.x + (b.x - a.x) * t,
+  y: a.y + (b.y - a.y) * t,
+  z: a.z + (b.z - a.z) * t,
+})
+
+/** Moves position and target together: moving only the camera would swing the view mid-move. */
+export function interpolateView(from: CameraView, to: CameraView, t: number): CameraView {
+  if (t <= 0) return from
+  if (t >= 1) return to
+  return { position: lerp(from.position, to.position, t), target: lerp(from.target, to.target, t) }
+}

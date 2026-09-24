@@ -59,7 +59,8 @@ const OUTLINE_COLOR = { light: '#475569', dark: '#bccac0' }
 const { theme } = useTheme()
 const renderStyle = useRenderStyle()
 const modes = useModes()
-const controls = useSceneControls()
+// A lambda, not requestFrame itself: requestFrame is declared further down.
+const controls = useSceneControls(() => requestFrame())
 const { cameraRef, controlsRef, isRotating } = controls
 
 // Always WebGPURenderer: it falls back to WebGL2 itself, and the shell shader only runs there.
@@ -196,7 +197,13 @@ const focus = withFrame(() =>
     >
       <RenderInvalidator :trigger="repaintTrigger" />
       <TresPerspectiveCamera ref="cameraRef" :position="[10, 10, 10]" :look-at="[0, 0, 0]" />
-      <OrbitControls ref="controlsRef" make-default :damping-factor="0.05" :enabled="!isRotating" />
+      <OrbitControls
+        ref="controlsRef"
+        make-default
+        :damping-factor="0.05"
+        :enabled="!isRotating"
+        @start="controls.cancelGlide"
+      />
       <TresAmbientLight :intensity="0.6" />
       <TresDirectionalLight :position="[10, 20, 10]" :intensity="0.8" />
       <AutoRotate :active="isRotating" :camera="cameraRef" />
