@@ -1,27 +1,31 @@
 <script setup lang="ts">
-import { Html } from '@tresjs/cientos'
+import { computed, shallowRef } from 'vue'
+import type { Group } from 'three'
+import { useIconTextures } from '@/composables/digital-twin/useIconTextures.ts'
+import { useSpriteLayer } from '@/composables/digital-twin/useSpriteLayer.ts'
 import type { SensorBadge } from '@/utils/digital-twin/sensors.ts'
-import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
-defineProps<{ badges: SensorBadge[] }>()
+const props = defineProps<{ badges: SensorBadge[]; theme: 'light' | 'dark' }>()
+
+// Smaller than a pin: a badge says how many, the pins say where.
+const SIZE = 0.8
+const DISC = { light: '#ffffff', dark: '#060e20' }
+const INK = { light: '#006948', dark: '#68dba9' }
+
+const { countTextureFor } = useIconTextures()
+const group = shallowRef<Group | null>(null)
+const items = computed(() =>
+  props.badges
+    .filter((badge) => badge.count > 0)
+    .map((badge) => ({
+      key: badge.roomId,
+      position: badge.anchor,
+      map: countTextureFor(badge.count, DISC[props.theme], INK[props.theme]),
+    })),
+)
+useSpriteLayer(group, items, SIZE, 'sensor-badge')
 </script>
 
 <template>
-  <TresGroup
-    v-for="badge in badges"
-    :key="badge.roomId"
-    :position="[badge.anchor.x, badge.anchor.y, badge.anchor.z]"
-  >
-    <!-- DOM, not geometry: the frame is fill-bound, and a few HTML pills add no GPU work. -->
-    <Html center pointer-events="none" :z-index-range="[20, 0]">
-      <!-- v-show, not v-if: unmounting an overlay can leave its element behind. -->
-      <span
-        v-show="badge.count > 0"
-        class="flex items-center gap-1 rounded-full bg-surface-container-lowest/90 px-1.5 py-0.5 text-[0.7rem] font-semibold text-primary shadow-soft ring-1 ring-primary/40 backdrop-blur"
-      >
-        <BaseIcon name="broadcast" />
-        {{ badge.count }}
-      </span>
-    </Html>
-  </TresGroup>
+  <TresGroup ref="group" />
 </template>

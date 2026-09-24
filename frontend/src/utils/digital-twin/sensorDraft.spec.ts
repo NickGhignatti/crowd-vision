@@ -6,6 +6,7 @@ import {
   mergePlacementBatches,
   previewSensors,
   sensorMarkers,
+  sensorSprites,
   changeCount,
   draftRef,
   emptyDraft,
@@ -277,5 +278,42 @@ describe('sensorMarkers', () => {
   it('leaves out the sensor being moved, so it is not drawn twice', () => {
     const rows = [placedAt('s1', 'r1', point(1)), placedAt('s2', null, point(9))]
     expect(sensorMarkers(rows, 's2').map((row) => row.key)).toEqual(['s1'])
+  })
+})
+
+describe('sensorSprites', () => {
+  const placedAt = (
+    sensorId: string,
+    sensorType: string,
+    position: ReturnType<typeof point> | null,
+  ) => previewSensors([{ ...saved(sensorId), sensorType, position }], emptyDraft())[0]
+
+  it('gives every placed sensor a sprite, keyed and positioned', () => {
+    const rows = [placedAt('s1', 'router', point(3)), placedAt('s2', 'temperature', null)]
+    expect(sensorSprites(rows, new Set())).toEqual([
+      { key: 's1', name: 'Sensor s1', sensorType: 'router', position: point(3), unsaved: false },
+    ])
+  })
+
+  it('leaves out kinds switched off in the legend', () => {
+    const rows = [placedAt('s1', 'router', point(1)), placedAt('s2', 'temperature', point(2))]
+    expect(sensorSprites(rows, new Set(['router'])).map((s) => s.key)).toEqual(['s2'])
+  })
+
+  it('leaves out the sensor being moved, which the cursor draws', () => {
+    const rows = [placedAt('s1', 'router', point(1))]
+    expect(sensorSprites(rows, new Set(), 's1')).toEqual([])
+  })
+
+  it('marks a drafted sensor unsaved, so it can be drawn apart', () => {
+    const draft = addSensor(emptyDraft(), {
+      ref: 'd1',
+      name: 'New router',
+      sensorType: 'router',
+      roomId: null,
+      position: point(5),
+    })
+    const [sprite] = sensorSprites(previewSensors([], draft), new Set())
+    expect(sprite).toMatchObject({ key: 'd1', unsaved: true })
   })
 })

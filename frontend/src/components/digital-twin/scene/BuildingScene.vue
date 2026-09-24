@@ -31,8 +31,8 @@ import RoomOutline from '@/components/digital-twin/scene/RoomOutline.vue'
 import SensorBadges from '@/components/digital-twin/scene/SensorBadges.vue'
 import GroundPlane from '@/components/digital-twin/scene/GroundPlane.vue'
 import PlacementCursor from '@/components/digital-twin/scene/PlacementCursor.vue'
-import SensorMarkers from '@/components/digital-twin/scene/SensorMarkers.vue'
-import { sensorMarkers } from '@/utils/digital-twin/sensorDraft.ts'
+import SensorSprites from '@/components/digital-twin/scene/SensorSprites.vue'
+import { sensorSprites } from '@/utils/digital-twin/sensorDraft.ts'
 import SceneToolbar from '@/components/digital-twin/controls/SceneToolbar.vue'
 import SceneLegend from '@/components/digital-twin/controls/SceneLegend.vue'
 
@@ -100,21 +100,27 @@ watchEffect(() => {
 const drawnRooms = computed(() => snapRooms(props.rooms))
 const sharedEdges = computed(() => hiddenEdges(drawnRooms.value))
 const sensorEditor = useSensorEditor()
-// Badges and pins stay mounted and hide themselves: unmounting an Html overlay can leave its
-// element on screen, which looked like a filter that did nothing.
-const hidden = computed(() =>
-  showMarkers.value
-    ? sensorEditor.hiddenTypes.value
-    : new Set(sensorEditor.rows.value.map((row) => row.sensorType)),
-)
-const badges = computed(() => sensorBadges(drawnRooms.value, sensorEditor.rows.value, hidden.value))
-// Pins would clutter every other view, so they show in sensors mode or while editing.
+// Pins would clutter every other view, so they show in sensors mode or while editing. The groups
+// are mounted only then: an Html overlay costs a projection and a DOM write every frame, which at
+// ~120 of them is 40 ms a frame, whether or not anything is visible.
 const showMarkers = computed(
   () => modes.currentMode.value === Mode.Sensors || sensorEditor.isEditing.value,
 )
-const markers = computed(() =>
-  sensorMarkers(sensorEditor.rows.value, sensorEditor.pendingPlacement.value?.moving?.key ?? null),
+// A kind switched off in the legend hides with `v-show`: unmounting one overlay of a mounted group
+// can leave its element on screen, which looked like a filter that did nothing.
+const hidden = computed(() => sensorEditor.hiddenTypes.value)
+const badges = computed(() =>
+  showMarkers.value ? sensorBadges(drawnRooms.value, sensorEditor.rows.value, hidden.value) : [],
 )
+const movingKey = computed(() => sensorEditor.pendingPlacement.value?.moving?.key ?? null)
+const sprites = computed(() =>
+  showMarkers.value ? sensorSprites(sensorEditor.rows.value, hidden.value, movingKey.value) : [],
+)
+/** Clicking a pin moves it: the sprite carries only its key, so the row is looked up here. */
+const startMovingByKey = (key: string) => {
+  const row = sensorEditor.rows.value.find((candidate) => candidate.key === key)
+  if (row) sensorEditor.startMoving(row)
+}
 const markersInteractive = computed(
   () => sensorEditor.isEditing.value && !sensorEditor.pendingPlacement.value,
 )
@@ -204,12 +210,13 @@ const focus = withFrame(() =>
           :color="shellColors[overlayRoom.id]"
           @select="select"
         />
-        <SensorBadges :badges="badges" />
-        <SensorMarkers
-          :markers="markers"
-          :hidden="hidden"
+        <SensorBadges v-if="showMarkers" :badges="badges" :theme="theme" />
+        <SensorSprites
+          v-if="showMarkers"
+          :sprites="sprites"
+          :theme="theme"
           :interactive="markersInteractive"
-          @move="sensorEditor.startMoving"
+          @move="startMovingByKey"
         />
         <GroundPlane v-if="ground" :extent="ground" :color="OUTLINE_COLOR[theme]" />
         <PlacementCursor

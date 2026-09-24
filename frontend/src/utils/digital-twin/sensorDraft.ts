@@ -207,3 +207,29 @@ export const sensorMarkers = (
     (row): row is SensorRow & { position: Coordinates } =>
       row.position !== null && row.key !== movingKey,
   )
+
+/** One drawn sensor pin: a placed sensor whose kind the legend shows. */
+export interface SensorSprite {
+  key: string
+  name: string
+  sensorType: string
+  position: Coordinates
+  /** Drafted or edited, so it can be drawn apart from what is saved. */
+  unsaved: boolean
+}
+
+export function sensorSprites(
+  rows: SensorRow[],
+  hidden: Set<string>,
+  movingKey: string | null = null,
+): SensorSprite[] {
+  return sensorMarkers(rows, movingKey)
+    .filter((row) => !hidden.has(row.sensorType))
+    .map(({ key, name, sensorType, position, state }) => ({
+      key,
+      name,
+      sensorType,
+      position,
+      unsaved: state !== 'saved',
+    }))
+}
