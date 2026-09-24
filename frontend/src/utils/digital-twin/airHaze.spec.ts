@@ -28,8 +28,18 @@ describe('the haze a room shows for its air', () => {
 })
 
 describe('the rooms that show haze', () => {
-  it('are only rooms with a reading, so an absent sensor paints nothing', () => {
-    const rooms = [room('a'), room('b'), room('c')]
-    expect(airHazes(rooms, { a: 40, c: 0 }).map((haze) => haze.room.id)).toEqual(['a'])
+  const rooms = [room('a'), room('b'), room('c')]
+
+  it('gives every room on screen an entry, in order, so the layer never changes size', () => {
+    expect(airHazes(rooms, { a: 40, c: 0 }).map((haze) => haze.room.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('shows haze only in rooms with a reading, so an absent sensor paints nothing', () => {
+    const lit = airHazes(rooms, { a: 40, c: 0 }).filter((haze) => haze.lit)
+    expect(lit.map((haze) => haze.room.id)).toEqual(['a'])
+  })
+
+  it('shows nothing without readings, which is how the mode being off is drawn', () => {
+    expect(airHazes(rooms, {}).some((haze) => haze.lit)).toBe(false)
   })
 })

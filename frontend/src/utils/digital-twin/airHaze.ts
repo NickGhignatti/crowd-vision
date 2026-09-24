@@ -29,11 +29,18 @@ export function hazeFor(iaqi: number): Haze {
 
 export interface AirHaze extends Haze {
   room: Room
+  /** Only a room with a reading shows haze; the rest keep their slot, collapsed. */
+  lit: boolean
 }
 
-/** Every room with a reading; telemetry sends 0 for a room it has no value for. */
+/**
+ * One entry per room on screen, so the layer keeps its size as readings come and go — a layer
+ * that resized would remount and recompile. Telemetry sends 0 for a room it has no value for.
+ */
 export const airHazes = (rooms: Room[], readings: Record<string, number | undefined>): AirHaze[] =>
-  rooms.flatMap((room) => {
+  rooms.map((room) => {
     const value = readings[room.id]
-    return value === undefined || value === 0 ? [] : [{ room, ...hazeFor(value) }]
+    return value === undefined || value === 0
+      ? { room, ...hazeFor(0), lit: false }
+      : { room, ...hazeFor(value), lit: true }
   })

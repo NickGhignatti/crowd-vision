@@ -23,8 +23,11 @@ const { renderer } = useTresContext()
 const { theme } = useTheme()
 const mesh = shallowRef<InstancedMesh | null>(null)
 const rooms = computed(() => props.glows.map((glow) => glow.room))
+/** Rooms without a reading keep their instance, collapsed to nothing. */
+const unlitOf = (glows: ThermalGlow[]) =>
+  new Set(glows.filter((glow) => !glow.lit).map((glow) => glow.room.id))
 
-// The parent remounts this per glow count, so one buffer of that size serves every update.
+// The parent remounts this per room set only, so one buffer of that size serves every update.
 const geometry = new BoxGeometry(1, 1, 1)
 const strength = new InstancedBufferAttribute(new Float32Array(props.glows.length), 1)
 geometry.setAttribute('strength', strength)
@@ -56,7 +59,7 @@ watch(
     target.raycast = noRaycast
     glows.forEach((glow, index) => strength.setX(index, glow.strength))
     strength.needsUpdate = true
-    applyRoomMatrices(target, rooms.value, scratchMatrix)
+    applyRoomMatrices(target, rooms.value, scratchMatrix, unlitOf(glows))
     applyRoomColors(target, rooms.value, colors, scratchColor, '#000000')
     renderer.invalidate()
   },

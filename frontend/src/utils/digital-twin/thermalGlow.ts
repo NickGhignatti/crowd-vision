@@ -23,16 +23,21 @@ export const COMFORT_GLOW = 0.35
 export interface ThermalGlow {
   room: Room
   strength: number
+  /** Only a room with a reading glows; the rest keep their slot, collapsed. */
+  lit: boolean
 }
 
-/** Every room with a reading; telemetry sends 0 for a room it has no value for. */
+/**
+ * One entry per room on screen, so the layer keeps its size as readings come and go — a layer
+ * that resized would remount and recompile. Telemetry sends 0 for a room it has no value for.
+ */
 export const thermalGlows = (
   rooms: Room[],
   readings: Record<string, number | undefined>,
 ): ThermalGlow[] =>
-  rooms.flatMap((room) => {
+  rooms.map((room) => {
     const value = readings[room.id]
-    if (value === undefined || value === 0) return []
+    if (value === undefined || value === 0) return { room, strength: 0, lit: false }
     const deviation = temperatureDeviation(value, room.maxTemperature)
-    return [{ room, strength: COMFORT_GLOW + (1 - COMFORT_GLOW) * deviation }]
+    return { room, strength: COMFORT_GLOW + (1 - COMFORT_GLOW) * deviation, lit: true }
   })

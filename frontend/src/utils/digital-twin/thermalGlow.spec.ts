@@ -36,17 +36,33 @@ describe('the rooms that glow', () => {
   const rooms = [room('hot'), room('fine'), room('silent'), room('unread'), room('server', 35)]
   const readings = { hot: 26, fine: 21, silent: 0, server: 30 }
   const glows = thermalGlows(rooms, readings)
+  const byId = (id: string) => glows.find((glow) => glow.room.id === id)!
 
-  it('are every room with a reading, so an absent sensor paints nothing', () => {
-    expect(glows.map((glow) => glow.room.id)).toEqual(['hot', 'fine', 'server'])
+  it('gives every room on screen an entry, in order, so the layer never changes size', () => {
+    // A layer whose size follows the readings remounts, and recompiles, whenever one arrives.
+    expect(glows.map((glow) => glow.room.id)).toEqual(['hot', 'fine', 'silent', 'unread', 'server'])
+  })
+
+  it('lights only rooms with a reading, so an absent sensor paints nothing', () => {
+    expect(glows.filter((glow) => glow.lit).map((glow) => glow.room.id)).toEqual([
+      'hot',
+      'fine',
+      'server',
+    ])
+    expect(byId('silent').strength).toBe(0)
+    expect(byId('unread').strength).toBe(0)
   })
 
   it('keeps comfortable rooms gentle, relative to each room limit', () => {
-    expect(glows[1]!.strength).toBe(COMFORT_GLOW)
-    expect(glows[2]!.strength).toBe(COMFORT_GLOW)
+    expect(byId('fine').strength).toBe(COMFORT_GLOW)
+    expect(byId('server').strength).toBe(COMFORT_GLOW)
   })
 
   it('strengthens with the drift, so problems still stand out', () => {
-    expect(glows[0]!.strength).toBeCloseTo(COMFORT_GLOW + (1 - COMFORT_GLOW) * 0.75)
+    expect(byId('hot').strength).toBeCloseTo(COMFORT_GLOW + (1 - COMFORT_GLOW) * 0.75)
+  })
+
+  it('lights nothing without readings, which is how the mode being off is drawn', () => {
+    expect(thermalGlows(rooms, {}).some((glow) => glow.lit)).toBe(false)
   })
 })

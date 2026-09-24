@@ -133,9 +133,11 @@ const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSen
 const isAir = computed(() => modes.currentMode.value === Mode.AirQualitySensor)
 // In a data mode the glow or haze carries the colour, so shells fall back to the neutral tint.
 const shellColors = computed(() => (isThermal.value || isAir.value ? {} : colors.value))
-const hazes = computed(() => (isAir.value ? airHazes(drawnRooms.value, indoorAqi.value) : []))
+// Every room always has a glow and a haze entry; a mode that is off lights none of them, so
+// switching modes rewrites buffers instead of remounting a layer and compiling its pipeline.
+const hazes = computed(() => airHazes(drawnRooms.value, isAir.value ? indoorAqi.value : {}))
 const glows = computed(() =>
-  isThermal.value ? thermalGlows(drawnRooms.value, temperatures.value) : [],
+  thermalGlows(drawnRooms.value, isThermal.value ? temperatures.value : {}),
 )
 
 const { instancedRooms, hiddenRooms, overlayRoom } = useInstancedRooms(
@@ -197,8 +199,8 @@ const focus = withFrame(() =>
       <AutoRotate :active="isRotating" :camera="cameraRef" />
 
       <template v-if="building">
-        <ThermalGlow :key="`glow:${batchKey}:${glows.length}`" :glows="glows" :colors="colors" />
-        <AirHaze :key="`haze:${batchKey}:${hazes.length}`" :hazes="hazes" :colors="colors" />
+        <ThermalGlow :key="`glow:${batchKey}`" :glows="glows" :colors="colors" />
+        <AirHaze :key="`haze:${batchKey}`" :hazes="hazes" :colors="colors" />
         <RoomInstances
           :key="batchKey"
           :rooms="instancedRooms"

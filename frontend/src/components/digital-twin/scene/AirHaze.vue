@@ -32,9 +32,12 @@ const { renderer } = useTresContext()
 const { theme } = useTheme()
 const mesh = shallowRef<InstancedMesh | null>(null)
 const rooms = computed(() => props.hazes.map((haze) => haze.room))
+/** Rooms without a reading keep their instance, collapsed to nothing. */
+const unlitOf = (hazes: AirHaze[]) =>
+  new Set(hazes.filter((haze) => !haze.lit).map((haze) => haze.room.id))
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-// The parent remounts this per haze count, so buffers of that size serve every update.
+// The parent remounts this per room set only, so buffers of that size serve every update.
 const geometry = new BoxGeometry(1, 1, 1)
 const density = new InstancedBufferAttribute(new Float32Array(props.hazes.length), 1)
 const speed = new InstancedBufferAttribute(new Float32Array(props.hazes.length), 1)
@@ -87,21 +90,30 @@ watch(
     })
     density.needsUpdate = true
     speed.needsUpdate = true
-    applyRoomMatrices(target, rooms.value, scratchMatrix)
+    applyRoomMatrices(target, rooms.value, scratchMatrix, unlitOf(hazes))
     applyRoomColors(target, rooms.value, colors, scratchColor, '#000000')
     renderer.invalidate()
   },
   { immediate: true, flush: 'post' },
 )
 
-// The scene renders on demand; moving haze needs a frame every tick while it is shown.
-// requestAnimationFrame already stops in a hidden tab.
+// The scene renders on demand; moving haze needs a frame every tick, but only while some haze is
+// lit — the layer now stays mounted with every room collapsed when air mode is off, and an
+// unconditional pump would render continuously in every mode. rAF already stops in a hidden tab.
 let frame = 0
 const tick = () => {
   renderer.invalidate()
   frame = requestAnimationFrame(tick)
 }
-if (!reducedMotion) frame = requestAnimationFrame(tick)
+const animating = computed(() => !reducedMotion && props.hazes.some((haze) => haze.lit))
+watch(
+  animating,
+  (on) => {
+    cancelAnimationFrame(frame)
+    if (on) frame = requestAnimationFrame(tick)
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(frame)
