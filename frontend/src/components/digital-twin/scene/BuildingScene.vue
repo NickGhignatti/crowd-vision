@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, toRef, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, toRef, watchEffect } from 'vue'
 import { TresCanvas } from '@tresjs/core'
 import { OrbitControls } from '@tresjs/cientos'
 import { NoToneMapping } from 'three'
@@ -15,6 +15,7 @@ import { airHazes } from '@/utils/digital-twin/airHaze.ts'
 import { hiddenEdges, snapRooms } from '@/utils/digital-twin/snapRooms.ts'
 import { groundExtent, sensorBadges } from '@/utils/digital-twin/sensors.ts'
 import { useSensorEditor } from '@/composables/digital-twin/useSensorEditor.ts'
+import { selectedRoomMaterials } from '@/composables/digital-twin/selectedRoomMaterials.ts'
 import {
   useBuildingAirQualitySensors,
   useBuildingTemperature,
@@ -100,6 +101,8 @@ watchEffect(() => {
 const drawnRooms = computed(() => snapRooms(props.rooms))
 const sharedEdges = computed(() => hiddenEdges(drawnRooms.value))
 const sensorEditor = useSensorEditor()
+// The overlay's materials outlive each selection; leaving the twin view frees their shaders.
+onBeforeUnmount(() => selectedRoomMaterials.clear())
 // Pins would clutter every other view, so they show in sensors mode or while editing. The groups
 // are mounted only then: an Html overlay costs a projection and a DOM write every frame, which at
 // ~120 of them is 40 ms a frame, whether or not anything is visible.

@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { useTresContext } from '@tresjs/core'
 import type { Mesh } from 'three'
 import type { Room } from '@/types/digital-twin/building.ts'
 import { renderStyleConfig } from '@/utils/digital-twin/renderStyleConfig.ts'
 import { useRenderStyle } from '@/composables/digital-twin/useRenderStyle.ts'
 import { useTheme } from '@/composables/commons/useTheme.ts'
+import {
+  materialKey,
+  selectedRoomMaterials,
+} from '@/composables/digital-twin/selectedRoomMaterials.ts'
 
 const props = defineProps<{ room: Room; color?: string }>()
 
@@ -13,14 +17,13 @@ defineEmits<{ select: [roomId: string] }>()
 
 const { renderer } = useTresContext()
 const { theme } = useTheme()
-const { current, style } = useRenderStyle()
+const { current } = useRenderStyle()
 const mesh = shallowRef<Mesh | null>(null)
-const material = computed(() => style.value.material('selected', theme.value))
+const material = computed(() => selectedRoomMaterials.get(materialKey(current.value, theme.value)))
 
 watch(
   [mesh, material, () => props.color],
-  ([target, next], [, previous]) => {
-    if (previous && previous !== next) previous.dispose()
+  ([target, next]) => {
     next.color.set(props.color ?? renderStyleConfig(current.value).idleColor[theme.value])
     if (!target) return
     target.material = next
@@ -28,9 +31,6 @@ watch(
   },
   { immediate: true, flush: 'post' },
 )
-
-// Each new selection remounts this mesh; a shader left behind leaks GPU memory.
-onBeforeUnmount(() => material.value.dispose())
 </script>
 
 <template>
