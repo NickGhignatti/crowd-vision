@@ -43,4 +43,3 @@ export function useDateTime(localeRef: { value: string } | undefined) {
 
   return { now, formattedTime, formattedDate }
 }
-

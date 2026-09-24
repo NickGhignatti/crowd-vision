@@ -138,7 +138,7 @@ onMounted(() => nameInput.value?.focus())
         {{
           roomId === undefined && where === 'point'
             ? t('model.sensors.place')
-            : t('model.sensors.add')
+            : t('model.sensors.addConfirm')
         }}
       </BaseButton>
     </div>

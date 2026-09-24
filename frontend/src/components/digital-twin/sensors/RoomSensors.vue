@@ -36,7 +36,7 @@ const rows = computed(() => allRows.value.filter((row) => row.roomId === props.r
     <template v-if="isEditing">
       <AddSensorForm v-if="adding" :room-id="roomId" @done="adding = false" />
       <BaseButton v-else size="sm" variant="tonal" icon="plus" block @click="adding = true">
-        {{ t('model.sensors.add') }}
+        {{ t('model.sensors.addToRoom') }}
       </BaseButton>
     </template>
   </section>

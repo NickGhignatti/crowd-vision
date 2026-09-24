@@ -20,9 +20,13 @@ export function useSessionKeepAlive() {
     }, REFRESH_INTERVAL_MS)
   }
 
-  watch(() => authStore.isAuthenticated, (authed) => (authed ? start() : stop()), {
-    immediate: true,
-  })
+  watch(
+    () => authStore.isAuthenticated,
+    (authed) => (authed ? start() : stop()),
+    {
+      immediate: true,
+    },
+  )
 
   onUnmounted(stop)
 }

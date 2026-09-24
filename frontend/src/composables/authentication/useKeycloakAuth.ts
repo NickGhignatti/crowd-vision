@@ -1,6 +1,10 @@
 import { makeExternalRequest, makeRequest } from '@/composables/commons/useApi.ts'
 import { useAuthStore } from '@/stores/authentication/authentication.ts'
-import { generateCodeVerifier, generateCodeChallenge, generateState } from '@/composables/authentication/pkce.ts'
+import {
+  generateCodeVerifier,
+  generateCodeChallenge,
+  generateState,
+} from '@/composables/authentication/pkce.ts'
 
 const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8090'
 const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'crowdvision'
@@ -121,7 +125,10 @@ export function useKeycloakAuth() {
       body: JSON.stringify({ email, password, name }),
     })
     if (!res.ok) {
-      return { ok: false, error: res.status === 409 ? 'emailAlreadyRegistered' : 'authErrorGeneric' }
+      return {
+        ok: false,
+        error: res.status === 409 ? 'emailAlreadyRegistered' : 'authErrorGeneric',
+      }
     }
     const authStore = useAuthStore()
     await authStore.hydrate(true)

@@ -53,7 +53,11 @@ export async function makeRequestWithRetry(
   }
 }
 
-export function makeExternalRequest(url: string, method: string = 'GET', options: RequestInit = {}) {
+export function makeExternalRequest(
+  url: string,
+  method: string = 'GET',
+  options: RequestInit = {},
+) {
   const { headers, ...requestOptions } = options
 
   return fetch(url, {
@@ -66,4 +70,3 @@ export function makeExternalRequest(url: string, method: string = 'GET', options
     ...requestOptions,
   })
 }
-

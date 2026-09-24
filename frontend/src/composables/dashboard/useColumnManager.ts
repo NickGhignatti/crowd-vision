@@ -16,9 +16,13 @@ export function useColumnManager(
 ) {
   const localHeaders = ref<TableHeader[]>(headers.value.map(enrichHeader))
 
-  watch(headers, (incoming) => {
-    if (!isEditMode.value) localHeaders.value = incoming.map(enrichHeader)
-  }, { deep: true })
+  watch(
+    headers,
+    (incoming) => {
+      if (!isEditMode.value) localHeaders.value = incoming.map(enrichHeader)
+    },
+    { deep: true },
+  )
 
   const isEditMode = ref(false)
   const isSavingPreferences = ref(false)
@@ -53,26 +57,30 @@ export function useColumnManager(
     else closeAllPanels()
   })
 
-  watch(selectedBuildingId, async (buildingId) => {
-    if (!buildingId) return
-    try {
-      const res = await makeRequest(`/dashboard/preferences/${buildingId}`)
-      if (res.ok) {
-        const body = await res.text()
-        if (body.trim() === '') throw new Error('preferences request returned an empty body')
-        const data = JSON.parse(body)
-        const cols: string[] = data.allowed_columns ?? []
-        if (cols.length > 0) {
-          localHeaders.value = cols.map(metricKeyToHeader)
-          return
+  watch(
+    selectedBuildingId,
+    async (buildingId) => {
+      if (!buildingId) return
+      try {
+        const res = await makeRequest(`/dashboard/preferences/${buildingId}`)
+        if (res.ok) {
+          const body = await res.text()
+          if (body.trim() === '') throw new Error('preferences request returned an empty body')
+          const data = JSON.parse(body)
+          const cols: string[] = data.allowed_columns ?? []
+          if (cols.length > 0) {
+            localHeaders.value = cols.map(metricKeyToHeader)
+            return
+          }
         }
+      } catch (e) {
+        console.error('[useColumnManager] Failed to fetch building preferences:', e)
       }
-    } catch (e) {
-      console.error('[useColumnManager] Failed to fetch building preferences:', e)
-    }
-    // Fallback: keep whatever the parent prop provides
-    localHeaders.value = headers.value.map(enrichHeader)
-  }, { immediate: true })
+      // Fallback: keep whatever the parent prop provides
+      localHeaders.value = headers.value.map(enrichHeader)
+    },
+    { immediate: true },
+  )
 
   const activeHeaderKey = ref<string | null>(null)
   const dropdownPos = ref({ top: 0, left: 0 })
@@ -88,7 +96,10 @@ export function useColumnManager(
     showAddPanel.value = false
 
     const id = headerId(header)
-    if (activeHeaderKey.value === id) { activeHeaderKey.value = null; return }
+    if (activeHeaderKey.value === id) {
+      activeHeaderKey.value = null
+      return
+    }
 
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     dropdownPos.value = {
@@ -100,17 +111,17 @@ export function useColumnManager(
 
   const handleDeleteColumn = (header: TableHeader) => {
     const id = headerId(header)
-    localHeaders.value = localHeaders.value.filter(h => headerId(h) !== id)
+    localHeaders.value = localHeaders.value.filter((h) => headerId(h) !== id)
     if (activeHeaderKey.value === id) activeHeaderKey.value = null
   }
 
   const handleSwapColumn = (metric: MetricContract) => {
     if (!activeHeaderKey.value) return
     const alreadyUsed = localHeaders.value.some(
-      h => headerId(h) === metric.kind && headerId(h) !== activeHeaderKey.value,
+      (h) => headerId(h) === metric.kind && headerId(h) !== activeHeaderKey.value,
     )
     if (alreadyUsed) return
-    const idx = localHeaders.value.findIndex(h => headerId(h) === activeHeaderKey.value)
+    const idx = localHeaders.value.findIndex((h) => headerId(h) === activeHeaderKey.value)
     if (idx !== -1) {
       localHeaders.value[idx] = headerFromMetric(metric, localHeaders.value[idx]?.cellClass)
     }
@@ -118,7 +129,7 @@ export function useColumnManager(
   }
 
   const handleAddColumn = (metric: MetricContract) => {
-    if (localHeaders.value.some(h => headerId(h) === metric.kind)) return
+    if (localHeaders.value.some((h) => headerId(h) === metric.kind)) return
     localHeaders.value.push(headerFromMetric(metric))
     showAddPanel.value = false
   }
@@ -139,7 +150,7 @@ export function useColumnManager(
     isSavingPreferences.value = true
     try {
       if (selectedBuildingId.value) {
-        const allowedColumns = localHeaders.value.map(h => h.metricKey ?? h.key)
+        const allowedColumns = localHeaders.value.map((h) => h.metricKey ?? h.key)
         await makeRequest(`/dashboard/preferences/${selectedBuildingId.value}`, 'POST', {
           body: JSON.stringify({ allowed_columns: allowedColumns }),
         })
@@ -166,30 +177,30 @@ export function useColumnManager(
             return
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     localHeaders.value = headers.value.map(enrichHeader)
   }
 
   const addableMetrics = computed(() =>
-    availableMetrics.value.filter(
-      m => !localHeaders.value.some(h => headerId(h) === m.kind),
-    ),
+    availableMetrics.value.filter((m) => !localHeaders.value.some((h) => headerId(h) === m.kind)),
   )
 
   const swappableMetrics = computed(() => {
     const usedByOtherColumns = new Set(
       localHeaders.value
-        .filter(h => headerId(h) !== activeHeaderKey.value)
-        .map(h => headerId(h)),
+        .filter((h) => headerId(h) !== activeHeaderKey.value)
+        .map((h) => headerId(h)),
     )
     return availableMetrics.value.filter(
-      m => m.kind !== activeHeaderKey.value && !usedByOtherColumns.has(m.kind),
+      (m) => m.kind !== activeHeaderKey.value && !usedByOtherColumns.has(m.kind),
     )
   })
 
   const activeHeader = computed(
-    () => localHeaders.value.find(h => headerId(h) === activeHeaderKey.value) ?? null,
+    () => localHeaders.value.find((h) => headerId(h) === activeHeaderKey.value) ?? null,
   )
 
   return {

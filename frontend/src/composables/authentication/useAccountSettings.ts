@@ -24,7 +24,10 @@ export function useAccountSettings() {
       body: JSON.stringify({ email, name }),
     })
     if (!res.ok) {
-      return { ok: false, error: res.status === 409 ? 'emailAlreadyRegistered' : 'authErrorGeneric' }
+      return {
+        ok: false,
+        error: res.status === 409 ? 'emailAlreadyRegistered' : 'authErrorGeneric',
+      }
     }
     await useAuthStore().hydrate(true)
     return { ok: true }

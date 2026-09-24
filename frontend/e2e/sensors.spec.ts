@@ -89,15 +89,15 @@ async function stubBackend(page: Page): Promise<Saved> {
 
 const editSensors = (page: Page) => page.getByRole('button', { name: 'Edit sensors' })
 const roomCard = (page: Page) => page.getByRole('button', { name: /Room 101/ }).first()
-/** Three buttons read "Add sensor" — toolbar, sidebar, form — so the room flow stays in its section. */
+/** The room flow stays inside the sidebar's Sensors section, where that room's list lives. */
 const roomSensors = (page: Page) => page.getByRole('region', { name: 'Sensors' })
 
 async function addToRoom(page: Page, name: string) {
   const section = roomSensors(page)
-  await section.getByRole('button', { name: 'Add sensor' }).click()
+  await section.getByRole('button', { name: 'Add sensor to this room' }).click()
   await section.getByLabel('Sensor name').fill(name)
   await section.getByRole('button', { name: 'Thermostat' }).click()
-  await section.getByRole('button', { name: 'Add sensor' }).click()
+  await section.getByRole('button', { name: 'Add', exact: true }).click()
 }
 
 /** The push-notification prompt opens over the sidebar and would swallow the clicks. */
@@ -138,7 +138,7 @@ test('sends one telemetry batch and one twin batch for a point sensor', async ({
 
   await dismissAlertsPrompt(page)
   await editSensors(page).click()
-  await page.getByRole('button', { name: 'Add sensor' }).first().click()
+  await page.getByRole('button', { name: 'Add sensor', exact: true }).click()
   await page.getByLabel('Sensor name').fill('Yard router')
   await page.getByRole('button', { name: 'Router' }).click()
   await page.getByRole('radio', { name: 'At a point' }).click()

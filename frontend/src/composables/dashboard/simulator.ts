@@ -41,9 +41,7 @@ export function useIsRunning(buildingIdSource: any) {
       const results = await Promise.all(
         simulatorUrls.map(async (url) => {
           try {
-            const response = await makeExternalRequest(
-              `${url}/control/status?buildingId=${id}`,
-            )
+            const response = await makeExternalRequest(`${url}/control/status?buildingId=${id}`)
             if (response.ok) {
               const data = await response.json()
               return data.isRunning === true
@@ -87,14 +85,11 @@ export async function toggleSimulator(
   const simulatorUrls = getSimulatorUrls()
 
   if (action === 'start') {
-    await Promise.all(
-      simulatorUrls.map((url) => startSimulator(buildingId, url, targetUrl, rooms)),
-    )
+    await Promise.all(simulatorUrls.map((url) => startSimulator(buildingId, url, targetUrl, rooms)))
   } else {
     await Promise.all(simulatorUrls.map((url) => stopSimulator(buildingId, url)))
   }
 }
-
 
 const startSimulator = async (
   buildingId: string,

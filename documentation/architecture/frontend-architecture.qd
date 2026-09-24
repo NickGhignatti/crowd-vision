@@ -122,7 +122,7 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 - Moving an existing sensor reuses that flow (`startMoving`), so it has the same fields and keys as placing; its own pin is left out of `sensorMarkers` while it moves, or it would be drawn twice.
 - `topView` (`utils/digital-twin/camera.ts`) puts the camera straight above the building, high enough that the footprint plus 5 m fits the narrower of the vertical and horizontal fields of view. It moves the OrbitControls target too, so orbiting afterwards pivots on the building.
 
-**Tests.** `frontend/e2e/sensors.spec.ts` (`just test frontend-e2e`) drives the real UI with telemetry and twin stubbed by Playwright routes, including a click in the canvas to place an outdoor sensor, and asserts the two batches the app sent. The services have their own suites, so stubbing them keeps the browser test about the editor. Three buttons read "Add sensor" — toolbar, sidebar, form — so the room flow is scoped to the sidebar's Sensors section.
+**Tests.** `frontend/e2e/sensors.spec.ts` (`just test frontend-e2e`) drives the real UI with telemetry and twin stubbed by Playwright routes, including a click in the canvas to place an outdoor sensor, and asserts the two batches the app sent. The services have their own suites, so stubbing them keeps the browser test about the editor.
 
 ## Shell
 

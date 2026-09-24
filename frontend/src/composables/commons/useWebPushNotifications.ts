@@ -34,7 +34,7 @@ export function useWebPushNotifications() {
       const keyResponse = await makeRequest(`/notification/public-key`)
       const data = await keyResponse.json()
 
-      if (!keyResponse.ok){
+      if (!keyResponse.ok) {
         console.error(`Failed to fetch VAPID key: ${data.type} - ${data.message}`)
         return
       }
@@ -78,7 +78,6 @@ export function useWebPushNotifications() {
         permission.value = 'granted'
         return
       }
-
     } catch {
       permission.value = 'denied'
     }
