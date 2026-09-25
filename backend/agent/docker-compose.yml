@@ -83,7 +83,7 @@ services:
 
   langfuse-web:
     cpus: "3"
-    image: docker.io/langfuse/langfuse:4.35.0
+    image: docker.io/langfuse/langfuse:4.38.0
     container_name: crowd-vision-langfuse
     restart: always
     depends_on: &langfuse-depends-on
@@ -138,7 +138,7 @@ services:
 
   langfuse-worker:
     cpus: "3"
-    image: docker.io/langfuse/langfuse-worker:4.35.0
+    image: docker.io/langfuse/langfuse-worker:4.38.0
     container_name: crowd-vision-langfuse-worker
     restart: always
     depends_on: *langfuse-depends-on
@@ -167,7 +167,7 @@ services:
 
   clickhouse:
     cpus: "3"
-    image: docker.io/clickhouse/clickhouse-server:26.8.2
+    image: docker.io/clickhouse/clickhouse-server:26.8.9
     container_name: crowd-vision-clickhouse
     restart: always
     user: "101:101"
@@ -187,7 +187,7 @@ services:
 
   minio:
     cpus: "3"
-    image: cgr.dev/chainguard/minio@sha256:4d397a26fe49d7f9ed39b8b566534848936f7efa50ab6328ac97b2a44eeabf4c
+    image: cgr.dev/chainguard/minio@sha256:22bf0ad174612a0106dfbbb95818f307525dd32c5a6ec119ecd7273815abe456
     container_name: crowd-vision-minio
     restart: always
     entrypoint: sh
