@@ -7,6 +7,8 @@ export const METRIC_I18N_KEY: Record<string, string> = {
   peopleCount: 'model.rooms.occupancy',
   temperature: 'model.rooms.temperature',
   airQuality: 'dashboard.table.headers.indoorAqi',
+  totalDeviceCount: 'dashboard.table.headers.connectedDevices',
+  ratioDeviceCount: 'dashboard.table.headers.estimatedPeople',
   status: 'dashboard.table.headers.status',
 }
 

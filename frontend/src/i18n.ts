@@ -206,6 +206,8 @@ const messages = {
           temperature: 'Temperature',
           people: 'People',
           indoorAqi: 'Indoor Air Quality',
+          connectedDevices: 'Connected devices',
+          estimatedPeople: 'Estimated people',
         },
         rooms: {
           status: {
@@ -727,6 +729,8 @@ const messages = {
           temperature: 'Temperatura',
           people: 'Persone',
           indoorAqi: "Qualità dell'aria interna",
+          connectedDevices: 'Dispositivi connessi',
+          estimatedPeople: 'Persone stimate',
         },
         rooms: {
           status: {
