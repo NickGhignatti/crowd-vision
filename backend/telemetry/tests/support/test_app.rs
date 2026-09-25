@@ -9,18 +9,20 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use telemetry::adapters::driven::dispatch::HttpDispatch;
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
+use telemetry::adapters::driven::simulators::HttpSimulators;
 use telemetry::adapters::ingest_auth::{IngestKey, SIGNATURE_HEADER};
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
 use telemetry::kernel::ports::{
     Alerts, BuildingDirectory, BuildingStore, Clock, Fanout, ReadingStore, SensorStore,
-    ThresholdStore,
+    SimulatorControl, ThresholdStore,
 };
 use telemetry::kernel::readings::Readings;
 use telemetry::kernel::registration::Registration;
 use telemetry::kernel::registry::PluginRegistry;
 use telemetry::kernel::sensors::Sensors;
+use telemetry::kernel::simulation::Simulation;
 use telemetry::kernel::thresholds::Thresholds;
 use telemetry::plugins::air_quality::AirQualityPlugin;
 use telemetry::plugins::device_count::{RatioDeviceCountPlugin, TotalDeviceCountPlugin};
@@ -47,10 +49,15 @@ pub const BINDINGS: &str = r#"{
 }"#;
 
 pub async fn test_app(pool: PgPool, domains: Vec<&str>) -> TestApp {
-    test_app_with_bindings(pool, domains, BINDINGS).await
+    test_app_with_simulators(pool, domains, "").await
 }
 
-pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: &str) -> TestApp {
+/// `simulators` is a `SIMULATORS` value; blank configures none.
+pub async fn test_app_with_simulators(
+    pool: PgPool,
+    domains: Vec<&str>,
+    simulators: &str,
+) -> TestApp {
     let registry = Arc::new(
         PluginRegistry::new(vec![
             Box::new(TemperaturePlugin),
@@ -67,10 +74,19 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
     let thresholds_store = Arc::new(PgThresholds::new(pool.clone()));
     let sensors_store = Arc::new(PgSensors::new(pool.clone()));
     let buildings_store = Arc::new(PgBuildings::new(pool.clone()));
-    let dispatch = Arc::new(HttpDispatch::from_json(pool.clone(), bindings).unwrap());
+    let dispatch = Arc::new(HttpDispatch::from_json(pool.clone(), BINDINGS).unwrap());
     let ingest_key = IngestKey::new(INGEST_SECRET).unwrap();
     let alerts = Arc::new(StubAlerts::default());
     let fanout = Arc::new(StubFanout::default());
+    let (simulators, simulator_specs) = HttpSimulators::from_json(simulators).unwrap();
+    let simulation = Simulation::new(
+        simulator_specs,
+        Arc::new(simulators) as Arc<dyn SimulatorControl>,
+        sensors_store.clone() as Arc<dyn SensorStore>,
+        buildings_store.clone() as Arc<dyn BuildingStore>,
+        &devices,
+    )
+    .unwrap();
     let directory = Arc::new(StubDirectory {
         domains: domains.iter().map(|d| (*d).to_owned()).collect(),
     });
@@ -114,6 +130,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
             thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
             events: Arc::new(StubEvents),
         },
+        simulation,
     });
 
     TestApp {

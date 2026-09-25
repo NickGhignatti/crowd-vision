@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/simulation-start.schema.json",
+  "title": "SimulationStart",
+  "description": "The body telemetry POSTs to a simulator's /control/start: the building and the sensors that simulator is to simulate, replacing whatever it held for the building. Built by telemetry in Rust, parsed by sensor-simulator in TypeScript and aq-simulator in Python.",
+  "type": "object",
+  "required": ["buildingId", "sensors"],
+  "additionalProperties": false,
+  "$comment": "No targetUrl: a simulator posts to its own TELEMETRY_INGEST_URL, so no caller can redirect its signed readings.",
+  "properties": {
+    "buildingId": { "type": "string", "minLength": 1 },
+    "sensors": {
+      "type": "array",
+      "description": "May be empty: the simulator then stops simulating the building.",
+      "items": { "$ref": "#/$defs/sensor" }
+    }
+  },
+  "$defs": {
+    "sensor": {
+      "type": "object",
+      "required": ["sensorId", "sensorType", "roomId"],
+      "additionalProperties": false,
+      "properties": {
+        "sensorId": { "type": "string", "minLength": 1 },
+        "sensorType": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A device kind from telemetry's catalog, never a metric."
+        },
+        "roomId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Readings are room-keyed, so an outdoor sensor is never sent."
+        }
+      }
+    }
+  }
+}

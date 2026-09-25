@@ -45,16 +45,6 @@
         reverse_proxy digital-twin:3000
     }
 
-    # ── Sensor Simulator (TP) ─────────────────────────────────────────────────
-    handle_path /simulator/tp/* {
-        reverse_proxy sensor-simulator:3000
-    }
-
-    # ── Air Quality Simulator (AQ) ────────────────────────────────────────────
-    handle_path /simulator/aq/* {
-        reverse_proxy aq-simulator:3000
-    }
-
     # ── Notification service ──────────────────────────────────────────────────
     handle_path /notification/* {
         import require_gateway_auth

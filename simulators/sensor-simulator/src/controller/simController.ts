@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { Simulator } from "../services/simulatorService.js";
+import { parseStart } from "../models/signal.js";
 
 /**
  * Recursively strips CR/LF from strings so user-provided request data can't
@@ -26,14 +27,11 @@ export const start = async (
   res: Response,
 ) => {
   try {
-    simulator.startOrAdd({
-      buildingId: req.body.buildingId,
-      roomIds: req.body.roomIds,
-      targetUrl: req.body.targetUrl,
-    });
+    const building = parseStart(req.body);
+    simulator.startOrAdd(building);
     res
       .status(200)
-      .json({ message: `Simulator started for ${req.body.buildingId}` });
+      .json({ message: `Simulator started for ${building.buildingId}` });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

@@ -3,18 +3,12 @@
 
 CrowdVision ships two simulators that exist **outside the main application cluster**. They are not microservices — they are test stand-ins for systems that in production would be real external hardware or third-party services.
 
-.var {headers}
-   - Simulator
-   - Location
-   - What it replaces
+| Simulator | Location | Simulates |
+|---|---|---|
+| **Sensor Simulator** | `simulators/sensor-simulator/` | Thermostats (`temperature`) and people counters (`peopleCount`) |
+| **Air Quality Simulator** | `simulators/aq-simulator/` | Air-quality stations (`airQuality`) |
 
-.tablebyrows {.headers}
-    - - **Sensor Simulator**
-      - `simulators/sensor-simulator/`
-      - Physical IoT sensors installed in buildings (people count + temperature)
-    - - **Air Quality Simulator**
-      - `simulators/aq-simulator/`
-      - External AQ monitoring stations sending air-quality readings
+Routers have no simulator: `ap-simulator` fakes access points for `devices/ap-collector`, which polls them itself and is not started from the dashboard.
 
 ---
 
@@ -22,155 +16,114 @@ CrowdVision ships two simulators that exist **outside the main application clust
 
 **Decision:** Simulators are never included in Kubernetes manifests and are not part of the production system definition.
 
-**Why:** In production, CrowdVision receives data from physical IoT sensors and third-party AQ stations. Those devices are external — they know nothing about the cluster; they just POST to public API endpoints. The simulators are designed to model exactly this reality.
+**Why:** In production, CrowdVision receives data from physical IoT sensors and third-party AQ stations. Those devices are external — they know nothing about the cluster; they just POST to public API endpoints. The simulators model exactly this:
 
-Running simulators outside Kubernetes enforces that boundary at the architecture level:
 - The K8s manifests describe only the real system — no test tooling bleeds into production configs.
-- Each simulator connects to the cluster the same way real hardware would: via the public-facing Ingress URL (`http://crowdvision.local/telemetry/`).
-- Deploying to production requires zero changes — the simulators simply point at a different URL.
+- Each simulator posts readings the same way real hardware would: to `/telemetry/ingest`, signed.
+- Telemetry commands a simulator the way it commands a device's action endpoint: by a URL from its own configuration (`SIMULATORS`). k8s sets none, so there a start answers `404`.
 
-This is the same reasoning behind not running load-test tooling inside a production cluster: the test tool is not the system under test.
+---
+
+## What Gets Simulated
+
+**Exactly the sensors placed in the digital twin.** A simulator starts empty and simulates only what telemetry tells it at start.
+
+| Device kind | Simulator | Reading per sensor per tick |
+|---|---|---|
+| `temperature` | sensor-simulator | one `temperature`, in the sensor's room |
+| `peopleCount` | sensor-simulator | one `peopleCount`, in the sensor's room |
+| `airQuality` | aq-simulator | one `airQuality`, in the sensor's room, with its own drifting state |
+| `router` | — | nothing |
+
+- **Outdoor sensors** (no room) are never simulated: readings are room-keyed.
+- **Two sensors of one kind in one room** give two readings for that room each tick.
+- **Sync happens only at start.** Sensors added, moved or removed during a run are simulated from the next start.
+
+---
+
+## How It Works
+
+1. The dashboard's **Start simulator** calls `PUT /telemetry/simulation/buildings/{id}` (editing role required).
+2. Telemetry reads the building's sensors and splits them by device kind, using `SIMULATORS`.
+3. Telemetry POSTs each simulator `/control/start` with its share — an empty list when it has none, which stops that building.
+4. Each simulator ticks every 10 s and POSTs one signed batch to its `TELEMETRY_INGEST_URL`.
+
+.mermaid
+    sequenceDiagram
+        participant UI as Dashboard (browser)
+        participant T as telemetry
+        participant S as sensor-simulator
+        participant A as aq-simulator
+
+        UI->>T: PUT /telemetry/simulation/buildings/b1
+        T->>T: read b1's sensors, split by kind
+        par
+            T->>S: POST /control/start {b1, [thermostats, people counters]}
+        and
+            T->>A: POST /control/start {b1, [air-quality stations]}
+        end
+        T-->>UI: 204
+
+        loop Every 10 seconds
+            S->>T: POST TELEMETRY_INGEST_URL (signed batch)
+            A->>T: POST TELEMETRY_INGEST_URL (signed batch)
+        end
+
+**Stop** (`DELETE`) tells every simulator to drop the building. **Status** (`GET`) is `running` when any simulator runs it. The browser never calls a simulator.
+
+---
+
+## Control API
+
+Called by telemetry only. The start body is pinned by `schemas/fixtures/simulation-start.json`, which both simulators' tests assert.
+
+| Method | Endpoint | Body | Effect |
+|---|---|---|---|
+| `POST` | `/control/start` | `{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }` | Replaces what the building simulates. Empty `sensors` stops it. Any other key (e.g. the old `targetUrl`) is refused. |
+| `POST` | `/control/stop` | `{ buildingId }` | Stops the building. Stopping one it never simulated succeeds. |
+| `GET` | `/control/status?buildingId=X` | — | `{ isRunning }` |
+
+---
+
+## Configuration
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TELEMETRY_INGEST_URL` | `http://gateway/telemetry/ingest` | Where readings go. Set by the simulator's own environment, never by a caller. |
+| `TELEMETRY_INGEST_SECRET` | *(empty)* | HMAC key for `X-Signature`; must match telemetry's. |
 
 ---
 
 ## Running the Simulators
 
-Both simulator images are built and pushed to GHCR as part of the CD pipeline. To run them locally:
-
-```bash
-# Sensor simulator (people count + temperature):
-docker run -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest
-
-# Air quality simulator:
-docker run -p 3002:3000 ghcr.io/nickghignatti/crowdvision-aq-simulator:latest
-```
-
-Alternatively, both simulators are included in the Docker Compose stack and start automatically with `just stack dev` (unless excluded):
+Both are part of the Docker Compose stack and start with `just stack dev`:
 
 ```bash
 just stack dev --no-simulators   # skip both simulators
 just stack dev aq                # skip only the AQ simulator
 ```
 
-To stop a standalone container:
+Standalone, against a cluster on the host (the images are built and pushed to GHCR by CD):
 
 ```bash
-docker stop <container-id>
+docker run -p 3001:3000 --add-host host.docker.internal:host-gateway \
+  -e TELEMETRY_INGEST_URL=http://host.docker.internal/telemetry/ingest \
+  -e TELEMETRY_INGEST_SECRET=<secret> \
+  ghcr.io/nickghignatti/crowdvision-simulator:latest
 ```
 
----
-
-## How Connections Work
-
-The simulator sends data to CrowdVision's `/telemetry/ingest` endpoint via HTTP POST. When the user starts the simulator from the dashboard UI, the Vue client:
-
-1. Reads `window.location.origin` to determine the current application's base URL (e.g., `http://localhost`).
-2. Appends `/telemetry/` to form the **target URL** (e.g., `http://localhost/telemetry/`).
-3. POSTs this target URL to the simulator's `/control/start` endpoint, along with the building ID and room IDs.
-4. The simulator stores this URL and begins firing data at it every 10 seconds.
-
-.mermaid
-    sequenceDiagram
-        participant UI as Vue Dashboard (Browser)
-        participant Sim as Simulator Container (Docker)
-        participant K8s as K8s Cluster (Istio ingress :80)
-        participant SS as telemetry Pod
-
-        UI->>Sim: POST http://localhost:3001/control/start\n{targetUrl: "http://localhost/telemetry", buildingId, roomIds}
-        Sim->>Sim: Stores targetUrl, starts tick loop
-        
-        loop Every 10 seconds
-            Sim->>K8s: POST http://host.docker.internal/telemetry/ingest
-            K8s->>SS: Forwards request (prefix /telemetry stripped by Ingress)
-            SS->>SS: Saves to telemetry-db (Postgres + TimescaleDB)
-        end
-
----
-
-## The `host.docker.internal` Resolution
-
-This is the most important implementation detail to understand when running the simulator against a local k3d cluster.
-
-**The problem:** When the Vue frontend runs in a browser, `window.location.origin` returns `http://localhost`. The simulator receives this as its target URL. But the simulator is a **Docker container** — from inside a Docker container, `localhost` resolves to `127.0.0.1` of the **container itself**, not your laptop. The k3d load balancer is not listening inside the simulator container, so every `fetch()` call fails with `ECONNREFUSED`.
-
-**The solution:** Docker Desktop (Windows and macOS) provides a special hostname `host.docker.internal` that always resolves to the host machine from inside any container. The simulator automatically rewrites `localhost` and `127.0.0.1` to `host.docker.internal` before making any outbound request:
-
-```typescript
-// simulatorService.ts — startOrAdd()
-if (parsedUrl.includes("localhost") || parsedUrl.includes("127.0.0.1")) {
-  parsedUrl = parsedUrl
-    .replace(/localhost/g, "host.docker.internal")
-    .replace(/127\.0\.0\.1/g, "host.docker.internal");
-}
-```
-
-The rewrite is transparent to the user — they type `http://localhost:3001` as the simulator URL in the dashboard, and the simulator resolves the routing correctly.
-
-.box type:{note}
-    **Linux Docker users:** `host.docker.internal` is not automatically available on Linux. Start the simulator with `--add-host host.docker.internal:host-gateway` to enable it:
-    
-    `docker run --add-host host.docker.internal:host-gateway -p 3001:3000 ghcr.io/nickghignatti/crowdvision-simulator:latest`
-
-.box type:{note}
-    **Remote VPS deployment:** When the application is deployed on a VPS, the target URL the frontend sends will be `https://yourdomain.com/telemetry` — a fully qualified hostname with no `localhost` in it. The rewrite block never runs, and the simulator sends directly to the public URL. No configuration changes are required.
-
----
-
-## Simulator Control API
-
-The simulator exposes three HTTP endpoints that the Vue dashboard calls directly (bypassing the cluster Ingress entirely):
-
-.var {headers}
-   - Method
-   - Endpoint
-   - Body
-   - Description
-
-.tablebyrows {.headers}
-    - - `POST`
-      - `/control/start`
-      - `{ buildingId, roomIds, targetUrl }`
-      - Starts sending simulated data for the given building. If the building is already registered, it replaces it (idempotent).
-    - - `POST`
-      - `/control/stop`
-      - `{ buildingId }`
-      - Stops sending data for the given building. If no buildings remain active, the simulator loop halts entirely.
-    - - `GET`
-      - `/control/status?buildingId=X`
-      - —
-      - Returns `{ isRunning: boolean }` indicating whether the given building is currently being simulated.
-
-The simulator can manage multiple buildings simultaneously. Each building sends signals for all its rooms independently.
+Inside a container `localhost` is the container itself, so the ingest URL must name the host. `--add-host` is needed on Linux only; Docker Desktop resolves `host.docker.internal` by itself. Telemetry must then list the simulator's URL in `SIMULATORS` to start it.
 
 ---
 
 ## Simulation Parameters
 
-The following values are currently fixed in `simulatorService.ts`. They can be adjusted by editing the service and rebuilding the image:
+Fixed in `simulatorService.ts`; change them by editing the service and rebuilding the image.
 
-.var {headers}
-   - Parameter
-   - Default
-   - Description
+| Parameter | Default | Description |
+|---|---|---|
+| `delay` | `10000 ms` | Interval between batches. |
+| `peopleCountRange` | `[0, 50]` | Random headcount per people counter per tick. |
+| `temperatureRange` | `[18.0, 30.0]` | Random °C per thermostat per tick, 2 decimals. |
 
-.tablebyrows {.headers}
-    - - `delay`
-      - `10000 ms`
-      - Interval between signal batches (10 seconds).
-    - - `peopleCountRange`
-      - `[0, 50]`
-      - Random headcount generated per room per tick.
-    - - `temperatureRange`
-      - `[18.0, 30.0]`
-      - Random temperature (°C) generated per room per tick. Rounded to 2 decimal places.
-
----
-
-## Connecting the Simulator from the Dashboard
-
-From the Vue dashboard (Graph view), a gear icon opens the simulator configuration modal. Enter the simulator's base URL (e.g., `http://localhost:3001`) and click Save. The dashboard remembers this URL in `localStorage`, so you only need to enter it once per browser.
-
-Once configured:
-- Click **Start simulator** to begin sending data. The button turns green with an animated indicator while active.
-- Click **Stop simulator** to halt data transmission for the current building.
-- The dashboard polls `/control/status` every time the building selection changes to keep the button state in sync with the actual simulator state.
+The air-quality simulator's physics, scenarios and sensor-error model live in `simulators/aq-simulator/` (`physics.py`, `scenarios.py`, `errors.py`); its tick interval defaults to 10 s.

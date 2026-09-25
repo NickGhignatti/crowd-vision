@@ -3,4 +3,6 @@ services:
     develop:
       watch:
         - action: rebuild
-          path: ./requirements.txt
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock

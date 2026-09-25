@@ -58,6 +58,12 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/sensors/buildings/{buildingId}/rooms/{roomId}",
             get(c::room_sensors),
         )
+        .route(
+            "/simulation/buildings/{buildingId}",
+            get(c::simulation_status)
+                .put(c::start_simulation)
+                .delete(c::stop_simulation),
+        )
         .route("/executeAction", post(c::execute_action))
         .route("/{sensorType}/latest", get(c::latest))
         .route("/{sensorType}/entireBuilding", get(c::entire_building))

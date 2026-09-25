@@ -9,7 +9,7 @@ Orchestrates all three simulation layers for one or more buildings:
 
 One SimulationRoom owns the state (EnvironmentModel + SensorErrorModel) for
 a single room. The Simulator class manages all active buildings and rooms,
-ticks them on a configurable schedule, and POSTs the results to the target URL.
+ticks them on a configurable schedule, and POSTs the results to TELEMETRY_INGEST_URL.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ import hmac
 import json
 import logging
 import os
-import re
 import time
 from dataclasses import dataclass, field
 
@@ -34,6 +33,8 @@ from schemas import AirQualityReading, BuildingConfig
 logger = logging.getLogger("simulator")
 
 INGEST_SECRET = os.environ.get("TELEMETRY_INGEST_SECRET", "").encode()
+INGEST_URL = os.environ.get("TELEMETRY_INGEST_URL", "http://gateway/telemetry/ingest")
+AIR_QUALITY = "airQuality"
 
 
 def _sign(raw: bytes) -> str:
@@ -107,25 +108,18 @@ class SimulationBuilding:
     rooms: dict[str, SimulationRoom] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        for room_id in self.config.roomIds:
-            self.rooms[room_id] = SimulationRoom(
-                building_id = self.config.buildingId,
-                room_id     = room_id,
-                scenario    = self.config.scenario,
-            )
+        # Keyed by sensor: two stations in one room each drift on their own.
+        for sensor in self.config.sensors:
+            if sensor.sensorType == AIR_QUALITY:
+                self.rooms[sensor.sensorId] = SimulationRoom(
+                    building_id = self.config.buildingId,
+                    room_id     = sensor.roomId,
+                    scenario    = self.config.scenario,
+                )
 
     @property
     def building_id(self) -> str:
         return self.config.buildingId
-
-    @property
-    def target_url(self) -> str:
-        url = self.config.targetUrl.rstrip("/")
-        # Docker-internal host remapping (mirrors the TypeScript behaviour)
-        url = url.replace("localhost", "gateway")
-        url = url.replace("127.0.0.1", "gateway")
-        url = re.sub(r"gateway:\d+", "gateway", url)
-        return url
 
     @property
     def interval(self) -> float:
@@ -173,9 +167,9 @@ class Simulator:
             task.cancel()
 
         logger.info(
-            "Simulator registered for building=%s rooms=%s scenario=%s interval=%ss",
+            "Simulator registered for building=%s sensors=%d scenario=%s interval=%ss",
             _log_safe(config.buildingId),
-            _log_safe(config.roomIds),
+            len(config.sensors),
             _log_safe(config.scenario),
             _log_safe(config.interval_seconds),
         )
@@ -195,9 +189,9 @@ class Simulator:
         )
         self._tasks[building_id] = task
         logger.info(
-            "Simulator started for building=%s rooms=%s scenario=%s interval=%ss",
+            "Simulator started for building=%s stations=%d scenario=%s interval=%ss",
             _log_safe(building.config.buildingId),
-            _log_safe(building.config.roomIds),
+            len(building.rooms),
             _log_safe(building.config.scenario),
             _log_safe(building.config.interval_seconds),
         )
@@ -210,17 +204,19 @@ class Simulator:
             self.start(building_id)
 
     def start_or_add(self, config: BuildingConfig) -> None:
-        """Register a building and start its tick-loop (legacy helper)."""
+        """Replace what the building simulates; no air-quality station means stop simulating it."""
         self.register_building(config)
+        if not self._buildings[config.buildingId].rooms:
+            self.stop(config.buildingId)
+            return
         self.start(config.buildingId)
 
     def stop(self, building_id: str) -> None:
-        """Stop simulation for one building."""
-        if building_id not in self._buildings:
-            raise ValueError(f"Building '{building_id}' is not registered")
+        """Stop simulating one building; one it never simulated is already stopped."""
         task = self._tasks.pop(building_id, None)
         if task:
             task.cancel()
+        self._buildings.pop(building_id, None)
         logger.info("Simulator stopped for building=%s", _log_safe(building_id))
 
     def get_is_running(self, building_id: str) -> bool:
@@ -260,7 +256,7 @@ class Simulator:
             "readings": [reading.model_dump() for reading in readings],
         }
         raw = json.dumps(payload, separators=(",", ":")).encode()
-        url = f"{building.target_url}/ingest"
+        url = INGEST_URL
 
         try:
             logger.info("POSTing %d readings to %s", len(readings), url)

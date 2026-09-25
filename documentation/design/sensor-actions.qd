@@ -171,7 +171,7 @@ Step by step:
 3. **HTTP adapter** resolves the building's domains and calls `authz::can_edit_domains`. Actions are **edit**: a `standard_customer` who can watch the chart cannot move the boiler.
 4. **Kernel** resolves the plugin, finds the `ActionSpec`, validates the arguments. Never sees a URL.
 5. **ACL** resolves sensor → driver → binding, renames `target` to `value`, checks the URL scheme, sends it.
-6. **Device** replies. Non-2xx and unreachable both become `502`.
+6. **Device** replies. Non-2xx and unreachable both become `502`; so does no answer within 5 s.
 
 ### Error mapping
 

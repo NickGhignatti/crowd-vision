@@ -1,0 +1,89 @@
+{
+  "description": "The body telemetry POSTs to a simulator's /control/start. Built by telemetry from the building's sensors; parsed by sensor-simulator (TypeScript) and aq-simulator (Python). Each simulator receives only the sensors whose device kind it simulates.",
+  "rules": {
+    "sensors": "Replaces everything the simulator held for the building. May be empty: the simulator then stops simulating the building, so a sensor removed in the twin stops producing readings.",
+    "roomId": "Always a room of the building. Readings are room-keyed, so telemetry never sends an outdoor sensor.",
+    "sensorType": "A device kind from telemetry's catalog (`GET /telemetry/devices`), never a metric. A simulator ignores a kind it does not simulate.",
+    "targetUrl": "Absent on purpose. A simulator reads where to post readings from its own TELEMETRY_INGEST_URL, so no caller can redirect its signed batches."
+  },
+  "cases": [
+    {
+      "name": "a thermostat and a people counter in one room",
+      "consumer": "sensor-simulator",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "sensors": [
+          {
+            "sensorId": "7f3d2a90-1c4e-4b8a-9f00-2d5e6a7b8c9d",
+            "sensorType": "temperature",
+            "roomId": "room-lab-2"
+          },
+          {
+            "sensorId": "0b1c2d3e-4f50-4617-8293-a4b5c6d7e8f9",
+            "sensorType": "peopleCount",
+            "roomId": "room-lab-2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "two air-quality stations in two rooms",
+      "consumer": "aq-simulator",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "sensors": [
+          {
+            "sensorId": "c4d5e6f7-0819-4a2b-8c3d-4e5f60718293",
+            "sensorType": "airQuality",
+            "roomId": "room-lab-2"
+          },
+          {
+            "sensorId": "d5e6f708-192a-4b3c-9d4e-5f6071829304",
+            "sensorType": "airQuality",
+            "roomId": "room-aula-magna"
+          }
+        ]
+      }
+    },
+    {
+      "name": "no sensors -- the building stops being simulated",
+      "consumer": "any",
+      "body": { "buildingId": "bldg-3f2b4c5d", "sensors": [] }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "an outdoor sensor",
+      "reason": "roomId: must be a room; outdoor readings have nowhere to go",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "sensors": [
+          {
+            "sensorId": "7f3d2a90-1c4e-4b8a-9f00-2d5e6a7b8c9d",
+            "sensorType": "temperature",
+            "roomId": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "no sensors list",
+      "reason": "sensors: required -- an absent list is not an empty one",
+      "body": { "buildingId": "bldg-3f2b4c5d" }
+    },
+    {
+      "name": "no building",
+      "reason": "buildingId: required",
+      "body": { "sensors": [] }
+    },
+    {
+      "name": "a caller-chosen ingest target",
+      "reason": "targetUrl: not allowed -- the old body let any caller redirect signed readings",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "sensors": [],
+        "targetUrl": "http://localhost/telemetry/"
+      }
+    }
+  ]
+}

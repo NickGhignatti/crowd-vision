@@ -17,11 +17,11 @@ A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings fr
     - - `src/types/`
       - Pure types and traits: `SensorPlugin`, `MetricDescriptor`, `ActionSpec`, `Reading`, `Command`, threshold resolution, query/bucketing rules. Imports nothing from the rest of the crate.
     - - `src/kernel/`
-      - Use cases — `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration` — plus `ports.rs`, `registry.rs`, `authz.rs`. Depends only on `contracts` and its own port traits.
+      - Use cases — `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation` — plus `ports.rs`, `registry.rs`, `authz.rs`. Depends only on `contracts` and its own port traits.
     - - `src/plugins/`
       - One file per metric: `temperature.rs`, `people_count.rs`, `air_quality.rs`, plus `common.rs`. No plugin imports another.
     - - `src/adapters/driven/`
-      - `postgres/`, `redis_fanout.rs`, `kafka_producer.rs`, `twin_directory.rs`, `dispatch.rs`.
+      - `postgres/`, `redis_fanout.rs`, `kafka_producer.rs`, `twin_directory.rs`, `dispatch.rs`, `simulators.rs`.
     - - `src/adapters/driving/`
       - `http_api/` (claims, controllers, error mapping), `kafka_consumer.rs`.
     - - `src/state.rs`, `src/main.rs`
@@ -53,6 +53,9 @@ A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings fr
     - - `DIGITAL_TWIN_URL`
       - `http://digital-twin:3000`
       - Building-to-domain lookups for authorization.
+    - - `SIMULATORS`
+      - *(none)*
+      - JSON `{name: {url, kinds}}`: which simulator produces which device kinds. Unset or blank = no simulators (k8s). A kind that is not a device, or one claimed by two simulators, fails startup.
     - - `PORT`
       - `3000`
       - HTTP listener.
@@ -160,6 +163,30 @@ A read is served in the **same flat shape as the `telemetry` socket event**: env
 Positions are **not** stored here: they are physical layout and belong to digital-twin, keyed by the same `sensorId`.
 
 **Actions** — `POST /executeAction`. The kernel validates the command against the plugin's `ActionSpec`; the dispatch adapter translates it into the device's own vocabulary. See [Sensor Actions & the Device ACL](../design/sensor-actions.qd).
+
+**Simulation** — `PUT` / `DELETE` / `GET /simulation/buildings/{id}` start, stop and report the simulators standing in for a building's devices. Start and stop need an editing role, status a reading one. Telemetry is the only caller of a simulator: it owns the sensor rows, and the browser never reaches a simulator.
+
+.var {simrules}
+   - Rule
+   - Why
+
+.tablebyrows {.simrules}
+    - - Start reads the building's sensors and sends each simulator the ones whose kind it claims in `SIMULATORS`
+      - The simulators stay dumb: they simulate exactly what they are told.
+    - - Every configured simulator is told, even with an empty list; empty = stop the building
+      - A sensor removed in the twin must stop producing readings.
+    - - Routers (no simulator claims them) and outdoor sensors are never sent
+      - Nothing simulates a router; readings are room-keyed, so an outdoor reading has nowhere to go.
+    - - Body pinned by `schemas/fixtures/simulation-start.json`; no `targetUrl`
+      - Two simulators in two languages parse it; a simulator posts to its own `TELEMETRY_INGEST_URL`.
+    - - Calls run concurrently, 5 s timeout each; all are tried, then any failure is `502`
+      - One dead simulator must not leave the others stale. A retry is safe: start replaces.
+    - - Status is `running` when any simulator runs the building; an unreachable one counts as not running
+      - `--no-simulators` must not break the dashboard's toggle.
+    - - No simulator configured: start and stop are `404`
+      - What k8s gets, where simulators are not deployed.
+
+Sync happens only at start: sensors edited during a run are simulated from the next start.
 
 ---
 

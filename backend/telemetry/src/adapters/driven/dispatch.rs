@@ -5,6 +5,10 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 use sqlx::PgPool;
 use std::collections::HashMap;
+use std::time::Duration;
+
+// A hung device raises no error, so without a timeout the action request would never answer.
+const TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Binding {
@@ -32,7 +36,10 @@ impl HttpDispatch {
         Self {
             sensors_pool,
             bindings,
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(TIMEOUT)
+                .build()
+                .expect("reqwest client builds"),
         }
     }
 
@@ -92,7 +99,7 @@ fn rename(binding: &Binding, arguments: &Map<String, Value>) -> Map<String, Valu
         .collect()
 }
 
-fn is_http(url: &str) -> bool {
+pub(crate) fn is_http(url: &str) -> bool {
     let url = url.to_ascii_lowercase();
     url.starts_with("http://") || url.starts_with("https://")
 }

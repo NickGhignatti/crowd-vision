@@ -126,4 +126,3 @@ eval models="" judge="":
 [doc("Run backend integration tests — only the services backend/acceptance actually exercises, not the full stack.")]
 integration:
     bash backend/acceptance/run-integration-tests.sh
-    @mise exec -- python3 scripts/compose/compose-run.py down

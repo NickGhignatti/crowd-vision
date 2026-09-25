@@ -9,4 +9,5 @@ pub mod readings;
 pub mod registration;
 pub mod registry;
 pub mod sensors;
+pub mod simulation;
 pub mod thresholds;

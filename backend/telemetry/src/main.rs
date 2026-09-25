@@ -5,6 +5,7 @@ use telemetry::adapters::driven::dispatch::HttpDispatch;
 use telemetry::adapters::driven::kafka_producer::KafkaEvents;
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
 use telemetry::adapters::driven::redis_fanout::RedisFanout;
+use telemetry::adapters::driven::simulators::HttpSimulators;
 use telemetry::adapters::driven::threshold_cache::CachedThresholds;
 use telemetry::adapters::driven::twin_directory::TwinDirectory;
 use telemetry::adapters::driving::kafka_consumer;
@@ -15,12 +16,13 @@ use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
 use telemetry::kernel::ports::{
     Alerts, BuildingDirectory, BuildingStore, Clock, Fanout, ReadingStore, RegistrationEvents,
-    SensorStore, ThresholdStore,
+    SensorStore, SimulatorControl, ThresholdStore,
 };
 use telemetry::kernel::readings::Readings;
 use telemetry::kernel::registration::Registration;
 use telemetry::kernel::registry::PluginRegistry;
 use telemetry::kernel::sensors::Sensors;
+use telemetry::kernel::simulation::Simulation;
 use telemetry::kernel::thresholds::Thresholds;
 use telemetry::plugins;
 use telemetry::state::{AppState, SystemClock};
@@ -76,6 +78,15 @@ async fn main() -> anyhow::Result<()> {
     let dispatch = Arc::new(HttpDispatch::from_json(pool.clone(), BINDINGS)?);
     let fanout = Arc::new(RedisFanout::connect(&redis_url).await?);
     let directory = Arc::new(TwinDirectory::new(twin_url));
+    let (simulators, simulator_specs) = HttpSimulators::from_json(&env_or("SIMULATORS", ""))?;
+    let simulation = Simulation::new(
+        simulator_specs,
+        Arc::new(simulators) as Arc<dyn SimulatorControl>,
+        sensors_store.clone() as Arc<dyn SensorStore>,
+        buildings_store.clone() as Arc<dyn BuildingStore>,
+        &devices,
+    )
+    .map_err(|error| anyhow::anyhow!(error))?;
 
     let kafka = match KafkaEvents::connect(&brokers).await {
         Ok(producer) => Arc::new(producer),
@@ -133,6 +144,7 @@ async fn main() -> anyhow::Result<()> {
             thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
             events: registration.events.clone(),
         },
+        simulation,
     });
 
     kafka_consumer::spawn(&brokers, kafka_consumer::GROUP_ID, registration);

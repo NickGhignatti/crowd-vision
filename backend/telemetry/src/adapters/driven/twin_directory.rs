@@ -4,6 +4,8 @@ use dashmap::DashMap;
 use std::time::{Duration, Instant};
 
 const TTL: Duration = Duration::from_secs(60);
+// A hung twin raises no error, so without a timeout every gated read would hang with it.
+const TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct TwinDirectory {
     base_url: String,
@@ -13,9 +15,16 @@ pub struct TwinDirectory {
 
 impl TwinDirectory {
     pub fn new(base_url: String) -> Self {
+        Self::with_timeout(base_url, TIMEOUT)
+    }
+
+    pub fn with_timeout(base_url: String, timeout: Duration) -> Self {
         Self {
             base_url,
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(timeout)
+                .build()
+                .expect("reqwest client builds"),
             cache: DashMap::new(),
         }
     }
@@ -94,6 +103,23 @@ mod tests {
         let directory = TwinDirectory::new(server.uri());
         directory.domains_of("b1", "raw").await.unwrap();
         directory.domains_of("b1", "raw").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_twin_that_hangs_past_the_timeout_is_an_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/domain/b1"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(vec!["eng"])
+                    .set_delay(Duration::from_secs(2)),
+            )
+            .mount(&server)
+            .await;
+
+        let directory = TwinDirectory::with_timeout(server.uri(), Duration::from_millis(100));
+        assert!(directory.domains_of("b1", "raw").await.is_err());
     }
 
     #[tokio::test]

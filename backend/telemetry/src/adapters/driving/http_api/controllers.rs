@@ -329,6 +329,36 @@ pub async fn apply_sensors(
     Ok(Json(json!({ "created": created })))
 }
 
+pub async fn start_simulation(
+    State(state): State<Arc<AppState>>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<StatusCode, DomainError> {
+    edit(&state, &claims, &building_id).await?;
+    state.simulation.start(&building_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn stop_simulation(
+    State(state): State<Arc<AppState>>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<StatusCode, DomainError> {
+    edit(&state, &claims, &building_id).await?;
+    state.simulation.stop(&building_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn simulation_status(
+    State(state): State<Arc<AppState>>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<Json<Value>, DomainError> {
+    read(&state, &claims, &building_id).await?;
+    let running = state.simulation.is_running(&building_id).await?;
+    Ok(Json(json!({ "running": running })))
+}
+
 pub async fn execute_action(
     State(state): State<Arc<AppState>>,
     claims: GatewayClaims,
