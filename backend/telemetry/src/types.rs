@@ -7,4 +7,5 @@ pub mod plugin;
 pub mod query;
 pub mod reading;
 pub mod sensor;
+pub mod simulation;
 pub mod threshold;

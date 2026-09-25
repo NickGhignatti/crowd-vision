@@ -3,10 +3,13 @@ mod support;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use serde_json::json;
-use support::test_app::{claims_with, test_app};
+use support::test_app::TestApp;
+use support::test_app::{claims_with, test_app, test_app_with_simulators};
 use support::{fresh_db, seed_building};
 use telemetry::adapters::ingest_auth::IngestKey;
 use telemetry_schema::MetricsDiscoveryResponse;
+use wiremock::matchers::any;
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const BASE_MS: i64 = 1_700_000_000_000;
 
@@ -1083,4 +1086,171 @@ async fn an_empty_bulk_room_patch_is_accepted_and_changes_nothing() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["data"].as_object().unwrap().len(), 0);
+}
+
+const SIMULATION_B1: &str = "/simulation/buildings/b1";
+
+async fn simulator(answer: ResponseTemplate) -> MockServer {
+    let server = MockServer::start().await;
+    Mock::given(any()).respond_with(answer).mount(&server).await;
+    server
+}
+
+async fn simulation_app(label: &str, sensor: &MockServer, aq: &MockServer) -> TestApp {
+    let pool = fresh_db(label).await;
+    seed_building(&pool, "b1", &["r1", "r2"]).await;
+    let simulators = json!({
+        "sensor-simulator": { "url": sensor.uri(), "kinds": ["temperature", "peopleCount"] },
+        "aq-simulator": { "url": aq.uri(), "kinds": ["airQuality"] },
+    });
+    test_app_with_simulators(pool, vec!["eng"], &simulators.to_string()).await
+}
+
+async fn received(server: &MockServer, path: &str) -> Vec<serde_json::Value> {
+    server
+        .received_requests()
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|request| request.url.path() == path)
+        .map(|request| serde_json::from_slice(&request.body).unwrap())
+        .collect()
+}
+
+#[tokio::test]
+async fn starting_sends_each_simulator_only_the_room_sensors_it_simulates() {
+    let (sensor, aq) = (
+        simulator(ResponseTemplate::new(200)).await,
+        simulator(ResponseTemplate::new(200)).await,
+    );
+    let app = simulation_app("simstart", &sensor, &aq).await;
+    let (_, body) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [
+                { "ref": "t", "name": "Lab thermostat", "sensorType": "temperature", "roomId": "r1" },
+                { "ref": "a", "name": "Aula AQ", "sensorType": "airQuality", "roomId": "r2" },
+                { "ref": "rt", "name": "Hall AP", "sensorType": "router", "roomId": "r1" },
+                { "ref": "o", "name": "Roof thermometer", "sensorType": "temperature", "roomId": null },
+            ]}),
+        )
+        .await;
+    let id = |reference: &str| {
+        body["created"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["ref"] == reference)
+            .unwrap()["sensorId"]
+            .clone()
+    };
+
+    let (status, _) = app
+        .send_json("PUT", SIMULATION_B1, Some(&staff()), json!(null))
+        .await;
+
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        received(&sensor, "/control/start").await,
+        vec![json!({ "buildingId": "b1", "sensors": [
+            { "sensorId": id("t"), "sensorType": "temperature", "roomId": "r1" }
+        ]})]
+    );
+    assert_eq!(
+        received(&aq, "/control/start").await,
+        vec![json!({ "buildingId": "b1", "sensors": [
+            { "sensorId": id("a"), "sensorType": "airQuality", "roomId": "r2" }
+        ]})]
+    );
+}
+
+#[tokio::test]
+async fn a_reader_cannot_start_a_simulation() {
+    let (sensor, aq) = (
+        simulator(ResponseTemplate::new(200)).await,
+        simulator(ResponseTemplate::new(200)).await,
+    );
+    let app = simulation_app("simreader", &sensor, &aq).await;
+    let (status, _) = app
+        .send_json("PUT", SIMULATION_B1, Some(&customer()), json!(null))
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(sensor.received_requests().await.unwrap().is_empty());
+    assert!(aq.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn starting_an_unregistered_building_is_not_found() {
+    let (sensor, aq) = (
+        simulator(ResponseTemplate::new(200)).await,
+        simulator(ResponseTemplate::new(200)).await,
+    );
+    let app = simulation_app("simunknown", &sensor, &aq).await;
+    let (status, body) = app
+        .send_json(
+            "PUT",
+            "/simulation/buildings/nope",
+            Some(&staff()),
+            json!(null),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["message"], "building nope is not registered.");
+}
+
+#[tokio::test]
+async fn starting_with_no_simulator_configured_is_not_found() {
+    let app = sensor_app("simnone").await;
+    let (status, body) = app
+        .send_json("PUT", SIMULATION_B1, Some(&staff()), json!(null))
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["message"], "no simulator is configured.");
+}
+
+#[tokio::test]
+async fn a_simulator_that_fails_to_start_is_a_bad_gateway() {
+    let (sensor, aq) = (
+        simulator(ResponseTemplate::new(500)).await,
+        simulator(ResponseTemplate::new(200)).await,
+    );
+    let app = simulation_app("simfail", &sensor, &aq).await;
+    let (status, _) = app
+        .send_json("PUT", SIMULATION_B1, Some(&staff()), json!(null))
+        .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(received(&aq, "/control/start").await.len(), 1);
+}
+
+#[tokio::test]
+async fn stopping_tells_every_simulator() {
+    let (sensor, aq) = (
+        simulator(ResponseTemplate::new(200)).await,
+        simulator(ResponseTemplate::new(200)).await,
+    );
+    let app = simulation_app("simstop", &sensor, &aq).await;
+    let (status, _) = app
+        .send_json("DELETE", SIMULATION_B1, Some(&staff()), json!(null))
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    for server in [&sensor, &aq] {
+        assert_eq!(
+            received(server, "/control/stop").await,
+            vec![json!({ "buildingId": "b1" })]
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_building_is_running_when_any_simulator_runs_it() {
+    let (sensor, aq) = (
+        simulator(ResponseTemplate::new(200).set_body_json(json!({ "isRunning": false }))).await,
+        simulator(ResponseTemplate::new(200).set_body_json(json!({ "isRunning": true }))).await,
+    );
+    let app = simulation_app("simstatus", &sensor, &aq).await;
+    let (status, body) = app.get(SIMULATION_B1, Some(&customer())).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, json!({ "running": true }));
 }

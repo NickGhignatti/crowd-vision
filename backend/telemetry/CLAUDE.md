@@ -13,9 +13,9 @@ Hexagon + microkernel, enforced by `tests/architecture.rs` — read it before re
 | Path | Holds | Must not import |
 |---|---|---|
 | `src/types/` | Plain shapes: reading, sensor, threshold, plugin specs, errors. | anything else in the crate, any IO crate |
-| `src/kernel/` | Use cases: `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `authz`, `registry` + `ports.rs`. | `crate::plugins`, `crate::adapters`, IO crates |
+| `src/kernel/` | Use cases: `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation`, `authz`, `registry` + `ports.rs`. | `crate::plugins`, `crate::adapters`, IO crates |
 | `src/plugins/` | One file per metric: `temperature`, `air_quality`, `people_count` (+ `common`). | `crate::kernel`, `crate::adapters`, IO crates, **any sibling plugin** |
-| `src/adapters/` | Postgres, Kafka, Redis fanout, twin directory, threshold cache, ingest auth, HTTP API. | — |
+| `src/adapters/` | Postgres, Kafka, Redis fanout, twin directory, simulators, threshold cache, ingest auth, HTTP API. | — |
 
 IO crates the core may never name: `sqlx`, `redis`, `rdkafka`, `axum`, `reqwest`, `prometheus`.
 
@@ -81,6 +81,14 @@ message}` and writes nothing if any item is bad, else applies all in one transac
 `room_id` null = outdoors. Positions live in digital-twin, never here. Actions find the
 device by `(building_id, sensor_id)` — never by room, or an outdoor or moved sensor is
 unreachable.
+
+**Simulators are told what to simulate at start, and only then.** `PUT /simulation/buildings/{id}`
+reads the building's sensors and sends each simulator in `SIMULATORS` the ones whose kind it
+claims (body: `schemas/fixtures/simulation-start.json`). Every simulator is told, even with an
+empty list — empty means stop, so a removed sensor stops being simulated. Routers (no simulator
+claims them) and outdoor sensors are never sent. Calls run concurrently with a 5 s timeout, all
+are tried, then any failure is `502`. `Simulation::new` refuses a kind that is not a device, or
+one claimed twice (doubled readings). No simulator configured → `404`.
 
 **Registration**: telemetry consumes `building-registration-requested` and answers
 `building-registration-completed` (both from `twin_schema`). `maxTemperature` is read here

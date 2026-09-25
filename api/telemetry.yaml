@@ -486,6 +486,80 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /simulation/buildings/{buildingId}:
+    parameters:
+      - $ref: "#/components/parameters/BuildingId"
+    put:
+      summary: Start simulating a building's sensors
+      description: >
+        Reads the building's sensors and sends each configured simulator the
+        ones whose device kind it claims, replacing whatever it held. Every
+        simulator is told, even with an empty list, which stops it for this
+        building. Routers and outdoor sensors are sent to no simulator.
+        Simulators are only synchronised here: sensors edited during a run are
+        picked up at the next start. Needs an editing role.
+      tags: [Simulation]
+      responses:
+        "204":
+          description: Every simulator accepted its sensors
+        "403":
+          description: Caller has no editing role in any of the building's domains
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: The building is not registered, or no simulator is configured
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "502":
+          description: >
+            A simulator failed or did not answer within 5 s. The others were
+            still told, so a retry is safe.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    delete:
+      summary: Stop simulating a building
+      tags: [Simulation]
+      responses:
+        "204":
+          description: Every simulator stopped the building
+        "403":
+          description: Caller has no editing role in any of the building's domains
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No simulator is configured
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "502":
+          description: A simulator failed or did not answer within 5 s
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    get:
+      summary: Whether any simulator is running the building
+      description: A simulator that does not answer counts as not running.
+      tags: [Simulation]
+      responses:
+        "200":
+          description: Simulation status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [running]
+                properties:
+                  running: { type: boolean }
+        "403":
+          description: Caller has no reading role in any of the building's domains
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /{sensorType}/latest:
     get:
       summary: Latest reading for one room

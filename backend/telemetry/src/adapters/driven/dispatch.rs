@@ -92,7 +92,7 @@ fn rename(binding: &Binding, arguments: &Map<String, Value>) -> Map<String, Valu
         .collect()
 }
 
-fn is_http(url: &str) -> bool {
+pub(crate) fn is_http(url: &str) -> bool {
     let url = url.to_ascii_lowercase();
     url.starts_with("http://") || url.starts_with("https://")
 }

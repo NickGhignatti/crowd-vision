@@ -1,6 +1,6 @@
 use crate::kernel::ports::{
     ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DispatchError, Fanout,
-    ReadingStore, RegistrationEvents, SensorStore, ThresholdStore,
+    ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
 };
 use crate::types::building::RegisteredBuilding;
 use crate::types::event::{AlertPayload, TelemetryEvent};
@@ -10,6 +10,7 @@ use crate::types::plugin::{
 use crate::types::query::Bucket;
 use crate::types::reading::Reading;
 use crate::types::sensor::{Command, Sensor, SensorChanges};
+use crate::types::simulation::SimulatedSensor;
 use crate::types::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use async_trait::async_trait;
 use serde_json::{Map, Value};
@@ -569,5 +570,60 @@ impl Default for FixedClock {
 impl Clock for FixedClock {
     fn now_ms(&self) -> i64 {
         self.0
+    }
+}
+
+/// Simulators named in `failing` answer 500 and those in `unreachable` never answer;
+/// only calls that succeed are recorded.
+#[derive(Default)]
+pub struct FakeSimulators {
+    pub started: Mutex<Vec<(String, String, Vec<SimulatedSensor>)>>,
+    pub stopped: Mutex<Vec<(String, String)>>,
+    pub running: Vec<String>,
+    pub failing: Vec<String>,
+    pub unreachable: Vec<String>,
+}
+
+impl FakeSimulators {
+    fn answer(&self, simulator: &str) -> Result<(), DispatchError> {
+        if self.unreachable.iter().any(|name| name == simulator) {
+            return Err(DispatchError::Unreachable("connection refused".to_owned()));
+        }
+        if self.failing.iter().any(|name| name == simulator) {
+            return Err(DispatchError::Status(500));
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl SimulatorControl for FakeSimulators {
+    async fn start(
+        &self,
+        simulator: &str,
+        building_id: &str,
+        sensors: &[SimulatedSensor],
+    ) -> Result<(), DispatchError> {
+        self.answer(simulator)?;
+        self.started.lock().unwrap().push((
+            simulator.to_owned(),
+            building_id.to_owned(),
+            sensors.to_vec(),
+        ));
+        Ok(())
+    }
+
+    async fn stop(&self, simulator: &str, building_id: &str) -> Result<(), DispatchError> {
+        self.answer(simulator)?;
+        self.stopped
+            .lock()
+            .unwrap()
+            .push((simulator.to_owned(), building_id.to_owned()));
+        Ok(())
+    }
+
+    async fn is_running(&self, simulator: &str, _building_id: &str) -> Result<bool, DispatchError> {
+        self.answer(simulator)?;
+        Ok(self.running.iter().any(|name| name == simulator))
     }
 }

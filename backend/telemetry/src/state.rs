@@ -8,6 +8,7 @@ use crate::kernel::readings::Readings;
 use crate::kernel::registration::Registration;
 use crate::kernel::registry::PluginRegistry;
 use crate::kernel::sensors::Sensors;
+use crate::kernel::simulation::Simulation;
 use crate::kernel::thresholds::Thresholds;
 use crate::types::sensor::Sensor;
 use serde_json::Value;
@@ -34,6 +35,7 @@ pub struct AppState {
     pub sensors: Sensors,
     pub actions: Actions,
     pub registration: Registration,
+    pub simulation: Simulation,
 }
 
 impl AppState {
