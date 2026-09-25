@@ -175,7 +175,7 @@ The two device simulators ship as GHCR images but are not application services, 
 .tablebyrows {.headers}
     - - `sensor-simulator`
       - Node.js 24 / TypeScript
-      - ESLint (shared config) + `tsc` build. No test suite exists yet, so there is no test step — a bare Jest with zero tests would fail.
+      - ESLint (shared config), `tsc` build, then Jest — which asserts the ingest-batch and simulation-start fixtures.
     - - `aq-simulator`
       - Python 3.12
       - `ruff check` (default rules: undefined names, unused imports), `pyright`, `uv audit`, then `pytest` — which asserts the ingest-batch and simulation-start fixtures.
