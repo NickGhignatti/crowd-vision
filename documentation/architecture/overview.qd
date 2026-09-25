@@ -138,7 +138,7 @@ In Kubernetes mode, Caddy is replaced by an **Istio Gateway** (Gateway API, `gat
 
 ![Kubernetes deployment diagram](images/k8s-view.png)
 
-A key difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it reaches the cluster through the load balancer's public port, just like a browser. See the [External Sensor Simulator](../config/sensor-simulator.qd) page. The cluster internals — StatefulSets, Secrets, Gateway API routes — are detailed in [Deployment & Kubernetes](deployment.qd); the mesh internals (ztunnel, `RequestAuthentication`, `AuthorizationPolicy`, Cedar) in [Service Mesh Architecture](service-mesh.qd).
+A key difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it posts readings through the load balancer's public port, just like a browser; it is started by telemetry, never by the browser, so in k8s telemetry needs its URL in `SIMULATORS`. See the [External Sensor Simulator](../config/sensor-simulator.qd) page. The cluster internals — StatefulSets, Secrets, Gateway API routes — are detailed in [Deployment & Kubernetes](deployment.qd); the mesh internals (ztunnel, `RequestAuthentication`, `AuthorizationPolicy`, Cedar) in [Service Mesh Architecture](service-mesh.qd).
 
 `agent` is deliberately excluded from the mesh's `AuthorizationPolicy`-enforced JWT gate: it also serves a local-dev evaluation bypass token that never holds a real gateway JWT, so it keeps checking for the mesh claims header first and falls back to its own token verification in-process.
 

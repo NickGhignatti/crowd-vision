@@ -149,7 +149,8 @@ None of these are code changes — they're the operational inputs the mesh expec
 The docker-compose (Caddy) and Kubernetes (Istio) stacks are kept at parity on every *authenticated application route*: the same paths are gated in both, verified in Phase 2 and re-checked when `/contracts` was added. A few things exist only in the dev stack, on purpose:
 
 - **The Vue frontend** is served by its own Vite dev server (hot reload) in compose and reached directly, not through Caddy. In k8s it's the `frontend` Deployment behind the gateway's `/` catch-all route.
-- **Simulators** (`/simulator/tp`, `/simulator/aq`) and the **Mongo-Express DB GUIs** (`/*-db-gui`) are Caddy-only developer conveniences; they aren't deployed to k8s.
+- The **Mongo-Express DB GUIs** (`/*-db-gui`) are Caddy-only developer conveniences; they aren't deployed to k8s.
+- **Simulators** have no route at either edge: only telemetry calls them (`SIMULATORS`), and they reach the cluster through `/telemetry/ingest` like any device. They aren't deployed to k8s.
 - **Prometheus and Grafana** are reached through Caddy subpaths in dev; in k8s Grafana has its own `HTTPRoute` (`grafana-route` in `k8s/istio-gateway.yml`) and Prometheus is in-cluster only (see [Observability](observability.qd)).
 
 Fine-grained per-tenant authorization (Cedar) is embedded where a tenant/role decision is actually needed — today `digital-twin` and `tenancy` — and rolls out per service rather than as a single mesh phase. It's a [separate concern](auth-architecture.qd) from the edge authentication this page covers, which is why the target-architecture diagram lists it as a layer without a matching phase row.
