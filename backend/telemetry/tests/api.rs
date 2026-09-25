@@ -740,6 +740,29 @@ async fn an_action_ignores_a_stale_room_from_the_client() {
 }
 
 #[tokio::test]
+async fn a_device_that_hangs_past_the_timeout_is_a_bad_gateway() {
+    let app = sensor_app("actionhang").await;
+    let server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(7)),
+        )
+        .mount(&server)
+        .await;
+    let sensor_id = device_sensor(&app, json!("r1"), &server.uri()).await;
+
+    let (status, _) = app
+        .send_json(
+            "POST",
+            "/executeAction",
+            Some(&staff()),
+            set_target("b1", &sensor_id, json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+}
+
+#[tokio::test]
 async fn an_action_cannot_reach_another_buildings_sensor() {
     let app = sensor_app("actionscope").await;
     let server = wiremock::MockServer::start().await;
