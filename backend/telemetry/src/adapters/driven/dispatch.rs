@@ -56,10 +56,9 @@ impl HttpDispatch {
     async fn resolve_target(&self, command: &Command) -> Result<(String, Binding), DispatchError> {
         let row: Option<(Option<String>, Option<String>)> = sqlx::query_as(
             "select driver, endpoint from sensors
-             where building_id = $1 and room_id = $2 and sensor_id = $3",
+             where building_id = $1 and sensor_id = $2",
         )
         .bind(&command.building_id)
-        .bind(&command.room_id)
         .bind(&command.sensor_id)
         .fetch_optional(&self.sensors_pool)
         .await

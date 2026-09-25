@@ -36,9 +36,17 @@ Target owned by [QA-P-01](quality-attributes.qd).
 
 ---
 
+## AL-8 — connect or remove a sensor
+
+- **Given** a Staff Member managing a building, **when** they connect sensors to a room or outside every room, rename, move or remove them in one save, **then** the whole save applies or none of it does, and each sensor gets a server-generated id.
+- **Given** a caller without an editing role in the building's domains, **when** they save sensors, **then** the save is refused and nothing changes.
+- **Given** a sensor is removed, **when** it keeps sending readings, **then** they are rejected. **Not yet built** — readings carry no sensor id.
+
+---
+
 ## Verification
 
-Both stories' performance criteria are implemented and asserted as numbers, not described. The functional criteria around them are covered too, with the two exceptions named below. Paths are repository-relative.
+BT-1's and LD-4's performance criteria are implemented and asserted as numbers, not described; AL-8 has none. The functional criteria are covered too, with the exceptions named below and AL-8's ingest rejection, marked above. Paths are repository-relative.
 
 ### BT-1 — where
 
@@ -67,9 +75,18 @@ Suite: `backend/digital-twin/tests/`. Cucumber features in `tests/features/`, th
 Suite: `backend/acceptance/acceptance/ld4_dashboard_freshness/`, pytest against a composed stack (telemetry, socket, dashboard and their infra), started by `backend/acceptance/run-integration-tests.sh` behind `just test integration`.
 
 - **An ingested reading reaches an open dashboard** — `test_live_update.py`: ingest returns `202`, the subscribed socket client receives a `telemetry` event carrying the same building, room and value. Wire-level; the render step itself is Vue reactivity, not a backend concern.
-- **A reading ingested during an outage is not lost** — `test_reconnect_catchup.py`: a known pre-outage value, disconnect, ingest, reconnect, then assert the *new* value is what the dashboard reads back — so a stale leftover cannot pass. The client half of that recovery is `frontend/src/stores/sensorData.ts`, whose `connect` handler re-subscribes every building and refetches every bucket; `BuildingTable.vue` reaches it through `useBuildingReadings`.
+- **A reading ingested during an outage is not lost** — `test_reconnect_catchup.py`: a known pre-outage value, disconnect, ingest, reconnect, then assert the *new* value is what the dashboard reads back — so a stale leftover cannot pass. The client half of that recovery is `frontend/src/stores/commons/sensorData.ts`, whose `connect` handler re-subscribes every building and refetches every bucket; `TelemetryPanel.vue` and the dashboard KPI strip reach it through `useBuildingReadings`.
 
 **Not yet asserted.** That the UI itself repaints on reconnect — proving it needs a real browser, out of this suite's scope. Separately, this suite has no CI job: it runs only on demand via `just test integration`.
+
+### AL-8 — where
+
+Suite: `backend/acceptance/sensor_registry/`, same composed stack as LD-4.
+
+- **Connect, move, remove in one save** — `test_a_sensor_batch_creates_moves_and_removes_sensors`: a room sensor and an outdoor sensor created, then one moved into a room and renamed while the other is deleted, read back through the listing.
+- **Refused without edit rights** — `test_a_sensor_batch_from_another_domain_is_forbidden`: `403`, and the building still lists no sensors.
+- **All-or-nothing** — asserted below the edge, in `backend/telemetry/tests/{api,persistence}.rs`.
+- **Where a sensor sits** — not in this suite: it stubs digital-twin with nginx, so placements have no real service to reach. Covered by twin's own `tests/api/placements.rs` and `tests/persistence_placements.rs` against a real MongoDB.
 
 ### LD-4 — how the performance criterion is measured
 

@@ -36,23 +36,13 @@ export default defineConfig({
   },
 
   /* Configure projects for major browsers */
+  /* One browser: the scene needs WebGPU/WebGL2, and Chromium is what the twin is developed against.
+     Add firefox or webkit back only with `npx playwright install` for them, or the run fails. */
   projects: [
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-      },
-    },
-    {
-      name: 'firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-      },
-    },
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
       },
     },
 

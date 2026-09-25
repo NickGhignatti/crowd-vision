@@ -5,8 +5,13 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 
 use crate::domain::identity::{ClaimsPayload, GatewayClaims, Membership};
-use crate::domain::{AcceptedUpload, Building, Coordinates, Dimensions, Room, UploadStatus};
-use crate::service::ports::{BuildingStore, DownstreamSync, RegistrationEvents, UploadQueue};
+use crate::domain::{
+    AcceptedUpload, Building, Coordinates, Dimensions, Placement, PlacementChanges, Room,
+    UploadStatus,
+};
+use crate::service::ports::{
+    BuildingStore, DownstreamSync, PlacementStore, RegistrationEvents, UploadQueue,
+};
 
 pub fn claims_with(memberships: Vec<(&str, &str)>) -> GatewayClaims {
     GatewayClaims {
@@ -249,6 +254,43 @@ impl RegistrationEvents for FakeEvents {
             anyhow::bail!("kafka said no");
         }
         self.published.lock().unwrap().push(building.clone());
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct FakePlacements {
+    pub saved: Mutex<HashMap<String, Vec<Placement>>>,
+    pub refuse: std::sync::atomic::AtomicBool,
+}
+
+#[async_trait]
+impl PlacementStore for FakePlacements {
+    async fn load(&self, building_id: &str) -> anyhow::Result<Vec<Placement>> {
+        if self.refuse.load(std::sync::atomic::Ordering::Relaxed) {
+            anyhow::bail!("placements refused");
+        }
+        Ok(self
+            .saved
+            .lock()
+            .unwrap()
+            .get(building_id)
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    async fn apply(&self, building_id: &str, changes: &PlacementChanges) -> anyhow::Result<()> {
+        if self.refuse.load(std::sync::atomic::Ordering::Relaxed) {
+            anyhow::bail!("placements refused");
+        }
+        let mut saved = self.saved.lock().unwrap();
+        let mut next = saved.get(building_id).cloned().unwrap_or_default();
+        for placement in &changes.upsert {
+            next.retain(|kept| kept.sensor_id != placement.sensor_id);
+            next.push(placement.clone());
+        }
+        next.retain(|kept| !changes.delete.contains(&kept.sensor_id));
+        saved.insert(building_id.to_owned(), next);
         Ok(())
     }
 }

@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod authz;
+pub mod devices;
 #[cfg(test)]
 pub mod fakes;
 pub mod ingest;

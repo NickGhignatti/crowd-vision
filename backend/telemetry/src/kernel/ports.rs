@@ -2,7 +2,7 @@ use crate::types::building::{BuildingNames, RegisteredBuilding};
 use crate::types::event::{AlertPayload, TelemetryEvent};
 use crate::types::query::Bucket;
 use crate::types::reading::Reading;
-use crate::types::sensor::{Command, Sensor};
+use crate::types::sensor::{Command, Sensor, SensorChanges};
 use crate::types::threshold::{Bounds, TemperatureLimits};
 use async_trait::async_trait;
 
@@ -63,12 +63,6 @@ pub trait ThresholdStore: Send + Sync {
 }
 
 #[derive(Debug)]
-pub enum RegisterError {
-    AlreadyExists,
-    Other(anyhow::Error),
-}
-
-#[derive(Debug)]
 pub enum DispatchError {
     Unconfigured(String),
     Status(u16),
@@ -77,7 +71,8 @@ pub enum DispatchError {
 
 #[async_trait]
 pub trait SensorStore: Send + Sync {
-    async fn register(&self, sensor: &Sensor) -> Result<(), RegisterError>;
+    /// Applies every change in one transaction, or none of them.
+    async fn apply(&self, building_id: &str, changes: &SensorChanges) -> anyhow::Result<()>;
     async fn by_building(&self, building_id: &str) -> anyhow::Result<Vec<Sensor>>;
     async fn by_room(&self, building_id: &str, room_id: &str) -> anyhow::Result<Vec<Sensor>>;
 }

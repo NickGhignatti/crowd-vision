@@ -208,6 +208,14 @@ Both follow the shape of the existing `peopleCount` plugin
 (`backend/telemetry/src/plugins/people_count.rs`): per building and room, non-negative
 integer, dashboard catalog, twin overlay, agent tool.
 
+**One device, two metrics.** The access point is what gets registered as a sensor — device kind
+`router` in telemetry's `plugins::devices()`, which reports both. Registering it once per metric
+would count one device twice.
+
+**Two lists of access points, for now.** The collector polls the APs in its own config; the
+sensor registry holds the routers the twin editor shows and places. Nothing keeps them in
+step. Accepted until the collector reads its APs from telemetry instead.
+
 **Neither carries a threshold.** A device count is an access-point capacity question, not a
 facility one — it breaches on a room full of laptops. And the estimate beside it is that same
 count divided by a site-configured factor, so a bound on it fires on the factor as much as on

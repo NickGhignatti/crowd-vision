@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::domain::{AcceptedUpload, Building, UploadStatus};
+use crate::domain::{AcceptedUpload, Building, Placement, PlacementChanges, UploadStatus};
 
 #[async_trait]
 pub trait BuildingStore: Send + Sync {
@@ -13,6 +13,14 @@ pub trait BuildingStore: Send + Sync {
     async fn upsert(&self, building: &Building) -> anyhow::Result<()>;
     async fn delete(&self, id: &str) -> anyhow::Result<()>;
     async fn counts_by_domain(&self, domains: &[String]) -> anyhow::Result<HashMap<String, i64>>;
+}
+
+#[async_trait]
+pub trait PlacementStore: Send + Sync {
+    async fn load(&self, building_id: &str) -> anyhow::Result<Vec<Placement>>;
+
+    /// Applies every change in the batch, or none of them.
+    async fn apply(&self, building_id: &str, changes: &PlacementChanges) -> anyhow::Result<()>;
 }
 
 #[async_trait]

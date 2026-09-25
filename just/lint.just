@@ -16,10 +16,11 @@ affected: workflows
 
 # ci-gate.yml runs this too, but a workflow with a dangling `needs:` is rejected by
 # GitHub before any job starts - so the check has to exist outside CI as well, or the
-# only symptom is a run that fails in 0s with no logs.
+# only symptom is a run that fails in 0s with no logs. Runs with CI's pinned pyyaml
+# (.github/requirements-lint.txt): the bare mise python has none, and failed before checking.
 [doc("Check the workflows against .github/services.json and for dangling needs/uses.")]
 workflows:
-    mise exec -- python3 scripts/check-workflow-registry.py
+    mise exec -- uv run --no-project --with-requirements .github/requirements-lint.txt python scripts/check-workflow-registry.py
 
 [doc("Fix linting issues across every service (always runs; not cached).")]
 fix:

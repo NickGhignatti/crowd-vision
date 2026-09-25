@@ -40,7 +40,14 @@ building is still refused; producers just stop sending the field that could disa
 `filtered_channel` / `RAW_CHANNEL`, topics from `adapters/topics.rs` (re-exported
 `twin_schema` / `telemetry_schema` constants).
 
-**Adding a metric = a plugin file plus its line in `plugins::all()`.** A plugin with bounds also
+**A sensor is a device, not a metric.** `sensor_type` holds a device kind from
+`plugins::devices()`; a router reports `totalDeviceCount` and `ratioDeviceCount`. Every metric
+belongs to exactly one device — `DeviceCatalog::new` refuses to start otherwise. Served on
+`GET /devices`, kept out of `/contracts` because dashboard parses that shape too. A sensor's
+actions are the union of its device's metrics' actions.
+
+**Adding a metric = a plugin file plus its line in `plugins::all()` and a device in
+`plugins::devices()`.** A plugin with bounds also
 joins `telemetry_schema::ALERTABLE_METRICS` (test-enforced) — that is its delivery path in
 notification. A `SensorPlugin` gives `key`,
 `descriptor`, `validate`, `bounds`, optional `actions`; `PluginRegistry::new` rejects two
@@ -67,6 +74,13 @@ takes `{roomId: bounds}` and validates every entry before writing any, so one ba
 the set. The per-room route stays for single edits. This mirrors ingest: the operation that
 naturally arrives as a set is accepted as a set, all-or-nothing. The writes are still one upsert
 per room — `ThresholdStore` has no transactional bulk write, and a retry converges.
+
+**Sensors are written as a batch.** `POST /sensors/buildings/{id}` takes `{create, update,
+delete}`, validates every item before writing, returns `422` with per-item `{ref, field,
+message}` and writes nothing if any item is bad, else applies all in one transaction. Ids are server-generated UUIDs;
+`room_id` null = outdoors. Positions live in digital-twin, never here. Actions find the
+device by `(building_id, sensor_id)` — never by room, or an outdoor or moved sensor is
+unreachable.
 
 **Registration**: telemetry consumes `building-registration-requested` and answers
 `building-registration-completed` (both from `twin_schema`). `maxTemperature` is read here

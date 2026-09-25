@@ -11,6 +11,7 @@ use telemetry::adapters::driven::dispatch::HttpDispatch;
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
 use telemetry::adapters::ingest_auth::{IngestKey, SIGNATURE_HEADER};
 use telemetry::kernel::actions::Actions;
+use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
 use telemetry::kernel::ports::{
     Alerts, BuildingDirectory, BuildingStore, Clock, Fanout, ReadingStore, SensorStore,
@@ -61,6 +62,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
         .unwrap(),
     );
 
+    let devices = Arc::new(DeviceCatalog::new(telemetry::plugins::devices(), &registry).unwrap());
     let readings_store = Arc::new(PgReadings::new(pool.clone(), registry.clone()));
     let thresholds_store = Arc::new(PgThresholds::new(pool.clone()));
     let sensors_store = Arc::new(PgSensors::new(pool.clone()));
@@ -75,6 +77,7 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
 
     let state = Arc::new(AppState {
         registry: registry.clone(),
+        devices: devices.clone(),
         pool: pool.clone(),
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
@@ -98,8 +101,9 @@ pub async fn test_app_with_bindings(pool: PgPool, domains: Vec<&str>, bindings: 
             store: thresholds_store.clone() as Arc<dyn ThresholdStore>,
         },
         sensors: Sensors {
-            registry: registry.clone(),
+            devices: devices.clone(),
             store: sensors_store.clone() as Arc<dyn SensorStore>,
+            buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
         },
         actions: Actions {
             registry: registry.clone(),

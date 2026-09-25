@@ -73,6 +73,10 @@ fn protected_routes() -> Router<AppState> {
             "/building/{id}",
             get(get_building_by_id).patch(update_building),
         )
+        .route(
+            "/building/{id}/placements",
+            get(get_placements).put(save_placements),
+        )
         .route("/building/{id}/status", get(get_upload_status))
         .route("/building/{id}/sync", post(resync_building))
         .route("/buildings/counts", post(get_building_counts))

@@ -1,0 +1,138 @@
+.docname {Frontend Architecture}
+.include {docs}
+
+**Package:** `frontend/` · **Stack:** Vue 3 / Vite / Tailwind CSS v4 / TresJS / vue-i18n
+
+The frontend is one SPA. It is organised by **feature first, role second**: a folder per page, and inside it a folder per job the components do. Shared building blocks live in `commons/`.
+
+---
+
+## Layout
+
+.var {layout}
+   - Path
+   - Holds
+
+.tablebyrows {.layout}
+    - - `views/<feature>/`
+      - One routed page per feature: `homepage`, `dashboard`, `digital-twin`, `domains`, `administration`, `authentication`
+    - - `components/<feature>/<role>/`
+      - That page's parts, e.g. `dashboard/{header,kpi,table,charts}`, `digital-twin/{scene,controls,buildings,rooms,modals}`
+    - - `components/commons/`
+      - `base` (buttons, badges, cards), `forms`, `overlays` (modal, popover), `layout` (app shell, nav bar), `navigation`, `account`, `chat`, `notifications`, `data` (pagination, clock)
+    - - `composables/<feature>/`
+      - Stateful logic, in the feature that owns it; shared ones (`useApi`, `useTheme`, chat, live sensor data) in `commons/`
+    - - `utils/<feature>/`
+      - Pure logic, unit-tested beside the file it covers
+    - - `types/<feature>/`
+      - Types only: wire shapes and component-facing types, no runtime code except enums
+    - - `stores/<feature>/`
+      - Pinia stores: `authentication`, `domains`, `digital-twin` (buildings), `commons` (notifications, sensor data)
+    - - `services/socket.ts`
+      - The one Socket.IO client, shared by every feature
+    - - `router/routes.ts`
+      - Every path, read by the router and the nav links
+
+- Every layer (`views`, `components`, `composables`, `utils`, `types`, `stores`) splits by feature the same way; code used by two features with no clear owner goes in `commons/`.
+- A feature imports `commons/` freely. It imports another feature only for a part that feature owns: administration reuses `domains/modals/CreateDomainModal.vue` and `domains/badges/RoleBadge.vue`.
+- Views compose; they hold no markup a child could own. Every view except the homepage loads lazily.
+- Logic that needs no `ref` goes in `utils/`, so it is unit-tested (dashboard summary, pagination window, chart timeline, building grouping, floor-plan preview extent, colour bands). Components stay untested and are covered by `e2e/` and `backend/acceptance/`.
+
+## Design System
+
+Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
+
+- `:root` holds the light palette, and `.dark` overrides the same `--cv-*` variables.
+- `@theme inline` exposes them as Tailwind colours: `bg-surface-container-low`, `text-on-surface-variant`, `bg-primary`, …
+- Components use roles only, never a palette step like `emerald-600`. A new theme is therefore one CSS block.
+- Sections separate by tone, spacing and shadow, not by divider lines: tables use zebra rows with rounded ends, and modals have no header or footer rules.
+
+.var {tokens}
+   - Token
+   - Use
+
+.tablebyrows {.tokens}
+    - - `text-display-clock` … `text-label-header`
+      - Type scale; Inter, tabular figures
+    - - `surface-card`
+      - Card surface: large radius, `shadow-soft`, faint ring; no drawn border
+    - - `shadow-soft`, `shadow-lift`
+      - Resting cards; popovers, modals and hovered cards
+    - - `field`
+      - Every text input and select
+    - - `Tone` (`utils/commons/tone.ts`)
+      - Semantic colour a helper returns (`statusTone`, `getRoleMeta`, `SEVERITY_TONE`); `BaseBadge` and `StatusDot` map it to roles
+
+- The theme is `light`, `dark` or `system`. It is stored in `localStorage['theme']`, and `useTheme` toggles `.dark` on `<html>`.
+- Chart.js and the 3D canvas cannot read CSS variables. `useChartTheme` resolves them to literals again after each theme change, and `BuildingScene` swaps its clear colour.
+- Icons are Phosphor, rendered through `BaseIcon`, which takes the name without the `ph-` prefix.
+- Data-viz colours stay literal: temperature and air-quality bands (`utils/digital-twin/colors.ts`) and QR codes, because their meaning must not change with the theme.
+
+## 3D Twin Scene
+
+- A room `position` is the box centre on every axis, so a storey's floor is at `y - height / 2`.
+- The scene draws `snapRooms(rooms)` (`utils/digital-twin/snapRooms.ts`), not the raw rooms: gaps up to `SNAP_GAP` (0.75: the dev building's wall gaps reach 0.6, its corridors start at 0.9) between facing walls on one storey close to zero; wider gaps are left alone. A wall moves only when close neighbours cover all of it, so a wall that also faces a corridor never pushes into it. Two covered walls meet halfway; a covered wall facing an uncovered one moves the whole gap. A last pass caps any two facing walls at half their gap each, so snapping never adds an overlap. Horizontal only; the room data is unchanged.
+- The room batch always holds **every** room on screen, in a fixed order (`partitionRooms`, `utils/digital-twin/roomPartition.ts`). The selected room is drawn on its own as the overlay and **collapsed to zero scale** inside the batch — not removed — and so is the exploded one; a zero-size instance draws nothing and cannot be hit by a raycast. `batchKey`, the `:key` of `RoomInstances`, `ThermalGlow` and `AirHaze`, is built from the rooms on screen and must never depend on selection: when it did, every click remounted all three and rebuilt their GPU state — counted at the WebGPU device over 7 clicks, 6 render pipelines, 12 shader modules and 48 buffers, where the whole scene loads with 2 and 12. Now a click rewrites instance matrices only.
+- The glow and haze layers follow the same rule: `thermalGlows` and `airHazes` return one entry per room on screen, `lit` only where there is a reading, and a mode that is off passes no readings rather than an empty list. Unlit rooms collapse to zero scale, so the layers are built once per room set: switching a colour mode on used to remount its layer and compile a pipeline every time (1 pipeline and 7–8 buffers per switch, counted at the device), and now allocates nothing. `AirHaze` pumps frames only while some haze is lit — it now stays mounted in every mode, and an unconditional pump would render continuously.
+- Materials are cached, not disposed on a switch (`createMaterialCache`, `utils/digital-twin/materialCache.ts`): disposing threw the compiled pipeline away, so every render-style or theme switch — even back to the starting one — compiled again. `RoomInstances` caches per mount (its material binds that batch's edge buffers); the selected-room overlay shares one cache for the scene's lifetime (`selectedRoomMaterials`), since it remounts on every selection. After the first frame the other style is compiled ahead with `renderer.compileAsync` on throwaway meshes — with an instance colour like the real batch (another vertex layout is another pipeline) and **the real scene as third argument** (lights are part of the shader; without it the probe gets an unlit variant). Measured at the device, first use of temperature, air and selection — in either style — now allocates nothing. The one compile left is the batch's first switch to the other style: the depth style reads the drawn mesh's own bounding sphere, so a probe cannot stand in for it, and warming the real mesh would swap its material mid-compile and risk a flicker.
+- Toolbar camera moves glide instead of jumping (`animateTo`, `composables/digital-twin/useSceneControls.ts`): 400 ms, eased (`easeInOut`, `interpolateView` in `utils/digital-twin/camera.ts`), camera and OrbitControls target together. The scene renders on demand, so each tick asks for a frame. Reset, zoom, top view and room focus all glide; zoom starts from wherever the camera is, so a click mid-glide continues from there. Grabbing the scene fires OrbitControls `@start` and cancels the glide at once; reduced motion jumps. cientos exposes the controls as `instance`, not `value` — reading `.value` silently finds none, and the target never moves. `frontend/e2e/camera.spec.ts` checks the glide, the jump under reduced motion and the cancel through canvas pixels (the camera has no DOM handle).
+- Rooms are one `InstancedMesh` and draw front faces only. Two rooms sharing a wall then draw it once from each side, with no extra overdraw.
+- Every line is drawn once: `hiddenEdges(drawnRooms)` (`snapRooms.ts`) flags per room the edges another room also draws. `walls` (−x, +x, −z, +z): top and bottom edges, when touching neighbours **of the same height** cover the whole wall; of two walls covering each other, the one facing −x or −z hides. `corners`: the vertical edge, when another room has one in the same spot at least as tall (of equals, the first keeps it), flagged 1/2/3 as that room shares an x face, a z face, or both; rooms meeting only diagonally share no face and keep both. A partition meeting the middle of a wall keeps its vertical line.
+- Hiding is view-dependent, because an edge shows only through a camera-facing face: a room drops a shared line from its top, bottom or shared face always, but from the wall between the two rooms only while the camera is past the edge's plane, so the neighbour's face there is lit. Base lines seen from above therefore stay. The flags are per face, so the vertex stage resolves them (`varying`, rounded back to 0/1 per pixel) and each pixel only measures distance. `RoomInstances` passes `hiddenWalls` and `hiddenCorners` as per-instance `vec4`s; the selected room keeps its full outline. Cost: ~+0.3–0.5 ms/frame at 3.2 MP on an Intel Xe iGPU.
+- Rooms are drawn by a render style (`composables/digital-twin/renderStyles/`): a `RenderStyle` returns the material for a room or the selected room, per theme. `RENDER_STYLES` lists them.
+- `useRenderStyle` holds the current style for every room mesh and saves it in `localStorage['renderStyle']`. `parseRenderStyle` falls back to `ghost` for a missing or retired id.
+- The paint-brush button in `SceneToolbar` switches to the next style (`nextRenderStyle`, wrapping round); its tooltip names the current one (`model.controls.renderStyles.<id>` in `i18n.ts`).
+- `ghost` (`renderStyles/ghostShell.ts`) is a TSL fresnel, nearly clear face-on and firmer edge-on, plus an edge glow a fixed number of screen pixels wide, so outlines stay crisp at any zoom. `edgeGlow` (`renderStyles/nodes.ts`) measures it with `fwidth` of the face uv, or, for the instanced unit boxes, of `positionGeometry`, which names each edge by the two box planes it lies on, so flagged edges drop out.
+- `depth` (`renderStyles/depthFade.ts`) fades rooms by distance from the camera: faint up to the building's centre, solid toward its far edge, with the same edge glow. The range comes from the drawn mesh's bounding sphere (`focusSphere` in `renderStyles/nodes.ts`, refreshed per object each frame), so it holds at any zoom and building size. The selected room keeps one steady opacity.
+- TSL runs only on `WebGPURenderer`, so `BuildingScene` always uses it. It falls back to WebGL2 by itself when the browser has no WebGPU.
+- Dark theme blends shells additively, so they glow. Light theme blends normally, because additive colour disappears on a pale background.
+- Every style's numbers and colours live in `utils/digital-twin/renderStyleConfig.ts`, kept private. Read them only through `renderStyleConfig(id)`, which is typed per style.
+- Temperature colour is relative to each room's own `maxTemperature` (default 27 °C): `temperatureColor` blends `TEMPERATURE_SCALE` stops set in °C below the limit (blue at −12, sky, neutral teal at −5 for comfort, a pale grey at −4 so the blend never turns green, amber, orange, red at the limit). Room list, scene and legend share it.
+- In temperature mode the colour is a glow, not the shell: `ThermalGlow` fills each room with a reading in its temperature colour, strongest at the floor and fading to clear at the ceiling. Comfortable rooms (8–4 °C below their limit) glow at `COMFORT_GLOW`; drifting rooms rise to full with `temperatureDeviation` (`utils/digital-twin/thermalGlow.ts`). Shells fall back to `idleColor`. Rooms without a reading never glow. The glow ignores clicks.
+- In air-quality mode `AirHaze` fills each room with a reading with drifting streaks in its `aqiColor` (smooth `AQI_SCALE`: teal up to 30, a pale grey at 42 so the blend never turns green, amber at 50, red from 100). `hazeFor` (`utils/digital-twin/airHaze.ts`) makes clean air light and quick, poor air thick and slow. The pattern is world-space noise slid by `time`.
+- Blending runs in linear light, so a translucent colour over the near-white light background comes out pale. `ThermalGlow` and `AirHaze` pass their opacity through `themeOpacity` (`colors.ts`), which boosts it on the light theme and caps it at opaque.
+- A test scene must set `:tone-mapping="NoToneMapping"` like `BuildingScene`: TresJS defaults to ACES, which greys the light background and crushes the dark one.
+- The scene renders on demand, so `AirHaze` requests a frame on every animation tick while mounted. `requestAnimationFrame` stops in hidden tabs; with `prefers-reduced-motion` the haze stays still and requests no frames.
+- The scene legend is one gradient bar per mode (`temperatureGradient`, `aqiGradient`). The dashboard, which has no per-room limit, keeps `TEMPERATURE_BANDS` and `AQI_BANDS`.
+- Each style has an `idleColor` per theme for rooms with no reading (ghost: slate on light, pale grey on dark). Data colours (temperature, air quality) stay in `colors.ts` and never change with the theme.
+
+## Sensor Editor
+
+**Who owns what.** Telemetry owns a sensor (id, name, device kind, room); digital-twin owns only its position. The frontend joins the two lists on `sensorId` (`joinSensorsWithPlacements`, `utils/digital-twin/sensors.ts`); a placement whose sensor is gone is dropped, never drawn.
+
+- `provideSensorEditor` (`composables/digital-twin/useSensorEditor.ts`) creates one editor per twin view and shares it by `provide`/`inject`, not a store. `SceneToolbar` sits inside `BuildingScene`, so props would have to thread through the scene.
+- The toolbar's broadcast button turns edit mode on, and shows only to an editing role in the building's domains. Every edit goes into a local draft (`utils/digital-twin/sensorDraft.ts`); nothing is sent until Save in `SensorEditBar`.
+- `previewSensors` is the saved state with the draft applied. The editor exposes it as `rows`; the room list (`RoomSensors`), the unplaced list (`UnplacedSensors`) and the scene read it, so they cannot disagree.
+- A draft names one building's rooms: switching building, leaving the route, closing the tab and leaving edit mode all ask before discarding it. A draft `ref` is time plus random, not `crypto.randomUUID`, which throws on a plain-http origin other than localhost.
+- Save is two batches, telemetry first because it generates the ids twin keys placements by (`useSensorDraft`). A twin failure after telemetry succeeded keeps the unsent placements apart from the draft (`mergePlacementBatches`), so a retry never creates a sensor twice and sensors added meanwhile are still sent.
+- The add form offers **device kinds**, not metrics: `useDeviceKinds` reads `/telemetry/devices` once per session. A router is one card, though it reports two metrics. Labels are translated by kind (`model.sensors.devices.<kind>`) and fall back to the server's label; icons use `sensorIcon` with a generic fallback, so a new kind needs no frontend change.
+
+**What the scene draws.**
+
+- Pins and room badges are **sprites**, not DOM. A cientos `Html` overlay projects itself and writes a DOM transform every frame — measured on an Intel Iris Xe at pixel ratio 2, ~0.35 ms of main thread each, so 60 sensors turned a 16.7 ms frame into 50 ms. A sprite is billboarded on the GPU: 123 sensors now cost ~6.6 ms of main thread per frame and hold 16.7 ms. The one `Html` element left is the tooltip of the hovered pin.
+- `useSpriteLayer` builds the sprites imperatively under a `TresGroup` and keeps them in step with the list, as `RoomInstances` does for its mesh. The scene renders with `WebGPURenderer`, which only draws **node** materials (`SpriteNodeMaterial`, from `three/webgpu`), and Tres can handle neither kind of hand-off: as a prop it re-patches the sprite every render ("maximum recursive updates"), and as a tag it has no constructor for it. `e2e/sensors-mode.spec.ts` switches the mode on and fails on either.
+- Textures come from `useIconTextures`: a disc with the device kind's glyph, read from the Phosphor font the app already loads, or with a room's count. One texture per icon or number and colour, one material per texture, shared by every sprite that draws it. A kind whose glyph cannot be read still gets the disc.
+- Sprites made outside Tres get no Tres pointer events, so `SensorSprites` raycasts its own group for hover (the tooltip) and click (move, in edit mode only, never while a point is being picked).
+- Both layers are mounted only in `Mode.Sensors` or while editing, and a kind switched off in the legend is simply left out of the list — sprites unmount cleanly, unlike `Html` overlays, which could leave their element behind.
+- `BuildingScene` must **not** set `window-size` on `TresCanvas`: measuring the window while the canvas starts below the top bar misplaces anything projected to the screen — the hover tooltip today, every overlay before.
+- The legend's chips come from `groupByType` over the previewed rows — one per device kind actually present, hidden below two kinds. Every kind starts on, and a click switches that one off (`hiddenTypes`): a lit chip that goes grey when clicked reads the way a person expects. Adding or moving a sensor of a switched-off kind switches it back on rather than swallowing it. A room badge counts only the kinds being shown.
+
+**Placing a point sensor.**
+
+- `GroundPlane` covers the rooms on screen plus `GROUND_MARGIN` (20 m), sized to whole metres so its 1 m grid lands on metres, and appears only while a placement is pending. `PlacementCursor` raycasts the pointer against meshes named `room-shell` and `sensor-ground` — nothing else in the scene is a surface.
+- `snapOnSurface` snaps only the axes running along the hit face, so a point on a wall stays on that wall. `roomBehind` reads the room just behind the face (`SURFACE_DEPTH` 0.05 m), so a sensor on a ceiling or an outer wall belongs to that room and one on open ground belongs to none.
+- `clampToGround` holds every placement at or above the **building's** lowest floor, clicked or typed: underground is never a real spot.
+- A click **picks** a point rather than placing it: `candidate` in the editor can then be typed in `PlacementHint`'s x/y/z fields or moved with `nudge` (arrows along x/z, Shift for height), and Enter confirms. Typed coordinates lie on no surface, so the room then comes from `roomAt` alone.
+- Moving an existing sensor reuses that flow (`startMoving`), so it has the same fields and keys as placing; its own pin is left out of `sensorMarkers` while it moves, or it would be drawn twice.
+- `topView` (`utils/digital-twin/camera.ts`) puts the camera straight above the building, high enough that the footprint plus 5 m fits the narrower of the vertical and horizontal fields of view. It moves the OrbitControls target too, so orbiting afterwards pivots on the building.
+
+**Tests.** `frontend/e2e/sensors.spec.ts` (`just test frontend-e2e`) drives the real UI with telemetry and twin stubbed by Playwright routes, including a click in the canvas to place an outdoor sensor, and asserts the two batches the app sent. The services have their own suites, so stubbing them keeps the browser test about the editor.
+
+## Shell
+
+- `App.vue` mounts `RouterView` plus three app-wide overlays: `AuthDialogs`, `PushNotificationPrompt` and `ChatWidget`.
+- `AppLayout` renders `TopNavBar`, and its `variant` sets the page body: `page` pads and centres it, `fill` gives the 3D twin the whole viewport, and `bare` lets the homepage lay out its own full-width sections.
+- The login, sign-up and settings dialogs are one module-level state (`useAuthDialog`). A locked nav link, the bar and the mobile menu all open the same one.
+
+.box {Popovers dismiss themselves} type:{note}
+    `PopoverMenu` closes on a pointer press outside it or on Escape (`useDismiss`). A popover inside a clickable card still needs `@click.stop` on the menu, or the card handles the click too.

@@ -1,26 +1,207 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
 
 /* v4 replaces the JS plugin config: declare the custom `fullscreen` variant here. */
 @custom-variant fullscreen (&:fullscreen, :fullscreen &);
+@custom-variant dark (&:where(.dark, .dark *));
 
-html, body, #app {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-  overflow: auto;
+/* Material 3 roles. Components use the role, never a raw palette colour, so dark mode is one block. */
+:root {
+  --cv-background: #faf8ff;
+  --cv-on-background: #131b2e;
+  --cv-surface: #faf8ff;
+  --cv-surface-container-lowest: #ffffff;
+  --cv-surface-container-low: #f2f3ff;
+  --cv-surface-container: #eaedff;
+  --cv-surface-container-high: #e2e7ff;
+  --cv-surface-container-highest: #dae2fd;
+  --cv-on-surface: #131b2e;
+  --cv-on-surface-variant: #3d4a42;
+  --cv-inverse-surface: #283044;
+  --cv-inverse-on-surface: #eef0ff;
+  --cv-outline: #6d7a72;
+  --cv-outline-variant: #dde3ec;
+  --cv-primary: #006948;
+  --cv-on-primary: #ffffff;
+  --cv-primary-container: #00855d;
+  --cv-on-primary-container: #f5fff7;
+  --cv-primary-fixed: #85f8c4;
+  --cv-inverse-primary: #68dba9;
+  --cv-secondary: #006a63;
+  --cv-on-secondary: #ffffff;
+  --cv-secondary-container: #99efe5;
+  --cv-on-secondary-container: #006f67;
+  --cv-tertiary: #006194;
+  --cv-tertiary-container: #cce5ff;
+  --cv-on-tertiary-container: #004b73;
+  --cv-warning: #8a5100;
+  --cv-warning-container: #ffddb8;
+  --cv-on-warning-container: #6a3c00;
+  --cv-error: #ba1a1a;
+  --cv-on-error: #ffffff;
+  --cv-error-container: #ffdad6;
+  --cv-on-error-container: #93000a;
+  --cv-scrim: rgb(19 27 46 / 0.35);
+  --cv-shadow-soft: 0 1px 2px rgb(19 27 46 / 0.04), 0 6px 20px -4px rgb(19 27 46 / 0.07);
+  --cv-shadow-lift: 0 2px 4px rgb(19 27 46 / 0.05), 0 16px 40px -8px rgb(19 27 46 / 0.16);
+  color-scheme: light;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
+.dark {
+  --cv-background: #0b1326;
+  --cv-on-background: #dae2fd;
+  --cv-surface: #0b1326;
+  --cv-surface-container-lowest: #060e20;
+  --cv-surface-container-low: #0f1729;
+  --cv-surface-container: #171f33;
+  --cv-surface-container-high: #222a3d;
+  --cv-surface-container-highest: #2d3449;
+  --cv-on-surface: #dae2fd;
+  --cv-on-surface-variant: #bccac0;
+  --cv-inverse-surface: #dae2fd;
+  --cv-inverse-on-surface: #283044;
+  --cv-outline: #86948a;
+  --cv-outline-variant: #283249;
+  --cv-primary: #68dba9;
+  --cv-on-primary: #003824;
+  --cv-primary-container: #005137;
+  --cv-on-primary-container: #85f8c4;
+  --cv-primary-fixed: #85f8c4;
+  --cv-inverse-primary: #006c4a;
+  --cv-secondary: #80d5cb;
+  --cv-on-secondary: #003733;
+  --cv-secondary-container: #00504a;
+  --cv-on-secondary-container: #9cf2e8;
+  --cv-tertiary: #93ccff;
+  --cv-tertiary-container: #004b73;
+  --cv-on-tertiary-container: #cce5ff;
+  --cv-warning: #ffb95f;
+  --cv-warning-container: #653e00;
+  --cv-on-warning-container: #ffddb8;
+  --cv-error: #ffb4ab;
+  --cv-on-error: #690005;
+  --cv-error-container: #93000a;
+  --cv-on-error-container: #ffdad6;
+  --cv-scrim: rgb(0 0 0 / 0.55);
+  --cv-shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -6px rgb(0 0 0 / 0.35);
+  --cv-shadow-lift: 0 2px 6px rgb(0 0 0 / 0.35), 0 20px 48px -8px rgb(0 0 0 / 0.55);
+  color-scheme: dark;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--cv-background);
+  --color-on-background: var(--cv-on-background);
+  --color-surface: var(--cv-surface);
+  --color-surface-container-lowest: var(--cv-surface-container-lowest);
+  --color-surface-container-low: var(--cv-surface-container-low);
+  --color-surface-container: var(--cv-surface-container);
+  --color-surface-container-high: var(--cv-surface-container-high);
+  --color-surface-container-highest: var(--cv-surface-container-highest);
+  --color-on-surface: var(--cv-on-surface);
+  --color-on-surface-variant: var(--cv-on-surface-variant);
+  --color-inverse-surface: var(--cv-inverse-surface);
+  --color-inverse-on-surface: var(--cv-inverse-on-surface);
+  --color-outline: var(--cv-outline);
+  --color-outline-variant: var(--cv-outline-variant);
+  --color-primary: var(--cv-primary);
+  --color-on-primary: var(--cv-on-primary);
+  --color-primary-container: var(--cv-primary-container);
+  --color-on-primary-container: var(--cv-on-primary-container);
+  --color-primary-fixed: var(--cv-primary-fixed);
+  --color-inverse-primary: var(--cv-inverse-primary);
+  --color-secondary: var(--cv-secondary);
+  --color-on-secondary: var(--cv-on-secondary);
+  --color-secondary-container: var(--cv-secondary-container);
+  --color-on-secondary-container: var(--cv-on-secondary-container);
+  --color-tertiary: var(--cv-tertiary);
+  --color-tertiary-container: var(--cv-tertiary-container);
+  --color-on-tertiary-container: var(--cv-on-tertiary-container);
+  --color-warning: var(--cv-warning);
+  --color-warning-container: var(--cv-warning-container);
+  --color-on-warning-container: var(--cv-on-warning-container);
+  --color-error: var(--cv-error);
+  --color-on-error: var(--cv-on-error);
+  --color-error-container: var(--cv-error-container);
+  --color-on-error-container: var(--cv-on-error-container);
+  --color-scrim: var(--cv-scrim);
+
+  --shadow-soft: var(--cv-shadow-soft);
+  --shadow-lift: var(--cv-shadow-lift);
 }
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+
+@theme {
+  --spacing-gutter: 1.5rem;
+  --spacing-margin: 2rem;
+
+  --text-display-clock: 40px;
+  --text-display-clock--line-height: 48px;
+  --text-display-clock--letter-spacing: -0.02em;
+  --text-display-clock--font-weight: 700;
+  --text-headline-lg: 28px;
+  --text-headline-lg--line-height: 36px;
+  --text-headline-lg--letter-spacing: -0.015em;
+  --text-headline-lg--font-weight: 700;
+  --text-headline-md: 22px;
+  --text-headline-md--line-height: 28px;
+  --text-headline-md--letter-spacing: -0.01em;
+  --text-headline-md--font-weight: 600;
+  --text-title-sm: 16px;
+  --text-title-sm--line-height: 24px;
+  --text-title-sm--font-weight: 600;
+  --text-body-md: 14px;
+  --text-body-md--line-height: 20px;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 18px;
+  --text-mono-metric: 14px;
+  --text-mono-metric--line-height: 20px;
+  --text-mono-metric--letter-spacing: -0.01em;
+  --text-mono-metric--font-weight: 600;
+  --text-label-stat: 12px;
+  --text-label-stat--line-height: 16px;
+  --text-label-stat--font-weight: 500;
+  --text-label-header: 11px;
+  --text-label-header--line-height: 16px;
+  --text-label-header--letter-spacing: 0.06em;
+  --text-label-header--font-weight: 700;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+
+@layer base {
+  html,
+  body,
+  #app {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: auto;
+  }
+
+  body {
+    @apply bg-surface-container-low font-sans text-body-md text-on-surface antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    @apply bg-secondary-container text-on-secondary-container;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--cv-outline-variant) transparent;
+  }
+}
+
+/* Cards separate by tone and shadow, not by a drawn line; the faint ring only keeps edges in dark mode. */
+@utility surface-card {
+  @apply rounded-2xl bg-surface-container-lowest shadow-soft ring-1 ring-outline-variant/50;
+}
+
+@utility field {
+  @apply w-full rounded-xl border border-transparent bg-surface-container px-3.5 py-2 text-body-sm text-on-surface transition-colors placeholder:text-on-surface-variant/70 hover:bg-surface-container-high focus:border-primary/40 focus:bg-surface-container-lowest focus:ring-4 focus:ring-primary/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
 }

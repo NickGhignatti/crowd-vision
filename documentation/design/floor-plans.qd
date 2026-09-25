@@ -12,11 +12,10 @@ For the registration flow this feeds, see [Digital Twin Service Architecture](..
 
 ## The Seam
 
-The format decision lives in one place — `frontend/src/components/modals/creation/RegisterBuildingModal.vue`:
+The format decision lives in one place — `frontend/src/components/administration/registration/RegisterBuildingModal.vue`:
 
 ```typescript
-const raw = JSON.parse(await file.text())
-loadFromJson(raw)
+loadFromJson(JSON.parse(await file.text()))
 ```
 
 Everything downstream of `loadFromJson` is already format-agnostic: the draft, the per-room editor cards, the threshold sliders, the sensor drafts, and `submit()` posting to `/twin/register`. A floor plan becomes a second way to produce the same `BuildingDraft`.
@@ -26,8 +25,8 @@ Everything downstream of `loadFromJson` is already format-agnostic: the draft, t
    - Changes?
 
 .tablebyrows {.seam}
-    - - `handleFileSelected` — picks a parser by file type
-      - **yes, one branch**
+    - - `SourcePicker` — one tile per format; JSON or plans
+      - **yes, one tile**
     - - calibration and per-storey upload rows
       - **yes, new**
     - - extraction — drawing to `BuildingDraft`
@@ -326,9 +325,9 @@ appearing in the scene. It is dropped, and the numbering is kept so the later ru
 
 Nothing cheap would have covered it. `backend/acceptance` runs Python against HTTP and stubs the
 twin outright (`stubs/twin.conf`), so it cannot run a TypeScript extractor — it could only post a
-hand-written payload, which asserts nothing about extraction. `frontend/e2e` is still the
-Playwright starter template, so a browser test means building the harness first: a login flow, a
-composed stack in CI, and assertions against a canvas. That harness is something the whole
+hand-written payload, which asserts nothing about extraction. `frontend/e2e` runs Playwright against the app with the
+services stubbed (`sensors.spec.ts`), so a browser test of extraction still means building the
+missing half of the harness: a login flow, a composed stack in CI, and assertions on a canvas. That harness is something the whole
 frontend needs or does not need on its own merits, and this feature is the wrong place to fund it.
 
 What remains is the extractor's own fixtures and the draft editor, which the user reviews before
@@ -349,25 +348,25 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
 
 .tablebyrows {.files}
     - - format dispatch, and merging storeys into one building
-      - `utils/building/floorplan/index.ts`
+      - `utils/administration/floorplan/index.ts`
     - - shapes to rooms — scale, centring, elevation, ids
-      - `utils/building/floorplan/draft.ts`
+      - `utils/administration/floorplan/draft.ts`
     - - SVG reader — transforms, extents, label matching
-      - `utils/building/floorplan/svg.ts`
+      - `utils/administration/floorplan/svg.ts`
     - - DXF reader — group-code pairs, `$INSUNITS`, y-axis flip
-      - `utils/building/floorplan/dxf.ts`
+      - `utils/administration/floorplan/dxf.ts`
     - - PDF reader — pdf.js path bounds, y-axis flip
-      - `utils/building/floorplan/pdf.ts`
+      - `utils/administration/floorplan/pdf.ts`
     - - fixtures and assertions
-      - `utils/building/floorplan/{svg,dxf,pdf,index}.spec.ts`, `__fixtures__/`
+      - `utils/administration/floorplan/{svg,dxf,pdf,index}.spec.ts`, `__fixtures__/`
     - - draft shape, unchanged
-      - `composables/building/useBuildingDraft.ts`
+      - `composables/administration/useBuildingDraft.ts`
     - - the seam — format choice, calibration, warnings
-      - `components/modals/creation/RegisterBuildingModal.vue`
+      - `components/administration/registration/{RegisterBuildingModal,PlanCalibration}.vue`
     - - one upload row per storey
-      - `components/modals/creation/PlanUploadModal.vue`
+      - `components/administration/registration/PlanUploadModal.vue`
     - - review before submitting — one plan view per floor
-      - `components/modals/creation/BuildingPreviewModal.vue`
+      - `components/administration/registration/BuildingPreviewModal.vue`, geometry in `utils/administration/floorplan/preview.ts`
 
 `draft.ts` names no format and `svg.ts` names no Vue symbol. That split is what phase 5 reuses:
 DXF adds a reader beside `svg.ts` and touches nothing else.

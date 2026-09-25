@@ -1,81 +1,60 @@
-import HomeView from '@/views/HomeView.vue'
-import ModelView from '@/views/ModelView.vue'
-import DomainsView from '@/views/DomainsView.vue'
-import DashboardView from '@/views/DashboardView.vue'
-import AdministrationView from '@/views/AdministrationView.vue'
-import AuthCallbackView from '@/views/AuthCallbackView.vue'
-import WebGpuSmokeView from '@/views/_WebGpuSmokeView.vue'
-
 import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/authentication.ts'
+import { useAuthStore } from '@/stores/authentication/authentication.ts'
+import { ROUTES } from '@/router/routes.ts'
+import HomeView from '@/views/homepage/HomeView.vue'
 
+// The homepage is the landing page, so it ships in the entry chunk; every other view loads on demand.
 const router = createRouter({
   history: import.meta.env.TEST
     ? createMemoryHistory(import.meta.env.BASE_URL)
     : createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    { path: ROUTES.home, name: 'home', component: HomeView },
     {
-      path: '/',
-      name: 'home',
-      component: HomeView,
-    },
-    {
-      path: '/dashboards',
+      path: ROUTES.dashboard,
       name: 'dashboard',
-      component: DashboardView,
-      meta: {
-        requiresAuth: true,
-      },
+      component: () => import('@/views/dashboard/DashboardView.vue'),
+      meta: { requiresAuth: true },
     },
     {
-      path: '/model',
-      name: 'model',
-      component: ModelView,
-      meta: {
-        requiresAuth: true,
-      },
+      path: ROUTES.digitalTwin,
+      name: 'digital-twin',
+      component: () => import('@/views/digital-twin/DigitalTwinView.vue'),
+      meta: { requiresAuth: true },
     },
     {
-      path: '/domains',
+      path: ROUTES.domains,
       name: 'domains',
-      component: DomainsView,
-      meta: {
-        requiresAuth: true,
-      },
+      component: () => import('@/views/domains/DomainsView.vue'),
+      meta: { requiresAuth: true },
     },
     {
-      path: '/admin-panel',
-      name: 'Administration Tools',
-      component: AdministrationView,
-      meta: {
-        requiresAuth: true,
-      },
+      path: ROUTES.administration,
+      name: 'administration',
+      component: () => import('@/views/administration/AdministrationView.vue'),
+      meta: { requiresAuth: true },
     },
     {
-      path: '/auth/callback',
+      path: ROUTES.authCallback,
       name: 'auth-callback',
-      component: AuthCallbackView,
+      component: () => import('@/views/authentication/AuthCallbackView.vue'),
     },
     {
-      path: '/_webgpu-smoke',
+      path: ROUTES.webGpuSmoke,
       name: 'webgpu-smoke',
-      component: WebGpuSmokeView,
+      component: () => import('@/views/digital-twin/WebGpuSmokeView.vue'),
     },
+    { path: '/:pathMatch(.*)*', redirect: ROUTES.home },
   ],
 })
 
 router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
-  // Wait for hydration before making any auth decision
-  // This prevents the router from redirecting on refresh before /me has responded
-  if (!authStore.isHydrated) {
-    await authStore.hydrate()
-  }
+  // Wait for /me, or a refresh would redirect before the session is known.
+  if (!authStore.isHydrated) await authStore.hydrate()
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return '/'
-  }
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) return ROUTES.home
 })
 
 export default router

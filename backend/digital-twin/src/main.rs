@@ -9,6 +9,7 @@ use std::sync::Arc;
 use digital_twin::adapters::driven::kafka_producer::KafkaEventProducer;
 use digital_twin::adapters::driven::persistence::db::{self, MongoBuildings};
 use digital_twin::adapters::driven::persistence::jobs::MongoUploadQueue;
+use digital_twin::adapters::driven::persistence::placements::{self, MongoPlacements};
 use digital_twin::adapters::driving::{kafka_consumer, worker};
 use digital_twin::adapters::{
     driven::outbound::{OutboundConfig, client},
@@ -16,6 +17,7 @@ use digital_twin::adapters::{
 };
 use digital_twin::build_router;
 use digital_twin::service::buildings::Buildings;
+use digital_twin::service::placements::Placements;
 use digital_twin::service::provisioning::Provisioning;
 use digital_twin::state::AppState;
 
@@ -71,6 +73,12 @@ async fn main() {
             .expect("Failed to configure Kafka producer"),
     );
 
+    let placements = Arc::new(MongoPlacements::new(
+        placements::connect(&mongo_uri, "crowdvision")
+            .await
+            .expect("Failed to connect to MongoDB"),
+    ));
+
     let store = Arc::new(MongoBuildings::new(buildings.clone()));
     let queue = Arc::new(
         MongoUploadQueue::from_building_collection(&buildings)
@@ -89,7 +97,8 @@ async fn main() {
     kafka_consumer::spawn(&kafka_brokers, provisioning.clone());
 
     let state = AppState {
-        buildings: Arc::new(Buildings::new(store, downstream)),
+        buildings: Arc::new(Buildings::new(store.clone(), downstream)),
+        placements: Arc::new(Placements::new(store, placements)),
         provisioning,
         rate_limiter: RateLimiter::new(sync_enabled),
     };

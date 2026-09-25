@@ -142,7 +142,7 @@ served on the sensor listing (`GET /sensors/buildings/{b}/rooms/{r}`). The UI re
 
 ## A Command's Journey
 
-User sets sensor `123` in room `r1`, building `b1` to 21 °C.
+User sets sensor `123` in building `b1` to 21 °C. The device is found by building and sensor id; the room plays no part, so an outdoor sensor or one that just moved is reached the same way.
 
 .mermaid
     sequenceDiagram
