@@ -128,6 +128,12 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 
 **Tests.** `frontend/e2e/sensors.spec.ts` (`just test frontend-e2e`) drives the real UI with telemetry and twin stubbed by Playwright routes, including a click in the canvas to place an outdoor sensor, and asserts the two batches the app sent. The services have their own suites, so stubbing them keeps the browser test about the editor.
 
+## Dashboard
+
+- **Simulator toggle** (`SimulatorToggle`, `composables/dashboard/simulator.ts`): `PUT` / `DELETE` / `GET /telemetry/simulation/buildings/{id}`, 10 s timeout. It sends no rooms and no sensors — telemetry reads the building's own and picks the simulators — and the browser never calls a simulator.
+- A refused start (`404` no simulator configured, `502` a simulator down) throws, and the toggle re-reads the status instead of trusting its optimistic flip.
+- `e2e/simulator.spec.ts` checks the start/stop calls, that nothing reaches `/simulator/`, and that a refused start leaves the toggle on Start.
+
 ## Shell
 
 - `App.vue` mounts `RouterView` plus three app-wide overlays: `AuthDialogs`, `PushNotificationPrompt` and `ChatWidget`.

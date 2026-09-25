@@ -5,7 +5,7 @@ import { toggleSimulator, useIsRunning } from '@/composables/dashboard/simulator
 import BaseButton from '@/components/commons/base/BaseButton.vue'
 import StatusDot from '@/components/commons/base/StatusDot.vue'
 
-const props = defineProps<{ buildingId?: string; roomIds: string[] }>()
+const props = defineProps<{ buildingId?: string }>()
 
 const { t } = useI18n()
 const { isSimRunning, refetch } = useIsRunning(toRef(props, 'buildingId'))
@@ -16,7 +16,7 @@ const SETTLE_MS = 500
 const toggle = async () => {
   if (!props.buildingId) return
   try {
-    await toggleSimulator(props.buildingId, isSimRunning.value ? 'stop' : 'start', props.roomIds)
+    await toggleSimulator(props.buildingId, isSimRunning.value ? 'stop' : 'start')
     isSimRunning.value = !isSimRunning.value
     setTimeout(refetch, SETTLE_MS)
   } catch (error) {

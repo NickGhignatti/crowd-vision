@@ -58,7 +58,7 @@ const { isFullscreen, toggle: toggleFocus } = useFullscreen(focusArea)
         <TelemetryPanel v-if="view === 'table'" :building-id="selectedId" :rooms="rooms">
           <template #leading><ViewModeSwitch v-model="view" /></template>
         </TelemetryPanel>
-        <ChartsPanel v-else :building-id="selectedId" :room-ids="rooms.map((room) => room.roomId)">
+        <ChartsPanel v-else :building-id="selectedId">
           <template #leading><ViewModeSwitch v-model="view" /></template>
         </ChartsPanel>
       </Transition>

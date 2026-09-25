@@ -12,7 +12,7 @@ import SegmentedControl from '@/components/commons/base/SegmentedControl.vue'
 import SimulatorToggle from '@/components/dashboard/charts/SimulatorToggle.vue'
 import HistoryChartCard from '@/components/dashboard/charts/HistoryChartCard.vue'
 
-const props = defineProps<{ buildingId?: string; roomIds: string[] }>()
+const props = defineProps<{ buildingId?: string }>()
 
 type HistoryMetric = Parameters<typeof getBuildingHistory>[2]
 
@@ -63,7 +63,7 @@ const rangeOptions = TIME_RANGES.map((value) => ({ value, label: value }))
     >
       <div class="flex flex-wrap items-center gap-3">
         <slot name="leading" />
-        <SimulatorToggle :building-id="buildingId" :room-ids="roomIds" />
+        <SimulatorToggle :building-id="buildingId" />
       </div>
       <div class="flex flex-wrap items-center gap-4">
         <label class="flex items-center gap-2 text-label-header uppercase text-on-surface-variant">
