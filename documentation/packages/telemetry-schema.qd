@@ -3,7 +3,7 @@
 
 `telemetry-schema` is the crate the whole shared-contracts effort started from. It exists because of a bug: `telemetry` served a metric catalog with `{key, kind}` and `dashboard` parsed `{metricKey, type}`. The response type was an untagged enum, so neither variant matched, and the parse failure was treated as "that service is down, skip it" — an empty catalog returned with `200 OK`, and nobody could add or swap a dashboard column. No error anywhere.
 
-It now carries three contracts, each one a place where the same class of failure was possible.
+It now carries three typed contracts, each one a place where the same class of failure was possible, and hosts the schema checks for two fixture-only ones (section 4).
 
 | Module | Shape | Producer | Consumers |
 |---|---|---|---|
@@ -80,6 +80,23 @@ pub fn building_of_filtered_channel(channel: &str) -> &str;
 ```
 
 Four declaration sites across three services collapse into these. The pair matters more than it looks: dashboard *writes* `telemetry:filtered:{id}` and socket *reads the building back out of it*, so the prefix is a two-way contract, and a building id containing a colon (`site:b1`) has to survive the round trip. There is a test for exactly that.
+
+---
+
+## 4. Fixture-only contracts
+
+Two telemetry shapes have no type here: one side walks raw JSON or is the only Rust party. The crate still hosts their fixture-against-schema check, because it already carries `jsonschema`.
+
+| Fixture | Direction | Built by | Parsed by |
+|---|---|---|---|
+| `ingest-batch.json` | device → telemetry `/ingest` | ap-collector, aq-simulator, sensor-simulator | telemetry |
+| `simulation-start.json` | telemetry → simulator `/control/start` | telemetry | sensor-simulator, aq-simulator |
+
+`simulation-start` body: `{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }`.
+
+- `sensors` replaces what the simulator held for the building; empty = stop simulating it.
+- `roomId` is always a room: readings are room-keyed, so outdoor sensors are never sent.
+- No `targetUrl`: a simulator posts to its own `TELEMETRY_INGEST_URL`, so no caller can redirect its signed readings. The schema refuses extra keys, so the old body fails.
 
 ---
 
