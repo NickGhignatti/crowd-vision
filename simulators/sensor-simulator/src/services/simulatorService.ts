@@ -4,13 +4,20 @@ import {
   type ISignalPeopleCount,
   type ISignalTemperature,
   type IBuilding,
+  type ISimulatedSensor,
 } from "../models/signal.js";
 
-const INGEST_SECRET = process.env.TELEMETRY_INGEST_SECRET ?? "";
+type Reading = (ISignalTemperature | ISignalPeopleCount) & { type: string };
 
-function signedIngest(url: string, payload: unknown): Promise<Response> {
+const INGEST_SECRET = process.env.TELEMETRY_INGEST_SECRET ?? "";
+const INGEST_URL =
+  process.env.TELEMETRY_INGEST_URL ?? "http://gateway/telemetry/ingest";
+// fetch has no timeout of its own: a hung ingest would leave one request open per tick.
+const INGEST_TIMEOUT_MS = 8000;
+
+function signedIngest(payload: unknown): Promise<Response> {
   const body = JSON.stringify(payload);
-  return fetch(url, {
+  return fetch(INGEST_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -19,6 +26,7 @@ function signedIngest(url: string, payload: unknown): Promise<Response> {
         .digest("hex"),
     },
     body,
+    signal: AbortSignal.timeout(INGEST_TIMEOUT_MS),
   });
 }
 
@@ -42,21 +50,6 @@ export class Simulator {
     return this.isRunning;
   }
 
-  public registerBuilding(building: IBuilding) {
-    if (building.targetUrl) {
-      let parsedUrl = building.targetUrl.replace(/\/$/, "");
-      if (parsedUrl.includes("localhost") || parsedUrl.includes("127.0.0.1")) {
-        parsedUrl = parsedUrl
-          .replace(/localhost/g, "gateway")
-          .replace(/127\.0\.0\.1/g, "gateway")
-          .replace(/gateway:\d+/g, "gateway");
-      }
-
-      building.targetUrl = parsedUrl;
-    }
-    this.activeBuildings.push(building);
-  }
-
   public start() {
     if (this.activeBuildings.activeBuildings.length === 0) {
       throw new Error("No buildings registered for simulation");
@@ -67,14 +60,17 @@ export class Simulator {
     }
   }
 
+  /** Replaces what the building simulates; no sensors means stop simulating it. */
   public startOrAdd(building: IBuilding) {
-    this.registerBuilding(building);
+    if (building.sensors.length === 0) {
+      this.stop(building.buildingId);
+      return;
+    }
+    this.activeBuildings.push(building);
     this.start();
   }
 
   public stop(buildingId: string) {
-    if (!this.isRunning || this.activeBuildings.activeBuildings.length === 0)
-      return;
     this.activeBuildings.activeBuildings =
       this.activeBuildings.activeBuildings.filter(
         (t) => t.buildingId !== buildingId,
@@ -97,33 +93,44 @@ export class Simulator {
   }
 
   private async sendSignals(building: IBuilding) {
-    const rooms = this.activeBuildings.getRooms(building.buildingId);
-    if (rooms.length === 0) return;
-
-    const readings = rooms.flatMap((roomId) => [
-      { ...this.temperatureFor(roomId), type: "temperature" },
-      { ...this.peopleCountFor(roomId), type: "peopleCount" },
-    ]);
+    const readings = this.readingsFor(building.sensors);
+    // Telemetry rejects an empty batch.
+    if (readings.length === 0) return;
 
     try {
-      const response = await signedIngest(
-        `${building.targetUrl}/ingest`,
-        { buildingId: building.buildingId, readings },
-      );
+      const response = await signedIngest({
+        buildingId: building.buildingId,
+        readings,
+      });
       if (!response.ok) {
         console.error(
           `[Simulator] Error: batch rejected for building ${building.buildingId} (${response.status})`,
         );
       }
     } catch (error: any) {
-      console.error(
-        `[Simulator] Network Error connecting to: ${building.targetUrl}`,
-      );
+      console.error(`[Simulator] Network Error connecting to: ${INGEST_URL}`);
       console.error(`[Simulator] Message: ${error.message}`);
       if (error.cause) {
         console.error(`[Simulator] Deep Cause:`, error.cause);
       }
     }
+  }
+
+  private readingsFor(sensors: ISimulatedSensor[]): Reading[] {
+    return sensors.flatMap((sensor): Reading[] => {
+      switch (sensor.sensorType) {
+        case "temperature":
+          return [
+            { ...this.temperatureFor(sensor.roomId), type: "temperature" },
+          ];
+        case "peopleCount":
+          return [
+            { ...this.peopleCountFor(sensor.roomId), type: "peopleCount" },
+          ];
+        default:
+          return [];
+      }
+    });
   }
 
   private temperatureFor(roomId: string): ISignalTemperature {

@@ -5,9 +5,6 @@ services:
       context: .
     environment:
       - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
+      - TELEMETRY_INGEST_URL=http://gateway/telemetry/ingest
     ports:
       - "3002:3000"
-    # Resolve `host.docker.internal` on hosts that don't provide it automatically;
-    # the simulator rewrites localhost targets to it to reach the host's gateway.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"

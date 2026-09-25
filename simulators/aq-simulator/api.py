@@ -30,11 +30,8 @@ async def start_simulation(config: BuildingConfig) -> dict:
 
 @app.post("/control/stop")
 async def stop_simulation(request: StopRequest) -> dict:
-    try:
-        simulator.stop(request.buildingId)
-        return {"message": f"Simulator stopped for {request.buildingId}"}
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    simulator.stop(request.buildingId)
+    return {"message": f"Simulator stopped for {request.buildingId}"}
 
 
 @app.get("/control/status")

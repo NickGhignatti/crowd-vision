@@ -178,7 +178,7 @@ The two device simulators ship as GHCR images but are not application services, 
       - ESLint (shared config) + `tsc` build. No test suite exists yet, so there is no test step — a bare Jest with zero tests would fail.
     - - `aq-simulator`
       - Python 3.12
-      - `py_compile` parses every module (smoke.py is **not** executed — it performs network I/O), then `ruff check` runs with default rules, which catch real defects such as undefined names and unused imports.
+      - `ruff check` (default rules: undefined names, unused imports), `pyright`, `uv audit`, then `pytest` — which asserts the ingest-batch and simulation-start fixtures.
 
 Both were previously ungated despite shipping images until this workflow gave them a real bucket.
 

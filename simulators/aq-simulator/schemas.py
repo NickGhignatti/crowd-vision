@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from scenarios import Scenario
 
@@ -10,10 +12,30 @@ def _strip_newlines(value: str) -> str:
     return value.replace("\r", "").replace("\n", "")
 
 
+NonEmpty = Annotated[str, Field(min_length=1)]
+
+
+class SimulatedSensor(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sensorId: NonEmpty
+    sensorType: NonEmpty
+    roomId: NonEmpty
+
+    @field_validator("sensorId", "sensorType", "roomId")
+    @classmethod
+    def clean(cls, v: str) -> str:
+        return _strip_newlines(v)
+
+
 class BuildingConfig(BaseModel):
-    buildingId: str
-    roomIds: list[str]
-    targetUrl: str
+    """The body telemetry POSTs to /control/start; an empty `sensors` stops the building."""
+
+    # An extra key is refused so the old `targetUrl` can never choose where readings go.
+    model_config = ConfigDict(extra="forbid")
+
+    buildingId: NonEmpty
+    sensors: list[SimulatedSensor]
     scenario: Scenario = Scenario.CLEAN_INDOOR
     interval_seconds: float = 10.0
 
@@ -22,19 +44,13 @@ class BuildingConfig(BaseModel):
     def clean_building_id(cls, v: str) -> str:
         return _strip_newlines(v)
 
-    @field_validator("roomIds")
-    @classmethod
-    def rooms_not_empty(cls, v: list[str]) -> list[str]:
-        if not v:
-            raise ValueError("roomIds must contain at least one room")
-        return [_strip_newlines(r) for r in v]
-
     @field_validator("interval_seconds")
     @classmethod
     def interval_positive(cls, v: float) -> float:
         if v < 1.0:
             raise ValueError("interval_seconds must be ≥ 1")
         return v
+
 
 class StopRequest(BaseModel):
     buildingId: str
