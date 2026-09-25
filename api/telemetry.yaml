@@ -112,14 +112,46 @@ components:
         - $ref: "#/components/schemas/PeopleCountReading"
         - $ref: "#/components/schemas/AirQualityReading"
 
-    SensorRegistration:
+    SensorBatch:
+      description: >
+        One building's sensor edits, applied all-or-nothing: one bad item
+        rejects the batch and nothing is written. At most 200 items across
+        `create`, `update` and `delete`. Ids are server-generated; a `sensorId`
+        on a create item is ignored.
       type: object
-      required: [buildingId, roomId, sensorId, sensorType]
       properties:
-        buildingId: { type: string, example: "hq-01" }
-        roomId: { type: string, example: "room-03" }
-        sensorId: { type: string, example: "123" }
-        sensorType: { type: string, enum: [temperature, peopleCount, airQuality] }
+        create:
+          type: array
+          items:
+            type: object
+            required: [ref, name, sensorType]
+            properties:
+              ref: { type: string, description: "Client-side key, echoed back with the new id.", example: "d1" }
+              name: { type: string, example: "Router hall B" }
+              sensorType: { type: string, description: "A device kind from `GET /devices`, never a metric.", example: "router" }
+              roomId: { type: string, nullable: true, description: "A room of this building, or null/absent for outside every room.", example: null }
+              driver: { type: string, example: "tp-simulator" }
+              endpoint: { type: string, example: "http://device.local" }
+        update:
+          type: array
+          items:
+            type: object
+            required: [sensorId]
+            properties:
+              sensorId: { type: string, example: "5c1e0b7a-9f2d-4c1e-8a61-3b7e0d2f9c44" }
+              name: { type: string, description: "Absent keeps the current name." }
+              roomId: { type: string, nullable: true, description: "Absent keeps the room; null moves the sensor outside every room." }
+        delete:
+          type: array
+          items: { type: string }
+          example: ["9ab0c3de-1f2a-4b5c-8d6e-7f8091a2b3c4"]
+
+    ItemError:
+      type: object
+      properties:
+        ref: { type: string, description: "The create item's `ref`, or the sensor id of an update/delete." }
+        field: { type: string, example: "roomId" }
+        message: { type: string, example: "must be null or a room of this building." }
 
     ReadingView:
       description: >
@@ -152,9 +184,10 @@ components:
       type: object
       properties:
         buildingId: { type: string }
-        roomId: { type: string }
-        sensorId: { type: string }
-        sensorType: { type: string }
+        roomId: { type: string, nullable: true, description: "null for a sensor outside every room." }
+        sensorId: { type: string, description: "Server-generated UUID." }
+        name: { type: string }
+        sensorType: { type: string, description: "The device kind, e.g. `router`." }
         actions:
           type: array
           items: { type: string }
@@ -167,12 +200,11 @@ components:
         that action's parameter specs before anything is dispatched. Translation
         into a device's own wire format happens in the dispatch adapter, not here.
       type: object
-      required: [metric, buildingId, roomId, sensorId, action]
+      required: [metric, buildingId, sensorId, action]
       properties:
         metric: { type: string, example: "temperature" }
         buildingId: { type: string, example: "hq-01" }
-        roomId: { type: string, example: "room-03" }
-        sensorId: { type: string, example: "123" }
+        sensorId: { type: string, description: "The sensor is found by building and id; a `roomId` sent here is ignored.", example: "5c1e0b7a-9f2d-4c1e-8a61-3b7e0d2f9c44" }
         action: { type: string, description: "An action declared by the metric's plugin.", example: "increase" }
         arguments:
           type: object
@@ -305,43 +337,62 @@ paths:
                   details:
                     type: array
                     items: { type: string }
-  /sensor:
+  /sensors/buildings/{buildingId}:
     post:
-      summary: Register a physical sensor
+      summary: Create, update and delete a building's sensors in one batch
       description: >
-        Resolves the plugin by `sensorType` and records the sensor. The write
-        is synchronous; a duplicate sensor in the same room is a `409`.
+        Validates every item before writing any, then applies the batch in one
+        transaction. Needs an editing role in one of the building's domains.
       tags: [Registry]
+      parameters:
+        - $ref: "#/components/parameters/BuildingId"
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [sensorData]
-              properties:
-                sensorData:
-                  $ref: "#/components/schemas/SensorRegistration"
+            schema: { $ref: "#/components/schemas/SensorBatch" }
       responses:
-        "201":
-          description: Sensor registered
+        "200":
+          description: Batch applied
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  created: { type: boolean, example: true }
-                  type: { type: string, example: "temperature" }
+                  created:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ref: { type: string, example: "d1" }
+                        sensorId: { type: string, example: "5c1e0b7a-9f2d-4c1e-8a61-3b7e0d2f9c44" }
         "400":
-          description: Missing `sensorData`, or a blank required field
-        "409":
-          description: A sensor with this id is already registered in this room
-        "500":
-          description: Unexpected server error
+          description: Malformed batch (not an object, a list that is not an array, an item without `ref`/`sensorId`), or over 200 items
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: Caller has no editing role in any of the building's domains
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404":
-          description: No module registered for the given sensor type
-
-  /sensors/buildings/{buildingId}:
+          description: The building is not registered with telemetry
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: One or more items are invalid; nothing was written
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type: { type: string, example: "Rejected Error" }
+                  message: { type: string, example: "1 item(s) rejected." }
+                  errors:
+                    type: array
+                    items: { $ref: "#/components/schemas/ItemError" }
     get:
       summary: List every sensor registered in a building
       tags: [Registry]
@@ -700,6 +751,36 @@ paths:
           content:
             text/plain:
               schema: { type: string }
+
+  /devices:
+    get:
+      summary: Device kinds a sensor may be registered as
+      description: >
+        A sensor is a physical device, and one device may report several metrics: a
+        router reports both `totalDeviceCount` and `ratioDeviceCount`. Every metric in
+        `/contracts` belongs to exactly one kind here. Kept apart from `/contracts`,
+        whose shape dashboard parses too; only the sensor editor reads this.
+      tags: [Discovery]
+      security: []
+      responses:
+        "200":
+          description: Every device kind and the metrics it reports
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind: { type: string, example: "router" }
+                        label: { type: string, example: "Router" }
+                        metrics:
+                          type: array
+                          items: { type: string }
+                          example: ["totalDeviceCount", "ratioDeviceCount"]
 
   /contracts:
     get:
