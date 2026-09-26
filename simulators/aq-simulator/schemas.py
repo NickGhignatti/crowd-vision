@@ -13,36 +13,6 @@ def _strip_newlines(value: str) -> str:
 
 
 NonEmpty = Annotated[str, Field(min_length=1)]
-Finite = Annotated[float, Field(allow_inf_nan=False)]
-Side = Annotated[float, Field(gt=0, allow_inf_nan=False)]
-
-
-class Coordinates(BaseModel):
-    """A point in the twin's frame, y up."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    x: Finite
-    y: Finite
-    z: Finite
-
-
-class Dimensions(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    width: Side
-    height: Side
-    depth: Side
-
-
-class Room(BaseModel):
-    """A room as a box; `position` is its footprint centre at floor level."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    roomId: NonEmpty
-    position: Coordinates
-    dimensions: Dimensions
 
 
 class SimulatedSensor(BaseModel):
@@ -51,7 +21,6 @@ class SimulatedSensor(BaseModel):
     sensorId: NonEmpty
     sensorType: NonEmpty
     roomId: NonEmpty
-    position: Coordinates | None = None
 
     @field_validator("sensorId", "sensorType", "roomId")
     @classmethod
@@ -67,8 +36,6 @@ class BuildingConfig(BaseModel):
 
     buildingId: NonEmpty
     sensors: list[SimulatedSensor]
-    # Absent means no geometry; an empty list would claim a building with no rooms.
-    rooms: Annotated[list[Room], Field(min_length=1)] | None = None
     scenario: Scenario = Scenario.CLEAN_INDOOR
     interval_seconds: float = 10.0
 

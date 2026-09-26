@@ -13,12 +13,6 @@
       "type": "array",
       "description": "May be empty: the simulator then stops simulating the building.",
       "items": { "$ref": "#/$defs/sensor" }
-    },
-    "rooms": {
-      "type": "array",
-      "minItems": 1,
-      "description": "Optional building geometry: every room, including rooms with no sensor. Absent means the caller has none; never empty.",
-      "items": { "$ref": "#/$defs/room" }
     }
   },
   "$defs": {
@@ -37,44 +31,6 @@
           "type": "string",
           "minLength": 1,
           "description": "Readings are room-keyed, so an outdoor sensor is never sent."
-        },
-        "position": {
-          "$ref": "#/$defs/coordinates",
-          "description": "Where the twin places the sensor; absent when it is not placed yet."
-        }
-      }
-    },
-    "coordinates": {
-      "type": "object",
-      "required": ["x", "y", "z"],
-      "additionalProperties": false,
-      "description": "The twin's frame: y up.",
-      "properties": {
-        "x": { "type": "number" },
-        "y": { "type": "number" },
-        "z": { "type": "number" }
-      }
-    },
-    "room": {
-      "type": "object",
-      "required": ["roomId", "position", "dimensions"],
-      "additionalProperties": false,
-      "properties": {
-        "roomId": { "type": "string", "minLength": 1 },
-        "position": {
-          "$ref": "#/$defs/coordinates",
-          "description": "The footprint centre at floor level."
-        },
-        "dimensions": {
-          "type": "object",
-          "required": ["width", "height", "depth"],
-          "additionalProperties": false,
-          "description": "Width along x, height up y, depth along z.",
-          "properties": {
-            "width": { "type": "number", "exclusiveMinimum": 0 },
-            "height": { "type": "number", "exclusiveMinimum": 0 },
-            "depth": { "type": "number", "exclusiveMinimum": 0 }
-          }
         }
       }
     }

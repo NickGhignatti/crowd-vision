@@ -13,7 +13,6 @@ class ApConfig(BaseModel):
     zone_id: str = ""
     x: float = 0.0
     y: float = 0.0
-    z: float = 0.0
     username: str = "collector"
     password: str = "collector"
     session_ttl_s: float = 300.0
@@ -35,7 +34,6 @@ class ApConfig(BaseModel):
 class Waypoint(BaseModel):
     x: float
     y: float
-    z: float = 0.0
     hold_s: float = 0.0
 
 
@@ -44,8 +42,6 @@ class DeviceRoute(BaseModel):
     waypoints: list[Waypoint]
     speed_mps: float = 1.2
     phase_offset_s: float = 0.0
-    # Local hours [from, until) the device is in the building; None means always.
-    present_h: tuple[float, float] | None = None
 
     @field_validator("waypoints")
     @classmethod
@@ -92,36 +88,6 @@ class ScenarioRequest(BaseModel):
 
 
 NonEmpty = Annotated[str, Field(min_length=1)]
-Finite = Annotated[float, Field(allow_inf_nan=False)]
-Side = Annotated[float, Field(gt=0, allow_inf_nan=False)]
-
-
-class Coordinates(BaseModel):
-    """A point in the twin's frame, y up."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    x: Finite
-    y: Finite
-    z: Finite
-
-
-class Dimensions(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    width: Side
-    height: Side
-    depth: Side
-
-
-class Room(BaseModel):
-    """A room as a box; `position` is its footprint centre at floor level."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    roomId: NonEmpty
-    position: Coordinates
-    dimensions: Dimensions
 
 
 class SimulatedSensor(BaseModel):
@@ -130,7 +96,6 @@ class SimulatedSensor(BaseModel):
     sensorId: NonEmpty
     sensorType: NonEmpty
     roomId: NonEmpty
-    position: Coordinates | None = None
 
 
 class BuildingStart(BaseModel):
@@ -141,5 +106,3 @@ class BuildingStart(BaseModel):
 
     buildingId: NonEmpty
     sensors: list[SimulatedSensor]
-    # Absent means no geometry; an empty list would claim a building with no rooms.
-    rooms: Annotated[list[Room], Field(min_length=1)] | None = None

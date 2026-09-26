@@ -10,9 +10,9 @@ _FIXTURE = json.loads(
         Path(__file__).resolve().parents[3] / "schemas" / "fixtures" / "simulation-start.json"
     ).read_text()
 )
-PLACED = next(c for c in _FIXTURE["cases"] if "two placed routers" in c["name"])["body"]
-BUILDING = PLACED["buildingId"]
-ROUTER = PLACED["sensors"][0]["sensorId"]
+ROUTERS = next(c for c in _FIXTURE["cases"] if c["consumer"] == "ap-simulator")["body"]
+BUILDING = ROUTERS["buildingId"]
+ROUTER = ROUTERS["sensors"][0]["sensorId"]
 
 
 def _client() -> TestClient:
@@ -41,14 +41,14 @@ def _login(client: TestClient, ap_id: str) -> int:
 
 def test_start_runs_the_building_and_serves_one_ap_per_router():
     client = _client()
-    assert client.post("/control/start", json=PLACED).status_code == 200
+    assert client.post("/control/start", json=ROUTERS).status_code == 200
     assert _running(client)
     assert _login(client, ROUTER) == 200
 
 
 def test_an_empty_start_stops_the_building():
     client = _client()
-    client.post("/control/start", json=PLACED)
+    client.post("/control/start", json=ROUTERS)
     client.post("/control/start", json={"buildingId": BUILDING, "sensors": []})
     assert not _running(client)
     assert _login(client, ROUTER) == 404
@@ -56,21 +56,21 @@ def test_an_empty_start_stops_the_building():
 
 def test_a_router_removed_before_a_restart_stops_answering():
     client = _client()
-    client.post("/control/start", json=PLACED)
-    client.post("/control/start", json={**PLACED, "sensors": PLACED["sensors"][1:]})
+    client.post("/control/start", json=ROUTERS)
+    client.post("/control/start", json={**ROUTERS, "sensors": ROUTERS["sensors"][1:]})
     assert _login(client, ROUTER) == 404
 
 
 def test_stop_ends_the_building_and_an_unknown_one_is_already_stopped():
     client = _client()
-    client.post("/control/start", json=PLACED)
+    client.post("/control/start", json=ROUTERS)
     assert client.post("/control/stop", json={"buildingId": BUILDING}).status_code == 200
     assert client.post("/control/stop", json={"buildingId": "ghost"}).status_code == 200
     assert not _running(client)
 
 
 def test_the_old_body_that_chose_its_own_ingest_target_is_refused():
-    body = {**PLACED, "targetUrl": "http://localhost/telemetry/"}
+    body = {**ROUTERS, "targetUrl": "http://localhost/telemetry/"}
     assert _client().post("/control/start", json=body).status_code == 422
 
 

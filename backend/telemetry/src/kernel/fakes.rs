@@ -10,7 +10,7 @@ use crate::types::plugin::{
 use crate::types::query::Bucket;
 use crate::types::reading::Reading;
 use crate::types::sensor::{Command, Sensor, SensorChanges};
-use crate::types::simulation::{SimulatedRoom, SimulatedSensor};
+use crate::types::simulation::SimulatedSensor;
 use crate::types::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use async_trait::async_trait;
 use serde_json::{Map, Value};
@@ -603,7 +603,6 @@ impl SimulatorControl for FakeSimulators {
         simulator: &str,
         building_id: &str,
         sensors: &[SimulatedSensor],
-        _rooms: &[SimulatedRoom],
     ) -> Result<(), DispatchError> {
         self.answer(simulator)?;
         self.started.lock().unwrap().push((
