@@ -3,7 +3,7 @@ use crate::types::event::{AlertPayload, TelemetryEvent};
 use crate::types::query::Bucket;
 use crate::types::reading::Reading;
 use crate::types::sensor::{Command, Sensor, SensorChanges};
-use crate::types::simulation::SimulatedSensor;
+use crate::types::simulation::{SimulatedRoom, SimulatedSensor};
 use crate::types::threshold::{Bounds, TemperatureLimits};
 use async_trait::async_trait;
 
@@ -86,12 +86,13 @@ pub trait ActionDispatch: Send + Sync {
 /// The simulators standing in for a building's devices, addressed by their configured name.
 #[async_trait]
 pub trait SimulatorControl: Send + Sync {
-    /// Replaces everything the simulator held for the building; an empty list stops it.
+    /// Replaces everything the simulator held for the building; no sensors stops it, no rooms sends no geometry.
     async fn start(
         &self,
         simulator: &str,
         building_id: &str,
         sensors: &[SimulatedSensor],
+        rooms: &[SimulatedRoom],
     ) -> Result<(), DispatchError>;
     async fn stop(&self, simulator: &str, building_id: &str) -> Result<(), DispatchError>;
     async fn is_running(&self, simulator: &str, building_id: &str) -> Result<bool, DispatchError>;

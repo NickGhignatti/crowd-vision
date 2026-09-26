@@ -178,7 +178,9 @@ Positions are **not** stored here: they are physical layout and belong to digita
     - - Routers (no simulator claims them) and outdoor sensors are never sent
       - Nothing simulates a router; readings are room-keyed, so an outdoor reading has nowhere to go.
     - - Body pinned by `schemas/fixtures/simulation-start.json`; no `targetUrl`
-      - Two simulators in two languages parse it; a simulator posts to its own `TELEMETRY_INGEST_URL`.
+      - Three simulators in two languages parse it; a simulator posts to its own `TELEMETRY_INGEST_URL`.
+    - - Sensor `position` and building `rooms` are optional; omitted when telemetry has none
+      - Coordinates are the twin's, not telemetry's. An empty `rooms` is never sent: it would claim a building with no rooms.
     - - Calls run concurrently, 5 s timeout each; all are tried, then any failure is `502`
       - One dead simulator must not leave the others stale. A retry is safe: start replaces.
     - - Status is `running` when any simulator runs the building; an unreachable one counts as not running

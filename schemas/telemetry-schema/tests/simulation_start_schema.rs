@@ -1,7 +1,7 @@
 const FIXTURE: &str = include_str!("../../fixtures/simulation-start.json");
 const SCHEMA: &str = include_str!("../../json/simulation-start.schema.json");
 
-// Telemetry builds this body and two simulators parse it in two other languages, so no
+// Telemetry builds this body and three simulators parse it in two other languages, so no
 // compiler sees all three. This crate hosts the check because it already carries `jsonschema`.
 #[test]
 fn every_start_the_fixture_accepts_matches_the_schema() {
@@ -37,7 +37,7 @@ fn every_case_names_who_parses_it() {
     for case in cases("cases") {
         let consumer = case["consumer"].as_str().unwrap_or_default();
         assert!(
-            ["sensor-simulator", "aq-simulator", "any"].contains(&consumer),
+            ["sensor-simulator", "aq-simulator", "ap-simulator", "any"].contains(&consumer),
             "{}: unknown consumer {consumer:?}",
             case["name"]
         );
