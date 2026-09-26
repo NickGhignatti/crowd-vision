@@ -85,8 +85,8 @@ unreachable.
 **Simulators are told what to simulate at start, and only then.** `PUT /simulation/buildings/{id}`
 reads the building's sensors and sends each simulator in `SIMULATORS` the ones whose kind it
 claims (body: `schemas/fixtures/simulation-start.json`). Every simulator is told, even with an
-empty list — empty means stop, so a removed sensor stops being simulated. Routers (no simulator
-claims them) and outdoor sensors are never sent. Calls run concurrently with a 5 s timeout, all
+empty list — empty means stop, so a removed sensor stops being simulated. Kinds no simulator
+claims, and outdoor sensors, are never sent. Calls run concurrently with a 5 s timeout, all
 are tried, then any failure is `502`. `Simulation::new` refuses a kind that is not a device, or
 one claimed twice (doubled readings). No simulator configured → `404`. Geometry (sensor
 `position`, `rooms`) is optional in the body and omitted when absent — coordinates are twin's.
