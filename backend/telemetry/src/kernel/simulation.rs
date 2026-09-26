@@ -74,7 +74,6 @@ impl Simulation {
                         sensor_id: sensor.sensor_id.clone(),
                         sensor_type: sensor.sensor_type.clone(),
                         room_id: room_id.clone(),
-                        position: None,
                     }),
                 _ => plan.unsimulated.push(sensor.sensor_id.clone()),
             }
@@ -94,7 +93,7 @@ impl Simulation {
         let results = join_all(plan.by_simulator.iter().map(|(name, sensors)| async move {
             (
                 name.as_str(),
-                self.control.start(name, building_id, sensors, &[]).await,
+                self.control.start(name, building_id, sensors).await,
             )
         }))
         .await;
@@ -241,7 +240,6 @@ mod tests {
             sensor_id: id.to_owned(),
             sensor_type: kind.to_owned(),
             room_id: room.to_owned(),
-            position: None,
         }
     }
 

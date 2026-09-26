@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 import scenarios
-from building import layout
+from building import simulate
 from schemas import (
     BuildingStart,
     BuildingStatus,
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AP Simulator (fake ubus)")
 
-DEVICES_PER_ROOM = int(os.environ.get("AP_SIM_DEVICES_PER_ROOM", "4"))
+PHONES_PER_ROOM = int(os.environ.get("AP_SIM_PHONES_PER_ROOM", "4"))
 
 _scenario_name = os.environ.get("AP_SIM_SCENARIO", "corridor")
 world = World(scenarios.PRESETS[_scenario_name]())
@@ -92,12 +92,15 @@ async def ubus_rpc(ap_id: str, request: Request) -> JSONResponse:
 @app.post("/control/start")
 def start(body: BuildingStart) -> dict:
     """Replaces what the building simulates; no router means stop simulating it."""
-    config = layout(body, DEVICES_PER_ROOM)
-    if config is None:
+    simulated = simulate(body, PHONES_PER_ROOM)
+    if simulated is None:
         return stop(StopRequest(buildingId=body.buildingId))
-    buildings[body.buildingId] = World(config)
+    buildings[body.buildingId] = simulated
     logger.info(
-        "building=%r aps=%d devices=%d", body.buildingId, len(config.aps), len(config.devices)
+        "building=%r aps=%d phones=%d",
+        body.buildingId,
+        len(simulated.aps),
+        len(simulated.device_macs),
     )
     return {"message": f"Simulator started for {body.buildingId}"}
 

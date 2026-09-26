@@ -5,6 +5,6 @@ services:
       context: .
     environment:
       - AP_SIM_SCENARIO=${AP_SIM_SCENARIO:-corridor}
-      - AP_SIM_DEVICES_PER_ROOM=${AP_SIM_DEVICES_PER_ROOM:-4}
+      - AP_SIM_PHONES_PER_ROOM=${AP_SIM_PHONES_PER_ROOM:-4}
     ports:
       - "3003:3000"

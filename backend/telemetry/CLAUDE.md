@@ -88,8 +88,8 @@ claims (body: `schemas/fixtures/simulation-start.json`). Every simulator is told
 empty list — empty means stop, so a removed sensor stops being simulated. Kinds no simulator
 claims, and outdoor sensors, are never sent. Calls run concurrently with a 5 s timeout, all
 are tried, then any failure is `502`. `Simulation::new` refuses a kind that is not a device, or
-one claimed twice (doubled readings). No simulator configured → `404`. Geometry (sensor
-`position`, `rooms`) is optional in the body and omitted when absent — coordinates are twin's.
+one claimed twice (doubled readings). No simulator configured → `404`. The body never
+carries coordinates: positions are digital-twin's, not telemetry's.
 
 **Registration**: telemetry consumes `building-registration-requested` and answers
 `building-registration-completed` (both from `twin_schema`). `maxTemperature` is read here

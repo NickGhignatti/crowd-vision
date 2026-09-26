@@ -4,9 +4,7 @@
     "sensors": "Replaces everything the simulator held for the building. May be empty: the simulator then stops simulating the building, so a sensor removed in the twin stops producing readings.",
     "roomId": "Always a room of the building. Readings are room-keyed, so telemetry never sends an outdoor sensor.",
     "sensorType": "A device kind from telemetry's catalog (`GET /telemetry/devices`), never a metric. A simulator ignores a kind it does not simulate.",
-    "targetUrl": "Absent on purpose. A simulator reads where to post readings from its own TELEMETRY_INGEST_URL, so no caller can redirect its signed batches.",
-    "position": "Optional. Where the twin places the sensor, in the twin's frame (y up). Absent when the sensor is not placed yet.",
-    "rooms": "Optional. Every room of the building, including those with no sensor: simulated people walk through rooms nobody measures. Room `position` is the footprint centre at floor level; `dimensions` extend width along x, height up y, depth along z. Absent means the caller has no geometry; never empty."
+    "targetUrl": "Absent on purpose. A simulator reads where to post readings from its own TELEMETRY_INGEST_URL, so no caller can redirect its signed batches."
   },
   "cases": [
     {
@@ -48,45 +46,7 @@
       }
     },
     {
-      "name": "two placed routers in a building of three rooms, one room without a router",
-      "consumer": "ap-simulator",
-      "body": {
-        "buildingId": "bldg-3f2b4c5d",
-        "sensors": [
-          {
-            "sensorId": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
-            "sensorType": "router",
-            "roomId": "room-lab-2",
-            "position": { "x": 3.5, "y": 2.6, "z": -1.0 }
-          },
-          {
-            "sensorId": "f7081920-3b4c-4d5e-9f60-718293a4b5c6",
-            "sensorType": "router",
-            "roomId": "room-aula-magna",
-            "position": { "x": 14.0, "y": 3.5, "z": 0.5 }
-          }
-        ],
-        "rooms": [
-          {
-            "roomId": "room-lab-2",
-            "position": { "x": 2.0, "y": 0.0, "z": 0.0 },
-            "dimensions": { "width": 8.0, "height": 3.0, "depth": 6.0 }
-          },
-          {
-            "roomId": "room-aula-magna",
-            "position": { "x": 12.0, "y": 0.0, "z": 0.0 },
-            "dimensions": { "width": 12.0, "height": 4.0, "depth": 10.0 }
-          },
-          {
-            "roomId": "room-corridor",
-            "position": { "x": 7.0, "y": 0.0, "z": 6.0 },
-            "dimensions": { "width": 22.0, "height": 3.0, "depth": 2.0 }
-          }
-        ]
-      }
-    },
-    {
-      "name": "a router not placed yet carries no position",
+      "name": "two routers in two rooms",
       "consumer": "ap-simulator",
       "body": {
         "buildingId": "bldg-3f2b4c5d",
@@ -95,13 +55,11 @@
             "sensorId": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
             "sensorType": "router",
             "roomId": "room-lab-2"
-          }
-        ],
-        "rooms": [
+          },
           {
-            "roomId": "room-lab-2",
-            "position": { "x": 2.0, "y": 0.0, "z": 0.0 },
-            "dimensions": { "width": 8.0, "height": 3.0, "depth": 6.0 }
+            "sensorId": "f7081920-3b4c-4d5e-9f60-718293a4b5c6",
+            "sensorType": "router",
+            "roomId": "room-aula-magna"
           }
         ]
       }
@@ -144,59 +102,6 @@
         "buildingId": "bldg-3f2b4c5d",
         "sensors": [],
         "targetUrl": "http://localhost/telemetry/"
-      }
-    },
-    {
-      "name": "a position missing a coordinate",
-      "reason": "position: needs x, y and z",
-      "body": {
-        "buildingId": "bldg-3f2b4c5d",
-        "sensors": [
-          {
-            "sensorId": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
-            "sensorType": "router",
-            "roomId": "room-lab-2",
-            "position": { "x": 3.5, "z": -1.0 }
-          }
-        ]
-      }
-    },
-    {
-      "name": "an empty rooms list",
-      "reason": "rooms: absent means no geometry; an empty list would claim a building with no rooms",
-      "body": {
-        "buildingId": "bldg-3f2b4c5d",
-        "sensors": [],
-        "rooms": []
-      }
-    },
-    {
-      "name": "a room with no dimensions",
-      "reason": "rooms: a room is a box, so it needs position and dimensions",
-      "body": {
-        "buildingId": "bldg-3f2b4c5d",
-        "sensors": [],
-        "rooms": [
-          {
-            "roomId": "room-lab-2",
-            "position": { "x": 2.0, "y": 0.0, "z": 0.0 }
-          }
-        ]
-      }
-    },
-    {
-      "name": "a room with no width",
-      "reason": "dimensions: every side must be greater than zero",
-      "body": {
-        "buildingId": "bldg-3f2b4c5d",
-        "sensors": [],
-        "rooms": [
-          {
-            "roomId": "room-lab-2",
-            "position": { "x": 2.0, "y": 0.0, "z": 0.0 },
-            "dimensions": { "width": 0.0, "height": 3.0, "depth": 6.0 }
-          }
-        ]
       }
     }
   ]

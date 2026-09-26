@@ -29,8 +29,7 @@ def _body(consumer: str) -> dict:
 def test_every_start_the_fixture_accepts_validates(case):
     config = BuildingConfig.model_validate(case["body"])
     assert config.buildingId == case["body"]["buildingId"]
-    assert [s.model_dump(exclude_none=True) for s in config.sensors] == case["body"]["sensors"]
-    assert [r.model_dump() for r in config.rooms or []] == case["body"].get("rooms", [])
+    assert [s.model_dump() for s in config.sensors] == case["body"]["sensors"]
 
 
 @pytest.mark.parametrize("case", _FIXTURE["rejected"], ids=lambda c: c["name"])

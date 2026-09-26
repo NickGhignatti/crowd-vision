@@ -19,8 +19,7 @@ nothing failing to compile.
 built by telemetry in Rust and parsed by sensor-simulator, aq-simulator and ap-simulator.
 Telemetry is its only Rust party, so its serialiser stays in telemetry and the crate holds no
 type. Each case names its `consumer` (`sensor-simulator`, `aq-simulator`, `ap-simulator`, `any`).
-Geometry (`position`, `rooms`) is optional and every parser accepts it, so telemetry can send one
-shape to all of them.
+**No coordinates, ever**: they are digital-twin's. A simulator gets sensor ids and rooms only.
 
 **The Cedar bundle is the exception — it stays in `backend/libs/auth-policy`.** Its fixture
 holds golden *decisions*, not a wire shape, is meaningless without `policy.cedar` and

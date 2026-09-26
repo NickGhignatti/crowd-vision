@@ -92,13 +92,11 @@ Two telemetry shapes have no type here: one side walks raw JSON or is the only R
 | `ingest-batch.json` | device → telemetry `/ingest` | ap-collector, aq-simulator, sensor-simulator | telemetry |
 | `simulation-start.json` | telemetry → simulator `/control/start` | telemetry | sensor-simulator, aq-simulator, ap-simulator |
 
-`simulation-start` body: `{ buildingId, sensors: [{ sensorId, sensorType, roomId, position? }], rooms? }`.
+`simulation-start` body: `{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }`.
 
 - `sensors` replaces what the simulator held for the building; empty = stop simulating it.
 - `roomId` is always a room: readings are room-keyed, so outdoor sensors are never sent.
-- `position` (`{ x, y, z }`, the twin's frame, y up): where the sensor is placed; absent when unplaced.
-- `rooms` (`[{ roomId, position, dimensions: { width, height, depth } }]`): every room of the building, sensors or not. Room `position` = footprint centre at floor level. Absent = no geometry; never empty; every side > 0.
-- Every parser accepts geometry, so one body fits every simulator. ap-simulator needs it to derive RSSI from distance.
+- No coordinates: positions are digital-twin's. ap-simulator models signal overlap from rooms alone.
 - No `targetUrl`: a simulator posts to its own `TELEMETRY_INGEST_URL`, so no caller can redirect its signed readings. The schema refuses extra keys, so the old body fails.
 
 ---

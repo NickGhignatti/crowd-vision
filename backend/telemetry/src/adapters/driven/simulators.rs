@@ -1,8 +1,6 @@
 use crate::adapters::driven::dispatch::is_http;
 use crate::kernel::ports::{DispatchError, SimulatorControl};
-use crate::types::simulation::{
-    Coordinates, Dimensions, SimulatedRoom, SimulatedSensor, SimulatorSpec,
-};
+use crate::types::simulation::{SimulatedSensor, SimulatorSpec};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -23,8 +21,6 @@ struct Configured {
 struct StartBody<'a> {
     building_id: &'a str,
     sensors: Vec<SensorBody<'a>>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    rooms: Vec<RoomBody<'a>>,
 }
 
 #[derive(Serialize)]
@@ -33,16 +29,6 @@ struct SensorBody<'a> {
     sensor_id: &'a str,
     sensor_type: &'a str,
     room_id: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    position: Option<Coordinates>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RoomBody<'a> {
-    room_id: &'a str,
-    position: Coordinates,
-    dimensions: Dimensions,
 }
 
 #[derive(Serialize)]
@@ -122,7 +108,6 @@ impl SimulatorControl for HttpSimulators {
         simulator: &str,
         building_id: &str,
         sensors: &[SimulatedSensor],
-        rooms: &[SimulatedRoom],
     ) -> Result<(), DispatchError> {
         let body = StartBody {
             building_id,
@@ -132,15 +117,6 @@ impl SimulatorControl for HttpSimulators {
                     sensor_id: &sensor.sensor_id,
                     sensor_type: &sensor.sensor_type,
                     room_id: &sensor.room_id,
-                    position: sensor.position,
-                })
-                .collect(),
-            rooms: rooms
-                .iter()
-                .map(|room| RoomBody {
-                    room_id: &room.room_id,
-                    position: room.position,
-                    dimensions: room.dimensions,
                 })
                 .collect(),
         };
@@ -173,7 +149,7 @@ impl SimulatorControl for HttpSimulators {
 mod tests {
     use super::*;
     use crate::kernel::ports::{DispatchError, SimulatorControl};
-    use crate::types::simulation::{Coordinates, Dimensions, SimulatedRoom, SimulatedSensor};
+    use crate::types::simulation::SimulatedSensor;
     use serde_json::{Value, json};
     use std::collections::HashMap;
     use std::time::Duration;
@@ -197,16 +173,10 @@ mod tests {
             .clone()
     }
 
-    fn coordinates(value: &Value) -> Coordinates {
-        Coordinates {
-            x: value["x"].as_f64().unwrap(),
-            y: value["y"].as_f64().unwrap(),
-            z: value["z"].as_f64().unwrap(),
-        }
-    }
-
-    fn sensors_of(body: &Value) -> Vec<SimulatedSensor> {
-        body["sensors"]
+    #[tokio::test]
+    async fn start_posts_the_body_the_fixture_pins() {
+        let body = fixture_case("sensor-simulator");
+        let sensors: Vec<SimulatedSensor> = body["sensors"]
             .as_array()
             .unwrap()
             .iter()
@@ -214,30 +184,8 @@ mod tests {
                 sensor_id: s["sensorId"].as_str().unwrap().to_owned(),
                 sensor_type: s["sensorType"].as_str().unwrap().to_owned(),
                 room_id: s["roomId"].as_str().unwrap().to_owned(),
-                position: s.get("position").map(coordinates),
             })
-            .collect()
-    }
-
-    fn rooms_of(body: &Value) -> Vec<SimulatedRoom> {
-        body.get("rooms")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .map(|r| SimulatedRoom {
-                room_id: r["roomId"].as_str().unwrap().to_owned(),
-                position: coordinates(&r["position"]),
-                dimensions: Dimensions {
-                    width: r["dimensions"]["width"].as_f64().unwrap(),
-                    height: r["dimensions"]["height"].as_f64().unwrap(),
-                    depth: r["dimensions"]["depth"].as_f64().unwrap(),
-                },
-            })
-            .collect()
-    }
-
-    async fn assert_start_posts(consumer: &str) {
-        let body = fixture_case(consumer);
+            .collect();
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/control/start"))
@@ -248,24 +196,9 @@ mod tests {
             .await;
 
         simulators(&server, Duration::from_secs(5))
-            .start(
-                "sim",
-                body["buildingId"].as_str().unwrap(),
-                &sensors_of(&body),
-                &rooms_of(&body),
-            )
+            .start("sim", body["buildingId"].as_str().unwrap(), &sensors)
             .await
             .unwrap();
-    }
-
-    #[tokio::test]
-    async fn start_posts_the_body_the_fixture_pins() {
-        assert_start_posts("sensor-simulator").await;
-    }
-
-    #[tokio::test]
-    async fn start_posts_positions_and_rooms_as_the_fixture_pins() {
-        assert_start_posts("ap-simulator").await;
     }
 
     #[tokio::test]
@@ -281,7 +214,7 @@ mod tests {
             .await;
 
         simulators(&server, Duration::from_secs(5))
-            .start("sim", body["buildingId"].as_str().unwrap(), &[], &[])
+            .start("sim", body["buildingId"].as_str().unwrap(), &[])
             .await
             .unwrap();
     }
