@@ -16,9 +16,11 @@ sensor-simulator in three languages, and a rename in any of them stops readings 
 nothing failing to compile.
 
 **So does the mirror: one producer, several parsers.** `fixtures/simulation-start.json` is
-built by telemetry in Rust and parsed by sensor-simulator and aq-simulator. Telemetry is its
-only Rust party, so its serialiser stays in telemetry and the crate holds no type. Each case
-names its `consumer` (`sensor-simulator`, `aq-simulator`, `any`).
+built by telemetry in Rust and parsed by sensor-simulator, aq-simulator and ap-simulator.
+Telemetry is its only Rust party, so its serialiser stays in telemetry and the crate holds no
+type. Each case names its `consumer` (`sensor-simulator`, `aq-simulator`, `ap-simulator`, `any`).
+Geometry (`position`, `rooms`) is optional and every parser accepts it, so telemetry can send one
+shape to all of them.
 
 **The Cedar bundle is the exception — it stays in `backend/libs/auth-policy`.** Its fixture
 holds golden *decisions*, not a wire shape, is meaningless without `policy.cedar` and
@@ -32,7 +34,7 @@ them has a wire quirk a generator would flatten.
 | Layer | Catches | Where |
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
-| `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts`; `simulation-start` by sensor-simulator's `__tests__/startContract.test.ts` and aq-simulator's `tests/test_start_contract.py` (every case parses, every rejection is refused) |
+| `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts`; `simulation-start` by sensor-simulator's `__tests__/startContract.test.ts` and aq-simulator's and ap-simulator's `tests/test_start_contract.py` (every case parses, every rejection is refused) |
 | `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `claims-schema/tests/{tenancy_domains,chat_conversation}_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,simulation_start,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
 | the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case; notification's `controllers.rs` posts every `fixtures/notification-preferences.json` request and rejection |
 | the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; chat's `conversation.rs` round-trips every `fixtures/chat-conversation.json` shape through its own types; telemetry's `redis_fanout.rs` publishes every `fixtures/telemetry-envelope.json` tick byte for byte; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every case and skips every rejection; telemetry's `simulators.rs` posts the `fixtures/simulation-start.json` bodies and wiremock matches them exactly |

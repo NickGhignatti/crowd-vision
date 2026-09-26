@@ -75,11 +75,11 @@ Routers have no simulator: `ap-simulator` fakes access points for `devices/ap-co
 
 ## Control API
 
-Called by telemetry only. The start body is pinned by `schemas/fixtures/simulation-start.json`, which both simulators' tests assert.
+Called by telemetry only. The start body is pinned by `schemas/fixtures/simulation-start.json`, which every simulator's tests assert.
 
 | Method | Endpoint | Body | Effect |
 |---|---|---|---|
-| `POST` | `/control/start` | `{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }` | Replaces what the building simulates. Empty `sensors` stops it. Any other key (e.g. the old `targetUrl`) is refused. |
+| `POST` | `/control/start` | `{ buildingId, sensors: [{ sensorId, sensorType, roomId, position? }], rooms? }` | Replaces what the building simulates. Empty `sensors` stops it. Geometry is optional; a simulator that does not need it ignores it. Any other key (e.g. the old `targetUrl`) is refused. |
 | `POST` | `/control/stop` | `{ buildingId }` | Stops the building. Stopping one it never simulated succeeds. |
 | `GET` | `/control/status?buildingId=X` | — | `{ isRunning }` |
 

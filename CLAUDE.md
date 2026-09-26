@@ -68,6 +68,7 @@ just test all
 just test <svc>          # chat telemetry twin notification socket dashboard frontend
                          # agent ap-collector claims-gateway provisioner registry tenancy
                          # aq-simulator sensor-simulator (assert the ingest-batch fixture)
+                         # ap-simulator (asserts the simulation-start fixture)
 just test <svc>-integration   # throwaway DB/broker, composed, then torn down
                          # Go (registry, tenancy): testcontainers behind `-tags=integration`
 just test integration    # full backend acceptance suite

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ApConfig(BaseModel):
@@ -76,3 +76,57 @@ class ScenarioRequest(BaseModel):
         if (self.preset is None) == (self.config is None):
             raise ValueError("give exactly one of `preset` or `config`")
         return self
+
+
+NonEmpty = Annotated[str, Field(min_length=1)]
+Finite = Annotated[float, Field(allow_inf_nan=False)]
+Side = Annotated[float, Field(gt=0, allow_inf_nan=False)]
+
+
+class Coordinates(BaseModel):
+    """A point in the twin's frame, y up."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x: Finite
+    y: Finite
+    z: Finite
+
+
+class Dimensions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    width: Side
+    height: Side
+    depth: Side
+
+
+class Room(BaseModel):
+    """A room as a box; `position` is its footprint centre at floor level."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    roomId: NonEmpty
+    position: Coordinates
+    dimensions: Dimensions
+
+
+class SimulatedSensor(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sensorId: NonEmpty
+    sensorType: NonEmpty
+    roomId: NonEmpty
+    position: Coordinates | None = None
+
+
+class BuildingStart(BaseModel):
+    """The body telemetry POSTs to /control/start; an empty `sensors` stops the building."""
+
+    # An extra key is refused so the old `targetUrl` can never choose where readings go.
+    model_config = ConfigDict(extra="forbid")
+
+    buildingId: NonEmpty
+    sensors: list[SimulatedSensor]
+    # Absent means no geometry; an empty list would claim a building with no rooms.
+    rooms: Annotated[list[Room], Field(min_length=1)] | None = None

@@ -102,6 +102,10 @@ agent:
 ap-collector:
     mise exec -- moon run ap-collector:test
 
+[doc("Asserts the AP simulator still parses the start body telemetry sends.")]
+ap-simulator:
+    mise exec -- moon run ap-simulator:test
+
 [doc("Asserts the air-quality simulator still builds the batch shape telemetry pins.")]
 aq-simulator:
     mise exec -- moon run aq-simulator:test
