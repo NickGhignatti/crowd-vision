@@ -1,12 +1,13 @@
 use crate::kernel::devices::DeviceCatalog;
 use crate::kernel::ports::{BuildingStore, SensorStore};
 use crate::types::error::{DomainError, ItemError};
-use crate::types::sensor::{Sensor, SensorChanges, SensorUpdate};
+use crate::types::sensor::{CollectorBuilding, Sensor, SensorChanges, SensorUpdate};
 use serde_json::{Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 pub const MAX_BATCH_SENSORS: usize = 200;
+pub const ROUTER: &str = "router";
 
 pub struct Sensors {
     pub devices: Arc<DeviceCatalog>,
@@ -172,6 +173,29 @@ impl Sensors {
     ) -> Result<Vec<Sensor>, DomainError> {
         Ok(self.store.by_room(building_id, room_id).await?)
     }
+
+    /// Every router in a room, grouped by building; an outdoor one has no zone to count into.
+    pub async fn for_collector(&self) -> Result<Vec<CollectorBuilding>, DomainError> {
+        let mut by_building: BTreeMap<String, Vec<Sensor>> = BTreeMap::new();
+        for router in self.store.of_type(ROUTER).await? {
+            if router.room_id.is_some() {
+                by_building
+                    .entry(router.building_id.clone())
+                    .or_default()
+                    .push(router);
+            }
+        }
+        Ok(by_building
+            .into_iter()
+            .map(|(building_id, mut routers)| {
+                routers.sort_by(|a, b| a.sensor_id.cmp(&b.sensor_id));
+                CollectorBuilding {
+                    building_id,
+                    routers,
+                }
+            })
+            .collect())
+    }
 }
 
 /// Whether `sensor_id` is this building's and not already changed by the batch; records why not.
@@ -290,6 +314,43 @@ mod tests {
 
     fn plain() -> Harness {
         harness(FakeSensors::default())
+    }
+
+    fn device(building: &str, id: &str, kind: &str, room: Option<&str>) -> Sensor {
+        Sensor {
+            building_id: building.to_owned(),
+            room_id: room.map(str::to_owned),
+            sensor_id: id.to_owned(),
+            name: id.to_owned(),
+            sensor_type: kind.to_owned(),
+            driver: None,
+            endpoint: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn a_collector_sees_every_indoor_router_grouped_by_building() {
+        let h = harness(FakeSensors {
+            registered: std::sync::Mutex::new(vec![
+                device("b2", "r9", "router", Some("hall")),
+                device("b1", "r2", "router", Some("lab")),
+                device("b1", "r1", "router", Some("lobby")),
+                device("b1", "roof", "router", None),
+                device("b1", "t1", "temperature", Some("lab")),
+            ]),
+            ..Default::default()
+        });
+
+        let found = h.sensors.for_collector().await.unwrap();
+
+        let ids: Vec<(&str, Vec<&str>)> = found
+            .iter()
+            .map(|b| {
+                let routers = b.routers.iter().map(|r| r.sensor_id.as_str()).collect();
+                (b.building_id.as_str(), routers)
+            })
+            .collect();
+        assert_eq!(ids, vec![("b1", vec!["r1", "r2"]), ("b2", vec!["r9"])]);
     }
 
     fn stored(h: &Harness) -> Vec<Sensor> {

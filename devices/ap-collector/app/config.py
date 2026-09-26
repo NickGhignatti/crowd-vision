@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 READERS = ("hostapd", "iwinfo")
@@ -10,6 +12,50 @@ DEFAULT_REQUEST_TIMEOUT = 10
 """Must stay <= DEFAULT_POLL_INTERVAL -- see Config._validate."""
 DEFAULT_DEVICES_PER_PERSON = 2.5
 """Used only when useDevicesPerPerson is true and devicesPerPerson is omitted."""
+DEFAULT_SYNC_INTERVAL = 300
+"""How often the router list is re-read from telemetry, in seconds."""
+DEFAULT_IFACES = ("wlan0",)
+
+
+@dataclass(frozen=True)
+class RouterLogin:
+    """How the collector logs in to a router. Stays on the site: telemetry never holds it."""
+
+    username: str
+    password: str
+    ifaces: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class Site:
+    """Everything about this site's routers that is not the platform's to know."""
+
+    login: RouterLogin
+    overrides: dict[str, dict] = dataclasses.field(default_factory=dict)
+    endpoint_template: str | None = None
+
+    def login_for(self, sensor_id: str) -> RouterLogin:
+        override = self.overrides.get(sensor_id, {})
+        return replace(
+            self.login,
+            username=override.get("username", self.login.username),
+            password=override.get("password", self.login.password),
+            ifaces=tuple(override.get("ifaces", self.login.ifaces)),
+        )
+
+    @classmethod
+    def from_json(cls, data: dict) -> Site:
+        ubus = data.get("ubus")
+        if not isinstance(ubus, dict) or not ubus.get("username"):
+            raise ValueError("config: ubus.username and ubus.password must be set")
+        ifaces = tuple(data.get("ifaces", DEFAULT_IFACES))
+        if not ifaces or not all(isinstance(i, str) and i for i in ifaces):
+            raise ValueError("config: ifaces must be a non-empty list of interface names")
+        return cls(
+            login=RouterLogin(ubus["username"], ubus.get("password", ""), ifaces),
+            overrides=dict(data.get("overrides", {})),
+            endpoint_template=data.get("endpointTemplate"),
+        )
 
 
 class AccessPoint:
@@ -88,11 +134,16 @@ class Config:
         self.poll_interval: int = poll_interval
         self.default_timeout: int = default_timeout
         self.devices_per_person: float | None = devices_per_person
+        self.sync_interval: float = DEFAULT_SYNC_INTERVAL
+        self.site: Site = Site(RouterLogin("", "", DEFAULT_IFACES))
 
     def load_from_config_file(self, config_file_path: str) -> None:
         with Path.open(Path(config_file_path)) as f:
             data = json.load(f)
-        buildings = [Building.from_json(building) for building in data.get("buildings", [])]
+        if "buildings" in data:
+            raise ValueError("config: buildings are read from telemetry; remove them from the file")
+        site = Site.from_json(data)
+        sync_interval = data.get("syncIntervalS", DEFAULT_SYNC_INTERVAL)
         poll_interval = data.get("pollIntervalS", DEFAULT_POLL_INTERVAL)
         default_timeout = data.get("requestTimeoutS", DEFAULT_REQUEST_TIMEOUT)
         devices_per_person = (
@@ -100,8 +151,9 @@ class Config:
             if data.get("useDevicesPerPerson", False)
             else None
         )
-        self._validate(buildings, poll_interval, default_timeout, devices_per_person)
-        self.buildings = buildings
+        self._validate(poll_interval, default_timeout, devices_per_person)
+        self.site = site
+        self.sync_interval = sync_interval
         self.poll_interval = poll_interval
         self.default_timeout = default_timeout
         self.devices_per_person = devices_per_person
@@ -120,16 +172,10 @@ class Config:
 
     def _validate(
         self,
-        buildings: list[Building],
         poll_interval: float,
         default_timeout: float,
         devices_per_person: float | None,
     ) -> None:
-        if not buildings:
-            raise ValueError("config: buildings must not be empty")
-        names = [b.name for b in buildings]
-        if len(set(names)) != len(names):
-            raise ValueError("config: building names must be unique")
         if default_timeout > poll_interval:
             # Otherwise a single unreachable AP holds a tick open past when the next one
             # should start, and the real poll rate drifts away from what phase 3's hysteresis

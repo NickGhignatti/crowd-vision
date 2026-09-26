@@ -1,0 +1,105 @@
+{
+  "description": "What GET /telemetry/collector answers: every router a collector may poll, grouped by building. Built by telemetry (Rust) from its sensors; parsed by ap-collector (Python).",
+  "rules": {
+    "buildings": "Only buildings with at least one router in a room. Empty when there are none.",
+    "roomId": "Always a room: a reading is room-keyed, so an outdoor router is never sent.",
+    "driver": "Optional. The device model; the collector picks its ubus reader from it (openwrt-iwinfo, else hostapd).",
+    "endpoint": "Optional. The router's ubus URL on the site network. Absent until someone sets it; a collector may fill it from its own endpointTemplate.",
+    "credentials": "Never. Router logins stay in the collector's local config; the platform stores addresses only."
+  },
+  "cases": [
+    {
+      "name": "two buildings, one router without driver or endpoint",
+      "body": {
+        "buildings": [
+          {
+            "buildingId": "bldg-3f2b4c5d",
+            "routers": [
+              {
+                "sensorId": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
+                "roomId": "room-aula-magna",
+                "driver": "openwrt-hostapd",
+                "endpoint": "http://10.0.4.12/ubus"
+              },
+              {
+                "sensorId": "f7081920-3b4c-4d5e-9f60-718293a4b5c6",
+                "roomId": "room-lab-2"
+              }
+            ]
+          },
+          {
+            "buildingId": "bldg-9a8b7c6d",
+            "routers": [
+              {
+                "sensorId": "08192a3b-4c5d-4e6f-8071-8293a4b5c6d7",
+                "roomId": "ground-floor",
+                "driver": "openwrt-iwinfo",
+                "endpoint": "http://10.1.0.3/ubus"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "no building has a router",
+      "body": {
+        "buildings": []
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "an outdoor router",
+      "reason": "roomId: must be a room; readings are room-keyed",
+      "body": {
+        "buildings": [
+          {
+            "buildingId": "bldg-3f2b4c5d",
+            "routers": [
+              {
+                "sensorId": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
+                "roomId": null
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a building with no router",
+      "reason": "routers: a building without one is left out, not listed empty",
+      "body": {
+        "buildings": [
+          {
+            "buildingId": "bldg-3f2b4c5d",
+            "routers": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "a router login",
+      "reason": "credentials never leave the site",
+      "body": {
+        "buildings": [
+          {
+            "buildingId": "bldg-3f2b4c5d",
+            "routers": [
+              {
+                "sensorId": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
+                "roomId": "room-lab-2",
+                "password": "collector"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "no buildings list",
+      "reason": "buildings: required",
+      "body": {}
+    }
+  ]
+}

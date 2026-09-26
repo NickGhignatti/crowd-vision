@@ -6,3 +6,5 @@ services:
     environment:
       - TELEMETRY_SERVICE_URL=${TELEMETRY_SERVICE_URL:-http://gateway/telemetry}
       - TELEMETRY_SERVICE_SECRET=${TELEMETRY_INGEST_SECRET}
+    # The image defaults to --dry-run; the stack posts, so simulated routers reach the dashboard.
+    command: ["--config", "collector.json"]

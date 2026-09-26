@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from collections import Counter
     from collections.abc import Callable, Mapping, Sequence
 
-    from app.config import Building, Config
+    from app.config import AccessPoint, Building, Config
     from app.ubus import StationsSource
     from app.zones import Reading
 
@@ -117,6 +117,40 @@ def build_sessions(config: Config, timeout: int) -> dict[str, dict[str, ApSessio
         building.name: {ap.name: ApSession(ap, timeout) for ap in building.ap}
         for building in config.buildings
     }
+
+
+def _same_ap(a: AccessPoint, b: AccessPoint) -> bool:
+    fields = ("url", "username", "password", "ifaces", "reader")
+    return all(getattr(a, f) == getattr(b, f) for f in fields)
+
+
+def sync_state(
+    config: Config,
+    sessions_by_building: dict[str, dict[str, ApSession]],
+    trackers_by_building: dict[str, ZoneTracker],
+    timeout: int,
+    new_tracker: Callable[[], ZoneTracker],
+) -> None:
+    """Reconcile the long-lived state with `config.buildings` after a router-list refresh.
+
+    Kept in place, not rebuilt: a router that stayed keeps its login token, and a building
+    that stayed keeps its tracker -- rebuilding would reset every device's hysteresis.
+    """
+    wanted = {building.name: building for building in config.buildings}
+    for name in set(sessions_by_building) - set(wanted):
+        del sessions_by_building[name]
+    for name in set(trackers_by_building) - set(wanted):
+        del trackers_by_building[name]
+    for name, building in wanted.items():
+        current = sessions_by_building.setdefault(name, {})
+        aps = {ap.name: ap for ap in building.ap}
+        for ap_name in set(current) - set(aps):
+            del current[ap_name]
+        for ap_name, ap in aps.items():
+            held = current.get(ap_name)
+            if held is None or not _same_ap(held.ap, ap):
+                current[ap_name] = ApSession(ap, timeout)
+        trackers_by_building.setdefault(name, new_tracker())
 
 
 def build_trackers(

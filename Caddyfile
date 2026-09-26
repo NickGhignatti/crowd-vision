@@ -97,6 +97,12 @@
         uri strip_prefix /telemetry
         reverse_proxy telemetry:3000
     }
+    # A collector reads its routers here with the same key, signing a timestamp instead of
+    # a body. Exact path, and listed in the same Istio no-principal rule, for the same reason.
+    handle /telemetry/collector {
+        uri strip_prefix /telemetry
+        reverse_proxy telemetry:3000
+    }
     handle_path /telemetry/* {
         import require_gateway_auth
         reverse_proxy telemetry:3000

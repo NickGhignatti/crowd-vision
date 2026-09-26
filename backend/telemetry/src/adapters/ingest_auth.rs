@@ -11,6 +11,9 @@ use std::sync::Arc;
 use crate::adapters::metrics;
 
 pub const SIGNATURE_HEADER: &str = "x-signature";
+pub const TIMESTAMP_HEADER: &str = "x-timestamp";
+/// How far a collector's clock may stray; also how long a captured request stays replayable.
+pub const MAX_SKEW_S: i64 = 300;
 
 const MAX_BODY_BYTES: usize = 1 << 20;
 const MIN_SECRET_BYTES: usize = 32;
@@ -37,6 +40,53 @@ impl IngestKey {
                 let _ = write!(hex, "{byte:02x}");
                 hex
             })
+    }
+
+    /// A GET has no body, so a collector signs this canonical string instead.
+    pub fn sign_collector_request(&self, timestamp: &str) -> String {
+        self.sign(format!("GET /collector\n{timestamp}").as_bytes())
+    }
+}
+
+/// Signed by this key, and stamped within `MAX_SKEW_S` of `now_s`.
+pub fn collector_request_is_valid(
+    key: &IngestKey,
+    signature: &str,
+    timestamp: &str,
+    now_s: i64,
+) -> bool {
+    let fresh = timestamp
+        .parse::<i64>()
+        .is_ok_and(|stamped| (now_s - stamped).abs() <= MAX_SKEW_S);
+    fresh && constant_time_eq(&key.sign_collector_request(timestamp), signature)
+}
+
+pub async fn verify_collector_request(
+    State(key): State<IngestKey>,
+    request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let valid = {
+        let header = |name: &str| {
+            request
+                .headers()
+                .get(name)
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or_default()
+        };
+        let now_s = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs() as i64);
+        collector_request_is_valid(
+            &key,
+            header(SIGNATURE_HEADER),
+            header(TIMESTAMP_HEADER),
+            now_s,
+        )
+    };
+    match valid {
+        true => Ok(next.run(request).await),
+        false => Err(StatusCode::UNAUTHORIZED),
     }
 }
 
@@ -110,6 +160,72 @@ mod tests {
                 case["name"].as_str().unwrap_or_default()
             );
         }
+    }
+
+    const REQUEST_FIXTURE: &str =
+        include_str!("../../../../schemas/fixtures/collector-request.json");
+
+    #[test]
+    fn collector_requests_sign_as_the_fixture_pins() {
+        let fixture: serde_json::Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
+        let key = IngestKey::new(fixture["secret"].as_str().unwrap()).unwrap();
+        assert_eq!(fixture["maxSkewS"], MAX_SKEW_S);
+        for case in fixture["cases"].as_array().unwrap() {
+            assert_eq!(
+                key.sign_collector_request(case["timestamp"].as_str().unwrap()),
+                case["signature"].as_str().unwrap(),
+                "{}",
+                case["name"]
+            );
+        }
+    }
+
+    fn signed_at(timestamp: &str) -> (String, String) {
+        (
+            key().sign_collector_request(timestamp),
+            timestamp.to_owned(),
+        )
+    }
+
+    #[test]
+    fn a_fresh_signed_request_is_accepted() {
+        let (signature, timestamp) = signed_at("1000");
+        assert!(collector_request_is_valid(
+            &key(),
+            &signature,
+            &timestamp,
+            1000 + MAX_SKEW_S
+        ));
+    }
+
+    #[test]
+    fn a_request_older_or_newer_than_the_skew_is_refused() {
+        let (signature, timestamp) = signed_at("1000");
+        assert!(!collector_request_is_valid(
+            &key(),
+            &signature,
+            &timestamp,
+            1001 + MAX_SKEW_S
+        ));
+        assert!(!collector_request_is_valid(
+            &key(),
+            &signature,
+            &timestamp,
+            999 - MAX_SKEW_S
+        ));
+    }
+
+    #[test]
+    fn a_retimed_request_or_a_bad_timestamp_is_refused() {
+        let (signature, _) = signed_at("1000");
+        assert!(!collector_request_is_valid(
+            &key(),
+            &signature,
+            "1001",
+            1000
+        ));
+        let (garbled, _) = signed_at("soon");
+        assert!(!collector_request_is_valid(&key(), &garbled, "soon", 1000));
     }
 
     #[test]

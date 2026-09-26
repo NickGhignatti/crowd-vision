@@ -395,6 +395,20 @@ impl SensorStore for FakeSensors {
             .collect())
     }
 
+    async fn of_type(&self, sensor_type: &str) -> anyhow::Result<Vec<Sensor>> {
+        if self.refuse {
+            anyhow::bail!("sensors refused");
+        }
+        Ok(self
+            .registered
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|s| s.sensor_type == sensor_type)
+            .cloned()
+            .collect())
+    }
+
     async fn by_room(&self, building_id: &str, room_id: &str) -> anyhow::Result<Vec<Sensor>> {
         if self.refuse {
             anyhow::bail!("sensors refused");

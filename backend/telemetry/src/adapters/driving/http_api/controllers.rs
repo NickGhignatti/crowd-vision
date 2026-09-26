@@ -6,7 +6,7 @@ use crate::types::error::DomainError;
 use crate::types::identity::GatewayClaims;
 use crate::types::plugin::ENVELOPE_FIELDS;
 use crate::types::reading::Reading;
-use crate::types::sensor::Command;
+use crate::types::sensor::{Command, Sensor};
 use crate::types::threshold::{Bounds, TemperatureLimits};
 use axum::Json;
 use axum::extract::{Path, Query, State};
@@ -301,6 +301,32 @@ pub async fn building_sensors(
     let sensors = state.sensors.by_building(&building_id).await?;
     let data = state.with_actions(&sensors).await;
     Ok(Json(json!({ "data": data })))
+}
+
+/// Every router a collector may poll, by building. Signed by a collector, never by a user.
+pub async fn collector(State(state): State<Arc<AppState>>) -> Result<Json<Value>, DomainError> {
+    let buildings: Vec<Value> = state
+        .sensors
+        .for_collector()
+        .await?
+        .iter()
+        .map(|building| {
+            let routers: Vec<Value> = building.routers.iter().map(collector_router).collect();
+            json!({ "buildingId": building.building_id, "routers": routers })
+        })
+        .collect();
+    Ok(Json(json!({ "buildings": buildings })))
+}
+
+// Absent, not null, when unset: the collector fills a missing endpoint from its own template.
+fn collector_router(router: &Sensor) -> Value {
+    let mut entry = json!({ "sensorId": router.sensor_id, "roomId": router.room_id });
+    for (key, value) in [("driver", &router.driver), ("endpoint", &router.endpoint)] {
+        if let Some(value) = value {
+            entry[key] = json!(value);
+        }
+    }
+    entry
 }
 
 pub async fn room_sensors(

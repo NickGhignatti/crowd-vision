@@ -32,6 +32,20 @@ components:
         TELEMETRY_INGEST_SECRET. A sensor gateway has no user JWT, so this is
         how it authenticates itself. The signature covers the exact bytes on
         the wire — sign the string you send, never a re-serialised copy.
+    collectorSignature:
+      type: apiKey
+      in: header
+      name: x-signature
+      description: >
+        Lowercase-hex HMAC-SHA256, keyed by TELEMETRY_INGEST_SECRET, over
+        "GET /collector\n" followed by the x-timestamp value. A GET has no body,
+        so the signed timestamp is what proves the caller holds the key; a
+        timestamp more than 300 s from telemetry's clock is refused.
+    collectorTimestamp:
+      type: apiKey
+      in: header
+      name: x-timestamp
+      description: Unix seconds, decimal — the value the x-signature covers.
 
   parameters:
     SensorType:
@@ -270,6 +284,52 @@ security:
   - gatewayClaims: []
 
 paths:
+  /collector:
+    get:
+      summary: Routers an on-site collector polls
+      description: >
+        Every router sensor placed in a room, grouped by building: what an
+        ap-collector polls and which room each one counts into. Outdoor routers
+        and buildings with no router are left out.
+
+        Addresses only, never logins: `endpoint` is the router's ubus URL on the
+        site network, and the credentials to use it stay in the collector's own
+        configuration. Ungated at the edge like `/ingest`, and signed by the
+        caller instead.
+      tags: [Ingestion]
+      security:
+        - collectorSignature: []
+          collectorTimestamp: []
+      responses:
+        "200":
+          description: The routers, by building
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [buildings]
+                properties:
+                  buildings:
+                    type: array
+                    items:
+                      type: object
+                      required: [buildingId, routers]
+                      properties:
+                        buildingId: { type: string, example: "bldg-3f2b4c5d" }
+                        routers:
+                          type: array
+                          minItems: 1
+                          items:
+                            type: object
+                            required: [sensorId, roomId]
+                            properties:
+                              sensorId: { type: string, format: uuid }
+                              roomId: { type: string, example: "room-lab-2" }
+                              driver: { type: string, example: "openwrt-hostapd" }
+                              endpoint: { type: string, example: "http://10.0.4.12/ubus" }
+        "401":
+          description: Unsigned, mis-signed, or stamped outside the 300 s window
+
   /ingest:
     post:
       summary: Ingest one building tick

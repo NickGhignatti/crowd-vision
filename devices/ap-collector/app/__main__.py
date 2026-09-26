@@ -6,10 +6,11 @@ import sys
 import time
 from typing import TYPE_CHECKING
 
-from app.collector import build_sessions, build_trackers, readings_for_building, run
+from app.collector import build_sessions, build_trackers, readings_for_building, run, sync_state
 from app.config import Config
 from app.ingest import IngestError, post_batch
-from app.zones import DEFAULT_FROZEN_POLLS
+from app.routers import SyncError, buildings_from, fetch_routers
+from app.zones import DEFAULT_FROZEN_POLLS, ZoneTracker
 
 if TYPE_CHECKING:
     from collections import Counter
@@ -47,9 +48,9 @@ def _make_print_tick(
 ) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
     """Dry-run `on_tick`: shares `readings_for_building` with the real post path so the
     preview always matches what would actually be sent, `devicesPerPerson` included."""
-    buildings_by_name = {building.name: building for building in config.buildings}
 
     def on_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
+        buildings_by_name = {building.name: building for building in config.buildings}
         now_ms = int(time.time() * 1000)
         for building_name, (assignment, moves) in results.items():
             building = buildings_by_name[building_name]
@@ -79,11 +80,11 @@ def _make_post_tick(
     A failed POST is dropped, not raised: an escaping IngestError would end the process, and
     a tick is a snapshot the next supersedes. Caught per building, so one rejected batch does
     not skip the buildings after it."""
-    buildings_by_name = {building.name: building for building in config.buildings}
     ingest_url = config.telemetry_service.rstrip("/") + "/ingest"
     secret = config.telemetry_secret.encode("utf-8")
 
     def on_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
+        buildings_by_name = {building.name: building for building in config.buildings}
         now_ms = int(time.time() * 1000)
         for building_name, (assignment, _moves) in results.items():
             building = buildings_by_name[building_name]
@@ -98,6 +99,24 @@ def _make_post_tick(
                 print(f"{building_name}: dropping this tick's batch: {error}", file=sys.stderr)
 
     return on_tick
+
+
+def _refreshing(
+    on_tick: Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None],
+    refresh: Callable[[], None],
+    every: int,
+) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
+    """`on_tick`, then a router-list refresh after every `every` ticks."""
+    ticks = 0
+
+    def wrapped(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
+        nonlocal ticks
+        on_tick(results)
+        ticks += 1
+        if ticks % every == 0:
+            refresh()
+
+    return wrapped
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -115,12 +134,14 @@ def main(argv: list[str] | None = None) -> int:
 
     config = Config([])
     config.load_from_config_file(args.config)
+    # Even a dry run reads its routers from telemetry: there is no other list.
+    config.load_env()
+    on_tick = _make_print_tick(config) if args.dry_run else _make_post_tick(config)
 
-    if args.dry_run:
-        on_tick = _make_print_tick(config)
-    else:
-        config.load_env()
-        on_tick = _make_post_tick(config)
+    def new_tracker() -> ZoneTracker:
+        return ZoneTracker(
+            args.hysteresis_polls, args.hysteresis_margin_db, args.absent_polls, args.frozen_polls
+        )
 
     sessions_by_building = build_sessions(config, timeout=config.default_timeout)
     trackers_by_building = build_trackers(
@@ -131,12 +152,30 @@ def main(argv: list[str] | None = None) -> int:
         frozen_polls=args.frozen_polls,
     )
 
+    def refresh() -> None:
+        secret = config.telemetry_secret.encode("utf-8")
+        try:
+            answer = fetch_routers(config.telemetry_service, secret, config.default_timeout)
+        except SyncError as error:
+            print(f"keeping the previous router list: {error}", file=sys.stderr)
+            return
+        config.buildings = buildings_from(answer, config.site)
+        sync_state(
+            config,
+            sessions_by_building,
+            trackers_by_building,
+            config.default_timeout,
+            new_tracker,
+        )
+
+    refresh()
+    every = max(1, round(config.sync_interval / config.poll_interval))
     run(
         config,
         sessions_by_building,
         trackers_by_building,
         interval_s=config.poll_interval,
-        on_tick=on_tick,
+        on_tick=_refreshing(on_tick, refresh, every),
         max_ticks=1 if args.once else None,
     )
     return 0
