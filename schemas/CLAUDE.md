@@ -22,7 +22,8 @@ type. Each case names its `consumer` (`sensor-simulator`, `aq-simulator`, `ap-si
 **No coordinates, ever**: they are digital-twin's. A simulator gets sensor ids and rooms only.
 
 **`fixtures/collector-routers.json` and `fixtures/collector-request.json`**: what telemetry answers
-on `GET /telemetry/collector`, and how a collector signs that GET (a timestamp, not a body).
+on `GET /telemetry/collector?buildingId=`, and how a collector signs that GET (building and
+timestamp, not a body) with its building's device key.
 Telemetry builds and verifies them in Rust, ap-collector parses and signs them in Python. Neither
 carries a router login: those stay on the site.
 

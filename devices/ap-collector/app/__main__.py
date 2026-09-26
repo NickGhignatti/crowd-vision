@@ -81,7 +81,6 @@ def _make_post_tick(
     a tick is a snapshot the next supersedes. Caught per building, so one rejected batch does
     not skip the buildings after it."""
     ingest_url = config.telemetry_service.rstrip("/") + "/ingest"
-    secret = config.telemetry_secret.encode("utf-8")
 
     def on_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
         buildings_by_name = {building.name: building for building in config.buildings}
@@ -91,6 +90,10 @@ def _make_post_tick(
             readings = readings_for_building(
                 building, assignment, now_ms, config.devices_per_person
             )
+            secret = config.key_for(building_name)
+            if secret is None:
+                print(f"{building_name}: no device key, dropping this tick", file=sys.stderr)
+                continue
             try:
                 post_batch(
                     ingest_url, secret, building_name, readings, timeout=config.default_timeout
@@ -153,13 +156,20 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     def refresh() -> None:
-        secret = config.telemetry_secret.encode("utf-8")
-        try:
-            answer = fetch_routers(config.telemetry_service, secret, config.default_timeout)
-        except SyncError as error:
-            print(f"keeping the previous router list: {error}", file=sys.stderr)
-            return
-        config.buildings = buildings_from(answer, config.site)
+        # Each building key reads its own building; the shared dev key reads every one.
+        shared = config.shared_key
+        reads = [(b, k) for b, k in config.keys.items()] or ([(None, shared)] if shared else [])
+        found: list[dict] = []
+        for building_id, key in reads:
+            try:
+                answer = fetch_routers(
+                    config.telemetry_service, key, config.default_timeout, building_id
+                )
+            except SyncError as error:
+                print(f"keeping the previous router list: {error}", file=sys.stderr)
+                return
+            found += answer["buildings"]
+        config.buildings = buildings_from({"buildings": found}, config.site)
         sync_state(
             config,
             sessions_by_building,

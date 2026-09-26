@@ -16,6 +16,7 @@ services:
       # Which simulator simulates which device kind; a kind no simulator claims is never sent.
       - 'SIMULATORS={"sensor-simulator":{"url":"http://sensor-simulator:3000","kinds":["temperature","peopleCount"]},"aq-simulator":{"url":"http://aq-simulator:3000","kinds":["airQuality"]},"ap-simulator":{"url":"http://ap-simulator:3000","kinds":["router"]}}'
       - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
+      - TELEMETRY_DEVICE_MASTER_KEY=${TELEMETRY_DEVICE_MASTER_KEY}
       - PORT=3000
       - RUST_LOG=info
     healthcheck:

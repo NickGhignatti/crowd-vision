@@ -532,6 +532,102 @@ async fn a_collector_reads_every_indoor_router_with_its_address_and_no_login() {
     );
 }
 
+async fn keyed_app(label: &str) -> support::test_app::TestApp {
+    let pool = fresh_db(label).await;
+    seed_building(&pool, "b1", &["r1", "r2"]).await;
+    seed_building(&pool, "b2", &["r9"]).await;
+    test_app(pool, vec!["eng"]).await
+}
+
+async fn issue_key(app: &support::test_app::TestApp, building: &str) -> String {
+    let uri = format!("/device-keys/buildings/{building}");
+    let (status, body) = app
+        .send_json("POST", &uri, Some(&staff()), json!(null))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["buildingId"], building);
+    body["key"].as_str().unwrap().to_owned()
+}
+
+fn temperature_in(building: &str) -> serde_json::Value {
+    let mut body = temperature("r1", BASE_MS, 21.0);
+    body["buildingId"] = json!(building);
+    body
+}
+
+#[tokio::test]
+async fn only_an_editor_gets_a_building_key_and_it_signs_for_that_building_alone() {
+    let app = keyed_app("devicekey").await;
+    let (reader, _) = app
+        .send_json(
+            "POST",
+            "/device-keys/buildings/b1",
+            Some(&customer()),
+            json!(null),
+        )
+        .await;
+    let (ghost, _) = app
+        .send_json(
+            "POST",
+            "/device-keys/buildings/ghost",
+            Some(&staff()),
+            json!(null),
+        )
+        .await;
+    let key = issue_key(&app, "b1").await;
+
+    let (own, _) = app.ingest_with(&key, temperature_in("b1")).await;
+    let (other, _) = app.ingest_with(&key, temperature_in("b2")).await;
+
+    assert_eq!(reader, StatusCode::FORBIDDEN);
+    assert_eq!(ghost, StatusCode::NOT_FOUND);
+    assert_eq!(own, StatusCode::ACCEPTED);
+    assert_eq!(other, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn issuing_a_building_key_again_revokes_the_previous_one() {
+    let app = keyed_app("devicekeyrotate").await;
+    let old = issue_key(&app, "b1").await;
+    let new = issue_key(&app, "b1").await;
+
+    let (with_old, _) = app.ingest_with(&old, temperature_in("b1")).await;
+    let (with_new, _) = app.ingest_with(&new, temperature_in("b1")).await;
+
+    assert_eq!(with_old, StatusCode::UNAUTHORIZED);
+    assert_eq!(with_new, StatusCode::ACCEPTED);
+}
+
+#[tokio::test]
+async fn a_building_key_reads_only_its_own_routers() {
+    let app = keyed_app("devicekeyread").await;
+    for (building, room) in [("b1", "r1"), ("b2", "r9")] {
+        app.send_json(
+            "POST",
+            &format!("/sensors/buildings/{building}"),
+            Some(&staff()),
+            json!({ "create": [{ "ref": "ap", "name": "AP", "sensorType": "router", "roomId": room }] }),
+        )
+        .await;
+    }
+    let key = issue_key(&app, "b1").await;
+
+    let (status, body) = app.collector_as(&key, Some("b1"), now_s()).await;
+    let (other, _) = app.collector_as(&key, Some("b2"), now_s()).await;
+    let (every, _) = app.collector_as(&key, None, now_s()).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let buildings: Vec<&str> = body["buildings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["buildingId"].as_str().unwrap())
+        .collect();
+    assert_eq!(buildings, vec!["b1"]);
+    assert_eq!(other, StatusCode::UNAUTHORIZED);
+    assert_eq!(every, StatusCode::UNAUTHORIZED);
+}
+
 #[tokio::test]
 async fn a_collector_request_unsigned_or_stale_is_refused() {
     let app = sensor_app("collectorauth").await;

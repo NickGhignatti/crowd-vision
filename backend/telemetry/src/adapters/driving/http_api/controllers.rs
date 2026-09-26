@@ -1,3 +1,4 @@
+use crate::adapters::ingest_auth::CollectorQuery;
 use crate::adapters::metrics;
 use crate::kernel::authz;
 use crate::kernel::readings::DashboardQuery;
@@ -304,12 +305,18 @@ pub async fn building_sensors(
 }
 
 /// Every router a collector may poll, by building. Signed by a collector, never by a user.
-pub async fn collector(State(state): State<Arc<AppState>>) -> Result<Json<Value>, DomainError> {
+pub async fn collector(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<CollectorQuery>,
+) -> Result<Json<Value>, DomainError> {
+    // The verifier already bound the signature to this buildingId, or to the shared key.
+    let wanted = |building: &str| query.building_id.as_deref().is_none_or(|id| id == building);
     let buildings: Vec<Value> = state
         .sensors
         .for_collector()
         .await?
         .iter()
+        .filter(|building| wanted(&building.building_id))
         .map(|building| {
             let routers: Vec<Value> = building.routers.iter().map(collector_router).collect();
             json!({ "buildingId": building.building_id, "routers": routers })
@@ -327,6 +334,23 @@ fn collector_router(router: &Sensor) -> Value {
         }
     }
     entry
+}
+
+/// Rotates the building's device key and returns the new one; the only time it is shown.
+pub async fn issue_device_key(
+    State(state): State<Arc<AppState>>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<Json<Value>, DomainError> {
+    edit(&state, &claims, &building_id).await?;
+    let key = state
+        .device_keys
+        .issue(&building_id)
+        .await?
+        .ok_or_else(|| {
+            DomainError::NotFound(format!("building {building_id} is not registered."))
+        })?;
+    Ok(Json(json!({ "buildingId": building_id, "key": key })))
 }
 
 pub async fn room_sensors(

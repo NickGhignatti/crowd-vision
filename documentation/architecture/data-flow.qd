@@ -113,7 +113,7 @@ These calls are intentionally few. The design keeps the request path short and a
 
 ### Device Ingestion
 
-`POST /ingest` on `telemetry` — no user token (a sensor gateway has none to present), so it is exempt from the gateway's auth gate and carries its own credential instead: `X-Signature`, an HMAC-SHA256 over the raw body keyed by `TELEMETRY_INGEST_SECRET` — the same `X-Signature` scheme as the control-plane hops above, but a separate key, since this one leaves the mesh and lives on customer premises. Unsigned or mis-signed requests are `401` before any work. The endpoint validates, persists and evaluates thresholds before answering `202 Accepted`, so a `202` means the reading is durable and queryable.
+`POST /ingest` on `telemetry` — no user token (a sensor gateway has none to present), so it is exempt from the gateway's auth gate and carries its own credential instead: `X-Signature`, an HMAC-SHA256 over the raw body keyed by the building's device key (derived from `TELEMETRY_DEVICE_MASTER_KEY`; dev's shared `TELEMETRY_INGEST_SECRET` also signs) — the same `X-Signature` scheme as the control-plane hops above, but a separate key, since this one leaves the mesh and lives on customer premises. Unsigned or mis-signed requests are `401` before any work. The endpoint validates, persists and evaluates thresholds before answering `202 Accepted`, so a `202` means the reading is durable and queryable.
 
 ---
 

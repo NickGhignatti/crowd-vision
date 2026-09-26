@@ -60,6 +60,7 @@ services:
       - DASHBOARD_URL=http://dashboard:3000
       - EDGE_URL=http://gateway
       - TELEMETRY_INGEST_SECRET=${TELEMETRY_INGEST_SECRET}
+      - TELEMETRY_DEVICE_MASTER_KEY=${TELEMETRY_DEVICE_MASTER_KEY}
     volumes:
       # :z relabels the bind mount for SELinux-enforcing hosts (same reason
       # the root compose file's gateway service does it for its own mounts)

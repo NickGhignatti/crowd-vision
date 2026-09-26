@@ -223,13 +223,25 @@ def test_load_env_raises_when_telemetry_service_url_is_unset(monkeypatch):
         config.load_env()
 
 
-def test_load_env_raises_when_telemetry_service_secret_is_unset(monkeypatch):
+def test_load_env_raises_when_there_is_neither_a_shared_key_nor_a_building_key(monkeypatch):
     monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry:8080")
     monkeypatch.delenv("TELEMETRY_SERVICE_SECRET", raising=False)
     config = Config([])
 
-    with pytest.raises(ValueError, match=r"(?i)TELEMETRY_SERVICE_SECRET must be set"):
+    with pytest.raises(ValueError, match=r"(?i)keys"):
         config.load_env()
+
+
+def test_building_keys_replace_the_shared_key_for_their_building(tmp_path, monkeypatch):
+    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry:8080")
+    monkeypatch.delenv("TELEMETRY_SERVICE_SECRET", raising=False)
+    config = Config([])
+    config.load_from_config_file(_write(tmp_path, dict(SITE, keys={"b1": "k" * 64})))
+
+    config.load_env()
+
+    assert config.key_for("b1") == b"k" * 64
+    assert config.key_for("b2") is None
 
 
 def test_devices_per_person_is_none_when_flag_is_false_or_omitted(tmp_path):

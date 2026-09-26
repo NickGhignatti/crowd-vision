@@ -105,3 +105,8 @@ just test telemetry-integration   # tests/*.rs against a throwaway TimescaleDB, 
 
 `tests/` covers `api`, `persistence`, `fanout`, `alerts`, `registration`, `architecture`.
 Migrations live in `migrations/`.
+
+**Device keys are derived, never stored.** A building's key is `HMAC(TELEMETRY_DEVICE_MASTER_KEY,
+"{buildingId}:{epoch}")`; `buildings.device_key_epoch` is the only state, bumped by
+`POST /device-keys/buildings/{id}` to revoke. Read uncached, so a rotation holds on every replica.
+`TELEMETRY_INGEST_SECRET` is the optional shared key that signs for any building — dev only.

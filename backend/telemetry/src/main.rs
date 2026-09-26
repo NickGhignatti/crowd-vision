@@ -10,13 +10,13 @@ use telemetry::adapters::driven::threshold_cache::CachedThresholds;
 use telemetry::adapters::driven::twin_directory::TwinDirectory;
 use telemetry::adapters::driving::kafka_consumer;
 use telemetry::adapters::health::probe_exit_code;
-use telemetry::adapters::ingest_auth::IngestKey;
+use telemetry::adapters::ingest_auth::DeviceKeys;
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
 use telemetry::kernel::ports::{
-    Alerts, BuildingDirectory, BuildingStore, Clock, Fanout, ReadingStore, RegistrationEvents,
-    SensorStore, SimulatorControl, ThresholdStore,
+    Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ReadingStore,
+    RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
 };
 use telemetry::kernel::readings::Readings;
 use telemetry::kernel::registration::Registration;
@@ -45,7 +45,11 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let database_url = std::env::var("DATABASE_URL")?;
-    let ingest_key = IngestKey::new(&std::env::var("TELEMETRY_INGEST_SECRET")?)?;
+    let master_key = std::env::var("TELEMETRY_DEVICE_MASTER_KEY")?;
+    // Dev and simulators only: signs for any building. Production leaves it unset.
+    let shared_key = std::env::var("TELEMETRY_INGEST_SECRET")
+        .ok()
+        .filter(|secret| !secret.is_empty());
     let redis_url = env_or("REDIS_URL", "redis://redis:6379");
     let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
     let twin_url = env_or("DIGITAL_TWIN_URL", "http://digital-twin:3000");
@@ -72,6 +76,12 @@ async fn main() -> anyhow::Result<()> {
     ))));
     let sensors_store = Arc::new(PgSensors::new(pool.clone()));
     // Shared for the same reason: a re-registration must reach the names cache ingest reads.
+    // Uncached on purpose: a rotated key must stop working on every replica at once.
+    let device_keys = DeviceKeys::new(
+        &master_key,
+        shared_key.as_deref(),
+        Arc::new(PgBuildings::new(pool.clone())) as Arc<dyn DeviceKeyStore>,
+    )?;
     let buildings_store = Arc::new(CachedBuildings::new(Arc::new(PgBuildings::new(
         pool.clone(),
     ))));
@@ -111,7 +121,7 @@ async fn main() -> anyhow::Result<()> {
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
         pool: pool.clone(),
-        ingest_key,
+        device_keys,
         ingest: Ingest {
             registry: registry.clone(),
             readings: readings_store.clone() as Arc<dyn ReadingStore>,

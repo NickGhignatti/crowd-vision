@@ -13,11 +13,11 @@ export COMPOSE_BAKE=true
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."  # repo root
 
-# telemetry refuses to boot without an ingest signing key, and both it
-# and the test client read the same one out of the repo-root .env that compose
-# auto-loads. Generating it here keeps the suite runnable without `just stack env`.
+# telemetry refuses to boot without its device master key, and both it and the
+# test client read the shared ingest key out of the repo-root .env that compose
+# auto-loads. Generating them here keeps the suite runnable without `just stack env`.
 mise exec -- sh scripts/env/ingest-key.sh || {
-  echo "::error::could not generate TELEMETRY_INGEST_SECRET" >&2
+  echo "::error::could not generate TELEMETRY_INGEST_SECRET / TELEMETRY_DEVICE_MASTER_KEY" >&2
   exit 1
 }
 

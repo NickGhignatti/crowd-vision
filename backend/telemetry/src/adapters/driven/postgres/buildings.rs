@@ -1,4 +1,4 @@
-use crate::kernel::ports::BuildingStore;
+use crate::kernel::ports::{BuildingStore, DeviceKeyStore};
 use crate::types::building::{BuildingNames, RegisteredBuilding};
 use async_trait::async_trait;
 use sqlx::PgPool;
@@ -68,5 +68,27 @@ impl BuildingStore for PgBuildings {
             name,
             rooms: rooms.into_iter().collect(),
         }))
+    }
+}
+
+#[async_trait]
+impl DeviceKeyStore for PgBuildings {
+    async fn epoch(&self, building_id: &str) -> anyhow::Result<Option<i32>> {
+        Ok(
+            sqlx::query_scalar("select device_key_epoch from buildings where id = $1")
+                .bind(building_id)
+                .fetch_optional(&self.pool)
+                .await?,
+        )
+    }
+
+    async fn rotate(&self, building_id: &str) -> anyhow::Result<Option<i32>> {
+        Ok(sqlx::query_scalar(
+            "update buildings set device_key_epoch = device_key_epoch + 1 where id = $1
+             returning device_key_epoch",
+        )
+        .bind(building_id)
+        .fetch_optional(&self.pool)
+        .await?)
     }
 }

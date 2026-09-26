@@ -102,7 +102,8 @@ This chains ten small, idempotent POSIX-sh scripts (`scripts/env/*.sh`), each re
     - - `gateway-key.sh`
       - A stable RSA signing key for `claims-gateway`, written to `secrets/gateway-dev-key.pem` — **not** \.`env` (see below).
     - - `ingest-key.sh`
-      - `TELEMETRY_INGEST_SECRET` — the HMAC key a gateway signs `/telemetry/ingest` bodies and `/telemetry/collector` reads with. Deliberately distinct from `INTERNAL_SIGNING_SECRET`: it leaves the mesh and lives on customer premises.
+      - `TELEMETRY_DEVICE_MASTER_KEY` — every building's device key is derived from it; a collector signs `/telemetry/ingest` and `/telemetry/collector` with its building's key. Losing it revokes them all.
+      - `TELEMETRY_INGEST_SECRET` — the shared key that signs for **any** building: simulators and dev only, leave it unset in production. Deliberately distinct from `INTERNAL_SIGNING_SECRET`: it leaves the mesh and lives on customer premises.
     - - `telemetry-db.sh`
       - `TELEMETRY_DB_PASSWORD` — backs `telemetry-db`. Read only by the Kubernetes path (`just k8s secrets`); Compose hardcodes `telemetry` in `backend/telemetry/docker-compose.yml`.
 

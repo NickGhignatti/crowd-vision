@@ -20,7 +20,9 @@ def _answer(name: str) -> dict:
 def test_requests_sign_as_the_fixture_pins():
     secret = REQUEST["secret"].encode()
     for case in REQUEST["cases"]:
-        assert sign_request(secret, case["timestamp"]) == case["signature"], case["name"]
+        building = case["buildingId"] or None
+        signature = sign_request(secret, building, case["timestamp"])
+        assert signature == case["signature"], case["name"]
 
 
 @pytest.mark.parametrize("case", ROUTERS["cases"], ids=lambda c: c["name"])
@@ -92,17 +94,19 @@ def test_fetch_signs_a_timestamped_get_and_parses_the_answer(monkeypatch):
         return _Response(json.dumps(_answer("no building has a router")).encode())
 
     monkeypatch.setattr("urllib.request.urlopen", fake)
-    answer = fetch_routers("http://t.example/telemetry", b"k" * 32, timeout=3, now=lambda: 1000.9)
+    answer = fetch_routers(
+        "http://t.example/telemetry", b"k" * 32, timeout=3, building_id="b 1", now=lambda: 1000.9
+    )
 
     (request, timeout) = seen[0]
     assert answer == {"buildings": []}
     assert (request.get_method(), request.full_url, timeout) == (
         "GET",
-        "http://t.example/telemetry/collector",
+        "http://t.example/telemetry/collector?buildingId=b+1",
         3,
     )
     assert request.get_header("X-timestamp") == "1000"
-    assert request.get_header("X-signature") == sign_request(b"k" * 32, "1000")
+    assert request.get_header("X-signature") == sign_request(b"k" * 32, "b 1", "1000")
 
 
 def test_fetch_reports_an_unreachable_or_refusing_telemetry_as_a_sync_error(monkeypatch):

@@ -24,14 +24,14 @@ pub fn router(state: Arc<AppState>) -> Router {
 
     let ingest = Router::new().route("/ingest", post(c::ingest)).layer(
         axum::middleware::from_fn_with_state(
-            state.ingest_key.clone(),
+            state.device_keys.clone(),
             ingest_auth::verify_signature,
         ),
     );
 
     let collector = Router::new().route("/collector", get(c::collector)).layer(
         axum::middleware::from_fn_with_state(
-            state.ingest_key.clone(),
+            state.device_keys.clone(),
             ingest_auth::verify_collector_request,
         ),
     );
@@ -64,6 +64,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route(
             "/sensors/buildings/{buildingId}/rooms/{roomId}",
             get(c::room_sensors),
+        )
+        .route(
+            "/device-keys/buildings/{buildingId}",
+            post(c::issue_device_key),
         )
         .route(
             "/simulation/buildings/{buildingId}",

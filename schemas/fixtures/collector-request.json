@@ -4,21 +4,30 @@
     "signature": "X-Signature",
     "timestamp": "X-Timestamp"
   },
-  "canonical": "GET /collector\\n{timestamp}",
-  "algorithm": "hex(HMAC-SHA256(secret, canonical))",
+  "query": "buildingId: the building whose routers to read. Absent only with the shared key, which reads every building.",
+  "canonical": "GET /collector\\n{buildingId}\\n{timestamp}",
+  "algorithm": "hex(HMAC-SHA256(key, canonical)), key = the building's device key, or the shared key",
   "timestamp": "Unix seconds, decimal. Refused when more than maxSkewS away from telemetry's clock.",
   "maxSkewS": 300,
   "secret": "an-internal-secret-that-is-at-least-32-bytes",
   "cases": [
     {
-      "name": "a timestamp",
+      "name": "one building",
+      "buildingId": "bldg-3f2b4c5d",
       "timestamp": "1757251200",
-      "signature": "35ed92d508ad8741240dd6ce49c5d35f6840f73524912ab973396fcf926ea0ba"
+      "signature": "444f58b66f1cbcfce502b70d0ad3a6359f97c15a5a5f00809dfde5e377d586f2"
     },
     {
       "name": "one second later signs differently",
+      "buildingId": "bldg-3f2b4c5d",
       "timestamp": "1757251201",
-      "signature": "846d2dbea0ba74e72ecd86c7fd1b7d19a5c183fb80e265e9a803c2bec63827f7"
+      "signature": "253ae0d081b6947160ea46ef7b70909ea5ce1cbe4b5bba776c77ce6c00d4c2c1"
+    },
+    {
+      "name": "every building, shared key only",
+      "buildingId": "",
+      "timestamp": "1757251200",
+      "signature": "4e12ee335e654aa78a55182e49f2915c55c0b2bf12e9b74d6fade5a701d1a1ee"
     }
   ]
 }

@@ -112,7 +112,7 @@ A bound names the payload `field` it compares — not the reading's value, since
 
 **Ingestion** — `POST /ingest`, device-facing so no user JWT and still exempt from the edge gate, but not open: the caller signs the request itself. The route takes a *batch*, always — a lone device sends one reading in the array, so there is no second route and no second code path.
 
-0. `X-Signature` must equal `HMAC-SHA256(TELEMETRY_INGEST_SECRET, raw_body)` in lowercase hex — missing, malformed or mismatched is `401` before any parsing, persistence or fanout. Bodies over 1 MiB are `413`.
+0. `X-Signature` must equal `HMAC-SHA256(key, raw_body)` in lowercase hex, `key` being the body's `buildingId` device key (or the dev shared key — see **Device keys**) — missing, malformed or mismatched is `401` before any parsing, persistence or fanout. Bodies over 1 MiB are `413`.
 1. Envelope `{buildingId, readings[]}`, capped at 500 readings. Each reading carries its own `type`, which selects the plugin and is stripped; the envelope supplies `buildingId`. A reading naming a *different* building is rejected — a batch maps to exactly one fan-out channel.
 2. Every reading is validated before anything is written. All-or-nothing: one failure persists nothing, publishes nothing, and one `422` names every offending field, each reading's prefixed with its index (`readings[3]: ...`). An unknown metric is one of those errors, not a `404` — within a batch it is a bad element of a payload, not an unroutable request.
 3. One bulk insert, with one threshold lookup for the whole tick running alongside it.
@@ -131,14 +131,19 @@ The signature covers the exact bytes on the wire, so a re-serialised body fails:
 
 **Collector read** — `GET /collector`, the router list an on-site collector polls. Device-facing like ingest: exempt from the edge gate, signed by the caller.
 
-- `X-Timestamp` (unix seconds) and `X-Signature` = `HMAC-SHA256(TELEMETRY_INGEST_SECRET, "GET /collector\n" + timestamp)`. A GET has no body, so the timestamp is what is signed; more than 300 s off telemetry's clock is `401`, which bounds replay. Pinned by `schemas/fixtures/collector-request.json`.
-- Answers `{ buildings: [{ buildingId, routers: [{ sensorId, roomId, driver?, endpoint? }] }] }`: every router sensor in a room, grouped by building. Outdoor routers and buildings without a router are left out. Pinned by `schemas/fixtures/collector-routers.json`.
+- `?buildingId=X`, `X-Timestamp` (unix seconds) and `X-Signature` = `HMAC-SHA256(X's device key, "GET /collector\n" + X + "\n" + timestamp)`. A GET has no body, so the timestamp is what is signed; more than 300 s off telemetry's clock is `401`, which bounds replay. Without `buildingId` only the shared key signs, and it reads every building. Pinned by `schemas/fixtures/collector-request.json`.
+- Answers `{ buildings: [{ buildingId, routers: [{ sensorId, roomId, driver?, endpoint? }] }] }`: X's router sensors in rooms (or every building's, with the shared key). Outdoor routers and buildings without a router are left out. Pinned by `schemas/fixtures/collector-routers.json`.
 - **Addresses only, never logins.** `endpoint` is the router's ubus URL on the site network; its credentials live in the collector's own file.
 
-.box {One shared secret, not one per building} type:{note}
-    A leaked key also reads every building's router list, not only posts for any building. Per-building device keys close both, with no wire change.
+**Device keys** — one per building, so a key taken from one site's collector signs for that building alone.
 
-    Every gateway currently signs with the same key, so a legitimate gateway could still post for a building that is not its own. That is bounded by there being no third-party gateways yet. Per-building keys are a store lookup behind the same header, with no wire change. Replay is likewise undefended — a captured body stays valid — which matches the mesh's documented "hard perimeter, guarded interior" posture, where an in-mesh attacker could forge `x-gateway-claims` regardless.
+- `key = hex(HMAC-SHA256(TELEMETRY_DEVICE_MASTER_KEY, "{buildingId}:{epoch}"))`. Derived, never stored: the database holds only `buildings.device_key_epoch`.
+- `POST /device-keys/buildings/{buildingId}` (editing role) bumps the epoch and returns `{ buildingId, key }` — the only time the key is shown. The previous key stops working at once; other buildings are untouched.
+- The epoch is read uncached on every signed request, so a rotation holds on every replica immediately.
+- `TELEMETRY_INGEST_SECRET`, when set, is a **shared key** that signs for any building — dev and simulators only. Production leaves it unset.
+
+.box {The master key is the one secret} type:{warning}
+    Anyone holding `TELEMETRY_DEVICE_MASTER_KEY` can derive every building's key. Changing it revokes every device key at once, so every collector needs a new one. Replay of an ingest body is still undefended — a captured body stays valid — which matches the mesh's documented "hard perimeter, guarded interior" posture.
 
 A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `telemetry_ingest_persist_failures_total`.
 

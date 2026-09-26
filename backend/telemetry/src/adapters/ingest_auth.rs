@@ -1,5 +1,5 @@
 use axum::body::Body;
-use axum::extract::{Request, State};
+use axum::extract::{Query, Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::Response;
@@ -9,6 +9,8 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 use crate::adapters::metrics;
+use crate::kernel::ports::DeviceKeyStore;
+use serde::Deserialize;
 
 pub const SIGNATURE_HEADER: &str = "x-signature";
 pub const TIMESTAMP_HEADER: &str = "x-timestamp";
@@ -41,50 +43,119 @@ impl IngestKey {
                 hex
             })
     }
+}
 
-    /// A GET has no body, so a collector signs this canonical string instead.
-    pub fn sign_collector_request(&self, timestamp: &str) -> String {
-        self.sign(format!("GET /collector\n{timestamp}").as_bytes())
+/// What a collector signs for `GET /collector`: a GET has no body, so a canonical string.
+pub fn collector_message(building_id: Option<&str>, timestamp: &str) -> String {
+    format!(
+        "GET /collector\n{}\n{timestamp}",
+        building_id.unwrap_or_default()
+    )
+}
+
+/// Stamped within `MAX_SKEW_S` of `now_s`.
+pub fn is_fresh(timestamp: &str, now_s: i64) -> bool {
+    timestamp
+        .parse::<i64>()
+        .is_ok_and(|stamped| (now_s - stamped).abs() <= MAX_SKEW_S)
+}
+
+/// Per-building device keys, derived from one master key, plus the shared key where configured.
+#[derive(Clone)]
+pub struct DeviceKeys {
+    master: IngestKey,
+    shared: Option<IngestKey>,
+    epochs: Arc<dyn DeviceKeyStore>,
+}
+
+impl DeviceKeys {
+    pub fn new(
+        master: &str,
+        shared: Option<&str>,
+        epochs: Arc<dyn DeviceKeyStore>,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            master: IngestKey::new(master)?,
+            shared: shared.map(IngestKey::new).transpose()?,
+            epochs,
+        })
+    }
+
+    /// The building's key at `epoch`: hex HMAC(master, "{building}:{epoch}").
+    pub fn derive(&self, building_id: &str, epoch: i32) -> String {
+        self.master
+            .sign(format!("{building_id}:{epoch}").as_bytes())
+    }
+
+    /// Revokes the building's key and returns its new one; `None` when it is not registered.
+    pub async fn issue(&self, building_id: &str) -> anyhow::Result<Option<String>> {
+        let epoch = self.epochs.rotate(building_id).await?;
+        Ok(epoch.map(|epoch| self.derive(building_id, epoch)))
+    }
+
+    /// Signed by the shared key, or by `building_id`'s current key.
+    pub async fn accepts(
+        &self,
+        building_id: Option<&str>,
+        message: &[u8],
+        signature: &str,
+    ) -> bool {
+        let signed_by = |key: &IngestKey| constant_time_eq(&key.sign(message), signature);
+        if self.shared.as_ref().is_some_and(signed_by) {
+            return true;
+        }
+        let Some(building_id) = building_id else {
+            return false;
+        };
+        match self.epochs.epoch(building_id).await {
+            Ok(Some(epoch)) => {
+                IngestKey::new(&self.derive(building_id, epoch)).is_ok_and(|key| signed_by(&key))
+            }
+            Ok(None) => false,
+            Err(error) => {
+                log::warn!("device key epoch unreadable for {building_id}: {error:?}");
+                false
+            }
+        }
     }
 }
 
-/// Signed by this key, and stamped within `MAX_SKEW_S` of `now_s`.
-pub fn collector_request_is_valid(
-    key: &IngestKey,
-    signature: &str,
-    timestamp: &str,
-    now_s: i64,
-) -> bool {
-    let fresh = timestamp
-        .parse::<i64>()
-        .is_ok_and(|stamped| (now_s - stamped).abs() <= MAX_SKEW_S);
-    fresh && constant_time_eq(&key.sign_collector_request(timestamp), signature)
+#[derive(Deserialize)]
+pub struct CollectorQuery {
+    #[serde(rename = "buildingId")]
+    pub building_id: Option<String>,
 }
 
 pub async fn verify_collector_request(
-    State(key): State<IngestKey>,
+    State(keys): State<DeviceKeys>,
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let valid = {
+    let (building, message, signature, fresh) = {
         let header = |name: &str| {
             request
                 .headers()
                 .get(name)
                 .and_then(|value| value.to_str().ok())
                 .unwrap_or_default()
+                .to_owned()
         };
         let now_s = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |elapsed| elapsed.as_secs() as i64);
-        collector_request_is_valid(
-            &key,
-            header(SIGNATURE_HEADER),
-            header(TIMESTAMP_HEADER),
-            now_s,
-        )
+        let building = Query::<CollectorQuery>::try_from_uri(request.uri())
+            .map_err(|_| StatusCode::BAD_REQUEST)?
+            .0
+            .building_id;
+        let timestamp = header(TIMESTAMP_HEADER);
+        let message = collector_message(building.as_deref(), &timestamp);
+        let fresh = is_fresh(&timestamp, now_s);
+        (building, message, header(SIGNATURE_HEADER), fresh)
     };
-    match valid {
+    let signed = keys
+        .accepts(building.as_deref(), message.as_bytes(), &signature)
+        .await;
+    match fresh && signed {
         true => Ok(next.run(request).await),
         false => Err(StatusCode::UNAUTHORIZED),
     }
@@ -98,8 +169,14 @@ fn constant_time_eq(a: &str, b: &str) -> bool {
             == 0
 }
 
+#[derive(Deserialize)]
+struct Addressed {
+    #[serde(rename = "buildingId")]
+    building_id: String,
+}
+
 pub async fn verify_signature(
-    State(key): State<IngestKey>,
+    State(keys): State<DeviceKeys>,
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -118,7 +195,10 @@ pub async fn verify_signature(
         .await
         .map_err(|_| StatusCode::PAYLOAD_TOO_LARGE)?;
 
-    if !constant_time_eq(&key.sign(&bytes), &signature) {
+    // Read only to pick the key; the handler still validates the whole body.
+    let building = serde_json::from_slice::<Addressed>(&bytes).ok();
+    let building_id = building.as_ref().map(|b| b.building_id.as_str());
+    if !keys.accepts(building_id, &bytes, &signature).await {
         metrics::record_ingest("unknown", "bad_signature");
         return Err(StatusCode::UNAUTHORIZED);
     }
@@ -131,6 +211,7 @@ pub async fn verify_signature(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::kernel::fakes::FakeDeviceKeys;
 
     const SECRET: &str = "0123456789abcdef0123456789abcdef";
 
@@ -165,14 +246,16 @@ mod tests {
     const REQUEST_FIXTURE: &str =
         include_str!("../../../../schemas/fixtures/collector-request.json");
 
-    #[test]
-    fn collector_requests_sign_as_the_fixture_pins() {
+    #[tokio::test]
+    async fn collector_requests_sign_as_the_fixture_pins() {
         let fixture: serde_json::Value = serde_json::from_str(REQUEST_FIXTURE).unwrap();
-        let key = IngestKey::new(fixture["secret"].as_str().unwrap()).unwrap();
+        let shared = IngestKey::new(fixture["secret"].as_str().unwrap()).unwrap();
         assert_eq!(fixture["maxSkewS"], MAX_SKEW_S);
         for case in fixture["cases"].as_array().unwrap() {
+            let building = case["buildingId"].as_str().filter(|b| !b.is_empty());
+            let message = collector_message(building, case["timestamp"].as_str().unwrap());
             assert_eq!(
-                key.sign_collector_request(case["timestamp"].as_str().unwrap()),
+                shared.sign(message.as_bytes()),
                 case["signature"].as_str().unwrap(),
                 "{}",
                 case["name"]
@@ -180,52 +263,104 @@ mod tests {
         }
     }
 
-    fn signed_at(timestamp: &str) -> (String, String) {
-        (
-            key().sign_collector_request(timestamp),
-            timestamp.to_owned(),
-        )
+    #[test]
+    fn a_timestamp_is_fresh_only_within_the_skew() {
+        assert!(is_fresh("1000", 1000 + MAX_SKEW_S));
+        assert!(is_fresh("1000", 1000 - MAX_SKEW_S));
+        assert!(!is_fresh("1000", 1001 + MAX_SKEW_S));
+        assert!(!is_fresh("1000", 999 - MAX_SKEW_S));
+        assert!(!is_fresh("soon", 1000));
+    }
+
+    const MASTER: &str = "a-device-master-key-that-is-at-least-32-bytes";
+
+    fn keys(shared: Option<&str>) -> DeviceKeys {
+        let epochs = Arc::new(FakeDeviceKeys::registered(&[
+            "bldg-3f2b4c5d",
+            "bldg-9a8b7c6d",
+        ]));
+        DeviceKeys::new(MASTER, shared, epochs).unwrap()
     }
 
     #[test]
-    fn a_fresh_signed_request_is_accepted() {
-        let (signature, timestamp) = signed_at("1000");
-        assert!(collector_request_is_valid(
-            &key(),
-            &signature,
-            &timestamp,
-            1000 + MAX_SKEW_S
-        ));
+    fn a_building_key_is_hmac_of_its_id_and_epoch_under_the_master_key() {
+        let keys = keys(None);
+        assert_eq!(
+            keys.derive("bldg-3f2b4c5d", 0),
+            "b42c3c8cd51584926a35e21ad0e106796e41b6b4bd19333c8b02a203ed34aa3a"
+        );
+        assert_eq!(
+            keys.derive("bldg-3f2b4c5d", 1),
+            "f7d42c6926e516f7aaded3441173fe0a59c7b9b860838549cb5b07d4b04def6b"
+        );
+        assert_eq!(
+            keys.derive("bldg-9a8b7c6d", 0),
+            "c33a7441dbbd659135d8672c14052891ea2451382a0c16532508b9a9d179fb8f"
+        );
+    }
+
+    fn signed_by(key: &str, message: &[u8]) -> String {
+        IngestKey::new(key).unwrap().sign(message)
+    }
+
+    #[tokio::test]
+    async fn a_building_key_signs_for_its_own_building_only() {
+        let keys = keys(None);
+        let signature = signed_by(&keys.derive("bldg-3f2b4c5d", 0), b"tick");
+        assert!(
+            keys.accepts(Some("bldg-3f2b4c5d"), b"tick", &signature)
+                .await
+        );
+        assert!(
+            !keys
+                .accepts(Some("bldg-9a8b7c6d"), b"tick", &signature)
+                .await
+        );
+        assert!(!keys.accepts(None, b"tick", &signature).await);
+    }
+
+    #[tokio::test]
+    async fn rotating_a_building_revokes_its_previous_key() {
+        let epochs = Arc::new(FakeDeviceKeys::registered(&["bldg-3f2b4c5d"]));
+        let keys = DeviceKeys::new(MASTER, None, epochs.clone()).unwrap();
+        let old = signed_by(&keys.derive("bldg-3f2b4c5d", 0), b"tick");
+
+        let fresh = keys.issue("bldg-3f2b4c5d").await.unwrap().unwrap();
+
+        assert!(!keys.accepts(Some("bldg-3f2b4c5d"), b"tick", &old).await);
+        let new = signed_by(&fresh, b"tick");
+        assert!(keys.accepts(Some("bldg-3f2b4c5d"), b"tick", &new).await);
+    }
+
+    #[tokio::test]
+    async fn an_unregistered_building_has_no_key_to_issue_or_accept() {
+        let keys = keys(None);
+        assert_eq!(keys.issue("ghost").await.unwrap(), None);
+        let forged = signed_by(&keys.derive("ghost", 0), b"tick");
+        assert!(!keys.accepts(Some("ghost"), b"tick", &forged).await);
+    }
+
+    #[tokio::test]
+    async fn the_shared_key_signs_for_any_building_only_when_configured() {
+        let with_shared = keys(Some(SECRET));
+        let signature = key().sign(b"tick");
+        assert!(
+            with_shared
+                .accepts(Some("bldg-9a8b7c6d"), b"tick", &signature)
+                .await
+        );
+        assert!(with_shared.accepts(None, b"tick", &signature).await);
+        assert!(
+            !keys(None)
+                .accepts(Some("bldg-9a8b7c6d"), b"tick", &signature)
+                .await
+        );
     }
 
     #[test]
-    fn a_request_older_or_newer_than_the_skew_is_refused() {
-        let (signature, timestamp) = signed_at("1000");
-        assert!(!collector_request_is_valid(
-            &key(),
-            &signature,
-            &timestamp,
-            1001 + MAX_SKEW_S
-        ));
-        assert!(!collector_request_is_valid(
-            &key(),
-            &signature,
-            &timestamp,
-            999 - MAX_SKEW_S
-        ));
-    }
-
-    #[test]
-    fn a_retimed_request_or_a_bad_timestamp_is_refused() {
-        let (signature, _) = signed_at("1000");
-        assert!(!collector_request_is_valid(
-            &key(),
-            &signature,
-            "1001",
-            1000
-        ));
-        let (garbled, _) = signed_at("soon");
-        assert!(!collector_request_is_valid(&key(), &garbled, "soon", 1000));
+    fn a_short_master_key_is_rejected() {
+        let epochs = Arc::new(FakeDeviceKeys::default());
+        assert!(DeviceKeys::new("too-short", None, epochs).is_err());
     }
 
     #[test]

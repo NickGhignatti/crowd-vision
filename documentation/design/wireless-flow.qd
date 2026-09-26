@@ -157,6 +157,7 @@ table, emits one signed batch per tick.
 - **Which APs**: the router sensors placed in the twin, read from `GET /telemetry/collector` at start and every `syncIntervalS` (300 s). A router that stays keeps its session and every device's hysteresis; telemetry unreachable keeps the previous list.
 - **How to reach them**: the sensor's `endpoint` is the ubus URL (`endpointTemplate` fills a missing one); `driver` `openwrt-iwinfo` selects the iwinfo reader, anything else hostapd.
 - **How to log in**: the collector's own file — one site-wide `ubus` login and `ifaces`, per-router `overrides`. Never sent to the platform.
+- **How it proves which building it is**: `keys: { "<buildingId>": "<device key>" }` in the same file, issued by an editor (`POST /telemetry/device-keys/buildings/{id}`). Each key reads that building's routers and signs its batches; it cannot sign for another building.
 
 On OpenWrt the readings come from hostapd over `ubus` — `hostapd.<iface> get_clients` returns
 every associated station with its `signal` in dBm. `iw dev <iface> station dump` is the
