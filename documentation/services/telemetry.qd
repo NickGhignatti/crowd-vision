@@ -175,8 +175,8 @@ Positions are **not** stored here: they are physical layout and belong to digita
       - The simulators stay dumb: they simulate exactly what they are told.
     - - Every configured simulator is told, even with an empty list; empty = stop the building
       - A sensor removed in the twin must stop producing readings.
-    - - Routers (no simulator claims them) and outdoor sensors are never sent
-      - Nothing simulates a router; readings are room-keyed, so an outdoor reading has nowhere to go.
+    - - Kinds no simulator claims, and outdoor sensors, are never sent
+      - Readings are room-keyed, so an outdoor reading has nowhere to go. Compose gives routers to ap-simulator.
     - - Body pinned by `schemas/fixtures/simulation-start.json`; no `targetUrl`
       - Three simulators in two languages parse it; a simulator posts to its own `TELEMETRY_INGEST_URL`.
     - - Sensor `position` and building `rooms` are optional; omitted when telemetry has none

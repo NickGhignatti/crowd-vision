@@ -1,14 +1,13 @@
 .docname {External Simulators}
 .include {docs}
 
-CrowdVision ships two simulators that exist **outside the main application cluster**. They are not microservices — they are test stand-ins for systems that in production would be real external hardware or third-party services.
+CrowdVision ships three simulators that exist **outside the main application cluster**. They are not microservices — they are test stand-ins for systems that in production would be real external hardware or third-party services.
 
 | Simulator | Location | Simulates |
 |---|---|---|
 | **Sensor Simulator** | `simulators/sensor-simulator/` | Thermostats (`temperature`) and people counters (`peopleCount`) |
 | **Air Quality Simulator** | `simulators/aq-simulator/` | Air-quality stations (`airQuality`) |
-
-Routers have no simulator: `ap-simulator` fakes access points for `devices/ap-collector`, which polls them itself and is not started from the dashboard.
+| **AP Simulator** | `simulators/ap-simulator/` | Routers (`router`), as OpenWrt access points `devices/ap-collector` polls |
 
 ---
 
@@ -33,7 +32,7 @@ Routers have no simulator: `ap-simulator` fakes access points for `devices/ap-co
 | `temperature` | sensor-simulator | one `temperature`, in the sensor's room |
 | `peopleCount` | sensor-simulator | one `peopleCount`, in the sensor's room |
 | `airQuality` | aq-simulator | one `airQuality`, in the sensor's room, with its own drifting state |
-| `router` | — | nothing |
+| `router` | ap-simulator | none: serves `(mac, rssi)` station lists over ubus; ap-collector turns them into `totalDeviceCount` / `ratioDeviceCount` |
 
 - **Outdoor sensors** (no room) are never simulated: readings are room-keyed.
 - **Two sensors of one kind in one room** give two readings for that room each tick.
@@ -54,6 +53,8 @@ Routers have no simulator: `ap-simulator` fakes access points for `devices/ap-co
         participant T as telemetry
         participant S as sensor-simulator
         participant A as aq-simulator
+        participant P as ap-simulator
+        participant C as ap-collector
 
         UI->>T: PUT /telemetry/simulation/buildings/b1
         T->>T: read b1's sensors, split by kind
@@ -61,12 +62,16 @@ Routers have no simulator: `ap-simulator` fakes access points for `devices/ap-co
             T->>S: POST /control/start {b1, [thermostats, people counters]}
         and
             T->>A: POST /control/start {b1, [air-quality stations]}
+        and
+            T->>P: POST /control/start {b1, [routers], rooms?}
         end
         T-->>UI: 204
 
         loop Every 10 seconds
             S->>T: POST TELEMETRY_INGEST_URL (signed batch)
             A->>T: POST TELEMETRY_INGEST_URL (signed batch)
+            C->>P: POST /<sensorId>/ubus (station list per AP)
+            C->>T: POST TELEMETRY_INGEST_URL (signed batch)
         end
 
 **Stop** (`DELETE`) tells every simulator to drop the building. **Status** (`GET`) is `running` when any simulator runs it. The browser never calls a simulator.
@@ -82,6 +87,20 @@ Called by telemetry only. The start body is pinned by `schemas/fixtures/simulati
 | `POST` | `/control/start` | `{ buildingId, sensors: [{ sensorId, sensorType, roomId, position? }], rooms? }` | Replaces what the building simulates. Empty `sensors` stops it. Geometry is optional; a simulator that does not need it ignores it. Any other key (e.g. the old `targetUrl`) is refused. |
 | `POST` | `/control/stop` | `{ buildingId }` | Stops the building. Stopping one it never simulated succeeds. |
 | `GET` | `/control/status?buildingId=X` | — | `{ isRunning }` |
+
+---
+
+## AP Simulator
+
+Fakes the routers, not their readings: the collector stays the only thing that turns stations into counts, so its zone logic runs on simulated data too.
+
+- **One AP per router**, served at `/<sensorId>/ubus` (credentials `collector`/`collector`). A restart drops the building's sessions; the collector logs in again.
+- **Placement**: a placed router sits at its twin `position`; an unplaced one at its room's centre, 0.3 m under the ceiling.
+- **No `rooms`** in the body: each router room becomes an 8 × 8 m box in a row, and twin positions are ignored — they have nothing to be measured against.
+- **People**: `AP_SIM_DEVICES_PER_ROOM` (4) phones per room, over every room, including rooms without a router. Each walks 2–4 random stops, holds 2–15 min, and is in the building about 08:30–17:30 local time. Seeded by `buildingId`: a restart walks the same people.
+- **Signal**: log-distance path loss over 3D distance (floors attenuate by height), 2 dB noise, −85 dBm cutoff. Every AP in range hears a phone, each at its own strength.
+- **ap-collector must list the same APs** to produce readings. Today its list is static (`collector.dev.json`), so the dashboard's start alone yields no router readings yet.
+- The preset topology (`AP_SIM_SCENARIO`) keeps serving the static collector config. `/debug/status`, `/debug/scenario`, `/debug/kill/{ap}`, `/debug/revive/{ap}`, `/debug/ground-truth` inspect and drive it.
 
 ---
 

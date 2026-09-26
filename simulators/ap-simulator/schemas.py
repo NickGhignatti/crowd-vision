@@ -13,6 +13,7 @@ class ApConfig(BaseModel):
     zone_id: str = ""
     x: float = 0.0
     y: float = 0.0
+    z: float = 0.0
     username: str = "collector"
     password: str = "collector"
     session_ttl_s: float = 300.0
@@ -34,6 +35,7 @@ class ApConfig(BaseModel):
 class Waypoint(BaseModel):
     x: float
     y: float
+    z: float = 0.0
     hold_s: float = 0.0
 
 
@@ -42,6 +44,8 @@ class DeviceRoute(BaseModel):
     waypoints: list[Waypoint]
     speed_mps: float = 1.2
     phase_offset_s: float = 0.0
+    # Local hours [from, until) the device is in the building; None means always.
+    present_h: tuple[float, float] | None = None
 
     @field_validator("waypoints")
     @classmethod
@@ -58,6 +62,15 @@ class ScenarioConfig(BaseModel):
     path_loss_exponent: float = 2.7
     noise_stddev_db: float = 2.0
     sensitivity_dbm: float = -85.0
+
+
+class BuildingStatus(BaseModel):
+    isRunning: bool
+    activeBuildings: list[str]
+
+
+class StopRequest(BaseModel):
+    buildingId: str
 
 
 class StatusResponse(BaseModel):

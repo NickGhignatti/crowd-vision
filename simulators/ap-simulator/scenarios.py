@@ -1,6 +1,6 @@
 """Topology presets. `corridor` mirrors phase 1's MAC-stability walk (two APs,
 one phone, no stops). `grid` mirrors phase 2's zone-separation walk (three
-APs, stand-still holds so /control/ground-truth can back-fill
+APs, stand-still holds so /debug/ground-truth can back-fill
 notes/ground-truth.csv)."""
 
 from __future__ import annotations
