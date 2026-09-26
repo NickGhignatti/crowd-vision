@@ -6,11 +6,15 @@ from app.config import (
     DEFAULT_DEVICES_PER_PERSON,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_REQUEST_TIMEOUT,
+    DEFAULT_SYNC_INTERVAL,
     READERS,
     AccessPoint,
     Building,
     Config,
+    RouterLogin,
 )
+
+SITE = {"ubus": {"username": "collector", "password": "collector"}}
 
 GOOD_AP = {
     "name": "ap-a",
@@ -105,66 +109,49 @@ def test_get_ap_finds_by_name_and_returns_none_for_unknown():
     assert building.get_ap("nope") is None
 
 
-def test_load_from_config_file_parses_multiple_buildings(tmp_path):
-    data = {
-        "buildings": [
-            {"name": "b1", "ap": [GOOD_AP]},
-            {
-                "name": "b2",
-                "ap": [
-                    dict(GOOD_AP, name="ap-c", zone="zone-c", url="http://localhost:3003/ap-c/ubus")
-                ],
-            },
-        ]
-    }
-    path = _write(tmp_path, data)
-
+def test_the_site_login_ifaces_overrides_and_template_are_read(tmp_path):
+    data = dict(
+        SITE,
+        ifaces=["wlan0", "wlan1"],
+        overrides={"r1": {"password": "other", "ifaces": ["phy0-ap0"]}},
+        endpointTemplate="http://ap-simulator:3000/{sensorId}/ubus",
+        syncIntervalS=120,
+    )
     config = Config([])
-    config.load_from_config_file(path)
+    config.load_from_config_file(_write(tmp_path, data))
 
-    assert [b.name for b in config.buildings] == ["b1", "b2"]
-    assert config.buildings[0].ap[0].name == "ap-a"
-    assert config.buildings[1].ap[0].name == "ap-c"
+    assert config.site.login == RouterLogin("collector", "collector", ("wlan0", "wlan1"))
+    assert config.site.login_for("r1") == RouterLogin("collector", "other", ("phy0-ap0",))
+    assert config.site.login_for("r2") == config.site.login
+    assert config.site.endpoint_template == "http://ap-simulator:3000/{sensorId}/ubus"
+    assert config.sync_interval == 120
 
 
-def test_load_from_config_file_empty_buildings_raises(tmp_path):
-    path = _write(tmp_path, {"buildings": []})
+def test_the_site_defaults_to_wlan0_no_template_and_a_five_minute_sync(tmp_path):
+    config = Config([])
+    config.load_from_config_file(_write(tmp_path, SITE))
 
+    assert config.site.login.ifaces == ("wlan0",)
+    assert config.site.endpoint_template is None
+    assert config.sync_interval == DEFAULT_SYNC_INTERVAL
+
+
+def test_a_missing_router_login_raises(tmp_path):
+    with pytest.raises(ValueError, match=r"(?i)ubus"):
+        Config([]).load_from_config_file(_write(tmp_path, {}))
+
+
+def test_a_file_that_still_lists_buildings_is_refused(tmp_path):
+    """Routers come from telemetry now; a stale hand-written list must not be silently ignored."""
     with pytest.raises(ValueError, match=r"(?i)buildings"):
-        Config([]).load_from_config_file(path)
-
-
-def test_load_from_config_file_missing_buildings_key_raises(tmp_path):
-    path = _write(tmp_path, {})
-
-    with pytest.raises(ValueError, match=r"(?i)buildings"):
-        Config([]).load_from_config_file(path)
-
-
-def test_load_from_config_file_duplicate_building_names_raise(tmp_path):
-    data = {"buildings": [{"name": "b1", "ap": [GOOD_AP]}, {"name": "b1", "ap": [GOOD_AP]}]}
-    path = _write(tmp_path, data)
-
-    with pytest.raises(ValueError, match=r"(?i)building names"):
-        Config([]).load_from_config_file(path)
-
-
-def test_a_failed_reload_does_not_clobber_the_previous_buildings(tmp_path):
-    original = [Building.from_json({"name": "b1", "ap": [GOOD_AP]})]
-    config = Config(original)
-    bad_path = _write(tmp_path, {"buildings": []})
-
-    with pytest.raises(ValueError):
-        config.load_from_config_file(bad_path)
-
-    assert config.buildings is original
+        Config([]).load_from_config_file(_write(tmp_path, dict(SITE, buildings=[])))
 
 
 def test_poll_interval_and_timeout_are_read_from_json(tmp_path):
     data = {
         "pollIntervalS": 10,
         "requestTimeoutS": 4,
-        "buildings": [{"name": "b1", "ap": [GOOD_AP]}],
+        **SITE,
     }
     path = _write(tmp_path, data)
 
@@ -178,7 +165,7 @@ def test_poll_interval_and_timeout_are_read_from_json(tmp_path):
 def test_poll_interval_and_timeout_default_when_omitted_from_json(tmp_path):
     """Missing from the file means the module DEFAULT_*, not whatever the instance
     already happened to hold -- a reload must not leak a previous load's values in."""
-    data = {"buildings": [{"name": "b1", "ap": [GOOD_AP]}]}
+    data = {**SITE}
     path = _write(tmp_path, data)
 
     config = Config([], poll_interval=999, default_timeout=999)
@@ -192,7 +179,7 @@ def test_request_timeout_greater_than_poll_interval_raises(tmp_path):
     data = {
         "pollIntervalS": 2,
         "requestTimeoutS": 5,
-        "buildings": [{"name": "b1", "ap": [GOOD_AP]}],
+        **SITE,
     }
     path = _write(tmp_path, data)
 
@@ -205,7 +192,7 @@ def test_a_failed_timeout_validation_does_not_clobber_previous_settings(tmp_path
     bad_data = {
         "pollIntervalS": 2,
         "requestTimeoutS": 5,
-        "buildings": [{"name": "b2", "ap": [GOOD_AP]}],
+        **SITE,
     }
     bad_path = _write(tmp_path, bad_data)
 
@@ -246,7 +233,7 @@ def test_load_env_raises_when_telemetry_service_secret_is_unset(monkeypatch):
 
 
 def test_devices_per_person_is_none_when_flag_is_false_or_omitted(tmp_path):
-    data = {"devicesPerPerson": 1.4, "buildings": [{"name": "b1", "ap": [GOOD_AP]}]}
+    data = {"devicesPerPerson": 1.4, **SITE}
     path = _write(tmp_path, data)
 
     config = Config([])
@@ -259,7 +246,7 @@ def test_devices_per_person_is_used_when_flag_is_true(tmp_path):
     data = {
         "useDevicesPerPerson": True,
         "devicesPerPerson": 1.4,
-        "buildings": [{"name": "b1", "ap": [GOOD_AP]}],
+        **SITE,
     }
     path = _write(tmp_path, data)
 
@@ -270,7 +257,7 @@ def test_devices_per_person_is_used_when_flag_is_true(tmp_path):
 
 
 def test_devices_per_person_defaults_when_flag_true_but_ratio_omitted(tmp_path):
-    data = {"useDevicesPerPerson": True, "buildings": [{"name": "b1", "ap": [GOOD_AP]}]}
+    data = {"useDevicesPerPerson": True, **SITE}
     path = _write(tmp_path, data)
 
     config = Config([])
@@ -283,7 +270,7 @@ def test_devices_per_person_zero_or_negative_raises_when_enabled(tmp_path):
     data = {
         "useDevicesPerPerson": True,
         "devicesPerPerson": 0,
-        "buildings": [{"name": "b1", "ap": [GOOD_AP]}],
+        **SITE,
     }
     path = _write(tmp_path, data)
 

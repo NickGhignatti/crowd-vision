@@ -10,7 +10,7 @@ use std::sync::Arc;
 use telemetry::adapters::driven::dispatch::HttpDispatch;
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
 use telemetry::adapters::driven::simulators::HttpSimulators;
-use telemetry::adapters::ingest_auth::{IngestKey, SIGNATURE_HEADER};
+use telemetry::adapters::ingest_auth::{IngestKey, SIGNATURE_HEADER, TIMESTAMP_HEADER};
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
@@ -199,6 +199,22 @@ impl TestApp {
             .header("content-type", "application/json")
             .header(SIGNATURE_HEADER, signature)
             .body(Body::from(raw.to_owned()))
+            .unwrap();
+        read_json(self.send(request).await).await
+    }
+
+    /// `GET /collector`, signed as a collector would at `timestamp` (unix seconds).
+    pub async fn collector_at(&self, timestamp: i64) -> (StatusCode, Value) {
+        let stamp = timestamp.to_string();
+        let request = Request::builder()
+            .method("GET")
+            .uri("/collector")
+            .header(
+                SIGNATURE_HEADER,
+                self.ingest_key.sign_collector_request(&stamp),
+            )
+            .header(TIMESTAMP_HEADER, stamp)
+            .body(Body::empty())
             .unwrap();
         read_json(self.send(request).await).await
     }

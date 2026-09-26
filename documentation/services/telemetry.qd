@@ -129,7 +129,15 @@ The signature covers the exact bytes on the wire, so a re-serialised body fails:
 
     There is deliberately no `/ingest/batch` alongside a single-reading `/ingest`. Two routes meant two kernel entry points, two store methods and two fan-out methods to keep in step — and a sub-path the edge does not ungate, since `Caddyfile` and the Istio policy exempt the exact path `/telemetry/ingest`. One route with N ≥ 1 removes both problems.
 
+**Collector read** — `GET /collector`, the router list an on-site collector polls. Device-facing like ingest: exempt from the edge gate, signed by the caller.
+
+- `X-Timestamp` (unix seconds) and `X-Signature` = `HMAC-SHA256(TELEMETRY_INGEST_SECRET, "GET /collector\n" + timestamp)`. A GET has no body, so the timestamp is what is signed; more than 300 s off telemetry's clock is `401`, which bounds replay. Pinned by `schemas/fixtures/collector-request.json`.
+- Answers `{ buildings: [{ buildingId, routers: [{ sensorId, roomId, driver?, endpoint? }] }] }`: every router sensor in a room, grouped by building. Outdoor routers and buildings without a router are left out. Pinned by `schemas/fixtures/collector-routers.json`.
+- **Addresses only, never logins.** `endpoint` is the router's ubus URL on the site network; its credentials live in the collector's own file.
+
 .box {One shared secret, not one per building} type:{note}
+    A leaked key also reads every building's router list, not only posts for any building. Per-building device keys close both, with no wire change.
+
     Every gateway currently signs with the same key, so a legitimate gateway could still post for a building that is not its own. That is bounded by there being no third-party gateways yet. Per-building keys are a store lookup behind the same header, with no wire change. Replay is likewise undefended — a captured body stays valid — which matches the mesh's documented "hard perimeter, guarded interior" posture, where an in-mesh attacker could forge `x-gateway-claims` regardless.
 
 A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `telemetry_ingest_persist_failures_total`.

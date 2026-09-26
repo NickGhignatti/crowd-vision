@@ -70,6 +70,7 @@ CrowdVision ships three simulators that exist **outside the main application clu
         loop Every 10 seconds
             S->>T: POST TELEMETRY_INGEST_URL (signed batch)
             A->>T: POST TELEMETRY_INGEST_URL (signed batch)
+            C->>T: GET /telemetry/collector (routers, every syncIntervalS)
             C->>P: POST /<sensorId>/ubus (station list per AP)
             C->>T: POST TELEMETRY_INGEST_URL (signed batch)
         end
@@ -113,8 +114,8 @@ Fakes the routers, not their readings: the collector stays the only thing that t
       - not heard
 
 - Each router adds a fixed ±3 dB of its own, so two routers in one room still hear a phone differently. 2 dB noise per poll, −85 dBm cutoff.
-- **ap-collector must list the same APs** to produce readings. Today its list is static (`collector.dev.json`), so the dashboard's start alone yields no router readings yet.
-- The preset topology (`AP_SIM_SCENARIO`) keeps serving the static collector config. `/debug/status`, `/debug/scenario`, `/debug/kill/{ap}`, `/debug/revive/{ap}`, `/debug/ground-truth` inspect and drive it.
+- **ap-collector finds them through the platform**, like at a real site: it reads the router sensors from `GET /telemetry/collector`. Simulated routers have no `endpoint`, so the dev config (`collector.dev.json`) fills it with `endpointTemplate: http://ap-simulator:3000/{sensorId}/ubus`.
+- The preset topology (`AP_SIM_SCENARIO`) is no longer polled by any collector; `/debug/*` still inspects and drives it for hand tests.
 
 ---
 

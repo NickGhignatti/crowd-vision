@@ -1,0 +1,24 @@
+{
+  "description": "How a collector signs GET /telemetry/collector. A GET has no body, so it signs a canonical string instead; the timestamp bounds replay. Built by ap-collector (Python), verified by telemetry (Rust).",
+  "headers": {
+    "signature": "X-Signature",
+    "timestamp": "X-Timestamp"
+  },
+  "canonical": "GET /collector\\n{timestamp}",
+  "algorithm": "hex(HMAC-SHA256(secret, canonical))",
+  "timestamp": "Unix seconds, decimal. Refused when more than maxSkewS away from telemetry's clock.",
+  "maxSkewS": 300,
+  "secret": "an-internal-secret-that-is-at-least-32-bytes",
+  "cases": [
+    {
+      "name": "a timestamp",
+      "timestamp": "1757251200",
+      "signature": "35ed92d508ad8741240dd6ce49c5d35f6840f73524912ab973396fcf926ea0ba"
+    },
+    {
+      "name": "one second later signs differently",
+      "timestamp": "1757251201",
+      "signature": "846d2dbea0ba74e72ecd86c7fd1b7d19a5c183fb80e265e9a803c2bec63827f7"
+    }
+  ]
+}

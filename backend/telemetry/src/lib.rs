@@ -29,6 +29,13 @@ pub fn router(state: Arc<AppState>) -> Router {
         ),
     );
 
+    let collector = Router::new().route("/collector", get(c::collector)).layer(
+        axum::middleware::from_fn_with_state(
+            state.ingest_key.clone(),
+            ingest_auth::verify_collector_request,
+        ),
+    );
+
     let protected = Router::new()
         .route(
             "/thresholds/buildings/{buildingId}",
@@ -71,6 +78,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 
     public
         .merge(ingest)
+        .merge(collector)
         .merge(protected)
         .with_state(state)
         .layer(axum::middleware::from_fn(metrics::track_metrics))

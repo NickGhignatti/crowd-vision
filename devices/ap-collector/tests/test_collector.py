@@ -14,6 +14,7 @@ from app.collector import (
     poll_one,
     readings_for_building,
     run,
+    sync_state,
     tick,
     tick_building,
 )
@@ -502,3 +503,51 @@ def test_the_readings_match_the_shape_telemetry_pins():
     readings = readings_for_building(building, assignment, now_ms=timestamp, devices_per_person=2.0)
 
     assert readings == expected
+
+
+def _router(name: str, zone: str, url: str | None = None) -> AccessPoint:
+    return AccessPoint.from_json(
+        {
+            "name": name,
+            "zone": zone,
+            "url": url or f"http://{name}.example/ubus",
+            "username": "collector",
+            "password": "collector",
+            "ifaces": ["wlan0"],
+        }
+    )
+
+
+def _new_tracker() -> ZoneTracker:
+    return ZoneTracker(polls=3, margin_db=6.0, absent_polls=3, frozen_polls=30)
+
+
+def test_a_new_router_list_keeps_what_stayed_and_adds_and_drops_the_rest():
+    config = Config(
+        [
+            Building("b1", [_router("r1", "lobby"), _router("r2", "lab")]),
+            Building("b2", [_router("r9", "hall")]),
+        ]
+    )
+    sessions = build_sessions(config, timeout=3)
+    trackers = {"b1": _new_tracker(), "b2": _new_tracker()}
+    kept_session, kept_tracker = sessions["b1"]["r1"], trackers["b1"]
+
+    config.buildings = [
+        Building(
+            "b1",
+            [
+                _router("r1", "lobby"),
+                _router("r2", "lab", url="http://moved.example/ubus"),
+                _router("r3", "hall"),
+            ],
+        ),
+        Building("b3", [_router("r7", "atrium")]),
+    ]
+    sync_state(config, sessions, trackers, timeout=3, new_tracker=_new_tracker)
+
+    assert sessions["b1"]["r1"] is kept_session
+    assert sessions["b1"]["r2"].ap.url == "http://moved.example/ubus"
+    assert set(sessions["b1"]) == {"r1", "r2", "r3"}
+    assert trackers["b1"] is kept_tracker
+    assert set(sessions) == set(trackers) == {"b1", "b3"}

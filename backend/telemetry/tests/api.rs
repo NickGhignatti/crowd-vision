@@ -481,6 +481,66 @@ async fn sensor_app(label: &str) -> support::test_app::TestApp {
     test_app(pool, vec!["eng"]).await
 }
 
+fn now_s() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+}
+
+#[tokio::test]
+async fn a_collector_reads_every_indoor_router_with_its_address_and_no_login() {
+    let app = sensor_app("collector").await;
+    let (_, created) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [
+                { "ref": "hall", "name": "Hall AP", "sensorType": "router", "roomId": "r1",
+                  "driver": "openwrt-hostapd", "endpoint": "http://10.0.4.12/ubus" },
+                { "ref": "lab", "name": "Lab AP", "sensorType": "router", "roomId": "r2" },
+                { "ref": "yard", "name": "Yard AP", "sensorType": "router", "roomId": null },
+                { "ref": "t", "name": "Thermostat", "sensorType": "temperature", "roomId": "r1" },
+            ]}),
+        )
+        .await;
+    let id = |reference: &str| {
+        created["created"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["ref"] == reference)
+            .unwrap()["sensorId"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let mut routers = vec![
+        json!({ "sensorId": id("hall"), "roomId": "r1",
+                "driver": "openwrt-hostapd", "endpoint": "http://10.0.4.12/ubus" }),
+        json!({ "sensorId": id("lab"), "roomId": "r2" }),
+    ];
+    routers.sort_by_key(|router| router["sensorId"].as_str().unwrap().to_owned());
+
+    let (status, body) = app.collector_at(now_s()).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body,
+        json!({ "buildings": [{ "buildingId": "b1", "routers": routers }] })
+    );
+}
+
+#[tokio::test]
+async fn a_collector_request_unsigned_or_stale_is_refused() {
+    let app = sensor_app("collectorauth").await;
+    let (unsigned, _) = app.get("/collector", None).await;
+    let (stale, _) = app.collector_at(now_s() - 3600).await;
+    assert_eq!(unsigned, StatusCode::UNAUTHORIZED);
+    assert_eq!(stale, StatusCode::UNAUTHORIZED);
+}
+
 #[tokio::test]
 async fn a_sensor_batch_returns_server_ids_and_the_list_shows_them() {
     let app = sensor_app("sensorsave").await;

@@ -76,6 +76,8 @@ pub trait SensorStore: Send + Sync {
     async fn apply(&self, building_id: &str, changes: &SensorChanges) -> anyhow::Result<()>;
     async fn by_building(&self, building_id: &str) -> anyhow::Result<Vec<Sensor>>;
     async fn by_room(&self, building_id: &str, room_id: &str) -> anyhow::Result<Vec<Sensor>>;
+    /// Every building's sensors of one device kind.
+    async fn of_type(&self, sensor_type: &str) -> anyhow::Result<Vec<Sensor>>;
 }
 
 #[async_trait]
